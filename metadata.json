@@ -1,0 +1,6 @@
+{
+  "name": "Papo Hapo Super App",
+  "description": "A clean, modern multi-service platform providing easy access to food, grocery, taxi, parcel, and more.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": []
+}

@@ -1,0 +1,99 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Core user profile for all roles",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["customer", "vendor", "rider", "admin"] },
+        "phoneNumber": { "type": "string" },
+        "address": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Vendor": {
+      "title": "Vendor",
+      "description": "Business profile for service providers",
+      "type": "object",
+      "properties": {
+        "ownerUid": { "type": "string" },
+        "businessName": { "type": "string" },
+        "category": { "type": "string", "enum": ["pharmacy", "grocery", "restaurant", "parcel", "taxi", "car_rental", "salon", "hotel", "ecommerce"] },
+        "description": { "type": "string" },
+        "tin": { "type": "string" },
+        "address": { "type": "string" },
+        "location": { "type": "object" },
+        "deliveryRadius": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "active", "suspended"] },
+        "logoUrl": { "type": "string" },
+        "operatingHours": { "type": "string" },
+        "rating": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerUid", "businessName", "category", "status"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Items or services offered by vendors",
+      "type": "object",
+      "properties": {
+        "vendorId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "category": { "type": "string" },
+        "stock": { "type": "number" },
+        "imageUrl": { "type": "string" },
+        "unit": { "type": "string" },
+        "expiryDate": { "type": "string", "format": "date" },
+        "medicationType": { "type": "string", "enum": ["otc", "prescription"] },
+        "variations": { "type": "array" }
+      },
+      "required": ["vendorId", "name", "price"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Transactions between customers and vendors",
+      "type": "object",
+      "properties": {
+        "customerId": { "type": "string" },
+        "vendorId": { "type": "string" },
+        "riderId": { "type": "string" },
+        "items": { "type": "array" },
+        "totalAmount": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "preparing", "out_for_delivery", "delivered", "cancelled"] },
+        "type": { "type": "string" },
+        "prescriptionUrl": { "type": "string" },
+        "deliveryAddress": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["customerId", "vendorId", "status", "totalAmount"]
+    },
+    "Rider": {
+      "title": "Rider",
+      "description": "Logistics and transport provider profile",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "vehicleDetails": { "type": "string" },
+        "status": { "type": "string", "enum": ["available", "busy", "offline"] },
+        "currentPosition": { "type": "object" },
+        "rating": { "type": "number" }
+      },
+      "required": ["uid", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": { "schema": "User", "description": "User profiles" },
+    "/vendors/{vendorId}": { "schema": "Vendor", "description": "Vendor business profiles" },
+    "/products/{productId}": { "schema": "Product", "description": "Vendor products/services" },
+    "/orders/{orderId}": { "schema": "Order", "description": "Service orders" },
+    "/riders/{uid}": { "schema": "Rider", "description": "Rider profiles" }
+  }
+}
