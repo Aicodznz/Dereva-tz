@@ -5,6 +5,7 @@ import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import RoleSelection from './components/RoleSelection';
 import Profile from './components/Profile';
+import ProductDetail from './components/ProductDetail';
 import AdminDashboard from './components/AdminDashboard';
 import { Toaster } from '@/components/ui/sonner';
 
@@ -38,6 +39,7 @@ function AppContent() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/product/:id" element={<ProductDetail />} />
             <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
             <Route path="/role-selection" element={<PrivateRoute><RoleSelection /></PrivateRoute>} />
             <Route path="/admin" element={<PrivateRoute><AdminDashboard /></PrivateRoute>} />
