@@ -43,10 +43,11 @@ export interface Product {
   unit?: string;
   expiryDate?: string;
   medicationType?: 'otc' | 'prescription';
-  variations?: any[];
+  variations?: { name: string; price?: number }[];
+  addOns?: { name: string; price: number }[];
 }
 
-export type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'out_for_delivery' | 'delivered' | 'cancelled';
+export type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'prepared' | 'out_for_delivery' | 'delivered' | 'cancelled' | 'completed';
 
 export interface Order {
   id?: string;
@@ -59,6 +60,8 @@ export interface Order {
   type: VendorCategory;
   prescriptionUrl?: string;
   deliveryAddress: string;
+  paymentMethod?: string;
+  paymentStatus?: 'pending' | 'paid' | 'failed';
   createdAt: any;
   updatedAt: any;
 }

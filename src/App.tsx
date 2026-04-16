@@ -7,6 +7,9 @@ import RoleSelection from './components/RoleSelection';
 import Profile from './components/Profile';
 import ProductDetail from './components/ProductDetail';
 import AdminDashboard from './components/AdminDashboard';
+import MyOrders from './components/MyOrders';
+import Chat from './components/Chat';
+import Notifications from './components/Notifications';
 import { Toaster } from '@/components/ui/sonner';
 
 import Login from './components/auth/Login';
@@ -41,6 +44,9 @@ function AppContent() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/product/:id" element={<ProductDetail />} />
             <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
+            <Route path="/my-orders" element={<PrivateRoute><MyOrders /></PrivateRoute>} />
+            <Route path="/chat" element={<PrivateRoute><Chat /></PrivateRoute>} />
+            <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
             <Route path="/role-selection" element={<PrivateRoute><RoleSelection /></PrivateRoute>} />
             <Route path="/admin" element={<PrivateRoute><AdminDashboard /></PrivateRoute>} />
           </Routes>
@@ -50,13 +56,17 @@ function AppContent() {
   );
 }
 
+import { LanguageProvider } from './LanguageContext';
+
 export default function App() {
   return (
     <AuthProvider>
-      <Router>
-        <AppContent />
-        <Toaster />
-      </Router>
+      <LanguageProvider>
+        <Router>
+          <AppContent />
+          <Toaster />
+        </Router>
+      </LanguageProvider>
     </AuthProvider>
   );
 }

@@ -100,8 +100,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signIn = async () => {
     try {
       await signInWithPopup(auth, googleProvider);
-    } catch (error) {
+    } catch (error: any) {
+      if (error.code === 'auth/popup-closed-by-user') {
+        // Silently handle expected user cancellation
+        console.log('User cancelled the sign-in popup.');
+        return;
+      }
       console.error('Sign in error:', error);
+      throw error;
     }
   };
 
@@ -135,6 +141,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, pass: string, role: UserRole, extraData?: any) => {
     try {
+      console.log('Attempting signup for:', email);
       const { user: firebaseUser } = await createUserWithEmailAndPassword(auth, email, pass);
       const profileRef = doc(db, 'users', firebaseUser.uid);
       const newProfile: UserProfile = {
@@ -148,24 +155,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
       await setDoc(profileRef, newProfile);
       setProfile(newProfile);
+      console.log('Signup successful for:', email);
     } catch (error: any) {
+      console.error('Signup error code:', error.code);
+      console.error('Signup error message:', error.message);
       if (error.code === 'auth/operation-not-allowed') {
-        console.error('Email/Password provider is not enabled in Firebase Console.');
         throw new Error("Email registration is currently disabled. Please enable 'Email/Password' in your Firebase Console Authentication settings.");
       }
-      console.error('Sign up error:', error);
       throw error;
     }
   };
 
   const login = async (email: string, pass: string) => {
     try {
+      console.log('Attempting login for:', email);
       await signInWithEmailAndPassword(auth, email, pass);
+      console.log('Login successful for:', email);
     } catch (error: any) {
+      console.error('Login error code:', error.code);
+      console.error('Login error message:', error.message);
       if (error.code === 'auth/operation-not-allowed') {
         throw new Error("Email login is currently disabled. Please enable 'Email/Password' in your Firebase Console Authentication settings.");
       }
-      console.error('Login error:', error);
       throw error;
     }
   };

@@ -95,61 +95,71 @@ export default function ProductDetail() {
   const renderAdaptiveOptions = () => {
     const category = getCategoryLabel();
 
-    switch (category) {
-      case 'restaurant':
-        return (
-          <div className="space-y-6">
-            <h3 className="font-bold text-lg">Chagua Vionjo</h3>
-            <div className="space-y-4">
-              <p className="text-sm font-bold text-neutral-500 uppercase">Ukubwa (Size)</p>
-              <div className="flex gap-4">
-                {['Normal', 'Large'].map(size => (
-                  <button
-                    key={size}
-                    onClick={() => setSelectedSize(size)}
-                    className={`flex-1 py-3 rounded-2xl border-2 transition-all font-bold ${
-                      selectedSize === size 
-                        ? 'border-orange-600 bg-orange-50 text-orange-600' 
-                        : 'border-neutral-100 text-neutral-500'
-                    }`}
-                  >
-                    {size}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="space-y-4">
-              <p className="text-sm font-bold text-neutral-500 uppercase">Vionjo (Add-ons)</p>
-              <div className="grid grid-cols-2 gap-3">
-                {['Pilipili', 'Ndizi', 'Saladi', 'Soda'].map(addon => (
-                  <button
-                    key={addon}
-                    onClick={() => toggleAddon(addon)}
-                    className={`p-4 rounded-2xl border-2 text-left transition-all flex items-center justify-between ${
-                      selectedAddons.includes(addon)
-                        ? 'border-orange-600 bg-orange-50'
-                        : 'border-neutral-100'
-                    }`}
-                  >
-                    <span className={`font-bold ${selectedAddons.includes(addon) ? 'text-orange-600' : 'text-neutral-700'}`}>
-                      {addon}
-                    </span>
-                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                      selectedAddons.includes(addon) ? 'border-orange-600 bg-orange-600' : 'border-neutral-300'
-                    }`}>
-                      {selectedAddons.includes(addon) && <Plus className="w-3 h-3 text-white" />}
-                    </div>
-                  </button>
-                ))}
-              </div>
+    return (
+      <div className="space-y-8">
+        {/* Dynamic Variations (Sizes) */}
+        {product.variations && product.variations.length > 0 && (
+          <div className="space-y-4">
+            <h3 className="font-bold text-lg">Chagua Ukubwa (Size)</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {product.variations.map((v, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setSelectedSize(v.name)}
+                  className={`py-3 px-4 rounded-2xl border-2 transition-all flex flex-col items-center justify-center gap-1 ${
+                    selectedSize === v.name 
+                      ? 'border-orange-600 bg-orange-50 text-orange-600' 
+                      : 'border-neutral-100 text-neutral-500'
+                  }`}
+                >
+                  <span className="font-bold text-sm">{v.name}</span>
+                  {v.price > 0 && (
+                    <span className="text-[10px] font-medium">+{v.price.toLocaleString()}</span>
+                  )}
+                </button>
+              ))}
             </div>
           </div>
-        );
+        )}
 
-      case 'pharmacy':
-        return (
-          <div className="space-y-6">
-            <h3 className="font-bold text-lg">Taarifa Muhimu</h3>
+        {/* Dynamic Add-ons (Vionjo) */}
+        {product.addOns && product.addOns.length > 0 && (
+          <div className="space-y-4">
+            <h3 className="font-bold text-lg">Vionjo vya Ziada (Add-ons)</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {product.addOns.map((addon, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => toggleAddon(addon.name)}
+                  className={`p-4 rounded-2xl border-2 text-left transition-all flex items-center justify-between ${
+                    selectedAddons.includes(addon.name)
+                      ? 'border-orange-600 bg-orange-50'
+                      : 'border-neutral-100'
+                  }`}
+                >
+                  <div className="flex flex-col">
+                    <span className={`font-bold text-sm ${selectedAddons.includes(addon.name) ? 'text-orange-600' : 'text-neutral-700'}`}>
+                      {addon.name}
+                    </span>
+                    {addon.price > 0 && (
+                      <span className="text-[10px] text-neutral-500 font-medium">TZS {addon.price.toLocaleString()}</span>
+                    )}
+                  </div>
+                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                    selectedAddons.includes(addon.name) ? 'border-orange-600 bg-orange-600' : 'border-neutral-300'
+                  }`}>
+                    {selectedAddons.includes(addon.name) && <Plus className="w-3.5 h-3.5 text-white" />}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Category Specific Info */}
+        {category === 'pharmacy' && (
+          <div className="space-y-6 pt-4 border-t border-neutral-100">
+            <h3 className="font-bold text-lg">Taarifa za Dawa</h3>
             <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 space-y-3">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-blue-600 font-medium">Aina ya Dawa:</span>
@@ -157,21 +167,20 @@ export default function ProductDetail() {
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-blue-600 font-medium">Expiry Date:</span>
-                <span className="font-bold text-blue-900">{product.expiryDate || '12/2028'}</span>
+                <span className="font-bold text-blue-900">{product.expiryDate || 'N/A'}</span>
               </div>
             </div>
             {product.medicationType === 'prescription' && (
-              <Button className="w-full h-14 bg-blue-600 hover:bg-blue-700 rounded-2xl gap-2">
+              <Button className="w-full h-14 bg-blue-600 hover:bg-blue-700 rounded-2xl gap-2 shadow-lg shadow-blue-200">
                 <Camera className="w-5 h-5" />
                 Pakia Prescription Yako Hapa
               </Button>
             )}
           </div>
-        );
+        )}
 
-      case 'hotel':
-        return (
-          <div className="space-y-6">
+        {category === 'hotel' && (
+          <div className="space-y-6 pt-4 border-t border-neutral-100">
             <h3 className="font-bold text-lg">Weka Tarehe Zako</h3>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -189,26 +198,10 @@ export default function ProductDetail() {
                 </div>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-neutral-500 uppercase">Adults</label>
-                <select className="w-full h-12 bg-neutral-100 rounded-xl border-none text-sm px-4">
-                  {[1,2,3,4].map(n => <option key={n} value={n}>{n}</option>)}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-neutral-500 uppercase">Children</label>
-                <select className="w-full h-12 bg-neutral-100 rounded-xl border-none text-sm px-4">
-                  {[0,1,2,3].map(n => <option key={n} value={n}>{n}</option>)}
-                </select>
-              </div>
-            </div>
           </div>
-        );
-
-      default:
-        return null;
-    }
+        )}
+      </div>
+    );
   };
 
   return (
@@ -221,6 +214,7 @@ export default function ProductDetail() {
               src={product.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80'} 
               alt={product.name}
               className="w-full h-full object-cover"
+              referrerPolicy="no-referrer"
             />
             <button 
               onClick={() => navigate(-1)}

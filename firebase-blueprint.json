@@ -87,6 +87,48 @@
         "rating": { "type": "number" }
       },
       "required": ["uid", "status"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Chat messages between users",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "participants": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["text", "senderId", "participants"]
+    },
+    "Banner": {
+      "title": "Banner",
+      "description": "Promotional banners for the home screen",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "sub": { "type": "string" },
+        "img": { "type": "string" },
+        "link": { "type": "string" },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "img", "active"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "System or user-specific notifications",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "body": { "type": "string" },
+        "type": { "type": "string", "enum": ["order", "promotion", "system", "review"] },
+        "userId": { "type": "string" },
+        "isRead": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "actionUrl": { "type": "string" }
+      },
+      "required": ["title", "body", "type", "isRead"]
     }
   },
   "firestore": {
@@ -94,6 +136,9 @@
     "/vendors/{vendorId}": { "schema": "Vendor", "description": "Vendor business profiles" },
     "/products/{productId}": { "schema": "Product", "description": "Vendor products/services" },
     "/orders/{orderId}": { "schema": "Order", "description": "Service orders" },
-    "/riders/{uid}": { "schema": "Rider", "description": "Rider profiles" }
+    "/riders/{uid}": { "schema": "Rider", "description": "Rider profiles" },
+    "/messages/{messageId}": { "schema": "Message", "description": "Chat messages" },
+    "/banners/{bannerId}": { "schema": "Banner", "description": "Promotional banners" },
+    "/notifications/{notificationId}": { "schema": "Notification", "description": "User notifications" }
   }
 }

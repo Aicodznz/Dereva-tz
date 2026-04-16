@@ -7,7 +7,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../AuthContext';
 import { toast } from 'sonner';
 
+import { useLanguage } from '../../LanguageContext';
+
 export default function Login() {
+  const { t } = useLanguage();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -26,14 +29,22 @@ export default function Login() {
     setLoading(true);
     try {
       await login(email, password);
-      toast.success("Welcome back!");
+      toast.success(t('welcome_back'));
       navigate('/');
     } catch (error: any) {
       console.error('Login error details:', error);
-      if (error.message.includes('auth/invalid-credential')) {
-        toast.error("Barua pepe au nenosiri si sahihi. Kama huna akaunti, tafadhali jisajili kwanza.");
+      
+      // Handle the common 'invalid-credential' error which covers wrong password and user not found
+      if (error.code === 'auth/invalid-credential' || error.message?.includes('auth/invalid-credential')) {
+        toast.error(
+          t('invalid_credential_error') || "Barua pepe au nenosiri si sahihi.",
+          {
+            description: "Invalid email or password.",
+            duration: 5000,
+          }
+        );
       } else {
-        toast.error(error.message || "Failed to sign in");
+        toast.error(error.message || t('login_failed'));
       }
     } finally {
       setLoading(false);
@@ -41,14 +52,17 @@ export default function Login() {
   };
 
   const handleGoogleSignIn = async () => {
-    await signIn();
-    navigate('/');
+    try {
+      await signIn();
+    } catch (error) {
+      // Error is already logged in AuthContext
+    }
   };
 
   return (
     <AuthLayout 
-      title="Welcome Back!" 
-      subtitle="Sign in to your account / Karibu Tena!"
+      title={t('welcome_back')} 
+      subtitle={t('sign_in_subtitle')}
     >
       <form onSubmit={handleEmailLogin} className="space-y-6">
         <div className="space-y-4">
@@ -56,7 +70,7 @@ export default function Login() {
             <Mail className="absolute left-3 top-3 w-5 h-5 text-neutral-400" />
             <Input 
               type="email" 
-              placeholder="Email Address" 
+              placeholder={t('email')} 
               className="pl-10 h-12 bg-neutral-50 border-none rounded-xl"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -67,7 +81,7 @@ export default function Login() {
             <Lock className="absolute left-3 top-3 w-5 h-5 text-neutral-400" />
             <Input 
               type={showPassword ? "text" : "password"} 
-              placeholder="Password" 
+              placeholder={t('password')} 
               className="pl-10 pr-10 h-12 bg-neutral-50 border-none rounded-xl"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -84,7 +98,7 @@ export default function Login() {
 
         <div className="text-right">
           <Link to="#" className="text-sm font-medium text-orange-600 hover:underline">
-            Forgot Password? / Umesahau nenosiri?
+            {t('forgot_password')}
           </Link>
         </div>
 
@@ -93,7 +107,7 @@ export default function Login() {
           disabled={loading}
           className="w-full h-12 bg-orange-600 hover:bg-orange-700 rounded-xl text-lg font-bold"
         >
-          {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : "Sign In / Ingia"}
+          {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : t('sign_in')}
         </Button>
 
         <div className="relative py-4">
@@ -101,7 +115,7 @@ export default function Login() {
             <div className="w-full border-t border-neutral-200"></div>
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white text-neutral-500 font-medium uppercase">OR / AU</span>
+            <span className="px-2 bg-white text-neutral-500 font-medium uppercase">{t('or')}</span>
           </div>
         </div>
 
@@ -112,7 +126,7 @@ export default function Login() {
             onClick={handleGoogleSignIn}
           >
             <Chrome className="w-5 h-5 text-red-500" />
-            Continue with Google
+            {t('continue_with_google')}
           </Button>
           <Button variant="outline" className="w-full h-12 rounded-xl border-neutral-200 gap-3 font-semibold">
             <Apple className="w-5 h-5" />
@@ -125,9 +139,9 @@ export default function Login() {
         </div>
 
         <p className="text-center text-sm text-neutral-600 mt-6">
-          Don't have an account?{' '}
+          {t('dont_have_account')}{' '}
           <Link to="/register" className="text-orange-600 font-bold hover:underline">
-            Sign up / Jisajili
+            {t('sign_up')}
           </Link>
         </p>
       </form>

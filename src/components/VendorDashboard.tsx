@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
 import { 
   LayoutDashboard, 
   Package, 
@@ -39,7 +40,9 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Receipt,
-  Camera
+  Camera,
+  Trash2,
+  X
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
@@ -70,8 +73,11 @@ const chartData = [
   { name: 'Sun', sales: 3490, orders: 22 },
 ];
 
+import { useLanguage } from '../LanguageContext';
+
 export default function VendorDashboard() {
   const { profile, user } = useAuth();
+  const { t } = useLanguage();
   const [vendorProfile, setVendorProfile] = useState<VendorProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -83,6 +89,17 @@ export default function VendorDashboard() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<string | null>(null);
+
+  const tabs = [
+    { id: 'overview', label: t('overview') || 'Overview', icon: LayoutDashboard },
+    { id: 'orders', label: t('orders') || 'Orders', icon: ShoppingCart, badge: orders.length > 0 ? orders.length : null },
+    { id: 'products', label: t('inventory') || 'Inventory', icon: Package },
+    { id: 'pos', label: t('pos_system') || 'POS System', icon: CreditCard },
+    { id: 'customers', label: t('customers') || 'Customers', icon: Users },
+    { id: 'settings', label: t('settings') || 'Settings', icon: Settings },
+  ];
 
   // Onboarding Form State
   const [formData, setFormData] = useState({
@@ -106,6 +123,7 @@ export default function VendorDashboard() {
     expiryDate: '',
     medicationType: 'otc',
     variations: [],
+    addOns: [],
     imageUrl: '',
   });
 
@@ -190,15 +208,20 @@ export default function VendorDashboard() {
       return;
     }
 
-    // Validate file size (2MB)
-    if (file.size > 2 * 1024 * 1024) {
-      alert('Picha isizidi 2MB.');
-      return;
-    }
+    // Validate file size (removed limit as requested)
+    // if (file.size > 2 * 1024 * 1024) { ... }
 
     setIsUploading(true);
     setUploadProgress(0);
     
+    // Create a timeout to handle stuck uploads
+    const uploadTimeout = setTimeout(() => {
+      if (isUploading && uploadProgress === 0) {
+        setIsUploading(false);
+        toast.error("Upload is taking too long. Please try again or use a URL.");
+      }
+    }, 15000);
+
     try {
       const storageRef = ref(storage, `products/${vendorProfile.id}/${Date.now()}_${file.name}`);
       const uploadTask = uploadBytesResumable(storageRef, file);
@@ -207,24 +230,27 @@ export default function VendorDashboard() {
         (snapshot) => {
           const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
           setUploadProgress(progress);
-          console.log('Upload is ' + progress + '% done');
         }, 
         (error) => {
+          clearTimeout(uploadTimeout);
           console.error('Upload error:', error);
           setIsUploading(false);
-          alert('Imeshindwa kupakia picha: ' + error.message);
+          toast.error('Imeshindwa kupakia picha: ' + error.message);
         }, 
         async () => {
+          clearTimeout(uploadTimeout);
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
           setNewProduct(prev => ({ ...prev, imageUrl: downloadURL }));
           setIsUploading(false);
           setUploadProgress(0);
+          toast.success("Picha imepakiwa!");
         }
       );
     } catch (error) {
+      clearTimeout(uploadTimeout);
       console.error('Error starting upload:', error);
       setIsUploading(false);
-      alert('Imeshindwa kuanza kupakia picha.');
+      toast.error('Imeshindwa kuanza kupakia picha.');
     }
   };
 
@@ -270,6 +296,7 @@ export default function VendorDashboard() {
         expiryDate: '',
         medicationType: 'otc',
         variations: [],
+        addOns: [],
         imageUrl: '',
       });
     } catch (error) {
@@ -278,9 +305,17 @@ export default function VendorDashboard() {
   };
 
   const handleDeleteProduct = async (productId: string) => {
-    if (!window.confirm('Je, una uhakika unataka kufuta bidhaa hii?')) return;
+    setProductToDelete(productId);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDeleteProduct = async () => {
+    if (!productToDelete) return;
     try {
-      await deleteDoc(doc(db, 'products', productId));
+      await deleteDoc(doc(db, 'products', productToDelete));
+      toast.success('Bidhaa imefutwa kikamilifu!');
+      setIsDeleteModalOpen(false);
+      setProductToDelete(null);
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, 'products');
     }
@@ -298,6 +333,7 @@ export default function VendorDashboard() {
       expiryDate: product.expiryDate || '',
       medicationType: product.medicationType || 'otc',
       variations: product.variations || [],
+      addOns: product.addOns || [],
       imageUrl: product.imageUrl || '',
     });
     setIsAddProductOpen(true);
@@ -456,14 +492,7 @@ export default function VendorDashboard() {
         </div>
 
         <nav className="flex flex-col gap-1">
-          {[
-            { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-            { id: 'orders', label: 'Orders', icon: ShoppingCart, badge: orders.length > 0 ? orders.length : null },
-            { id: 'products', label: 'Inventory', icon: Package },
-            { id: 'pos', label: 'POS System', icon: CreditCard },
-            { id: 'customers', label: 'Customers', icon: Users },
-            { id: 'settings', label: 'Settings', icon: Settings },
-          ].map((item) => (
+          {tabs.map((item) => (
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id as TabType)}
@@ -776,7 +805,12 @@ export default function VendorDashboard() {
                       >
                         <div className="aspect-square rounded-xl bg-neutral-800 mb-3 overflow-hidden">
                           {product.imageUrl ? (
-                            <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
+                            <img 
+                              src={product.imageUrl} 
+                              alt={product.name} 
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform" 
+                              referrerPolicy="no-referrer"
+                            />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-neutral-600">
                               <Package className="w-8 h-8" />
@@ -879,7 +913,12 @@ export default function VendorDashboard() {
                     <Card key={product.id} className="bg-neutral-900 border-neutral-800 overflow-hidden group">
                       <div className="aspect-video bg-neutral-800 relative">
                         {product.imageUrl && (
-                          <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
+                          <img 
+                            src={product.imageUrl} 
+                            alt={product.name} 
+                            className="w-full h-full object-cover" 
+                            referrerPolicy="no-referrer"
+                          />
                         )}
                         <div className="absolute top-2 right-2 flex gap-2">
                           <Badge className="bg-neutral-900/80 backdrop-blur text-white border-none text-[10px] font-bold">
@@ -900,16 +939,18 @@ export default function VendorDashboard() {
                             variant="ghost" 
                             size="sm" 
                             onClick={() => handleEditProduct(product)}
-                            className="flex-1 text-xs font-bold hover:bg-neutral-800 rounded-lg"
+                            className="flex-1 text-xs font-bold hover:bg-neutral-800 rounded-lg gap-2"
                           >
+                            <Settings className="w-3.5 h-3.5" />
                             Edit
                           </Button>
                           <Button 
                             variant="ghost" 
                             size="sm" 
                             onClick={() => handleDeleteProduct(product.id!)}
-                            className="flex-1 text-xs font-bold text-red-500 hover:bg-red-500/10 rounded-lg"
+                            className="flex-1 text-xs font-bold text-red-500 hover:bg-red-500/10 rounded-lg gap-2"
                           >
+                            <Trash2 className="w-3.5 h-3.5" />
                             Delete
                           </Button>
                         </div>
@@ -979,8 +1020,8 @@ export default function VendorDashboard() {
                       }`}
                     >
                       {isUploading ? (
-                        <div className="flex flex-col items-center">
-                          <div className="relative w-10 h-10 mb-2">
+                        <div className="flex flex-col items-center justify-center h-full">
+                          <div className="relative w-12 h-12 mb-2">
                             <svg className="w-full h-full" viewBox="0 0 36 36">
                               <path
                                 className="text-neutral-700"
@@ -1001,13 +1042,40 @@ export default function VendorDashboard() {
                               />
                             </svg>
                             <div className="absolute inset-0 flex items-center justify-center">
-                              <span className="text-[8px] font-bold">{Math.round(uploadProgress)}%</span>
+                              <span className="text-[10px] font-bold">{Math.round(uploadProgress)}%</span>
                             </div>
                           </div>
-                          <span className="text-[8px] font-bold uppercase">Uploading</span>
+                          <button 
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setIsUploading(false);
+                              setUploadProgress(0);
+                            }}
+                            className="text-[10px] text-red-500 font-bold uppercase hover:underline"
+                          >
+                            Cancel
+                          </button>
                         </div>
                       ) : newProduct.imageUrl ? (
-                        <img src={newProduct.imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                        <div className="relative w-full h-full group">
+                          <img 
+                            src={newProduct.imageUrl} 
+                            alt="Preview" 
+                            className="w-full h-full object-cover" 
+                            referrerPolicy="no-referrer"
+                          />
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setNewProduct({...newProduct, imageUrl: ''});
+                            }}
+                            className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
                       ) : (
                         <>
                           <Camera className="w-6 h-6 mb-1 group-hover:scale-110 transition-transform" />
@@ -1027,9 +1095,17 @@ export default function VendorDashboard() {
                         className="bg-neutral-800 border-none h-12 rounded-xl"
                         placeholder="Or paste Image URL here..."
                         value={newProduct.imageUrl}
-                        onChange={e => setNewProduct({...newProduct, imageUrl: e.target.value})}
+                        onChange={e => {
+                          const val = e.target.value;
+                          // Extract URL if HTML is pasted
+                          const srcMatch = val.match(/src=["']([^"']+)["']/);
+                          const cleanUrl = srcMatch ? srcMatch[1] : val.trim();
+                          
+                          setNewProduct({...newProduct, imageUrl: cleanUrl});
+                          if (isUploading) setIsUploading(false);
+                        }}
                       />
-                      <p className="text-[10px] text-neutral-500">Recommended: 800x800px. Max 2MB.</p>
+                      {/* Removed Recommended text as requested */}
                     </div>
                   </div>
                 </div>
@@ -1106,8 +1182,130 @@ export default function VendorDashboard() {
                   </div>
                 )}
 
-                {(vendorProfile?.category === 'grocery' || vendorProfile?.category === 'restaurant') && (
-                  <div className="grid grid-cols-2 gap-4 pt-2">
+                {(vendorProfile?.category === 'grocery' || vendorProfile?.category === 'restaurant' || vendorProfile?.category === 'ecommerce') && (
+                  <div className="space-y-6 pt-2">
+                    {/* Variations / Sizes */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-neutral-500 uppercase">Ukubwa / Sizes (e.g. Large, Small)</label>
+                        <Button 
+                          type="button" 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-7 text-[10px] font-bold text-orange-600 hover:bg-orange-600/10"
+                          onClick={() => setNewProduct({
+                            ...newProduct, 
+                            variations: [...(newProduct.variations || []), { name: '', price: 0 }]
+                          })}
+                        >
+                          <Plus className="w-3 h-3 mr-1" /> Ongeza Ukubwa
+                        </Button>
+                      </div>
+                      <div className="space-y-2">
+                        {newProduct.variations?.map((v, idx) => (
+                          <div key={idx} className="flex gap-2 items-center animate-in fade-in slide-in-from-top-1">
+                            <Input 
+                              className="flex-1 bg-neutral-800 border-none h-10 rounded-xl text-sm"
+                              placeholder="Jina (mfano: Kubwa)"
+                              value={v.name}
+                              onChange={e => {
+                                const newVars = [...(newProduct.variations || [])];
+                                newVars[idx].name = e.target.value;
+                                setNewProduct({...newProduct, variations: newVars});
+                              }}
+                            />
+                            <Input 
+                              type="number"
+                              className="w-24 bg-neutral-800 border-none h-10 rounded-xl text-sm"
+                              placeholder="Bei (+)"
+                              value={v.price}
+                              onChange={e => {
+                                const newVars = [...(newProduct.variations || [])];
+                                newVars[idx].price = parseFloat(e.target.value);
+                                setNewProduct({...newProduct, variations: newVars});
+                              }}
+                            />
+                            <Button 
+                              type="button" 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-10 w-10 text-red-500 hover:bg-red-500/10 rounded-xl"
+                              onClick={() => {
+                                const newVars = newProduct.variations?.filter((_, i) => i !== idx);
+                                setNewProduct({...newProduct, variations: newVars});
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ))}
+                        {(!newProduct.variations || newProduct.variations.length === 0) && (
+                          <p className="text-[10px] text-neutral-600 italic">Hakuna ukubwa uliowekwa. Bonyeza ongeza ikiwa bidhaa ina saizi tofauti.</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Add-ons / Vionjo */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-neutral-500 uppercase">Vionjo / Add-ons (e.g. Soda, Pilipili)</label>
+                        <Button 
+                          type="button" 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-7 text-[10px] font-bold text-orange-600 hover:bg-orange-600/10"
+                          onClick={() => setNewProduct({
+                            ...newProduct, 
+                            addOns: [...(newProduct.addOns || []), { name: '', price: 0 }]
+                          })}
+                        >
+                          <Plus className="w-3 h-3 mr-1" /> Ongeza Kionjo
+                        </Button>
+                      </div>
+                      <div className="space-y-2">
+                        {newProduct.addOns?.map((a, idx) => (
+                          <div key={idx} className="flex gap-2 items-center animate-in fade-in slide-in-from-top-1">
+                            <Input 
+                              className="flex-1 bg-neutral-800 border-none h-10 rounded-xl text-sm"
+                              placeholder="Jina (mfano: Soda)"
+                              value={a.name}
+                              onChange={e => {
+                                const newAddons = [...(newProduct.addOns || [])];
+                                newAddons[idx].name = e.target.value;
+                                setNewProduct({...newProduct, addOns: newAddons});
+                              }}
+                            />
+                            <Input 
+                              type="number"
+                              className="w-24 bg-neutral-800 border-none h-10 rounded-xl text-sm"
+                              placeholder="Bei"
+                              value={a.price}
+                              onChange={e => {
+                                const newAddons = [...(newProduct.addOns || [])];
+                                newAddons[idx].price = parseFloat(e.target.value);
+                                setNewProduct({...newProduct, addOns: newAddons});
+                              }}
+                            />
+                            <Button 
+                              type="button" 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-10 w-10 text-red-500 hover:bg-red-500/10 rounded-xl"
+                              onClick={() => {
+                                const newAddons = newProduct.addOns?.filter((_, i) => i !== idx);
+                                setNewProduct({...newProduct, addOns: newAddons});
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ))}
+                        {(!newProduct.addOns || newProduct.addOns.length === 0) && (
+                          <p className="text-[10px] text-neutral-600 italic">Hakuna vionjo vilivyowekwa. Bonyeza ongeza ikiwa unataka kutoa chaguzi za ziada.</p>
+                        )}
+                      </div>
+                    </div>
+
                     <div className="space-y-2">
                       <label className="text-xs font-bold text-neutral-500 uppercase">Unit / Kipimo</label>
                       <Select 
@@ -1125,14 +1323,6 @@ export default function VendorDashboard() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-neutral-500 uppercase">Variations / Aina (e.g. Size)</label>
-                      <Input 
-                        className="bg-neutral-800 border-none h-12 rounded-xl"
-                        placeholder="Small, Large"
-                        onChange={e => setNewProduct({...newProduct, variations: e.target.value.split(',').map(v => v.trim())})}
-                      />
-                    </div>
                   </div>
                 )}
 
@@ -1146,14 +1336,73 @@ export default function VendorDashboard() {
                     placeholder="Brief details about the product"
                   />
                 </div>
-                <Button 
-                  type="submit" 
-                  disabled={isUploading}
-                  className="w-full h-14 bg-orange-600 hover:bg-orange-700 text-lg font-bold rounded-2xl mt-4 shrink-0"
-                >
-                  {editingProduct ? 'Update Product / Sasisha Bidhaa' : 'Save Product / Hifadhi Bidhaa'}
-                </Button>
+                <div className="flex gap-3 pt-2">
+                  {editingProduct && (
+                    <Button 
+                      type="button"
+                      variant="ghost"
+                      onClick={() => {
+                        setIsAddProductOpen(false);
+                        handleDeleteProduct(editingProduct.id!);
+                      }}
+                      className="h-14 px-6 text-red-500 hover:bg-red-500/10 rounded-2xl font-bold"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </Button>
+                  )}
+                  <Button 
+                    type="submit" 
+                    disabled={isUploading}
+                    className="flex-1 h-14 bg-orange-600 hover:bg-orange-700 text-lg font-bold rounded-2xl shadow-lg shadow-orange-900/20"
+                  >
+                    {editingProduct ? 'Update Product' : 'Save Product'}
+                  </Button>
+                </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {isDeleteModalOpen && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsDeleteModalOpen(false)}
+              className="absolute inset-0 bg-black/90 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-sm bg-neutral-900 border border-neutral-800 rounded-[2.5rem] overflow-hidden shadow-2xl p-8 text-center"
+            >
+              <div className="w-20 h-20 bg-red-500/10 text-red-500 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                <Trash2 className="w-10 h-10" />
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">Futa Bidhaa?</h3>
+              <p className="text-neutral-400 text-sm mb-8">
+                Je, una uhakika unataka kufuta bidhaa hii? Hatua hii haiwezi kurudishwa.
+              </p>
+              <div className="flex flex-col gap-3">
+                <Button 
+                  onClick={confirmDeleteProduct}
+                  className="w-full h-14 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-bold text-lg shadow-lg shadow-red-900/20"
+                >
+                  Ndiyo, Futa
+                </Button>
+                <Button 
+                  variant="ghost"
+                  onClick={() => setIsDeleteModalOpen(false)}
+                  className="w-full h-14 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-2xl font-bold"
+                >
+                  Ghairi
+                </Button>
+              </div>
             </motion.div>
           </div>
         )}
