@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../AuthContext';
 import { db } from '../firebase';
-import { collection, query, where, onSnapshot, addDoc, serverTimestamp, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, serverTimestamp, orderBy, limit, doc, getDoc } from 'firebase/firestore';
 import { useLanguage } from '../LanguageContext';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
+import { useSearchParams } from 'react-router-dom';
+
 interface ChatProps {
   onBack?: () => void;
 }
@@ -26,22 +28,47 @@ interface Message {
   id: string;
   text: string;
   senderId: string;
+  senderName: string;
+  participants: string[];
   createdAt: any;
 }
 
 export default function Chat({ onBack }: ChatProps) {
   const { user, profile } = useAuth();
   const { t } = useLanguage();
+  const [searchParams] = useSearchParams();
+  const recipientId = searchParams.get('to') || 'SUPPORT_ID';
+  const [recipientProfile, setRecipientProfile] = useState<any>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!recipientId || recipientId === 'SUPPORT_ID') return;
+    
+    // Fetch recipient profile (could be a vendor or a user)
+    const fetchRecipient = async () => {
+      // Try vendor first
+      const vRef = doc(db, 'vendors', recipientId);
+      const vSnap = await getDoc(vRef);
+      if (vSnap.exists()) {
+        setRecipientProfile({ name: vSnap.data().businessName, photo: vSnap.data().logoUrl });
+      } else {
+        // Try user
+        const uRef = doc(db, 'users', recipientId);
+        const uSnap = await getDoc(uRef);
+        if (uSnap.exists()) {
+          setRecipientProfile({ name: uSnap.data().displayName, photo: uSnap.data().photoURL });
+        }
+      }
+    };
+    fetchRecipient();
+  }, [recipientId]);
+
+  useEffect(() => {
     if (!user) return;
 
-    // For simplicity, we'll use a single global support chat or a user-specific chat
-    // In a real app, you'd have conversation IDs
     const q = query(
       collection(db, 'messages'),
       where('participants', 'array-contains', user.uid),
@@ -54,12 +81,15 @@ export default function Chat({ onBack }: ChatProps) {
         id: doc.id,
         ...doc.data()
       })) as Message[];
-      setMessages(msgs);
+      
+      // Filter messages for the current conversation
+      const filteredMsgs = msgs.filter(m => m.participants.includes(recipientId));
+      setMessages(filteredMsgs);
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, recipientId]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -76,7 +106,7 @@ export default function Chat({ onBack }: ChatProps) {
         text: newMessage,
         senderId: user.uid,
         senderName: profile?.displayName || 'User',
-        participants: [user.uid, 'SUPPORT_ID'], // Support ID for demo
+        participants: [user.uid, recipientId].sort(), // Sort to keep consistent conversation IDs if needed
         createdAt: serverTimestamp(),
       });
       setNewMessage('');
@@ -138,11 +168,15 @@ export default function Chat({ onBack }: ChatProps) {
         <Card className="flex-1 border-none shadow-sm rounded-3xl overflow-hidden flex flex-col">
           <CardHeader className="bg-white border-b border-neutral-100 p-4 flex flex-row items-center justify-between shrink-0">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-orange-600 rounded-xl flex items-center justify-center text-white font-bold text-sm">
-                PH
+              <div className="w-10 h-10 bg-orange-600 rounded-xl overflow-hidden flex items-center justify-center text-white font-bold text-sm">
+                {recipientProfile?.photo ? (
+                  <img src={recipientProfile.photo} alt={recipientProfile.name} className="w-full h-full object-cover" />
+                ) : (
+                  recipientProfile?.name?.charAt(0) || 'PH'
+                )}
               </div>
               <div>
-                <h4 className="font-bold text-sm">Papo Hapo Support</h4>
+                <h4 className="font-bold text-sm">{recipientProfile?.name || 'Papo Hapo Support'}</h4>
                 <div className="flex items-center gap-1.5">
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                   <span className="text-[10px] text-neutral-500 font-medium uppercase tracking-wider">Online</span>

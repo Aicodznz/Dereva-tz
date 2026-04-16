@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../AuthContext';
-import { db, storage, handleFirestoreError, OperationType } from '../firebase';
+import { db, storage, auth, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, onSnapshot, addDoc, serverTimestamp, orderBy, limit, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { VendorProfile, VendorCategory, Product, Order } from '../types';
@@ -42,7 +42,8 @@ import {
   Receipt,
   Camera,
   Trash2,
-  X
+  X,
+  Megaphone
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
@@ -61,7 +62,7 @@ import {
 } from 'recharts';
 import { format } from 'date-fns';
 
-type TabType = 'overview' | 'orders' | 'products' | 'pos' | 'customers' | 'settings';
+type TabType = 'overview' | 'orders' | 'products' | 'pos' | 'customers' | 'coupons' | 'settings';
 
 const chartData = [
   { name: 'Mon', sales: 4000, orders: 24 },
@@ -91,12 +92,22 @@ export default function VendorDashboard() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
+  const [coupons, setCoupons] = useState<any[]>([]);
+  const [isAddCouponOpen, setIsAddCouponOpen] = useState(false);
+  const [newCoupon, setNewCoupon] = useState({
+    code: '',
+    discountType: 'percentage',
+    discountValue: 0,
+    active: true,
+    productId: null
+  });
 
   const tabs = [
     { id: 'overview', label: t('overview') || 'Overview', icon: LayoutDashboard },
     { id: 'orders', label: t('orders') || 'Orders', icon: ShoppingCart, badge: orders.length > 0 ? orders.length : null },
     { id: 'products', label: t('inventory') || 'Inventory', icon: Package },
     { id: 'pos', label: t('pos_system') || 'POS System', icon: CreditCard },
+    { id: 'coupons', label: 'Coupons', icon: Megaphone },
     { id: 'customers', label: t('customers') || 'Customers', icon: Users },
     { id: 'settings', label: t('settings') || 'Settings', icon: Settings },
   ];
@@ -125,6 +136,7 @@ export default function VendorDashboard() {
     variations: [],
     addOns: [],
     imageUrl: '',
+    imageUrls: [],
   });
 
   // POS Cart State
@@ -176,6 +188,15 @@ export default function VendorDashboard() {
     };
   }, [vendorProfile?.id]);
 
+  useEffect(() => {
+    if (!vendorProfile?.id) return;
+    const q = query(collection(db, 'coupons'), where('vendorId', '==', vendorProfile.id));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setCoupons(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsubscribe();
+  }, [vendorProfile?.id]);
+
   const handleOnboarding = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -194,63 +215,80 @@ export default function VendorDashboard() {
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  const handleFileUpload = async (file: File) => {
-    if (!file) return;
+  const handleFileUpload = async (files: FileList | File[]) => {
+    if (!files || files.length === 0) return;
     
     if (!vendorProfile?.id) {
-      alert('Tafadhali subiri wasifu wa biashara upakiwe kwanza.');
-      return;
-    }
-    
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      alert('Tafadhali weka picha pekee.');
+      toast.error('Tafadhali subiri wasifu wa biashara upakiwe kwanza.');
       return;
     }
 
-    // Validate file size (removed limit as requested)
-    // if (file.size > 2 * 1024 * 1024) { ... }
+    if (!auth.currentUser) {
+      toast.error('Tafadhali ingia kwenye akaunti yako kwanza ili uweze kupakia picha.');
+      return;
+    }
+    
+    const fileArray = Array.from(files);
+    const validFiles = fileArray.filter(file => file.type.startsWith('image/'));
+    
+    if (validFiles.length === 0) {
+      toast.error('Tafadhali weka picha pekee.');
+      return;
+    }
 
     setIsUploading(true);
     setUploadProgress(0);
     
-    // Create a timeout to handle stuck uploads
-    const uploadTimeout = setTimeout(() => {
-      if (isUploading && uploadProgress === 0) {
-        setIsUploading(false);
-        toast.error("Upload is taking too long. Please try again or use a URL.");
+    const uploadPromises = validFiles.map(async (file, index) => {
+      try {
+        const storageRef = ref(storage, `products/${vendorProfile.id}/${Date.now()}_${index}_${file.name}`);
+        const uploadTask = uploadBytesResumable(storageRef, file);
+
+        return new Promise<string>((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            uploadTask.cancel();
+            reject(new Error(`Muda wa kupakia umeisha kwa ${file.name}. Tafadhali jaribu tena.`));
+          }, 300000); // 5 minute timeout per file
+
+          uploadTask.on('state_changed', 
+            (snapshot) => {
+              const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+              setUploadProgress(prev => Math.max(prev, progress));
+            }, 
+            (error) => {
+              clearTimeout(timeout);
+              if (error.code === 'storage/canceled') {
+                // Ignore cancellation error as it's handled by timeout or manual cancel
+                return;
+              }
+              console.error('Upload error:', error);
+              reject(error);
+            }, 
+            async () => {
+              clearTimeout(timeout);
+              const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+              resolve(downloadURL);
+            }
+          );
+        });
+      } catch (error: any) {
+        throw new Error(`Imeshindwa kuanza kupakia ${file.name}: ${error.message}`);
       }
-    }, 15000);
+    });
 
     try {
-      const storageRef = ref(storage, `products/${vendorProfile.id}/${Date.now()}_${file.name}`);
-      const uploadTask = uploadBytesResumable(storageRef, file);
-
-      uploadTask.on('state_changed', 
-        (snapshot) => {
-          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          setUploadProgress(progress);
-        }, 
-        (error) => {
-          clearTimeout(uploadTimeout);
-          console.error('Upload error:', error);
-          setIsUploading(false);
-          toast.error('Imeshindwa kupakia picha: ' + error.message);
-        }, 
-        async () => {
-          clearTimeout(uploadTimeout);
-          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-          setNewProduct(prev => ({ ...prev, imageUrl: downloadURL }));
-          setIsUploading(false);
-          setUploadProgress(0);
-          toast.success("Picha imepakiwa!");
-        }
-      );
-    } catch (error) {
-      clearTimeout(uploadTimeout);
-      console.error('Error starting upload:', error);
+      const urls = await Promise.all(uploadPromises);
+      setNewProduct(prev => ({ 
+        ...prev, 
+        imageUrls: [...(prev.imageUrls || []), ...urls],
+        imageUrl: prev.imageUrl || urls[0]
+      }));
+      toast.success(`${urls.length} picha zimepakiwa!`);
+    } catch (error: any) {
+      toast.error(error.message || 'Kuna tatizo lilitokea wakati wa kupakia.');
+    } finally {
       setIsUploading(false);
-      toast.error('Imeshindwa kuanza kupakia picha.');
+      setUploadProgress(0);
     }
   };
 
@@ -264,7 +302,7 @@ export default function VendorDashboard() {
     e.stopPropagation();
     const files = e.dataTransfer.files;
     if (files && files.length > 0) {
-      handleFileUpload(files[0]);
+      handleFileUpload(files);
     }
   };
 
@@ -298,6 +336,7 @@ export default function VendorDashboard() {
         variations: [],
         addOns: [],
         imageUrl: '',
+        imageUrls: [],
       });
     } catch (error) {
       handleFirestoreError(error, editingProduct ? OperationType.UPDATE : OperationType.CREATE, 'products');
@@ -335,8 +374,36 @@ export default function VendorDashboard() {
       variations: product.variations || [],
       addOns: product.addOns || [],
       imageUrl: product.imageUrl || '',
+      imageUrls: product.imageUrls || (product.imageUrl ? [product.imageUrl] : []),
     });
     setIsAddProductOpen(true);
+  };
+
+  const handleAddCoupon = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!vendorProfile?.id) return;
+    try {
+      await addDoc(collection(db, 'coupons'), {
+        ...newCoupon,
+        vendorId: vendorProfile.id,
+        createdBy: user?.uid,
+        createdAt: serverTimestamp()
+      });
+      setIsAddCouponOpen(false);
+      setNewCoupon({ code: '', discountType: 'percentage', discountValue: 0, active: true, productId: null });
+      toast.success('Coupon added successfully!');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'coupons');
+    }
+  };
+
+  const handleDeleteCoupon = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'coupons', id));
+      toast.success('Coupon deleted.');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `coupons/${id}`);
+    }
   };
 
   const addToCart = (product: Product) => {
@@ -624,7 +691,7 @@ export default function VendorDashboard() {
                       </Select>
                     </div>
                     <div className="h-[300px] w-full">
-                      <ResponsiveContainer width="100%" height="100%">
+                      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                         <AreaChart data={chartData}>
                           <defs>
                             <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
@@ -888,6 +955,129 @@ export default function VendorDashboard() {
               </motion.div>
             )}
 
+            {activeTab === 'coupons' && (
+              <motion.div
+                key="coupons"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="space-y-6"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold">Coupons & Discounts</h2>
+                    <p className="text-neutral-500 text-sm mt-1">Create discount codes for your customers</p>
+                  </div>
+                  <Button onClick={() => setIsAddCouponOpen(true)} className="bg-orange-600 hover:bg-orange-700 rounded-xl gap-2 font-bold">
+                    <Plus className="w-4 h-4" /> Add Coupon
+                  </Button>
+                </div>
+
+                {isAddCouponOpen && (
+                  <Card className="bg-neutral-900 border-orange-600/30">
+                    <CardHeader>
+                      <CardTitle className="text-white">New Coupon</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <form onSubmit={handleAddCoupon} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-neutral-500 uppercase">Coupon Code</label>
+                          <Input 
+                            placeholder="e.g. KARIBU2024" 
+                            className="bg-neutral-800 border-none h-12 rounded-xl text-white"
+                            value={newCoupon.code}
+                            onChange={e => setNewCoupon({...newCoupon, code: e.target.value.toUpperCase()})}
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-neutral-500 uppercase">Discount Type & Value</label>
+                          <div className="flex gap-2">
+                            <select 
+                              className="flex h-12 w-full rounded-xl border-none bg-neutral-800 px-3 py-2 text-sm text-white focus:ring-2 focus:ring-orange-600"
+                              value={newCoupon.discountType}
+                              onChange={e => setNewCoupon({...newCoupon, discountType: e.target.value as any})}
+                            >
+                              <option value="percentage">Percentage (%)</option>
+                              <option value="fixed">Fixed Amount (TZS)</option>
+                            </select>
+                            <Input 
+                              type="number" 
+                              placeholder="Value" 
+                              className="bg-neutral-800 border-none h-12 rounded-xl text-white w-32"
+                              value={newCoupon.discountValue}
+                              onChange={e => setNewCoupon({...newCoupon, discountValue: Number(e.target.value)})}
+                              required
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-neutral-500 uppercase">Product (Optional)</label>
+                          <Select 
+                            value={newCoupon.productId || 'all'} 
+                            onValueChange={val => setNewCoupon({...newCoupon, productId: val === 'all' ? null : val})}
+                          >
+                            <SelectTrigger className="bg-neutral-800 border-none h-12 rounded-xl text-white">
+                              <SelectValue placeholder="All Products" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
+                              <SelectItem value="all">All Products</SelectItem>
+                              {products.map(p => (
+                                <SelectItem key={p.id} value={p.id!}>{p.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="md:col-span-2 flex gap-2 pt-4">
+                          <Button type="submit" className="flex-1 bg-orange-600 hover:bg-orange-700 h-12 rounded-xl font-bold">Save Coupon</Button>
+                          <Button type="button" variant="ghost" onClick={() => setIsAddCouponOpen(false)} className="text-neutral-400 hover:text-white">Cancel</Button>
+                        </div>
+                      </form>
+                    </CardContent>
+                  </Card>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {coupons.map((coupon) => (
+                    <Card key={coupon.id} className="bg-neutral-900 border-neutral-800 p-4 shadow-sm relative group">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-black text-xl text-orange-600">{coupon.code}</h3>
+                          <p className="text-sm font-bold text-white">
+                            {coupon.discountType === 'percentage' ? `${coupon.discountValue}% Off` : `TZS ${coupon.discountValue.toLocaleString()} Off`}
+                          </p>
+                          <div className="mt-2 space-y-1">
+                            {coupon.productId ? (
+                              <p className="text-[10px] text-neutral-500">Product: {products.find(p => p.id === coupon.productId)?.name || 'Unknown'}</p>
+                            ) : (
+                              <p className="text-[10px] text-neutral-500">All Products</p>
+                            )}
+                            <Badge variant={coupon.active ? "default" : "secondary"} className="text-[10px] bg-orange-600/10 text-orange-600 border-none">
+                              {coupon.active ? 'Active' : 'Inactive'}
+                            </Badge>
+                          </div>
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => handleDeleteCoupon(coupon.id!)}
+                          className="text-red-500 hover:text-red-700 hover:bg-red-500/10 rounded-xl"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </Card>
+                  ))}
+                  {coupons.length === 0 && !isAddCouponOpen && (
+                    <div className="col-span-full py-20 text-center bg-neutral-900/50 rounded-3xl border border-dashed border-neutral-800">
+                      <Megaphone className="w-12 h-12 text-neutral-700 mx-auto mb-4" />
+                      <p className="text-neutral-500">No coupons created yet.</p>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
             {activeTab === 'products' && (
               <motion.div 
                 key="products"
@@ -1008,106 +1198,124 @@ export default function VendorDashboard() {
               </div>
               <form onSubmit={handleAddProduct} className="p-6 space-y-5 overflow-y-auto custom-scrollbar">
                 {/* Image Upload Section */}
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-neutral-500 uppercase">Product Image / Picha ya Bidhaa</label>
-                  <div className="flex gap-4">
-                    <div 
-                      onDragOver={onDragOver}
-                      onDrop={onDrop}
-                      onClick={() => fileInputRef.current?.click()}
-                      className={`w-24 h-24 rounded-2xl bg-neutral-800 border-2 border-dashed flex flex-col items-center justify-center text-neutral-500 transition-all cursor-pointer group shrink-0 overflow-hidden relative ${
-                        isUploading ? 'border-orange-600/50' : 'border-neutral-700 hover:text-orange-600 hover:border-orange-600'
-                      }`}
-                    >
-                      {isUploading ? (
-                        <div className="flex flex-col items-center justify-center h-full">
-                          <div className="relative w-12 h-12 mb-2">
-                            <svg className="w-full h-full" viewBox="0 0 36 36">
-                              <path
-                                className="text-neutral-700"
-                                strokeDasharray="100, 100"
-                                stroke="currentColor"
-                                strokeWidth="3"
-                                fill="none"
-                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                              />
-                              <path
-                                className="text-orange-600 transition-all duration-300"
-                                strokeDasharray={`${uploadProgress}, 100`}
-                                stroke="currentColor"
-                                strokeWidth="3"
-                                strokeLinecap="round"
-                                fill="none"
-                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                              />
-                            </svg>
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <span className="text-[10px] font-bold">{Math.round(uploadProgress)}%</span>
-                            </div>
-                          </div>
-                          <button 
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setIsUploading(false);
-                              setUploadProgress(0);
-                            }}
-                            className="text-[10px] text-red-500 font-bold uppercase hover:underline"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      ) : newProduct.imageUrl ? (
-                        <div className="relative w-full h-full group">
+                <div className="space-y-3">
+                  <label className="text-xs font-bold text-neutral-500 uppercase">Product Images / Picha za Bidhaa</label>
+                  
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                    <AnimatePresence mode="popLayout">
+                      {newProduct.imageUrls?.map((url, idx) => url && (
+                        <motion.div 
+                          key={url}
+                          layout
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.8 }}
+                          className="aspect-square rounded-2xl bg-neutral-800 border border-neutral-700 overflow-hidden relative group"
+                        >
                           <img 
-                            src={newProduct.imageUrl} 
-                            alt="Preview" 
+                            src={url} 
+                            alt={`Preview ${idx}`} 
                             className="w-full h-full object-cover" 
                             referrerPolicy="no-referrer"
                           />
                           <button
                             type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setNewProduct({...newProduct, imageUrl: ''});
+                            onClick={() => {
+                              const newUrls = newProduct.imageUrls?.filter((_, i) => i !== idx);
+                              setNewProduct({
+                                ...newProduct, 
+                                imageUrls: newUrls,
+                                imageUrl: newUrls?.[0] || ''
+                              });
                             }}
-                            className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
                           >
                             <X className="w-3 h-3" />
                           </button>
+                          {idx === 0 && (
+                            <div className="absolute bottom-0 inset-x-0 bg-orange-600 text-[8px] font-bold text-center py-0.5 uppercase">
+                              Main
+                            </div>
+                          )}
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+
+                    {isUploading && (
+                      <div className="aspect-square rounded-2xl bg-neutral-800 border border-orange-600/50 flex flex-col items-center justify-center p-2 relative">
+                        <div className="relative w-10 h-10 mb-1">
+                          <svg className="w-full h-full" viewBox="0 0 36 36">
+                            <path
+                              className="text-neutral-700"
+                              strokeDasharray="100, 100"
+                              stroke="currentColor"
+                              strokeWidth="3"
+                              fill="none"
+                              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                            />
+                            <path
+                              className="text-orange-600 transition-all duration-300"
+                              strokeDasharray={`${uploadProgress}, 100`}
+                              stroke="currentColor"
+                              strokeWidth="3"
+                              strokeLinecap="round"
+                              fill="none"
+                              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                            />
+                          </svg>
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <span className="text-[8px] font-bold">{Math.round(uploadProgress)}%</span>
+                          </div>
                         </div>
-                      ) : (
-                        <>
-                          <Camera className="w-6 h-6 mb-1 group-hover:scale-110 transition-transform" />
-                          <span className="text-[10px] font-bold uppercase text-center px-1">Drop or Click</span>
-                        </>
-                      )}
-                      <input 
-                        type="file" 
-                        ref={fileInputRef} 
-                        className="hidden" 
-                        accept="image/*"
-                        onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])}
-                      />
-                    </div>
-                    <div className="flex-1 space-y-2">
-                      <Input 
-                        className="bg-neutral-800 border-none h-12 rounded-xl"
-                        placeholder="Or paste Image URL here..."
-                        value={newProduct.imageUrl}
-                        onChange={e => {
-                          const val = e.target.value;
-                          // Extract URL if HTML is pasted
+                        <span className="text-[8px] text-neutral-500 font-bold uppercase">Uploading...</span>
+                      </div>
+                    )}
+
+                    <button 
+                      type="button"
+                      onDragOver={onDragOver}
+                      onDrop={onDrop}
+                      onClick={() => fileInputRef.current?.click()}
+                      className="aspect-square rounded-2xl bg-neutral-800 border-2 border-dashed border-neutral-700 hover:border-orange-600 hover:text-orange-600 flex flex-col items-center justify-center text-neutral-500 transition-all group"
+                    >
+                      <Plus className="w-6 h-6 mb-1 group-hover:scale-110 transition-transform" />
+                      <span className="text-[9px] font-bold uppercase text-center px-1">Add Image</span>
+                    </button>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Input 
+                      className="bg-neutral-800 border-none h-11 rounded-xl text-xs"
+                      placeholder="Or paste Image URL here..."
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const val = (e.target as HTMLInputElement).value;
                           const srcMatch = val.match(/src=["']([^"']+)["']/);
                           const cleanUrl = srcMatch ? srcMatch[1] : val.trim();
-                          
-                          setNewProduct({...newProduct, imageUrl: cleanUrl});
-                          if (isUploading) setIsUploading(false);
-                        }}
-                      />
-                      {/* Removed Recommended text as requested */}
-                    </div>
+                          if (cleanUrl) {
+                            setNewProduct(prev => ({
+                              ...prev,
+                              imageUrls: [...(prev.imageUrls || []), cleanUrl],
+                              imageUrl: prev.imageUrl || cleanUrl
+                            }));
+                            (e.target as HTMLInputElement).value = '';
+                          }
+                        }
+                      }}
+                    />
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      className="hidden" 
+                      multiple
+                      accept="image/*"
+                      onChange={(e) => e.target.files && handleFileUpload(e.target.files)}
+                    />
                   </div>
+                  <p className="text-[10px] text-neutral-500 italic">
+                    Drag and drop multiple images or click to upload. First image will be the main one.
+                  </p>
                 </div>
 
                 <div className="space-y-2">

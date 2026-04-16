@@ -129,6 +129,58 @@
         "actionUrl": { "type": "string" }
       },
       "required": ["title", "body", "type", "isRead"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "User reviews for vendors and products",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userPhoto": { "type": "string" },
+        "targetId": { "type": "string", "description": "Vendor ID or Product ID" },
+        "targetType": { "type": "string", "enum": ["vendor", "product"] },
+        "rating": { "type": "number" },
+        "comment": { "type": "string" },
+        "images": { "type": "array" },
+        "likes": { "type": "array", "description": "Array of user UIDs who liked this review" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "targetId", "targetType", "rating"]
+    },
+    "Reply": {
+      "title": "Reply",
+      "description": "Vendor or user reply to a review",
+      "type": "object",
+      "properties": {
+        "reviewId": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userPhoto": { "type": "string" },
+        "text": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["reviewId", "userId", "text"]
+    },
+    "Coupon": {
+      "title": "Coupon",
+      "description": "Discount codes for products or vendors",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string" },
+        "discountType": { "type": "string", "enum": ["percentage", "fixed"] },
+        "discountValue": { "type": "number" },
+        "validFrom": { "type": "string", "format": "date-time" },
+        "validUntil": { "type": "string", "format": "date-time" },
+        "usageLimit": { "type": "number" },
+        "usedCount": { "type": "number" },
+        "vendorId": { "type": "string", "description": "Vendor ID if specific to a vendor, null for global" },
+        "productId": { "type": "string", "description": "Product ID if specific to a product, null for all products of vendor/global" },
+        "active": { "type": "boolean" },
+        "createdBy": { "type": "string", "description": "Admin or Vendor UID" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["code", "discountType", "discountValue", "active"]
     }
   },
   "firestore": {
@@ -139,6 +191,9 @@
     "/riders/{uid}": { "schema": "Rider", "description": "Rider profiles" },
     "/messages/{messageId}": { "schema": "Message", "description": "Chat messages" },
     "/banners/{bannerId}": { "schema": "Banner", "description": "Promotional banners" },
-    "/notifications/{notificationId}": { "schema": "Notification", "description": "User notifications" }
+    "/notifications/{notificationId}": { "schema": "Notification", "description": "User notifications" },
+    "/reviews/{reviewId}": { "schema": "Review", "description": "User reviews" },
+    "/reviews/{reviewId}/replies/{replyId}": { "schema": "Reply", "description": "Replies to a review" },
+    "/coupons/{couponId}": { "schema": "Coupon", "description": "Discount coupons" }
   }
 }

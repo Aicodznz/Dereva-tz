@@ -151,7 +151,7 @@ export default function CustomerDashboard() {
 
       {/* 3. Promotional Carousel */}
       <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar snap-x">
-        {banners.map((banner) => (
+        {banners.map((banner) => banner.img && (
           <div key={banner.id} className="min-w-[85%] md:min-w-[45%] lg:min-w-[30%] h-48 md:h-64 rounded-3xl overflow-hidden relative snap-center shadow-md">
             <img src={banner.img} alt={banner.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
             <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-transparent flex flex-col justify-center p-8 text-white">
@@ -197,39 +197,41 @@ export default function CustomerDashboard() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {vendors.map((vendor) => (
-            <Card key={vendor.id} className="overflow-hidden rounded-3xl border-neutral-100 shadow-sm hover:shadow-md transition-all group">
-              <div className="flex p-4 gap-4">
-                <div className="w-28 h-28 rounded-2xl overflow-hidden relative shrink-0">
-                  <img 
-                    src={vendor.logoUrl || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=400&q=80'} 
-                    alt={vendor.businessName} 
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
-                    referrerPolicy="no-referrer"
-                  />
-                  <div className="absolute top-1 right-1 bg-white/90 backdrop-blur-sm px-1.5 py-0.5 rounded-lg flex items-center gap-1">
-                    <Star className="w-2.5 h-2.5 text-orange-500 fill-current" />
-                    <span className="text-[9px] font-bold">{vendor.rating || '4.5'}</span>
-                  </div>
-                </div>
-                <div className="flex-1 flex flex-col justify-between py-1">
-                  <div>
-                    <h4 className="font-bold text-lg text-neutral-900 group-hover:text-orange-600 transition-colors">{vendor.businessName}</h4>
-                    <p className="text-xs text-neutral-500 mt-0.5 line-clamp-2">{vendor.description || 'Vyakula vya Baharini na Vinywaji'}</p>
-                  </div>
-                  <div className="flex items-center justify-between mt-2">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="text-[10px] bg-orange-50 text-orange-600 border-none px-2 py-0.5">
-                        {vendor.category}
-                      </Badge>
-                      <span className="text-[10px] text-neutral-400">1.2 km</span>
+            <Link key={vendor.id} to={`/vendor/${vendor.id}`}>
+              <Card className="overflow-hidden rounded-3xl border-neutral-100 shadow-sm hover:shadow-md transition-all group">
+                <div className="flex p-4 gap-4">
+                  <div className="w-28 h-28 rounded-2xl overflow-hidden relative shrink-0">
+                    <img 
+                      src={vendor.logoUrl || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=400&q=80'} 
+                      alt={vendor.businessName} 
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute top-1 right-1 bg-white/90 backdrop-blur-sm px-1.5 py-0.5 rounded-lg flex items-center gap-1">
+                      <Star className="w-2.5 h-2.5 text-orange-500 fill-current" />
+                      <span className="text-[9px] font-bold">{vendor.rating || '4.5'}</span>
                     </div>
-                    <button className="bg-neutral-900 text-white text-xs font-bold px-4 py-1.5 rounded-full hover:bg-orange-600 transition-colors">
-                      {t('order') || 'Agiza'}
-                    </button>
+                  </div>
+                  <div className="flex-1 flex flex-col justify-between py-1">
+                    <div>
+                      <h4 className="font-bold text-lg text-neutral-900 group-hover:text-orange-600 transition-colors">{vendor.businessName}</h4>
+                      <p className="text-xs text-neutral-500 mt-0.5 line-clamp-2">{vendor.description || 'Vyakula vya Baharini na Vinywaji'}</p>
+                    </div>
+                    <div className="flex items-center justify-between mt-2">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="text-[10px] bg-orange-50 text-orange-600 border-none px-2 py-0.5">
+                          {vendor.category}
+                        </Badge>
+                        <span className="text-[10px] text-neutral-400">1.2 km</span>
+                      </div>
+                      <button className="bg-neutral-900 text-white text-xs font-bold px-4 py-1.5 rounded-full hover:bg-orange-600 transition-colors">
+                        {t('order') || 'Agiza'}
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </Card>
+              </Card>
+            </Link>
           ))}
           {vendors.length === 0 && (
             <div className="py-12 text-center bg-neutral-50 rounded-3xl border border-dashed border-neutral-200">

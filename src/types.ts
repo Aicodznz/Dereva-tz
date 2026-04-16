@@ -40,6 +40,7 @@ export interface Product {
   category: string;
   stock: number;
   imageUrl?: string;
+  imageUrls?: string[];
   unit?: string;
   expiryDate?: string;
   medicationType?: 'otc' | 'prescription';

@@ -23,13 +23,36 @@ interface Banner {
   active: boolean;
 }
 
-type AdminTab = 'vendors' | 'banners' | 'notifications';
+type AdminTab = 'vendors' | 'banners' | 'notifications' | 'coupons';
+
+interface Coupon {
+  id?: string;
+  code: string;
+  discountType: 'percentage' | 'fixed';
+  discountValue: number;
+  active: boolean;
+  vendorId?: string | null;
+  productId?: string | null;
+  validUntil?: any;
+  createdBy: string;
+  createdAt?: any;
+}
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<AdminTab>('vendors');
   const [pendingVendors, setPendingVendors] = useState<VendorProfile[]>([]);
   const [banners, setBanners] = useState<Banner[]>([]);
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [isAddBannerOpen, setIsAddBannerOpen] = useState(false);
+  const [isAddCouponOpen, setIsAddCouponOpen] = useState(false);
+  const [newCoupon, setNewCoupon] = useState<Partial<Coupon>>({
+    code: '',
+    discountType: 'percentage',
+    discountValue: 0,
+    active: true,
+    vendorId: null,
+    productId: null
+  });
   const [newBanner, setNewBanner] = useState<Banner>({ title: '', sub: '', img: '', active: true });
   
   // Notification State
@@ -53,6 +76,16 @@ export default function AdminDashboard() {
       setBanners(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner)));
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'banners');
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const q = query(collection(db, 'coupons'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setCoupons(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Coupon)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'coupons');
     });
     return () => unsubscribe();
   }, []);
@@ -98,6 +131,31 @@ export default function AdminDashboard() {
       toast.success('Banner deleted.');
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `banners/${id}`);
+    }
+  };
+
+  const handleAddCoupon = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await addDoc(collection(db, 'coupons'), {
+        ...newCoupon,
+        createdBy: 'admin',
+        createdAt: serverTimestamp()
+      });
+      setIsAddCouponOpen(false);
+      setNewCoupon({ code: '', discountType: 'percentage', discountValue: 0, active: true, vendorId: null, productId: null });
+      toast.success('Coupon added successfully!');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'coupons');
+    }
+  };
+
+  const handleDeleteCoupon = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'coupons', id));
+      toast.success('Coupon deleted.');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `coupons/${id}`);
     }
   };
 
@@ -154,7 +212,8 @@ export default function AdminDashboard() {
         {[
           { id: 'vendors', label: 'Vendors', icon: Store },
           { id: 'banners', label: 'Banners', icon: ImageIcon },
-          { id: 'notifications', label: 'Broadcast', icon: Megaphone },
+          { id: 'coupons', label: 'Coupons', icon: Megaphone },
+          { id: 'notifications', label: 'Broadcast', icon: Bell },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -294,7 +353,7 @@ export default function AdminDashboard() {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {banners.map((banner) => (
+              {banners.map((banner) => banner.img && (
                 <Card key={banner.id} className="overflow-hidden group">
                   <div className="h-40 relative">
                     <img src={banner.img} alt={banner.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
@@ -316,6 +375,102 @@ export default function AdminDashboard() {
                   No active banners. Add one to show on the home screen.
                 </div>
               )}
+            </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'coupons' && (
+          <motion.div
+            key="coupons"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="space-y-6"
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-black text-neutral-900">Manage Coupons</h2>
+              <Button onClick={() => setIsAddCouponOpen(true)} className="bg-orange-600 hover:bg-orange-700 rounded-2xl gap-2">
+                <Plus className="w-4 h-4" /> Add Coupon
+              </Button>
+            </div>
+
+            {isAddCouponOpen && (
+              <Card className="border-orange-200 bg-orange-50/30">
+                <CardHeader>
+                  <CardTitle>New Coupon</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleAddCoupon} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Input 
+                      placeholder="Coupon Code (e.g. KARIBU2024)" 
+                      value={newCoupon.code}
+                      onChange={e => setNewCoupon({...newCoupon, code: e.target.value.toUpperCase()})}
+                      required
+                    />
+                    <div className="flex gap-2">
+                      <select 
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        value={newCoupon.discountType}
+                        onChange={e => setNewCoupon({...newCoupon, discountType: e.target.value as any})}
+                      >
+                        <option value="percentage">Percentage (%)</option>
+                        <option value="fixed">Fixed Amount (TZS)</option>
+                      </select>
+                      <Input 
+                        type="number" 
+                        placeholder="Value" 
+                        value={newCoupon.discountValue}
+                        onChange={e => setNewCoupon({...newCoupon, discountValue: Number(e.target.value)})}
+                        required
+                      />
+                    </div>
+                    <Input 
+                      placeholder="Vendor ID (Optional)" 
+                      value={newCoupon.vendorId || ''}
+                      onChange={e => setNewCoupon({...newCoupon, vendorId: e.target.value || null})}
+                    />
+                    <Input 
+                      placeholder="Product ID (Optional)" 
+                      value={newCoupon.productId || ''}
+                      onChange={e => setNewCoupon({...newCoupon, productId: e.target.value || null})}
+                    />
+                    <div className="md:col-span-2 flex gap-2">
+                      <Button type="submit" className="flex-1 bg-orange-600">Save Coupon</Button>
+                      <Button type="button" variant="outline" onClick={() => setIsAddCouponOpen(false)}>Cancel</Button>
+                    </div>
+                  </form>
+                </CardContent>
+              </Card>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {coupons.map((coupon) => (
+                <Card key={coupon.id} className="p-4 border-neutral-100 shadow-sm relative group">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-black text-xl text-orange-600">{coupon.code}</h3>
+                      <p className="text-sm font-bold text-neutral-700">
+                        {coupon.discountType === 'percentage' ? `${coupon.discountValue}% Off` : `TZS ${coupon.discountValue.toLocaleString()} Off`}
+                      </p>
+                      <div className="mt-2 space-y-1">
+                        {coupon.vendorId && <p className="text-[10px] text-neutral-500">Vendor: {coupon.vendorId}</p>}
+                        {coupon.productId && <p className="text-[10px] text-neutral-500">Product: {coupon.productId}</p>}
+                        <Badge variant={coupon.active ? "default" : "secondary"} className="text-[10px]">
+                          {coupon.active ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </div>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => handleDeleteCoupon(coupon.id!)}
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </Card>
+              ))}
             </div>
           </motion.div>
         )}
