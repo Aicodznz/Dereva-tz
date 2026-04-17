@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { doc, getDoc, collection, query, where, onSnapshot, addDoc, serverTimestamp, updateDoc, arrayUnion, arrayRemove, deleteDoc, orderBy, getDocs } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType, auth, storage } from '../firebase';
+import { initiatePayment } from '../services/paymentService';
 import { Product, VendorProfile } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -23,7 +24,9 @@ import {
   MessageSquare,
   Trash2,
   Reply,
-  Megaphone
+  Megaphone,
+  Smartphone,
+  Phone
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -86,6 +89,9 @@ export default function ProductDetail() {
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
+  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
+  const [buyerPhone, setBuyerPhone] = useState('');
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   useEffect(() => {
     async function fetchProduct() {
@@ -312,6 +318,69 @@ export default function ProductDetail() {
       return totalBeforeCoupon * (1 - appliedCoupon.discountValue / 100);
     } else {
       return Math.max(0, totalBeforeCoupon - appliedCoupon.discountValue);
+    }
+  };
+
+  const handleBuyNow = async () => {
+    if (!auth.currentUser) {
+      toast.error('Tafadhali ingia ili uweze kuagiza');
+      navigate('/login');
+      return;
+    }
+    setIsCheckoutModalOpen(true);
+  };
+
+  const processPayment = async () => {
+    if (!buyerPhone.trim()) {
+      toast.error('Tafadhali ingia namba yako ya simu');
+      return;
+    }
+    
+    setIsProcessingPayment(true);
+    try {
+      const orderData = {
+        vendorId: product.vendorId,
+        customerId: auth.currentUser?.uid,
+        customerName: auth.currentUser?.displayName || 'Mteja',
+        customerPhone: buyerPhone,
+        items: [{
+          productId: product.id,
+          name: product.name,
+          price: product.price,
+          quantity: quantity,
+          variation: selectedSize,
+          addons: selectedAddons
+        }],
+        totalAmount: calculateDiscountedPrice(),
+        status: 'pending',
+        paymentStatus: 'pending',
+        orderSource: 'app_direct',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+
+      const docRef = await addDoc(collection(db, 'orders'), orderData);
+      
+      const formattedPhone = buyerPhone.startsWith('0') 
+        ? '255' + buyerPhone.substring(1) 
+        : buyerPhone.replace('+', '');
+
+      toast.info('Inatuma ombi la malipo kwenye simu yako...');
+      
+      await initiatePayment({
+        order_id: docRef.id,
+        amount: Math.round(calculateDiscountedPrice()),
+        buyer_phone: formattedPhone,
+        fee_payer: 'CUSTOMER'
+      });
+
+      toast.success('Ombi la malipo limetumwa! Tafadhali weka siri kwenye simu yako.');
+      setIsCheckoutModalOpen(false);
+    } catch (error: any) {
+      console.error('Checkout failed:', error);
+      toast.error('Checkout failed: ' + error.message);
+    } finally {
+      setIsProcessingPayment(false);
     }
   };
 
@@ -883,17 +952,77 @@ export default function ProductDetail() {
             </button>
           </div>
           
-          <Button className="flex-1 h-14 md:h-16 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl font-black text-sm md:text-lg shadow-lg shadow-orange-600/40 gap-2 md:gap-3 transition-all transform active:scale-[0.98]">
-            <ShoppingCart className="w-4 h-4 md:w-6 md:h-6" />
+          <Button 
+            onClick={handleBuyNow}
+            className="flex-1 h-14 md:h-16 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl font-black text-sm md:text-lg shadow-lg shadow-orange-600/40 gap-2 md:gap-3 transition-all transform active:scale-[0.98]"
+          >
+            <Smartphone className="w-4 h-4 md:w-6 md:h-6" />
             <span className="truncate">
-              {getCategoryLabel() === 'hotel' || getCategoryLabel() === 'car_rental' 
-                ? `Book • TZS ${calculateDiscountedPrice().toLocaleString()}`
-                : `Ongeza • TZS ${calculateDiscountedPrice().toLocaleString()}`
-              }
+               Agiza Sasa
             </span>
           </Button>
         </div>
       </div>
+
+      {/* Checkout Modal */}
+      <AnimatePresence>
+        {isCheckoutModalOpen && (
+          <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsCheckoutModalOpen(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-md bg-white rounded-[2.5rem] overflow-hidden shadow-2xl p-8"
+            >
+               <div className="flex items-center justify-between mb-8">
+                <h3 className="text-2xl font-black text-neutral-900">Kamilisha Malipo</h3>
+                <button onClick={() => setIsCheckoutModalOpen(false)} className="text-neutral-400 hover:text-neutral-900">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <div className="p-4 bg-orange-50 rounded-2xl border border-orange-100">
+                  <div className="flex justify-between items-center text-sm font-bold text-orange-800">
+                    <span>Jumla ya Malipo:</span>
+                    <span className="text-lg">TZS {calculateDiscountedPrice().toLocaleString()}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-neutral-500 uppercase">Namba ya Simu (Mobile Money)</label>
+                  <div className="relative">
+                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
+                    <input 
+                      type="tel"
+                      placeholder="07XXXXXXXX"
+                      className="w-full h-14 pl-12 pr-4 bg-neutral-100 rounded-2xl border-none focus:ring-2 focus:ring-orange-500 text-lg font-bold"
+                      value={buyerPhone}
+                      onChange={(e) => setBuyerPhone(e.target.value)}
+                    />
+                  </div>
+                  <p className="text-[10px] text-neutral-400">Utapokea ombi la kuingiza namba ya siri kwenye simu yako.</p>
+                </div>
+
+                <Button 
+                  disabled={isProcessingPayment}
+                  onClick={processPayment}
+                  className="w-full h-16 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl font-black text-lg shadow-lg shadow-orange-200"
+                >
+                  {isProcessingPayment ? 'Processing...' : 'Lipa Sasa'}
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

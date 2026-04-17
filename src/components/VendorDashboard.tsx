@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { initiatePayment } from '../services/paymentService';
 import QRCodeStyling, { DotType, CornerSquareType, CornerDotType } from "qr-code-styling";
 import { useAuth } from '../AuthContext';
 import { db, storage, auth, handleFirestoreError, OperationType } from '../firebase';
@@ -629,9 +630,16 @@ export default function VendorDashboard() {
 
   const handleCompleteSale = async () => {
     if (cart.length === 0 || !vendorProfile?.id || !user) return;
+    
+    if (paymentMethod === 'mobile_money' && !posCustomer?.phone) {
+      toast.error('Tafadhali ongeza namba ya simu ya mteja ili kufanya malipo ya simu.');
+      setIsAddCustomerModalOpen(true);
+      return;
+    }
+
     setIsProcessingSale(true);
     try {
-      await addDoc(collection(db, 'orders'), {
+      const orderData = {
         vendorId: vendorProfile.id,
         customerId: posCustomer ? (posCustomer.id || 'POS_CUSTOMER') : 'WALK_IN_CUSTOMER',
         customerName: posCustomer?.name || 'Walk-in Customer',
@@ -645,22 +653,46 @@ export default function VendorDashboard() {
         totalAmount: cartTotal * 1.18, // Total with tax
         subtotal: cartTotal,
         taxAmount: cartTotal * 0.18,
-        status: 'pending', // Set to pending for KOT/KDS
+        status: 'pending',
         orderSource: 'pos',
-        orderType: orderType, // dine_in, takeaway, delivery
+        orderType: orderType,
         tableNumber: orderType === 'dine_in' ? tableNumber : null,
         paymentMethod: paymentMethod,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         deliveryAddress: orderType === 'delivery' ? (posCustomer?.address || 'POS Delivery') : 'In-Store POS',
-      });
+      };
+
+      const docRef = await addDoc(collection(db, 'orders'), orderData);
       
-      toast.success('Malipo yamekamilika! Oda imehifadhiwa na kutumwa jikoni.');
+      // If Mobile Money, initiate Mongike payment
+      if (paymentMethod === 'mobile_money' && posCustomer?.phone) {
+        toast.info('Inatuma ombi la malipo kwenye simu ya mteja...');
+        try {
+          const formattedPhone = posCustomer.phone.startsWith('0') 
+            ? '255' + posCustomer.phone.substring(1) 
+            : posCustomer.phone.replace('+', '');
+            
+          await initiatePayment({
+            order_id: docRef.id,
+            amount: Math.round(cartTotal * 1.18),
+            buyer_phone: formattedPhone,
+            fee_payer: 'MERCHANT'
+          });
+          toast.success('Ombi la malipo limetumwa! Mteja aweke siri kukamilisha.');
+        } catch (payError: any) {
+          console.error('Mongike initiation failed:', payError);
+          toast.error('Imeshindwa kutuma ombi la malipo: ' + payError.message);
+        }
+      } else {
+        toast.success('Malipo yamekamilika! Oda imehifadhiwa na kutumwa jikoni.');
+      }
+
       setCart([]);
       setPosCustomer(null);
       setTableNumber('');
       setOrderType('dine_in');
-      setActiveTab('orders'); // Go to orders to see KDS
+      setActiveTab('orders');
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'orders');
     } finally {
@@ -1651,6 +1683,13 @@ export default function VendorDashboard() {
                          onClick={() => setPaymentMethod('card')}
                        >
                          <CreditCard className="w-4 h-4 mr-2" /> Card
+                       </Button>
+                       <Button 
+                         variant="outline" 
+                         className={`rounded-[1.2rem] h-12 border-neutral-800 font-black uppercase text-[10px] tracking-widest col-span-2 ${paymentMethod === 'mobile_money' ? 'bg-orange-600 border-none text-white' : 'bg-neutral-950 text-neutral-500'}`}
+                         onClick={() => setPaymentMethod('mobile_money')}
+                       >
+                         <Smartphone className="w-4 h-4 mr-2" /> Mobile Money
                        </Button>
                     </div>
 
