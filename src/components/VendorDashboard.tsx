@@ -821,12 +821,12 @@ export default function VendorDashboard() {
            <Badge variant="outline" className="bg-white/5 border-none text-neutral-500 font-black">{filteredOrders.length}</Badge>
         </div>
         <div className="flex-1 overflow-y-auto no-scrollbar space-y-4 pr-2">
-           {filteredOrders.map(order => (
+           {filteredOrders.map((order, index) => (
              <motion.div 
                layout
                initial={{ opacity: 0, scale: 0.95 }}
                animate={{ opacity: 1, scale: 1 }}
-               key={order.id} 
+               key={`kds-card-${order.id}-${index}`} 
                className="bg-neutral-950 border border-neutral-800 p-5 rounded-2xl space-y-4 hover:border-orange-600/30 transition-all cursor-pointer group"
              >
                 <div className="flex items-center justify-between">
@@ -1318,8 +1318,8 @@ export default function VendorDashboard() {
                       </Badge>
                     </div>
                     <div className="space-y-4">
-                      {products.filter(p => p.stock < 10).slice(0, 4).map((item) => (
-                        <div key={item.id} className="flex items-center justify-between bg-neutral-950/50 p-4 rounded-2xl border border-white/5">
+                      {products.filter(p => p.stock < 10).slice(0, 4).map((item, idx) => (
+                        <div key={`low-stock-${item.id}-${idx}`} className="flex items-center justify-between bg-neutral-950/50 p-4 rounded-2xl border border-white/5">
                           <div className="flex items-center gap-3">
                              <div className="w-10 h-10 rounded-xl bg-neutral-800 overflow-hidden">
                                 {item.imageUrl ? <img src={item.imageUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : <Package className="w-full h-full p-2.5 opacity-10" />}
@@ -1353,8 +1353,8 @@ export default function VendorDashboard() {
                       <Button variant="ghost" size="sm" className="text-[10px] font-black uppercase text-orange-600" onClick={() => setActiveTab('orders')}>View KDS</Button>
                     </div>
                     <div className="space-y-6">
-                      {orders.filter(o => o.status !== 'completed' && o.status !== 'cancelled').slice(0, 5).map((order) => (
-                        <div key={order.id} className="flex items-center justify-between group">
+                      {orders.filter(o => o.status !== 'completed' && o.status !== 'cancelled').slice(0, 5).map((order, index) => (
+                        <div key={`live-order-${order.id}-${index}`} className="flex items-center justify-between group">
                           <div className="flex items-center gap-4">
                              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
                                order.status === 'pending' ? 'bg-yellow-500/10 text-yellow-500' : 
@@ -1389,8 +1389,8 @@ export default function VendorDashboard() {
                   <Card className="bg-neutral-900/40 border-neutral-800 p-8">
                     <h3 className="text-xl font-black uppercase tracking-tight italic mb-6">Recent Sales</h3>
                     <div className="space-y-6">
-                      {orders.slice(0, 5).map((order) => (
-                        <div key={order.id} className="flex items-center justify-between group">
+                      {orders.slice(0, 5).map((order, index) => (
+                        <div key={`recent-sale-${order.id}-${index}`} className="flex items-center justify-between group">
                           <div className="flex items-center gap-4">
                              <div className="w-12 h-12 rounded-2xl bg-neutral-800 flex items-center justify-center text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-all">
                                 <Receipt className="w-6 h-6" />
@@ -1536,9 +1536,9 @@ export default function VendorDashboard() {
                           { id: 'dine_in', label: 'Dine-In', icon: Beer },
                           { id: 'takeaway', label: 'Takeaway', icon: ShoppingBag },
                           { id: 'delivery', label: 'Delivery', icon: Truck },
-                        ].map(type => (
+                        ].map((type, idx) => (
                           <button
-                            key={type.id}
+                            key={`ot-${type.id}-${idx}`}
                             onClick={() => setOrderType(type.id as any)}
                             className={`flex flex-col items-center justify-center gap-2 py-3 rounded-xl transition-all ${
                               orderType === type.id 
@@ -2296,7 +2296,7 @@ export default function VendorDashboard() {
                          <SelectValue placeholder="All Categories" />
                       </SelectTrigger>
                       <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
-                         {categories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                         {categories.map((c, idx) => <SelectItem key={`inventory-cat-${c}-${idx}`} value={c}>{c}</SelectItem>)}
                       </SelectContent>
                    </Select>
                    <Select value={stockLevelFilter} onValueChange={setStockLevelFilter}>
@@ -2425,7 +2425,7 @@ export default function VendorDashboard() {
                     <AnimatePresence mode="popLayout">
                       {newProduct.imageUrls?.map((url, idx) => url && (
                         <motion.div 
-                          key={url}
+                          key={`np-img-${idx}-${url.slice(-20)}`}
                           layout
                           initial={{ opacity: 0, scale: 0.8 }}
                           animate={{ opacity: 1, scale: 1 }}
