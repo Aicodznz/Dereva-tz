@@ -26,6 +26,8 @@ export interface VendorProfile {
   deliveryRadius: number;
   status: VendorStatus;
   logoUrl?: string;
+  bannerUrl?: string;
+  phoneNumber?: string;
   operatingHours: string;
   rating: number;
   createdAt: any;
@@ -57,8 +59,15 @@ export interface Order {
   riderId?: string;
   items: any[];
   totalAmount: number;
+  subtotal?: number;
+  taxAmount?: number;
   status: OrderStatus;
   type: VendorCategory;
+  orderSource?: 'online' | 'pos';
+  orderType?: 'dine_in' | 'takeaway' | 'delivery';
+  tableNumber?: string | null;
+  customerName?: string;
+  customerPhone?: string;
   prescriptionUrl?: string;
   deliveryAddress: string;
   paymentMethod?: string;
@@ -73,4 +82,26 @@ export interface RiderProfile {
   status: 'available' | 'busy' | 'offline';
   currentPosition?: { lat: number; lng: number };
   rating: number;
+}
+
+export interface DiningTable {
+  id: string;
+  vendorId: string;
+  number: string;
+  capacity: number;
+  status: 'available' | 'occupied' | 'reserved' | 'cleaning';
+  qrCodeUrl?: string;
+}
+
+export interface Coupon {
+  id: string;
+  vendorId: string;
+  code: string;
+  discountType: 'percentage' | 'fixed';
+  discountValue: number;
+  minOrderAmount?: number;
+  expiryDate: any;
+  status: 'active' | 'expired' | 'disabled';
+  usageLimit?: number;
+  usageCount: number;
 }

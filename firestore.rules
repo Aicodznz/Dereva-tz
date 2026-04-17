@@ -108,10 +108,18 @@ service cloud.firestore {
         request.auth.uid == resource.data.customerId || 
         request.auth.uid == resource.data.riderId || 
         isAdmin() ||
+        resource.data.status == 'ready_for_pickup' ||
         (resource.data.vendorId != null && isVendorOwner(resource.data.vendorId))
       );
       allow create: if isAuthenticated();
       allow update: if isAuthenticated();
+    }
+
+    match /tables/{tableId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && (isAdmin() || (request.resource.data.vendorId != null && isVendorOwner(request.resource.data.vendorId)));
+      allow update: if isAuthenticated() && (isAdmin() || (resource.data.vendorId != null && isVendorOwner(resource.data.vendorId)));
+      allow delete: if isAuthenticated() && (isAdmin() || (resource.data.vendorId != null && isVendorOwner(resource.data.vendorId)));
     }
 
     match /riders/{riderId} {

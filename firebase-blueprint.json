@@ -181,6 +181,20 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["code", "discountType", "discountValue", "active"]
+    },
+    "Table": {
+      "title": "Table",
+      "description": "Dine-in tables at a restaurant",
+      "type": "object",
+      "properties": {
+        "vendorId": { "type": "string" },
+        "number": { "type": "string" },
+        "capacity": { "type": "number" },
+        "status": { "type": "string", "enum": ["available", "occupied", "reserved"] },
+        "qrCode": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["vendorId", "number", "capacity"]
     }
   },
   "firestore": {
@@ -194,6 +208,7 @@
     "/notifications/{notificationId}": { "schema": "Notification", "description": "User notifications" },
     "/reviews/{reviewId}": { "schema": "Review", "description": "User reviews" },
     "/reviews/{reviewId}/replies/{replyId}": { "schema": "Reply", "description": "Replies to a review" },
-    "/coupons/{couponId}": { "schema": "Coupon", "description": "Discount coupons" }
+    "/coupons/{couponId}": { "schema": "Coupon", "description": "Discount coupons" },
+    "/tables/{tableId}": { "schema": "Table", "description": "Dine-in tables" }
   }
 }

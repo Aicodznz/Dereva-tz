@@ -117,15 +117,6 @@ export default function ProductDetail() {
     const qReviews = query(collection(db, 'reviews'), where('targetId', '==', id), where('targetType', '==', 'product'), orderBy('createdAt', 'desc'));
     const unsubReviews = onSnapshot(qReviews, (snapshot) => {
       const reviewData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Review));
-      
-      reviewData.forEach(review => {
-        const qReplies = query(collection(db, 'reviews', review.id, 'replies'), orderBy('createdAt', 'asc'));
-        onSnapshot(qReplies, (replySnap) => {
-          const replies = replySnap.docs.map(d => ({ id: d.id, ...d.data() } as ReviewReply));
-          setReviews(prev => prev.map(r => r.id === review.id ? { ...r, replies } : r));
-        });
-      });
-
       setReviews(reviewData);
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'reviews');
@@ -133,6 +124,24 @@ export default function ProductDetail() {
 
     return () => unsubReviews();
   }, [id]);
+
+  // Separate effect for fetching replies when reviews change
+  useEffect(() => {
+    if (reviews.length === 0) return;
+
+    const unsubscribes: (() => void)[] = [];
+
+    reviews.forEach(review => {
+      const qReplies = query(collection(db, 'reviews', review.id, 'replies'), orderBy('createdAt', 'asc'));
+      const unsub = onSnapshot(qReplies, (replySnap) => {
+        const replies = replySnap.docs.map(d => ({ id: d.id, ...d.data() } as ReviewReply));
+        setReviews(prev => prev.map(r => r.id === review.id ? { ...r, replies } : r));
+      });
+      unsubscribes.push(unsub);
+    });
+
+    return () => unsubscribes.forEach(unsub => unsub());
+  }, [reviews.map(r => r.id).join(',')]);
 
   const handleFileUpload = async (files: FileList) => {
     if (!files || files.length === 0) return;
