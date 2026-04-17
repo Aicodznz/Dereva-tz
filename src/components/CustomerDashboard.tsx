@@ -13,18 +13,8 @@ import { motion } from 'motion/react';
 import { useAuth } from '../AuthContext';
 import LocationPicker from './LocationPicker';
 
-const services = [
-  { id: 'chakula', label: 'Chakula', icon: Utensils, color: 'bg-red-500', sub: 'Food Delivery 🍔' },
-  { id: 'sokoni', label: 'Sokoni', icon: ShoppingCart, color: 'bg-green-500', sub: 'Grocery 🛒' },
-  { id: 'teksi', label: 'Teksi', icon: Car, color: 'bg-yellow-500', sub: 'Taxi 🚕' },
-  { id: 'vifurushi', label: 'Vifurushi', icon: Package, color: 'bg-orange-500', sub: 'Parcel 📦' },
-  { id: 'dawa', label: 'Duka la Dawa', icon: Pill, color: 'bg-blue-500', sub: 'Pharmacy 💊' },
-  { id: 'maduka', label: 'Maduka', icon: ShoppingBag, color: 'bg-purple-500', sub: 'eCommerce 🛍️' },
-  { id: 'saluni', label: 'Saluni', icon: Scissors, color: 'bg-pink-500', sub: 'Salons 💇‍♀️' },
-  { id: 'hoteli', label: 'Hoteli', icon: Hotel, color: 'bg-indigo-500', sub: 'Hotels 🏨' },
-];
-
 import { useLanguage } from '../LanguageContext';
+import HowToOrder from './HowToOrder';
 
 export default function CustomerDashboard() {
   const { profile, user } = useAuth();
@@ -281,6 +271,11 @@ export default function CustomerDashboard() {
             </div>
           )}
         </div>
+      </section>
+
+      {/* 7. How To Order Infographic */}
+      <section className="pt-12">
+        <HowToOrder />
       </section>
     </div>
   );
