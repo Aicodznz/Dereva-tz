@@ -58,7 +58,8 @@ import {
   Tag,
   Edit2,
   Box,
-  Check
+  Check,
+  Link as LinkIcon
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
@@ -206,7 +207,7 @@ export default function VendorDashboard() {
   const downloadQr = () => {
     if (qrCodeInstance) {
       qrCodeInstance.download({
-        name: `Table-${selectedTable?.number || 'QR'}`,
+        name: 'Table Stand QR Code',
         extension: 'png'
       });
     }
@@ -226,6 +227,8 @@ export default function VendorDashboard() {
   const handlePrint = () => {
     window.print();
   };
+
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const tabs = [
     { id: 'overview', label: t('overview') || 'Overview', icon: LayoutDashboard },
@@ -962,8 +965,8 @@ export default function VendorDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-800">
-                {orders.map((order) => (
-                  <tr key={order.id} className="hover:bg-neutral-800/30 transition-colors group">
+                {orders.map((order, index) => (
+                  <tr key={`${order.id}-${index}`} className="hover:bg-neutral-800/30 transition-colors group">
                     <td className="px-8 py-6">
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-2xl bg-neutral-800 flex items-center justify-center text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-all">
@@ -1017,10 +1020,31 @@ export default function VendorDashboard() {
   );
 
   return (
-    <div className="flex flex-col lg:flex-row min-h-[calc(100vh-12rem)] -mx-4 sm:-mx-6 lg:-mx-8 -my-8 bg-neutral-950 text-white overflow-hidden rounded-3xl border border-neutral-800 shadow-2xl">
-      {/* Sidebar */}
-      <aside className="w-full lg:w-64 bg-neutral-900/50 border-r border-neutral-800 p-6 flex flex-col gap-8">
-        <div className="flex items-center gap-3 px-2">
+    <div className="flex flex-col lg:flex-row min-h-[calc(100vh-12rem)] -mx-4 sm:-mx-6 lg:-mx-8 -my-8 bg-neutral-950 text-white overflow-hidden rounded-3xl border border-neutral-800 shadow-2xl relative">
+      {/* Mobile Menu Toggle */}
+      <div className="lg:hidden flex items-center justify-between p-4 bg-neutral-900 border-b border-neutral-800 sticky top-0 z-50">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center shadow-lg">
+            <Store className="w-5 h-5 text-white" />
+          </div>
+          <h2 className="font-bold text-xs truncate max-w-[150px]">{vendorProfile?.businessName}</h2>
+        </div>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="text-neutral-400"
+        >
+          {isMobileMenuOpen ? <X className="w-6 h-6" /> : <MoreVertical className="w-6 h-6" />}
+        </Button>
+      </div>
+
+      {/* Sidebar - Desktop and Mobile Overlay */}
+      <aside className={`
+        ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        fixed lg:relative inset-y-0 left-0 w-64 bg-neutral-900 border-r border-neutral-800 p-6 flex flex-col gap-8 z-40 transition-transform duration-300 lg:z-auto
+      `}>
+        <div className="hidden lg:flex items-center gap-3 px-2">
           <div className="w-10 h-10 bg-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-orange-900/20">
             <Store className="w-6 h-6 text-white" />
           </div>
@@ -1030,11 +1054,14 @@ export default function VendorDashboard() {
           </div>
         </div>
 
-        <nav className="flex flex-col gap-1">
+        <nav className="flex flex-col gap-1 overflow-y-auto no-scrollbar">
           {tabs.map((item) => (
             <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id as TabType)}
+              key={`tab-nav-${item.id}`}
+              onClick={() => {
+                setActiveTab(item.id as TabType);
+                setIsMobileMenuOpen(false);
+              }}
               className={`flex items-center justify-between px-4 py-3 rounded-xl transition-all group ${
                 activeTab === item.id 
                   ? 'bg-orange-600 text-white shadow-lg shadow-orange-900/20' 
@@ -1064,11 +1091,19 @@ export default function VendorDashboard() {
         </div>
       </aside>
 
+      {/* Mobile Overlay Background */}
+      {isMobileMenuOpen && (
+        <div 
+          className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-30"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
       {/* Main Content */}
-      <main className="flex-1 flex flex-col overflow-hidden">
-        {/* Top Bar */}
-        <header className="h-20 border-b border-neutral-800 px-8 flex items-center justify-between bg-neutral-900/20 backdrop-blur-xl sticky top-0 z-10">
-          <div className="flex items-center gap-4 flex-1 max-w-md">
+      <main className="flex-1 flex flex-col overflow-x-hidden overflow-y-auto w-full">
+        {/* Top Bar - Only on Desktop typically, but we adjust for mobile */}
+        <header className="h-20 border-b border-neutral-800 px-4 md:px-8 flex items-center justify-between bg-neutral-900/20 backdrop-blur-xl sticky top-0 z-10 w-full">
+          <div className="hidden sm:flex items-center gap-4 flex-1 max-w-md">
             <div className="relative w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
               <input 
@@ -1248,17 +1283,17 @@ export default function VendorDashboard() {
                             paddingAngle={5}
                             dataKey="value"
                           >
-                            {Array.from(new Set(products.map(p => p.category))).map((cat, index) => (
-                              <Cell key={`insight-cell-${cat}-${index}`} fill={['#ea580c', '#f97316', '#fb923c', '#fdba74'][index % 4]} />
-                            ))}
+                          {Array.from(new Set(products.map(p => p.category).filter(Boolean))).map((cat, index) => (
+                            <Cell key={`insight-cell-${cat || 'uncategorized'}-${index}`} fill={['#ea580c', '#f97316', '#fb923c', '#fdba74'][index % 4]} />
+                          ))}
                           </Pie>
                           <Tooltip contentStyle={{ backgroundColor: '#0a0a0a', borderRadius: '12px' }} />
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
                     <div className="space-y-2 mt-4">
-                      {Array.from(new Set(products.map(p => p.category))).slice(0, 4).map((cat, i) => (
-                        <div key={cat} className="flex items-center justify-between">
+                      {Array.from(new Set(products.map(p => p.category).filter(Boolean))).slice(0, 4).map((cat, i) => (
+                        <div key={`insight-legend-${cat}-${i}`} className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <div className="w-2 h-2 rounded-full" style={{ backgroundColor: ['#ea580c', '#f97316', '#fb923c', '#fdba74'][i % 4] }}></div>
                             <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">{cat}</span>
@@ -1421,9 +1456,9 @@ export default function VendorDashboard() {
 
                   {/* Category Selection Carousel */}
                   <div className="flex gap-3 pb-4 overflow-x-auto no-scrollbar">
-                    {categories.map((cat) => (
+                    {categories.map((cat, idx) => (
                       <Button
-                        key={cat}
+                        key={`pos-cat-${cat}-${idx}`}
                         variant={selectedCategory === cat ? 'default' : 'ghost'}
                         onClick={() => setSelectedCategory(cat)}
                         className={`rounded-2xl px-6 h-12 border border-neutral-800 whitespace-nowrap font-black text-[10px] uppercase tracking-widest transition-all ${
@@ -1438,11 +1473,11 @@ export default function VendorDashboard() {
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {filteredProducts.map((product) => (
+                    {filteredProducts.map((product, pIdx) => (
                       <motion.button 
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
-                        key={product.id}
+                        key={product.id || `pos-p-${pIdx}`}
                         onClick={() => addToCart(product)}
                         className="bg-neutral-900/40 border border-neutral-800 p-4 rounded-[2.5rem] hover:border-orange-600/50 transition-all text-left flex flex-col group relative overflow-hidden h-full"
                       >
@@ -1529,8 +1564,8 @@ export default function VendorDashboard() {
                                 <SelectValue placeholder="Chagua Meza..." />
                               </SelectTrigger>
                               <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
-                                {tables.map(t => (
-                                  <SelectItem key={t.id} value={t.number} disabled={t.status !== 'available'}>
+                                {tables.map((t, index) => (
+                                  <SelectItem key={`${t.id}-${index}`} value={t.number} disabled={t.status !== 'available'}>
                                     Table {t.number} ({t.capacity} seats) - {t.status}
                                   </SelectItem>
                                 ))}
@@ -1543,8 +1578,8 @@ export default function VendorDashboard() {
                   </div>
 
                   <div className="flex-1 overflow-y-auto p-8 space-y-6 no-scrollbar min-h-[200px]">
-                    {cart.map((item) => (
-                      <div key={item.product.id} className="flex justify-between items-center group animate-in slide-in-from-right-4 duration-300">
+                    {cart.map((item, cartIdx) => (
+                      <div key={item.product.id || `cart-i-${cartIdx}`} className="flex justify-between items-center group animate-in slide-in-from-right-4 duration-300">
                         <div className="flex gap-4">
                           <div className="w-14 h-14 rounded-2xl bg-neutral-900 border border-neutral-800 overflow-hidden relative">
                              {item.product.imageUrl ? (
@@ -1779,9 +1814,9 @@ export default function VendorDashboard() {
                 )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {coupons.map((coupon) => (
+                  {coupons.map((coupon, index) => (
                     <motion.div 
-                      key={coupon.id}
+                      key={`${coupon.id}-${index}`}
                       whileHover={{ scale: 1.02 }}
                       className="bg-neutral-900/40 border border-neutral-800 rounded-[2.5rem] p-8 relative group overflow-hidden"
                     >
@@ -1860,9 +1895,9 @@ export default function VendorDashboard() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {tables.map((table) => (
+                  {tables.map((table, index) => (
                     <motion.div 
-                      key={table.id}
+                      key={`${table.id}-${index}`}
                       whileHover={{ y: -5 }}
                       className="bg-neutral-900/40 border border-neutral-800 rounded-[2.5rem] p-6 relative overflow-hidden group"
                     >
@@ -1894,10 +1929,14 @@ export default function VendorDashboard() {
                            variant="ghost" 
                            className="text-[10px] font-black text-orange-500 uppercase tracking-widest hover:text-orange-400"
                            onClick={() => {
+                             if (!vendorProfile?.id) {
+                               toast.error("Taarifa za duka bado hazijapakuliwa. Tafadhali subiri.");
+                               return;
+                             }
                              setSelectedTable(table);
                              setQrOptions(prev => ({
                                ...prev,
-                               data: `${window.location.origin}/vendor/${vendorProfile?.id}?table=${table.number}`
+                               data: `${window.location.origin}/vendor/${vendorProfile.id}?table=${table.number}`
                              }));
                              setIsQrBuilderOpen(true);
                            }}
@@ -1983,14 +2022,14 @@ export default function VendorDashboard() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-neutral-800/50">
-                          {Array.from(new Set(orders.map(o => o.customerPhone || o.customerId))).filter(id => id).map((cId) => {
+                          {Array.from(new Set(orders.map(o => o.customerPhone || o.customerId))).filter(id => id).map((cId, index) => {
                              const customerOrders = orders.filter(o => (o.customerPhone || o.customerId) === cId);
                              const name = customerOrders[0]?.customerName || `Loyal Guest ${cId?.toString().slice(-4)}`;
                              const phone = customerOrders[0]?.customerPhone || 'PRIVATE';
                              const totalSpent = customerOrders.reduce((sum, o) => sum + o.totalAmount, 0);
 
                              return (
-                               <tr key={`crm-row-${cId}-${totalSpent}`} className="hover:bg-neutral-800/20 transition-all group">
+                               <tr key={`crm-row-${cId}-${totalSpent}-${index}`} className="hover:bg-neutral-800/20 transition-all group">
                                   <td className="px-8 py-6">
                                      <div className="flex items-center gap-4">
                                         <div className="w-12 h-12 rounded-2xl bg-orange-600/10 flex items-center justify-center border border-orange-600/20">
@@ -2284,8 +2323,8 @@ export default function VendorDashboard() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-neutral-800/50">
-                      {filteredInventory.map((product) => (
-                        <tr key={product.id} className="hover:bg-neutral-800/20 transition-all group">
+                      {filteredInventory.map((product, index) => (
+                        <tr key={`${product.id}-${index}`} className="hover:bg-neutral-800/20 transition-all group">
                           <td className="px-8 py-6">
                             <div className="flex items-center gap-4">
                               <div className="w-16 h-16 rounded-[1.5rem] bg-neutral-900 overflow-hidden relative border border-neutral-800 group-hover:border-orange-600/50 transition-all">
@@ -2921,8 +2960,12 @@ export default function VendorDashboard() {
             >
               <div className="p-8 border-b border-white/5 flex items-center justify-between shrink-0 bg-black/20">
                 <div>
-                  <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter">Qr Builder</h3>
-                  <p className="text-xs text-neutral-500 font-bold uppercase tracking-widest">Customize your digital experience</p>
+                  <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter">
+                    Qr Builder {selectedTable && <span className="text-orange-600">— Table {selectedTable.number}</span>}
+                  </h3>
+                  <p className="text-xs text-neutral-500 font-bold uppercase tracking-widest">
+                    {selectedTable ? `Design for ${selectedTable.number}` : 'Customize your digital experience'}
+                  </p>
                 </div>
                 <button 
                   onClick={() => setIsQrBuilderOpen(false)} 
@@ -2936,6 +2979,15 @@ export default function VendorDashboard() {
                 {/* Options Panel */}
                 <div className="flex-1 overflow-y-auto p-8 space-y-10 custom-scrollbar border-r border-white/5 bg-black/40">
                   
+                  {/* QR Data Preview */}
+                  <div className="space-y-4">
+                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] px-1">Target URL / Link ya Menu</label>
+                    <div className="bg-neutral-900 border border-white/5 rounded-2xl p-4 flex items-center gap-3">
+                       <LinkIcon className="w-4 h-4 text-orange-600 shrink-0" />
+                       <p className="text-[10px] font-mono text-neutral-400 break-all">{qrOptions.data || 'Hakuna Link...'}</p>
+                    </div>
+                  </div>
+
                   {/* QR Block Style */}
                   <div className="space-y-4">
                     <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] px-1">Qr Block Style / Aina ya Michoro</label>
@@ -3156,6 +3208,11 @@ export default function VendorDashboard() {
                         <div className="absolute bottom-0 right-0 w-24 h-24 border-b-4 border-r-4 border-orange-600/20 rounded-br-3xl m-4"></div>
                         
                         <div className="w-full text-center space-y-2 mb-8 relative z-10">
+                          {vendorProfile?.logoUrl && (
+                            <div className="w-12 h-12 mx-auto mb-4 rounded-xl shadow-lg border-2 border-orange-600/10 overflow-hidden">
+                              <img src={vendorProfile.logoUrl} alt="Logo" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                            </div>
+                          )}
                           <h2 className="text-2xl font-black uppercase tracking-tight text-[#8B4513] leading-tight">{printDetails.header}</h2>
                           <div className="flex items-center justify-center gap-3">
                             <div className="h-px flex-1 bg-orange-600/20"></div>

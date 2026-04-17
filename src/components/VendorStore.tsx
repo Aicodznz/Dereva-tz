@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { collection, query, where, onSnapshot, doc, getDoc, addDoc, serverTimestamp, updateDoc, arrayUnion, arrayRemove, deleteDoc, orderBy } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType, storage, auth } from '../firebase';
 import { VendorProfile, Product } from '../types';
@@ -42,6 +42,8 @@ interface Review {
 export default function VendorStore() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const tableNumber = searchParams.get('table');
   const [vendor, setVendor] = useState<VendorProfile | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -281,6 +283,12 @@ export default function VendorStore() {
                     <Badge className="bg-orange-100 text-orange-600 border-none px-3 py-1 text-xs font-bold uppercase">
                       {vendor.category}
                     </Badge>
+                    {tableNumber && (
+                      <Badge className="bg-green-600 text-white border-none px-3 py-1 text-xs font-black uppercase flex items-center gap-1.5 animate-pulse">
+                        <div className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_8px_white]" />
+                        Meza Namba: {tableNumber}
+                      </Badge>
+                    )}
                   </div>
                   <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-sm text-neutral-500 font-medium">
                     <div className="flex items-center gap-1.5">

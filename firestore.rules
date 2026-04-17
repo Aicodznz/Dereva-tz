@@ -113,6 +113,7 @@ service cloud.firestore {
       );
       allow create: if isAuthenticated();
       allow update: if isAuthenticated();
+      allow delete: if isAuthenticated() && (isAdmin() || (resource.data.vendorId != null && isVendorOwner(resource.data.vendorId)));
     }
 
     match /tables/{tableId} {
