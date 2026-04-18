@@ -32,6 +32,35 @@ export default function CustomerDashboard() {
     lng: 39.2083
   });
 
+  // Automatic Location Prompt
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          const { latitude, longitude } = pos.coords;
+          try {
+            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`);
+            const data = await response.json();
+            if (data && data.display_name) {
+              setLocation({
+                address: data.display_name,
+                lat: latitude,
+                lng: longitude
+              });
+            } else {
+              setLocation(prev => ({ ...prev, lat: latitude, lng: longitude }));
+            }
+          } catch (err) {
+            console.error('Auto reverse geocoding failed:', err);
+            setLocation(prev => ({ ...prev, lat: latitude, lng: longitude }));
+          }
+        },
+        (err) => console.log('Location access denied or unavailable:', err),
+        { timeout: 10000 }
+      );
+    }
+  }, []);
+
   const services = [
     { id: 'chakula', label: t('food') || 'Chakula', icon: Utensils, color: 'bg-red-500', sub: 'Food Delivery 🍔' },
     { id: 'sokoni', label: t('grocery') || 'Sokoni', icon: ShoppingCart, color: 'bg-green-500', sub: 'Grocery 🛒' },

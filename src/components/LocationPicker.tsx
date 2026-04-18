@@ -147,126 +147,131 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
           initial={{ y: '100%' }}
           animate={{ y: 0 }}
           exit={{ y: '100%' }}
-          className="bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-[2.5rem] overflow-hidden flex flex-col h-[90vh] sm:h-auto sm:max-h-[85vh] shadow-2xl"
+          className="bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-[2.5rem] overflow-hidden flex flex-col h-[95vh] sm:h-auto sm:max-h-[90vh] shadow-2xl"
         >
           {/* Header */}
-          <div className="p-6 border-b border-neutral-100 flex items-center justify-between bg-white sticky top-0 z-10">
+          <div className="p-5 border-b border-neutral-100 flex items-center justify-between bg-white shrink-0">
             <div>
               <h2 className="text-xl font-bold text-neutral-900">Chagua Mahali</h2>
-              <p className="text-xs text-neutral-500">Select your delivery location</p>
+              <p className="text-[10px] text-neutral-500 uppercase tracking-widest font-bold">Select delivery location</p>
             </div>
-            <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full">
+            <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full hover:bg-neutral-100">
               <X className="w-6 h-6" />
             </Button>
           </div>
 
-          {/* Search & Input */}
-          <div className="p-4 space-y-3 bg-white">
-            <div className="relative">
-              <Search className="absolute left-3 top-3 w-5 h-5 text-neutral-400" />
-              <Input 
-                placeholder="Andika anwani au jina la sehemu..." 
-                className="pl-10 h-12 bg-neutral-50 border-none rounded-xl pr-12"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch(address)}
-              />
-              {isSearching && (
-                <div className="absolute right-3 top-3">
-                  <Loader2 className="w-5 h-5 animate-spin text-orange-600" />
-                </div>
+          <div className="flex-1 overflow-y-auto no-scrollbar flex flex-col">
+            {/* Search & Input */}
+            <div className="p-4 space-y-3 bg-white sticky top-0 z-20">
+              <div className="relative group">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 group-focus-within:text-orange-600 transition-colors" />
+                <Input 
+                  placeholder="Andika anwani au jina la sehemu..." 
+                  className="pl-12 h-14 bg-neutral-50 border-none rounded-2xl pr-12 text-base font-medium focus:ring-2 focus:ring-orange-500"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearch(address)}
+                />
+                {isSearching && (
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                    <Loader2 className="w-5 h-5 animate-spin text-orange-600" />
+                  </div>
+                )}
+              </div>
+              
+              {error && (
+                <motion.div 
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-4 bg-red-50 text-red-600 text-xs font-bold rounded-2xl border border-red-100 flex items-center gap-3"
+                >
+                  <X className="w-4 h-4 shrink-0 bg-red-100 p-0.5 rounded-full" onClick={() => setError(null)} />
+                  {error}
+                </motion.div>
               )}
-            </div>
-            
-            {error && (
-              <motion.div 
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="p-3 bg-red-50 text-red-600 text-xs rounded-xl border border-red-100 flex items-center gap-2"
+
+              <Button 
+                variant="outline" 
+                className="w-full h-14 rounded-2xl border-neutral-200 gap-3 text-neutral-600 font-bold hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200 transition-all text-sm uppercase tracking-tighter italic"
+                onClick={handleGetCurrentLocation}
+                disabled={isLocating}
               >
-                <X className="w-4 h-4 shrink-0" onClick={() => setError(null)} />
-                {error}
-              </motion.div>
-            )}
-
-            <Button 
-              variant="outline" 
-              className="w-full h-12 rounded-xl border-neutral-200 gap-2 text-neutral-600 hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200 transition-all"
-              onClick={handleGetCurrentLocation}
-              disabled={isLocating}
-            >
-              {isLocating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Navigation className="w-5 h-5 text-orange-600" />}
-              Tumia Mahali Nilipo Sasa
-            </Button>
-          </div>
-
-          {/* Map Area */}
-          <div className="flex-1 relative min-h-[300px] bg-neutral-100">
-            <MapContainer 
-              center={position} 
-              zoom={13} 
-              style={{ height: '100%', width: '100%' }}
-              zoomControl={false}
-            >
-              <TileLayer
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              />
-              <LocationMarker 
-                position={position} 
-                setPosition={setPosition} 
-                onPositionChange={(pos) => reverseGeocode(pos.lat, pos.lng)} 
-              />
-            </MapContainer>
-            
-            {/* Center Pin Overlay (Optional, but Marker is better for clarity) */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-full pointer-events-none z-[1000] mb-5">
-               <MapPin className="w-10 h-10 text-orange-600 drop-shadow-lg animate-bounce" />
+                {isLocating ? <Loader2 className="w-5 h-5 animate-spin text-orange-600" /> : <Navigation className="w-5 h-5 text-orange-600 animate-pulse" />}
+                Tumia Mahali Nilipo Sasa
+              </Button>
             </div>
-          </div>
 
-          {/* Footer */}
-          <div className="p-6 bg-white border-t border-neutral-100">
-            <div className="flex items-start gap-3 mb-4 p-3 bg-orange-50 rounded-2xl">
-              <MapPin className="w-5 h-5 text-orange-600 mt-0.5" />
-              <div className="flex-1">
-                <p className="text-[10px] font-bold text-orange-600 uppercase tracking-wider">Anwani Iliyochaguliwa</p>
-                <p className="text-sm font-medium text-neutral-900 line-clamp-2">
-                  {address || `Lat: ${position.lat.toFixed(4)}, Lng: ${position.lng.toFixed(4)}`}
-                </p>
+            {/* Map Area */}
+            <div className="relative h-[300px] shrink-0 bg-neutral-100 mx-4 rounded-3xl overflow-hidden border-2 border-neutral-50">
+              <MapContainer 
+                center={position} 
+                zoom={13} 
+                style={{ height: '100%', width: '100%' }}
+                zoomControl={false}
+              >
+                <TileLayer
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                />
+                <LocationMarker 
+                  position={position} 
+                  setPosition={setPosition} 
+                  onPositionChange={(pos) => reverseGeocode(pos.lat, pos.lng)} 
+                />
+              </MapContainer>
+              
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-full pointer-events-none z-[1000] mb-5">
+                 <MapPin className="w-10 h-10 text-orange-600 drop-shadow-lg animate-bounce" />
               </div>
             </div>
 
-            {/* Save As Labels */}
-            <div className="mb-6">
-              <p className="text-xs font-bold text-neutral-500 mb-3 uppercase tracking-wider">Hifadhi kama:</p>
-              <div className="flex gap-3">
-                {[
-                  { id: 'Home', icon: '🏠', label: 'Nyumbani' },
-                  { id: 'Work', icon: '💼', label: 'Ofisini' },
-                  { id: 'Other', icon: '📍', label: 'Ingine' }
-                ].map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => setLabel(item.id as any)}
-                    className={`flex-1 flex flex-col items-center gap-1 p-3 rounded-2xl border-2 transition-all ${
-                      label === item.id 
-                        ? 'border-orange-600 bg-orange-50 text-orange-600' 
-                        : 'border-neutral-100 bg-neutral-50 text-neutral-500 hover:border-neutral-200'
-                    }`}
-                  >
-                    <span className="text-xl">{item.icon}</span>
-                    <span className="text-[10px] font-bold uppercase">{item.label}</span>
-                  </button>
-                ))}
+            <div className="p-4 space-y-6">
+              <div className="flex items-start gap-4 p-4 bg-neutral-50 rounded-3xl border border-neutral-100 group hover:border-orange-100 transition-colors">
+                <div className="w-10 h-10 rounded-2xl bg-orange-100 flex items-center justify-center shrink-0">
+                  <MapPin className="w-6 h-6 text-orange-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-[10px] font-black text-orange-600 uppercase tracking-widest italic">Anwani Iliyochaguliwa</p>
+                  <p className="text-sm font-bold text-neutral-900 mt-1">
+                    {address || `Lat: ${position.lat.toFixed(4)}, Lng: ${position.lng.toFixed(4)}`}
+                  </p>
+                </div>
+              </div>
+
+              {/* Save As Labels */}
+              <div className="space-y-3">
+                <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest px-1">Hifadhi kama:</p>
+                <div className="flex gap-3">
+                  {[
+                    { id: 'Home', icon: '🏠', label: 'Nyumbani' },
+                    { id: 'Work', icon: '💼', label: 'Ofisini' },
+                    { id: 'Other', icon: '📍', label: 'Ingine' }
+                  ].map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => setLabel(item.id as any)}
+                      className={`flex-1 flex flex-col items-center gap-1.5 p-4 rounded-3xl border-2 transition-all ${
+                        label === item.id 
+                          ? 'border-orange-600 bg-orange-50 text-orange-600 shadow-lg shadow-orange-100 scale-105 z-10' 
+                          : 'border-neutral-50 bg-neutral-50 text-neutral-500 hover:border-neutral-200'
+                      }`}
+                    >
+                      <span className="text-2xl">{item.icon}</span>
+                      <span className="text-[9px] font-black uppercase tracking-tighter italic">{item.label}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
+          </div>
 
+          {/* Footer - Sticky at bottom */}
+          <div className="p-6 bg-white border-t border-neutral-100 shrink-0">
             <Button 
-              className="w-full h-14 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl text-lg font-bold shadow-lg shadow-orange-200 gap-2 transition-all transform active:scale-[0.98]"
+              className="w-full h-16 bg-orange-600 hover:bg-neutral-900 text-white rounded-[2rem] text-xl font-black italic uppercase tracking-tighter shadow-2xl shadow-orange-600/30 gap-3 transition-all transform active:scale-[0.96]"
               onClick={handleConfirm}
             >
-              <MapPin className="w-5 h-5" />
+              <MapPin className="w-6 h-6" />
               Hifadhi na Thibitisha
             </Button>
           </div>
