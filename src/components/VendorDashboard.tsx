@@ -3462,113 +3462,137 @@ export default function VendorDashboard() {
         )}
       </AnimatePresence>
 
-      <div id="order-receipt" className="hidden fixed left-0 top-0 w-[80mm] bg-white text-black p-4 font-sans ring-1 ring-neutral-100 shadow-sm">
+      <div id="order-receipt" className="hidden fixed left-0 top-0 w-[80mm] bg-white text-black p-6 font-sans">
         {orderToPrint && (
-          <div className="flex flex-col items-center">
+          <div className="flex flex-col">
             {/* Header / Brand */}
-            <div className="w-full text-center border-b border-dashed border-neutral-200 pb-4 mb-4">
-               <h1 className="text-2xl font-black uppercase tracking-tight text-neutral-900 leading-tight">{vendorProfile?.businessName}</h1>
-               <p className="text-[10px] text-neutral-500 font-bold mt-1 uppercase tracking-widest">{vendorProfile?.category} • Digital Restaurant</p>
-               <div className="mt-2 flex items-center justify-center gap-2 opacity-50">
-                  <div className="w-1 h-1 bg-neutral-300 rounded-full"></div>
-                  <div className="w-1 h-1 bg-neutral-300 rounded-full"></div>
-                  <div className="w-1 h-1 bg-neutral-300 rounded-full"></div>
+            <div className="w-full text-center mb-6">
+               <h1 className="text-2xl font-black text-neutral-900 leading-tight mb-2">
+                 {vendorProfile?.businessName || 'Restaurant App'}
+               </h1>
+               <p className="text-[10px] text-neutral-600 font-bold max-w-[200px] mx-auto leading-relaxed">
+                 {vendorProfile?.address || 'Anuani ya Biashara'}
+               </p>
+               <p className="text-[10px] text-neutral-600 font-bold mt-1">
+                 Tel: {vendorProfile?.phoneNumber || 'Simu'}
+               </p>
+            </div>
+
+            {/* Receipt Divider */}
+            <div className="w-full border-b border-dashed border-neutral-300 mb-4 h-0"></div>
+
+            {/* Order Basics */}
+            <div className="space-y-1 mb-4">
+               <p className="text-[11px] font-bold text-neutral-900">Order #{orderToPrint.id?.slice(-8).toUpperCase()}</p>
+               <div className="flex justify-between items-center text-[10px] font-bold text-neutral-600">
+                  <span>{format(orderToPrint.createdAt?.toDate() || new Date(), 'dd-MM-yyyy')}</span>
+                  <span>{format(orderToPrint.createdAt?.toDate() || new Date(), 'HH:mm A')}</span>
                </div>
             </div>
 
-            {/* Order Info Section */}
-            <div className="w-full space-y-3 mb-6">
-               <div className="flex justify-between items-start">
-                  <div>
-                    <span className="text-[10px] font-black text-neutral-400 uppercase tracking-widest block">Namba ya Oda:</span>
-                    <h2 className="text-xl font-black text-orange-600 tracking-tighter italic">#{orderToPrint.id?.slice(-8).toUpperCase()}</h2>
-                  </div>
-                  <div className="text-right">
-                    <span className="inline-block px-2 py-0.5 bg-green-500 text-white text-[8px] font-black uppercase rounded-md tracking-widest">
-                       {orderToPrint.status === 'completed' ? 'COMPLETED' : orderToPrint.status.toUpperCase()}
-                    </span>
-                    <p className="text-[9px] font-bold text-neutral-500 mt-1">{format(orderToPrint.createdAt?.toDate() || new Date(), 'dd/MM/yyyy, HH:mm:ss')}</p>
-                  </div>
-               </div>
+            {/* Receipt Divider */}
+            <div className="w-full border-b border-dashed border-neutral-300 mb-3 h-0"></div>
+
+            {/* Table Header */}
+            <div className="flex justify-between text-[11px] font-black uppercase tracking-widest text-neutral-900 mb-3 px-1">
+               <span className="w-8">Qty</span>
+               <span className="flex-1 px-4">Item Description</span>
+               <span className="w-20 text-right">Price</span>
             </div>
 
-            {/* Tracking Status indicator (Simplified for print) */}
-            <div className="w-full grid grid-cols-5 gap-0.5 mb-8 opacity-40 grayscale">
-               {['PLACED', 'ACCEPTED', 'PREPARING', 'READY', 'DELIVERED'].map((step, idx) => (
-                 <div key={step} className="flex flex-col items-center gap-1">
-                    <div className={`w-2 h-2 rounded-full ${idx === 4 ? 'bg-orange-600' : 'bg-neutral-300'}`}></div>
-                    <span className="text-[6px] font-black uppercase tracking-tighter text-center">{step}</span>
+            {/* Receipt Divider (Inner) */}
+            <div className="w-full border-b border-neutral-100 mb-3 h-0"></div>
+
+            {/* Items List */}
+            <div className="space-y-4 mb-6">
+               {orderToPrint.items.map((item, idx) => (
+                 <div key={idx} className="flex justify-between items-start text-[11px] font-bold text-neutral-900">
+                    <span className="w-8 shrink-0">{item.quantity}</span>
+                    <div className="flex-1 px-4">
+                       <p className="uppercase leading-tight">{item.name}</p>
+                       <p className="text-[9px] text-neutral-500 font-bold mt-1 uppercase italic">
+                         Size: {item.variation || 'Regular'}
+                         {item.addOns && item.addOns.length > 0 && ` • Extras: ${item.addOns.map((a: any) => a.name).join(', ')}`}
+                       </p>
+                    </div>
+                    <span className="w-20 text-right shrink-0">TZS {(item.price * item.quantity).toLocaleString()}</span>
                  </div>
                ))}
             </div>
 
-            {/* Payment Info area */}
-            <div className="w-full bg-neutral-50 rounded-2xl p-4 mb-8 border border-neutral-100">
-               <div className="grid grid-cols-2 gap-4">
-                  <div>
-                     <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest block mb-1">Njia</span>
-                     <p className="text-[11px] font-black text-neutral-900 uppercase">{orderToPrint.paymentMethod || 'CASH'}</p>
-                  </div>
-                  <div className="text-right">
-                     <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest block mb-1">Hali</span>
-                     <p className="text-[11px] font-black text-green-600 uppercase">PAID</p>
-                  </div>
-               </div>
-            </div>
-
-            {/* Order Items Section */}
-            <div className="w-full space-y-4 mb-8">
-               <h3 className="text-sm font-black text-neutral-900 border-l-4 border-orange-600 pl-3 py-0.5 italic uppercase italic">Maelezo ya Oda</h3>
-               <div className="divide-y divide-neutral-100">
-                 {orderToPrint.items.map((item, idx) => (
-                   <div key={idx} className="flex gap-3 py-3 items-center group">
-                      <div className="relative">
-                         <div className="w-10 h-10 rounded-xl bg-neutral-100 flex items-center justify-center overflow-hidden">
-                            {item.imageUrl ? <img src={item.imageUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : <Store className="w-5 h-5 opacity-20" />}
-                         </div>
-                         <div className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-white border border-neutral-200 shadow-sm flex items-center justify-center text-[8px] font-black">
-                            {item.quantity}
-                         </div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                         <p className="text-[11px] font-black text-neutral-900 leading-tight uppercase truncate">{item.name}</p>
-                         <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest">Size: {item.variation || 'Regular'}</p>
-                      </div>
-                      <div className="text-right">
-                         <p className="text-[11px] font-black text-orange-600 tracking-tighter">TZS {(item.price * item.quantity).toLocaleString()}</p>
-                      </div>
-                   </div>
-                 ))}
-               </div>
-            </div>
-
             {/* Summary Totals Section */}
-            <div className="w-full space-y-3 pt-4 border-t border-dashed border-neutral-200 px-1">
-               <div className="flex justify-between items-center text-[10px] font-bold text-neutral-500 uppercase tracking-widest">
-                  <span>Jumla Ndogo</span>
+            <div className="w-full border-t border-dashed border-neutral-300 pt-4 space-y-2 mb-6">
+               <div className="flex justify-between items-center text-[10px] font-bold text-neutral-600 uppercase tracking-widest">
+                  <span>SUBTOTAL:</span>
                   <span>TZS {orderToPrint.totalAmount.toLocaleString()}</span>
                </div>
-               <div className="flex justify-between items-center text-[10px] font-bold text-neutral-500 uppercase tracking-widest">
-                  <span>Punguzo</span>
-                  <span>TZS 0</span>
+               <div className="flex justify-between items-center text-[10px] font-bold text-neutral-600 uppercase tracking-widest">
+                  <span>TOTAL TAX:</span>
+                  <span>TZS 0.00</span>
                </div>
-               <div className="flex justify-between items-center text-[10px] font-black text-green-600 uppercase tracking-widest">
-                  <span>Gharama ya Usafiri</span>
-                  <span>TZS 0</span>
+               <div className="flex justify-between items-center text-[10px] font-bold text-neutral-600 uppercase tracking-widest">
+                  <span>DISCOUNT:</span>
+                  <span>TZS 0.00</span>
                </div>
-               <div className="flex justify-between items-center pt-4 mt-2 border-t border-neutral-900">
-                  <span className="text-lg font-black italic uppercase italic tracking-tighter text-neutral-900">Jumla</span>
-                  <span className="text-xl font-black text-neutral-900 tracking-tighter italic">TZS {orderToPrint.totalAmount.toLocaleString()}</span>
+               <div className="flex justify-between items-center text-[10px] font-bold text-neutral-600 uppercase tracking-widest leading-relaxed">
+                  <span>DELIVERY CHARGE:</span>
+                  <span>TZS 0.00</span>
+               </div>
+               <div className="flex justify-between items-center pt-3 mt-1 border-t border-neutral-900">
+                  <span className="text-sm font-black uppercase tracking-tighter text-neutral-900">TOTAL:</span>
+                  <span className="text-lg font-black text-neutral-900 tracking-tighter italic">TZS {orderToPrint.totalAmount.toLocaleString()}</span>
                </div>
             </div>
 
-            {/* Support Info */}
-            <div className="w-full mt-10 pt-6 border-t border-neutral-100 text-center">
-               <p className="text-[8px] font-bold text-neutral-400 uppercase tracking-[0.2em] mb-4">ASANTE SANA KWA KUCHAGUA {vendorProfile?.businessName?.toUpperCase()}</p>
-               <div className="flex flex-col items-center gap-1.5 opacity-30 grayscale">
-                  <Store className="w-4 h-4" />
-                  <p className="text-[7px] font-black uppercase tracking-[0.4em] italic leading-none">FoodKing Technology</p>
-                  <p className="text-[6px] font-bold text-neutral-500">www.foodking.tz</p>
+            {/* Receipt Divider */}
+            <div className="w-full border-b border-dashed border-neutral-300 mb-4 h-0"></div>
+
+            {/* Detailed Info Section */}
+            <div className="space-y-3 mb-6 px-1">
+               <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[10px] font-bold text-neutral-600">
+                  <div className="flex flex-col decoration-neutral-200">
+                     <span className="text-neutral-400 uppercase text-[8px] mb-0.5">Payment Type:</span>
+                     <span className="text-neutral-900 uppercase">{orderToPrint.paymentMethod || 'Cash'}</span>
+                  </div>
+                  <div className="flex flex-col text-right">
+                     <span className="text-neutral-400 uppercase text-[8px] mb-0.5">Order Type:</span>
+                     <span className="text-neutral-900 uppercase">{orderToPrint.orderType || 'N/A'}</span>
+                  </div>
+                  <div className="flex flex-col col-span-2">
+                     <span className="text-neutral-400 uppercase text-[8px] mb-0.5">Delivery Time:</span>
+                     <span className="text-neutral-900">19-04-2026 08:30 PM - 09:00 PM</span>
+                  </div>
+               </div>
+            </div>
+
+            {/* Customer Details */}
+            <div className="w-full border-t border-dashed border-neutral-300 pt-4 mb-8 space-y-3 px-1">
+               <div className="flex flex-col">
+                  <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest mb-1">Customer:</span>
+                  <p className="text-[10px] font-bold text-neutral-900 uppercase">{orderToPrint.customerName || 'Walk-in Customer'}</p>
+               </div>
+               {orderToPrint.customerPhone && (
+                 <div className="flex flex-col">
+                    <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest mb-1">Phone:</span>
+                    <p className="text-[10px] font-bold text-neutral-900">{orderToPrint.customerPhone}</p>
+                 </div>
+               )}
+               {orderToPrint.deliveryAddress && (
+                 <div className="flex flex-col">
+                    <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest mb-1">Address:</span>
+                    <p className="text-[10px] font-bold text-neutral-900 leading-relaxed">{orderToPrint.deliveryAddress}</p>
+                 </div>
+               )}
+            </div>
+
+            {/* Receipt Footer */}
+            <div className="w-full border-t border-dashed border-neutral-300 pt-6 text-center">
+               <p className="text-[12px] font-black text-neutral-900 italic tracking-widest mb-12">Thank You</p>
+               <div className="flex flex-col items-end opacity-40 grayscale">
+                  <span className="text-[6px] font-bold uppercase tracking-tight">Powered by</span>
+                  <p className="text-[7px] font-black uppercase tracking-tight text-neutral-900 leading-tight">
+                    FoodKing - Restaurant Food Ordering & Delivery App
+                  </p>
                </div>
             </div>
           </div>
@@ -3623,38 +3647,27 @@ export default function VendorDashboard() {
              height: auto !important;
              background: white !important;
              color: black !important;
-             padding: 8mm !important;
+             padding: 10mm 6mm !important;
              z-index: 10000 !important;
              display: flex !important;
              flex-direction: column !important;
              border: none !important;
              box-shadow: none !important;
           }
-          #order-receipt .rounded-2xl {
-             border-radius: 12pt !important;
-             border: 1pt solid #f0f0f0 !important;
+          #order-receipt * {
+             color: black !important;
+             border-color: #d4d4d4 !important;
           }
-          #order-receipt .rounded-xl {
-             border-radius: 8pt !important;
+          #order-receipt .border-dashed {
+              border-style: dashed !important;
+              border-bottom-width: 1pt !important;
           }
-          #order-receipt .bg-neutral-50 {
-             background-color: #f9f9f9 !important;
-             -webkit-print-color-adjust: exact;
+          #order-receipt h1 {
+              font-size: 16pt !important;
+              font-weight: 900 !important;
           }
-          #order-receipt .bg-neutral-100 {
-             background-color: #f0f0f0 !important;
-             -webkit-print-color-adjust: exact;
-          }
-          #order-receipt .text-orange-600 {
-             color: #ea580c !important;
-          }
-          #order-receipt .text-green-600 {
-             color: #16a34a !important;
-          }
-          #order-receipt .bg-green-500 {
-             background-color: #22c55e !important;
-             color: white !important;
-             -webkit-print-color-adjust: exact;
+          #order-receipt p, #order-receipt span, #order-receipt div {
+              line-height: 1.4 !important;
           }
           #printable-stand h2 {
             font-size: 28pt !important;
