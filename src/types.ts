@@ -45,6 +45,7 @@ export interface Product {
   imageUrl?: string;
   imageUrls?: string[];
   unit?: string;
+  vendorCategory?: VendorCategory;
   expiryDate?: string;
   medicationType?: 'otc' | 'prescription';
   variations?: { name: string; price?: number }[];

@@ -473,12 +473,14 @@ export default function VendorDashboard() {
       if (editingProduct?.id) {
         await updateDoc(doc(db, 'products', editingProduct.id), {
           ...newProduct,
+          vendorCategory: vendorProfile.category,
           updatedAt: serverTimestamp(),
         });
       } else {
         await addDoc(collection(db, 'products'), {
           ...newProduct,
           vendorId: vendorProfile.id,
+          vendorCategory: vendorProfile.category,
           createdAt: serverTimestamp(),
         });
       }

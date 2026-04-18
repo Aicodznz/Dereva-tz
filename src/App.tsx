@@ -11,6 +11,7 @@ import MyOrders from './components/MyOrders';
 import Chat from './components/Chat';
 import Notifications from './components/Notifications';
 import VendorStore from './components/VendorStore';
+import ServiceDetail from './components/ServiceDetail';
 import { Toaster } from '@/components/ui/sonner';
 
 import Login from './components/auth/Login';
@@ -43,6 +44,7 @@ function AppContent() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/service/:id" element={<ServiceDetail />} />
             <Route path="/product/:id" element={<ProductDetail />} />
             <Route path="/vendor/:id" element={<VendorStore />} />
             <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
