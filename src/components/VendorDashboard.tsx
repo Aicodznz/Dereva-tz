@@ -1977,7 +1977,7 @@ export default function VendorDashboard() {
                              setSelectedTable(table);
                              setQrOptions(prev => ({
                                ...prev,
-                               data: `${window.location.origin}/vendor/${vendorProfile.id}?table=${table.number}`
+                               data: `${window.location.origin}/table/${vendorProfile.id}/${table.number}`
                              }));
                              setIsQrBuilderOpen(true);
                            }}

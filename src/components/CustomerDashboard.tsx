@@ -25,6 +25,7 @@ export default function CustomerDashboard() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
+  const [tableSession, setTableSession] = useState<any>(null);
   const [location, setLocation] = useState({
     address: 'Mbezi Beach, DSM',
     lat: -6.7924,
@@ -43,6 +44,11 @@ export default function CustomerDashboard() {
   ];
 
   useEffect(() => {
+    const savedSession = localStorage.getItem('papo_hapo_table_session');
+    if (savedSession) {
+      setTableSession(JSON.parse(savedSession));
+    }
+
     const qVendors = query(collection(db, 'vendors'), where('status', '==', 'active'));
     const unsubVendors = onSnapshot(qVendors, (snapshot) => {
       const vendorData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VendorProfile));
@@ -127,13 +133,43 @@ export default function CustomerDashboard() {
         initialLocation={location}
       />
 
-      {/* 2. Search Bar */}
-      <div className="relative">
-        <Search className="absolute left-4 top-3.5 w-5 h-5 text-neutral-400" />
+      {tableSession && (
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="p-6 bg-neutral-900 rounded-[2rem] text-white flex items-center justify-between shadow-xl relative overflow-hidden group"
+        >
+          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:rotate-12 transition-transform">
+            <Utensils className="w-20 h-20" />
+          </div>
+          <div className="relative z-10 flex items-center gap-4">
+            <div className="w-12 h-12 bg-orange-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-orange-600/20">
+              <Utensils className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-400">Active Table Service</p>
+              <h4 className="text-lg font-black uppercase italic tracking-tighter mt-0.5">{tableSession.businessName} - Meza {tableSession.tableId}</h4>
+            </div>
+          </div>
+          <button 
+            onClick={() => {
+              localStorage.removeItem('papo_hapo_table_session');
+              setTableSession(null);
+            }}
+            className="relative z-10 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-xl flex items-center justify-center transition-all"
+          >
+            <Plus className="w-5 h-5 rotate-45" />
+          </button>
+        </motion.div>
+      )}
+
+      {/* 2. Search Bar - Enhanced */}
+      <div className="relative group">
+        <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 group-focus-within:text-orange-600 transition-colors" />
         <input 
           type="text"
           placeholder={t('search_placeholder') || "Tafuta huduma, mgahawa, au bidhaa..."}
-          className="w-full h-12 pl-12 pr-4 bg-neutral-100 border-none rounded-2xl text-sm focus:ring-2 focus:ring-orange-500 transition-all"
+          className="w-full h-14 pl-14 pr-6 bg-neutral-100 border-none rounded-2xl text-base font-medium placeholder:text-neutral-400 focus:ring-2 focus:ring-orange-500 transition-all shadow-sm"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />

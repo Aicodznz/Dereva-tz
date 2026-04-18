@@ -26,7 +26,8 @@ import {
   Reply,
   Megaphone,
   Smartphone,
-  Phone
+  Phone,
+  Utensils
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -91,7 +92,23 @@ export default function ProductDetail() {
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
   const [buyerPhone, setBuyerPhone] = useState('');
+  const [orderType, setOrderType] = useState<'delivery' | 'dine_in' | 'takeaway'>('delivery');
+  const [tableNumber, setTableNumber] = useState('');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [tableSession, setTableSession] = useState<any>(null);
+
+  useEffect(() => {
+    const savedSession = localStorage.getItem('papo_hapo_table_session');
+    if (savedSession) {
+      const session = JSON.parse(savedSession);
+      // Only use if same vendor
+      if (session.vendorId === id || session.vendorId === product?.vendorId) {
+        setTableSession(session);
+        setOrderType('dine_in');
+        setTableNumber(session.tableId);
+      }
+    }
+  }, [id, product]);
 
   useEffect(() => {
     async function fetchProduct() {
@@ -351,6 +368,8 @@ export default function ProductDetail() {
           variation: selectedSize,
           addons: selectedAddons
         }],
+        orderType: orderType,
+        tableNumber: orderType === 'dine_in' ? tableNumber : null,
         totalAmount: calculateDiscountedPrice(),
         status: 'pending',
         paymentStatus: 'pending',
@@ -934,29 +953,29 @@ export default function ProductDetail() {
       </AnimatePresence>
 
       {/* 6. Action Bar - Positioned above mobile nav */}
-      <div className="fixed bottom-[80px] md:bottom-0 left-0 right-0 p-4 md:p-6 bg-white border-t border-neutral-100 z-[999] shadow-[0_-10px_30px_rgba(0,0,0,0.1)]">
-        <div className="max-w-7xl mx-auto flex gap-3 md:gap-6 items-center">
-          <div className="flex items-center bg-neutral-100 rounded-2xl p-1 md:p-1.5 shrink-0 border border-neutral-200">
+      <div className="fixed bottom-[88px] md:bottom-0 left-0 right-0 p-4 md:p-8 bg-white/80 backdrop-blur-xl border-t border-neutral-100 z-[999] shadow-[0_-20px_50px_rgba(0,0,0,0.08)]">
+        <div className="max-w-7xl mx-auto flex gap-4 md:gap-8 items-center">
+          <div className="flex items-center bg-neutral-100 rounded-[2rem] p-1.5 md:p-2 shrink-0 border border-neutral-200">
             <button 
               onClick={() => setQuantity(Math.max(1, quantity - 1))}
-              className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center text-neutral-600 hover:text-orange-600 hover:bg-white rounded-xl transition-all"
+              className="w-12 h-12 md:w-14 md:h-14 flex items-center justify-center text-neutral-400 hover:text-orange-600 hover:bg-white rounded-2xl transition-all shadow-sm active:scale-90"
             >
-              <Minus className="w-4 h-4 md:w-5 md:h-5" />
+              <Minus className="w-5 h-5" />
             </button>
-            <span className="w-8 md:w-12 text-center font-black text-base md:text-lg text-neutral-900">{quantity}</span>
+            <span className="w-10 md:w-14 text-center font-black text-xl md:text-2xl text-neutral-900 italic tracking-tighter">{quantity}</span>
             <button 
               onClick={() => setQuantity(quantity + 1)}
-              className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center text-neutral-600 hover:text-orange-600 hover:bg-white rounded-xl transition-all"
+              className="w-12 h-12 md:w-14 md:h-14 flex items-center justify-center text-neutral-400 hover:text-orange-600 hover:bg-white rounded-2xl transition-all shadow-sm active:scale-90"
             >
-              <Plus className="w-4 h-4 md:w-5 md:h-5" />
+              <Plus className="w-5 h-5" />
             </button>
           </div>
           
           <Button 
             onClick={handleBuyNow}
-            className="flex-1 h-14 md:h-16 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl font-black text-sm md:text-lg shadow-lg shadow-orange-600/40 gap-2 md:gap-3 transition-all transform active:scale-[0.98]"
+            className="flex-1 h-14 md:h-18 bg-orange-600 hover:bg-neutral-900 text-white rounded-[2rem] font-black text-base md:text-xl shadow-2xl shadow-orange-600/30 gap-3 md:gap-4 transition-all transform active:scale-[0.96] uppercase italic tracking-tighter"
           >
-            <Smartphone className="w-4 h-4 md:w-6 md:h-6" />
+            <Smartphone className="w-5 h-5 md:w-8 md:h-8" />
             <span className="truncate">
                Agiza Sasa
             </span>
@@ -989,34 +1008,81 @@ export default function ProductDetail() {
               </div>
 
               <div className="space-y-6">
+                {tableSession && (
+                  <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 flex items-center gap-3">
+                    <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white">
+                      <Utensils className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-blue-700 uppercase tracking-widest">Self-Service Active</p>
+                      <p className="text-sm font-black text-blue-900 uppercase italic">Meza: {tableSession.tableId}</p>
+                    </div>
+                  </div>
+                )}
+
                 <div className="p-4 bg-orange-50 rounded-2xl border border-orange-100">
-                  <div className="flex justify-between items-center text-sm font-bold text-orange-800">
-                    <span>Jumla ya Malipo:</span>
-                    <span className="text-lg">TZS {calculateDiscountedPrice().toLocaleString()}</span>
+                  <div className="flex justify-between items-center text-sm font-bold text-neutral-500 uppercase tracking-widest">
+                    <span>Jumla:</span>
+                    <span className="text-xl font-black text-orange-600 italic">TZS {calculateDiscountedPrice().toLocaleString()}</span>
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-neutral-500 uppercase">Namba ya Simu (Mobile Money)</label>
-                  <div className="relative">
-                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
-                    <input 
-                      type="tel"
-                      placeholder="07XXXXXXXX"
-                      className="w-full h-14 pl-12 pr-4 bg-neutral-100 rounded-2xl border-none focus:ring-2 focus:ring-orange-500 text-lg font-bold"
-                      value={buyerPhone}
-                      onChange={(e) => setBuyerPhone(e.target.value)}
-                    />
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Chagua Aina ya Oda</label>
+                    <div className="flex p-1 bg-neutral-100 rounded-2xl">
+                      {[
+                        { id: 'delivery', label: 'Delivery' },
+                        { id: 'takeaway', label: 'Takeaway' },
+                        { id: 'dine_in', label: 'Dine-in' }
+                      ].map((type) => (
+                        <button
+                          key={type.id}
+                          onClick={() => setOrderType(type.id as any)}
+                          className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${
+                            orderType === type.id ? 'bg-white text-orange-600 shadow-sm' : 'text-neutral-500'
+                          }`}
+                        >
+                          {type.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <p className="text-[10px] text-neutral-400">Utapokea ombi la kuingiza namba ya siri kwenye simu yako.</p>
+
+                  {orderType === 'dine_in' && !tableSession && (
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Namba ya Meza</label>
+                      <input 
+                        type="text"
+                        placeholder="Ingiza namba ya meza"
+                        className="w-full h-14 px-6 bg-neutral-50 border border-neutral-200 rounded-2xl text-lg font-black uppercase italic focus:ring-2 focus:ring-orange-600 outline-none"
+                        value={tableNumber}
+                        onChange={(e) => setTableNumber(e.target.value)}
+                      />
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Namba ya Simu (Mobile Money)</label>
+                    <div className="relative">
+                      <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-300" />
+                      <input 
+                        type="tel"
+                        placeholder="07XXXXXXXX"
+                        className="w-full h-14 pl-12 pr-4 bg-neutral-50 border border-neutral-200 rounded-2xl text-lg font-black italic focus:ring-2 focus:ring-orange-500 outline-none"
+                        value={buyerPhone}
+                        onChange={(e) => setBuyerPhone(e.target.value)}
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <Button 
                   disabled={isProcessingPayment}
                   onClick={processPayment}
-                  className="w-full h-16 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl font-black text-lg shadow-lg shadow-orange-200"
+                  className="w-full h-18 bg-orange-600 hover:bg-neutral-900 text-white rounded-[2rem] font-black text-xl shadow-2xl shadow-orange-600/20 uppercase italic tracking-tighter"
                 >
-                  {isProcessingPayment ? 'Processing...' : 'Lipa Sasa'}
+                  {isProcessingPayment ? 'Inatuma Ombi...' : 'Lipa Sasa'}
                 </Button>
               </div>
             </motion.div>
