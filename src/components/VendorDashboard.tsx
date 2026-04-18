@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { initiatePayment } from '../services/paymentService';
 import QRCodeStyling, { DotType, CornerSquareType, CornerDotType } from "qr-code-styling";
+import { toPng } from 'html-to-image';
 import { useAuth } from '../AuthContext';
 import { db, storage, auth, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, onSnapshot, addDoc, serverTimestamp, orderBy, limit, deleteDoc, doc, updateDoc } from 'firebase/firestore';
@@ -60,7 +61,9 @@ import {
   Edit2,
   Box,
   Check,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Loader2,
+  Printer
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
@@ -138,6 +141,7 @@ export default function VendorDashboard() {
   const [isAddTableOpen, setIsAddTableOpen] = useState(false);
   const [newTable, setNewTable] = useState({ number: '', capacity: 4 });
   const [selectedTable, setSelectedTable] = useState<any>(null);
+  const [orderToPrint, setOrderToPrint] = useState<Order | null>(null);
 
   // Settings State
   const [isSavingSettings, setIsSavingSettings] = useState(false);
@@ -227,6 +231,50 @@ export default function VendorDashboard() {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handlePrintOrder = (order: Order) => {
+    setOrderToPrint(order);
+    setTimeout(() => {
+      window.print();
+    }, 200);
+  };
+
+  const [isExporting, setIsExporting] = useState(false);
+  const handleDownloadStand = async () => {
+    const el = document.getElementById('printable-stand');
+    if (!el || isExporting) return;
+    
+    setIsExporting(true);
+    const toastId = toast.loading('Inatengeneza picha ya Stand...', {
+      style: { background: '#000', color: '#fff' }
+    });
+
+    try {
+      // Small delay to ensure styles are applied
+      await new Promise(r => setTimeout(r, 500));
+      
+      const dataUrl = await toPng(el, { 
+        quality: 1, 
+        pixelRatio: 3,
+        backgroundColor: '#FCFAF2',
+        style: {
+          borderRadius: '0' // Remove rounded corners for export if needed
+        }
+      });
+      
+      const link = document.createElement('a');
+      link.download = `QR-Stand-${selectedTable?.number || 'Vendor'}.png`;
+      link.href = dataUrl;
+      link.click();
+      
+      toast.success('Stand imepakuliwa kwa mafanikio!', { id: toastId });
+    } catch (err) {
+      console.error('Export failed:', err);
+      toast.error('Imeshindwa kupakua stand. Jaribu tena.', { id: toastId });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -925,6 +973,17 @@ export default function VendorDashboard() {
                       <Button
                         variant="ghost" 
                         size="icon" 
+                        className="h-8 w-8 text-neutral-600 hover:text-orange-500 hover:bg-orange-600/10"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePrintOrder(order);
+                        }}
+                      >
+                        <Printer className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost" 
+                        size="icon" 
                         className="h-8 w-8 text-neutral-600 hover:text-red-500 hover:bg-red-500/10"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1034,14 +1093,24 @@ export default function VendorDashboard() {
                       </Badge>
                     </td>
                     <td className="px-8 py-6 text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-neutral-500 hover:text-red-500 hover:bg-neutral-800 rounded-xl"
-                        onClick={() => handleDeleteOrder(order.id!)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-neutral-500 hover:text-orange-500 hover:bg-neutral-800 rounded-xl"
+                          onClick={() => handlePrintOrder(order)}
+                        >
+                          <Printer className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-neutral-500 hover:text-red-500 hover:bg-neutral-800 rounded-xl"
+                          onClick={() => handleDeleteOrder(order.id!)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -3171,14 +3240,14 @@ export default function VendorDashboard() {
                   {/* Print Customization */}
                   <div className="space-y-4 pt-4 border-t border-white/5">
                     <div className="flex items-center justify-between">
-                       <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] px-1">Print Layout / Maelezo ya Print</label>
+                       <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] px-1">Print Layout / Mpangilio wa Print</label>
                        <button 
                          onClick={() => setPrintDetails({...printDetails, isPrintMode: !printDetails.isPrintMode})}
                          className={`text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest transition-all ${
                            printDetails.isPrintMode ? 'bg-orange-600 text-white' : 'bg-neutral-800 text-neutral-400'
                          }`}
                        >
-                         {printDetails.isPrintMode ? 'Layout Active' : 'Enable Layout'}
+                         {printDetails.isPrintMode ? 'Layout Iwashwa' : 'Washa Mpangilio'}
                        </button>
                     </div>
                     
@@ -3236,86 +3305,122 @@ export default function VendorDashboard() {
                 <div className="lg:w-[450px] bg-[#141416] p-10 flex flex-col items-center justify-center gap-8 relative overflow-hidden">
                   {/* Print Layout Preview */}
                   <div id="printable-stand" className={`
-                    relative transition-all duration-500 flex flex-col items-center
+                    relative transition-all duration-500 flex flex-col items-stretch
                     ${printDetails.isPrintMode 
-                      ? 'bg-[#FCFAF2] p-10 rounded-[1.5rem] shadow-2xl w-full max-w-[340px] border border-neutral-200 text-black overflow-hidden' 
-                      : ''
+                      ? 'bg-[#ffffff] shadow-2xl w-full max-w-[400px] aspect-[1/1.414] border border-neutral-200 text-black' 
+                      : 'hidden'
                     }
                   `}>
                     {printDetails.isPrintMode && (
                       <>
-                        {/* Decorative Patterns */}
-                        <div className="absolute top-0 left-0 w-24 h-24 border-t-4 border-l-4 border-orange-600/20 rounded-tl-3xl m-4"></div>
-                        <div className="absolute bottom-0 right-0 w-24 h-24 border-b-4 border-r-4 border-orange-600/20 rounded-br-3xl m-4"></div>
-                        
-                        <div className="w-full text-center space-y-2 mb-8 relative z-10">
+                        {/* Dark Header Section */}
+                        <div className="bg-[#1A1A1A] p-6 flex flex-col items-center justify-center text-center relative overflow-hidden shrink-0 min-h-[140px]">
+                          {/* Subtle Pattern overlay */}
+                          <div className="absolute inset-0 opacity-5 pointer-events-none flex flex-wrap gap-4 p-2">
+                             {Array.from({length: 12}).map((_, i) => <Zap key={i} className="w-8 h-8 rotate-12" />)}
+                          </div>
+                          
                           {vendorProfile?.logoUrl && (
-                            <div className="w-12 h-12 mx-auto mb-4 rounded-xl shadow-lg border-2 border-orange-600/10 overflow-hidden">
-                              <img src={vendorProfile.logoUrl} alt="Logo" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                            <div className="w-14 h-14 mb-2 rounded-xl border border-white/10 overflow-hidden relative z-10 bg-white p-1">
+                              <img src={vendorProfile.logoUrl} alt="Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
                             </div>
                           )}
-                          <h2 className="text-2xl font-black uppercase tracking-tight text-[#8B4513] leading-tight">{printDetails.header}</h2>
-                          <div className="flex items-center justify-center gap-3">
-                            <div className="h-px flex-1 bg-orange-600/20"></div>
-                            <p className="text-[9px] font-black text-neutral-500 uppercase tracking-[0.2em] whitespace-nowrap">{printDetails.subHeader}</p>
-                            <div className="h-px flex-1 bg-orange-600/20"></div>
+                          <h2 className="text-xl font-black uppercase tracking-tight text-white leading-tight relative z-10">{printDetails.header}</h2>
+                          <div className="w-8 h-0.5 bg-orange-600 mt-2 relative z-10"></div>
+                          <p className="text-[8px] font-black text-orange-500 uppercase tracking-[0.2em] mt-2 relative z-10">{printDetails.subHeader}</p>
+                        </div>
+
+                        {/* Content Section */}
+                        <div className="flex-1 flex flex-col items-center py-6 px-6 text-center bg-white">
+                          
+                          {/* QR Code Section */}
+                          <div className="w-full flex flex-col items-center mb-6">
+                            {/* Title above QR */}
+                            <div className="bg-neutral-50 px-5 py-1.5 border border-neutral-200 rounded-full mb-3 shadow-sm">
+                               <p className="text-[8px] font-black uppercase tracking-widest text-neutral-500">MENYU YA {vendorProfile?.businessName?.toUpperCase() || 'DUKA'}</p>
+                            </div>
+                            
+                            {/* The QR Code itself */}
+                            <div className="relative p-4 bg-white rounded-[2.5rem] border border-neutral-100 shadow-xl flex items-center justify-center">
+                               <div 
+                                 ref={qrRef} 
+                                 className="[&>canvas]:!w-[180px] [&>canvas]:!h-[180px] [&>svg]:!w-[180px] [&>svg]:!h-[180px]"
+                               ></div>
+                            </div>
+                          </div>
+
+                          {/* Instructions */}
+                          <div className="space-y-2 mb-6">
+                            <h3 className="text-2xl font-black uppercase leading-[0.9] tracking-tighter text-neutral-900 px-4">
+                              SCAN & AGIZA <br/> CHAKULA HAPA
+                            </h3>
+                            <div className="space-y-0.5">
+                              <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-tight">Changanua kwa simu yako</p>
+                              <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-tight">Fungua Menyu & Pata Vyakula!</p>
+                            </div>
+                          </div>
+
+                          {/* Table Info & Footer */}
+                          <div className="w-full mt-auto pt-4 space-y-4">
+                            <div className="inline-flex flex-col items-center">
+                              <p className="text-xs font-black text-neutral-900 uppercase tracking-widest mb-1 pb-1 border-b border-orange-600/20">
+                                MEZA NAMBA: <span className="text-orange-600 text-lg ml-1 font-mono">{selectedTable?.number || '01'}</span>
+                              </p>
+                            </div>
+
+                            <p className="text-[9px] font-black italic text-neutral-400 uppercase tracking-widest">
+                               {printDetails.footer}
+                            </p>
+                            
+                            {(printDetails.phone || printDetails.address) && (
+                              <div className="flex items-center justify-center gap-3 text-[7px] font-bold text-neutral-300 uppercase tracking-widest pt-4 opacity-50">
+                                 {printDetails.phone && <span>{printDetails.phone}</span>}
+                                 {printDetails.phone && printDetails.address && <span>•</span>}
+                                 {printDetails.address && <span className="max-w-[150px] truncate">{printDetails.address}</span>}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </>
                     )}
+                  </div>
 
-                    <div className="relative group z-10">
-                      {!printDetails.isPrintMode && (
-                        <div className="absolute -inset-4 bg-orange-600/20 rounded-[3rem] blur-2xl group-hover:bg-orange-600/30 transition-all duration-500"></div>
-                      )}
+                  {/* Non-Print Preview Mode */}
+                  {!printDetails.isPrintMode && (
+                    <div className="relative group p-10 flex flex-col items-center justify-center">
+                      <div className="absolute -inset-4 bg-orange-600/20 rounded-[3rem] blur-2xl group-hover:bg-orange-600/30 transition-all duration-500"></div>
                       <div 
                         ref={qrRef} 
-                        className={`relative transition-all duration-500 shadow-sm ${
-                          printDetails.isPrintMode 
-                            ? 'p-3 bg-white rounded-3xl border border-orange-600/10' 
-                            : 'p-8 bg-white rounded-[2.5rem] shadow-2xl group-hover:scale-[1.02]'
-                        }`}
+                        className="relative transition-all duration-500 shadow-sm p-8 bg-white rounded-[2.5rem] shadow-2xl group-hover:scale-[1.02]"
                       ></div>
-                    </div>
-
-                    {printDetails.isPrintMode && (
-                      <div className="w-full text-center mt-8 space-y-5 relative z-10">
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-black leading-tight uppercase tracking-widest text-[#8B4513]">{printDetails.footer.split('&')[0]}</p>
-                          <p className="text-[9px] font-bold leading-tight uppercase text-neutral-600">{printDetails.footer.split('&')[1]?.trim()}</p>
-                        </div>
-                        
-                        <div className="pt-4 border-t border-orange-600/10 flex flex-col items-center gap-2">
-                          <div className="px-4 py-1.5 bg-orange-600 rounded-full">
-                            <p className="text-[12px] font-black italic text-white tracking-widest uppercase">Table {selectedTable?.number || '01'}</p>
-                          </div>
-                          {(printDetails.phone || printDetails.address) && (
-                            <div className="flex items-center gap-2 text-[7px] font-bold text-neutral-400 uppercase tracking-widest">
-                               {printDetails.phone && <span>{printDetails.phone}</span>}
-                               {printDetails.phone && printDetails.address && <span>•</span>}
-                               {printDetails.address && <span className="max-w-[100px] truncate">{printDetails.address}</span>}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {!printDetails.isPrintMode && (
+                      
                       <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 w-48 py-2 bg-neutral-900/80 backdrop-blur-md border border-white/10 rounded-full flex items-center justify-center gap-2">
                         <div className="w-1 h-1 bg-green-500 rounded-full animate-pulse"></div>
                         <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest italic">Live Content Preview</span>
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
+                </div>
 
                   <div className="w-full space-y-4 max-w-[280px]">
                     {printDetails.isPrintMode ? (
-                      <Button 
-                        onClick={handlePrint}
-                        className="w-full h-16 bg-orange-600 text-white hover:bg-orange-700 rounded-[1.5rem] font-black uppercase tracking-widest text-xs shadow-xl transition-all"
-                      >
-                        <Download className="w-4 h-4 mr-3" /> Print Stand Layout
-                      </Button>
+                      <div className="space-y-3">
+                        <Button 
+                          onClick={handleDownloadStand}
+                          disabled={isExporting}
+                          className="w-full h-16 bg-orange-600 text-white hover:bg-orange-700 rounded-[1.5rem] font-black uppercase tracking-widest text-xs shadow-xl transition-all"
+                        >
+                          {isExporting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-4 h-4 mr-3" />} 
+                          Pakua kama Picha (Stand)
+                        </Button>
+                        <Button 
+                          onClick={handlePrint}
+                          variant="outline"
+                          className="w-full h-14 bg-white/5 border-white/10 text-white hover:bg-white/10 rounded-[1.5rem] font-black uppercase tracking-widest text-xs transition-all"
+                        >
+                          <Printer className="w-4 h-4 mr-3" /> Chapa (Print Stand)
+                        </Button>
+                      </div>
                     ) : (
                       <Button 
                         onClick={downloadQr}
@@ -3332,7 +3437,6 @@ export default function VendorDashboard() {
                     </p>
                   </div>
                 </div>
-              </div>
               
               <div className="p-8 border-t border-white/5 flex items-center justify-between shrink-0 bg-black/20">
                  <div className="flex gap-4">
@@ -3358,6 +3462,81 @@ export default function VendorDashboard() {
         )}
       </AnimatePresence>
 
+      <div id="order-receipt" className="hidden fixed left-0 top-0 w-[80mm] bg-white text-black p-6 font-sans">
+        {orderToPrint && (
+          <div className="flex flex-col items-center text-center">
+            <h1 className="text-xl font-black uppercase tracking-tight mb-1">{vendorProfile?.businessName}</h1>
+            <h2 className="text-[12px] font-bold mb-1 italic">Order Receipt</h2>
+            <p className="text-[9px] mb-0.5 opacity-70">{vendorProfile?.address}</p>
+            <p className="text-[9px] mb-4 opacity-70">Tel: {vendorProfile?.phoneNumber}</p>
+            
+            <div className="w-full border-t border-dashed border-neutral-300 pt-3 mb-3">
+              <div className="flex justify-between text-[9px] font-bold">
+                <span>Order #{orderToPrint.id?.slice(-8).toUpperCase()}</span>
+                <span>{format(orderToPrint.createdAt?.toDate() || new Date(), 'dd-MM-yyyy HH:mm')}</span>
+              </div>
+            </div>
+
+            <div className="w-full border-b border-dashed border-neutral-300 pb-3 mb-3">
+              <table className="w-full text-[9px]">
+                <thead>
+                  <tr className="border-b border-neutral-200">
+                    <th className="text-left font-black pb-2 uppercase tracking-widest">Qty</th>
+                    <th className="text-left font-black pb-2 uppercase tracking-widest">Item Description</th>
+                    <th className="text-right font-black pb-2 uppercase tracking-widest">Price</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-50">
+                  {orderToPrint.items.map((item, idx) => (
+                    <tr key={idx}>
+                      <td className="py-2 align-top font-bold">{item.quantity}</td>
+                      <td className="py-2 text-left">
+                        <div className="font-bold">{item.name}</div>
+                        {item.variation && <div className="text-[8px] opacity-60">Variant: {item.variation}</div>}
+                      </td>
+                      <td className="py-2 text-right font-bold">TZS {(item.price * item.quantity).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="w-full space-y-1.5 mb-4 px-1">
+              <div className="flex justify-between text-[9px]">
+                <span className="font-bold uppercase tracking-wider text-neutral-500">Subtotal:</span>
+                <span className="font-bold tracking-tight">TZS {orderToPrint.totalAmount.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-[9px]">
+                <span className="font-bold uppercase tracking-wider text-neutral-500">Total Tax:</span>
+                <span className="font-bold tracking-tight">TZS 0</span>
+              </div>
+              <div className="flex justify-between text-[11px] pt-3 border-t border-neutral-200">
+                <span className="font-black uppercase italic tracking-tighter">Total:</span>
+                <span className="font-black tracking-tighter">TZS {orderToPrint.totalAmount.toLocaleString()}</span>
+              </div>
+            </div>
+
+            <div className="w-full text-left text-[9px] space-y-2 pt-4 border-t border-dashed border-neutral-300">
+              <div className="grid grid-cols-2 gap-2">
+                 <p><span className="font-bold uppercase text-[8px] text-neutral-500 block">Payment Type</span> {orderToPrint.paymentMethod || 'N/A'}</p>
+                 <p><span className="font-bold uppercase text-[8px] text-neutral-500 block">Order Type</span> {orderToPrint.orderType || 'N/A'}</p>
+                 {orderToPrint.tableNumber && <p><span className="font-bold uppercase text-[8px] text-neutral-500 block">Table No</span> {orderToPrint.tableNumber}</p>}
+                 {orderToPrint.customerName && <p><span className="font-bold uppercase text-[8px] text-neutral-500 block">Customer</span> {orderToPrint.customerName}</p>}
+              </div>
+              {orderToPrint.customerPhone && <p><span className="font-bold uppercase text-[8px] text-neutral-500 block">Phone</span> {orderToPrint.customerPhone}</p>}
+            </div>
+
+            <div className="mt-8 pt-4 border-t border-neutral-100 w-full text-center">
+              <p className="text-[10px] font-black uppercase italic tracking-widest bg-neutral-50 py-2 rounded-lg">Asante Sana</p>
+              <div className="mt-6 flex flex-col items-center gap-1 opacity-20 grayscale">
+                 <Store className="w-4 h-4" />
+                 <p className="text-[7px] font-black uppercase tracking-[0.3em]">Powered by FoodKing</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
       <style dangerouslySetInnerHTML={{ __html: `
         .custom-scrollbar::-webkit-scrollbar {
           width: 6px;
@@ -3378,11 +3557,10 @@ export default function VendorDashboard() {
             visibility: hidden;
             display: none !important;
           }
-          #printable-stand, #printable-stand * {
+          #printable-stand, #printable-stand *, #order-receipt, #order-receipt * {
             visibility: visible !important;
             display: flex !important;
             flex-direction: column !important;
-            align-items: center !important;
           }
           #printable-stand {
             position: fixed !important;
@@ -3395,11 +3573,24 @@ export default function VendorDashboard() {
             padding: 40px !important;
             background: #FCFAF2 !important;
             z-index: 10000 !important;
-            display: flex !important;
-            flex-direction: column !important;
             justify-content: center !important;
             border: none !important;
             box-shadow: none !important;
+          }
+          #order-receipt {
+             position: fixed !important;
+             left: 0 !important;
+             top: 0 !important;
+             width: 80mm !important;
+             height: auto !important;
+             background: white !important;
+             color: black !important;
+             padding: 10mm !important;
+             z-index: 10000 !important;
+             display: flex !important;
+             flex-direction: column !important;
+             border: none !important;
+             box-shadow: none !important;
           }
           #printable-stand h2 {
             font-size: 28pt !important;
