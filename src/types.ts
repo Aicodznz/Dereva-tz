@@ -41,6 +41,7 @@ export interface Product {
   price: number;
   category: string;
   stock: number;
+  status?: 'active' | 'out_of_stock' | 'discontinued';
   imageUrl?: string;
   imageUrls?: string[];
   unit?: string;

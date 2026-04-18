@@ -225,8 +225,11 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
                   </div>
                 </div>
 
-                <div className="pt-6 space-y-3">
-                  <Button className="w-full h-14 bg-green-500 hover:bg-green-600 text-white rounded-2xl font-bold gap-2">
+                <div className="pt-6 space-y-3 print:hidden">
+                  <Button 
+                    onClick={() => window.print()}
+                    className="w-full h-14 bg-green-500 hover:bg-green-600 text-white rounded-2xl font-bold gap-2"
+                  >
                     <Printer className="w-5 h-5" />
                     {t('print_invoice')}
                   </Button>

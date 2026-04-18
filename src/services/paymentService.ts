@@ -28,10 +28,18 @@ export const initiatePayment = async (request: PaymentRequest): Promise<MongikeP
       body: JSON.stringify(request),
     });
 
-    const data = await response.json();
+    const contentType = response.headers.get('content-type');
+    let data: any;
+
+    if (contentType && contentType.includes('application/json')) {
+      data = await response.json();
+    } else {
+      const text = await response.text();
+      throw new Error(`Unexpected response from server: ${text.substring(0, 50)}...`);
+    }
 
     if (!response.ok) {
-      throw new Error(data.message || 'Payment initiation failed');
+      throw new Error(data?.message || 'Payment initiation failed');
     }
 
     return data as MongikePaymentResponse;
