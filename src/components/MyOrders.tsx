@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../AuthContext';
-import { db } from '../firebase';
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType } from '../firebase';
+import { collection, query, where, onSnapshot, orderBy, doc, updateDoc } from 'firebase/firestore';
 import { Order } from '../types';
 import { useLanguage } from '../LanguageContext';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
+import { initiatePayment } from '../services/paymentService';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -16,7 +18,8 @@ import {
   Truck, 
   ShoppingBag,
   Printer,
-  CreditCard
+  CreditCard,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -30,6 +33,36 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [isPaying, setIsPaying] = useState(false);
+
+  const handlePayNow = async (order: Order) => {
+    if (!user?.phoneNumber && !order.customerPhone) {
+      toast.error("Tafadhali weka namba ya simu kwenye profile yako kwanza.");
+      return;
+    }
+
+    setIsPaying(true);
+    try {
+      const response = await initiatePayment({
+        order_id: order.id!,
+        amount: order.totalAmount,
+        buyer_phone: (order.customerPhone || user?.phoneNumber || '').replace(/[^0-9]/g, ''),
+        fee_payer: 'MERCHANT'
+      });
+
+      if (response.status === 'success') {
+        toast.success("Ombi la malipo limetumwa kwenye simu yako. Tafadhali weka namba ya siri.");
+        // We rely on the snapshot listener to update when paymentStatus changes to 'paid'
+      } else {
+        toast.error(response.message || "Imeshindikana kuanzisha malipo.");
+      }
+    } catch (error) {
+      console.error("Payment failed:", error);
+      toast.error("Hitilafu imetokea wakati wa kulipia. Jaribu tena.");
+    } finally {
+      setIsPaying(false);
+    }
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -85,14 +118,15 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
       <div className="space-y-6">
         <button 
           onClick={() => setSelectedOrder(null)}
-          className="flex items-center gap-2 text-orange-600 font-bold hover:underline mb-4"
+          className="flex items-center gap-2 text-orange-600 font-bold hover:underline mb-4 print:hidden"
         >
           <ChevronLeft className="w-5 h-5" />
           {t('back_to_orders')}
         </button>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-6">
+        <div className="printable-receipt space-y-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-6">
             <Card className="border-none shadow-sm rounded-3xl overflow-hidden">
               <CardContent className="p-8">
                 <div className="flex justify-between items-start mb-8">
@@ -234,7 +268,12 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
                     {t('print_invoice')}
                   </Button>
                   {selectedOrder.paymentStatus !== 'paid' && (
-                    <Button className="w-full h-14 bg-teal-500 hover:bg-teal-600 text-white rounded-2xl font-bold">
+                    <Button 
+                      onClick={() => handlePayNow(selectedOrder)}
+                      disabled={isPaying}
+                      className="w-full h-14 bg-teal-500 hover:bg-teal-600 text-white rounded-2xl font-bold gap-2"
+                    >
+                      {isPaying ? <Loader2 className="w-5 h-5 animate-spin" /> : <CreditCard className="w-5 h-5" />}
                       {t('pay_now')}
                     </Button>
                   )}
@@ -244,6 +283,7 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
           </div>
         </div>
       </div>
+    </div>
     );
   }
 

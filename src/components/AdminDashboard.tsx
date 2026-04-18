@@ -123,9 +123,9 @@ export default function AdminDashboard() {
       setCoupons(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Coupon)));
     });
 
-    const qProducts = query(collection(db, 'products'));
-    const unsubProducts = onSnapshot(qProducts, (snapshot) => {
-      setAllProducts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ProductWithVendor)));
+    const unsubProducts = onSnapshot(query(collection(db, 'products')), (snapshot) => {
+      const prods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+      setAllProducts(prods);
     });
 
     return () => {
@@ -375,7 +375,8 @@ export default function AdminDashboard() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-neutral-100">
-                         {allProducts.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase())).map(product => {
+                         {allProducts.filter(p => !searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase())).map(product => {
+                            const currentVendor = vendors.find(v => v.id === product.vendorId);
                            const mongikeFee = product.price * 0.035;
                            const platformCommission = product.price * 0.10;
                            const netToVendor = product.price - platformCommission;
@@ -388,14 +389,20 @@ export default function AdminDashboard() {
                                       <span className="font-bold">{product.name}</span>
                                    </div>
                                 </td>
-                                <td className="px-8 py-6 text-xs text-neutral-500 italic">
-                                   {vendors.find(v => v.id === product.vendorId)?.businessName || 'Unknown Vendor'}
+                                <td className="px-8 py-6">
+                                   <div className="flex items-center gap-2">
+                                      {currentVendor?.logoUrl && <img src={currentVendor.logoUrl} className="w-6 h-6 rounded-lg object-cover" />}
+                                      <span className="text-xs font-bold text-neutral-600">
+                                         {currentVendor?.businessName || 'Unknown Vendor'}
+                                      </span>
+                                   </div>
                                 </td>
                                 <td className="px-8 py-6 font-bold">TZS {product.price.toLocaleString()}</td>
                                 <td className="px-8 py-6">
-                                   <div className="text-[10px] text-neutral-400">
-                                      <p>Fee (3.5%): -{mongikeFee.toLocaleString()}</p>
-                                      <p className="font-black text-orange-600">Vendor Gets: TZS {netToVendor.toLocaleString()}</p>
+                                   <div className="space-y-1 text-[10px] font-bold">
+                                      <p className="text-neutral-400">Gateway Fee: -{mongikeFee.toLocaleString()}</p>
+                                      <p className="text-orange-600 italic tracking-tighter uppercase">Platform Net (10%): -{platformCommission.toLocaleString()}</p>
+                                      <p className="text-teal-600 font-black text-xs">Vendor Gets: TZS {netToVendor.toLocaleString()}</p>
                                    </div>
                                 </td>
                                 <td className="px-8 py-6 text-right">
@@ -567,9 +574,18 @@ export default function AdminDashboard() {
                               </div>
                            </div>
                            <div className="flex flex-col items-end gap-2">
-                              <Button variant="ghost" onClick={() => handleReject(v.id!)} className="text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl size-10">
-                                 <Ban className="w-5 h-5" />
-                              </Button>
+                              <div className="flex gap-2">
+                                 {v.phoneNumber && (
+                                   <a href={`https://wa.me/${v.phoneNumber.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer">
+                                      <Button size="icon" variant="ghost" className="rounded-xl text-green-600 hover:bg-green-50">
+                                        <MessageCircle className="w-5 h-5" />
+                                      </Button>
+                                   </a>
+                                 )}
+                                 <Button variant="ghost" onClick={() => handleReject(v.id!)} className="text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl size-10">
+                                    <Ban className="w-5 h-5" />
+                                 </Button>
+                              </div>
                               <Link to={`/vendor/${v.id}`} target="_blank">
                                 <Button size="sm" variant="ghost" className="text-xs font-black uppercase text-neutral-400 hover:text-orange-600">
                                   View Store <ExternalLink className="w-3 h-3 ml-1" />
@@ -611,7 +627,7 @@ export default function AdminDashboard() {
                                  <p className="text-[10px] text-neutral-400">{order.createdAt?.toDate?.().toLocaleString() || 'Just now'}</p>
                               </td>
                               <td className="px-8 py-6 italic font-bold text-sm text-neutral-600">
-                                 {order.vendorId?.slice(0, 8)}...
+                                 {vendors.find(v => v.id === order.vendorId)?.businessName || (order.vendorId ? `ID: ${order.vendorId.slice(0, 8)}...` : 'Unknown Merchant')}
                               </td>
                               <td className="px-8 py-6">
                                  <Badge className={`${order.paymentStatus === 'paid' ? 'bg-green-400' : 'bg-red-400'} text-white border-none font-black text-[8px] uppercase`}>
