@@ -85,7 +85,7 @@ import {
 } from 'recharts';
 import { format } from 'date-fns';
 
-type TabType = 'overview' | 'orders' | 'products' | 'pos' | 'tables' | 'customers' | 'coupons' | 'settings';
+type TabType = 'overview' | 'orders' | 'products' | 'pos' | 'inventory_stats' | 'customers' | 'coupons' | 'settings';
 
 const chartData = [
   { name: 'Mon', sales: 4000, orders: 24 },
@@ -129,7 +129,7 @@ export default function VendorDashboard() {
 
   // POS Enhanced States
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [orderType, setOrderType] = useState<'dine_in' | 'takeaway' | 'delivery'>('dine_in');
+  const [orderType, setOrderType] = useState<'walk_in' | 'pickup' | 'delivery'>('walk_in');
   const [tableNumber, setTableNumber] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'mobile_money'>('cash');
   const [isAddCustomerModalOpen, setIsAddCustomerModalOpen] = useState(false);
@@ -153,8 +153,8 @@ export default function VendorDashboard() {
   const [isQrBuilderOpen, setIsQrBuilderOpen] = useState(false);
   const [printDetails, setPrintDetails] = useState({
     header: '',
-    subHeader: 'MENU YA KIDIJITALI',
-    footer: 'CHANGANUA HAPA KUTAZAMA MENU & KUAGIZA',
+    subHeader: 'ORODHA YA KIDIJITALI',
+    footer: 'CHANGANUA HAPA KUTAZAMA BIDHAA & KUAGIZA',
     address: '',
     phone: '',
     isPrintMode: false
@@ -222,7 +222,7 @@ export default function VendorDashboard() {
     if (vendorProfile && !printDetails.header) {
       setPrintDetails(prev => ({ 
         ...prev, 
-        header: vendorProfile.businessName || 'KARIBU CHAKULA',
+        header: vendorProfile.businessName || 'KARIBU SOKONI',
         address: vendorProfile.address || '',
         phone: vendorProfile.phoneNumber || ''
       }));
@@ -281,11 +281,11 @@ export default function VendorDashboard() {
 
   const tabs = [
     { id: 'overview', label: t('overview') || 'Overview', icon: LayoutDashboard },
-    { id: 'orders', label: t('orders') || 'Orders', icon: ShoppingCart, badge: orders.length > 0 ? orders.length : null },
-    { id: 'products', label: t('inventory') || 'Inventory', icon: Package },
+    { id: 'orders', label: t('orders') || 'Orders', icon: ShoppingBag, badge: orders.length > 0 ? orders.length : null },
+    { id: 'products', label: t('inventory') || 'Inventory', icon: Box },
     { id: 'pos', label: t('pos_system') || 'POS System', icon: CreditCard },
-    { id: 'tables', label: 'Dine Tables', icon: QrCode },
-    { id: 'coupons', label: 'Coupons', icon: Megaphone },
+    { id: 'inventory_stats', label: 'Stock Stats', icon: BarChart3 },
+    { id: 'coupons', label: 'Promotions', icon: Tag },
     { id: 'customers', label: t('customers') || 'Customers', icon: Users },
     { id: 'settings', label: t('settings') || 'Settings', icon: Settings },
   ];
@@ -324,7 +324,7 @@ export default function VendorDashboard() {
 
   // POS Cart State
   const [cart, setCart] = useState<{product: Product, quantity: number}[]>([]);
-  const [isKDSMode, setIsKDSMode] = useState(true);
+  const [isPackingMode, setIsPackingMode] = useState(true);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -350,6 +350,7 @@ export default function VendorDashboard() {
     const ordersQ = query(
       collection(db, 'orders'), 
       where('vendorId', '==', vendorProfile.id),
+      where('vendorOwnerUid', '==', user.uid),
       orderBy('createdAt', 'desc'),
       limit(10)
     );
@@ -360,7 +361,8 @@ export default function VendorDashboard() {
 
     const productsQ = query(
       collection(db, 'products'), 
-      where('vendorId', '==', vendorProfile.id)
+      where('vendorId', '==', vendorProfile.id),
+      where('vendorOwnerUid', '==', user.uid)
     );
     
     const unsubProducts = onSnapshot(productsQ, (snap) => {
@@ -369,7 +371,8 @@ export default function VendorDashboard() {
 
     const tablesQ = query(
       collection(db, 'tables'),
-      where('vendorId', '==', vendorProfile.id)
+      where('vendorId', '==', vendorProfile.id),
+      where('vendorOwnerUid', '==', user.uid)
     );
 
     const unsubTables = onSnapshot(tablesQ, (snap) => {
@@ -398,8 +401,12 @@ export default function VendorDashboard() {
   }, [vendorProfile]);
 
   useEffect(() => {
-    if (!vendorProfile?.id) return;
-    const q = query(collection(db, 'coupons'), where('vendorId', '==', vendorProfile.id));
+    if (!vendorProfile?.id || !user) return;
+    const q = query(
+      collection(db, 'coupons'), 
+      where('vendorId', '==', vendorProfile.id),
+      where('vendorOwnerUid', '==', user.uid)
+    );
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setCoupons(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
@@ -528,6 +535,7 @@ export default function VendorDashboard() {
         await addDoc(collection(db, 'products'), {
           ...newProduct,
           vendorId: vendorProfile.id,
+          vendorOwnerUid: user.uid,
           vendorCategory: vendorProfile.category,
           createdAt: serverTimestamp(),
         });
@@ -613,6 +621,7 @@ export default function VendorDashboard() {
       await addDoc(collection(db, 'coupons'), {
         ...newCoupon,
         vendorId: vendorProfile.id,
+        vendorOwnerUid: user?.uid,
         createdBy: user?.uid,
         createdAt: serverTimestamp()
       });
@@ -691,6 +700,7 @@ export default function VendorDashboard() {
     try {
       const orderData = {
         vendorId: vendorProfile.id,
+        vendorOwnerUid: user.uid,
         customerId: posCustomer ? (posCustomer.id || 'POS_CUSTOMER') : 'WALK_IN_CUSTOMER',
         customerName: posCustomer?.name || 'Walk-in Customer',
         customerPhone: posCustomer?.phone || '',
@@ -706,7 +716,7 @@ export default function VendorDashboard() {
         status: 'pending',
         orderSource: 'pos',
         orderType: orderType,
-        tableNumber: orderType === 'dine_in' ? tableNumber : null,
+        tableNumber: orderType === 'pickup' ? tableNumber : null,
         paymentMethod: paymentMethod,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -735,13 +745,13 @@ export default function VendorDashboard() {
           toast.error('Imeshindwa kutuma ombi la malipo: ' + payError.message);
         }
       } else {
-        toast.success('Malipo yamekamilika! Oda imehifadhiwa na kutumwa jikoni.');
+        toast.success('Malipo yamekamilika! Oda imehifadhiwa na kutumwa kwa Packaging.');
       }
 
       setCart([]);
       setPosCustomer(null);
       setTableNumber('');
-      setOrderType('dine_in');
+      setOrderType('walk_in');
       setActiveTab('orders');
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'orders');
@@ -757,12 +767,13 @@ export default function VendorDashboard() {
       await addDoc(collection(db, 'tables'), {
         ...newTable,
         vendorId: vendorProfile.id,
+        vendorOwnerUid: user?.uid,
         status: 'available',
         createdAt: serverTimestamp()
       });
       setIsAddTableOpen(false);
       setNewTable({ number: '', capacity: 4 });
-      toast.success('Table added successfully!');
+      toast.success('Section added successfully!');
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'tables');
     }
@@ -771,7 +782,7 @@ export default function VendorDashboard() {
   const handleDeleteTable = async (id: string) => {
     try {
       await deleteDoc(doc(db, 'tables', id));
-      toast.success('Table removed.');
+      toast.success('Section removed.');
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, 'tables');
     }
@@ -903,12 +914,12 @@ export default function VendorDashboard() {
            <Badge variant="outline" className="bg-white/5 border-none text-neutral-500 font-black">{filteredOrders.length}</Badge>
         </div>
         <div className="flex-1 overflow-y-auto no-scrollbar space-y-4 pr-2">
-           {filteredOrders.map((order, index) => (
+           {filteredOrders.map((order) => (
              <motion.div 
                layout
                initial={{ opacity: 0, scale: 0.95 }}
                animate={{ opacity: 1, scale: 1 }}
-               key={`kds-card-${order.id}-${index}`} 
+               key={`kds-card-${order.id}`} 
                className="bg-neutral-950 border border-neutral-800 p-5 rounded-2xl space-y-4 hover:border-orange-600/30 transition-all cursor-pointer group"
              >
                 <div className="flex items-center justify-between">
@@ -917,8 +928,8 @@ export default function VendorDashboard() {
                     <p className="font-bold text-sm text-white">#{order.id?.slice(-6).toUpperCase()}</p>
                   </div>
                   <div className="flex gap-2">
-                    {order.orderType === 'dine_in' && (
-                      <Badge className="bg-orange-600 text-white border-none text-[8px] font-black uppercase">Meza {order.tableNumber}</Badge>
+                    {order.orderType === 'walk_in' && (
+                      <Badge className="bg-orange-600 text-white border-none text-[8px] font-black uppercase">Soko/In-Store</Badge>
                     )}
                     {order.orderType === 'delivery' && (
                       <Badge className="bg-blue-600 text-white border-none text-[8px] font-black uppercase">Delivery</Badge>
@@ -928,7 +939,7 @@ export default function VendorDashboard() {
 
                 <div className="space-y-3">
                    {order.items.map((item: any, idx: number) => (
-                     <div key={idx} className="flex justify-between items-start">
+                     <div key={`kds-item-${order.id}-${idx}`} className="flex justify-between items-start">
                         <div className="flex gap-2 items-center">
                           <span className="w-5 h-5 rounded-lg bg-neutral-800 flex items-center justify-center text-[10px] font-black text-white">{item.quantity}x</span>
                           <span className="text-xs font-bold text-neutral-300">{item.name}</span>
@@ -949,7 +960,7 @@ export default function VendorDashboard() {
                           className="bg-orange-600 hover:bg-orange-700 h-8 rounded-lg text-[10px] font-black uppercase"
                           onClick={() => updateOrderStatus(order.id!, 'preparing')}
                         >
-                          Start Preparing
+                          Start Picking
                         </Button>
                       )}
                       {order.status === 'preparing' && (
@@ -958,7 +969,7 @@ export default function VendorDashboard() {
                           className="bg-green-600 hover:bg-green-700 h-8 rounded-lg text-[10px] font-black uppercase"
                           onClick={() => updateOrderStatus(order.id!, 'prepared')}
                         >
-                          Mark Done
+                          Pack Order
                         </Button>
                       )}
                        {order.status === 'prepared' && (
@@ -1015,33 +1026,33 @@ export default function VendorDashboard() {
     >
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-4xl font-black italic uppercase tracking-tighter">Orders & KDS</h1>
-          <p className="text-neutral-500 font-medium">Manage live kitchen tickets and delivery status.</p>
+          <h1 className="text-4xl font-black italic uppercase tracking-tighter">Orders & Fulfillment</h1>
+          <p className="text-neutral-500 font-medium">Manage online orders and walk-in sales readiness.</p>
         </div>
         <div className="flex items-center gap-2 p-1 bg-neutral-900 rounded-2xl border border-neutral-800">
            <Button 
-             variant={isKDSMode ? 'default' : 'ghost'} 
-             onClick={() => setIsKDSMode(true)}
-             className={`rounded-xl h-10 px-6 font-bold text-[10px] uppercase tracking-widest ${isKDSMode ? 'bg-orange-600 shadow-lg shadow-orange-900/20' : 'text-neutral-500'}`}
+             variant={isPackingMode ? 'default' : 'ghost'} 
+             onClick={() => setIsPackingMode(true)}
+             className={`rounded-xl h-10 px-6 font-bold text-[10px] uppercase tracking-widest ${isPackingMode ? 'bg-orange-600 shadow-lg shadow-orange-900/20' : 'text-neutral-500'}`}
            >
-              KDS Panel
+              Fulfillment
            </Button>
            <Button 
-             variant={!isKDSMode ? 'default' : 'ghost'} 
-             onClick={() => setIsKDSMode(false)}
-             className={`rounded-xl h-10 px-6 font-bold text-[10px] uppercase tracking-widest ${!isKDSMode ? 'bg-orange-600 shadow-lg shadow-orange-900/20' : 'text-neutral-500'}`}
+             variant={!isPackingMode ? 'default' : 'ghost'} 
+             onClick={() => setIsPackingMode(false)}
+             className={`rounded-xl h-10 px-6 font-bold text-[10px] uppercase tracking-widest ${!isPackingMode ? 'bg-orange-600 shadow-lg shadow-orange-900/20' : 'text-neutral-500'}`}
            >
               List View
            </Button>
         </div>
       </div>
 
-      {isKDSMode ? (
+      {isPackingMode ? (
         <div className="flex gap-8 overflow-x-auto no-scrollbar pb-8 min-h-[600px]">
            {renderKDSColumn("New Orders", ["pending"], "text-yellow-500")}
-           {renderKDSColumn("Kitchen / Preparing", ["preparing", "accepted"], "text-orange-500")}
-           {renderKDSColumn("Ready / Done", ["prepared"], "text-purple-500")}
-           {renderKDSColumn("Recent History", ["delivered", "completed"], "text-green-500")}
+           {renderKDSColumn("Picking / Packing", ["preparing", "accepted"], "text-orange-500")}
+           {renderKDSColumn("Ready for Delivery", ["prepared"], "text-purple-500")}
+           {renderKDSColumn("History", ["delivered", "completed"], "text-green-500")}
         </div>
       ) : (
         <div className="bg-neutral-900 border border-neutral-800 rounded-3xl overflow-hidden shadow-2xl">
@@ -1058,8 +1069,8 @@ export default function VendorDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-800">
-                {orders.map((order, index) => (
-                  <tr key={`${order.id}-${index}`} className="hover:bg-neutral-800/30 transition-colors group">
+                {orders.map((order, idx) => (
+                  <tr key={`orders-table-row-${order.id || idx}`} className="hover:bg-neutral-800/30 transition-colors group">
                     <td className="px-8 py-6">
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-2xl bg-neutral-800 flex items-center justify-center text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-all">
@@ -1283,7 +1294,7 @@ export default function VendorDashboard() {
                   {[
                     { label: "Add Item", icon: Plus, action: () => { setActiveTab('products'); setIsAddProductOpen(true); }, color: "bg-orange-600" },
                     { label: "New Order", icon: ShoppingBag, action: () => setActiveTab('pos'), color: "bg-blue-600" },
-                    { label: "Add Table", icon: QrCode, action: () => { setActiveTab('tables'); setIsAddTableOpen(true); }, color: "bg-purple-600" },
+                    { label: "Stock Stats", icon: BarChart3, action: () => setActiveTab('inventory_stats'), color: "bg-purple-600" },
                     { label: "Customers", icon: Users, action: () => setActiveTab('customers'), color: "bg-emerald-600" },
                     { label: "Coupons", icon: Tag, action: () => setActiveTab('coupons'), color: "bg-pink-600" },
                     { label: "Help", icon: AlertCircle, action: () => toast.info('Support team contacted.'), color: "bg-neutral-800" },
@@ -1308,9 +1319,9 @@ export default function VendorDashboard() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   {[
                     { label: "Gross Sales", value: `TZS ${(orders.reduce((s,o) => s + o.totalAmount, 0)).toLocaleString()}`, icon: Banknote, trend: "+12.5%", positive: true, sub: "Total revenue generated" },
-                    { label: "Active Orders", value: orders.filter(o => o.status !== 'completed' && o.status !== 'cancelled').length.toString(), icon: Clock, trend: "+3 new", positive: true, sub: "Currently in kitchen/delivery" },
-                    { label: "Available Stock", value: products.length.toString(), icon: Package, trend: "Stable", positive: true, sub: "Unique items listed" },
-                    { label: "Active Tables", value: `${tables.filter(t => t.status === 'occupied').length}/${tables.length}`, icon: QrCode, trend: "Busy", positive: true, sub: "Dining occupancy" },
+                    { label: "Processing", value: orders.filter(o => o.status !== 'completed' && o.status !== 'cancelled').length.toString(), icon: Clock, trend: "+3 new", positive: true, sub: "Orders being packed/shipped" },
+                    { label: "Available Items", value: products.length.toString(), icon: Box, trend: "Stable", positive: true, sub: "Unique products listed" },
+                    { label: "Low Stock", value: products.filter(p => p.stock < 10).length.toString(), icon: AlertCircle, trend: "Caution", positive: false, sub: "Products needing restock" },
                   ].map((stat, i) => (
                     <Card key={`stat-card-${stat.label}-${i}`} className="bg-neutral-900/40 border-neutral-800 backdrop-blur-sm overflow-hidden group hover:border-orange-600/50 transition-all cursor-default">
                       <CardContent className="p-8">
@@ -1376,7 +1387,7 @@ export default function VendorDashboard() {
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie
-                            data={Array.from(new Set(products.map(p => p.category))).map(cat => ({
+                            data={Array.from(new Set(products.map(p => p.category).filter(Boolean))).map(cat => ({
                               name: cat,
                               value: products.filter(p => p.category === cat).length
                             }))}
@@ -1387,7 +1398,7 @@ export default function VendorDashboard() {
                             dataKey="value"
                           >
                           {Array.from(new Set(products.map(p => p.category).filter(Boolean))).map((cat, index) => (
-                            <Cell key={`insight-cell-${cat || 'uncategorized'}-${index}`} fill={['#ea580c', '#f97316', '#fb923c', '#fdba74'][index % 4]} />
+                            <Cell key={`insight-cell-${cat}-${index}`} fill={['#ea580c', '#f97316', '#fb923c', '#fdba74'][index % 4]} />
                           ))}
                           </Pie>
                           <Tooltip contentStyle={{ backgroundColor: '#0a0a0a', borderRadius: '12px' }} />
@@ -1451,13 +1462,13 @@ export default function VendorDashboard() {
                     <div className="flex items-center justify-between mb-8">
                       <div>
                         <h3 className="text-xl font-black uppercase tracking-tight italic">Live Orders</h3>
-                        <p className="text-xs text-neutral-500">Ongoing kitchen & service activity</p>
+                        <p className="text-xs text-neutral-500">Ongoing stock & fulfillment activity</p>
                       </div>
-                      <Button variant="ghost" size="sm" className="text-[10px] font-black uppercase text-orange-600" onClick={() => setActiveTab('orders')}>View KDS</Button>
+                      <Button variant="ghost" size="sm" className="text-[10px] font-black uppercase text-orange-600" onClick={() => setActiveTab('orders')}>View Fulfillment</Button>
                     </div>
                     <div className="space-y-6">
-                      {orders.filter(o => o.status !== 'completed' && o.status !== 'cancelled').slice(0, 5).map((order, index) => (
-                        <div key={`live-order-${order.id}-${index}`} className="flex items-center justify-between group">
+                      {orders.filter(o => o.status !== 'completed' && o.status !== 'cancelled').slice(0, 5).map((order) => (
+                        <div key={`live-order-${order.id}`} className="flex items-center justify-between group">
                           <div className="flex items-center gap-4">
                              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
                                order.status === 'pending' ? 'bg-yellow-500/10 text-yellow-500' : 
@@ -1492,8 +1503,8 @@ export default function VendorDashboard() {
                   <Card className="bg-neutral-900/40 border-neutral-800 p-8">
                     <h3 className="text-xl font-black uppercase tracking-tight italic mb-6">Recent Sales</h3>
                     <div className="space-y-6">
-                      {orders.slice(0, 5).map((order, index) => (
-                        <div key={`recent-sale-${order.id}-${index}`} className="flex items-center justify-between group">
+                      {orders.slice(0, 5).map((order) => (
+                        <div key={`recent-sale-${order.id}`} className="flex items-center justify-between group">
                           <div className="flex items-center gap-4">
                              <div className="w-12 h-12 rounded-2xl bg-neutral-800 flex items-center justify-center text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-all">
                                 <Receipt className="w-6 h-6" />
@@ -1517,7 +1528,7 @@ export default function VendorDashboard() {
                       <Store className="w-10 h-10 text-orange-600" />
                     </div>
                     <h3 className="text-2xl font-black uppercase tracking-tight italic text-white">Upgrade to Pro</h3>
-                    <p className="text-neutral-500 text-sm mt-2 max-w-xs">Get advanced analytics, multi-store sync, and priority kitchen routing.</p>
+                    <p className="text-neutral-500 text-sm mt-2 max-w-xs">Get advanced analytics, multi-store sync, and priority fulfillment routing.</p>
                     <Button className="mt-8 rounded-2xl bg-white text-black hover:bg-neutral-200 h-12 px-8 font-black uppercase tracking-widest text-xs">Learn More</Button>
                   </Card>
                 </div>
@@ -1538,7 +1549,7 @@ export default function VendorDashboard() {
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                       <h2 className="text-3xl font-black italic uppercase italic tracking-tighter">Point of Sale</h2>
-                      <p className="text-neutral-500 font-medium">Quick checkout and restaurant service</p>
+                      <p className="text-neutral-500 font-medium">Quick checkout and retail service</p>
                     </div>
                     <div className="flex items-center gap-3">
                        <Button 
@@ -1561,7 +1572,7 @@ export default function VendorDashboard() {
                   <div className="flex gap-3 pb-4 overflow-x-auto no-scrollbar">
                     {categories.map((cat, idx) => (
                       <Button
-                        key={`pos-cat-${cat}-${idx}`}
+                        key={`pos-cat-btn-${cat}-${idx}`}
                         variant={selectedCategory === cat ? 'default' : 'ghost'}
                         onClick={() => setSelectedCategory(cat)}
                         className={`rounded-2xl px-6 h-12 border border-neutral-800 whitespace-nowrap font-black text-[10px] uppercase tracking-widest transition-all ${
@@ -1580,7 +1591,7 @@ export default function VendorDashboard() {
                       <motion.button 
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
-                        key={product.id || `pos-p-${pIdx}`}
+                        key={`pos-prod-${product.id || pIdx}`}
                         onClick={() => addToCart(product)}
                         className="bg-neutral-900/40 border border-neutral-800 p-4 rounded-[2.5rem] hover:border-orange-600/50 transition-all text-left flex flex-col group relative overflow-hidden h-full"
                       >
@@ -1636,8 +1647,8 @@ export default function VendorDashboard() {
                     <div className="space-y-4">
                       <div className="grid grid-cols-3 gap-3 bg-neutral-900/50 p-2 rounded-2xl border border-white/5">
                         {[
-                          { id: 'dine_in', label: 'Dine-In', icon: Beer },
-                          { id: 'takeaway', label: 'Takeaway', icon: ShoppingBag },
+                          { id: 'walk_in', label: 'Soko (In-Store)', icon: Store },
+                          { id: 'pickup', label: 'Pickup', icon: ShoppingBag },
                           { id: 'delivery', label: 'Delivery', icon: Truck },
                         ].map((type, idx) => (
                           <button
@@ -1655,34 +1666,27 @@ export default function VendorDashboard() {
                         ))}
                       </div>
 
-                      {orderType === 'dine_in' && (
+                      {orderType === 'pickup' && (
                         <motion.div 
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: 'auto' }}
                           className="pt-2"
                         >
-                           <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1 block mb-2">Select Table</label>
-                           <Select value={tableNumber} onValueChange={setTableNumber}>
-                              <SelectTrigger className="bg-neutral-900 border-neutral-800 h-12 rounded-xl font-bold">
-                                <SelectValue placeholder="Chagua Meza..." />
-                              </SelectTrigger>
-                              <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
-                                {tables.map((t, index) => (
-                                  <SelectItem key={`${t.id}-${index}`} value={t.number} disabled={t.status !== 'available'}>
-                                    Table {t.number} ({t.capacity} seats) - {t.status}
-                                  </SelectItem>
-                                ))}
-                                {tables.length === 0 && <SelectItem value="none" disabled>No tables added yet</SelectItem>}
-                              </SelectContent>
-                           </Select>
+                           <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1 block mb-2">Shelf / Bin Ref (Optional)</label>
+                           <Input 
+                              placeholder="e.g. Aisle 4, Shelf B" 
+                              value={tableNumber} 
+                              onChange={(e) => setTableNumber(e.target.value)}
+                              className="bg-neutral-900 border-neutral-800 h-12 rounded-xl font-bold"
+                           />
                         </motion.div>
                       )}
                     </div>
                   </div>
 
                   <div className="flex-1 overflow-y-auto p-8 space-y-6 no-scrollbar min-h-[200px]">
-                    {cart.map((item, cartIdx) => (
-                      <div key={item.product.id || `cart-i-${cartIdx}`} className="flex justify-between items-center group animate-in slide-in-from-right-4 duration-300">
+                    {cart.map((item) => (
+                      <div key={`pos-cart-item-${item.product.id}`} className="flex justify-between items-center group animate-in slide-in-from-right-4 duration-300">
                         <div className="flex gap-4">
                           <div className="w-14 h-14 rounded-2xl bg-neutral-900 border border-neutral-800 overflow-hidden relative">
                              {item.product.imageUrl ? (
@@ -1910,7 +1914,7 @@ export default function VendorDashboard() {
                               </SelectTrigger>
                               <SelectContent className="bg-neutral-900 border-neutral-800 text-white border-neutral-700 shadow-2xl">
                                  <SelectItem value="all">Apply to All Products</SelectItem>
-                                {products.map(p => <SelectItem key={`coupon-p-${p.id}`} value={p.id!}>{p.name}</SelectItem>)}
+                                {products.map((p, idx) => <SelectItem key={`coupon-prod-opt-${p.id || 'no-id'}-${idx}`} value={p.id || `idx-${idx}`}>{p.name}</SelectItem>)}
                               </SelectContent>
                            </Select>
                         </div>
@@ -1924,9 +1928,9 @@ export default function VendorDashboard() {
                 )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {coupons.map((coupon, index) => (
+                  {coupons.map((coupon) => (
                     <motion.div 
-                      key={`${coupon.id}-${index}`}
+                      key={`coupon-card-${coupon.id}`}
                       whileHover={{ scale: 1.02 }}
                       className="bg-neutral-900/40 border border-neutral-800 rounded-[2.5rem] p-8 relative group overflow-hidden"
                     >
@@ -1983,9 +1987,9 @@ export default function VendorDashboard() {
               </motion.div>
             )}
 
-            {activeTab === 'tables' && (
+            {activeTab === 'inventory_stats' && (
               <motion.div 
-                key="tables"
+                key="inventory_stats"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
@@ -1993,90 +1997,60 @@ export default function VendorDashboard() {
               >
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                   <div>
-                    <h2 className="text-3xl font-black italic uppercase tracking-tighter">Dining Area</h2>
-                    <p className="text-neutral-500 font-medium">Manage tables, status, and QR code assignments</p>
+                    <h2 className="text-3xl font-black italic uppercase tracking-tighter">Stock Insights</h2>
+                    <p className="text-neutral-500 font-medium">Detailed analytics of your inventory value and movement.</p>
                   </div>
-                  <Button 
-                    onClick={() => setIsAddTableOpen(true)}
-                    className="bg-orange-600 hover:bg-orange-700 rounded-2xl h-12 px-6 font-black uppercase tracking-widest text-[10px] shadow-xl shadow-orange-900/30 text-white"
-                  >
-                    <Plus className="w-4 h-4 mr-2" /> Add New Table
-                  </Button>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {tables.map((table, index) => (
-                    <motion.div 
-                      key={`${table.id}-${index}`}
-                      whileHover={{ y: -5 }}
-                      className="bg-neutral-900/40 border border-neutral-800 rounded-[2.5rem] p-6 relative overflow-hidden group"
-                    >
-                      <div className="flex justify-between items-start mb-6">
-                        <div className={`p-4 rounded-2xl ${
-                          table.status === 'available' ? 'bg-green-500/10 text-green-500' : 
-                          table.status === 'occupied' ? 'bg-orange-600/10 text-orange-600 animate-pulse' : 
-                          'bg-neutral-800 text-neutral-500'
-                        }`}>
-                          <Store className="w-6 h-6" />
-                        </div>
-                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                           <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg bg-neutral-800 text-neutral-400 hover:text-white">
-                              <MoreVertical className="w-4 h-4" />
-                           </Button>
-                        </div>
-                      </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                   <Card className="bg-neutral-900/40 border-neutral-800 p-8">
+                      <h3 className="text-[10px] font-black uppercase tracking-widest text-neutral-500 mb-2">Total Inventory Value</h3>
+                      <p className="text-3xl font-black text-white italic">TZS {(products.reduce((acc, p) => acc + (p.price * p.stock), 0)).toLocaleString()}</p>
+                   </Card>
+                   <Card className="bg-neutral-900/40 border-neutral-800 p-8">
+                      <h3 className="text-[10px] font-black uppercase tracking-widest text-neutral-500 mb-2">Unique Items</h3>
+                      <p className="text-3xl font-black text-white italic">{products.length} Products</p>
+                   </Card>
+                   <Card className="bg-neutral-900/40 border-neutral-800 p-8">
+                      <h3 className="text-[10px] font-black uppercase tracking-widest text-neutral-500 mb-2">Total Units in Stock</h3>
+                      <p className="text-3xl font-black text-white italic">{products.reduce((acc, p) => acc + p.stock, 0)} Units</p>
+                   </Card>
+                </div>
 
-                      <div className="space-y-1">
-                        <h3 className="text-2xl font-black text-white italic">Table {table.number}</h3>
-                        <p className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">{table.capacity} Seats • {table.status}</p>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                   <Card className="bg-neutral-900/40 border-neutral-800 p-8">
+                      <h3 className="font-black italic uppercase tracking-tighter mb-6">Stock Level Distribution</h3>
+                      <div className="h-[300px]">
+                         <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={products.slice(0, 10)}>
+                               <CartesianGrid strokeDasharray="3 3" stroke="#262626" vertical={false} />
+                               <XAxis dataKey="name" stroke="#525252" fontSize={10} axisLine={false} tickLine={false} />
+                               <YAxis stroke="#525252" fontSize={10} axisLine={false} tickLine={false} />
+                               <Tooltip 
+                                 contentStyle={{ backgroundColor: '#0a0a0a', border: '1px solid #262626', borderRadius: '12px' }}
+                                 itemStyle={{ color: '#ea580c', fontWeight: 'bold' }}
+                               />
+                               <Bar dataKey="stock" fill="#ea580c" radius={[10, 10, 0, 0]} />
+                            </BarChart>
+                         </ResponsiveContainer>
                       </div>
-
-                      <div className="mt-8 flex items-center justify-between">
-                         <div className="p-3 bg-white rounded-xl">
-                            <QrCode className="w-8 h-8 text-black" />
-                         </div>
-                         <Button 
-                           variant="ghost" 
-                           className="text-[10px] font-black text-orange-500 uppercase tracking-widest hover:text-orange-400"
-                           onClick={() => {
-                             if (!vendorProfile?.id) {
-                               toast.error("Taarifa za duka bado hazijapakuliwa. Tafadhali subiri.");
-                               return;
-                             }
-                             setSelectedTable(table);
-                             setQrOptions(prev => ({
-                               ...prev,
-                               data: `${window.location.origin}/table/${vendorProfile.id}/${table.number}`
-                             }));
-                             setIsQrBuilderOpen(true);
-                           }}
-                         >
-                            Download QR
-                         </Button>
-                      </div>
-
-                      {/* Status Overlay for Occupied */}
-                      {table.status === 'occupied' && (
-                        <div className="absolute top-0 right-0 p-4">
-                           <div className="flex items-center gap-1.5 bg-orange-600 text-[8px] font-black uppercase px-2 py-0.5 rounded-full text-white">
-                              <span className="relative flex h-1.5 w-1.5">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white"></span>
-                              </span>
-                              Live Order
+                   </Card>
+                   <Card className="bg-neutral-900/40 border-neutral-800 p-8">
+                      <h3 className="font-black italic uppercase tracking-tighter mb-6">Units Breakdown</h3>
+                      <div className="space-y-4">
+                         {Array.from(new Set(products.map(p => p.unit || 'pcs'))).map((unit, i) => (
+                           <div key={`unit-stats-${unit}`} className="flex items-center justify-between p-4 bg-neutral-900/60 rounded-2xl border border-neutral-800">
+                              <div className="flex items-center gap-3">
+                                 <div className="w-10 h-10 rounded-xl bg-orange-600/10 flex items-center justify-center text-orange-600 font-black">
+                                    {unit.toUpperCase()}
+                                 </div>
+                                 <span className="font-bold text-white uppercase text-xs">{unit} Products</span>
+                              </div>
+                              <span className="text-lg font-black italic">{products.filter(p => p.unit === unit).length}</span>
                            </div>
-                        </div>
-                      )}
-                    </motion.div>
-                  ))}
-
-                  {tables.length === 0 && (
-                    <div className="col-span-full py-32 text-center bg-neutral-900/20 rounded-[3rem] border border-dashed border-neutral-800">
-                       <QrCode className="w-20 h-20 text-neutral-800 mx-auto mb-6" />
-                       <h3 className="text-xl font-black text-white italic uppercase mb-2">No Tables Found</h3>
-                       <p className="text-neutral-500 text-sm max-w-xs mx-auto">Add your restaurant tables to manage dining orders and generate QR codes for customers.</p>
-                    </div>
-                  )}
+                         ))}
+                      </div>
+                   </Card>
                 </div>
               </motion.div>
             )}
@@ -2139,7 +2113,7 @@ export default function VendorDashboard() {
                              const totalSpent = customerOrders.reduce((sum, o) => sum + o.totalAmount, 0);
 
                              return (
-                               <tr key={`crm-row-${cId}-${totalSpent}-${index}`} className="hover:bg-neutral-800/20 transition-all group">
+                               <tr key={`crm-row-${cId}-${index}`} className="hover:bg-neutral-800/20 transition-all group">
                                   <td className="px-8 py-6">
                                      <div className="flex items-center gap-4">
                                         <div className="w-12 h-12 rounded-2xl bg-orange-600/10 flex items-center justify-center border border-orange-600/20">
@@ -2170,15 +2144,15 @@ export default function VendorDashboard() {
                                </tr>
                              );
                           })}
-                          {orders.filter(o => o.customerPhone || o.customerId).length === 0 && (
-                             <tr>
-                                <td colSpan={4} className="px-8 py-32 text-center bg-neutral-900/10">
-                                   <Users className="w-20 h-20 text-neutral-800 mx-auto mb-6" />
-                                   <h3 className="text-xl font-black text-white italic uppercase mb-2">No Customer Data</h3>
-                                   <p className="text-neutral-400 text-sm max-w-xs mx-auto">Start recording customer details during checkout to build your CRM database.</p>
-                                </td>
-                             </tr>
-                          )}
+                      {orders.filter(o => o.customerPhone || o.customerId).length === 0 && (
+                        <tr key="crm-empty-row">
+                          <td colSpan={4} className="px-8 py-32 text-center bg-neutral-900/10">
+                            <Users className="w-20 h-20 text-neutral-800 mx-auto mb-6" />
+                            <h3 className="text-xl font-black text-white italic uppercase mb-2">No Customer Data</h3>
+                            <p className="text-neutral-400 text-sm max-w-xs mx-auto">Start recording customer details during checkout to build your CRM database.</p>
+                          </td>
+                        </tr>
+                      )}
                         </tbody>
                      </table>
                    </div>
@@ -2229,7 +2203,7 @@ export default function VendorDashboard() {
                             value={updatedProfile.businessName}
                             onChange={e => setUpdatedProfile({...updatedProfile, businessName: e.target.value})}
                             className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl text-lg font-bold"
-                            placeholder="e.g. Mama Ntilie Restaurant"
+                            placeholder="e.g. Papo Hapo Soko"
                             required
                           />
                         </div>
@@ -2278,14 +2252,14 @@ export default function VendorDashboard() {
                        <div className="flex items-center gap-4 text-orange-600">
                           <Clock className="w-6 h-6" />
                           <h3 className="font-black text-xl">Opening Hours</h3>
-                        </div>
-                        <Input 
-                          value={updatedProfile.operatingHours}
-                          onChange={e => setUpdatedProfile({...updatedProfile, operatingHours: e.target.value})}
-                          className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl font-bold"
-                          placeholder="e.g. 8:00 AM - 10:00 PM"
-                        />
-                    </Card>
+                  </div>
+                  <Input 
+                    value={updatedProfile.operatingHours}
+                    onChange={e => setUpdatedProfile({...updatedProfile, operatingHours: e.target.value})}
+                    className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl font-bold"
+                    placeholder="e.g. 7:00 AM - 9:00 PM"
+                  />
+              </Card>
                   </div>
 
                   <div className="space-y-8">
@@ -2433,8 +2407,8 @@ export default function VendorDashboard() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-neutral-800/50">
-                      {filteredInventory.map((product, index) => (
-                        <tr key={`${product.id}-${index}`} className="hover:bg-neutral-800/20 transition-all group">
+                      {filteredInventory.map((product) => (
+                        <tr key={`inventory-row-${product.id}`} className="hover:bg-neutral-800/20 transition-all group">
                           <td className="px-8 py-6">
                             <div className="flex items-center gap-4">
                               <div className="w-16 h-16 rounded-[1.5rem] bg-neutral-900 overflow-hidden relative border border-neutral-800 group-hover:border-orange-600/50 transition-all">
@@ -2661,14 +2635,24 @@ export default function VendorDashboard() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-neutral-500 uppercase">Price / Bei (TZS)</label>
-                    <Input 
-                      type="number"
-                      required 
-                      className="bg-neutral-800 border-none h-12 rounded-xl"
-                      value={newProduct.price}
-                      onChange={e => setNewProduct({...newProduct, price: parseFloat(e.target.value)})}
-                    />
+                    <label className="text-xs font-bold text-neutral-500 uppercase">Unit / Kipimo</label>
+                    <Select 
+                      value={newProduct.unit} 
+                      onValueChange={v => setNewProduct({...newProduct, unit: v})}
+                    >
+                      <SelectTrigger className="bg-neutral-800 border-none h-12 rounded-xl">
+                        <SelectValue placeholder="Select unit" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
+                        <SelectItem value="kg">Kilogram (kg)</SelectItem>
+                        <SelectItem value="g">Gram (g)</SelectItem>
+                        <SelectItem value="unit">Unit (pcs)</SelectItem>
+                        <SelectItem value="bunch">Bunch (Fungu)</SelectItem>
+                        <SelectItem value="packet">Packet</SelectItem>
+                        <SelectItem value="liter">Liter (L)</SelectItem>
+                        <SelectItem value="ml">Milliliter (ml)</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-neutral-500 uppercase">Stock / Kiasi Kilichopo</label>
@@ -2689,7 +2673,19 @@ export default function VendorDashboard() {
                     className="bg-neutral-800 border-none h-12 rounded-xl"
                     value={newProduct.category}
                     onChange={e => setNewProduct({...newProduct, category: e.target.value})}
-                    placeholder="e.g. Pain Relief"
+                    placeholder="e.g. mboga, matunda, nyama"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-neutral-500 uppercase">Base Price / Bei ya Msingi (TZS)</label>
+                  <Input 
+                    type="number"
+                    required 
+                    className="bg-neutral-800 border-none h-12 rounded-xl"
+                    value={newProduct.price}
+                    onChange={e => setNewProduct({...newProduct, price: parseFloat(e.target.value)})}
+                    placeholder="e.g. 1500"
                   />
                 </div>
 
@@ -2722,10 +2718,10 @@ export default function VendorDashboard() {
 
                 {(vendorProfile?.category === 'grocery' || vendorProfile?.category === 'restaurant' || vendorProfile?.category === 'ecommerce') && (
                   <div className="space-y-6 pt-2">
-                    {/* Variations / Sizes */}
+                    {/* Variations / Options */}
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <label className="text-xs font-bold text-neutral-500 uppercase">Ukubwa / Sizes (e.g. Large, Small)</label>
+                        <label className="text-xs font-bold text-neutral-500 uppercase">Product Options (e.g. Color, Type)</label>
                         <Button 
                           type="button" 
                           variant="ghost" 
@@ -2736,7 +2732,7 @@ export default function VendorDashboard() {
                             variations: [...(newProduct.variations || []), { name: '', price: 0 }]
                           })}
                         >
-                          <Plus className="w-3 h-3 mr-1" /> Ongeza Ukubwa
+                          <Plus className="w-3 h-3 mr-1" /> Add Option
                         </Button>
                       </div>
                       <div className="space-y-2">
@@ -2744,7 +2740,7 @@ export default function VendorDashboard() {
                           <div key={`var-edit-${idx}`} className="flex gap-2 items-center animate-in fade-in slide-in-from-top-1">
                             <Input 
                               className="flex-1 bg-neutral-800 border-none h-10 rounded-xl text-sm"
-                              placeholder="Jina (mfano: Kubwa)"
+                              placeholder="Name (e.g. Red, XL)"
                               value={v.name}
                               onChange={e => {
                                 const newVars = [...(newProduct.variations || [])];
@@ -2755,7 +2751,7 @@ export default function VendorDashboard() {
                             <Input 
                               type="number"
                               className="w-24 bg-neutral-800 border-none h-10 rounded-xl text-sm"
-                              placeholder="Bei (+)"
+                              placeholder="Price (+)"
                               value={v.price}
                               onChange={e => {
                                 const newVars = [...(newProduct.variations || [])];
@@ -2777,16 +2773,13 @@ export default function VendorDashboard() {
                             </Button>
                           </div>
                         ))}
-                        {(!newProduct.variations || newProduct.variations.length === 0) && (
-                          <p className="text-[10px] text-neutral-600 italic">Hakuna ukubwa uliowekwa. Bonyeza ongeza ikiwa bidhaa ina saizi tofauti.</p>
-                        )}
                       </div>
                     </div>
 
-                    {/* Add-ons / Vionjo */}
+                    {/* Add-ons */}
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <label className="text-xs font-bold text-neutral-500 uppercase">Vionjo / Add-ons (e.g. Soda, Pilipili)</label>
+                        <label className="text-xs font-bold text-neutral-500 uppercase">Product Add-ons (e.g. Bag, Extra Ice)</label>
                         <Button 
                           type="button" 
                           variant="ghost" 
@@ -2797,7 +2790,7 @@ export default function VendorDashboard() {
                             addOns: [...(newProduct.addOns || []), { name: '', price: 0 }]
                           })}
                         >
-                          <Plus className="w-3 h-3 mr-1" /> Ongeza Kionjo
+                          <Plus className="w-3 h-3 mr-1" /> Add Add-on
                         </Button>
                       </div>
                       <div className="space-y-2">
@@ -2805,7 +2798,7 @@ export default function VendorDashboard() {
                           <div key={`addon-edit-${idx}`} className="flex gap-2 items-center animate-in fade-in slide-in-from-top-1">
                             <Input 
                               className="flex-1 bg-neutral-800 border-none h-10 rounded-xl text-sm"
-                              placeholder="Jina (mfano: Soda)"
+                              placeholder="Name (e.g. Plastic Bag)"
                               value={a.name}
                               onChange={e => {
                                 const newAddons = [...(newProduct.addOns || [])];
@@ -2816,7 +2809,7 @@ export default function VendorDashboard() {
                             <Input 
                               type="number"
                               className="w-24 bg-neutral-800 border-none h-10 rounded-xl text-sm"
-                              placeholder="Bei"
+                              placeholder="Price"
                               value={a.price}
                               onChange={e => {
                                 const newAddons = [...(newProduct.addOns || [])];
@@ -2838,29 +2831,9 @@ export default function VendorDashboard() {
                             </Button>
                           </div>
                         ))}
-                        {(!newProduct.addOns || newProduct.addOns.length === 0) && (
-                          <p className="text-[10px] text-neutral-600 italic">Hakuna vionjo vilivyowekwa. Bonyeza ongeza ikiwa unataka kutoa chaguzi za ziada.</p>
-                        )}
                       </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-neutral-500 uppercase">Unit / Kipimo</label>
-                      <Select 
-                        value={newProduct.unit} 
-                        onValueChange={val => setNewProduct({...newProduct, unit: val})}
-                      >
-                        <SelectTrigger className="bg-neutral-800 border-none h-12 rounded-xl">
-                          <SelectValue placeholder="Select Unit" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
-                          <SelectItem value="kg">Kilogram (Kg)</SelectItem>
-                          <SelectItem value="pcs">Piece (Pcs)</SelectItem>
-                          <SelectItem value="pack">Pack</SelectItem>
-                          <SelectItem value="ltr">Litre (Ltr)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
                   </div>
                 )}
 
@@ -3010,7 +2983,7 @@ export default function VendorDashboard() {
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-bold flex items-center gap-2">
                   <Plus className="w-5 h-5 text-orange-600" />
-                  Add New Table
+                  Add New Section
                 </h3>
                 <button onClick={() => setIsAddTableOpen(false)} className="text-neutral-500 hover:text-white">
                   <X className="w-5 h-5" />
@@ -3019,21 +2992,21 @@ export default function VendorDashboard() {
               
               <form onSubmit={handleAddTable} className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-neutral-500 uppercase">Table Number</label>
+                  <label className="text-xs font-bold text-neutral-500 uppercase">Section Number</label>
                   <Input 
                     required
-                    placeholder="e.g. 1" 
+                    placeholder="e.g. Aisle 1" 
                     className="bg-neutral-800 border-none h-11 rounded-xl"
                     value={newTable.number}
                     onChange={e => setNewTable({...newTable, number: e.target.value})}
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-neutral-500 uppercase">Seating Capacity</label>
+                  <label className="text-xs font-bold text-neutral-500 uppercase">Section Size (Optional)</label>
                   <Input 
                     type="number"
                     required
-                    placeholder="e.g. 4" 
+                    placeholder="e.g. 10" 
                     className="bg-neutral-800 border-none h-11 rounded-xl"
                     value={newTable.capacity}
                     onChange={e => setNewTable({...newTable, capacity: parseInt(e.target.value)})}
@@ -3043,7 +3016,7 @@ export default function VendorDashboard() {
                   type="submit"
                   className="w-full bg-orange-600 hover:bg-orange-700 h-11 rounded-xl font-bold mt-4"
                 >
-                  Create Table
+                  Create Section
                 </Button>
               </form>
             </motion.div>
@@ -3071,10 +3044,10 @@ export default function VendorDashboard() {
               <div className="p-8 border-b border-white/5 flex items-center justify-between shrink-0 bg-black/20">
                 <div>
                   <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter">
-                    Qr Builder {selectedTable && <span className="text-orange-600">— Table {selectedTable.number}</span>}
+                    Qr Builder {selectedTable && <span className="text-orange-600">— Section {selectedTable.number}</span>}
                   </h3>
                   <p className="text-xs text-neutral-500 font-bold uppercase tracking-widest">
-                    {selectedTable ? `Design for ${selectedTable.number}` : 'Customize your digital experience'}
+                    {selectedTable ? `Design for Section ${selectedTable.number}` : 'Customize your digital experience'}
                   </p>
                 </div>
                 <button 
@@ -3091,7 +3064,7 @@ export default function VendorDashboard() {
                   
                   {/* QR Data Preview */}
                   <div className="space-y-4">
-                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] px-1">Target URL / Link ya Menu</label>
+                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] px-1">Target URL / Link ya Bidhaa</label>
                     <div className="bg-neutral-900 border border-white/5 rounded-2xl p-4 flex items-center gap-3">
                        <LinkIcon className="w-4 h-4 text-orange-600 shrink-0" />
                        <p className="text-[10px] font-mono text-neutral-400 break-all">{qrOptions.data || 'Hakuna Link...'}</p>
@@ -3102,9 +3075,9 @@ export default function VendorDashboard() {
                   <div className="space-y-4">
                     <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] px-1">Qr Block Style / Aina ya Michoro</label>
                     <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
-                      {(['square', 'dots', 'rounded', 'extra-rounded', 'classy', 'classy-rounded'] as DotType[]).map((type) => (
+                      {(['square', 'dots', 'rounded', 'extra-rounded', 'classy', 'classy-rounded'] as DotType[]).map((type, tIdx) => (
                         <button
-                          key={type}
+                          key={`qr-dot-style-${type}-${tIdx}`}
                           onClick={() => setQrOptions({ ...qrOptions, dotsOptions: { ...qrOptions.dotsOptions, type } })}
                           className={`aspect-square rounded-2xl border transition-all flex flex-col items-center justify-center gap-2 ${
                             qrOptions.dotsOptions.type === type 
@@ -3114,7 +3087,7 @@ export default function VendorDashboard() {
                         >
                           <div className={`w-8 h-8 border-2 border-current rounded-sm flex flex-wrap p-1 gap-1 overflow-hidden opacity-80`}>
                              {Array.from({length: 4}).map((_, i) => (
-                               <div key={i} className={`w-2 h-2 bg-current ${
+                               <div key={`qr-dot-sub-${type}-${i}`} className={`w-2 h-2 bg-current ${
                                  type === 'dots' ? 'rounded-full' : 
                                  type === 'rounded' ? 'rounded-sm' : 
                                  'rounded-none'
@@ -3131,9 +3104,9 @@ export default function VendorDashboard() {
                   <div className="space-y-4">
                     <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] px-1">Eye Style / Aina ya Kona</label>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {(['square', 'dot', 'extra-rounded'] as CornerSquareType[]).map((type) => (
+                      {(['square', 'dot', 'extra-rounded'] as CornerSquareType[]).map((type, tIdx) => (
                         <button
-                          key={type}
+                          key={`qr-eye-style-${type}-${tIdx}`}
                           onClick={() => setQrOptions({ 
                             ...qrOptions, 
                             cornersSquareOptions: { ...qrOptions.cornersSquareOptions, type },
@@ -3165,9 +3138,9 @@ export default function VendorDashboard() {
                        {[
                          '#000000', '#71717A', '#E2E8F0', '#F97316', '#EAB308', 
                          '#22C55E', '#3B82F6', '#06B6D4', '#EF4444', '#EC4899'
-                       ].map(color => (
+                       ].map((color, cIdx) => (
                          <button
-                           key={color}
+                           key={`qr-color-${color}-${cIdx}`}
                            onClick={() => setQrOptions({ 
                              ...qrOptions, 
                              dotsOptions: { ...qrOptions.dotsOptions, color },
@@ -3192,9 +3165,9 @@ export default function VendorDashboard() {
                        {[
                          '#ffffff', '#000000', '#71717A', '#E2E8F0', '#F97316', '#EAB308', 
                          '#22C55E', '#3B82F6', '#06B6D4', '#EF4444', '#EC4899'
-                       ].map(color => (
+                       ].map((color, cIdx) => (
                          <button
-                           key={color}
+                           key={`qr-bg-color-${color}-${cIdx}`}
                            onClick={() => setQrOptions({ ...qrOptions, backgroundOptions: { color } })}
                            className={`aspect-square rounded-xl border-2 transition-all relative flex items-center justify-center ${
                              qrOptions.backgroundOptions.color === color ? 'border-orange-500 scale-110 z-10' : 'border-transparent'
@@ -3255,7 +3228,7 @@ export default function VendorDashboard() {
                       <div className="space-y-1">
                         <span className="text-[8px] font-black text-neutral-600 uppercase tracking-widest px-1">Title / Jina la Biashara</span>
                         <Input 
-                          placeholder="e.g. KARIBU CHAKULA"
+                          placeholder="e.g. KARIBU SOKONI"
                           className="bg-neutral-900 border-white/5 h-11 rounded-xl text-white text-xs focus:ring-1 focus:ring-orange-600"
                           value={printDetails.header}
                           onChange={e => setPrintDetails({...printDetails, header: e.target.value})}
@@ -3264,7 +3237,7 @@ export default function VendorDashboard() {
                       <div className="space-y-1">
                         <span className="text-[8px] font-black text-neutral-600 uppercase tracking-widest px-1">Sub-header / Maelezo</span>
                         <Input 
-                          placeholder="e.g. MENU YA KIDIJITALI"
+                          placeholder="e.g. ORODHA YA KIDIJITALI"
                           className="bg-neutral-900 border-white/5 h-11 rounded-xl text-white text-xs focus:ring-1 focus:ring-orange-600"
                           value={printDetails.subHeader}
                           onChange={e => setPrintDetails({...printDetails, subHeader: e.target.value})}
@@ -3273,7 +3246,7 @@ export default function VendorDashboard() {
                       <div className="space-y-1">
                         <span className="text-[8px] font-black text-neutral-600 uppercase tracking-widest px-1">Footer / Maelekezo</span>
                         <Input 
-                          placeholder="e.g. Scan to order"
+                          placeholder="e.g. Scan to view items"
                           className="bg-neutral-900 border-white/5 h-11 rounded-xl text-white text-xs focus:ring-1 focus:ring-orange-600"
                           value={printDetails.footer}
                           onChange={e => setPrintDetails({...printDetails, footer: e.target.value})}
@@ -3317,7 +3290,7 @@ export default function VendorDashboard() {
                         <div className="bg-[#1A1A1A] p-6 flex flex-col items-center justify-center text-center relative overflow-hidden shrink-0 min-h-[140px]">
                           {/* Subtle Pattern overlay */}
                           <div className="absolute inset-0 opacity-5 pointer-events-none flex flex-wrap gap-4 p-2">
-                             {Array.from({length: 12}).map((_, i) => <Zap key={i} className="w-8 h-8 rotate-12" />)}
+                             {Array.from({length: 12}).map((_, i) => <Zap key={`stand-zap-${i}`} className="w-8 h-8 rotate-12" />)}
                           </div>
                           
                           {vendorProfile?.logoUrl && (
@@ -3337,7 +3310,7 @@ export default function VendorDashboard() {
                           <div className="w-full flex flex-col items-center mb-6">
                             {/* Title above QR */}
                             <div className="bg-neutral-50 px-5 py-1.5 border border-neutral-200 rounded-full mb-3 shadow-sm">
-                               <p className="text-[8px] font-black uppercase tracking-widest text-neutral-500">MENYU YA {vendorProfile?.businessName?.toUpperCase() || 'DUKA'}</p>
+                              <p className="text-[8px] font-black uppercase tracking-widest text-neutral-500">BIDHAA ZA {vendorProfile?.businessName?.toUpperCase() || 'DUKA'}</p>
                             </div>
                             
                             {/* The QR Code itself */}
@@ -3352,11 +3325,11 @@ export default function VendorDashboard() {
                           {/* Instructions */}
                           <div className="space-y-2 mb-6">
                             <h3 className="text-2xl font-black uppercase leading-[0.9] tracking-tighter text-neutral-900 px-4">
-                              SCAN & AGIZA <br/> CHAKULA HAPA
+                              SCAN & AGIZA <br/> BIDHAA HAPA
                             </h3>
                             <div className="space-y-0.5">
                               <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-tight">Changanua kwa simu yako</p>
-                              <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-tight">Fungua Menyu & Pata Vyakula!</p>
+                              <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-tight">Fungua Orodha & Pata Bidhaa!</p>
                             </div>
                           </div>
 
@@ -3364,7 +3337,7 @@ export default function VendorDashboard() {
                           <div className="w-full mt-auto pt-4 space-y-4">
                             <div className="inline-flex flex-col items-center">
                               <p className="text-xs font-black text-neutral-900 uppercase tracking-widest mb-1 pb-1 border-b border-orange-600/20">
-                                MEZA NAMBA: <span className="text-orange-600 text-lg ml-1 font-mono">{selectedTable?.number || '01'}</span>
+                                SECTION / AISLE: <span className="text-orange-600 text-lg ml-1 font-mono">{selectedTable?.number || '01'}</span>
                               </p>
                             </div>
 
@@ -3431,8 +3404,8 @@ export default function VendorDashboard() {
                     )}
                     <p className="text-center text-[9px] text-neutral-500 font-bold uppercase tracking-[0.15em] leading-relaxed">
                        {printDetails.isPrintMode 
-                         ? 'This layout is optimized for A5/A6 acrylic menu holders.' 
-                         : `Scan this code to directly access the menu for Table ${selectedTable?.number || ''}`
+                         ? 'This layout is optimized for acrylic store displays.' 
+                         : `Scan this code to directly access the shop for Section ${selectedTable?.number || ''}`
                        }
                     </p>
                   </div>
@@ -3468,7 +3441,7 @@ export default function VendorDashboard() {
             {/* Header / Brand */}
             <div className="w-full text-center mb-6">
                <h1 className="text-2xl font-black text-neutral-900 leading-tight mb-2">
-                 {vendorProfile?.businessName || 'Restaurant App'}
+                 {vendorProfile?.businessName || 'Soko App'}
                </h1>
                <p className="text-[10px] text-neutral-600 font-bold max-w-[200px] mx-auto leading-relaxed">
                  {vendorProfile?.address || 'Anuani ya Biashara'}
@@ -3506,7 +3479,7 @@ export default function VendorDashboard() {
             {/* Items List */}
             <div className="space-y-4 mb-6">
                {orderToPrint.items.map((item, idx) => (
-                 <div key={idx} className="flex justify-between items-start text-[11px] font-bold text-neutral-900">
+                 <div key={`print-item-${orderToPrint.id}-${idx}`} className="flex justify-between items-start text-[11px] font-bold text-neutral-900">
                     <span className="w-8 shrink-0">{item.quantity}</span>
                     <div className="flex-1 px-4">
                        <p className="uppercase leading-tight">{item.name}</p>
@@ -3591,7 +3564,7 @@ export default function VendorDashboard() {
                <div className="flex flex-col items-end opacity-40 grayscale">
                   <span className="text-[6px] font-bold uppercase tracking-tight">Powered by</span>
                   <p className="text-[7px] font-black uppercase tracking-tight text-neutral-900 leading-tight">
-                    FoodKing - Restaurant Food Ordering & Delivery App
+                    Papo Hapo - Grocery Store & Delivery App
                   </p>
                </div>
             </div>

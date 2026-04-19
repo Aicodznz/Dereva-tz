@@ -21,7 +21,7 @@ export default function RoleSelection() {
     <div className="max-w-4xl mx-auto py-12">
       <div className="text-center mb-12">
         <h1 className="text-3xl font-bold text-neutral-900 mb-4">Choose Your Role</h1>
-        <p className="text-neutral-600">Select how you want to use OmniServe today.</p>
+        <p className="text-neutral-600">Select how you want to use Papo Hapo today.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -32,7 +32,11 @@ export default function RoleSelection() {
                 <role.icon className="w-6 h-6" />
               </div>
               <CardTitle>{role.title}</CardTitle>
-              <CardDescription>{role.description}</CardDescription>
+              <CardDescription>
+                {role.id === 'customer' ? 'Agiza bidhaa, soko na zaidi.' : 
+                 role.id === 'vendor' ? 'Uza bidhaa au huduma zako.' : 
+                 role.description}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <Button 

@@ -430,7 +430,7 @@ export default function VendorStore() {
                                   <h4 className="font-bold text-neutral-900">{review.userName}</h4>
                                   <div className="flex items-center gap-1">
                                     {[...Array(5)].map((_, i) => (
-                                      <Star key={i} className={`w-3 h-3 ${i < review.rating ? 'text-orange-500 fill-current' : 'text-neutral-300'}`} />
+                                      <Star key={`review-star-${review.id}-${i}`} className={`w-3 h-3 ${i < review.rating ? 'text-orange-500 fill-current' : 'text-neutral-300'}`} />
                                     ))}
                                   </div>
                                 </div>
@@ -439,7 +439,7 @@ export default function VendorStore() {
                                 {review.images && review.images.length > 0 && (
                                   <div className="flex gap-2 mt-4 overflow-x-auto pb-2 no-scrollbar">
                                     {review.images.map((img, idx) => img && (
-                                      <div key={idx} className="w-20 h-20 rounded-xl overflow-hidden shrink-0 border border-neutral-200">
+                                      <div key={`review-img-${review.id}-${idx}`} className="w-20 h-20 rounded-xl overflow-hidden shrink-0 border border-neutral-200">
                                         <img src={img} alt="Review" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                                       </div>
                                     ))}

@@ -131,7 +131,7 @@ const translations = {
     'welcome': 'Karibu',
     'businesses': 'Biashara',
     'products': 'Bidhaa',
-    'search_placeholder': 'Tafuta chakula, bidhaa, au huduma...',
+    'search_placeholder': 'Tafuta bidhaa, soko, au huduma...',
   }
 };
 

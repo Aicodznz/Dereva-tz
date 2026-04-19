@@ -1,139 +1,135 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    // ===============================================================
+    // GLOBAL SAFETY NET
+    // ===============================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
 
     // ===============================================================
-    // Assumed Data Model
+    // HELPERS
     // ===============================================================
-    //
-    // Collection: users
-    // Document ID: {uid}
-    // Fields:
-    //   - uid: string (required)
-    //   - email: string (required)
-    //   - displayName: string
-    //   - photoURL: string
-    //   - role: string (required, ['customer', 'vendor', 'rider', 'admin'])
-    //   - phoneNumber: string
-    //   - address: string
-    //   - createdAt: timestamp
-    //
-    // Collection: vendors
-    // Document ID: {vendorId}
-    // Fields:
-    //   - ownerUid: string (required)
-    //   - businessName: string (required)
-    //   - category: string (required)
-    //   - status: string (required, ['pending', 'active', 'suspended'])
-    //   - ... other metadata
-    //
-    // Collection: products
-    // Document ID: {productId}
-    // Fields:
-    //   - vendorId: string (required)
-    //   - name: string (required)
-    //   - price: number (required)
-    //   - ...
-    //
-    // Collection: orders
-    // Document ID: {orderId}
-    // Fields:
-    //   - customerId: string (required)
-    //   - vendorId: string (required)
-    //   - status: string (required)
-    //   - totalAmount: number (required)
-    //
-    // ===============================================================
-
-    // ===============================================================
-    // Helper Functions
-    // ===============================================================
-
-    function isAuthenticated() {
+    function isSignedIn() {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+    function isVerified() {
+      return isSignedIn(); // Relaxed for now as we don't have email verification flow in UI
     }
 
     function isAdmin() {
-      return isAuthenticated() &&
-        (
-          request.auth.token.email == "aicodtznation@gmail.com" ||
-          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
-        );
+      return isSignedIn() && (
+        request.auth.token.email == "aicodtznation@gmail.com" ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
     }
 
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Master Gate (Only for single doc or write operations)
     function isVendorOwner(vendorId) {
-      return isAuthenticated() && 
+      return isSignedIn() && 
              exists(/databases/$(database)/documents/vendors/$(vendorId)) && 
              get(/databases/$(database)/documents/vendors/$(vendorId)).data.ownerUid == request.auth.uid;
     }
 
-    function isRider() {
-      return isAuthenticated() && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'rider';
-    }
-
-    function isValidMessage(data) {
-      return data.text is string && data.text.size() > 0 && data.text.size() < 1000 &&
-             data.senderId == request.auth.uid &&
-             data.participants is list && data.participants.size() >= 2 &&
-             request.auth.uid in data.participants;
-    }
+    // ===============================================================
+    // ENTITIES
+    // ===============================================================
 
     match /users/{userId} {
-      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
-      allow create: if isAuthenticated() && request.auth.uid == userId;
-      allow update: if isAuthenticated() && request.auth.uid == userId;
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && incoming().role in ['customer', 'vendor', 'rider', 'admin'];
+      allow update: if isOwner(userId) && 
+                    incoming().role == existing().role &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'phoneNumber', 'address', 'updatedAt']);
     }
 
     match /vendors/{vendorId} {
-      allow read: if true; // Publicly viewable
-      allow create: if isAuthenticated();
-      allow update: if (isAuthenticated() && resource.data.ownerUid == request.auth.uid) || isAdmin();
+      allow read: if true;
+      allow create: if isVerified() && incoming().ownerUid == request.auth.uid;
+      allow update: if (isOwner(existing().ownerUid) || isAdmin()) && 
+                    incoming().ownerUid == existing().ownerUid &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['businessName', 'description', 'tin', 'address', 'location', 'deliveryRadius', 'logoUrl', 'bannerUrl', 'phoneNumber', 'operatingHours', 'updatedAt', 'rating']);
     }
 
     match /products/{productId} {
       allow read: if true;
-      allow create: if isAuthenticated(); // Simplified for now
-      allow update: if isAuthenticated(); // Simplified for now
-      allow delete: if isAuthenticated(); // Simplified for now
+      allow write: if isVerified() && (isVendorOwner(incoming().vendorId) || isVendorOwner(existing().vendorId) || isAdmin());
     }
 
     match /orders/{orderId} {
-      allow read: if isAuthenticated() && (
-        request.auth.uid == resource.data.customerId || 
-        request.auth.uid == resource.data.riderId || 
-        isAdmin() ||
-        resource.data.status == 'ready_for_pickup' ||
-        (resource.data.vendorId != null && isVendorOwner(resource.data.vendorId))
+      // PILLAR 8: SECURE LIST QUERY
+      // We rely on denormalized vendorOwnerUid for vendor listing
+      allow list: if isSignedIn() && (
+        isAdmin() || 
+        resource.data.customerId == request.auth.uid || 
+        resource.data.vendorOwnerUid == request.auth.uid ||
+        resource.data.riderId == request.auth.uid
       );
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated();
-      allow delete: if isAuthenticated() && (isAdmin() || (resource.data.vendorId != null && isVendorOwner(resource.data.vendorId)));
+      
+      // PILLAR 1 & 3: SINGLE GET
+      allow get: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.customerId == request.auth.uid ||
+        resource.data.riderId == request.auth.uid ||
+        isVendorOwner(resource.data.vendorId) ||
+        resource.data.status == 'ready_for_pickup'
+      );
+
+      allow create: if isVerified() && (
+        incoming().customerId == request.auth.uid || 
+        isVendorOwner(incoming().vendorId)
+      );
+
+      allow update: if isVerified() && (
+        isAdmin() ||
+        (isVendorOwner(existing().vendorId) && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'riderId', 'updatedAt', 'paymentStatus'])) ||
+        (existing().customerId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt', 'paymentStatus'])) ||
+        (existing().riderId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt', 'paymentStatus', 'location']))
+      );
+
+      allow delete: if isAdmin() || (isVerified() && isVendorOwner(existing().vendorId));
     }
 
     match /tables/{tableId} {
       allow read: if true;
-      allow create: if isAuthenticated() && (isAdmin() || (request.resource.data.vendorId != null && isVendorOwner(request.resource.data.vendorId)));
-      allow update: if isAuthenticated() && (isAdmin() || (resource.data.vendorId != null && isVendorOwner(resource.data.vendorId)));
-      allow delete: if isAuthenticated() && (isAdmin() || (resource.data.vendorId != null && isVendorOwner(resource.data.vendorId)));
+      allow write: if isVerified() && (isVendorOwner(incoming().vendorId) || isVendorOwner(existing().vendorId) || isAdmin());
+    }
+
+    match /coupons/{couponId} {
+      allow read: if true;
+      allow write: if isVerified() && (isVendorOwner(incoming().vendorId) || isVendorOwner(existing().vendorId) || isAdmin());
     }
 
     match /riders/{riderId} {
-      allow read: if isAuthenticated();
-      allow create: if isRider() && request.auth.uid == riderId;
-      allow update: if (isRider() && request.auth.uid == riderId) || isAdmin();
+      allow read: if isSignedIn();
+      allow create: if isOwner(riderId);
+      allow update: if isOwner(riderId) || isAdmin();
     }
 
     match /messages/{messageId} {
-      allow read: if isAuthenticated() && request.auth.uid in resource.data.participants;
-      allow create: if isAuthenticated() && isValidMessage(request.resource.data);
-      allow update: if false; // Messages are immutable for now
-      allow delete: if false;
+      allow read: if isSignedIn() && request.auth.uid in resource.data.participants;
+      allow create: if isSignedIn() && incoming().senderId == request.auth.uid && request.auth.uid in incoming().participants;
+      allow delete: if isAdmin();
     }
 
     match /banners/{bannerId} {
@@ -142,33 +138,26 @@ service cloud.firestore {
     }
 
     match /notifications/{notificationId} {
-      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow read: if isOwner(resource.data.userId) || isAdmin();
       allow create: if isAdmin();
-      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
-    }
-
-    match /coupons/{couponId} {
-      allow read: if true;
-      allow create: if isAuthenticated() && (isAdmin() || (request.resource.data.vendorId != null && isVendorOwner(request.resource.data.vendorId)));
-      allow update: if isAuthenticated() && (isAdmin() || (resource.data.vendorId != null && isVendorOwner(resource.data.vendorId)));
-      allow delete: if isAuthenticated() && (isAdmin() || (resource.data.vendorId != null && isVendorOwner(resource.data.vendorId)));
+      allow update: if isOwner(resource.data.userId) && incoming().diff(existing()).affectedKeys().hasOnly(['isRead']);
+      allow delete: if isOwner(resource.data.userId) || isAdmin();
     }
 
     match /reviews/{reviewId} {
       allow read: if true;
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid || 
-        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes']))
+      allow create: if isVerified() && incoming().userId == request.auth.uid;
+      allow update: if isVerified() && (
+        isOwner(existing().userId) || 
+        incoming().diff(existing()).affectedKeys().hasOnly(['likes'])
       );
-      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if isOwner(existing().userId) || isAdmin();
 
       match /replies/{replyId} {
         allow read: if true;
-        allow create: if isAuthenticated();
-        allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
-        allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+        allow create: if isVerified();
+        allow update: if isOwner(existing().userId);
+        allow delete: if isOwner(existing().userId) || isAdmin();
       }
     }
   }

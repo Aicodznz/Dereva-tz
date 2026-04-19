@@ -58,6 +58,7 @@ export interface Order {
   id?: string;
   customerId: string;
   vendorId: string;
+  vendorOwnerUid?: string;
   riderId?: string;
   items: any[];
   totalAmount: number;
@@ -66,7 +67,7 @@ export interface Order {
   status: OrderStatus;
   type: VendorCategory;
   orderSource?: 'online' | 'pos';
-  orderType?: 'dine_in' | 'takeaway' | 'delivery';
+  orderType?: 'walk_in' | 'pickup' | 'delivery';
   tableNumber?: string | null;
   customerName?: string;
   customerPhone?: string;

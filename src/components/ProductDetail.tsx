@@ -27,7 +27,10 @@ import {
   Megaphone,
   Smartphone,
   Phone,
-  Utensils
+  Utensils,
+  ShoppingBag,
+  Store,
+  Package
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -357,6 +360,7 @@ export default function ProductDetail() {
     try {
       const orderData = {
         vendorId: product.vendorId,
+        vendorOwnerUid: vendor?.ownerUid,
         customerId: auth.currentUser?.uid,
         customerName: auth.currentUser?.displayName || 'Mteja',
         customerPhone: buyerPhone,
@@ -443,7 +447,7 @@ export default function ProductDetail() {
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {product.variations.map((v, idx) => (
                 <button
-                  key={idx}
+                  key={`variation-${v.name}-${idx}`}
                   onClick={() => setSelectedSize(v.name)}
                   className={`py-3 px-4 rounded-2xl border-2 transition-all flex flex-col items-center justify-center gap-1 ${
                     selectedSize === v.name 
@@ -468,7 +472,7 @@ export default function ProductDetail() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {product.addOns.map((addon, idx) => (
                 <button
-                  key={idx}
+                  key={`addon-${addon.name}-${idx}`}
                   onClick={() => toggleAddon(addon.name)}
                   className={`p-4 rounded-2xl border-2 text-left transition-all flex items-center justify-between ${
                     selectedAddons.includes(addon.name)
@@ -590,7 +594,7 @@ export default function ProductDetail() {
               <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-2 z-20">
                 {(product.imageUrls || [product.imageUrl]).map((_, idx) => (
                   <button 
-                    key={idx}
+                    key={`gallery-dot-${idx}`}
                     onClick={() => setActiveImageIndex(idx)}
                     className={`h-1.5 rounded-full transition-all ${
                       activeImageIndex === idx ? 'w-8 bg-white' : 'w-1.5 bg-white/50'
@@ -605,7 +609,7 @@ export default function ProductDetail() {
               <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar px-4 lg:px-0">
                 {product.imageUrls.map((url, idx) => (
                   <button
-                    key={idx}
+                    key={`gallery-thumb-${idx}`}
                     onClick={() => setActiveImageIndex(idx)}
                     className={`w-20 h-20 rounded-2xl overflow-hidden shrink-0 border-2 transition-all ${
                       activeImageIndex === idx ? 'border-orange-600 scale-105' : 'border-transparent opacity-60'
@@ -739,7 +743,7 @@ export default function ProductDetail() {
                             <h4 className="font-bold text-neutral-900">{review.userName}</h4>
                             <div className="flex items-center gap-1">
                               {[...Array(5)].map((_, i) => (
-                                <Star key={i} className={`w-3 h-3 ${i < review.rating ? 'text-orange-500 fill-current' : 'text-neutral-300'}`} />
+                                <Star key={`review-star-${review.id}-${i}`} className={`w-3 h-3 ${i < review.rating ? 'text-orange-500 fill-current' : 'text-neutral-300'}`} />
                               ))}
                             </div>
                           </div>
@@ -748,7 +752,7 @@ export default function ProductDetail() {
                           {review.images && review.images.length > 0 && (
                             <div className="flex gap-2 mt-4 overflow-x-auto pb-2 no-scrollbar">
                               {review.images.map((img, idx) => img && (
-                                <div key={idx} className="w-20 h-20 rounded-xl overflow-hidden shrink-0 border border-neutral-200">
+                                <div key={`review-img-${review.id}-${idx}`} className="w-20 h-20 rounded-xl overflow-hidden shrink-0 border border-neutral-200">
                                   <img src={img} alt="Review" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                                 </div>
                               ))}
@@ -903,7 +907,7 @@ export default function ProductDetail() {
                   <label className="text-xs font-bold text-neutral-500 uppercase">Picha za Bidhaa (Optional)</label>
                   <div className="flex flex-wrap gap-3">
                     {reviewImages.map((url, idx) => (
-                      <div key={idx} className="w-20 h-20 rounded-2xl overflow-hidden relative group">
+                      <div key={`review-preview-${idx}`} className="w-20 h-20 rounded-2xl overflow-hidden relative group">
                         <img src={url} alt="Preview" className="w-full h-full object-cover" />
                         <button 
                           type="button"
@@ -1011,11 +1015,11 @@ export default function ProductDetail() {
                 {tableSession && (
                   <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 flex items-center gap-3">
                     <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white">
-                      <Utensils className="w-5 h-5" />
+                      <ShoppingBag className="w-5 h-5" />
                     </div>
                     <div>
-                      <p className="text-xs font-bold text-blue-700 uppercase tracking-widest">Self-Service Active</p>
-                      <p className="text-sm font-black text-blue-900 uppercase italic">Meza: {tableSession.tableId}</p>
+                      <p className="text-xs font-bold text-blue-700 uppercase tracking-widest">In-Store Session Active</p>
+                      <p className="text-sm font-black text-blue-900 uppercase italic">Section: {tableSession.tableId}</p>
                     </div>
                   </div>
                 )}
@@ -1034,7 +1038,7 @@ export default function ProductDetail() {
                       {[
                         { id: 'delivery', label: 'Delivery' },
                         { id: 'takeaway', label: 'Takeaway' },
-                        { id: 'dine_in', label: 'Dine-in' }
+                        { id: 'dine_in', label: 'In-Store' }
                       ].map((type) => (
                         <button
                           key={type.id}
@@ -1051,10 +1055,10 @@ export default function ProductDetail() {
 
                   {orderType === 'dine_in' && !tableSession && (
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Namba ya Meza</label>
+                      <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Namba ya Section / Shelf</label>
                       <input 
                         type="text"
-                        placeholder="Ingiza namba ya meza"
+                        placeholder="Ingiza namba ya eneo"
                         className="w-full h-14 px-6 bg-neutral-50 border border-neutral-200 rounded-2xl text-lg font-black uppercase italic focus:ring-2 focus:ring-orange-600 outline-none"
                         value={tableNumber}
                         onChange={(e) => setTableNumber(e.target.value)}

@@ -169,15 +169,15 @@ export default function CustomerDashboard() {
           className="p-6 bg-neutral-900 rounded-[2rem] text-white flex items-center justify-between shadow-xl relative overflow-hidden group"
         >
           <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:rotate-12 transition-transform">
-            <Utensils className="w-20 h-20" />
+            <ShoppingBag className="w-20 h-20" />
           </div>
           <div className="relative z-10 flex items-center gap-4">
             <div className="w-12 h-12 bg-orange-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-orange-600/20">
-              <Utensils className="w-6 h-6" />
+              <ShoppingBag className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-400">Active Table Service</p>
-              <h4 className="text-lg font-black uppercase italic tracking-tighter mt-0.5">{tableSession.businessName} - Meza {tableSession.tableId}</h4>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-400">Active In-Store Session</p>
+              <h4 className="text-lg font-black uppercase italic tracking-tighter mt-0.5">{tableSession.businessName} - Section {tableSession.tableId}</h4>
             </div>
           </div>
           <button 
@@ -270,7 +270,7 @@ export default function CustomerDashboard() {
                   <div className="flex-1 flex flex-col justify-between py-1">
                     <div>
                       <h4 className="font-bold text-lg text-neutral-900 group-hover:text-orange-600 transition-colors">{vendor.businessName}</h4>
-                      <p className="text-xs text-neutral-500 mt-0.5 line-clamp-2">{vendor.description || 'Vyakula vya Baharini na Vinywaji'}</p>
+                      <p className="text-xs text-neutral-500 mt-0.5 line-clamp-2">{vendor.description || 'Bidhaa Bora na Huduma Haraka'}</p>
                     </div>
                     <div className="flex items-center justify-between mt-2">
                       <div className="flex items-center gap-2">
