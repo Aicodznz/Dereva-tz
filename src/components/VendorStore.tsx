@@ -61,6 +61,17 @@ export default function VendorStore() {
   // Reply State
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');
+  const [tableSession, setTableSession] = useState<any>(null);
+
+  useEffect(() => {
+    const savedSession = localStorage.getItem('papo_hapo_table_session');
+    if (savedSession) {
+      const session = JSON.parse(savedSession);
+      if (session.vendorId === id) {
+        setTableSession(session);
+      }
+    }
+  }, [id]);
 
   useEffect(() => {
     if (!id) return;
@@ -283,10 +294,22 @@ export default function VendorStore() {
                     <Badge className="bg-orange-100 text-orange-600 border-none px-3 py-1 text-xs font-bold uppercase">
                       {vendor.category}
                     </Badge>
-                    {tableNumber && (
-                      <Badge className="bg-green-600 text-white border-none px-3 py-1 text-xs font-black uppercase flex items-center gap-1.5 animate-pulse">
-                        <div className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_8px_white]" />
-                        Meza Namba: {tableNumber}
+                    {(tableNumber || tableSession) && (
+                      <Badge className="bg-green-600 text-white border-none px-3 py-1 text-xs font-black uppercase flex items-center gap-1.5">
+                        <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                        Table {tableNumber || tableSession.tableId}
+                        {tableSession && (
+                          <button 
+                            onClick={(e) => {
+                              e.preventDefault();
+                              localStorage.removeItem('papo_hapo_table_session');
+                              setTableSession(null);
+                            }}
+                            className="ml-1 hover:text-red-200 transition-colors"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
                       </Badge>
                     )}
                   </div>
@@ -631,7 +654,7 @@ export default function VendorStore() {
                   <label className="text-xs font-bold text-neutral-500 uppercase">Picha za Bidhaa (Optional)</label>
                   <div className="flex flex-wrap gap-3">
                     {reviewImages.map((url, idx) => (
-                      <div key={idx} className="w-20 h-20 rounded-2xl overflow-hidden relative group">
+                      <div key={`review-img-${idx}-${url.slice(-20)}`} className="w-20 h-20 rounded-2xl overflow-hidden relative group">
                         <img src={url} alt="Preview" className="w-full h-full object-cover" />
                         <button 
                           type="button"

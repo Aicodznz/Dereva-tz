@@ -95,7 +95,7 @@ export default function ProductDetail() {
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
   const [buyerPhone, setBuyerPhone] = useState('');
-  const [orderType, setOrderType] = useState<'delivery' | 'dine_in' | 'takeaway'>('delivery');
+  const [orderType, setOrderType] = useState<'delivery' | 'walk_in' | 'pickup'>('delivery');
   const [tableNumber, setTableNumber] = useState('');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [tableSession, setTableSession] = useState<any>(null);
@@ -107,7 +107,7 @@ export default function ProductDetail() {
       // Only use if same vendor
       if (session.vendorId === id || session.vendorId === product?.vendorId) {
         setTableSession(session);
-        setOrderType('dine_in');
+        setOrderType('walk_in');
         setTableNumber(session.tableId);
       }
     }
@@ -373,7 +373,7 @@ export default function ProductDetail() {
           addons: selectedAddons
         }],
         orderType: orderType,
-        tableNumber: orderType === 'dine_in' ? tableNumber : null,
+        tableNumber: orderType === 'walk_in' ? tableNumber : null,
         totalAmount: calculateDiscountedPrice(),
         status: 'pending',
         paymentStatus: 'pending',
@@ -1037,8 +1037,8 @@ export default function ProductDetail() {
                     <div className="flex p-1 bg-neutral-100 rounded-2xl">
                       {[
                         { id: 'delivery', label: 'Delivery' },
-                        { id: 'takeaway', label: 'Takeaway' },
-                        { id: 'dine_in', label: 'In-Store' }
+                        { id: 'pickup', label: 'Takeaway' },
+                        { id: 'walk_in', label: 'In-Store' }
                       ].map((type) => (
                         <button
                           key={type.id}
@@ -1053,7 +1053,7 @@ export default function ProductDetail() {
                     </div>
                   </div>
 
-                  {orderType === 'dine_in' && !tableSession && (
+                  {orderType === 'walk_in' && !tableSession && (
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Namba ya Section / Shelf</label>
                       <input 

@@ -162,6 +162,20 @@
       },
       "required": ["reviewId", "userId", "text"]
     },
+    "Staff": {
+      "title": "Staff Member",
+      "description": "Employee of a vendor business",
+      "type": "object",
+      "properties": {
+        "vendorId": { "type": "string" },
+        "vendorOwnerUid": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["chef", "waiter", "manager", "admin", "attendant"] },
+        "phone": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["vendorId", "vendorOwnerUid", "name", "role"]
+    },
     "Coupon": {
       "title": "Coupon",
       "description": "Discount codes for products or vendors",
@@ -209,6 +223,7 @@
     "/reviews/{reviewId}": { "schema": "Review", "description": "User reviews" },
     "/reviews/{reviewId}/replies/{replyId}": { "schema": "Reply", "description": "Replies to a review" },
     "/coupons/{couponId}": { "schema": "Coupon", "description": "Discount coupons" },
-    "/tables/{tableId}": { "schema": "Table", "description": "Dine-in tables" }
+    "/tables/{tableId}": { "schema": "Table", "description": "Dine-in tables" },
+    "/staff/{staffId}": { "schema": "Staff", "description": "Vendor staff members" }
   }
 }

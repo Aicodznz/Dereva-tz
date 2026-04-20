@@ -132,6 +132,14 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /staff/{staffId} {
+      allow list: if isSignedIn(); // Filtered by query in code
+      allow get: if isSignedIn() && (isAdmin() || isVendorOwner(resource.data.vendorId));
+      allow create: if isSignedIn() && (isAdmin() || isVendorOwner(incoming().vendorId));
+      allow update: if isSignedIn() && (isAdmin() || isVendorOwner(existing().vendorId));
+      allow delete: if isSignedIn() && (isAdmin() || isVendorOwner(existing().vendorId));
+    }
+
     match /banners/{bannerId} {
       allow read: if true;
       allow write: if isAdmin();

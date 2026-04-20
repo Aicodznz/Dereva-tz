@@ -31,7 +31,7 @@ export default function TableSession() {
           
           localStorage.setItem('papo_hapo_table_session', JSON.stringify(session));
           
-          toast.success(`Umeingia Mezani: ${tableId} hapa ${vendor.businessName}`);
+          toast.success(`Umekaribishwa: ${tableId} hapa ${vendor.businessName}`);
           
           // Redirect to vendor store
           navigate(`/vendor/${vendorId}`);
@@ -40,7 +40,7 @@ export default function TableSession() {
           navigate('/');
         }
       } catch (error) {
-        console.error('Table check-in error:', error);
+        console.error('Section check-in error:', error);
         toast.error('Hitilafu imetokea wakati wa kusekeni QR');
         navigate('/');
       }
@@ -54,7 +54,7 @@ export default function TableSession() {
       <div className="w-16 h-16 border-4 border-orange-600 border-t-transparent rounded-full animate-spin"></div>
       <div>
         <h2 className="text-xl font-bold text-neutral-900 uppercase italic tracking-tighter">Inasekeni QR Code...</h2>
-        <p className="text-sm text-neutral-500 mt-2 italic">Tafadhali subiri wakati tunakuunganisha na meza yako...</p>
+        <p className="text-sm text-neutral-500 mt-2 italic">Tafadhali subiri wakati tunakuunganisha na duka lako...</p>
       </div>
     </div>
   );

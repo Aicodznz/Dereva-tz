@@ -63,7 +63,21 @@ import {
   Check,
   Link as LinkIcon,
   Loader2,
-  Printer
+  Printer,
+  Utensils,
+  UtensilsCrossed,
+  Pill,
+  FlaskConical,
+  Scissors,
+  Hotel,
+  ChefHat,
+  Monitor,
+  Printer as PrinterIcon,
+  Volume2,
+  VolumeX,
+  UserCheck,
+  ShieldCheck,
+  UserCog
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
@@ -85,7 +99,7 @@ import {
 } from 'recharts';
 import { format } from 'date-fns';
 
-type TabType = 'overview' | 'orders' | 'products' | 'pos' | 'inventory_stats' | 'customers' | 'coupons' | 'settings';
+type TabType = 'overview' | 'orders' | 'products' | 'pos' | 'inventory_stats' | 'customers' | 'coupons' | 'staff' | 'settings' | 'tables';
 
 const chartData = [
   { name: 'Mon', sales: 4000, orders: 24 },
@@ -103,12 +117,156 @@ export default function VendorDashboard() {
   const { profile, user } = useAuth();
   const { t } = useLanguage();
   const [vendorProfile, setVendorProfile] = useState<VendorProfile | null>(null);
+
+  // Dynamic context based on business category
+  const vendorContext = useMemo(() => {
+    const cat = vendorProfile?.category || 'grocery';
+    switch (cat) {
+      case 'restaurant':
+        return {
+          type: 'restaurant',
+          ordersLabel: 'Kitchen Display',
+          ordersDescription: 'Manage cooking orders and dining ready notifications.',
+          ordersIcon: Beer,
+          inventoryLabel: 'Menu Items',
+          inventoryIcon: Utensils,
+          locationLabel: 'Dining Tables',
+          locationLabelSingular: 'Table',
+          posLabel: 'Dine-in POS',
+          posIcon: ShoppingCart,
+          fulfillmentAction: 'Cooking',
+          readyLabel: 'Ready to Serve',
+          pickingLabel: 'In Kitchen',
+          awaitingLabel: 'New Orders'
+        };
+      case 'pharmacy':
+        return {
+          type: 'pharmacy',
+          ordersLabel: 'Prescriptions',
+          ordersDescription: 'Dispense medication and manage clinical orders.',
+          ordersIcon: Pill,
+          inventoryLabel: 'Medications',
+          inventoryIcon: FlaskConical,
+          locationLabel: 'Storage Shelves',
+          locationLabelSingular: 'Shelf',
+          posLabel: 'Dispense Desk',
+          posIcon: CreditCard,
+          fulfillmentAction: 'Dispensing',
+          readyLabel: 'Ready for Pickup',
+          pickingLabel: 'Preparing Rx',
+          awaitingLabel: 'Incoming Rx'
+        };
+      case 'salon':
+      case 'hotel':
+        return {
+          type: 'service',
+          ordersLabel: 'Appointments',
+          ordersDescription: 'Track bookings, stylist schedules, and guest check-ins.',
+          ordersIcon: Calendar,
+          inventoryLabel: cat === 'hotel' ? 'Rooms & Rates' : 'Service Menu',
+          inventoryIcon: cat === 'hotel' ? Hotel : Scissors,
+          locationLabel: cat === 'hotel' ? 'Room Blocks' : 'Stylist Areas',
+          locationLabelSingular: cat === 'hotel' ? 'Room' : 'Chair',
+          posLabel: 'Front Desk',
+          posIcon: Banknote,
+          fulfillmentAction: 'Confirming',
+          readyLabel: 'Confirmed',
+          pickingLabel: 'In Progress',
+          awaitingLabel: 'New Requests'
+        };
+      case 'taxi':
+      case 'car_rental':
+      case 'parcel':
+        return {
+          type: 'transit',
+          ordersLabel: 'Shipments & Trips',
+          ordersDescription: 'Manage deliveries, taxi rides, and fleet activity.',
+          ordersIcon: Package,
+          inventoryLabel: 'Fleet / Rates',
+          inventoryIcon: Truck,
+          locationLabel: 'Service Zones',
+          locationLabelSingular: 'Zone',
+          posLabel: 'Dispatch',
+          posIcon: MapPin,
+          fulfillmentAction: 'Dispatching',
+          readyLabel: 'Dispatched',
+          pickingLabel: 'On Route',
+          awaitingLabel: 'Queue'
+        };
+      default: // grocery, ecommerce, etc.
+        return {
+          type: 'retail',
+          ordersLabel: 'Picking Hub',
+          ordersDescription: 'Collect items from shelves for delivery or pickup.',
+          ordersIcon: Box,
+          inventoryLabel: 'Inventory',
+          inventoryIcon: Package,
+          locationLabel: 'Aisle Stands',
+          locationLabelSingular: 'Aisle',
+          posLabel: 'Register',
+          posIcon: ShoppingCart,
+          fulfillmentAction: 'Picking',
+          readyLabel: 'Packed & Ready',
+          pickingLabel: 'Currently Picking',
+          awaitingLabel: 'Awaiting Picking'
+        };
+    }
+  }, [vendorProfile?.category]);
+
   const [loading, setLoading] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
+  const bestSellers = useMemo(() => {
+    const itemCounts: Record<string, { name: string; count: number; revenue: number; imageUrl?: string; category: string }> = {};
+    orders.forEach(order => {
+      if (order.status === 'cancelled') return;
+      order.items.forEach(item => {
+        if (!itemCounts[item.productId]) {
+          const prod = products.find(p => p.id === item.productId);
+          itemCounts[item.productId] = { 
+            name: item.name, 
+            count: 0, 
+            revenue: 0, 
+            imageUrl: prod?.imageUrl,
+            category: prod?.category || 'General'
+          };
+        }
+        itemCounts[item.productId].count += (item as any).quantity || 1;
+        itemCounts[item.productId].revenue += ((item as any).price || 0) * ((item as any).quantity || 1);
+      });
+    });
+    return Object.values(itemCounts).sort((a, b) => b.count - a.count).slice(0, 5);
+  }, [orders, products]);
+
+  const handleDownloadSalesReport = () => {
+    const headers = ['Order ID', 'Date', 'Customer', 'Total', 'Status', 'Payment Method'];
+    const csvContent = [
+      headers.join(','),
+      ...orders.map(o => [
+        o.id,
+        o.createdAt instanceof Date ? o.createdAt.toLocaleDateString() : 'N/A',
+        o.customerName,
+        o.totalAmount,
+        o.status,
+        o.paymentMethod
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Sales_Report_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('Sales report exported successfully!');
+  };
+
   const [isProcessingSale, setIsProcessingSale] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -136,11 +294,11 @@ export default function VendorDashboard() {
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', email: '' });
   const [posCustomer, setPosCustomer] = useState<any>(null);
 
-  // Dine Tables States
-  const [tables, setTables] = useState<any[]>([]);
-  const [isAddTableOpen, setIsAddTableOpen] = useState(false);
-  const [newTable, setNewTable] = useState({ number: '', capacity: 4 });
-  const [selectedTable, setSelectedTable] = useState<any>(null);
+  // Retail Location States (Formerly Tables)
+  const [sections, setSections] = useState<any[]>([]);
+  const [isAddSectionOpen, setIsAddSectionOpen] = useState(false);
+  const [newSection, setNewSection] = useState({ number: '', capacity: 10 });
+  const [selectedSection, setSelectedSection] = useState<any>(null);
   const [orderToPrint, setOrderToPrint] = useState<Order | null>(null);
 
   // Settings State
@@ -193,21 +351,37 @@ export default function VendorDashboard() {
   });
 
   const qrRef = React.useRef<HTMLDivElement>(null);
+  const qrPrintRef = React.useRef<HTMLDivElement>(null);
   const [qrCodeInstance, setQrCodeInstance] = useState<QRCodeStyling | null>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      setQrCodeInstance(new QRCodeStyling(qrOptions));
+      const options = {
+        ...qrOptions,
+        width: 300,
+        height: 300,
+      };
+      setQrCodeInstance(new QRCodeStyling(options));
     }
   }, [qrOptions]);
 
   useEffect(() => {
-    if (isQrBuilderOpen && qrRef.current && qrCodeInstance) {
-      const container = qrRef.current;
-      container.innerHTML = "";
-      qrCodeInstance.append(container);
+    if (isQrBuilderOpen && qrCodeInstance) {
+      // Clear and append to both potential ref locations
+      // Small timeout ensures the DOM has switched after state change
+      const timer = setTimeout(() => {
+        if (qrRef.current) {
+          qrRef.current.innerHTML = "";
+          qrCodeInstance.append(qrRef.current);
+        }
+        if (qrPrintRef.current) {
+          qrPrintRef.current.innerHTML = "";
+          qrCodeInstance.append(qrPrintRef.current);
+        }
+      }, 100);
+      return () => clearTimeout(timer);
     }
-  }, [isQrBuilderOpen, qrCodeInstance]);
+  }, [isQrBuilderOpen, qrCodeInstance, printDetails.isPrintMode]);
 
   const downloadQr = () => {
     if (qrCodeInstance) {
@@ -264,7 +438,7 @@ export default function VendorDashboard() {
       });
       
       const link = document.createElement('a');
-      link.download = `QR-Stand-${selectedTable?.number || 'Vendor'}.png`;
+      link.download = `QR-Stand-${selectedSection?.number || 'Vendor'}.png`;
       link.href = dataUrl;
       link.click();
       
@@ -279,16 +453,27 @@ export default function VendorDashboard() {
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const tabs = [
-    { id: 'overview', label: t('overview') || 'Overview', icon: LayoutDashboard },
-    { id: 'orders', label: t('orders') || 'Orders', icon: ShoppingBag, badge: orders.length > 0 ? orders.length : null },
-    { id: 'products', label: t('inventory') || 'Inventory', icon: Box },
-    { id: 'pos', label: t('pos_system') || 'POS System', icon: CreditCard },
-    { id: 'inventory_stats', label: 'Stock Stats', icon: BarChart3 },
-    { id: 'coupons', label: 'Promotions', icon: Tag },
-    { id: 'customers', label: t('customers') || 'Customers', icon: Users },
-    { id: 'settings', label: t('settings') || 'Settings', icon: Settings },
-  ];
+  const tabs = useMemo(() => {
+    const baseTabs = [
+      { id: 'overview', label: t('overview') || 'Overview', icon: LayoutDashboard },
+      { id: 'orders', label: vendorContext.ordersLabel, icon: vendorContext.ordersIcon, badge: orders.length > 0 ? orders.length : null },
+      { id: 'products', label: vendorContext.inventoryLabel, icon: vendorContext.inventoryIcon },
+      { id: 'pos', label: vendorContext.posLabel, icon: vendorContext.posIcon },
+    ];
+
+    if (vendorProfile?.category === 'restaurant') {
+      baseTabs.push({ id: 'tables', label: 'Dining Tables', icon: Store });
+    }
+
+    return [
+      ...baseTabs,
+      { id: 'inventory_stats', label: 'Analytics', icon: BarChart3 },
+      { id: 'coupons', label: 'Promotions', icon: Tag },
+      { id: 'customers', label: 'CRM', icon: Users },
+      { id: 'staff', label: 'Staff', icon: UserCog },
+      { id: 'settings', label: t('settings') || 'Settings', icon: Settings },
+    ];
+  }, [orders.length, t, vendorContext, vendorProfile?.category]);
 
   const categories = Array.from(new Set(['all', ...products.map(p => p.category)]));
   const filteredProducts = products.filter(p => 
@@ -298,10 +483,13 @@ export default function VendorDashboard() {
   // Onboarding Form State
   const [formData, setFormData] = useState({
     businessName: '',
-    category: '' as VendorCategory,
+    category: 'restaurant' as VendorCategory,
     description: '',
     tin: '',
     address: '',
+    phoneNumber: '',
+    logoUrl: '',
+    bannerUrl: '',
     deliveryRadius: 5,
     operatingHours: '9:00 AM - 9:00 PM',
   });
@@ -325,7 +513,61 @@ export default function VendorDashboard() {
   // POS Cart State
   const [cart, setCart] = useState<{product: Product, quantity: number}[]>([]);
   const [isPackingMode, setIsPackingMode] = useState(true);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(false);
+  const [isKdsView, setIsKdsView] = useState(false);
+  const [isOssView, setIsOssView] = useState(false);
+  const [staff, setStaff] = useState<any[]>([]);
+  const [isAddStaffOpen, setIsAddStaffOpen] = useState(false);
+  const [newStaff, setNewStaff] = useState({ name: '', role: 'waiter', phone: '' });
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const prevOrdersCount = React.useRef(orders.length);
+
+  useEffect(() => {
+    if (isVoiceEnabled && orders.length > prevOrdersCount.current) {
+      const newOrder = orders[0];
+      if (newOrder && newOrder.status === 'pending') {
+        const msg = new SpeechSynthesisUtterance(`New order from ${newOrder.customerName || 'Customer'}`);
+        window.speechSynthesis.speak(msg);
+      }
+    }
+    prevOrdersCount.current = orders.length;
+  }, [orders, isVoiceEnabled]);
+
+  useEffect(() => {
+    if (!vendorProfile?.id) return;
+    const q = query(collection(db, 'staff'), where('vendorId', '==', vendorProfile.id));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setStaff(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsubscribe();
+  }, [vendorProfile?.id]);
+
+  const handleAddStaff = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!vendorProfile?.id) return;
+    try {
+      await addDoc(collection(db, 'staff'), {
+        ...newStaff,
+        vendorId: vendorProfile.id,
+        createdAt: serverTimestamp()
+      });
+      setIsAddStaffOpen(false);
+      setNewStaff({ name: '', role: 'waiter', phone: '' });
+      toast.success('Staff member added successfully');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'staff');
+    }
+  };
+
+  const deleteStaff = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'staff', id));
+      toast.success('Staff member removed');
+    } catch (error) {
+       handleFirestoreError(error, OperationType.DELETE, `staff/${id}`);
+    }
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -361,41 +603,58 @@ export default function VendorDashboard() {
 
     const productsQ = query(
       collection(db, 'products'), 
-      where('vendorId', '==', vendorProfile.id),
-      where('vendorOwnerUid', '==', user.uid)
+      where('vendorId', '==', vendorProfile.id)
     );
     
     const unsubProducts = onSnapshot(productsQ, (snap) => {
       setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Product)));
     });
 
-    const tablesQ = query(
+    const aislesQ = query(
       collection(db, 'tables'),
       where('vendorId', '==', vendorProfile.id),
       where('vendorOwnerUid', '==', user.uid)
     );
 
-    const unsubTables = onSnapshot(tablesQ, (snap) => {
-      setTables(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    const unsubSections = onSnapshot(aislesQ, (snap) => {
+      setSections(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
 
     return () => {
       unsubOrders();
       unsubProducts();
-      unsubTables();
+      unsubSections();
     };
   }, [vendorProfile?.id]);
+
+  // Auto-occupy tables on new Dine-In orders for restaurants
+  useEffect(() => {
+    if (vendorProfile?.category !== 'restaurant' || orders.length === 0) return;
+    
+    // Only process very recent orders to avoid infinite loop or flickering
+    const now = Date.now();
+    orders.forEach(order => {
+      const orderTime = order.createdAt?.toMillis() || 0;
+      // If order is walk_in (Dine In) and pending, and has table number, and is relatively fresh (within last 5 mins)
+      if (order.status === 'pending' && order.orderType === 'walk_in' && order.tableNumber && (now - orderTime < 300000)) {
+        const table = sections.find(s => s.number === order.tableNumber);
+        if (table && table.status === 'available') {
+          updateTableStatus(table.id, 'occupied');
+        }
+      }
+    });
+  }, [orders, sections, vendorProfile?.category]);
 
   useEffect(() => {
     if (vendorProfile) {
       setUpdatedProfile({
-        businessName: vendorProfile.businessName,
-        description: vendorProfile.description,
-        address: vendorProfile.address,
-        phoneNumber: vendorProfile.phoneNumber,
-        logoUrl: vendorProfile.logoUrl,
-        bannerUrl: vendorProfile.bannerUrl,
-        operatingHours: vendorProfile.operatingHours
+        businessName: vendorProfile.businessName || '',
+        description: vendorProfile.description || '',
+        address: vendorProfile.address || '',
+        phoneNumber: vendorProfile.phoneNumber || '',
+        logoUrl: vendorProfile.logoUrl || '',
+        bannerUrl: vendorProfile.bannerUrl || '',
+        operatingHours: vendorProfile.operatingHours || ''
       });
     }
   }, [vendorProfile]);
@@ -524,16 +783,21 @@ export default function VendorDashboard() {
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!vendorProfile?.id) return;
+    // Clean up product data to remove any undefined fields
+    const productData = Object.fromEntries(
+      Object.entries(newProduct).filter(([_, v]) => v !== undefined)
+    );
+
     try {
       if (editingProduct?.id) {
         await updateDoc(doc(db, 'products', editingProduct.id), {
-          ...newProduct,
+          ...productData,
           vendorCategory: vendorProfile.category,
           updatedAt: serverTimestamp(),
         });
       } else {
         await addDoc(collection(db, 'products'), {
-          ...newProduct,
+          ...productData,
           vendorId: vendorProfile.id,
           vendorOwnerUid: user.uid,
           vendorCategory: vendorProfile.category,
@@ -647,8 +911,16 @@ export default function VendorDashboard() {
     if (!vendorProfile?.id) return;
     setIsSavingSettings(true);
     try {
+      // Ensure we don't send undefined to Firestore
+      const cleanProfile = Object.entries(updatedProfile).reduce((acc, [key, value]) => {
+        if (value !== undefined) {
+          acc[key] = value;
+        }
+        return acc;
+      }, {} as any);
+
       await updateDoc(doc(db, 'vendors', vendorProfile.id), {
-        ...updatedProfile,
+        ...cleanProfile,
         updatedAt: serverTimestamp()
       });
       toast.success('Duka limefanyiwa maboresho!');
@@ -716,7 +988,7 @@ export default function VendorDashboard() {
         status: 'pending',
         orderSource: 'pos',
         orderType: orderType,
-        tableNumber: orderType === 'pickup' ? tableNumber : null,
+        tableNumber: (orderType === 'walk_in' || orderType === 'pickup') ? tableNumber : null,
         paymentMethod: paymentMethod,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -724,6 +996,14 @@ export default function VendorDashboard() {
       };
 
       const docRef = await addDoc(collection(db, 'orders'), orderData);
+      
+      // Auto-occupy table if it's a restaurant Dine-In
+      if (orderType === 'walk_in' && vendorProfile.category === 'restaurant' && tableNumber) {
+        const tableToOccupy = sections.find(s => s.number === tableNumber);
+        if (tableToOccupy) {
+          await updateTableStatus(tableToOccupy.id, 'occupied');
+        }
+      }
       
       // If Mobile Money, initiate Mongike payment
       if (paymentMethod === 'mobile_money' && posCustomer?.phone) {
@@ -760,31 +1040,40 @@ export default function VendorDashboard() {
     }
   };
 
-  const handleAddTable = async (e: React.FormEvent) => {
+  const handleAddSection = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!vendorProfile?.id) return;
     try {
       await addDoc(collection(db, 'tables'), {
-        ...newTable,
+        ...newSection,
         vendorId: vendorProfile.id,
         vendorOwnerUid: user?.uid,
         status: 'available',
         createdAt: serverTimestamp()
       });
-      setIsAddTableOpen(false);
-      setNewTable({ number: '', capacity: 4 });
-      toast.success('Section added successfully!');
+      setIsAddSectionOpen(false);
+      setNewSection({ number: '', capacity: 10 });
+      toast.success('Shelf/Section added successfully!');
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'tables');
+      handleFirestoreError(error, OperationType.CREATE, 'sections');
     }
   };
 
-  const handleDeleteTable = async (id: string) => {
+  const handleDeleteSection = async (id: string) => {
     try {
       await deleteDoc(doc(db, 'tables', id));
       toast.success('Section removed.');
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, 'tables');
+      handleFirestoreError(error, OperationType.DELETE, 'sections');
+    }
+  };
+
+  const updateTableStatus = async (tableId: string, status: string) => {
+    try {
+      await updateDoc(doc(db, 'tables', tableId), { status });
+      toast.success('Table status updated!');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `tables/${tableId}`);
     }
   };
 
@@ -804,8 +1093,8 @@ export default function VendorDashboard() {
           className="bg-white rounded-3xl shadow-2xl shadow-orange-100 overflow-hidden border border-neutral-100"
         >
           <div className="bg-orange-600 p-8 text-white">
-            <h1 className="text-3xl font-bold">Vendor Onboarding</h1>
-            <p className="text-orange-100 mt-2">Register your business to start selling on OmniServe.</p>
+            <h1 className="text-3xl font-bold italic uppercase tracking-tighter">Vendor Onboarding</h1>
+            <p className="text-orange-100 mt-2 font-medium">Register your business to start selling on Papo Hapo's retail network.</p>
           </div>
           <div className="p-8">
             <form onSubmit={handleOnboarding} className="space-y-6">
@@ -821,11 +1110,14 @@ export default function VendorDashboard() {
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="pharmacy">Pharmacy</SelectItem>
-                      <SelectItem value="grocery">Grocery</SelectItem>
-                      <SelectItem value="restaurant">Restaurant</SelectItem>
-                      <SelectItem value="ecommerce">eCommerce</SelectItem>
-                      <SelectItem value="salon">Salon</SelectItem>
+                      <SelectItem value="restaurant">Restaurant / Hoteli ya Chakula</SelectItem>
+                      <SelectItem value="grocery">Grocery / Sokoni</SelectItem>
+                      <SelectItem value="pharmacy">Pharmacy / Duka la Dawa</SelectItem>
+                      <SelectItem value="ecommerce">Shop / Maduka</SelectItem>
+                      <SelectItem value="salon">Salon / Kinyozi</SelectItem>
+                      <SelectItem value="hotel">Hotel / Malazi</SelectItem>
+                      <SelectItem value="taxi">Taxi / Teksi</SelectItem>
+                      <SelectItem value="parcel">Delivery / Vifurushi</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -886,7 +1178,8 @@ export default function VendorDashboard() {
         status: newStatus,
         updatedAt: serverTimestamp()
       });
-      toast.success(`Order #${orderId.slice(-4)} moved to ${newStatus}`);
+      const alertMsg = newStatus === 'accepted' ? 'Order Accepted' : (newStatus === 'cancelled' ? 'Order Cancelled' : `Order #${orderId.slice(-4)} moved to ${newStatus}`);
+      toast.success(alertMsg);
     } catch (error) {
        handleFirestoreError(error, OperationType.UPDATE, `orders/${orderId}`);
     }
@@ -905,7 +1198,7 @@ export default function VendorDashboard() {
     }
   };
 
-  const renderKDSColumn = (title: string, statusList: OrderStatus[], color: string) => {
+  const renderFulfillmentColumn = (title: string, statusList: OrderStatus[], color: string) => {
     const filteredOrders = orders.filter(o => statusList.includes(o.status));
     return (
       <div className="flex-1 min-w-[320px] bg-neutral-900/30 rounded-3xl p-6 border border-neutral-800/50 flex flex-col gap-6 h-[calc(100vh-280px)] overflow-hidden">
@@ -919,7 +1212,7 @@ export default function VendorDashboard() {
                layout
                initial={{ opacity: 0, scale: 0.95 }}
                animate={{ opacity: 1, scale: 1 }}
-               key={`kds-card-${order.id}`} 
+               key={`fulfillment-card-${order.id}`} 
                className="bg-neutral-950 border border-neutral-800 p-5 rounded-2xl space-y-4 hover:border-orange-600/30 transition-all cursor-pointer group"
              >
                 <div className="flex items-center justify-between">
@@ -960,7 +1253,7 @@ export default function VendorDashboard() {
                           className="bg-orange-600 hover:bg-orange-700 h-8 rounded-lg text-[10px] font-black uppercase"
                           onClick={() => updateOrderStatus(order.id!, 'preparing')}
                         >
-                          Start Picking
+                          Accept Order
                         </Button>
                       )}
                       {order.status === 'preparing' && (
@@ -969,7 +1262,7 @@ export default function VendorDashboard() {
                           className="bg-green-600 hover:bg-green-700 h-8 rounded-lg text-[10px] font-black uppercase"
                           onClick={() => updateOrderStatus(order.id!, 'prepared')}
                         >
-                          Pack Order
+                          Mark Ready
                         </Button>
                       )}
                        {order.status === 'prepared' && (
@@ -1026,10 +1319,39 @@ export default function VendorDashboard() {
     >
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-4xl font-black italic uppercase tracking-tighter">Orders & Fulfillment</h1>
-          <p className="text-neutral-500 font-medium">Manage online orders and walk-in sales readiness.</p>
+          <h1 className="text-4xl font-black italic uppercase tracking-tighter">{vendorContext.ordersLabel}</h1>
+          <p className="text-neutral-500 font-medium">{vendorContext.ordersDescription}</p>
         </div>
         <div className="flex items-center gap-2 p-1 bg-neutral-900 rounded-2xl border border-neutral-800">
+           <Button
+             variant="ghost"
+             size="sm"
+             onClick={() => setIsVoiceEnabled(!isVoiceEnabled)}
+             className={`rounded-xl h-10 px-4 font-bold text-[10px] uppercase tracking-widest ${isVoiceEnabled ? 'text-orange-500 bg-orange-500/10' : 'text-neutral-500'}`}
+             title="Voice Alerts"
+           >
+              {isVoiceEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+           </Button>
+           <div className="w-px h-6 bg-neutral-800 mx-1" />
+           <Button
+             variant="ghost"
+             size="sm"
+             onClick={() => setIsKdsView(true)}
+             className="rounded-xl h-10 px-4 font-bold text-[10px] uppercase tracking-widest text-neutral-500 hover:text-white"
+             title="Kitchen Display System"
+           >
+              <ChefHat className="w-4 h-4" />
+           </Button>
+           <Button
+             variant="ghost"
+             size="sm"
+             onClick={() => setIsOssView(true)}
+             className="rounded-xl h-10 px-4 font-bold text-[10px] uppercase tracking-widest text-neutral-500 hover:text-white"
+             title="Order Status Screen"
+           >
+              <Monitor className="w-4 h-4" />
+           </Button>
+           <div className="w-px h-6 bg-neutral-800 mx-1" />
            <Button 
              variant={isPackingMode ? 'default' : 'ghost'} 
              onClick={() => setIsPackingMode(true)}
@@ -1049,10 +1371,10 @@ export default function VendorDashboard() {
 
       {isPackingMode ? (
         <div className="flex gap-8 overflow-x-auto no-scrollbar pb-8 min-h-[600px]">
-           {renderKDSColumn("New Orders", ["pending"], "text-yellow-500")}
-           {renderKDSColumn("Picking / Packing", ["preparing", "accepted"], "text-orange-500")}
-           {renderKDSColumn("Ready for Delivery", ["prepared"], "text-purple-500")}
-           {renderKDSColumn("History", ["delivered", "completed"], "text-green-500")}
+           {renderFulfillmentColumn(vendorContext.awaitingLabel, ["pending"], "text-yellow-500")}
+           {renderFulfillmentColumn(vendorContext.pickingLabel, ["preparing", "accepted"], "text-orange-500")}
+           {renderFulfillmentColumn(vendorContext.readyLabel, ["prepared"], "text-purple-500")}
+           {renderFulfillmentColumn("Archive / Sent", ["delivered", "completed"], "text-green-500")}
         </div>
       ) : (
         <div className="bg-neutral-900 border border-neutral-800 rounded-3xl overflow-hidden shadow-2xl">
@@ -1548,8 +1870,8 @@ export default function VendorDashboard() {
                 <div className="flex-1 space-y-6 overflow-y-auto no-scrollbar pr-2">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                      <h2 className="text-3xl font-black italic uppercase italic tracking-tighter">Point of Sale</h2>
-                      <p className="text-neutral-500 font-medium">Quick checkout and retail service</p>
+                      <h2 className="text-3xl font-black italic uppercase italic tracking-tighter">{vendorContext.posLabel}</h2>
+                      <p className="text-neutral-500 font-medium">{vendorContext.type === 'service' ? 'Quick session check-in' : 'Quick checkout and service'}</p>
                     </div>
                     <div className="flex items-center gap-3">
                        <Button 
@@ -1647,7 +1969,7 @@ export default function VendorDashboard() {
                     <div className="space-y-4">
                       <div className="grid grid-cols-3 gap-3 bg-neutral-900/50 p-2 rounded-2xl border border-white/5">
                         {[
-                          { id: 'walk_in', label: 'Soko (In-Store)', icon: Store },
+                          { id: 'walk_in', label: vendorContext.type === 'restaurant' ? 'Dine In' : 'Soko (In-Store)', icon: Store },
                           { id: 'pickup', label: 'Pickup', icon: ShoppingBag },
                           { id: 'delivery', label: 'Delivery', icon: Truck },
                         ].map((type, idx) => (
@@ -1666,15 +1988,37 @@ export default function VendorDashboard() {
                         ))}
                       </div>
 
-                      {orderType === 'pickup' && (
+                      {orderType === 'walk_in' && vendorProfile?.category === 'restaurant' && (
                         <motion.div 
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: 'auto' }}
                           className="pt-2"
                         >
-                           <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1 block mb-2">Shelf / Bin Ref (Optional)</label>
+                           <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1 block mb-2">Select Table</label>
+                           <Select value={tableNumber} onValueChange={setTableNumber}>
+                              <SelectTrigger className="bg-neutral-900 border-neutral-800 h-12 rounded-xl font-bold">
+                                 <SelectValue placeholder="Choose a table..." />
+                              </SelectTrigger>
+                              <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
+                                 {sections.map((s, idx) => (
+                                   <SelectItem key={`pos-table-opt-${s.id || idx}`} value={s.number}>
+                                      Table {s.number} {s.status === 'occupied' ? ' (Occupied)' : ''}
+                                   </SelectItem>
+                                 ))}
+                              </SelectContent>
+                           </Select>
+                        </motion.div>
+                      )}
+
+                      {(orderType === 'pickup' || (orderType === 'walk_in' && vendorProfile?.category !== 'restaurant')) && (
+                        <motion.div 
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          className="pt-2"
+                        >
+                           <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1 block mb-2">{vendorContext.locationLabelSingular} Ref (Optional)</label>
                            <Input 
-                              placeholder="e.g. Aisle 4, Shelf B" 
+                              placeholder={`e.g. ${vendorContext.locationLabelSingular} 1`} 
                               value={tableNumber} 
                               onChange={(e) => setTableNumber(e.target.value)}
                               className="bg-neutral-900 border-neutral-800 h-12 rounded-xl font-bold"
@@ -1685,8 +2029,8 @@ export default function VendorDashboard() {
                   </div>
 
                   <div className="flex-1 overflow-y-auto p-8 space-y-6 no-scrollbar min-h-[200px]">
-                    {cart.map((item) => (
-                      <div key={`pos-cart-item-${item.product.id}`} className="flex justify-between items-center group animate-in slide-in-from-right-4 duration-300">
+                    {cart.map((item, idx) => (
+                      <div key={`pos-cart-item-${item.product.id}-${idx}`} className="flex justify-between items-center group animate-in slide-in-from-right-4 duration-300">
                         <div className="flex gap-4">
                           <div className="w-14 h-14 rounded-2xl bg-neutral-900 border border-neutral-800 overflow-hidden relative">
                              {item.product.imageUrl ? (
@@ -1782,6 +2126,143 @@ export default function VendorDashboard() {
                 </div>
               </motion.div>
             )}
+            {activeTab === 'tables' && (
+              <motion.div 
+                key="tables"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="space-y-8 pb-32"
+              >
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                  <div>
+                    <h2 className="text-4xl font-black italic uppercase tracking-tighter">Dining Floor</h2>
+                    <p className="text-neutral-500 font-medium italic">Monitor occupancy and manage table availability</p>
+                  </div>
+                  <Button 
+                    onClick={() => setIsAddSectionOpen(true)}
+                    className="bg-orange-600 hover:bg-orange-700 rounded-2xl h-14 px-8 font-black uppercase tracking-widest text-[10px] shadow-2xl shadow-orange-950/40 text-white"
+                  >
+                    <Plus className="w-5 h-5 mr-3" /> Add New Table
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {sections.map((section, idx) => {
+                    const tableStatus = section.status || 'available';
+                    return (
+                      <motion.div
+                        whileHover={{ scale: 1.02 }}
+                        key={`tables-tab-card-${section.id || idx}`}
+                        className={`bg-neutral-900 border border-neutral-800 rounded-[3rem] p-8 relative overflow-hidden transition-all ${
+                          tableStatus === 'occupied' ? 'ring-2 ring-red-500/20 border-red-500/30 shadow-[0_0_40px_-15px_rgba(239,68,68,0.3)]' : 
+                          tableStatus === 'reserved' ? 'ring-2 ring-yellow-500/20 border-yellow-500/30' : 
+                          'hover:border-orange-600/50'
+                        }`}
+                      >
+                        <div className="flex justify-between items-start mb-8">
+                          <div className={`w-14 h-14 rounded-[1.5rem] flex items-center justify-center font-black text-xl ${
+                            tableStatus === 'occupied' ? 'bg-red-500/10 text-red-500' :
+                            tableStatus === 'reserved' ? 'bg-yellow-500/10 text-yellow-500' :
+                            tableStatus === 'cleaning' ? 'bg-blue-500/10 text-blue-500' :
+                            'bg-orange-600/10 text-orange-600'
+                          }`}>
+                            {section.number}
+                          </div>
+                          <div className="flex gap-2">
+                             <Button 
+                               variant="ghost" 
+                               size="icon" 
+                               className="h-10 w-10 rounded-xl bg-neutral-950 text-neutral-500 hover:text-white border border-neutral-800"
+                               onClick={() => {
+                                 setSelectedSection(section);
+                                 setQrOptions({ ...qrOptions, data: `${window.location.origin}/table/${vendorProfile?.id}/${section.number}` });
+                                 setIsQrBuilderOpen(true);
+                               }}
+                             >
+                               <QrCode className="w-4 h-4" />
+                             </Button>
+                             <Button 
+                               variant="ghost" 
+                               size="icon" 
+                               className="h-10 w-10 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white"
+                               onClick={() => handleDeleteSection(section.id)}
+                             >
+                               <Trash2 className="w-4 h-4" />
+                             </Button>
+                          </div>
+                        </div>
+
+                        <div className="space-y-6">
+                           <div className="space-y-2">
+                              <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Manage Status</label>
+                              <Select 
+                                value={tableStatus} 
+                                onValueChange={(val) => updateTableStatus(section.id, val)}
+                              >
+                                <SelectTrigger className="bg-neutral-950 border-neutral-800 h-12 rounded-2xl font-black italic uppercase text-[10px] tracking-widest text-white ring-offset-neutral-900">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-neutral-900 border-neutral-800 text-white rounded-2xl shadow-2xl">
+                                  <SelectItem value="available">✓ Available</SelectItem>
+                                  <SelectItem value="occupied">! Occupied</SelectItem>
+                                  <SelectItem value="reserved">★ Reserved</SelectItem>
+                                  <SelectItem value="cleaning">∞ Cleaning</SelectItem>
+                                </SelectContent>
+                              </Select>
+                           </div>
+
+                          <div className="flex items-center justify-between pt-6 border-t border-white/5 mt-4">
+                             <div className="flex items-center gap-3">
+                                <div className="p-2 bg-neutral-950 rounded-lg">
+                                  <Users className="w-3 h-3 text-neutral-500" />
+                                </div>
+                                <span className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">{section.capacity || 4} Seater</span>
+                             </div>
+                             {tableStatus === 'occupied' && (
+                               <div className="flex items-center gap-2 px-3 py-1 bg-red-500/10 rounded-full">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></div>
+                                  <span className="text-[8px] font-black text-red-500 uppercase tracking-widest">LIVE ORDER</span>
+                               </div>
+                             )}
+                          </div>
+                        </div>
+
+                        {/* Background Decoration */}
+                        <div className="absolute -bottom-8 -right-8 opacity-[0.03] pointer-events-none group-hover:scale-110 transition-transform duration-1000">
+                           <UtensilsCrossed className="w-40 h-40" />
+                        </div>
+
+                        {/* Status Glow Overlay */}
+                        {tableStatus === 'occupied' && (
+                           <div className="absolute top-0 left-0 w-1 h-full bg-red-500" />
+                        )}
+                        {tableStatus === 'available' && (
+                           <div className="absolute top-0 left-0 w-1 h-full bg-orange-600" />
+                        )}
+                      </motion.div>
+                    );
+                  })}
+
+                  {sections.length === 0 && (
+                     <div className="col-span-full py-32 text-center bg-neutral-900/20 rounded-[3rem] border border-dashed border-neutral-800 flex flex-col items-center justify-center">
+                        <div className="w-24 h-24 bg-neutral-900 rounded-[2.5rem] flex items-center justify-center mb-8 border border-neutral-800">
+                           <Layout className="w-10 h-10 text-neutral-700" />
+                        </div>
+                        <h3 className="text-2xl font-black text-white italic uppercase mb-2 tracking-tight">Floor Plan Empty</h3>
+                        <p className="text-neutral-500 text-sm max-w-xs mx-auto mb-8">Design your dining experience by adding tables and generating unique QR codes for instant ordering.</p>
+                        <Button 
+                          onClick={() => setIsAddSectionOpen(true)} 
+                          className="bg-orange-600 hover:bg-orange-700 h-14 px-10 rounded-[1.5rem] font-black uppercase text-xs tracking-widest shadow-xl shadow-orange-950/40 text-white"
+                        >
+                          Add First Table
+                        </Button>
+                     </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
             {/* Add Customer Modal */}
             <AnimatePresence>
                {isAddCustomerModalOpen && (
@@ -1997,9 +2478,16 @@ export default function VendorDashboard() {
               >
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                   <div>
-                    <h2 className="text-3xl font-black italic uppercase tracking-tighter">Stock Insights</h2>
-                    <p className="text-neutral-500 font-medium">Detailed analytics of your inventory value and movement.</p>
+                    <h2 className="text-4xl font-black italic uppercase tracking-tighter">Business Performance</h2>
+                    <p className="text-neutral-500 font-medium italic">Strategic insights and revenue analytics</p>
                   </div>
+                  <Button 
+                    onClick={handleDownloadSalesReport}
+                    variant="outline" 
+                    className="h-14 px-8 border-neutral-800 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-neutral-900 text-white flex items-center gap-3"
+                  >
+                    <PrinterIcon className="w-4 h-4" /> Export CSV
+                  </Button>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -2018,6 +2506,48 @@ export default function VendorDashboard() {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <Card className="bg-neutral-900/40 border-neutral-800 p-8 space-y-8">
+                      <div className="flex items-center justify-between">
+                         <div>
+                            <h3 className="text-xl font-black uppercase tracking-tight italic">Top Sellers</h3>
+                            <p className="text-xs text-neutral-500">Most popular choices this week</p>
+                         </div>
+                         <div className="w-10 h-10 bg-orange-600/10 rounded-xl flex items-center justify-center border border-orange-600/20">
+                            <Zap className="w-5 h-5 text-orange-600" />
+                         </div>
+                      </div>
+                      
+                      <div className="space-y-4">
+                         {bestSellers.map((item, idx) => (
+                           <motion.div 
+                             initial={{ opacity: 0, x: -20 }}
+                             animate={{ opacity: 1, x: 0 }}
+                             transition={{ delay: idx * 0.1 }}
+                             key={`inventory-best-seller-${item.name}-${idx}`} 
+                             className="flex items-center justify-between group"
+                           >
+                             <div className="flex items-center gap-4">
+                                <div className="text-[10px] font-black text-neutral-700 w-4">0{idx + 1}</div>
+                                <div className="w-14 h-14 rounded-2xl bg-neutral-950 border border-neutral-800 p-1 overflow-hidden relative">
+                                   {item.imageUrl ? <img src={item.imageUrl} className="w-full h-full object-cover rounded-xl" referrerPolicy="no-referrer" /> : <Package className="w-full h-full p-3 opacity-10" />}
+                                </div>
+                                <div className="max-w-[120px]">
+                                   <p className="font-bold text-sm text-white italic truncate">{item.name}</p>
+                                   <p className="text-[10px] text-neutral-600 font-bold uppercase tracking-widest">{item.category}</p>
+                                </div>
+                             </div>
+                             <div className="text-right">
+                                <p className="font-black text-sm text-white">TZS {item.revenue.toLocaleString()}</p>
+                                <p className="text-[10px] text-orange-500 font-black uppercase tracking-widest">{item.count} Sold</p>
+                             </div>
+                           </motion.div>
+                         ))}
+                         {bestSellers.length === 0 && (
+                            <div className="py-10 text-center text-neutral-700 font-black uppercase tracking-[0.2em] text-[10px]">No sales recorded yet</div>
+                         )}
+                      </div>
+                    </Card>
+
                    <Card className="bg-neutral-900/40 border-neutral-800 p-8">
                       <h3 className="font-black italic uppercase tracking-tighter mb-6">Stock Level Distribution</h3>
                       <div className="h-[300px]">
@@ -2113,7 +2643,7 @@ export default function VendorDashboard() {
                              const totalSpent = customerOrders.reduce((sum, o) => sum + o.totalAmount, 0);
 
                              return (
-                               <tr key={`crm-row-${cId}-${index}`} className="hover:bg-neutral-800/20 transition-all group">
+                               <tr key={`crm-row-item-${cId}-${index}`} className="hover:bg-neutral-800/20 transition-all group">
                                   <td className="px-8 py-6">
                                      <div className="flex items-center gap-4">
                                         <div className="w-12 h-12 rounded-2xl bg-orange-600/10 flex items-center justify-center border border-orange-600/20">
@@ -2156,6 +2686,80 @@ export default function VendorDashboard() {
                         </tbody>
                      </table>
                    </div>
+                </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'staff' && (
+              <motion.div 
+                key="staff"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="space-y-8 pb-32"
+              >
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                  <div>
+                    <h2 className="text-4xl font-black italic uppercase tracking-tighter">Team & Personnel</h2>
+                    <p className="text-neutral-500 font-medium italic">Manage roles for chefs, waiters, and managers</p>
+                  </div>
+                  <Button 
+                    onClick={() => setIsAddStaffOpen(true)}
+                    className="bg-orange-600 hover:bg-orange-700 rounded-2xl h-14 px-8 font-black uppercase tracking-widest text-[10px] shadow-2xl shadow-orange-950/40 text-white"
+                  >
+                    <UserPlus className="w-5 h-5 mr-3" /> Add Team Member
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {staff.map((member) => (
+                    <motion.div 
+                      key={`staff-card-${member.id}`}
+                      whileHover={{ scale: 1.02 }}
+                      className="bg-neutral-900 border border-neutral-800 rounded-[3rem] p-8 relative group overflow-hidden"
+                    >
+                      <div className="absolute top-0 right-0 p-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                         <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white" onClick={() => deleteStaff(member.id)}>
+                            <Trash2 className="w-4 h-4" />
+                         </Button>
+                      </div>
+
+                      <div className="flex flex-col items-center text-center space-y-4 mb-8">
+                         <div className="w-20 h-20 rounded-[2rem] bg-orange-600/10 flex items-center justify-center border-2 border-dashed border-orange-600/20 group-hover:bg-orange-600/20 transition-all">
+                            <ChefHat className="w-10 h-10 text-orange-600" />
+                         </div>
+                         <div>
+                            <h3 className="text-2xl font-black text-white italic tracking-tighter uppercase">{member.name}</h3>
+                            <div className="flex items-center justify-center gap-2 mt-1">
+                               <ShieldCheck className="w-3 h-3 text-orange-600" />
+                               <span className="text-[9px] font-black text-neutral-500 uppercase tracking-[0.2em]">{member.role}</span>
+                            </div>
+                         </div>
+                      </div>
+
+                      <div className="space-y-4 bg-neutral-950/50 p-6 rounded-3xl border border-white/5">
+                         <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                            <span className="text-neutral-600">Contact</span>
+                            <span className="text-neutral-300">{member.phone || 'N/A'}</span>
+                         </div>
+                         <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest pt-3 border-t border-white/5">
+                            <span className="text-neutral-600">Operations</span>
+                            <span className="text-green-500">Live</span>
+                         </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                  
+                  {staff.length === 0 && (
+                    <div className="col-span-full py-40 text-center bg-neutral-900/10 rounded-[4rem] border border-dashed border-neutral-800">
+                       <div className="w-24 h-24 bg-neutral-800 rounded-[2.5rem] flex items-center justify-center mx-auto mb-6">
+                          <Users className="w-10 h-10 text-neutral-600" />
+                       </div>
+                       <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter mb-2">Build Your Power Team</h3>
+                       <p className="text-neutral-500 text-sm max-w-xs mx-auto mb-8">Scale your operations by assigning dedicated roles to your employees.</p>
+                       <Button onClick={() => setIsAddStaffOpen(true)} className="bg-white text-black hover:bg-neutral-200 h-14 rounded-2xl px-10 font-black uppercase tracking-widest text-xs shadow-xl">Get Started</Button>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )}
@@ -2330,6 +2934,51 @@ export default function VendorDashboard() {
                         Deactivate Store
                       </Button>
                     </Card>
+
+                    <Card className="bg-neutral-900 border-neutral-800 rounded-[2.5rem] overflow-hidden p-8 space-y-6">
+                       <div className="flex items-center justify-between">
+                         <div className="flex items-center gap-4 text-orange-600">
+                           <Layout className="w-6 h-6" />
+                           <h3 className="font-black text-xl">{vendorContext.locationLabel}</h3>
+                         </div>
+                         <Button 
+                           onClick={() => setIsAddSectionOpen(true)}
+                           className="bg-orange-600 hover:bg-orange-700 h-10 px-4 rounded-xl font-bold gap-2"
+                         >
+                           <Plus className="w-4 h-4" /> Add {vendorContext.locationLabelSingular}
+                         </Button>
+                       </div>
+                       <p className="text-xs text-neutral-500 font-medium">Create QR codes for physical sections of your floor to allow customers to scan and spend instantly.</p>
+                       
+                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                          {sections.map((section, idx) => (
+                            <Card key={`section-card-${section.id || idx}`} className="bg-neutral-950 border-neutral-800 p-4 border border-white/5 relative group hover:border-orange-600/30 transition-all">
+                               <button 
+                                 onClick={() => handleDeleteSection(section.id)}
+                                 className="absolute top-2 right-2 text-neutral-600 hover:text-red-500 transition-colors"
+                               >
+                                 <Trash2 className="w-4 h-4" />
+                               </button>
+                               <div className="w-10 h-10 bg-orange-600/10 rounded-lg flex items-center justify-center text-orange-600 font-black mb-3">
+                                  {section.number}
+                               </div>
+                               <p className="text-[10px] font-black uppercase text-white truncate">{vendorContext.locationLabelSingular} {section.number}</p>
+                               <Button 
+                                 variant="ghost" 
+                                 size="sm" 
+                                 className="w-full mt-3 h-8 text-[9px] font-black uppercase hover:bg-orange-600 hover:text-white"
+                                 onClick={() => {
+                                   setSelectedSection(section);
+                                   setQrOptions({ ...qrOptions, data: `${window.location.origin}/table/${vendorProfile?.id}/${section.number}` });
+                                   setIsQrBuilderOpen(true);
+                                 }}
+                               >
+                                 QR Stand
+                               </Button>
+                            </Card>
+                          ))}
+                       </div>
+                    </Card>
                   </div>
                 </form>
               </motion.div>
@@ -2345,8 +2994,8 @@ export default function VendorDashboard() {
               >
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                   <div>
-                    <h2 className="text-3xl font-black italic uppercase tracking-tighter">Inventory Control</h2>
-                    <p className="text-neutral-500 font-medium">Manage your products and stock levels</p>
+                    <h2 className="text-3xl font-black italic uppercase tracking-tighter">{vendorContext.inventoryLabel} Control</h2>
+                    <p className="text-neutral-500 font-medium">Manage your {vendorContext.inventoryLabel.toLowerCase()} and availability</p>
                   </div>
                   <div className="flex items-center gap-3">
                     <Button 
@@ -2877,6 +3526,78 @@ export default function VendorDashboard() {
 
       {/* Delete Confirmation Modal */}
       <AnimatePresence>
+        {isAddStaffOpen && (
+          <div className="fixed inset-0 z-[140] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsAddStaffOpen(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 30 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 30 }}
+              className="relative w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-[3rem] overflow-hidden shadow-2xl p-8"
+            >
+              <div className="flex justify-between items-center mb-8">
+                <h3 className="text-2xl font-black italic uppercase tracking-tighter flex items-center gap-3">
+                  <UserPlus className="w-6 h-6 text-orange-600" />
+                  New Team Member
+                </h3>
+                <button onClick={() => setIsAddStaffOpen(false)} className="text-neutral-500 hover:text-white transition-colors">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <form onSubmit={handleAddStaff} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Full Name / Jina Kamili</label>
+                  <Input 
+                    required
+                    placeholder="e.g. John Doe" 
+                    className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl font-bold text-white italic"
+                    value={newStaff.name}
+                    onChange={e => setNewStaff({...newStaff, name: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Role / Kazi</label>
+                  <Select value={newStaff.role} onValueChange={val => setNewStaff({...newStaff, role: val})}>
+                     <SelectTrigger className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl font-bold text-white">
+                        <SelectValue />
+                     </SelectTrigger>
+                     <SelectContent className="bg-neutral-900 border-neutral-800 text-white shadow-2xl rounded-2xl">
+                        <SelectItem value="chef">Chef / Mpishi</SelectItem>
+                        <SelectItem value="waiter">Waiter / WaitRESS</SelectItem>
+                        <SelectItem value="cashier">Cashier / Mhasibu</SelectItem>
+                        <SelectItem value="manager">Manager / Meneja</SelectItem>
+                     </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Phone Number / Simu</label>
+                  <Input 
+                    placeholder="+255..." 
+                    className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl font-bold text-white italic"
+                    value={newStaff.phone}
+                    onChange={e => setNewStaff({...newStaff, phone: e.target.value})}
+                  />
+                </div>
+                <Button 
+                  type="submit"
+                  className="w-full bg-orange-600 hover:bg-orange-700 h-16 rounded-2xl font-black uppercase tracking-widest text-xs mt-4 shadow-xl shadow-orange-950/40"
+                >
+                  Onboard Member
+                </Button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {isDeleteModalOpen && (
           <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
             <motion.div 
@@ -2963,15 +3684,15 @@ export default function VendorDashboard() {
         )}
       </AnimatePresence>
 
-      {/* Add Table Modal */}
+      {/* Add Section Modal */}
       <AnimatePresence>
-        {isAddTableOpen && (
+        {isAddSectionOpen && (
           <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setIsAddTableOpen(false)}
+              onClick={() => setIsAddSectionOpen(false)}
               className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             />
             <motion.div 
@@ -2983,40 +3704,42 @@ export default function VendorDashboard() {
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-bold flex items-center gap-2">
                   <Plus className="w-5 h-5 text-orange-600" />
-                  Add New Section
+                  Add New {vendorContext.locationLabelSingular}
                 </h3>
-                <button onClick={() => setIsAddTableOpen(false)} className="text-neutral-500 hover:text-white">
+                <button onClick={() => setIsAddSectionOpen(false)} className="text-neutral-500 hover:text-white">
                   <X className="w-5 h-5" />
                 </button>
               </div>
               
-              <form onSubmit={handleAddTable} className="space-y-4">
+              <form onSubmit={handleAddSection} className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-neutral-500 uppercase">Section Number</label>
+                  <label className="text-xs font-bold text-neutral-500 uppercase">{vendorContext.locationLabelSingular} Label / Number</label>
                   <Input 
                     required
-                    placeholder="e.g. Aisle 1" 
+                    placeholder={`e.g. ${vendorContext.locationLabelSingular} 1`} 
                     className="bg-neutral-800 border-none h-11 rounded-xl"
-                    value={newTable.number}
-                    onChange={e => setNewTable({...newTable, number: e.target.value})}
+                    value={newSection.number}
+                    onChange={e => setNewSection({...newSection, number: e.target.value})}
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-neutral-500 uppercase">Section Size (Optional)</label>
+                  <label className="text-xs font-bold text-neutral-500 uppercase">
+                    {vendorProfile?.category === 'restaurant' ? 'Seating Capacity' : 'Capacity (Approx. Items)'}
+                  </label>
                   <Input 
                     type="number"
                     required
-                    placeholder="e.g. 10" 
+                    placeholder={vendorProfile?.category === 'restaurant' ? 'e.g. 4' : 'e.g. 50'} 
                     className="bg-neutral-800 border-none h-11 rounded-xl"
-                    value={newTable.capacity}
-                    onChange={e => setNewTable({...newTable, capacity: parseInt(e.target.value)})}
+                    value={newSection.capacity}
+                    onChange={e => setNewSection({...newSection, capacity: parseInt(e.target.value)})}
                   />
                 </div>
                 <Button 
                   type="submit"
                   className="w-full bg-orange-600 hover:bg-orange-700 h-11 rounded-xl font-bold mt-4"
                 >
-                  Create Section
+                  Create Stand
                 </Button>
               </form>
             </motion.div>
@@ -3044,10 +3767,10 @@ export default function VendorDashboard() {
               <div className="p-8 border-b border-white/5 flex items-center justify-between shrink-0 bg-black/20">
                 <div>
                   <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter">
-                    Qr Builder {selectedTable && <span className="text-orange-600">— Section {selectedTable.number}</span>}
+                    Qr Builder {selectedSection && <span className="text-orange-600">— Aisle Stand: {selectedSection.number}</span>}
                   </h3>
                   <p className="text-xs text-neutral-500 font-bold uppercase tracking-widest">
-                    {selectedTable ? `Design for Section ${selectedTable.number}` : 'Customize your digital experience'}
+                    {selectedSection ? `Design for Aisle ${selectedSection.number}` : 'Customize your digital experience'}
                   </p>
                 </div>
                 <button 
@@ -3304,54 +4027,54 @@ export default function VendorDashboard() {
                         </div>
 
                         {/* Content Section */}
-                        <div className="flex-1 flex flex-col items-center py-6 px-6 text-center bg-white">
+                        <div className="flex-1 flex flex-col items-center justify-between py-10 px-8 text-center bg-white">
                           
                           {/* QR Code Section */}
-                          <div className="w-full flex flex-col items-center mb-6">
+                          <div className="w-full flex flex-col items-center">
                             {/* Title above QR */}
-                            <div className="bg-neutral-50 px-5 py-1.5 border border-neutral-200 rounded-full mb-3 shadow-sm">
-                              <p className="text-[8px] font-black uppercase tracking-widest text-neutral-500">BIDHAA ZA {vendorProfile?.businessName?.toUpperCase() || 'DUKA'}</p>
+                            <div className="bg-neutral-50 px-6 py-2 border border-neutral-100 rounded-full mb-6 shadow-sm">
+                              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400">BIDHAA ZA {vendorProfile?.businessName?.toUpperCase() || 'DUKA'}</p>
                             </div>
                             
                             {/* The QR Code itself */}
-                            <div className="relative p-4 bg-white rounded-[2.5rem] border border-neutral-100 shadow-xl flex items-center justify-center">
+                            <div className="relative p-6 bg-white rounded-[3rem] border border-neutral-100 shadow-2xl flex items-center justify-center">
                                <div 
-                                 ref={qrRef} 
-                                 className="[&>canvas]:!w-[180px] [&>canvas]:!h-[180px] [&>svg]:!w-[180px] [&>svg]:!h-[180px]"
+                                 ref={qrPrintRef} 
+                                 className="flex items-center justify-center w-[180px] h-[180px] [&>canvas]:max-w-full [&>canvas]:max-h-full [&>svg]:max-w-full [&>svg]:max-h-full overflow-hidden"
                                ></div>
                             </div>
                           </div>
 
                           {/* Instructions */}
-                          <div className="space-y-2 mb-6">
-                            <h3 className="text-2xl font-black uppercase leading-[0.9] tracking-tighter text-neutral-900 px-4">
+                          <div className="space-y-4 my-8">
+                            <h3 className="text-3xl font-black uppercase leading-[0.85] tracking-tighter text-neutral-900 italic">
                               SCAN & AGIZA <br/> BIDHAA HAPA
                             </h3>
-                            <div className="space-y-0.5">
-                              <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-tight">Changanua kwa simu yako</p>
-                              <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-tight">Fungua Orodha & Pata Bidhaa!</p>
+                            <div className="space-y-1">
+                              <p className="text-[12px] font-black text-orange-600 uppercase tracking-widest leading-none">Changanua kwa simu yako</p>
+                              <p className="text-[11px] font-bold text-neutral-400 uppercase tracking-tight">Fungua Orodha & Pata Bidhaa!</p>
                             </div>
                           </div>
 
                           {/* Table Info & Footer */}
-                          <div className="w-full mt-auto pt-4 space-y-4">
-                            <div className="inline-flex flex-col items-center">
-                              <p className="text-xs font-black text-neutral-900 uppercase tracking-widest mb-1 pb-1 border-b border-orange-600/20">
-                                SECTION / AISLE: <span className="text-orange-600 text-lg ml-1 font-mono">{selectedTable?.number || '01'}</span>
-                              </p>
+                          <div className="w-full space-y-6">
+                            <div className="inline-flex flex-col items-center px-8 py-3 bg-neutral-950 rounded-[2rem] shadow-xl text-white">
+                              <span className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40 mb-1">SECTION / AISLE</span>
+                              <span className="text-3xl font-black italic tracking-tighter text-orange-600 font-mono leading-none">{selectedSection?.number || '01'}</span>
                             </div>
 
-                            <p className="text-[9px] font-black italic text-neutral-400 uppercase tracking-widest">
-                               {printDetails.footer}
-                            </p>
-                            
-                            {(printDetails.phone || printDetails.address) && (
-                              <div className="flex items-center justify-center gap-3 text-[7px] font-bold text-neutral-300 uppercase tracking-widest pt-4 opacity-50">
-                                 {printDetails.phone && <span>{printDetails.phone}</span>}
-                                 {printDetails.phone && printDetails.address && <span>•</span>}
-                                 {printDetails.address && <span className="max-w-[150px] truncate">{printDetails.address}</span>}
-                              </div>
-                            )}
+                            <div className="space-y-2">
+                              <p className="text-[10px] font-black italic text-neutral-400 uppercase tracking-widest max-w-[200px] mx-auto opacity-70">
+                                {printDetails.footer}
+                              </p>
+                              
+                              {(printDetails.phone || printDetails.address) && (
+                                <div className="flex items-center justify-center gap-3 text-[8px] font-bold text-neutral-300 uppercase tracking-widest pt-2 border-t border-neutral-50">
+                                   {printDetails.phone && <span>{printDetails.phone}</span>}
+                                   {printDetails.address && <span className="max-w-[120px] truncate">{printDetails.address}</span>}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </>
@@ -3405,7 +4128,7 @@ export default function VendorDashboard() {
                     <p className="text-center text-[9px] text-neutral-500 font-bold uppercase tracking-[0.15em] leading-relaxed">
                        {printDetails.isPrintMode 
                          ? 'This layout is optimized for acrylic store displays.' 
-                         : `Scan this code to directly access the shop for Section ${selectedTable?.number || ''}`
+                         : `Scan this code to directly access the shop for Aisle ${selectedSection?.number || ''}`
                        }
                     </p>
                   </div>

@@ -224,7 +224,7 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
               <CardContent className="p-6 space-y-6">
                 <div className="space-y-4">
                   {selectedOrder.items.map((item, idx) => (
-                    <div key={idx} className="flex gap-4">
+                    <div key={`order-item-${selectedOrder.id}-${idx}`} className="flex gap-4">
                       <div className="w-16 h-16 bg-neutral-100 rounded-2xl overflow-hidden relative shrink-0">
                         <img src={item.imageUrl || "https://picsum.photos/seed/food/200"} alt={item.name} className="w-full h-full object-cover" />
                         <div className="absolute top-0 left-0 bg-neutral-900 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-br-lg">
