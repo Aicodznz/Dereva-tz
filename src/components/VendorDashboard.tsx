@@ -315,7 +315,10 @@ export default function VendorDashboard() {
     footer: 'CHANGANUA HAPA KUTAZAMA BIDHAA & KUAGIZA',
     address: '',
     phone: '',
-    isPrintMode: false
+    isPrintMode: false,
+    showLogo: true,
+    accentColor: '#ea580c',
+    headerBg: '#1A1A1A'
   });
   const [qrOptions, setQrOptions] = useState<any>({
     width: 300,
@@ -3948,6 +3951,61 @@ export default function VendorDashboard() {
                     </div>
                     
                     <div className="space-y-3">
+                      <div className="flex items-center justify-between p-3 bg-neutral-900/50 rounded-xl border border-white/5">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-black text-white uppercase tracking-wider">Show Shop Logo</span>
+                          <span className="text-[8px] text-neutral-500 uppercase font-bold tracking-tighter">Onyesha nembo ya duka</span>
+                        </div>
+                        <button 
+                          onClick={() => setPrintDetails({...printDetails, showLogo: !printDetails.showLogo})}
+                          className={`w-10 h-5 rounded-full transition-all relative flex items-center px-1 ${printDetails.showLogo ? 'bg-orange-600' : 'bg-neutral-700'}`}
+                        >
+                          <div className={`w-3.5 h-3.5 bg-white rounded-full transition-all shadow-sm ${printDetails.showLogo ? 'translate-x-4.5' : 'translate-x-0'}`}></div>
+                        </button>
+                      </div>
+
+                      <div className="space-y-1">
+                        <span className="text-[8px] font-black text-neutral-600 uppercase tracking-widest px-1 text-center block mb-2">Stand Theme Color / Rangi ya Stand</span>
+                        <div className="flex flex-wrap justify-center gap-2 pb-2">
+                          {[
+                            '#ea580c', '#3b82f6', '#22c55e', '#ef4444', '#a855f7', 
+                            '#ec4899', '#06b6d4', '#000000', '#71717a'
+                          ].map((color) => (
+                            <button
+                              key={`stand-color-${color}`}
+                              onClick={() => setPrintDetails({...printDetails, accentColor: color})}
+                              className={`w-7 h-7 rounded-full border-2 transition-all flex items-center justify-center ${
+                                printDetails.accentColor === color ? 'border-white scale-110 shadow-lg' : 'border-transparent'
+                              }`}
+                              style={{ backgroundColor: color }}
+                            >
+                              {printDetails.accentColor === color && <Check className="w-3 h-3 text-white" />}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <span className="text-[8px] font-black text-neutral-600 uppercase tracking-widest px-1 text-center block mb-2">Header Color / Rangi ya Juu</span>
+                        <div className="flex flex-wrap justify-center gap-2 pb-4 border-b border-white/5">
+                          {[
+                            '#1A1A1A', '#000000', '#ffffff', '#ea580c', '#3b82f6', 
+                            '#22c55e', '#ef4444', '#71717a'
+                          ].map((color) => (
+                            <button
+                              key={`stand-header-color-${color}`}
+                              onClick={() => setPrintDetails({...printDetails, headerBg: color})}
+                              className={`w-7 h-7 rounded-full border-2 transition-all flex items-center justify-center ${
+                                printDetails.headerBg === color ? 'border-white scale-110 shadow-lg' : 'border-transparent'
+                              }`}
+                              style={{ backgroundColor: color }}
+                            >
+                              {printDetails.headerBg === color && <Check className={`w-3 h-3 ${color === '#ffffff' ? 'text-black' : 'text-white'}`} />}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
                       <div className="space-y-1">
                         <span className="text-[8px] font-black text-neutral-600 uppercase tracking-widest px-1">Title / Jina la Biashara</span>
                         <Input 
@@ -3998,80 +4056,126 @@ export default function VendorDashboard() {
                 </div>
 
                 {/* Preview Panel */}
-                <div className="lg:w-[450px] bg-[#141416] p-10 flex flex-col items-center justify-center gap-8 relative overflow-hidden">
+                <div className="lg:w-[480px] bg-[#0c0c0e] p-6 sm:p-10 flex flex-col items-center justify-start gap-8 relative overflow-y-auto custom-scrollbar min-h-[600px] lg:min-h-0">
+                  <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
+                    <span className="text-[8px] font-black text-neutral-500 uppercase tracking-widest italic">Live Content Preview</span>
+                  </div>
+                  
                   {/* Print Layout Preview */}
                   <div id="printable-stand" className={`
-                    relative transition-all duration-500 flex flex-col items-stretch
+                    relative transition-all duration-500 flex flex-col items-stretch shrink-0
                     ${printDetails.isPrintMode 
-                      ? 'bg-[#ffffff] shadow-2xl w-full max-w-[400px] aspect-[1/1.414] border border-neutral-200 text-black' 
+                      ? 'bg-[#ffffff] shadow-2xl w-full max-w-[380px] min-h-[537px] border border-neutral-200 text-black' 
                       : 'hidden'
                     }
                   `}>
                     {printDetails.isPrintMode && (
                       <>
                         {/* Dark Header Section */}
-                        <div className="bg-[#1A1A1A] p-6 flex flex-col items-center justify-center text-center relative overflow-hidden shrink-0 min-h-[140px]">
+                        <div 
+                          className="p-5 flex flex-col items-center justify-center text-center relative overflow-hidden shrink-0 min-h-[110px]"
+                          style={{ backgroundColor: printDetails.headerBg }}
+                        >
                           {/* Subtle Pattern overlay */}
                           <div className="absolute inset-0 opacity-5 pointer-events-none flex flex-wrap gap-4 p-2">
                              {Array.from({length: 12}).map((_, i) => <Zap key={`stand-zap-${i}`} className="w-8 h-8 rotate-12" />)}
                           </div>
                           
-                          {vendorProfile?.logoUrl && (
-                            <div className="w-14 h-14 mb-2 rounded-xl border border-white/10 overflow-hidden relative z-10 bg-white p-1">
+                          {vendorProfile?.logoUrl && printDetails.showLogo && (
+                            <div className="w-12 h-12 mb-1.5 rounded-xl border border-white/10 overflow-hidden relative z-10 bg-white p-1">
                               <img src={vendorProfile.logoUrl} alt="Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
                             </div>
                           )}
-                          <h2 className="text-xl font-black uppercase tracking-tight text-white leading-tight relative z-10">{printDetails.header}</h2>
-                          <div className="w-8 h-0.5 bg-orange-600 mt-2 relative z-10"></div>
-                          <p className="text-[8px] font-black text-orange-500 uppercase tracking-[0.2em] mt-2 relative z-10">{printDetails.subHeader}</p>
+                          <h2 
+                            className="text-lg font-black uppercase tracking-tight leading-tight relative z-10"
+                            style={{ color: printDetails.headerBg === '#ffffff' || printDetails.headerBg === '#E2E8F0' ? '#000000' : '#ffffff' }}
+                          >
+                            {printDetails.header}
+                          </h2>
+                          <div 
+                            className="w-8 h-0.5 mt-1.5 relative z-10"
+                            style={{ backgroundColor: printDetails.accentColor }}
+                          ></div>
+                          <p 
+                            className="text-[7.5px] font-black uppercase tracking-[0.2em] mt-1.5 relative z-10"
+                            style={{ color: printDetails.accentColor }}
+                          >{printDetails.subHeader}</p>
                         </div>
 
                         {/* Content Section */}
-                        <div className="flex-1 flex flex-col items-center justify-between py-10 px-8 text-center bg-white">
+                        <div className="flex-1 flex flex-col items-center justify-between py-6 px-6 text-center bg-white">
                           
                           {/* QR Code Section */}
                           <div className="w-full flex flex-col items-center">
                             {/* Title above QR */}
-                            <div className="bg-neutral-50 px-6 py-2 border border-neutral-100 rounded-full mb-6 shadow-sm">
-                              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400">BIDHAA ZA {vendorProfile?.businessName?.toUpperCase() || 'DUKA'}</p>
+                            <div className="bg-neutral-50 px-5 py-1.5 border border-neutral-100 rounded-full mb-4 shadow-sm">
+                              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-neutral-400">BIDHAA ZA {vendorProfile?.businessName?.toUpperCase() || 'DUKA'}</p>
                             </div>
                             
                             {/* The QR Code itself */}
-                            <div className="relative p-6 bg-white rounded-[3rem] border border-neutral-100 shadow-2xl flex items-center justify-center">
+                            <div 
+                              className="relative p-5 bg-white rounded-[2.5rem] border shadow-xl flex items-center justify-center"
+                              style={{ borderColor: `${printDetails.accentColor}15` }}
+                            >
                                <div 
                                  ref={qrPrintRef} 
-                                 className="flex items-center justify-center w-[180px] h-[180px] [&>canvas]:max-w-full [&>canvas]:max-h-full [&>svg]:max-w-full [&>svg]:max-h-full overflow-hidden"
+                                 className="flex items-center justify-center w-[160px] h-[160px] [&>canvas]:max-w-full [&>canvas]:max-h-full [&>svg]:max-w-full [&>svg]:max-h-full overflow-hidden"
                                ></div>
                             </div>
                           </div>
 
                           {/* Instructions */}
-                          <div className="space-y-4 my-8">
-                            <h3 className="text-3xl font-black uppercase leading-[0.85] tracking-tighter text-neutral-900 italic">
+                          <div className="space-y-3 my-4">
+                            <h3 className="text-2xl font-black uppercase leading-[0.85] tracking-tighter text-neutral-900 italic">
                               SCAN & AGIZA <br/> BIDHAA HAPA
                             </h3>
-                            <div className="space-y-1">
-                              <p className="text-[12px] font-black text-orange-600 uppercase tracking-widest leading-none">Changanua kwa simu yako</p>
-                              <p className="text-[11px] font-bold text-neutral-400 uppercase tracking-tight">Fungua Orodha & Pata Bidhaa!</p>
+                            <div className="space-y-0.5">
+                              <p 
+                                className="text-[11px] font-black uppercase tracking-widest leading-none"
+                                style={{ color: printDetails.accentColor }}
+                              >Changanua kwa simu yako</p>
+                              <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-tight">Fungua Orodha & Pata Bidhaa!</p>
                             </div>
                           </div>
 
                           {/* Table Info & Footer */}
-                          <div className="w-full space-y-6">
-                            <div className="inline-flex flex-col items-center px-8 py-3 bg-neutral-950 rounded-[2rem] shadow-xl text-white">
-                              <span className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40 mb-1">SECTION / AISLE</span>
-                              <span className="text-3xl font-black italic tracking-tighter text-orange-600 font-mono leading-none">{selectedSection?.number || '01'}</span>
+                          <div className="w-full space-y-4">
+                            <div className="w-full grid grid-cols-2 gap-3">
+                              {/* Table/Section Number */}
+                              <div className="flex flex-col items-center p-3 bg-neutral-950 rounded-[1.25rem] shadow-lg text-white">
+                                <span className="text-[7px] font-black uppercase tracking-[0.2em] opacity-40 mb-1 leading-none">
+                                  {vendorContext.locationLabelSingular ? vendorContext.locationLabelSingular.toUpperCase() : 'SECTION'}
+                                </span>
+                                <span 
+                                  className="text-xl font-black italic tracking-tighter font-mono leading-none"
+                                  style={{ color: printDetails.accentColor }}
+                                >
+                                  #{selectedSection?.number || '01'}
+                                </span>
+                              </div>
+
+                              {/* Capacity */}
+                              <div className="flex flex-col items-center p-3 bg-neutral-50 border border-neutral-100 rounded-[1.25rem] shadow-sm">
+                                <span className="text-[7px] font-black uppercase tracking-[0.2em] text-neutral-400 mb-1 leading-none">SEATING</span>
+                                <div className="flex items-center gap-1">
+                                  <Users className="w-2.5 h-2.5 text-neutral-400" />
+                                  <span className="text-lg font-black italic tracking-tighter text-neutral-900 font-mono leading-none">
+                                    {selectedSection?.capacity || '04'}
+                                  </span>
+                                </div>
+                              </div>
                             </div>
 
-                            <div className="space-y-2">
-                              <p className="text-[10px] font-black italic text-neutral-400 uppercase tracking-widest max-w-[200px] mx-auto opacity-70">
+                            <div className="space-y-1.5">
+                              <p className="text-[8px] font-black italic text-neutral-400 uppercase tracking-widest max-w-[180px] mx-auto opacity-70">
                                 {printDetails.footer}
                               </p>
                               
                               {(printDetails.phone || printDetails.address) && (
-                                <div className="flex items-center justify-center gap-3 text-[8px] font-bold text-neutral-300 uppercase tracking-widest pt-2 border-t border-neutral-50">
+                                <div className="flex items-center justify-center gap-3 text-[7.5px] font-bold text-neutral-300 uppercase tracking-widest pt-2 border-t border-neutral-50 grayscale opacity-40">
                                    {printDetails.phone && <span>{printDetails.phone}</span>}
-                                   {printDetails.address && <span className="max-w-[120px] truncate">{printDetails.address}</span>}
+                                   {printDetails.address && <span className="max-w-[110px] truncate">{printDetails.address}</span>}
                                 </div>
                               )}
                             </div>
@@ -4311,6 +4415,10 @@ export default function VendorDashboard() {
         }
 
         @media print {
+          @page {
+            size: A5;
+            margin: 0;
+          }
           body * {
             visibility: hidden;
             display: none !important;
@@ -4321,19 +4429,18 @@ export default function VendorDashboard() {
             flex-direction: column !important;
           }
           #printable-stand {
-            position: fixed !important;
-            left: 50% !important;
-            top: 50% !important;
-            transform: translate(-50%, -50%) !important;
-            width: 100mm !important;
-            height: 150mm !important;
-            margin: 0 !important;
-            padding: 40px !important;
-            background: #FCFAF2 !important;
+            position: relative !important;
+            margin: auto !important;
+            width: 148mm !important; /* A5 Width */
+            height: 210mm !important; /* A5 Height */
+            padding: 10mm !important;
+            background: white !important;
             z-index: 10000 !important;
-            justify-content: center !important;
             border: none !important;
             box-shadow: none !important;
+            overflow: hidden !important;
+            display: flex !important;
+            flex-direction: column !important;
           }
           #order-receipt {
              position: fixed !important;
