@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { Search, MapPin, X, Navigation, Loader2 } from 'lucide-react';
+import { Search, MapPin, X, Navigation, Loader2, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { motion, AnimatePresence } from 'motion/react';
@@ -24,6 +24,8 @@ interface LocationPickerProps {
   onClose: () => void;
   onSelect: (location: { address: string; lat: number; lng: number }) => void;
   initialLocation?: { lat: number; lng: number; address: string };
+  vendors?: any[];
+  preSelectedVendorId?: string;
 }
 
 function LocationMarker({ position, setPosition, onPositionChange }: { position: L.LatLng, setPosition: (pos: L.LatLng) => void, onPositionChange: (pos: L.LatLng) => void }) {
@@ -50,7 +52,7 @@ function LocationMarker({ position, setPosition, onPositionChange }: { position:
   );
 }
 
-export default function LocationPicker({ isOpen, onClose, onSelect, initialLocation }: LocationPickerProps) {
+export default function LocationPicker({ isOpen, onClose, onSelect, initialLocation, vendors = [], preSelectedVendorId }: LocationPickerProps) {
   const [position, setPosition] = useState<L.LatLng>(
     new L.LatLng(initialLocation?.lat || -6.7924, initialLocation?.lng || 39.2083) // Default to DSM
   );
@@ -59,6 +61,28 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [label, setLabel] = useState<'Home' | 'Work' | 'Other' | null>(null);
+  const [selectedVendor, setSelectedVendor] = useState<any>(null);
+
+  // Handle pre-selected vendor
+  useEffect(() => {
+    if (isOpen && preSelectedVendorId && vendors.length > 0) {
+      const vendor = vendors.find(v => v.id === preSelectedVendorId);
+      if (vendor && vendor.location) {
+        const newPos = new L.LatLng(vendor.location.lat, vendor.location.lng);
+        setPosition(newPos);
+        setSelectedVendor(vendor);
+        setAddress(vendor.address || vendor.businessName);
+      }
+    }
+  }, [isOpen, preSelectedVendorId, vendors]);
+
+  // Custom Icon for Vendors
+  const VendorIcon = L.divIcon({
+    html: `<div class="w-8 h-8 bg-white border-2 border-orange-600 rounded-xl flex items-center justify-center shadow-lg transform rotate-45"><div class="-rotate-45 text-orange-600 font-bold text-[10px]">🛒</div></div>`,
+    className: 'bg-transparent',
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+  });
 
   // Reverse geocoding function
   const reverseGeocode = async (lat: number, lng: number) => {
@@ -202,7 +226,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
             </div>
 
             {/* Map Area */}
-            <div className="relative h-[300px] shrink-0 bg-neutral-100 mx-4 rounded-3xl overflow-hidden border-2 border-neutral-50">
+            <div className="relative h-[350px] shrink-0 bg-neutral-100 mx-4 rounded-3xl overflow-hidden border-2 border-neutral-50 shadow-inner">
               <MapContainer 
                 center={position} 
                 zoom={13} 
@@ -216,13 +240,85 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                 <LocationMarker 
                   position={position} 
                   setPosition={setPosition} 
-                  onPositionChange={(pos) => reverseGeocode(pos.lat, pos.lng)} 
+                  onPositionChange={(pos) => {
+                    reverseGeocode(pos.lat, pos.lng);
+                    setSelectedVendor(null); // Clear selection when user moves marker
+                  }} 
                 />
+                
+                {/* Vendor Markers */}
+                {vendors?.map((v) => v.location && (
+                  <Marker 
+                    key={v.id} 
+                    position={[v.location.lat, v.location.lng]} 
+                    icon={VendorIcon}
+                    eventHandlers={{
+                      click: () => setSelectedVendor(v)
+                    }}
+                  />
+                ))}
               </MapContainer>
               
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-full pointer-events-none z-[1000] mb-5">
                  <MapPin className="w-10 h-10 text-orange-600 drop-shadow-lg animate-bounce" />
               </div>
+
+              {/* Selected Vendor Card Overlay - RECREATING SCREENSHOT UI */}
+              <AnimatePresence>
+                {selectedVendor && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 50, scale: 0.9 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 50, scale: 0.9 }}
+                    className="absolute top-8 left-4 right-4 z-[1001]"
+                  >
+                    <div className="bg-white/95 backdrop-blur-md rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.15)] overflow-hidden border border-white/50 p-1">
+                       <div className="h-28 relative rounded-[2.2rem] overflow-hidden">
+                          <img 
+                            src={selectedVendor.bannerUrl || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=400&q=80'} 
+                            alt="" 
+                            className="w-full h-full object-cover"
+                            referrerPolicy="no-referrer"
+                          />
+                          <div className="absolute top-2 right-2">
+                             <button 
+                                onClick={() => setSelectedVendor(null)}
+                                className="w-8 h-8 bg-black/20 hover:bg-black/40 backdrop-blur-sm rounded-full flex items-center justify-center text-white transition-colors"
+                             >
+                                <X className="w-4 h-4" />
+                             </button>
+                          </div>
+                       </div>
+                       <div className="p-5 flex gap-4">
+                          <div className="w-14 h-14 bg-white rounded-2xl shadow-xl p-1 -mt-10 relative border-2 border-white overflow-hidden">
+                             <img 
+                                src={selectedVendor.logoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${selectedVendor.businessName}`} 
+                                alt="" 
+                                className="w-full h-full object-contain rounded-xl"
+                                referrerPolicy="no-referrer"
+                             />
+                          </div>
+                          <div className="flex-1">
+                             <div className="flex items-center justify-between">
+                                <h4 className="font-black text-neutral-900 line-clamp-1 truncate uppercase tracking-tight">{selectedVendor.businessName}</h4>
+                                <div className="flex items-center gap-1 bg-orange-50 px-2 py-0.5 rounded-lg">
+                                   <Star className="w-3 h-3 text-orange-500 fill-current" />
+                                   <span className="text-[10px] font-black text-orange-600">{selectedVendor.rating || '0.0'}/5 (0)</span>
+                                </div>
+                             </div>
+                             <div className="flex items-center justify-between mt-2">
+                                <div className="flex items-center gap-1.5 overflow-hidden">
+                                   <MapPin className="w-3.5 h-3.5 text-orange-600 shrink-0" />
+                                   <p className="text-[10px] text-neutral-400 font-bold truncate uppercase tracking-tighter">{selectedVendor.address}</p>
+                                </div>
+                                <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-lg text-[9px] font-black shrink-0 ml-2">1.2 KM</span>
+                             </div>
+                          </div>
+                       </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             <div className="p-4 space-y-6">

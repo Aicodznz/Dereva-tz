@@ -3,6 +3,8 @@ import { useAuth } from '../AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { motion } from 'motion/react';
 import { 
   User, 
   Mail, 
@@ -122,41 +124,70 @@ export default function Profile() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-20">
-      {/* Header Section */}
-      <div className="text-center py-8 relative">
-        <div className="relative inline-block">
-          <div 
-            className={`w-24 h-24 rounded-full overflow-hidden border-4 border-white shadow-lg mx-auto mb-2 relative group ${view === 'edit' ? 'cursor-pointer' : ''}`}
-            onClick={handleImageClick}
-          >
-            <img 
-              src={formData.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid}`} 
-              alt="Avatar" 
-              className="w-full h-full object-cover"
-              referrerPolicy="no-referrer"
-            />
-            {view === 'edit' && (
-              <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <Camera className="w-6 h-6 text-white mb-1" />
-                <span className="text-[10px] text-white font-bold">Badili</span>
+      {/* Header Section - ENHANCED BOMBA LOOK */}
+      <div className="relative pt-12 pb-8">
+        <div className="absolute top-0 left-0 right-0 h-40 bg-gradient-to-br from-orange-400 via-orange-600 to-orange-800 rounded-b-[4rem] shadow-xl" />
+        
+        <div className="relative z-10 px-6">
+          <div className="bg-white/90 backdrop-blur-xl rounded-[3rem] p-8 shadow-2xl shadow-orange-900/10 border border-white/50 text-center">
+            <div className="relative inline-block mt-[-5rem] mb-4">
+              <div 
+                className={`w-32 h-32 rounded-[2.5rem] overflow-hidden border-[6px] border-white shadow-2xl mx-auto relative group transition-transform hover:scale-105 active:scale-95 ${view === 'edit' ? 'cursor-pointer' : ''}`}
+                onClick={handleImageClick}
+              >
+                <img 
+                  src={formData.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid}`} 
+                  alt="Avatar" 
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+                {view === 'edit' && (
+                  <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Camera className="w-8 h-8 text-white mb-1" />
+                    <span className="text-[10px] text-white font-black uppercase tracking-widest">Badili</span>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
 
-          {view === 'edit' && formData.photoURL && (
-            <Button
-              variant="destructive"
-              size="icon"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleRemovePhoto();
-              }}
-              className="absolute -top-1 -right-1 w-8 h-8 rounded-full shadow-md"
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          )}
+              {view === 'edit' && formData.photoURL && (
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRemovePhoto();
+                  }}
+                  className="absolute -top-1 -right-1 w-10 h-10 bg-red-500 text-white rounded-2xl shadow-xl flex items-center justify-center border-4 border-white"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </motion.button>
+              )}
+            </div>
+            
+            <h1 className="text-3xl font-black text-neutral-900 tracking-tighter uppercase italic">{profile.displayName}</h1>
+            <div className="flex items-center justify-center gap-2 mt-1">
+               <Badge className="bg-orange-100 text-orange-600 font-black px-3 py-1 text-[10px] uppercase border-none hover:bg-orange-200">{profile.role}</Badge>
+               <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+            </div>
+
+            {/* Stats Bar/Wallet */}
+            <div className="grid grid-cols-3 gap-4 mt-8 pt-6 border-t border-neutral-100">
+               <div>
+                  <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Salio</p>
+                  <p className="text-lg font-black text-neutral-900 italic mt-1">12.5k</p>
+               </div>
+               <div className="border-x border-neutral-100">
+                  <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Points</p>
+                  <p className="text-lg font-black text-orange-600 italic mt-1">840</p>
+               </div>
+               <div>
+                  <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Oda</p>
+                  <p className="text-lg font-black text-neutral-900 italic mt-1">24</p>
+               </div>
+            </div>
+          </div>
         </div>
+
         <input 
           type="file" 
           ref={fileInputRef} 
@@ -164,9 +195,6 @@ export default function Profile() {
           accept="image/*" 
           onChange={handleFileChange} 
         />
-        
-        <h1 className="text-2xl font-bold text-neutral-900">{profile.displayName}</h1>
-        <p className="text-neutral-500 capitalize">{profile.role}</p>
       </div>
 
       {view === 'menu' && (

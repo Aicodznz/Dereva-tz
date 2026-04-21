@@ -40,17 +40,40 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const addItem = (product: Product) => {
     setCartItems(prevItems => {
       const existingItem = prevItems.find(item => item.id === product.id);
+      const isReadded = !!existingItem;
+      const quantity = isReadded ? existingItem.quantity + 1 : 1;
+
+      toast.success(
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 border border-neutral-100">
+            <img 
+              src={product.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c'} 
+              alt="" 
+              className="w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+          <div>
+            <p className="font-black text-xs uppercase tracking-tight line-clamp-1">
+              {isReadded ? 'Imeongezeka' : 'Imeongezwa'}: {product.name}
+            </p>
+            <p className="text-[10px] text-neutral-400 font-bold uppercase">Idadi: {quantity}</p>
+          </div>
+        </div>,
+        {
+          duration: 3000,
+          style: {
+            borderRadius: '1.5rem',
+            padding: '1rem',
+          }
+        }
+      );
+
       if (existingItem) {
-        toast.success(`Imeongezeka: ${product.name} (x${existingItem.quantity + 1})`, {
-          icon: '🛒'
-        });
         return prevItems.map(item =>
           item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
         );
       }
-      toast.success(`Imeongezwa: ${product.name}`, {
-        icon: '🛒'
-      });
       return [...prevItems, { ...product, quantity: 1 }];
     });
   };

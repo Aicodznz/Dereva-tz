@@ -27,6 +27,7 @@ export default function CustomerDashboard() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
+  const [selectedVendorId, setSelectedVendorId] = useState<string | undefined>(undefined);
   const [tableSession, setTableSession] = useState<any>(null);
   const [location, setLocation] = useState({
     address: 'Mbezi Beach, DSM',
@@ -71,6 +72,7 @@ export default function CustomerDashboard() {
     { id: 'dawa', label: t('pharmacy') || 'Duka la Dawa', icon: Pill, color: 'bg-blue-500', sub: 'Pharmacy 💊' },
     { id: 'maduka', label: t('ecommerce') || 'Maduka', icon: ShoppingBag, color: 'bg-purple-500', sub: 'eCommerce 🛍️' },
     { id: 'saluni', label: t('salons') || 'Saluni', icon: Scissors, color: 'bg-pink-500', sub: 'Salons 💇‍♀️' },
+    { id: 'ramani', label: 'Ramani', icon: MapPin, color: 'bg-orange-600', sub: 'Nearby Stores 📍' },
     { id: 'hoteli', label: t('hotels') || 'Hoteli', icon: Hotel, color: 'bg-indigo-500', sub: 'Hotels 🏨' },
   ];
 
@@ -159,9 +161,14 @@ export default function CustomerDashboard() {
 
       <LocationPicker 
         isOpen={isLocationPickerOpen}
-        onClose={() => setIsLocationPickerOpen(false)}
+        onClose={() => {
+          setIsLocationPickerOpen(false);
+          setSelectedVendorId(undefined);
+        }}
         onSelect={(newLoc) => setLocation(newLoc)}
         initialLocation={location}
+        vendors={vendors}
+        preSelectedVendorId={selectedVendorId}
       />
 
       {tableSession && (
@@ -254,6 +261,74 @@ export default function CustomerDashboard() {
         ))}
       </div>
 
+      {/* 5. Duka za Karibu (Nearby Stores) - New Section */}
+      <section>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col">
+            <h3 className="font-black text-xl text-neutral-900 tracking-tight">{t('nearby_stores') || 'Duka za Karibu'}</h3>
+            <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest">Essential items just far away</p>
+          </div>
+          <button 
+            onClick={() => setIsLocationPickerOpen(true)}
+            className="text-orange-600 text-sm font-black flex items-center gap-1 hover:gap-2 transition-all"
+          >
+            {t('see_all') || 'Zote'} <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="flex gap-6 overflow-x-auto pb-6 no-scrollbar -mx-4 px-4">
+          {vendors.filter(v => v.category === 'ecommerce' || v.category === 'grocery').map((vendor, idx) => (
+            <motion.div
+              key={vendor.id}
+              initial={{ opacity: 0, x: 50 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.1 * idx }}
+              className="min-w-[280px] group cursor-pointer"
+              onClick={() => {
+                setSelectedVendorId(vendor.id);
+                setIsLocationPickerOpen(true);
+              }}
+            >
+              <Card className="overflow-hidden rounded-[2.5rem] border-neutral-50 shadow-xl shadow-neutral-900/5 group-hover:shadow-orange-900/10 transition-all border-2 group-hover:border-orange-500/10">
+                <div className="h-40 relative">
+                  <img 
+                    src={vendor.bannerUrl || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=400&q=80'} 
+                    alt={vendor.businessName} 
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute top-4 left-4">
+                    <div className="w-14 h-14 rounded-2xl bg-white p-1 shadow-2xl border border-neutral-100">
+                      <img 
+                        src={vendor.logoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${vendor.businessName}`} 
+                        alt="Logo" 
+                        className="w-full h-full object-contain rounded-xl"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <CardContent className="p-5">
+                  <h4 className="font-black text-lg text-neutral-900 group-hover:text-orange-600 transition-colors uppercase tracking-tight truncate">{vendor.businessName}</h4>
+                  <div className="flex items-center gap-3 mt-3">
+                    <div className="flex items-center gap-1 text-orange-500">
+                      <Star className="w-3.5 h-3.5 fill-current" />
+                      <span className="text-[11px] font-black">{vendor.rating || '4.8'}</span>
+                    </div>
+                    <div className="h-1 w-1 rounded-full bg-neutral-300" />
+                    <span className="text-[11px] text-neutral-400 font-bold uppercase tracking-tighter">1.2 km mbali</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+          {vendors.filter(v => v.category === 'ecommerce' || v.category === 'grocery').length === 0 && (
+            <div className="w-full py-12 text-center bg-neutral-50 rounded-[2.5rem] border border-dashed border-neutral-200 mx-4">
+              <p className="text-neutral-400 text-sm italic">Hakuna maduka yaliyopatikana karibu nawe.</p>
+            </div>
+          )}
+        </div>
+      </section>
+
       {/* 5. Main Services Grid */}
       <section>
         <div className="flex items-center justify-between mb-6">
@@ -270,19 +345,35 @@ export default function CustomerDashboard() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.05 * idx }}
             >
-              <Link 
-                to={`/service/${service.id}`}
-                className="flex flex-col items-center text-center group"
-              >
-                <motion.div 
-                  whileHover={{ y: -8, scale: 1.05 }}
-                  whileTap={{ scale: 0.9 }}
-                  className={`w-16 h-16 md:w-20 md:h-20 rounded-[1.8rem] flex items-center justify-center mb-3 text-white shadow-xl shadow-neutral-900/5 group-hover:shadow-orange-600/20 transition-all ${service.color}`}
+              {service.id === 'ramani' ? (
+                <button 
+                  onClick={() => setIsLocationPickerOpen(true)}
+                  className="flex flex-col items-center text-center group w-full"
                 >
-                  <service.icon className="w-8 h-8 md:w-10 md:h-10 transition-transform group-hover:rotate-12" />
-                </motion.div>
-                <span className="font-black text-[10px] uppercase tracking-tighter text-neutral-800 truncate w-full px-1">{service.label}</span>
-              </Link>
+                  <motion.div 
+                    whileHover={{ y: -8, scale: 1.05 }}
+                    whileTap={{ scale: 0.9 }}
+                    className={`w-16 h-16 md:w-20 md:h-20 rounded-[1.8rem] flex items-center justify-center mb-3 text-white shadow-xl shadow-neutral-900/5 group-hover:shadow-orange-600/20 transition-all ${service.color}`}
+                  >
+                    <service.icon className="w-8 h-8 md:w-10 md:h-10 transition-transform group-hover:rotate-12" />
+                  </motion.div>
+                  <span className="font-black text-[10px] uppercase tracking-tighter text-neutral-800 truncate w-full px-1">{service.label}</span>
+                </button>
+              ) : (
+                <Link 
+                  to={`/service/${service.id}`}
+                  className="flex flex-col items-center text-center group"
+                >
+                  <motion.div 
+                    whileHover={{ y: -8, scale: 1.05 }}
+                    whileTap={{ scale: 0.9 }}
+                    className={`w-16 h-16 md:w-20 md:h-20 rounded-[1.8rem] flex items-center justify-center mb-3 text-white shadow-xl shadow-neutral-900/5 group-hover:shadow-orange-600/20 transition-all ${service.color}`}
+                  >
+                    <service.icon className="w-8 h-8 md:w-10 md:h-10 transition-transform group-hover:rotate-12" />
+                  </motion.div>
+                  <span className="font-black text-[10px] uppercase tracking-tighter text-neutral-800 truncate w-full px-1">{service.label}</span>
+                </Link>
+              )}
             </motion.div>
           ))}
         </div>
