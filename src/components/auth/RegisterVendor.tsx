@@ -7,9 +7,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useAuth } from '../../AuthContext';
+import { useLanguage } from '../../LanguageContext';
 import { toast } from 'sonner';
 
 export default function RegisterVendor() {
+  const { t } = useLanguage();
   const { signUp, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -38,7 +40,7 @@ export default function RegisterVendor() {
       return;
     }
     if (formData.password !== formData.confirmPassword) {
-      toast.error("Passwords do not match!");
+      toast.error(t('passwords_dont_match'));
       return;
     }
 
@@ -51,10 +53,14 @@ export default function RegisterVendor() {
         phone: formData.phone,
         status: 'pending' // Vendors need approval
       });
-      toast.success("Registration submitted for approval!");
+      toast.success(t('registration_submitted'));
       navigate('/');
     } catch (error: any) {
-      toast.error(error.message || "Failed to register");
+      if (error.code === 'auth/operation-not-allowed') {
+        toast.error(t('auth_disabled_instructions'), { duration: 8000 });
+      } else {
+        toast.error(error.message || t('signup_failed'));
+      }
     } finally {
       setLoading(false);
     }
@@ -69,6 +75,7 @@ export default function RegisterVendor() {
         <div className="relative">
           <User className="absolute left-3 top-3 w-5 h-5 text-neutral-400" />
           <Input 
+            required
             placeholder="Owner's Full Name" 
             className="pl-10 h-12 bg-neutral-50 border-none rounded-xl"
             value={formData.ownerName}
@@ -79,6 +86,7 @@ export default function RegisterVendor() {
         <div className="relative">
           <Store className="absolute left-3 top-3 w-5 h-5 text-neutral-400" />
           <Input 
+            required
             placeholder="Business Name" 
             className="pl-10 h-12 bg-neutral-50 border-none rounded-xl"
             value={formData.businessName}
@@ -87,7 +95,7 @@ export default function RegisterVendor() {
         </div>
 
         <div className="space-y-2">
-          <Select onValueChange={(val: string) => setFormData({...formData, category: val})}>
+          <Select required onValueChange={(val: string) => setFormData({...formData, category: val})}>
             <SelectTrigger className="h-12 bg-neutral-50 border-none rounded-xl">
               <SelectValue placeholder="Business Category" />
             </SelectTrigger>
@@ -105,6 +113,7 @@ export default function RegisterVendor() {
           <Mail className="absolute left-3 top-3 w-5 h-5 text-neutral-400" />
           <Input 
             type="email" 
+            required
             placeholder="Business Email" 
             className="pl-10 h-12 bg-neutral-50 border-none rounded-xl"
             value={formData.email}
@@ -116,6 +125,7 @@ export default function RegisterVendor() {
           <Phone className="absolute left-3 top-3 w-5 h-5 text-neutral-400" />
           <Input 
             type="tel" 
+            required
             placeholder="Business Phone Number" 
             className="pl-10 h-12 bg-neutral-50 border-none rounded-xl"
             value={formData.phone}
@@ -127,6 +137,7 @@ export default function RegisterVendor() {
           <Lock className="absolute left-3 top-3 w-5 h-5 text-neutral-400" />
           <Input 
             type="password" 
+            required
             placeholder="Password" 
             className="pl-10 h-12 bg-neutral-50 border-none rounded-xl"
             value={formData.password}
@@ -138,6 +149,7 @@ export default function RegisterVendor() {
           <Lock className="absolute left-3 top-3 w-5 h-5 text-neutral-400" />
           <Input 
             type="password" 
+            required
             placeholder="Confirm Password" 
             className="pl-10 h-12 bg-neutral-50 border-none rounded-xl"
             value={formData.confirmPassword}

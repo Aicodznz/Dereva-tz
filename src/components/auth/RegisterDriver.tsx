@@ -7,9 +7,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../../AuthContext';
+import { useLanguage } from '../../LanguageContext';
 import { toast } from 'sonner';
 
 export default function RegisterDriver() {
+  const { t } = useLanguage();
   const { signUp, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -51,10 +53,14 @@ export default function RegisterDriver() {
         licenseNumber: formData.licenseNumber,
         status: 'pending' // Riders need approval
       });
-      toast.success("Registration submitted for approval!");
+      toast.success(t('registration_submitted'));
       navigate('/');
     } catch (error: any) {
-      toast.error(error.message || "Failed to register");
+      if (error.code === 'auth/operation-not-allowed') {
+        toast.error(t('auth_disabled_instructions'), { duration: 8000 });
+      } else {
+        toast.error(error.message || t('signup_failed'));
+      }
     } finally {
       setLoading(false);
     }
@@ -91,6 +97,7 @@ export default function RegisterDriver() {
               <div className="relative">
                 <User className="absolute left-3 top-3 w-5 h-5 text-neutral-400" />
                 <Input 
+                  required
                   placeholder="Full Name" 
                   className="pl-10 h-12 bg-neutral-50 border-none rounded-xl"
                   value={formData.fullName}
@@ -101,6 +108,7 @@ export default function RegisterDriver() {
                 <Mail className="absolute left-3 top-3 w-5 h-5 text-neutral-400" />
                 <Input 
                   type="email" 
+                  required
                   placeholder="Email Address" 
                   className="pl-10 h-12 bg-neutral-50 border-none rounded-xl"
                   value={formData.email}
@@ -111,6 +119,7 @@ export default function RegisterDriver() {
                 <Phone className="absolute left-3 top-3 w-5 h-5 text-neutral-400" />
                 <Input 
                   type="tel" 
+                  required
                   placeholder="Phone Number" 
                   className="pl-10 h-12 bg-neutral-50 border-none rounded-xl"
                   value={formData.phone}
@@ -120,6 +129,7 @@ export default function RegisterDriver() {
               <div className="relative">
                 <MapPin className="absolute left-3 top-3 w-5 h-5 text-neutral-400" />
                 <Input 
+                  required
                   placeholder="City/Region of Operation" 
                   className="pl-10 h-12 bg-neutral-50 border-none rounded-xl"
                   value={formData.city}
@@ -130,6 +140,7 @@ export default function RegisterDriver() {
                 <Lock className="absolute left-3 top-3 w-5 h-5 text-neutral-400" />
                 <Input 
                   type="password" 
+                  required
                   placeholder="Password" 
                   className="pl-10 h-12 bg-neutral-50 border-none rounded-xl"
                   value={formData.password}

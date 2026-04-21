@@ -9,10 +9,11 @@ import { Button } from '@/components/ui/button';
 import { 
   ChevronLeft, Star, MapPin, Clock, Phone, Info, 
   ShoppingBag, Plus, Camera, X, MessageSquare,
-  ThumbsUp, Share2, Trash2, Reply
+  ThumbsUp, Share2, Trash2, Reply, ShoppingBasket
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
+import { useCart } from '../CartContext';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 interface ReviewReply {
@@ -42,6 +43,7 @@ interface Review {
 export default function VendorStore() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { addItem } = useCart();
   const [searchParams] = useSearchParams();
   const tableNumber = searchParams.get('table');
   const [vendor, setVendor] = useState<VendorProfile | null>(null);
@@ -374,43 +376,66 @@ export default function VendorStore() {
                 {activeTab === 'products' && (
                   <motion.div
                     key="products"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
                     className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6"
                   >
-                    {products.map((product) => (
-                      <Link 
-                        key={product.id} 
-                        to={`/product/${product.id}`}
-                        className="group"
+                    {products.map((product, idx) => (
+                      <motion.div
+                        key={product.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.05 * idx }}
                       >
-                        <Card className="overflow-hidden rounded-3xl border-neutral-100 shadow-sm hover:shadow-lg transition-all h-full">
-                          <div className="aspect-square relative overflow-hidden bg-neutral-100">
-                            <img 
-                              src={product.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80'} 
-                              alt={product.name} 
-                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
-                              referrerPolicy="no-referrer"
-                            />
-                            <button className="absolute bottom-3 right-3 w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center text-orange-600 hover:bg-orange-600 hover:text-white transition-all">
-                              <Plus className="w-5 h-5" />
-                            </button>
-                          </div>
-                          <CardContent className="p-4">
-                            <h4 className="font-bold text-sm text-neutral-900 truncate group-hover:text-orange-600 transition-colors">{product.name}</h4>
-                            <p className="text-xs text-orange-600 font-black mt-1">
-                              TZS {product.price.toLocaleString()}
-                            </p>
-                          </CardContent>
-                        </Card>
-                      </Link>
+                        <Link 
+                          to={`/product/${product.id}`}
+                          className="group"
+                        >
+                          <Card className="overflow-hidden rounded-[2.5rem] border-neutral-50 shadow-xl shadow-neutral-900/5 hover:shadow-orange-900/10 transition-all h-full group/card border-2 hover:border-orange-500/10">
+                            <div className="aspect-square relative overflow-hidden bg-neutral-100">
+                              <img 
+                                src={product.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80'} 
+                                alt={product.name} 
+                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+                                referrerPolicy="no-referrer"
+                              />
+                              <motion.button 
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  addItem(product);
+                                }}
+                                className="absolute bottom-4 right-4 w-12 h-12 bg-white rounded-2xl shadow-2xl flex items-center justify-center text-orange-600 hover:bg-orange-600 hover:text-white transition-all transform overflow-hidden group/btn"
+                              >
+                                <div className="absolute inset-0 bg-orange-600 -translate-x-full group-hover/btn:translate-x-0 transition-transform" />
+                                <ShoppingBasket className="w-6 h-6 relative z-10" />
+                              </motion.button>
+                            </div>
+                            <CardContent className="p-5">
+                              <h4 className="font-black text-sm text-neutral-900 truncate group-hover/card:text-orange-600 transition-colors uppercase tracking-tight">{product.name}</h4>
+                              <div className="flex items-center justify-between mt-2">
+                                <p className="text-xs text-orange-600 font-black">
+                                  TZS {product.price.toLocaleString()}
+                                </p>
+                                <span className="text-[10px] text-neutral-400 font-bold">Qty: 1</span>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </Link>
+                      </motion.div>
                     ))}
                     {products.length === 0 && (
-                      <div className="col-span-full py-20 text-center bg-neutral-50 rounded-[2rem] border-2 border-dashed border-neutral-200">
+                      <motion.div 
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="col-span-full py-20 text-center bg-neutral-50 rounded-[2.5rem] border-2 border-dashed border-neutral-200"
+                      >
                         <ShoppingBag className="w-12 h-12 text-neutral-300 mx-auto mb-4" />
-                        <p className="text-neutral-500 font-medium">Hakuna bidhaa zilizopatikana kwa sasa.</p>
-                      </div>
+                        <p className="text-neutral-500 font-medium font-bold uppercase tracking-widest text-xs">Hakuna bidhaa zilizopatikana.</p>
+                      </motion.div>
                     )}
                   </motion.div>
                 )}

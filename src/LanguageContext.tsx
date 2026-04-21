@@ -70,6 +70,14 @@ const translations = {
     'businesses': 'Businesses',
     'products': 'Products',
     'search_placeholder': 'Search for food, grocery, or services...',
+    'invalid_email_or_password': 'Invalid email or password.',
+    'auth_disabled_instructions': "Email registration is currently disabled. Please enable 'Email/Password' in your Firebase Console Authentication settings.",
+    'login_failed': 'Login failed. Please try again.',
+    'signup_failed': 'Registration failed. Please try again.',
+    'passwords_dont_match': 'Passwords do not match!',
+    'agree_to_terms_error': 'Please agree to the terms and conditions',
+    'account_created_success': 'Account created successfully!',
+    'registration_submitted': 'Registration submitted for approval!',
   },
   sw: {
     'my_orders': 'Oda Zangu',
@@ -132,6 +140,14 @@ const translations = {
     'businesses': 'Biashara',
     'products': 'Bidhaa',
     'search_placeholder': 'Tafuta bidhaa, soko, au huduma...',
+    'invalid_email_or_password': 'Barua pepe au nenosiri si sahihi.',
+    'auth_disabled_instructions': "Usajili wa barua pepe umezimwa. Tafadhali washa 'Email/Password' kwenye mipangilio yako ya Firebase Console.",
+    'login_failed': 'Kuingia kumeshindikana. Tafadhali jaribu tena.',
+    'signup_failed': 'Usajili umeshindikana. Tafadhali jaribu tena.',
+    'passwords_dont_match': 'Manenosiri hayafanani!',
+    'agree_to_terms_error': 'Tafadhali kubaliana na vigezo na masharti',
+    'account_created_success': 'Akaunti imetengenezwa kwa mafanikio!',
+    'registration_submitted': 'Maombi ya usajili yametumwa kwa ajili ya uhakiki!',
   }
 };
 

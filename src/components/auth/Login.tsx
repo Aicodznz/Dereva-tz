@@ -26,6 +26,8 @@ export default function Login() {
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email || !password) return;
+
     setLoading(true);
     try {
       await login(email, password);
@@ -34,15 +36,10 @@ export default function Login() {
     } catch (error: any) {
       console.error('Login error details:', error);
       
-      // Handle the common 'invalid-credential' error which covers wrong password and user not found
-      if (error.code === 'auth/invalid-credential' || error.message?.includes('auth/invalid-credential')) {
-        toast.error(
-          t('invalid_credential_error') || "Barua pepe au nenosiri si sahihi.",
-          {
-            description: "Invalid email or password.",
-            duration: 5000,
-          }
-        );
+      if (error.code === 'auth/operation-not-allowed') {
+        toast.error(t('auth_disabled_instructions'), { duration: 8000 });
+      } else if (error.code === 'auth/invalid-credential' || error.message?.includes('auth/invalid-credential')) {
+        toast.error(t('invalid_email_or_password'));
       } else {
         toast.error(error.message || t('login_failed'));
       }
@@ -54,8 +51,10 @@ export default function Login() {
   const handleGoogleSignIn = async () => {
     try {
       await signIn();
-    } catch (error) {
-      // Error is already logged in AuthContext
+    } catch (error: any) {
+      if (error.code === 'auth/operation-not-allowed') {
+        toast.error("Google login is currently disabled in Firebase console.");
+      }
     }
   };
 
@@ -70,6 +69,7 @@ export default function Login() {
             <Mail className="absolute left-3 top-3 w-5 h-5 text-neutral-400" />
             <Input 
               type="email" 
+              required
               placeholder={t('email')} 
               className="pl-10 h-12 bg-neutral-50 border-none rounded-xl"
               value={email}
@@ -81,6 +81,7 @@ export default function Login() {
             <Lock className="absolute left-3 top-3 w-5 h-5 text-neutral-400" />
             <Input 
               type={showPassword ? "text" : "password"} 
+              required
               placeholder={t('password')} 
               className="pl-10 pr-10 h-12 bg-neutral-50 border-none rounded-xl"
               value={password}

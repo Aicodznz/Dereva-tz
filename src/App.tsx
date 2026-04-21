@@ -63,15 +63,18 @@ function AppContent() {
 }
 
 import { LanguageProvider } from './LanguageContext';
+import { CartProvider } from './CartContext';
 
 export default function App() {
   return (
     <AuthProvider>
       <LanguageProvider>
-        <Router>
-          <AppContent />
-          <Toaster />
-        </Router>
+        <CartProvider>
+          <Router>
+            <AppContent />
+            <Toaster />
+          </Router>
+        </CartProvider>
       </LanguageProvider>
     </AuthProvider>
   );

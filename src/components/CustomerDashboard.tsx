@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
   Utensils, ShoppingCart, Pill, Package, Car, Scissors, Hotel, Star, 
-  Search, Bell, MapPin, ChevronRight, ShoppingBag, Tag, Plus
+  Search, Bell, MapPin, ChevronRight, ShoppingBag, Tag, Plus, ShoppingBasket
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
@@ -14,11 +14,13 @@ import { useAuth } from '../AuthContext';
 import LocationPicker from './LocationPicker';
 
 import { useLanguage } from '../LanguageContext';
+import { useCart } from '../CartContext';
 import HowToOrder from './HowToOrder';
 
 export default function CustomerDashboard() {
   const { profile, user } = useAuth();
   const { t } = useLanguage();
+  const { addItem } = useCart();
   const [vendors, setVendors] = useState<VendorProfile[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [banners, setBanners] = useState<{id: string, title: string, sub: string, img: string}[]>([]);
@@ -193,103 +195,156 @@ export default function CustomerDashboard() {
       )}
 
       {/* 2. Search Bar - Enhanced */}
-      <div className="relative group">
-        <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 group-focus-within:text-orange-600 transition-colors" />
+      <motion.div 
+        initial={{ y: -10, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        className="relative group"
+      >
+        <motion.div
+           animate={{
+             x: [0, -1, 1, -1, 1, 0],
+           }}
+           transition={{
+             duration: 5,
+             repeat: Infinity,
+             repeatDelay: 2
+           }}
+           className="absolute left-5 top-1/2 -translate-y-1/2 pointer-events-none"
+        >
+          <Search className="w-5 h-5 text-neutral-400 group-focus-within:text-orange-600 transition-colors" />
+        </motion.div>
         <input 
           type="text"
           placeholder={t('search_placeholder') || "Tafuta huduma, mgahawa, au bidhaa..."}
-          className="w-full h-14 pl-14 pr-6 bg-neutral-100 border-none rounded-2xl text-base font-medium placeholder:text-neutral-400 focus:ring-2 focus:ring-orange-500 transition-all shadow-sm"
+          className="w-full h-15 pl-14 pr-6 bg-white border-2 border-neutral-50 rounded-3xl text-base font-medium placeholder:text-neutral-400 focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 transition-all shadow-xl shadow-orange-900/5 focus:shadow-orange-900/10"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
-      </div>
+      </motion.div>
 
       {/* 3. Promotional Carousel */}
-      <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar snap-x">
-        {banners.map((banner) => banner.img && (
-          <div key={banner.id} className="min-w-[85%] md:min-w-[45%] lg:min-w-[30%] h-48 md:h-64 rounded-3xl overflow-hidden relative snap-center shadow-md">
-            <img src={banner.img} alt={banner.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-            <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-transparent flex flex-col justify-center p-8 text-white">
-              <h3 className="text-2xl font-bold">{banner.title}</h3>
-              <p className="text-sm opacity-90 mt-1">{banner.sub}</p>
-              <button className="mt-4 bg-white text-black text-xs font-bold px-6 py-2 rounded-full w-fit uppercase tracking-wider hover:bg-orange-600 hover:text-white transition-colors">
+      <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar snap-x py-2">
+        {banners.map((banner, idx) => banner.img && (
+          <motion.div 
+            key={banner.id} 
+            initial={{ opacity: 0, scale: 0.9, x: 50 }}
+            animate={{ opacity: 1, scale: 1, x: 0 }}
+            transition={{ delay: 0.1 * idx }}
+            whileHover={{ y: -5 }}
+            className="min-w-[85%] md:min-w-[45%] lg:min-w-[35%] h-52 md:h-64 rounded-[2.5rem] overflow-hidden relative snap-center shadow-2xl shadow-orange-900/10 group cursor-pointer"
+          >
+            <img src={banner.img} alt={banner.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" referrerPolicy="no-referrer" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-8 text-white">
+              <motion.h3 
+                initial={{ y: 20, opacity: 0 }}
+                whileInView={{ y: 0, opacity: 1 }}
+                className="text-2xl font-black tracking-tight"
+              >
+                {banner.title}
+              </motion.h3>
+              <p className="text-sm opacity-80 mt-1 font-medium">{banner.sub}</p>
+              <motion.button 
+                whileTap={{ scale: 0.95 }}
+                className="mt-5 bg-orange-600 text-white text-[10px] font-black px-6 py-2.5 rounded-full w-fit uppercase tracking-widest shadow-lg shadow-orange-600/40 hover:bg-white hover:text-orange-600 transition-all"
+              >
                 {t('order_now') || 'Order Now'}
-              </button>
+              </motion.button>
             </div>
-          </div>
+          </motion.div>
         ))}
       </div>
 
       {/* 5. Main Services Grid */}
       <section>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-bold text-xl">{t('other_services') || 'Huduma Nyingine'}</h3>
-          <button className="text-orange-600 text-sm font-bold flex items-center gap-1">
-            {t('see_all') || 'See All'} <ChevronRight className="w-3 h-3" />
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="font-black text-xl text-neutral-900 tracking-tight">{t('other_services') || 'Huduma Nyingine'}</h3>
+          <button className="text-orange-600 text-sm font-black flex items-center gap-1 hover:gap-2 transition-all">
+            {t('see_all') || 'See All'} <ChevronRight className="w-4 h-4" />
           </button>
         </div>
-        <div className="grid grid-cols-4 md:grid-cols-8 gap-4">
-          {services.map((service) => (
-            <Link 
-              key={service.id} 
-              to={`/service/${service.id}`}
-              className="flex flex-col items-center text-center group"
+        <div className="grid grid-cols-4 md:grid-cols-8 gap-5">
+          {services.map((service, idx) => (
+            <motion.div
+              key={service.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.05 * idx }}
             >
-              <div className={`w-14 h-14 md:w-16 md:h-16 rounded-2xl flex items-center justify-center mb-2 text-white shadow-md group-hover:scale-110 transition-transform ${service.color}`}>
-                <service.icon className="w-7 h-7 md:w-8 md:h-8" />
-              </div>
-              <span className="font-bold text-xs text-neutral-900 truncate w-full">{service.label}</span>
-            </Link>
+              <Link 
+                to={`/service/${service.id}`}
+                className="flex flex-col items-center text-center group"
+              >
+                <motion.div 
+                  whileHover={{ y: -8, scale: 1.05 }}
+                  whileTap={{ scale: 0.9 }}
+                  className={`w-16 h-16 md:w-20 md:h-20 rounded-[1.8rem] flex items-center justify-center mb-3 text-white shadow-xl shadow-neutral-900/5 group-hover:shadow-orange-600/20 transition-all ${service.color}`}
+                >
+                  <service.icon className="w-8 h-8 md:w-10 md:h-10 transition-transform group-hover:rotate-12" />
+                </motion.div>
+                <span className="font-black text-[10px] uppercase tracking-tighter text-neutral-800 truncate w-full px-1">{service.label}</span>
+              </Link>
+            </motion.div>
           ))}
         </div>
       </section>
 
       {/* 4. Migahawa Maarufu (Restaurants) - Vertical List for prominence */}
       <section>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-bold text-xl">{t('popular_restaurants') || 'Migahawa Maarufu'}</h3>
-          <button className="text-orange-600 text-sm font-bold">{t('view_all') || 'View All'}</button>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="font-black text-xl text-neutral-900 tracking-tight">{t('popular_restaurants') || 'Migahawa Maarufu'}</h3>
+          <button className="text-orange-600 text-sm font-black">{t('view_all') || 'View All'}</button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {vendors.map((vendor) => (
-            <Link key={vendor.id} to={`/vendor/${vendor.id}`}>
-              <Card className="overflow-hidden rounded-3xl border-neutral-100 shadow-sm hover:shadow-md transition-all group">
-                <div className="flex p-4 gap-4">
-                  <div className="w-28 h-28 rounded-2xl overflow-hidden relative shrink-0">
-                    <img 
-                      src={vendor.logoUrl || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=400&q=80'} 
-                      alt={vendor.businessName} 
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="absolute top-1 right-1 bg-white/90 backdrop-blur-sm px-1.5 py-0.5 rounded-lg flex items-center gap-1">
-                      <Star className="w-2.5 h-2.5 text-orange-500 fill-current" />
-                      <span className="text-[9px] font-bold">{vendor.rating || '4.5'}</span>
-                    </div>
-                  </div>
-                  <div className="flex-1 flex flex-col justify-between py-1">
-                    <div>
-                      <h4 className="font-bold text-lg text-neutral-900 group-hover:text-orange-600 transition-colors">{vendor.businessName}</h4>
-                      <p className="text-xs text-neutral-500 mt-0.5 line-clamp-2">{vendor.description || 'Bidhaa Bora na Huduma Haraka'}</p>
-                    </div>
-                    <div className="flex items-center justify-between mt-2">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary" className="text-[10px] bg-orange-50 text-orange-600 border-none px-2 py-0.5">
-                          {vendor.category}
-                        </Badge>
-                        <span className="text-[10px] text-neutral-400">1.2 km</span>
+          {vendors.map((vendor, idx) => (
+            <motion.div
+              key={vendor.id}
+              initial={{ opacity: 0, scale: 0.95 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.1 * idx }}
+            >
+              <Link to={`/vendor/${vendor.id}`}>
+                <Card className="overflow-hidden rounded-[2.5rem] border-neutral-50 shadow-xl shadow-neutral-900/5 hover:shadow-orange-900/10 transition-all group border-2 hover:border-orange-500/20">
+                  <div className="flex p-5 gap-5">
+                    <div className="w-32 h-32 rounded-3xl overflow-hidden relative shrink-0 shadow-inner">
+                      <img 
+                        src={vendor.logoUrl || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=400&q=80'} 
+                        alt={vendor.businessName} 
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="absolute top-2 right-2 bg-white/95 backdrop-blur-md px-2 py-1 rounded-xl flex items-center gap-1 shadow-sm">
+                        <Star className="w-3 h-3 text-orange-500 fill-current" />
+                        <span className="text-[10px] font-black">{vendor.rating || '4.5'}</span>
                       </div>
-                      <button className="bg-neutral-900 text-white text-xs font-bold px-4 py-1.5 rounded-full hover:bg-orange-600 transition-colors">
-                        {t('order') || 'Agiza'}
-                      </button>
+                    </div>
+                    <div className="flex-1 flex flex-col justify-between py-1">
+                      <div>
+                        <h4 className="font-black text-lg text-neutral-900 group-hover:text-orange-600 transition-colors leading-tight">{vendor.businessName}</h4>
+                        <p className="text-xs text-neutral-400 mt-1 line-clamp-2 font-medium">{vendor.description || 'Bidhaa Bora na Huduma Haraka'}</p>
+                      </div>
+                      <div className="flex items-center justify-between mt-3">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="text-[9px] bg-orange-50 text-orange-600 border-none px-2.5 py-1 font-black uppercase tracking-tighter">
+                            {vendor.category}
+                          </Badge>
+                          <span className="text-[10px] text-neutral-400 font-bold">1.2 km</span>
+                        </div>
+                        <motion.button 
+                          whileTap={{ scale: 0.9 }}
+                          className="bg-neutral-900 text-white text-[10px] font-black px-5 py-2 rounded-full hover:bg-orange-600 transition-colors uppercase tracking-widest"
+                        >
+                          {t('order') || 'Agiza'}
+                        </motion.button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </Card>
-            </Link>
+                </Card>
+              </Link>
+            </motion.div>
           ))}
           {vendors.length === 0 && (
-            <div className="py-12 text-center bg-neutral-50 rounded-3xl border border-dashed border-neutral-200">
+            <div className="py-12 text-center bg-neutral-50 rounded-3xl border border-dashed border-neutral-200 col-span-full">
               <p className="text-neutral-400 text-sm italic">{t('no_restaurants_found') || 'Hakuna migahawa iliyopatikana karibu nawe.'}</p>
             </div>
           )}
@@ -298,40 +353,60 @@ export default function CustomerDashboard() {
 
       {/* 6. Bidhaa Maarufu (Popular Products) - Horizontal scroll below */}
       <section>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-bold text-xl">{t('popular_products') || 'Bidhaa Maarufu'}</h3>
-          <button className="text-orange-600 text-sm font-bold">{t('view_all') || 'View All'}</button>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="font-black text-xl text-neutral-900 tracking-tight">{t('popular_products') || 'Bidhaa Maarufu'}</h3>
+          <button className="text-orange-600 text-sm font-black">{t('view_all') || 'View All'}</button>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
-          {products.map((product) => (
-            <Link 
-              key={product.id} 
-              to={`/product/${product.id}`}
-              className="block group"
+          {products.map((product, idx) => (
+            <motion.div
+              key={product.id}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.05 * idx }}
             >
-              <Card className="overflow-hidden rounded-3xl border-neutral-100 shadow-sm hover:shadow-lg transition-all h-full">
-                <div className="h-40 relative overflow-hidden">
-                  <img 
-                    src={product.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80'} 
-                    alt={product.name} 
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
-                    referrerPolicy="no-referrer"
-                  />
-                  <button className="absolute bottom-3 right-3 w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center text-orange-600 hover:bg-orange-600 hover:text-white transition-all">
-                    <Plus className="w-5 h-5" />
-                  </button>
-                </div>
-                <CardContent className="p-4">
-                  <h4 className="font-bold text-sm text-neutral-900 truncate group-hover:text-orange-600 transition-colors">{product.name}</h4>
-                  <p className="text-xs text-orange-600 font-black mt-1">
-                    TZS {product.price.toLocaleString()}
-                  </p>
-                </CardContent>
-              </Card>
-            </Link>
+              <Link 
+                to={`/product/${product.id}`}
+                className="block group"
+              >
+                <Card className="overflow-hidden rounded-[2.5rem] border-neutral-50 shadow-xl shadow-neutral-900/5 hover:shadow-orange-900/10 transition-all h-full group/card border-2 hover:border-orange-500/10">
+                  <div className="h-44 relative overflow-hidden">
+                    <img 
+                      src={product.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80'} 
+                      alt={product.name} 
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+                      referrerPolicy="no-referrer"
+                    />
+                    <motion.button 
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        addItem(product);
+                      }}
+                      className="absolute bottom-4 right-4 w-12 h-12 bg-white rounded-2xl shadow-2xl flex items-center justify-center text-orange-600 hover:bg-orange-600 hover:text-white transition-all transform overflow-hidden group/btn"
+                    >
+                      <div className="absolute inset-0 bg-orange-600 -translate-x-full group-hover/btn:translate-x-0 transition-transform" />
+                      <ShoppingBasket className="w-6 h-6 relative z-10" />
+                    </motion.button>
+                  </div>
+                  <CardContent className="p-5">
+                    <h4 className="font-black text-sm text-neutral-900 truncate group-hover/card:text-orange-600 transition-colors uppercase tracking-tight">{product.name}</h4>
+                    <div className="flex items-center justify-between mt-2">
+                       <p className="text-xs text-orange-600 font-black">
+                        TZS {product.price.toLocaleString()}
+                      </p>
+                      <span className="text-[10px] text-neutral-400 font-bold">Qty: 1</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            </motion.div>
           ))}
           {products.length === 0 && (
-            <div className="min-w-full py-8 text-center bg-neutral-50 rounded-3xl border border-dashed border-neutral-200">
+            <div className="min-w-full py-8 text-center bg-neutral-50 rounded-3xl border border-dashed border-neutral-200 col-span-full">
               <p className="text-neutral-400 text-xs italic">{t('no_products_found') || 'Hakuna bidhaa maarufu kwa sasa.'}</p>
             </div>
           )}

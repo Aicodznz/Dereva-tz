@@ -5,9 +5,11 @@ import { Input } from '@/components/ui/input';
 import { User, Mail, Phone, Lock, Loader2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../AuthContext';
+import { useLanguage } from '../../LanguageContext';
 import { toast } from 'sonner';
 
 export default function RegisterCustomer() {
+  const { t } = useLanguage();
   const { signUp, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -28,7 +30,7 @@ export default function RegisterCustomer() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.password !== formData.confirmPassword) {
-      toast.error("Passwords do not match!");
+      toast.error(t('passwords_dont_match'));
       return;
     }
     
@@ -38,10 +40,14 @@ export default function RegisterCustomer() {
         fullName: formData.fullName,
         phone: formData.phone
       });
-      toast.success("Account created successfully!");
+      toast.success(t('account_created_success'));
       navigate('/');
     } catch (error: any) {
-      toast.error(error.message || "Failed to create account");
+      if (error.code === 'auth/operation-not-allowed') {
+        toast.error(t('auth_disabled_instructions'), { duration: 8000 });
+      } else {
+        toast.error(error.message || t('signup_failed'));
+      }
     } finally {
       setLoading(false);
     }
@@ -49,13 +55,14 @@ export default function RegisterCustomer() {
 
   return (
     <AuthLayout 
-      title="Create Customer Account" 
+      title={t('sign_up')} 
       subtitle="Tengeneza Akaunti ya Mteja"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="relative">
           <User className="absolute left-3 top-3 w-5 h-5 text-neutral-400" />
           <Input 
+            required
             placeholder="Full Name" 
             className="pl-10 h-12 bg-neutral-50 border-none rounded-xl"
             value={formData.fullName}
@@ -67,6 +74,7 @@ export default function RegisterCustomer() {
           <Mail className="absolute left-3 top-3 w-5 h-5 text-neutral-400" />
           <Input 
             type="email" 
+            required
             placeholder="Email Address" 
             className="pl-10 h-12 bg-neutral-50 border-none rounded-xl"
             value={formData.email}
@@ -78,6 +86,7 @@ export default function RegisterCustomer() {
           <Phone className="absolute left-3 top-3 w-5 h-5 text-neutral-400" />
           <Input 
             type="tel" 
+            required
             placeholder="Phone Number" 
             className="pl-10 h-12 bg-neutral-50 border-none rounded-xl"
             value={formData.phone}
@@ -89,6 +98,7 @@ export default function RegisterCustomer() {
           <Lock className="absolute left-3 top-3 w-5 h-5 text-neutral-400" />
           <Input 
             type="password" 
+            required
             placeholder="Password" 
             className="pl-10 h-12 bg-neutral-50 border-none rounded-xl"
             value={formData.password}
@@ -100,6 +110,7 @@ export default function RegisterCustomer() {
           <Lock className="absolute left-3 top-3 w-5 h-5 text-neutral-400" />
           <Input 
             type="password" 
+            required
             placeholder="Confirm Password" 
             className="pl-10 h-12 bg-neutral-50 border-none rounded-xl"
             value={formData.confirmPassword}

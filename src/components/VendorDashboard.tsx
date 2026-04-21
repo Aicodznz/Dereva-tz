@@ -99,7 +99,7 @@ import {
 } from 'recharts';
 import { format } from 'date-fns';
 
-type TabType = 'overview' | 'orders' | 'products' | 'pos' | 'inventory_stats' | 'customers' | 'coupons' | 'staff' | 'settings' | 'tables';
+type TabType = 'overview' | 'orders' | 'products' | 'pos' | 'inventory_stats' | 'customers' | 'coupons' | 'staff' | 'settings' | 'tables' | 'market_pulse' | 'freshness';
 
 const chartData = [
   { name: 'Mon', sales: 4000, orders: 24 },
@@ -208,7 +208,8 @@ export default function VendorDashboard() {
           fulfillmentAction: 'Picking',
           readyLabel: 'Packed & Ready',
           pickingLabel: 'Currently Picking',
-          awaitingLabel: 'Awaiting Picking'
+          awaitingLabel: 'Awaiting Picking',
+          isGrocery: vendorProfile?.category === 'grocery'
         };
     }
   }, [vendorProfile?.category]);
@@ -455,6 +456,7 @@ export default function VendorDashboard() {
   };
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [bulkPrices, setBulkPrices] = useState<Record<string, number>>({});
 
   const tabs = useMemo(() => {
     const baseTabs = [
@@ -468,8 +470,15 @@ export default function VendorDashboard() {
       baseTabs.push({ id: 'tables', label: 'Dining Tables', icon: Store });
     }
 
+    const additionalTabs = [];
+    if (vendorProfile?.category === 'grocery') {
+      additionalTabs.push({ id: 'market_pulse', label: 'Market Pulse', icon: Zap });
+      additionalTabs.push({ id: 'freshness', label: 'Freshness Monitor', icon: AlertCircle });
+    }
+
     return [
       ...baseTabs,
+      ...additionalTabs,
       { id: 'inventory_stats', label: 'Analytics', icon: BarChart3 },
       { id: 'coupons', label: 'Promotions', icon: Tag },
       { id: 'customers', label: 'CRM', icon: Users },
@@ -1666,6 +1675,31 @@ export default function VendorDashboard() {
                       </CardContent>
                     </Card>
                   ))}
+                  
+                  {vendorProfile?.category === 'grocery' && products.some(p => p.expiryDate && new Date(p.expiryDate) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)) && (
+                    <Card className="bg-red-500/5 border-red-500/20 backdrop-blur-sm lg:col-span-4 p-6 border-2 border-dashed relative overflow-hidden group">
+                      <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
+                         <AlertCircle className="w-32 h-32 rotate-12" />
+                      </div>
+                      <div className="flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
+                        <div className="flex items-center gap-4">
+                          <div className="p-4 rounded-2xl bg-red-500 text-white shadow-lg animate-pulse">
+                            <AlertCircle className="w-8 h-8" />
+                          </div>
+                          <div>
+                            <h3 className="text-xl font-black uppercase italic tracking-tight text-white">Freshness Alert / Tahadhari ya Ubora</h3>
+                            <p className="text-sm text-neutral-400 font-medium">You have {products.filter(p => p.expiryDate && new Date(p.expiryDate) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)).length} items expiring within 7 days.</p>
+                          </div>
+                        </div>
+                        <Button 
+                          onClick={() => setActiveTab('freshness')}
+                          className="bg-white text-red-600 hover:bg-neutral-100 font-black uppercase tracking-widest text-xs px-8 h-12 rounded-xl shadow-xl"
+                        >
+                          Review Items Now
+                        </Button>
+                      </div>
+                    </Card>
+                  )}
                 </div>
 
                 {/* Complex Charts Row */}
@@ -2767,6 +2801,242 @@ export default function VendorDashboard() {
               </motion.div>
             )}
 
+            {activeTab === 'freshness' && (
+              <motion.div
+                key="freshness"
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                className="space-y-8"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-3xl font-black italic uppercase tracking-tighter">Freshness Monitor</h2>
+                    <p className="text-neutral-500 font-medium">Track and manage items nearing their expiration date.</p>
+                  </div>
+                  <div className="p-4 bg-orange-600/10 border border-orange-600/20 rounded-2xl">
+                     <p className="text-[10px] font-black uppercase text-orange-600 tracking-widest">System Status</p>
+                     <p className="text-sm font-bold text-white">Monitoring {products.length} Items</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  <div className="lg:col-span-2 space-y-6">
+                    <Card className="bg-neutral-900/60 border-neutral-800 p-8 rounded-[3rem]">
+                      <div className="flex items-center justify-between mb-8">
+                        <h3 className="text-xl font-black italic uppercase tracking-tight">Expiring Soon / Karibu Na Tarehe</h3>
+                        <Badge className="bg-red-500/10 text-red-500 border-none px-4 py-1 font-black uppercase tracking-widest text-[10px]">
+                           Action Required
+                        </Badge>
+                      </div>
+
+                      <div className="space-y-4">
+                        {products
+                          .filter(p => p.expiryDate && new Date(p.expiryDate) < new Date(Date.now() + 14 * 24 * 60 * 60 * 1000))
+                          .sort((a,b) => new Date(a.expiryDate!).getTime() - new Date(b.expiryDate!).getTime())
+                          .map((product, idx) => {
+                            const daysLeft = Math.ceil((new Date(product.expiryDate!).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                            const isUrgent = daysLeft <= 3;
+                            
+                            return (
+                              <div key={`freshness-item-${product.id || idx}`} className="flex items-center justify-between p-6 bg-neutral-950/50 rounded-3xl border border-white/5 hover:border-orange-600/30 transition-all group">
+                                <div className="flex items-center gap-5">
+                                  <div className="w-16 h-16 rounded-2xl bg-neutral-800 overflow-hidden relative">
+                                    {product.imageUrl ? (
+                                      <img src={product.imageUrl} className="w-full h-full object-cover" />
+                                    ) : (
+                                      <Package className="w-full h-full p-4 opacity-10" />
+                                    )}
+                                    {isUrgent && <div className="absolute top-0 right-0 w-3 h-3 bg-red-600 rounded-full animate-pulse border-2 border-neutral-900" />}
+                                  </div>
+                                  <div>
+                                    <h4 className="text-lg font-bold text-white">{product.name}</h4>
+                                    <div className="flex items-center gap-3 mt-1">
+                                      <p className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">{product.category}</p>
+                                      <span className="w-1 h-1 bg-neutral-800 rounded-full" />
+                                      <p className="text-[10px] font-black text-white uppercase tracking-widest">{product.stock} {product.unit || 'Units'} Available</p>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="text-right space-y-2">
+                                  <div className="flex flex-col items-end">
+                                    <p className={`text-sm font-black uppercase italic ${isUrgent ? 'text-red-500' : 'text-orange-500'}`}>
+                                      {daysLeft <= 0 ? 'Expired' : `${daysLeft} days left`}
+                                    </p>
+                                    <p className="text-[10px] font-bold text-neutral-600 uppercase">{format(new Date(product.expiryDate!), 'MMM d, yyyy')}</p>
+                                  </div>
+                                  <div className="flex items-center justify-end gap-2">
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline" 
+                                      className="h-8 rounded-lg text-[9px] font-black uppercase border-neutral-800 hover:bg-orange-600 hover:text-white"
+                                      onClick={() => {
+                                        // Set a quick flash sale
+                                        setBulkPrices({ ...bulkPrices, [product.id!]: Math.round(product.price * 0.7) });
+                                        setActiveTab('market_pulse');
+                                        toast.info(`Proposed 30% discount for ${product.name}`);
+                                      }}
+                                    >
+                                      Clearance Offer
+                                    </Button>
+                                    <Button 
+                                      size="sm" 
+                                      variant="ghost" 
+                                      className="h-8 rounded-lg text-[9px] font-black uppercase text-red-500"
+                                      onClick={() => handleDeleteProduct(product.id!)}
+                                    >
+                                      Write Off
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        {products.filter(p => p.expiryDate && new Date(p.expiryDate) < new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)).length === 0 && (
+                          <div className="py-20 text-center opacity-20">
+                             <ShieldCheck className="w-20 h-20 mx-auto mb-4" />
+                             <p className="text-sm font-black uppercase tracking-[0.4em]">Inventory Freshness Guaranteed</p>
+                          </div>
+                        )}
+                      </div>
+                    </Card>
+                  </div>
+
+                  <div className="space-y-6">
+                    <Card className="bg-neutral-900 border-neutral-800 p-8 rounded-[3rem]">
+                      <h3 className="text-xl font-black italic uppercase italic tracking-tight mb-6">Stock Health</h3>
+                      <div className="space-y-6">
+                         <div className="p-6 bg-green-500/10 border border-green-500/20 rounded-3xl">
+                            <p className="text-[10px] font-black text-green-500 uppercase tracking-widest mb-1">Stable Stock</p>
+                            <p className="text-3xl font-black text-white italic">{products.filter(p => p.stock >= 10).length}</p>
+                            <div className="mt-4 w-full h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+                               <div className="h-full bg-green-500" style={{ width: `${(products.filter(p => p.stock >= 10).length / products.length) * 100}%` }}></div>
+                            </div>
+                         </div>
+                         <div className="p-6 bg-red-500/10 border border-red-500/20 rounded-3xl">
+                            <p className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-1">Critical Stock</p>
+                            <p className="text-3xl font-black text-white italic">{products.filter(p => p.stock < 10).length}</p>
+                            <div className="mt-4 w-full h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+                               <div className="h-full bg-red-500" style={{ width: `${(products.filter(p => p.stock < 10).length / products.length) * 100}%` }}></div>
+                            </div>
+                         </div>
+                      </div>
+                    </Card>
+
+                    <Card className="bg-neutral-900 border-neutral-800 p-8 rounded-[3rem] overflow-hidden relative group">
+                        <div className="absolute inset-0 bg-orange-600/5 translate-y-full group-hover:translate-y-0 transition-transform" />
+                        <h3 className="text-xl font-black italic uppercase tracking-tight mb-4 relative z-10">Freshness Tip</h3>
+                        <p className="text-sm text-neutral-400 font-medium relative z-10 leading-relaxed">
+                          Implementing a "First-In, First-Out" (FIFO) shelf system can reduce spoilage by 25%. Try rotating your {vendorProfile?.category} stock today!
+                        </p>
+                    </Card>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'market_pulse' && (
+              <motion.div
+                key="market_pulse"
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                className="space-y-8"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-3xl font-black italic uppercase tracking-tighter">Market Pulse</h2>
+                    <p className="text-neutral-500 font-medium">Quickly adjust prices across multiple items to match market trends.</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Button 
+                      variant="outline" 
+                      className="rounded-xl border-neutral-800 bg-neutral-900 h-12 uppercase font-black text-[10px] tracking-widest px-6"
+                      onClick={() => setBulkPrices({})}
+                    >
+                      Reset Changes
+                    </Button>
+                    <Button 
+                      className="rounded-xl bg-orange-600 hover:bg-orange-700 h-12 uppercase font-black text-[10px] tracking-widest px-8 shadow-xl shadow-orange-950/30"
+                      onClick={async () => {
+                        const loadingToast = toast.loading('Applying price changes...');
+                        try {
+                          await Promise.all(Object.entries(bulkPrices).map(([id, price]) => 
+                            updateDoc(doc(db, 'products', id), { price })
+                          ));
+                          toast.success('Prices updated successfully!', { id: loadingToast });
+                          setBulkPrices({});
+                        } catch (err) {
+                          toast.error('Failed to update prices.', { id: loadingToast });
+                        }
+                      }}
+                      disabled={Object.keys(bulkPrices).length === 0}
+                    >
+                      Apply All Updates ({Object.keys(bulkPrices).length})
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4">
+                  {products.map((product, idx) => (
+                    <div key={`market-pulse-row-${product.id || idx}`} className="bg-neutral-900/60 border border-neutral-800 p-6 rounded-[2rem] flex items-center justify-between group hover:border-orange-600/30 transition-all">
+                       <div className="flex items-center gap-6">
+                         <div className="w-16 h-16 rounded-[1.25rem] bg-neutral-800 overflow-hidden">
+                           {product.imageUrl ? (
+                             <img src={product.imageUrl} className="w-full h-full object-cover" />
+                           ) : (
+                             <Package className="w-full h-full p-4 opacity-10" />
+                           )}
+                         </div>
+                         <div>
+                            <h4 className="text-lg font-bold text-white mb-1">{product.name}</h4>
+                            <p className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">Current Stock: {product.stock} {product.unit}</p>
+                         </div>
+                       </div>
+
+                       <div className="flex items-center gap-12">
+                          <div className="text-right">
+                             <p className="text-[10px] font-black text-neutral-500 uppercase tracking-widest mb-1">Live Price</p>
+                             <p className="text-xl font-black text-white italic">TZS {product.price.toLocaleString()}</p>
+                          </div>
+                          
+                          <div className="flex items-center gap-4">
+                             <div className="relative">
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500 text-sm font-bold">TZS</span>
+                                <Input 
+                                  type="number"
+                                  className="w-40 bg-neutral-950 border-neutral-800 h-14 pl-12 rounded-2xl text-lg font-black italic focus:ring-orange-600 transition-all"
+                                  value={bulkPrices[product.id!] || ''}
+                                  placeholder={product.price.toString()}
+                                  onChange={(e) => {
+                                    const val = parseFloat(e.target.value);
+                                    if (!isNaN(val)) {
+                                      setBulkPrices({ ...bulkPrices, [product.id!]: val });
+                                    } else {
+                                      const newBP = { ...bulkPrices };
+                                      delete newBP[product.id!];
+                                      setBulkPrices(newBP);
+                                    }
+                                  }}
+                                />
+                             </div>
+                             
+                             {bulkPrices[product.id!] && (
+                               <div className={`flex items-center gap-1 text-[10px] font-black uppercase tracking-tighter ${
+                                 bulkPrices[product.id!] < product.price ? 'text-red-500' : 'text-green-500'
+                               }`}>
+                                 {bulkPrices[product.id!] < product.price ? <ArrowDownRight className="w-3 h-3" /> : <ArrowUpRight className="w-3 h-3" />}
+                                 {Math.abs(Math.round(((bulkPrices[product.id!] - product.price) / product.price) * 100))}%
+                               </div>
+                             )}
+                          </div>
+                       </div>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
             {activeTab === 'settings' && (
               <motion.div
                 key="settings"
@@ -3059,8 +3329,8 @@ export default function VendorDashboard() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-neutral-800/50">
-                      {filteredInventory.map((product) => (
-                        <tr key={`inventory-row-${product.id}`} className="hover:bg-neutral-800/20 transition-all group">
+                      {filteredInventory.map((product, idx) => (
+                        <tr key={`inventory-row-${product.id || idx}`} className="hover:bg-neutral-800/20 transition-all group">
                           <td className="px-8 py-6">
                             <div className="flex items-center gap-4">
                               <div className="w-16 h-16 rounded-[1.5rem] bg-neutral-900 overflow-hidden relative border border-neutral-800 group-hover:border-orange-600/50 transition-all">
@@ -3342,7 +3612,7 @@ export default function VendorDashboard() {
                 </div>
 
                 {/* Dynamic Fields based on Vendor Category */}
-                {vendorProfile?.category === 'pharmacy' && (
+                {(vendorProfile?.category === 'pharmacy' || vendorProfile?.category === 'grocery') && (
                   <div className="space-y-4 pt-2">
                     <div className="space-y-2">
                       <label className="text-xs font-bold text-neutral-500 uppercase">Expiry Date / Tarehe ya Kuisha</label>
@@ -3353,18 +3623,20 @@ export default function VendorDashboard() {
                         onChange={e => setNewProduct({...newProduct, expiryDate: e.target.value})}
                       />
                     </div>
-                    <div className="flex items-center gap-3 p-4 bg-neutral-800/50 rounded-xl border border-neutral-800">
-                      <input 
-                        type="checkbox"
-                        id="prescription"
-                        className="w-5 h-5 rounded border-neutral-700 bg-neutral-800 text-orange-600 focus:ring-orange-600"
-                        checked={newProduct.medicationType === 'prescription'}
-                        onChange={e => setNewProduct({...newProduct, medicationType: e.target.checked ? 'prescription' : 'otc'})}
-                      />
-                      <label htmlFor="prescription" className="text-sm font-medium text-white cursor-pointer">
-                        Requires Prescription? / Inahitaji Cheti?
-                      </label>
-                    </div>
+                    {vendorProfile?.category === 'pharmacy' && (
+                      <div className="flex items-center gap-3 p-4 bg-neutral-800/50 rounded-xl border border-neutral-800">
+                        <input 
+                          type="checkbox"
+                          id="prescription"
+                          className="w-5 h-5 rounded border-neutral-700 bg-neutral-800 text-orange-600 focus:ring-orange-600"
+                          checked={newProduct.medicationType === 'prescription'}
+                          onChange={e => setNewProduct({...newProduct, medicationType: e.target.checked ? 'prescription' : 'otc'})}
+                        />
+                        <label htmlFor="prescription" className="text-sm font-medium text-white cursor-pointer">
+                          Requires Prescription? / Inahitaji Cheti?
+                        </label>
+                      </div>
+                    )}
                   </div>
                 )}
 
