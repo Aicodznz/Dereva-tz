@@ -10,17 +10,19 @@ import {
 import { Link, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
+import Header from './Header';
+import { useLanguage } from '../LanguageContext';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { profile, logout, signIn, user } = useAuth();
-  const { cartCount, cartItems, totalAmount, removeItem, addItem, clearCart } = useCart();
-  const [isCartOpen, setIsCartOpen] = useState(false);
+  const { cartCount, cartItems, totalAmount, removeItem, addItem, clearCart, isCartOpen, setIsCartOpen } = useCart();
   const location = useLocation();
+  const { isRTL, t } = useLanguage();
 
   const navItems = [
-    { label: 'Nyumbani', path: '/', icon: Home },
-    { label: 'Oda', path: '/my-orders', icon: Receipt },
-    { label: 'Chat', path: '/chat', icon: MessageSquare },
+    { label: t('welcome') || 'Nyumbani', path: '/', icon: Home },
+    { label: t('my_orders') || 'Oda', path: '/my-orders', icon: Receipt },
+    { label: t('chat') || 'Chat', path: '/chat', icon: MessageSquare },
   ];
 
   if (profile?.role === 'admin') {
@@ -28,71 +30,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-[#FDFDFD] flex flex-col font-sans selection:bg-orange-100 selection:text-orange-900">
-      <header className="bg-white/80 backdrop-blur-xl border-b border-neutral-100 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 bg-orange-600 rounded-2xl flex items-center justify-center transform group-hover:rotate-12 transition-transform shadow-lg shadow-orange-600/20">
-              <span className="text-white font-black text-2xl italic tracking-tighter">O</span>
-            </div>
-            <div className="flex flex-col">
-              <span className="font-black text-xl leading-none uppercase italic tracking-tighter text-neutral-900">OmniServe</span>
-              <span className="text-[10px] font-bold text-orange-600 uppercase tracking-[0.2em] mt-0.5">Super App</span>
-            </div>
-          </Link>
+    <div className={`min-h-screen bg-background dark:bg-neutral-950 flex flex-col font-sans selection:bg-orange-100 dark:selection:bg-orange-900/30 selection:text-orange-900 ${isRTL ? 'font-arabic' : ''}`}>
+      <Header />
 
-          <nav className="hidden md:flex items-center gap-8 text-neutral-900">
-            {navItems.map((item) => (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`flex items-center gap-2 text-xs font-black uppercase tracking-widest transition-all ${
-                  location.pathname === item.path 
-                    ? 'text-orange-600' 
-                    : 'text-neutral-400 hover:text-neutral-900 hover:tracking-[0.15em]'
-                }`}
-              >
-                <item.icon className={`w-4 h-4 ${location.pathname === item.path ? 'animate-pulse' : ''}`} />
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={() => setIsCartOpen(true)}
-              className="relative p-2 text-neutral-900 hover:text-orange-600 transition-colors hidden md:block"
-            >
-              <ShoppingCart className="w-6 h-6" />
-              {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-orange-600 text-white text-[10px] font-black w-5 h-5 flex items-center justify-center rounded-full border-2 border-white">
-                  {cartCount}
-                </span>
-              )}
-            </button>
-            {user ? (
-              <div className="flex items-center gap-4">
-                <Link to="/profile" className="text-right hidden sm:block hover:opacity-70 transition-opacity">
-                  <p className="text-xs font-black uppercase italic text-neutral-900">{profile?.displayName}</p>
-                  <p className="text-[9px] font-bold text-orange-600 uppercase tracking-widest">{profile?.role}</p>
-                </Link>
-                <div className="h-4 w-px bg-neutral-200 hidden sm:block" />
-                <Button variant="ghost" size="icon" onClick={logout} className="text-neutral-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
-                  <LogOut className="w-5 h-5" />
-                </Button>
-              </div>
-            ) : (
-              <Link to="/login">
-                <Button className="bg-neutral-900 hover:bg-orange-600 text-white rounded-2xl px-8 font-black uppercase italic tracking-tighter transition-all">
-                  Sign In
-                </Button>
-              </Link>
-            )}
-          </div>
-        </div>
-      </header>
-
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 md:py-12 pb-32 md:pb-12">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-4 md:py-8 pb-32">
         {children}
       </main>
 
@@ -101,7 +42,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <div className="relative w-full h-18 pointer-events-auto">
           {/* Background SVG for the curved cutout */}
           <div className="absolute inset-x-0 bottom-0 top-0">
-            <svg viewBox="0 0 100 30" preserveAspectRatio="none" className="w-full h-full fill-white/95 backdrop-blur-xl drop-shadow-[0_-5px_25px_rgba(0,0,0,0.05)]">
+            <svg viewBox="0 0 100 30" preserveAspectRatio="none" className="w-full h-full fill-white dark:fill-neutral-900 backdrop-blur-xl drop-shadow-[0_-5px_25px_rgba(0,0,0,0.05)]">
                <path d="M0,30 L100,30 L100,2 C90,2 85,2 80,2 C70,2 65,22 50,22 C35,22 30,2 20,2 C15,2 10,2 0,2 Z" />
             </svg>
           </div>

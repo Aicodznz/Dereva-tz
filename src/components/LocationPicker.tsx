@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { Search, MapPin, X, Navigation, Loader2, Star } from 'lucide-react';
+import { Search, MapPin, X, Navigation, Loader2, Star, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { motion, AnimatePresence } from 'motion/react';
+import { useNavigate } from 'react-router-dom';
 
 // Fix for default marker icon in Leaflet
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -53,6 +54,7 @@ function LocationMarker({ position, setPosition, onPositionChange }: { position:
 }
 
 export default function LocationPicker({ isOpen, onClose, onSelect, initialLocation, vendors = [], preSelectedVendorId }: LocationPickerProps) {
+  const navigate = useNavigate();
   const [position, setPosition] = useState<L.LatLng>(
     new L.LatLng(initialLocation?.lat || -6.7924, initialLocation?.lng || 39.2083) // Default to DSM
   );
@@ -118,6 +120,12 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
       setIsSearching(false);
     }
   };
+
+  useEffect(() => {
+    if (isOpen && !address && !initialLocation) {
+      handleGetCurrentLocation();
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && !address && position) {
@@ -272,7 +280,13 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                     exit={{ opacity: 0, y: 50, scale: 0.9 }}
                     className="absolute top-8 left-4 right-4 z-[1001]"
                   >
-                    <div className="bg-white/95 backdrop-blur-md rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.15)] overflow-hidden border border-white/50 p-1">
+                    <div 
+                      onClick={() => {
+                        onClose();
+                        navigate(`/vendor/${selectedVendor.id}`);
+                      }}
+                      className="bg-white/95 backdrop-blur-md rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.15)] overflow-hidden border border-white/50 p-1 cursor-pointer group/card"
+                    >
                        <div className="h-28 relative rounded-[2.2rem] overflow-hidden">
                           <img 
                             src={selectedVendor.bannerUrl || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=400&q=80'} 
@@ -280,9 +294,17 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                             className="w-full h-full object-cover"
                             referrerPolicy="no-referrer"
                           />
-                          <div className="absolute top-2 right-2">
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/card:opacity-100 transition-opacity flex items-center justify-center">
+                             <div className="flex items-center gap-2 text-white font-black uppercase text-xs tracking-widest bg-orange-600 px-4 py-2 rounded-full transform translate-y-4 group-hover/card:translate-y-0 transition-all">
+                                Tembelea Duka <ArrowRight className="w-4 h-4" />
+                             </div>
+                          </div>
+                          <div className="absolute top-2 right-2 z-10">
                              <button 
-                                onClick={() => setSelectedVendor(null)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedVendor(null);
+                                }}
                                 className="w-8 h-8 bg-black/20 hover:bg-black/40 backdrop-blur-sm rounded-full flex items-center justify-center text-white transition-colors"
                              >
                                 <X className="w-4 h-4" />

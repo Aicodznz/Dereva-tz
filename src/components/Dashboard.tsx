@@ -10,7 +10,7 @@ export default function Dashboard() {
 
   if (loading) return <div className="flex items-center justify-center h-64">Loading...</div>;
 
-  if (!profile) return <div className="text-center py-12">Please sign in to access your dashboard.</div>;
+  if (!profile) return <CustomerDashboard />;
 
   console.log('Current profile role:', profile.role);
 

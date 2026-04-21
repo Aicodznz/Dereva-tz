@@ -64,18 +64,24 @@ function AppContent() {
 
 import { LanguageProvider } from './LanguageContext';
 import { CartProvider } from './CartContext';
+import { ThemeProvider } from 'next-themes';
+import { HeaderProvider } from './HeaderContext';
 
 export default function App() {
   return (
-    <AuthProvider>
-      <LanguageProvider>
-        <CartProvider>
-          <Router>
-            <AppContent />
-            <Toaster />
-          </Router>
-        </CartProvider>
-      </LanguageProvider>
-    </AuthProvider>
+    <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+      <AuthProvider>
+        <LanguageProvider>
+          <HeaderProvider>
+            <CartProvider>
+              <Router>
+                <AppContent />
+                <Toaster />
+              </Router>
+            </CartProvider>
+          </HeaderProvider>
+        </LanguageProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

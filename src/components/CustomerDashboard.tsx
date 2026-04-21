@@ -16,24 +16,81 @@ import LocationPicker from './LocationPicker';
 import { useLanguage } from '../LanguageContext';
 import { useCart } from '../CartContext';
 import HowToOrder from './HowToOrder';
+import { useHeader } from '../HeaderContext';
 
 export default function CustomerDashboard() {
   const { profile, user } = useAuth();
-  const { t } = useLanguage();
+  const { t, isRTL } = useLanguage();
   const { addItem } = useCart();
   const [vendors, setVendors] = useState<VendorProfile[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [banners, setBanners] = useState<{id: string, title: string, sub: string, img: string}[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [searchQuery, setSearchQuery] = useState('');
   const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
   const [selectedVendorId, setSelectedVendorId] = useState<string | undefined>(undefined);
   const [tableSession, setTableSession] = useState<any>(null);
-  const [location, setLocation] = useState({
-    address: 'Mbezi Beach, DSM',
-    lat: -6.7924,
-    lng: 39.2083
+  const [location, setLocation] = useState(() => {
+    const saved = localStorage.getItem('omniserve_user_location');
+    return saved ? JSON.parse(saved) : {
+      address: '',
+      lat: -6.7924,
+      lng: 39.2083
+    };
   });
+
+  const { setLocation: setHeaderLocation, setOnLocationClick, searchQuery: contextSearchQuery } = useHeader();
+
+  // Auto-prompt location for new users/guests
+  useEffect(() => {
+    const isLocationSet = localStorage.getItem('omniserve_location_verified');
+    if (!isLocationSet) {
+      const timer = setTimeout(() => {
+        setIsLocationPickerOpen(true);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  // Update localStorage when location changes
+  const handleLocationSelect = (newLoc: any) => {
+    setLocation(newLoc);
+    localStorage.setItem('omniserve_user_location', JSON.stringify(newLoc));
+    localStorage.setItem('omniserve_location_verified', 'true');
+  };
+
+  // Helper to calculate distance in km (Haversine formula)
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371; // Earth radius in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  // Sync with Header Context
+  useEffect(() => {
+    setHeaderLocation(location.address);
+    setOnLocationClick(() => () => setIsLocationPickerOpen(true));
+  }, [location.address, setHeaderLocation, setOnLocationClick]);
+
+  // Use search from context
+  const effectiveSearchQuery = contextSearchQuery;
+
+  const filteredVendors = vendors.filter(v => 
+    v.businessName.toLowerCase().includes(effectiveSearchQuery.toLowerCase()) ||
+    v.category?.toLowerCase().includes(effectiveSearchQuery.toLowerCase()) ||
+    v.description?.toLowerCase().includes(effectiveSearchQuery.toLowerCase())
+  );
+
+  const filteredProducts = products.filter(p => 
+    p.name.toLowerCase().includes(effectiveSearchQuery.toLowerCase()) ||
+    p.description?.toLowerCase().includes(effectiveSearchQuery.toLowerCase()) ||
+    p.category?.toLowerCase().includes(effectiveSearchQuery.toLowerCase())
+  );
 
   // Automatic Location Prompt
   useEffect(() => {
@@ -126,46 +183,14 @@ export default function CustomerDashboard() {
   }, [user]);
 
   return (
-    <div className="pb-24 space-y-8">
-      {/* 1. Top Section */}
-      <div className="flex items-center justify-between">
-        <Link to="/profile" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-          <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-orange-100">
-            <img 
-              src={profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid}`} 
-              alt="Avatar" 
-              className="w-full h-full object-cover"
-              referrerPolicy="no-referrer"
-            />
-          </div>
-          <div>
-            <p className="text-sm text-neutral-500">{t('welcome') || 'Karibu'},</p>
-            <h2 className="font-bold text-lg text-neutral-900">{profile?.displayName?.split(' ')[0] || 'Mteja'}!</h2>
-          </div>
-        </Link>
-        <Link to="/notifications" className="relative p-2 bg-white rounded-xl shadow-sm border border-neutral-100 hover:bg-neutral-50 transition-colors">
-          <Bell className="w-6 h-6 text-neutral-600" />
-          {unreadCount > 0 && (
-            <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>
-          )}
-        </Link>
-      </div>
-
-      <button 
-        onClick={() => setIsLocationPickerOpen(true)}
-        className="flex items-center gap-2 text-sm text-neutral-600 hover:text-orange-600 transition-colors"
-      >
-        <MapPin className="w-4 h-4 text-orange-600" />
-        <span>Location: <span className="font-bold">{location.address}</span></span>
-      </button>
-
+    <div className={`pb-24 space-y-8 ${isRTL ? 'text-right' : 'text-left'}`}>
       <LocationPicker 
         isOpen={isLocationPickerOpen}
         onClose={() => {
           setIsLocationPickerOpen(false);
           setSelectedVendorId(undefined);
         }}
-        onSelect={(newLoc) => setLocation(newLoc)}
+        onSelect={handleLocationSelect}
         initialLocation={location}
         vendors={vendors}
         preSelectedVendorId={selectedVendorId}
@@ -201,35 +226,7 @@ export default function CustomerDashboard() {
         </motion.div>
       )}
 
-      {/* 2. Search Bar - Enhanced */}
-      <motion.div 
-        initial={{ y: -10, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        className="relative group"
-      >
-        <motion.div
-           animate={{
-             x: [0, -1, 1, -1, 1, 0],
-           }}
-           transition={{
-             duration: 5,
-             repeat: Infinity,
-             repeatDelay: 2
-           }}
-           className="absolute left-5 top-1/2 -translate-y-1/2 pointer-events-none"
-        >
-          <Search className="w-5 h-5 text-neutral-400 group-focus-within:text-orange-600 transition-colors" />
-        </motion.div>
-        <input 
-          type="text"
-          placeholder={t('search_placeholder') || "Tafuta huduma, mgahawa, au bidhaa..."}
-          className="w-full h-15 pl-14 pr-6 bg-white border-2 border-neutral-50 rounded-3xl text-base font-medium placeholder:text-neutral-400 focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 transition-all shadow-xl shadow-orange-900/5 focus:shadow-orange-900/10"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-      </motion.div>
-
-      {/* 3. Promotional Carousel */}
+      {/* 1. Promotional Carousel (Banners) */}
       <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar snap-x py-2">
         {banners.map((banner, idx) => banner.img && (
           <motion.div 
@@ -261,7 +258,7 @@ export default function CustomerDashboard() {
         ))}
       </div>
 
-      {/* 5. Duka za Karibu (Nearby Stores) - New Section */}
+      {/* 2. Duka za Karibu (Nearby Stores) */}
       <section>
         <div className="flex items-center justify-between mb-6">
           <div className="flex flex-col">
@@ -276,7 +273,16 @@ export default function CustomerDashboard() {
           </button>
         </div>
         <div className="flex gap-6 overflow-x-auto pb-6 no-scrollbar -mx-4 px-4">
-          {vendors.filter(v => v.category === 'ecommerce' || v.category === 'grocery').map((vendor, idx) => (
+          {vendors
+            .filter(v => ['food', 'grocery', 'pharmacy', 'ecommerce', 'salons', 'hotels'].includes(v.category))
+            .map(vendor => {
+              const distance = vendor.location 
+                ? calculateDistance(location.lat, location.lng, vendor.location.lat, vendor.location.lng)
+                : 9999;
+              return { ...vendor, distance };
+            })
+            .sort((a, b) => a.distance - b.distance)
+            .map((vendor, idx) => (
             <motion.div
               key={vendor.id}
               initial={{ opacity: 0, x: 50 }}
@@ -306,6 +312,11 @@ export default function CustomerDashboard() {
                       />
                     </div>
                   </div>
+                  <div className="absolute top-4 right-4">
+                     <Badge className="bg-white/90 backdrop-blur-sm text-orange-600 font-black px-3 py-1 rounded-xl text-[9px] uppercase border-none shadow-sm">
+                        {vendor.category}
+                     </Badge>
+                  </div>
                 </div>
                 <CardContent className="p-5">
                   <h4 className="font-black text-lg text-neutral-900 group-hover:text-orange-600 transition-colors uppercase tracking-tight truncate">{vendor.businessName}</h4>
@@ -315,13 +326,26 @@ export default function CustomerDashboard() {
                       <span className="text-[11px] font-black">{vendor.rating || '4.8'}</span>
                     </div>
                     <div className="h-1 w-1 rounded-full bg-neutral-300" />
-                    <span className="text-[11px] text-neutral-400 font-bold uppercase tracking-tighter">1.2 km mbali</span>
+                    <div className="flex items-center gap-1">
+                      <MapPin className="w-3 h-3 text-neutral-400" />
+                      <span className="text-[11px] text-neutral-400 font-bold uppercase tracking-tighter">
+                        {vendor.distance < 0.5 
+                          ? `${t('very_close')} (${(vendor.distance * 1000).toFixed(0)}m)` 
+                          : vendor.distance < 1.5 
+                          ? `${t('close')} (${vendor.distance.toFixed(1)}km)` 
+                          : vendor.distance < 4 
+                          ? `${t('far_bit')} (${vendor.distance.toFixed(1)}km)` 
+                          : vendor.distance < 8 
+                          ? `${t('far')} (${vendor.distance.toFixed(1)}km)` 
+                          : `${t('extremely_far')} (${vendor.distance.toFixed(1)}km)`}
+                      </span>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
             </motion.div>
           ))}
-          {vendors.filter(v => v.category === 'ecommerce' || v.category === 'grocery').length === 0 && (
+          {vendors.filter(v => ['food', 'grocery', 'pharmacy', 'ecommerce', 'salons', 'hotels'].includes(v.category)).length === 0 && (
             <div className="w-full py-12 text-center bg-neutral-50 rounded-[2.5rem] border border-dashed border-neutral-200 mx-4">
               <p className="text-neutral-400 text-sm italic">Hakuna maduka yaliyopatikana karibu nawe.</p>
             </div>
@@ -329,7 +353,7 @@ export default function CustomerDashboard() {
         </div>
       </section>
 
-      {/* 5. Main Services Grid */}
+      {/* 3. Main Services Grid (Huduma Nyingine) */}
       <section>
         <div className="flex items-center justify-between mb-6">
           <h3 className="font-black text-xl text-neutral-900 tracking-tight">{t('other_services') || 'Huduma Nyingine'}</h3>
@@ -379,77 +403,14 @@ export default function CustomerDashboard() {
         </div>
       </section>
 
-      {/* 4. Migahawa Maarufu (Restaurants) - Vertical List for prominence */}
-      <section>
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="font-black text-xl text-neutral-900 tracking-tight">{t('popular_restaurants') || 'Migahawa Maarufu'}</h3>
-          <button className="text-orange-600 text-sm font-black">{t('view_all') || 'View All'}</button>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {vendors.map((vendor, idx) => (
-            <motion.div
-              key={vendor.id}
-              initial={{ opacity: 0, scale: 0.95 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1 * idx }}
-            >
-              <Link to={`/vendor/${vendor.id}`}>
-                <Card className="overflow-hidden rounded-[2.5rem] border-neutral-50 shadow-xl shadow-neutral-900/5 hover:shadow-orange-900/10 transition-all group border-2 hover:border-orange-500/20">
-                  <div className="flex p-5 gap-5">
-                    <div className="w-32 h-32 rounded-3xl overflow-hidden relative shrink-0 shadow-inner">
-                      <img 
-                        src={vendor.logoUrl || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=400&q=80'} 
-                        alt={vendor.businessName} 
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
-                        referrerPolicy="no-referrer"
-                      />
-                      <div className="absolute top-2 right-2 bg-white/95 backdrop-blur-md px-2 py-1 rounded-xl flex items-center gap-1 shadow-sm">
-                        <Star className="w-3 h-3 text-orange-500 fill-current" />
-                        <span className="text-[10px] font-black">{vendor.rating || '4.5'}</span>
-                      </div>
-                    </div>
-                    <div className="flex-1 flex flex-col justify-between py-1">
-                      <div>
-                        <h4 className="font-black text-lg text-neutral-900 group-hover:text-orange-600 transition-colors leading-tight">{vendor.businessName}</h4>
-                        <p className="text-xs text-neutral-400 mt-1 line-clamp-2 font-medium">{vendor.description || 'Bidhaa Bora na Huduma Haraka'}</p>
-                      </div>
-                      <div className="flex items-center justify-between mt-3">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="secondary" className="text-[9px] bg-orange-50 text-orange-600 border-none px-2.5 py-1 font-black uppercase tracking-tighter">
-                            {vendor.category}
-                          </Badge>
-                          <span className="text-[10px] text-neutral-400 font-bold">1.2 km</span>
-                        </div>
-                        <motion.button 
-                          whileTap={{ scale: 0.9 }}
-                          className="bg-neutral-900 text-white text-[10px] font-black px-5 py-2 rounded-full hover:bg-orange-600 transition-colors uppercase tracking-widest"
-                        >
-                          {t('order') || 'Agiza'}
-                        </motion.button>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              </Link>
-            </motion.div>
-          ))}
-          {vendors.length === 0 && (
-            <div className="py-12 text-center bg-neutral-50 rounded-3xl border border-dashed border-neutral-200 col-span-full">
-              <p className="text-neutral-400 text-sm italic">{t('no_restaurants_found') || 'Hakuna migahawa iliyopatikana karibu nawe.'}</p>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* 6. Bidhaa Maarufu (Popular Products) - Horizontal scroll below */}
+      {/* 4. Bidhaa Maarufu (Popular Products) - Horizontal scroll below */}
       <section>
         <div className="flex items-center justify-between mb-6">
           <h3 className="font-black text-xl text-neutral-900 tracking-tight">{t('popular_products') || 'Bidhaa Maarufu'}</h3>
           <button className="text-orange-600 text-sm font-black">{t('view_all') || 'View All'}</button>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
-          {products.map((product, idx) => (
+          {filteredProducts.map((product, idx) => (
             <motion.div
               key={product.id}
               initial={{ opacity: 0, y: 30 }}
@@ -499,6 +460,87 @@ export default function CustomerDashboard() {
           {products.length === 0 && (
             <div className="min-w-full py-8 text-center bg-neutral-50 rounded-3xl border border-dashed border-neutral-200 col-span-full">
               <p className="text-neutral-400 text-xs italic">{t('no_products_found') || 'Hakuna bidhaa maarufu kwa sasa.'}</p>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* 5. Migahawa Maarufu (Restaurants) - Vertical List for prominence */}
+      <section>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="font-black text-xl text-neutral-900 tracking-tight">{t('popular_restaurants') || 'Migahawa Maarufu'}</h3>
+          <button className="text-orange-600 text-sm font-black">{t('view_all') || 'View All'}</button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredVendors
+            .map(vendor => {
+              const distance = vendor.location 
+                ? calculateDistance(location.lat, location.lng, vendor.location.lat, vendor.location.lng)
+                : 9999;
+              return { ...vendor, distance };
+            })
+            .sort((a, b) => a.distance - b.distance)
+            .map((vendor, idx) => (
+            <motion.div
+              key={vendor.id}
+              initial={{ opacity: 0, scale: 0.95 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.1 * idx }}
+            >
+              <Link to={`/vendor/${vendor.id}`}>
+                <Card className="overflow-hidden rounded-[2.5rem] border-neutral-50 shadow-xl shadow-neutral-900/5 hover:shadow-orange-900/10 transition-all group border-2 hover:border-orange-500/20">
+                  <div className="flex p-5 gap-5">
+                    <div className="w-32 h-32 rounded-3xl overflow-hidden relative shrink-0 shadow-inner">
+                      <img 
+                        src={vendor.logoUrl || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=400&q=80'} 
+                        alt={vendor.businessName} 
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="absolute top-2 right-2 bg-white/95 backdrop-blur-md px-2 py-1 rounded-xl flex items-center gap-1 shadow-sm">
+                        <Star className="w-3 h-3 text-orange-500 fill-current" />
+                        <span className="text-[10px] font-black">{vendor.rating || '4.5'}</span>
+                      </div>
+                    </div>
+                    <div className="flex-1 flex flex-col justify-between py-1">
+                      <div>
+                        <h4 className="font-black text-lg text-neutral-900 group-hover:text-orange-600 transition-colors leading-tight">{vendor.businessName}</h4>
+                        <p className="text-xs text-neutral-400 mt-1 line-clamp-2 font-medium">{vendor.description || 'Bidhaa Bora na Huduma Haraka'}</p>
+                      </div>
+                      <div className="flex items-center justify-between mt-3">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="text-[9px] bg-orange-50 text-orange-600 border-none px-2.5 py-1 font-black uppercase tracking-tighter">
+                            {vendor.category}
+                          </Badge>
+                          <span className="text-[10px] text-neutral-400 font-bold uppercase tracking-tighter">
+                            {vendor.distance < 0.5 
+                              ? t('very_close') 
+                              : vendor.distance < 1.5 
+                              ? t('close') 
+                              : vendor.distance < 4 
+                              ? t('far_bit') 
+                              : vendor.distance < 8 
+                              ? t('far') 
+                              : t('extremely_far')}
+                          </span>
+                        </div>
+                        <motion.button 
+                          whileTap={{ scale: 0.9 }}
+                          className="bg-neutral-900 text-white text-[10px] font-black px-5 py-2 rounded-full hover:bg-orange-600 transition-colors uppercase tracking-widest"
+                        >
+                          {t('order') || 'Agiza'}
+                        </motion.button>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </Link>
+            </motion.div>
+          ))}
+          {vendors.length === 0 && (
+            <div className="py-12 text-center bg-neutral-50 rounded-3xl border border-dashed border-neutral-200 col-span-full">
+              <p className="text-neutral-400 text-sm italic">{t('no_restaurants_found') || 'Hakuna migahawa iliyopatikana karibu nawe.'}</p>
             </div>
           )}
         </div>
