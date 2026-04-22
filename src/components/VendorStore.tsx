@@ -14,6 +14,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { useCart } from '../CartContext';
+import { useLanguage } from '../LanguageContext';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 interface ReviewReply {
@@ -44,6 +45,7 @@ export default function VendorStore() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { addItem } = useCart();
+  const { t } = useLanguage();
   const [searchParams] = useSearchParams();
   const tableNumber = searchParams.get('table');
   const [vendor, setVendor] = useState<VendorProfile | null>(null);
@@ -260,109 +262,100 @@ export default function VendorStore() {
   return (
     <div className="min-h-screen bg-neutral-50 pb-20">
       {/* Header Image */}
-      <div className="h-64 md:h-80 w-full relative overflow-hidden">
+      <div className="h-56 md:h-80 w-full relative overflow-hidden bg-neutral-200">
         <img 
-          src={vendor.logoUrl || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80'} 
+          src={vendor.bannerUrl || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80'} 
           alt={vendor.businessName}
           className="w-full h-full object-cover"
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80';
+          }}
           referrerPolicy="no-referrer"
         />
-        <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
         <button 
           onClick={() => navigate(-1)}
-          className="absolute top-6 left-6 w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-white/40 transition-all z-30"
+          className="absolute top-4 left-4 w-9 h-9 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-white/40 transition-all z-30"
         >
-          <ChevronLeft className="w-6 h-6" />
+          <ChevronLeft className="w-5 h-5" />
         </button>
       </div>
 
-      {/* Vendor Profile Card */}
-      <div className="max-w-5xl mx-auto px-4 -mt-20 relative z-10">
-        <Card className="bg-white border-none shadow-xl rounded-[2.5rem] overflow-hidden">
-          <CardContent className="p-8">
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-              <div className="flex flex-col md:flex-row gap-6 items-center md:items-end">
-                <div className="w-32 h-32 rounded-[2rem] border-4 border-white shadow-lg overflow-hidden bg-white shrink-0">
+      {/* Vendor Profile Section */}
+      <div className="max-w-5xl mx-auto px-3 sm:px-6 -mt-12 relative z-10">
+        <Card className="bg-white dark:bg-neutral-900 border-none shadow-2xl shadow-neutral-900/10 rounded-[2rem] overflow-hidden">
+          <CardContent className="p-5 md:p-8">
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+              <div className="flex flex-col md:flex-row gap-5 items-center md:items-start text-center md:text-left">
+                <div className="w-24 h-24 md:w-32 md:h-32 rounded-3xl border-4 border-white dark:border-neutral-800 shadow-xl overflow-hidden bg-white shrink-0 -mt-12 md:-mt-16">
                   <img 
-                    src={vendor.logoUrl || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=400&q=80'} 
+                    src={vendor.logoUrl || `https://api.dicebear.com/7.x/identicon/svg?seed=${vendor.businessName}`} 
                     alt={vendor.businessName}
                     className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/identicon/svg?seed=${vendor.businessName}`;
+                    }}
                     referrerPolicy="no-referrer"
                   />
                 </div>
-                <div className="text-center md:text-left space-y-2">
-                  <div className="flex items-center justify-center md:justify-start gap-3">
-                    <h1 className="text-3xl font-black text-neutral-900">{vendor.businessName}</h1>
-                    <Badge className="bg-orange-100 text-orange-600 border-none px-3 py-1 text-xs font-bold uppercase">
+                <div className="space-y-3 flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 pt-1">
+                    <h1 className="text-2xl md:text-3xl font-black text-neutral-900 dark:text-white tracking-tight">{vendor.businessName}</h1>
+                    <Badge variant="secondary" className="bg-orange-100 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400 border-none px-2 py-0.5 text-[10px] uppercase font-black">
                       {vendor.category}
                     </Badge>
-                    {(tableNumber || tableSession) && (
-                      <Badge className="bg-green-600 text-white border-none px-3 py-1 text-xs font-black uppercase flex items-center gap-1.5">
-                        <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                        Table {tableNumber || tableSession.tableId}
-                        {tableSession && (
-                          <button 
-                            onClick={(e) => {
-                              e.preventDefault();
-                              localStorage.removeItem('papo_hapo_table_session');
-                              setTableSession(null);
-                            }}
-                            className="ml-1 hover:text-red-200 transition-colors"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        )}
-                      </Badge>
-                    )}
                   </div>
-                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-sm text-neutral-500 font-medium">
-                    <div className="flex items-center gap-1.5">
-                      <Star className="w-4 h-4 text-orange-500 fill-current" />
-                      <span className="text-neutral-900 font-bold">{vendor.rating || '4.5'}</span>
-                      <span>({reviews.length} reviews)</span>
+                  
+                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 text-[11px] md:text-xs text-neutral-500 font-bold uppercase tracking-wider">
+                    <div className="flex items-center gap-1">
+                      <Star className="w-3.5 h-3.5 text-orange-500 fill-current" />
+                      <span className="text-neutral-900 dark:text-white">{vendor.rating || '4.5'}</span>
+                      <span className="text-neutral-400">({reviews.length})</span>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <MapPin className="w-4 h-4 text-orange-600" />
-                      <span>{vendor.address}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Clock className="w-4 h-4 text-green-600" />
-                      <span>{vendor.operatingHours || '08:00 - 22:00'}</span>
+                    <div className="w-1 h-1 rounded-full bg-neutral-300" />
+                    <div className="flex items-center gap-1">
+                      <MapPin className="w-3.5 h-3.5 text-orange-600" />
+                      <span className="truncate">{vendor.address}</span>
                     </div>
                   </div>
+
+                  <p className="text-xs md:text-sm text-neutral-500 line-clamp-2 md:line-clamp-none max-w-xl mx-auto md:mx-0">
+                    {vendor.description || 'Sisi ni wataalamu wa kutoa huduma bora na bidhaa za hali ya juu kwa wateja wetu. Karibu ujionee tofauti.'}
+                  </p>
                 </div>
               </div>
-              <div className="flex gap-3">
-                <Button variant="outline" className="rounded-2xl h-12 px-6 border-neutral-200 font-bold gap-2">
-                  <Share2 className="w-4 h-4" /> Share
+
+              <div className="flex gap-2 w-full md:w-auto">
+                <Button variant="outline" className="flex-1 md:flex-none rounded-xl h-11 border-neutral-200 dark:border-neutral-800 font-black text-[10px] uppercase tracking-widest gap-2">
+                  <Share2 className="w-3.5 h-3.5" /> {t('share') || 'Share'}
                 </Button>
-                <Link to={`/chat?to=${id}`}>
-                  <Button className="bg-orange-600 hover:bg-orange-700 rounded-2xl h-12 px-8 font-bold gap-2 shadow-lg shadow-orange-200">
-                    <MessageSquare className="w-4 h-4" /> Chat
+                <Link to={`/chat?to=${id}`} className="flex-1 md:flex-none">
+                  <Button className="w-full bg-orange-600 hover:bg-orange-700 text-white rounded-xl h-11 px-6 font-black text-[10px] uppercase tracking-widest gap-2 shadow-lg shadow-orange-600/20">
+                    <MessageSquare className="w-3.5 h-3.5" /> {t('chat') || 'Chat'}
                   </Button>
                 </Link>
               </div>
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-8 border-b border-neutral-100 mt-12">
+            <div className="flex gap-6 md:gap-8 border-b border-neutral-100 dark:border-neutral-800 mt-8 md:mt-12 overflow-x-auto no-scrollbar">
               {[
-                { id: 'products', label: 'Bidhaa', icon: ShoppingBag },
-                { id: 'reviews', label: 'Maoni', icon: Star },
-                { id: 'info', label: 'Kuhusu', icon: Info },
+                { id: 'products', label: t('products') || 'Bidhaa', icon: ShoppingBag },
+                { id: 'reviews', label: t('reviews') || 'Maoni', icon: Star },
+                { id: 'info', label: t('info') || 'Kuhusu', icon: Info },
               ].map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`pb-4 text-sm font-bold flex items-center gap-2 transition-all relative ${
+                  className={`pb-4 text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all relative shrink-0 ${
                     activeTab === tab.id ? 'text-orange-600' : 'text-neutral-400 hover:text-neutral-600'
                   }`}
                 >
-                  <tab.icon className="w-4 h-4" />
+                  <tab.icon className="w-3.5 h-3.5" />
                   {tab.label}
                   {activeTab === tab.id && (
                     <motion.div 
-                      layoutId="activeTab"
+                      layoutId="activeTabVendor"
                       className="absolute bottom-0 left-0 right-0 h-1 bg-orange-600 rounded-full" 
                     />
                   )}
@@ -379,7 +372,7 @@ export default function VendorStore() {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6"
+                    className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-6"
                   >
                     {products.map((product, idx) => (
                       <motion.div
@@ -392,12 +385,15 @@ export default function VendorStore() {
                           to={`/product/${product.id}`}
                           className="group"
                         >
-                          <Card className="overflow-hidden rounded-[2.5rem] border-neutral-50 shadow-xl shadow-neutral-900/5 hover:shadow-orange-900/10 transition-all h-full group/card border-2 hover:border-orange-500/10">
+                          <Card className="overflow-hidden rounded-[2rem] md:rounded-[2.5rem] border-neutral-50 shadow-lg shadow-neutral-900/5 hover:shadow-orange-900/10 transition-all h-full group/card border-2 hover:border-orange-500/10">
                             <div className="aspect-square relative overflow-hidden bg-neutral-100">
                               <img 
                                 src={product.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80'} 
                                 alt={product.name} 
                                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80';
+                                }}
                                 referrerPolicy="no-referrer"
                               />
                               <motion.button 
@@ -408,19 +404,19 @@ export default function VendorStore() {
                                   e.stopPropagation();
                                   addItem(product);
                                 }}
-                                className="absolute bottom-4 right-4 w-12 h-12 bg-white rounded-2xl shadow-2xl flex items-center justify-center text-orange-600 hover:bg-orange-600 hover:text-white transition-all transform overflow-hidden group/btn"
+                                className="absolute bottom-3 right-3 md:bottom-4 md:right-4 w-10 h-10 md:w-12 md:h-12 bg-white rounded-xl md:rounded-2xl shadow-xl flex items-center justify-center text-orange-600 hover:bg-orange-600 hover:text-white transition-all transform overflow-hidden group/btn"
                               >
                                 <div className="absolute inset-0 bg-orange-600 -translate-x-full group-hover/btn:translate-x-0 transition-transform" />
-                                <ShoppingBasket className="w-6 h-6 relative z-10" />
+                                <ShoppingBasket className="w-5 h-5 md:w-6 md:h-6 relative z-10" />
                               </motion.button>
                             </div>
-                            <CardContent className="p-5">
-                              <h4 className="font-black text-sm text-neutral-900 truncate group-hover/card:text-orange-600 transition-colors uppercase tracking-tight">{product.name}</h4>
-                              <div className="flex items-center justify-between mt-2">
-                                <p className="text-xs text-orange-600 font-black">
+                            <CardContent className="p-3 md:p-5">
+                              <h4 className="font-black text-xs md:text-sm text-neutral-900 truncate group-hover/card:text-orange-600 transition-colors uppercase tracking-tight">{product.name}</h4>
+                              <div className="flex items-center justify-between mt-1 md:mt-2">
+                                <p className="text-[10px] md:text-xs text-orange-600 font-black">
                                   TZS {product.price.toLocaleString()}
                                 </p>
-                                <span className="text-[10px] text-neutral-400 font-bold">Qty: 1</span>
+                                <span className="text-[9px] md:text-[10px] text-neutral-400 font-bold uppercase tracking-tighter">Qty: 1</span>
                               </div>
                             </CardContent>
                           </Card>
