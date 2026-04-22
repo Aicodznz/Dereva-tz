@@ -548,56 +548,44 @@ export default function ProductDetail() {
   };
 
   return (
-    <div className="min-h-screen bg-white lg:bg-neutral-50 pb-80 lg:pb-32">
+    <div className="min-h-screen bg-white lg:bg-neutral-50 pb-60 lg:pb-32">
       <div className="max-w-7xl mx-auto lg:px-8 lg:pt-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
           {/* 1. Image Gallery */}
-          <div className="space-y-4">
-            <div className="relative h-[300px] md:h-[450px] lg:h-[600px] w-full bg-neutral-100 lg:rounded-[40px] overflow-hidden shadow-sm lg:shadow-xl group">
+          <div className="space-y-6">
+            <div className="relative aspect-[4/5] md:aspect-square lg:h-[650px] w-full bg-neutral-100 lg:rounded-[48px] overflow-hidden shadow-2xl shadow-neutral-200/50 group">
               <AnimatePresence mode="wait">
                 <motion.img 
                   key={activeImageIndex}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
+                  initial={{ opacity: 0, scale: 1.05 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
                   src={(product.imageUrls?.[activeImageIndex] || product.imageUrl) || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80'} 
                   alt={product.name}
                   className="w-full h-full object-cover"
                   referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    const img = e.target as HTMLImageElement;
+                    img.src = 'https://images.unsplash.com/photo-1532634922-8fe0b757fb13?auto=format&fit=crop&w=800&q=80';
+                  }}
                 />
               </AnimatePresence>
               
               <button 
                 onClick={() => navigate(-1)}
-                className="absolute top-6 left-6 w-10 h-10 bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-black/60 transition-all z-30"
+                className="absolute top-6 left-6 w-12 h-12 bg-white/10 backdrop-blur-2xl rounded-2xl flex items-center justify-center text-white border border-white/20 hover:bg-white/20 transition-all z-30 shadow-xl"
               >
                 <ChevronLeft className="w-6 h-6" />
               </button>
 
-              {product.imageUrls && product.imageUrls.length > 1 && (
-                <>
-                  <button 
-                    onClick={() => setActiveImageIndex(prev => (prev === 0 ? product.imageUrls!.length - 1 : prev - 1))}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity z-20"
-                  >
-                    <ChevronLeft className="w-6 h-6" />
-                  </button>
-                  <button 
-                    onClick={() => setActiveImageIndex(prev => (prev === product.imageUrls!.length - 1 ? 0 : prev + 1))}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity z-20"
-                  >
-                    <ChevronRight className="w-6 h-6" />
-                  </button>
-                </>
-              )}
-
-              <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-2 z-20">
+              <div className="absolute bottom-8 left-0 right-0 flex justify-center gap-2 z-20">
                 {(product.imageUrls || [product.imageUrl]).map((_, idx) => (
                   <button 
                     key={`gallery-dot-${idx}`}
                     onClick={() => setActiveImageIndex(idx)}
-                    className={`h-1.5 rounded-full transition-all ${
-                      activeImageIndex === idx ? 'w-8 bg-white' : 'w-1.5 bg-white/50'
+                    className={`h-2 rounded-full transition-all duration-500 ${
+                      activeImageIndex === idx ? 'w-10 bg-white shadow-[0_0_15px_rgba(255,255,255,0.5)]' : 'w-2 bg-white/40'
                     }`}
                   />
                 ))}
@@ -622,50 +610,58 @@ export default function ProductDetail() {
             )}
           </div>
 
-          <div className="px-4 lg:px-0 space-y-6 lg:space-y-8">
+          <div className="px-4 lg:px-0 space-y-8 lg:space-y-10">
             {/* 2. Core Info */}
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div className="flex justify-between items-start gap-4">
-                <div className="space-y-1 flex-1">
-                  <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-neutral-900 leading-tight">
+                <div className="space-y-2 flex-1">
+                  <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] mb-2">
+                    {product.category || 'Premium'}
+                  </Badge>
+                  <h1 className="text-3xl md:text-4xl lg:text-5xl font-black text-neutral-900 leading-tight font-display tracking-tight">
                     {product.name}
                   </h1>
-                  <Link to={`/vendor/${vendor?.id}`} className="block text-sm md:text-base text-neutral-500 hover:text-orange-600 transition-colors underline decoration-neutral-200 underline-offset-4">
-                    by {vendor?.businessName || 'Papo Hapo Store'}
+                  <Link to={`/vendor/${vendor?.id}`} className="group inline-flex items-center gap-2 text-sm md:text-base text-neutral-400 font-bold hover:text-orange-600 transition-all">
+                    <span>by</span>
+                    <span className="text-neutral-900 group-hover:text-orange-600 transition-colors underline decoration-neutral-200 underline-offset-4">{vendor?.businessName || 'Papo Hapo Store'}</span>
+                    <ChevronRight className="w-4 h-4" />
                   </Link>
                 </div>
-                <div className="text-right shrink-0">
-                  <p className="text-xl md:text-2xl lg:text-3xl font-black text-orange-600">
+                <div className="text-right shrink-0 pt-2">
+                  <p className="text-2xl md:text-3xl lg:text-4xl font-black text-orange-600 font-display italic">
                     TZS {product.price.toLocaleString()}
                   </p>
-                  <Badge variant="secondary" className="mt-1 bg-orange-100 text-orange-700 border-none px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
-                    {product.category}
-                  </Badge>
                 </div>
               </div>
 
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-1.5 bg-orange-50 px-3 py-1.5 rounded-full">
-                  <Star className="w-4 h-4 text-orange-500 fill-current" />
-                  <span className="text-sm font-bold text-orange-700">4.8</span>
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2 bg-neutral-900 px-4 py-2 rounded-2xl shadow-xl shadow-neutral-900/10">
+                  <Star className="w-4 h-4 text-orange-400 fill-current" />
+                  <span className="text-sm font-black text-white">4.8</span>
                 </div>
-                <span className="text-xs text-neutral-400 font-medium">(215 reviews)</span>
+                <div className="flex items-center gap-2 text-neutral-500">
+                  <Users className="w-4 h-4" />
+                  <span className="text-xs font-bold font-mono tracking-tighter">215+ reviews</span>
+                </div>
               </div>
             </div>
 
             {/* 3. Description */}
-            <div className="bg-white p-6 lg:p-8 rounded-[24px] lg:rounded-[32px] border border-neutral-100 shadow-sm space-y-4">
-              <h3 className="font-bold text-lg lg:text-xl">Maelezo</h3>
-              <div className="relative">
-                <p className={`text-neutral-600 leading-relaxed text-sm lg:text-base ${!isDescExpanded && 'line-clamp-3 lg:line-clamp-4'}`}>
+            <div className="bg-neutral-50 p-6 lg:p-10 rounded-[32px] border border-neutral-100/50 space-y-6 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                <Info className="w-24 h-24 rotate-12" />
+              </div>
+              <h3 className="font-black text-xs uppercase tracking-[0.2em] text-neutral-400">Maelezo ya Bidhaa</h3>
+              <div className="relative z-10">
+                <p className={`text-neutral-600 leading-relaxed text-base lg:text-lg font-medium ${!isDescExpanded && 'line-clamp-3 lg:line-clamp-4'}`}>
                   {product.description || 'Hii ni bidhaa bora kabisa inayopatikana Papo Hapo. Imetengenezwa kwa weledi na ubora wa hali ya juu ili kukidhi mahitaji yako ya kila siku.'}
                 </p>
                 <button 
                   onClick={() => setIsDescExpanded(!isDescExpanded)}
-                  className="mt-3 text-orange-600 text-xs lg:text-sm font-bold flex items-center gap-1 hover:underline"
+                  className="mt-4 text-orange-600 text-sm font-black uppercase tracking-widest flex items-center gap-2 hover:gap-3 transition-all"
                 >
-                  {isDescExpanded ? 'Read Less' : 'Read More'}
-                  {isDescExpanded ? <ChevronUp className="w-3 h-3 lg:w-4 lg:h-4" /> : <ChevronDown className="w-3 h-3 lg:w-4 lg:h-4" />}
+                  {isDescExpanded ? 'Funga' : 'Soma Zaidi'}
+                  {isDescExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 </button>
               </div>
             </div>
@@ -956,35 +952,41 @@ export default function ProductDetail() {
         )}
       </AnimatePresence>
 
-      {/* 6. Action Bar - Positioned above mobile nav */}
-      <div className="fixed bottom-[88px] md:bottom-0 left-0 right-0 p-4 md:p-8 bg-white/80 backdrop-blur-xl border-t border-neutral-100 z-[999] shadow-[0_-20px_50px_rgba(0,0,0,0.08)]">
-        <div className="max-w-7xl mx-auto flex gap-4 md:gap-8 items-center">
-          <div className="flex items-center bg-neutral-100 rounded-[2rem] p-1.5 md:p-2 shrink-0 border border-neutral-200">
-            <button 
+      {/* 6. Action Bar - Positioned above mobile nav with modern floating card */}
+      <div className="fixed bottom-[115px] md:bottom-12 left-0 right-0 px-4 md:px-0 z-[999]">
+        <motion.div 
+          initial={{ y: 50, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          className="max-w-3xl mx-auto bg-white/80 dark:bg-neutral-900/80 backdrop-blur-3xl border border-white/20 dark:border-neutral-800 p-4 md:p-6 rounded-[2.5rem] shadow-[0_40px_80px_rgba(0,0,0,0.15)] flex gap-4 md:gap-8 items-center"
+        >
+          <div className="flex items-center bg-neutral-100/50 dark:bg-black/20 rounded-[1.75rem] p-1.5 shrink-0 border border-neutral-200/50 dark:border-neutral-800">
+            <motion.button 
+              whileTap={{ scale: 0.8 }}
               onClick={() => setQuantity(Math.max(1, quantity - 1))}
-              className="w-12 h-12 md:w-14 md:h-14 flex items-center justify-center text-neutral-400 hover:text-orange-600 hover:bg-white rounded-2xl transition-all shadow-sm active:scale-90"
+              className="w-12 h-12 md:w-16 md:h-16 flex items-center justify-center text-neutral-400 hover:text-orange-600 hover:bg-white dark:hover:bg-neutral-800 rounded-2xl transition-all shadow-sm"
             >
               <Minus className="w-5 h-5" />
-            </button>
-            <span className="w-10 md:w-14 text-center font-black text-xl md:text-2xl text-neutral-900 italic tracking-tighter">{quantity}</span>
-            <button 
+            </motion.button>
+            <span className="w-12 md:w-18 text-center font-black text-2xl md:text-3xl text-neutral-900 dark:text-white tabular-nums italic tracking-tighter font-display">{quantity}</span>
+            <motion.button 
+              whileTap={{ scale: 0.8 }}
               onClick={() => setQuantity(quantity + 1)}
-              className="w-12 h-12 md:w-14 md:h-14 flex items-center justify-center text-neutral-400 hover:text-orange-600 hover:bg-white rounded-2xl transition-all shadow-sm active:scale-90"
+              className="w-12 h-12 md:w-16 md:h-16 flex items-center justify-center text-neutral-400 hover:text-orange-600 hover:bg-white dark:hover:bg-neutral-800 rounded-2xl transition-all shadow-sm"
             >
               <Plus className="w-5 h-5" />
-            </button>
+            </motion.button>
           </div>
           
           <Button 
             onClick={handleBuyNow}
-            className="flex-1 h-14 md:h-18 bg-orange-600 hover:bg-neutral-900 text-white rounded-[2rem] font-black text-base md:text-xl shadow-2xl shadow-orange-600/30 gap-3 md:gap-4 transition-all transform active:scale-[0.96] uppercase italic tracking-tighter"
+            className="flex-1 h-14 md:h-20 bg-gradient-to-br from-orange-500 via-orange-600 to-orange-700 hover:scale-[1.02] active:scale-[0.98] text-white rounded-[1.75rem] font-black text-lg md:text-2xl shadow-[0_20px_50px_rgba(234,88,12,0.4)] gap-4 transition-all duration-300 uppercase italic tracking-tighter font-display"
           >
-            <Smartphone className="w-5 h-5 md:w-8 md:h-8" />
+            <Smartphone className="w-6 h-6 md:w-8 md:h-8" />
             <span className="truncate">
                Agiza Sasa
             </span>
           </Button>
-        </div>
+        </motion.div>
       </div>
 
       {/* Checkout Modal */}

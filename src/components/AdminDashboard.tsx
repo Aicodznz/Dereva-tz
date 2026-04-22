@@ -12,7 +12,7 @@ import {
   Bell, Plus, Trash2, Send, LayoutDashboard, Megaphone,
   Users, ShoppingBag, DollarSign, MessageCircle, AlertTriangle,
   ExternalLink, Search, Ban, History, BarChart3, Settings, Info, CreditCard,
-  Package, Undo2, Bike, Trophy, Wallet, MessageSquare, Globe, Clock, Coins
+  Package, Undo2, Bike, Trophy, Wallet, MessageSquare, Globe, Clock, Coins, Loader2
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -119,7 +119,74 @@ export default function AdminDashboard() {
     productId: null
   });
   const [newBanner, setNewBanner] = useState<Banner>({ title: '', sub: '', img: '', active: true });
-  
+  const [isSeeding, setIsSeeding] = useState(false);
+
+  const seedDemoStores = async () => {
+    setIsSeeding(true);
+    try {
+      const demoVendors = [
+        {
+          businessName: "Lulu Grocery & Store",
+          category: "grocery",
+          description: "Fresh vegetables and daily essentials.",
+          location: { lat: -6.7924, lng: 39.2083 },
+          status: "active",
+          rating: 4.9,
+          logoUrl: "https://picsum.photos/seed/grocery/200",
+          bannerUrl: "https://picsum.photos/seed/store/800/400",
+          address: "Mlimani City Area, DSM",
+          deliveryRadius: 10,
+          tin: "123-456-789",
+          ownerUid: "admin",
+          operatingHours: "08:00 - 22:00",
+          createdAt: serverTimestamp()
+        },
+        {
+          businessName: "Papo Hapo Pizza",
+          category: "food",
+          description: "Best Italian pizza in town.",
+          location: { lat: -6.8147, lng: 39.2801 },
+          status: "active",
+          rating: 4.7,
+          logoUrl: "https://picsum.photos/seed/pizza/200",
+          bannerUrl: "https://picsum.photos/seed/restaurant/800/400",
+          address: "Ohio Street, DSM",
+          deliveryRadius: 8,
+          tin: "987-654-321",
+          ownerUid: "admin",
+          operatingHours: "10:00 - 23:00",
+          createdAt: serverTimestamp()
+        },
+        {
+          businessName: "Afya Pharmacy",
+          category: "pharmacy",
+          description: "Your health, our priority.",
+          location: { lat: -6.7725, lng: 39.2312 },
+          status: "active",
+          rating: 4.8,
+          logoUrl: "https://picsum.photos/seed/health/200",
+          bannerUrl: "https://picsum.photos/seed/pharmacy/800/400",
+          address: "Mikocheni B, DSM",
+          deliveryRadius: 5,
+          tin: "456-789-123",
+          ownerUid: "admin",
+          operatingHours: "24 Hours",
+          createdAt: serverTimestamp()
+        }
+      ];
+
+      for (const v of demoVendors) {
+        await addDoc(collection(db, 'vendors'), v);
+      }
+      toast.success("3 Demo Stores created! Check the Map now.");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to seed stores.");
+    } finally {
+      setIsSeeding(false);
+    }
+  };
+
   // Notification State
   const [notifTitle, setNotifTitle] = useState('');
   const [notifBody, setNotifBody] = useState('');
@@ -962,7 +1029,16 @@ export default function AdminDashboard() {
                        </div>
                     </div>
 
-                    <div className="flex justify-end pt-4">
+                    <div className="flex justify-end pt-4 gap-4">
+                       <Button 
+                          variant="outline"
+                          onClick={seedDemoStores}
+                          disabled={isSeeding}
+                          className="h-16 px-8 rounded-2xl border-2 border-blue-100 text-blue-600 hover:bg-blue-50 font-black uppercase tracking-widest"
+                       >
+                          {isSeeding ? <Loader2 className="w-6 h-6 animate-spin mr-2" /> : <Plus className="w-6 h-6 mr-2" />}
+                          Add Demo Stores
+                       </Button>
                        <Button className="h-16 px-12 rounded-2xl bg-orange-600 hover:bg-orange-700 text-lg font-black uppercase tracking-widest shadow-2xl shadow-orange-500/20">
                           {t('admin_settings_save_information')}
                        </Button>

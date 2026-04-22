@@ -2,13 +2,15 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
+@import "@fontsource/space-grotesk";
 @import "@fontsource/noto-sans-arabic";
 @import "leaflet/dist/leaflet.css";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-    --font-heading: var(--font-sans);
+    --font-heading: 'Space Grotesk', sans-serif;
+    --font-display: 'Space Grotesk', sans-serif;
     --font-sans: 'Geist Variable', sans-serif;
     --font-arabic: 'Noto Sans Arabic', sans-serif;
     --color-sidebar-ring: var(--sidebar-ring);

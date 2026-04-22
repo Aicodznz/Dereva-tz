@@ -112,11 +112,13 @@ const chartData = [
 ];
 
 import { useLanguage } from '../LanguageContext';
+import LocationPicker from './LocationPicker';
 
 export default function VendorDashboard() {
   const { profile, user } = useAuth();
   const { t } = useLanguage();
   const [vendorProfile, setVendorProfile] = useState<VendorProfile | null>(null);
+  const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
 
   // Dynamic context based on business category
   const vendorContext = useMemo(() => {
@@ -666,7 +668,8 @@ export default function VendorDashboard() {
         phoneNumber: vendorProfile.phoneNumber || '',
         logoUrl: vendorProfile.logoUrl || '',
         bannerUrl: vendorProfile.bannerUrl || '',
-        operatingHours: vendorProfile.operatingHours || ''
+        operatingHours: vendorProfile.operatingHours || '',
+        location: vendorProfile.location || { lat: -6.7924, lng: 39.2083 }
       });
     }
   }, [vendorProfile]);
@@ -1150,7 +1153,29 @@ export default function VendorDashboard() {
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-neutral-700">Physical Address</label>
-                <Input required className="h-12 rounded-xl" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} placeholder="Full business address" />
+                <div className="flex gap-2">
+                  <Input 
+                    required 
+                    className="h-12 rounded-xl flex-1" 
+                    value={formData.address} 
+                    onChange={e => setFormData({...formData, address: e.target.value})} 
+                    placeholder="Full business address" 
+                  />
+                  <Button 
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsLocationPickerOpen(true)}
+                    className="h-12 px-4 rounded-xl border-orange-200 text-orange-600 font-bold shrink-0 gap-2"
+                  >
+                    <MapPin className="w-5 h-5" />
+                    <span className="hidden sm:inline">Chagua kwenye Ramani</span>
+                  </Button>
+                </div>
+                {(formData as any).location && (
+                  <p className="text-[10px] text-neutral-500 italic">
+                    Location set: {(formData as any).location.lat.toFixed(4)}, {(formData as any).location.lng.toFixed(4)}
+                  </p>
+                )}
               </div>
               <Button type="submit" className="w-full h-14 bg-orange-600 hover:bg-orange-700 text-lg font-bold rounded-2xl shadow-lg shadow-orange-200 transition-all hover:scale-[1.02]">
                 Submit Application
@@ -1158,6 +1183,19 @@ export default function VendorDashboard() {
             </form>
           </div>
         </motion.div>
+
+        <LocationPicker 
+          isOpen={isLocationPickerOpen}
+          onClose={() => setIsLocationPickerOpen(false)}
+          onSelect={(loc) => {
+            setFormData({
+              ...formData,
+              address: loc.address,
+              location: { lat: loc.lat, lng: loc.lng }
+            } as any);
+          }}
+          initialLocation={(formData as any).location ? { ...(formData as any).location, address: formData.address || '' } : undefined}
+        />
       </div>
     );
   }
@@ -3105,12 +3143,28 @@ export default function VendorDashboard() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div className="space-y-2">
                             <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Address / Sehemu Ilipo</label>
-                            <Input 
-                              value={updatedProfile.address}
-                              onChange={e => setUpdatedProfile({...updatedProfile, address: e.target.value})}
-                              className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl font-bold"
-                              placeholder="e.g. Kariakoo, Dar es Salaam"
-                            />
+                            <div className="flex gap-2">
+                              <Input 
+                                value={updatedProfile.address}
+                                onChange={e => setUpdatedProfile({...updatedProfile, address: e.target.value})}
+                                className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl font-bold flex-1"
+                                placeholder="e.g. Kariakoo, Dar es Salaam"
+                              />
+                              <Button 
+                                type="button"
+                                variant="outline"
+                                onClick={() => setIsLocationPickerOpen(true)}
+                                className="h-14 px-6 rounded-2xl border-neutral-800 bg-neutral-950 hover:bg-neutral-900 border-2 gap-2 text-orange-600 font-bold shrink-0"
+                              >
+                                <MapPin className="w-5 h-5 text-orange-600" />
+                                <span className="hidden sm:inline">Chagua kwenye Ramani</span>
+                              </Button>
+                            </div>
+                            {updatedProfile.location && (
+                              <p className="text-[10px] text-neutral-500 italic px-1">
+                                Coordinates: {updatedProfile.location.lat.toFixed(4)}, {updatedProfile.location.lng.toFixed(4)}
+                              </p>
+                            )}
                           </div>
                           <div className="space-y-2">
                             <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Phone / Namba ya Simu</label>
@@ -3254,6 +3308,19 @@ export default function VendorDashboard() {
                     </Card>
                   </div>
                 </form>
+
+                <LocationPicker 
+                  isOpen={isLocationPickerOpen}
+                  onClose={() => setIsLocationPickerOpen(false)}
+                  onSelect={(loc) => {
+                    setUpdatedProfile({
+                      ...updatedProfile,
+                      address: loc.address,
+                      location: { lat: loc.lat, lng: loc.lng }
+                    });
+                  }}
+                  initialLocation={updatedProfile.location ? { ...updatedProfile.location, address: updatedProfile.address || '' } : undefined}
+                />
               </motion.div>
             )}
 

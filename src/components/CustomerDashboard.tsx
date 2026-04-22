@@ -27,6 +27,7 @@ export default function CustomerDashboard() {
   const [banners, setBanners] = useState<{id: string, title: string, sub: string, img: string}[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
+  const [isMapViewOnly, setIsMapViewOnly] = useState(false);
   const [selectedVendorId, setSelectedVendorId] = useState<string | undefined>(undefined);
   const [tableSession, setTableSession] = useState<any>(null);
   const [location, setLocation] = useState(() => {
@@ -183,17 +184,19 @@ export default function CustomerDashboard() {
   }, [user]);
 
   return (
-    <div className={`pb-24 space-y-8 ${isRTL ? 'text-right' : 'text-left'}`}>
+    <div className={`pb-24 space-y-8 lg:space-y-12 ${isRTL ? 'text-right' : 'text-left'}`}>
       <LocationPicker 
         isOpen={isLocationPickerOpen}
         onClose={() => {
           setIsLocationPickerOpen(false);
+          setIsMapViewOnly(false);
           setSelectedVendorId(undefined);
         }}
         onSelect={handleLocationSelect}
         initialLocation={location}
         vendors={vendors}
         preSelectedVendorId={selectedVendorId}
+        isMapViewOnly={isMapViewOnly}
       />
 
       {tableSession && (
@@ -227,32 +230,33 @@ export default function CustomerDashboard() {
       )}
 
       {/* 1. Promotional Carousel (Banners) */}
-      <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar snap-x py-2">
+      <div className="flex gap-6 overflow-x-auto pb-4 no-scrollbar snap-x py-2 px-1">
         {banners.map((banner, idx) => banner.img && (
           <motion.div 
             key={banner.id} 
             initial={{ opacity: 0, scale: 0.9, x: 50 }}
             animate={{ opacity: 1, scale: 1, x: 0 }}
-            transition={{ delay: 0.1 * idx }}
-            whileHover={{ y: -5 }}
-            className="min-w-[85%] md:min-w-[45%] lg:min-w-[35%] h-52 md:h-64 rounded-[2.5rem] overflow-hidden relative snap-center shadow-2xl shadow-orange-900/10 group cursor-pointer"
+            transition={{ delay: 0.1 * idx, ease: [0.22, 1, 0.36, 1] }}
+            whileHover={{ y: -8 }}
+            className="min-w-[88%] md:min-w-[45%] lg:min-w-[35%] h-56 md:h-72 rounded-[3rem] overflow-hidden relative snap-center shadow-2xl shadow-neutral-900/10 group cursor-pointer border border-white/20"
           >
-            <img src={banner.img} alt={banner.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" referrerPolicy="no-referrer" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-8 text-white">
+            <img src={banner.img} alt={banner.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 ease-out" referrerPolicy="no-referrer" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent flex flex-col justify-end p-8 md:p-10 text-white">
               <motion.h3 
                 initial={{ y: 20, opacity: 0 }}
                 whileInView={{ y: 0, opacity: 1 }}
-                className="text-2xl font-black tracking-tight"
+                className="text-2xl md:text-3xl font-black tracking-tight font-display mb-1"
               >
                 {banner.title}
               </motion.h3>
-              <p className="text-sm opacity-80 mt-1 font-medium">{banner.sub}</p>
-              <motion.button 
-                whileTap={{ scale: 0.95 }}
-                className="mt-5 bg-orange-600 text-white text-[10px] font-black px-6 py-2.5 rounded-full w-fit uppercase tracking-widest shadow-lg shadow-orange-600/40 hover:bg-white hover:text-orange-600 transition-all"
+              <p className="text-sm opacity-80 font-medium leading-relaxed max-w-[200px]">{banner.sub}</p>
+              <motion.div 
+                whileHover={{ x: 5 }}
+                className="mt-6 flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-orange-500"
               >
-                {t('order_now') || 'Order Now'}
-              </motion.button>
+                <span>{t('order_now') || 'Order Now'}</span>
+                <ChevronRight className="w-4 h-4" />
+              </motion.div>
             </div>
           </motion.div>
         ))}
@@ -260,16 +264,21 @@ export default function CustomerDashboard() {
 
       {/* 2. Duka za Karibu (Nearby Stores) */}
       <section>
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-8 px-2">
           <div className="flex flex-col">
-            <h3 className="font-black text-xl text-neutral-900 tracking-tight">{t('nearby_stores') || 'Duka za Karibu'}</h3>
-            <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest">Essential items just far away</p>
+            <h3 className="font-black text-2xl text-neutral-900 tracking-tight font-display italic uppercase tracking-tighter">
+               {t('nearby_stores') || 'Nearby Stores'}
+            </h3>
+            <div className="flex items-center gap-2 mt-1">
+              <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+              <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-[0.1em]">Stores available around your location</p>
+            </div>
           </div>
           <button 
             onClick={() => setIsLocationPickerOpen(true)}
-            className="text-orange-600 text-sm font-black flex items-center gap-1 hover:gap-2 transition-all"
+            className="w-10 h-10 bg-neutral-100 dark:bg-neutral-800 rounded-2xl flex items-center justify-center text-neutral-900 dark:text-white hover:bg-orange-600 hover:text-white transition-all shadow-sm"
           >
-            {t('see_all') || 'Zote'} <ChevronRight className="w-4 h-4" />
+             <ChevronRight className="w-6 h-6" />
           </button>
         </div>
         <div className="flex gap-6 overflow-x-auto pb-6 no-scrollbar -mx-4 px-4">
@@ -354,48 +363,52 @@ export default function CustomerDashboard() {
       </section>
 
       {/* 3. Main Services Grid (Huduma Nyingine) */}
-      <section>
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="font-black text-xl text-neutral-900 tracking-tight">{t('other_services') || 'Huduma Nyingine'}</h3>
-          <button className="text-orange-600 text-sm font-black flex items-center gap-1 hover:gap-2 transition-all">
-            {t('see_all') || 'See All'} <ChevronRight className="w-4 h-4" />
-          </button>
+      <section className="px-2">
+        <div className="flex items-center justify-between mb-8">
+          <h3 className="font-black text-2xl text-neutral-900 tracking-tight font-display italic uppercase tracking-tighter">
+             {t('explore_services') || 'Explore Services'}
+          </h3>
         </div>
-        <div className="grid grid-cols-4 md:grid-cols-8 gap-5">
+        <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-9 gap-4 md:gap-6">
           {services.map((service, idx) => (
             <motion.div
               key={service.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.05 * idx }}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.05 * idx, type: "spring", bounce: 0.4 }}
             >
               {service.id === 'ramani' ? (
                 <button 
-                  onClick={() => setIsLocationPickerOpen(true)}
-                  className="flex flex-col items-center text-center group w-full"
+                  onClick={() => {
+                    setIsMapViewOnly(true);
+                    setIsLocationPickerOpen(true);
+                  }}
+                  className="flex flex-col items-center text-center group w-full gap-3"
                 >
                   <motion.div 
-                    whileHover={{ y: -8, scale: 1.05 }}
+                    whileHover={{ y: -10, rotate: 5 }}
                     whileTap={{ scale: 0.9 }}
-                    className={`w-16 h-16 md:w-20 md:h-20 rounded-[1.8rem] flex items-center justify-center mb-3 text-white shadow-xl shadow-neutral-900/5 group-hover:shadow-orange-600/20 transition-all ${service.color}`}
+                    className={`w-16 h-16 md:w-22 md:h-22 rounded-[1.75rem] flex items-center justify-center text-white shadow-[0_15px_35px_rgba(0,0,0,0.1)] group-hover:shadow-orange-600/30 transition-all duration-500 overflow-hidden relative ${service.color}`}
                   >
-                    <service.icon className="w-8 h-8 md:w-10 md:h-10 transition-transform group-hover:rotate-12" />
+                    <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent" />
+                    <service.icon className="w-7 h-7 md:w-9 md:h-9 relative z-10" />
                   </motion.div>
-                  <span className="font-black text-[10px] uppercase tracking-tighter text-neutral-800 truncate w-full px-1">{service.label}</span>
+                  <span className="font-black text-[9px] md:text-[10px] uppercase tracking-widest text-neutral-600 leading-tight block w-full truncate">{service.label}</span>
                 </button>
               ) : (
                 <Link 
                   to={`/service/${service.id}`}
-                  className="flex flex-col items-center text-center group"
+                  className="flex flex-col items-center text-center group gap-3"
                 >
                   <motion.div 
-                    whileHover={{ y: -8, scale: 1.05 }}
+                    whileHover={{ y: -10, rotate: -5 }}
                     whileTap={{ scale: 0.9 }}
-                    className={`w-16 h-16 md:w-20 md:h-20 rounded-[1.8rem] flex items-center justify-center mb-3 text-white shadow-xl shadow-neutral-900/5 group-hover:shadow-orange-600/20 transition-all ${service.color}`}
+                    className={`w-16 h-16 md:w-22 md:h-22 rounded-[1.75rem] flex items-center justify-center text-white shadow-[0_15px_35px_rgba(0,0,0,0.1)] group-hover:shadow-orange-600/30 transition-all duration-500 overflow-hidden relative ${service.color}`}
                   >
-                    <service.icon className="w-8 h-8 md:w-10 md:h-10 transition-transform group-hover:rotate-12" />
+                    <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent" />
+                    <service.icon className="w-7 h-7 md:w-9 md:h-9 relative z-10" />
                   </motion.div>
-                  <span className="font-black text-[10px] uppercase tracking-tighter text-neutral-800 truncate w-full px-1">{service.label}</span>
+                  <span className="font-black text-[9px] md:text-[10px] uppercase tracking-widest text-neutral-600 leading-tight block w-full truncate">{service.label}</span>
                 </Link>
               )}
             </motion.div>
