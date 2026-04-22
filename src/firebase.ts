@@ -7,7 +7,6 @@ import firebaseConfig from '../firebase-applet-config.json';
 const app = initializeApp(firebaseConfig);
 export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
-  useFetchStreams: false,
 }, firebaseConfig.firestoreDatabaseId);
 
 export const storage = getStorage(app);
@@ -73,11 +72,16 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 export async function testConnection() {
   try {
     // Attempt a cold read to verify backend reachability
+    // We use getDocFromServer to bypass local cache and force a network round-trip
     await getDocFromServer(doc(db, 'test', 'connection'));
-    console.log("Firestore connection established successfully.");
+    console.log("%cFirestore connection established successfully.", "color: green; font-weight: bold;");
   } catch (error: any) {
     if (error?.code === 'unavailable') {
-      console.warn("Firestore connection 'unavailable'. Enabling offline mode fallback.");
+      console.warn("Firestore connection 'unavailable'. The app will operate in offline mode.");
+    } else if (error?.code === 'permission-denied') {
+      // If we get a permission-denied, it actually means we SUCCESSFULLY reached the server
+      // and the server rejected us. This is a positive connectivity test!
+      console.log("%cFirestore backend reached (Access Denied). Connectivity verified.", "color: orange; font-weight: bold;");
     } else {
       console.error("Firestore connectivity check failed:", error);
     }

@@ -55,6 +55,10 @@ service cloud.firestore {
     // ENTITIES
     // ===============================================================
 
+    match /test/connection {
+      allow read: if true;
+    }
+
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId) && incoming().role in ['customer', 'vendor', 'rider', 'admin'];
