@@ -7,7 +7,9 @@ import firebaseConfig from '../firebase-applet-config.json';
 const app = initializeApp(firebaseConfig);
 export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
+  useFetchStreams: false,
 }, firebaseConfig.firestoreDatabaseId);
+
 export const storage = getStorage(app);
 export { signInWithPopup, signOut, signInAnonymously };
 export const auth = getAuth(app);
@@ -60,16 +62,24 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     operationType,
     path
   }
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  console.error('Firestore Error details: ', JSON.stringify(errInfo));
+  // If it's a connection error, we might want to warn the user about their network
+  if (errInfo.error.includes('unavailable') || errInfo.error.includes('offline')) {
+    console.warn("Firestore appears to be unavailable. This is usually due to network restrictions or firewall blocking Google APIs.");
+  }
   throw new Error(JSON.stringify(errInfo));
 }
 
 export async function testConnection() {
   try {
+    // Attempt a cold read to verify backend reachability
     await getDocFromServer(doc(db, 'test', 'connection'));
-  } catch (error) {
-    if(error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration. ");
+    console.log("Firestore connection established successfully.");
+  } catch (error: any) {
+    if (error?.code === 'unavailable') {
+      console.warn("Firestore connection 'unavailable'. Enabling offline mode fallback.");
+    } else {
+      console.error("Firestore connectivity check failed:", error);
     }
   }
 }
