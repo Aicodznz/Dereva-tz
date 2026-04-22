@@ -80,6 +80,9 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
       })) as Order[];
       setOrders(ordersData);
       setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'orders/my');
+      setLoading(false);
     });
 
     return () => unsubscribe();

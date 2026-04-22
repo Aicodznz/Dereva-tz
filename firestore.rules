@@ -87,7 +87,8 @@ service cloud.firestore {
         isAdmin() || 
         resource.data.customerId == request.auth.uid || 
         resource.data.vendorOwnerUid == request.auth.uid ||
-        resource.data.riderId == request.auth.uid
+        resource.data.riderId == request.auth.uid ||
+        resource.data.status == 'ready_for_pickup'
       );
       
       // PILLAR 1 & 3: SINGLE GET

@@ -616,6 +616,8 @@ export default function VendorDashboard() {
     
     const unsubOrders = onSnapshot(ordersQ, (snap) => {
       setOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'orders');
     });
 
     const productsQ = query(
@@ -625,6 +627,8 @@ export default function VendorDashboard() {
     
     const unsubProducts = onSnapshot(productsQ, (snap) => {
       setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Product)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'products');
     });
 
     const aislesQ = query(
@@ -635,6 +639,8 @@ export default function VendorDashboard() {
 
     const unsubSections = onSnapshot(aislesQ, (snap) => {
       setSections(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'tables');
     });
 
     return () => {

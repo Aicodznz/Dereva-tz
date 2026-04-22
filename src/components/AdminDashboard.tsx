@@ -211,28 +211,40 @@ export default function AdminDashboard() {
   useEffect(() => {
     const unsubVendors = onSnapshot(collection(db, 'vendors'), (snapshot) => {
       setVendors(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VendorProfile)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'vendors');
     });
     
     const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
       setAllUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserRecord)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'users');
     });
     
     const qOrders = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
     const unsubOrders = onSnapshot(qOrders, (snapshot) => {
       setAllOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'orders');
     });
 
     const unsubBanners = onSnapshot(collection(db, 'banners'), (snapshot) => {
       setBanners(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'banners');
     });
 
     const unsubCoupons = onSnapshot(collection(db, 'coupons'), (snapshot) => {
       setCoupons(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Coupon)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'coupons');
     });
 
     const unsubProducts = onSnapshot(query(collection(db, 'products')), (snapshot) => {
       const prods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
       setAllProducts(prods);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'products');
     });
 
     return () => {

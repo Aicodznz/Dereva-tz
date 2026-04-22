@@ -130,6 +130,8 @@ export default function VendorStore() {
       const unsub = onSnapshot(qReplies, (replySnap) => {
         const replies = replySnap.docs.map(d => ({ id: d.id, ...d.data() } as ReviewReply));
         setReviews(prev => prev.map(r => r.id === review.id ? { ...r, replies } : r));
+      }, (error) => {
+        handleFirestoreError(error, OperationType.GET, 'reviews/replies');
       });
       unsubscribes.push(unsub);
     });

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../AuthContext';
-import { db } from '../firebase';
+import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, onSnapshot, addDoc, serverTimestamp, orderBy, limit, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { useLanguage } from '../LanguageContext';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -114,6 +114,8 @@ export default function Chat({ onBack }: ChatProps) {
       });
       
       setSessions(Array.from(sessionsMap.values()));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'messages/sessions');
     });
 
     return () => unsubscribe();
@@ -149,6 +151,7 @@ export default function Chat({ onBack }: ChatProps) {
 
     const q = query(
       collection(db, 'messages'),
+      where('participants', 'array-contains', user?.uid),
       where('chatId', '==', chatId),
       orderBy('createdAt', 'asc'),
       limit(100)
@@ -156,6 +159,9 @@ export default function Chat({ onBack }: ChatProps) {
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as Message));
+      setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'messages/chat');
       setLoading(false);
     });
 

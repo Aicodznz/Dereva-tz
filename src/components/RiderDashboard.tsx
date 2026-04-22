@@ -19,6 +19,8 @@ export default function RiderDashboard() {
     const q = query(collection(db, 'orders'), where('status', '==', 'ready_for_pickup'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
+    }, (error) => {
+      console.error("Rider orders listener error:", error);
     });
     return () => unsubscribe();
   }, [user]);
