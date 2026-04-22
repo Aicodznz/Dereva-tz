@@ -192,8 +192,20 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   <motion.div
                     animate={location.pathname === '/profile' ? { scale: [1, 1.2, 1] } : {}}
                     transition={{ duration: 0.5 }}
+                    className="w-5 h-5 relative z-10"
                   >
-                    <User className={`w-5 h-5 relative z-10 transition-transform ${location.pathname === '/profile' ? 'scale-110' : 'group-hover:scale-110'}`} />
+                    {user ? (
+                      <div className={`w-full h-full rounded-lg overflow-hidden border-2 transition-all ${location.pathname === '/profile' ? 'border-orange-600 shadow-md shadow-orange-600/20' : 'border-neutral-300 group-hover:border-neutral-400'}`}>
+                        <img 
+                          src={profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid}`} 
+                          alt="Avatar" 
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                    ) : (
+                      <User className={`w-full h-full transition-transform ${location.pathname === '/profile' ? 'scale-110' : 'group-hover:scale-110'}`} />
+                    )}
                   </motion.div>
                   {location.pathname === '/profile' && (
                     <motion.div 
