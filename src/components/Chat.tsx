@@ -201,7 +201,7 @@ export default function Chat({ onBack }: ChatProps) {
       setNewMessage('');
       setReplyingTo(null);
     } catch (error) {
-      console.error("Error sending message:", error);
+      handleFirestoreError(error, OperationType.CREATE, 'messages');
     }
   };
 
@@ -228,7 +228,7 @@ export default function Chat({ onBack }: ChatProps) {
       await updateDoc(msgRef, { reactions: newReactions });
       setShowEmojiPicker(null);
     } catch (error) {
-      console.error("Error updating reaction:", error);
+      handleFirestoreError(error, OperationType.UPDATE, `messages/${messageId}/reaction`);
     }
   };
 

@@ -134,6 +134,8 @@ service cloud.firestore {
     match /messages/{messageId} {
       allow read: if isSignedIn() && request.auth.uid in resource.data.participants;
       allow create: if isSignedIn() && incoming().senderId == request.auth.uid && request.auth.uid in incoming().participants;
+      allow update: if isSignedIn() && request.auth.uid in resource.data.participants && 
+                    incoming().diff(existing()).affectedKeys().hasOnly(['reactions']);
       allow delete: if isAdmin();
     }
 
