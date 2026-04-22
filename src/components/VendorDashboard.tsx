@@ -77,7 +77,8 @@ import {
   VolumeX,
   UserCheck,
   ShieldCheck,
-  UserCog
+  UserCog,
+  MessageSquare as MessageIcon
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
@@ -99,7 +100,7 @@ import {
 } from 'recharts';
 import { format } from 'date-fns';
 
-type TabType = 'overview' | 'orders' | 'products' | 'pos' | 'inventory_stats' | 'customers' | 'coupons' | 'staff' | 'settings' | 'tables' | 'market_pulse' | 'freshness';
+type TabType = 'overview' | 'orders' | 'products' | 'pos' | 'inventory_stats' | 'customers' | 'coupons' | 'staff' | 'settings' | 'tables' | 'market_pulse' | 'freshness' | 'messages';
 
 const chartData = [
   { name: 'Mon', sales: 4000, orders: 24 },
@@ -113,6 +114,7 @@ const chartData = [
 
 import { useLanguage } from '../LanguageContext';
 import LocationPicker from './LocationPicker';
+import Chat from './Chat';
 
 export default function VendorDashboard() {
   const { profile, user } = useAuth();
@@ -466,6 +468,7 @@ export default function VendorDashboard() {
       { id: 'orders', label: vendorContext.ordersLabel, icon: vendorContext.ordersIcon, badge: orders.length > 0 ? orders.length : null },
       { id: 'products', label: vendorContext.inventoryLabel, icon: vendorContext.inventoryIcon },
       { id: 'pos', label: vendorContext.posLabel, icon: vendorContext.posIcon },
+      { id: 'messages', label: 'Messages', icon: MessageIcon },
     ];
 
     if (vendorProfile?.category === 'restaurant') {
@@ -2540,6 +2543,18 @@ export default function VendorDashboard() {
                     </div>
                   )}
                 </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'messages' && (
+              <motion.div
+                key="messages"
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                className="h-[calc(100vh-16rem)]"
+              >
+                <Chat />
               </motion.div>
             )}
 

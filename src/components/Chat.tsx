@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../AuthContext';
 import { db } from '../firebase';
-import { collection, query, where, onSnapshot, addDoc, serverTimestamp, orderBy, limit, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, serverTimestamp, orderBy, limit, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { useLanguage } from '../LanguageContext';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,15 @@ import {
   Phone,
   Video,
   MoreVertical,
-  Search
+  Search,
+  Reply as ReplyIcon,
+  Smile,
+  Heart,
+  ThumbsUp,
+  CornerUpLeft,
+  X,
+  Plus,
+  MessageSquare
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -29,37 +37,107 @@ interface Message {
   text: string;
   senderId: string;
   senderName: string;
+  senderPhoto?: string;
   participants: string[];
+  replyTo?: {
+    id: string;
+    text: string;
+    senderName: string;
+  };
+  reactions?: Record<string, string[]>; // emoji -> userIds
   createdAt: any;
 }
 
+interface ChatSession {
+  id: string;
+  participants: string[];
+  lastMessage?: string;
+  lastMessageTime?: any;
+  participantProfiles?: Record<string, { name: string; photo: string; role: string }>;
+  unreadCount?: Record<string, number>;
+}
+
 export default function Chat({ onBack }: ChatProps) {
-  const { user, profile } = useAuth();
+  const { user, profile, signInGuest } = useAuth();
   const { t } = useLanguage();
-  const [searchParams] = useSearchParams();
-  const recipientId = searchParams.get('to') || 'SUPPORT_ID';
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeRecipientId = searchParams.get('to');
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [recipientId, setRecipientId] = useState<string | null>(activeRecipientId);
   const [recipientProfile, setRecipientProfile] = useState<any>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [replyingTo, setReplyingTo] = useState<Message|null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const emojis = ['❤️', '👍', '😂', '😮', '🙏', '🔥'];
+
+  const chatId = (user && recipientId) ? [user.uid, recipientId].sort().join('_') : null;
+
+  // Handle Guest Sign In
   useEffect(() => {
-    if (!recipientId || recipientId === 'SUPPORT_ID') return;
+    if (!user && !loading) {
+      signInGuest().catch(err => console.error("Guest sign in failed", err));
+    }
+  }, [user, loading]);
+
+  // Load Sessions (For Vendors/Support)
+  useEffect(() => {
+    if (!user) return;
     
-    // Fetch recipient profile (could be a vendor or a user)
+    // We want to see all chats where current user is a participant
+    const q = query(
+      collection(db, 'messages'),
+      where('participants', 'array-contains', user.uid),
+      orderBy('createdAt', 'desc'),
+      limit(200)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const allMsgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+      
+      // Group unique sessions by chatId
+      const sessionsMap = new Map<string, ChatSession>();
+      allMsgs.forEach(m => {
+        if (!m.chatId || sessionsMap.has(m.chatId)) return;
+        
+        const otherParticipantId = m.participants.find((id: string) => id !== user.uid);
+        sessionsMap.set(m.chatId, {
+          id: m.chatId,
+          participants: m.participants,
+          lastMessage: m.text,
+          lastMessageTime: m.createdAt,
+          // We'll hydrate profiles later if needed or just use sender info from last message
+        });
+      });
+      
+      setSessions(Array.from(sessionsMap.values()));
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  useEffect(() => {
+    if (activeRecipientId) {
+      setRecipientId(activeRecipientId);
+    }
+  }, [activeRecipientId]);
+
+  useEffect(() => {
+    if (!recipientId) return;
+    
     const fetchRecipient = async () => {
-      // Try vendor first
       const vRef = doc(db, 'vendors', recipientId);
       const vSnap = await getDoc(vRef);
       if (vSnap.exists()) {
-        setRecipientProfile({ name: vSnap.data().businessName, photo: vSnap.data().logoUrl });
+        setRecipientProfile({ name: vSnap.data().businessName, photo: vSnap.data().logoUrl, role: 'vendor' });
       } else {
-        // Try user
         const uRef = doc(db, 'users', recipientId);
         const uSnap = await getDoc(uRef);
         if (uSnap.exists()) {
-          setRecipientProfile({ name: uSnap.data().displayName, photo: uSnap.data().photoURL });
+          setRecipientProfile({ name: uSnap.data().displayName, photo: uSnap.data().photoURL, role: uSnap.data().role });
         }
       }
     };
@@ -67,29 +145,22 @@ export default function Chat({ onBack }: ChatProps) {
   }, [recipientId]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !chatId) return;
 
     const q = query(
       collection(db, 'messages'),
-      where('participants', 'array-contains', user.uid),
+      where('chatId', '==', chatId),
       orderBy('createdAt', 'asc'),
       limit(100)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const msgs = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Message[];
-      
-      // Filter messages for the current conversation
-      const filteredMsgs = msgs.filter(m => m.participants.includes(recipientId));
-      setMessages(filteredMsgs);
+      setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as Message));
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, [user, recipientId]);
+  }, [user, chatId]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -99,19 +170,59 @@ export default function Chat({ onBack }: ChatProps) {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !user) return;
+    if (!newMessage.trim() || !user || !chatId || !recipientId) return;
 
     try {
-      await addDoc(collection(db, 'messages'), {
+      const msgData: any = {
+        chatId: chatId,
         text: newMessage,
         senderId: user.uid,
-        senderName: profile?.displayName || 'User',
-        participants: [user.uid, recipientId].sort(), // Sort to keep consistent conversation IDs if needed
+        senderName: profile?.displayName || (user.isAnonymous ? 'Guest' : 'User'),
+        senderPhoto: profile?.photoURL || '',
+        participants: [user.uid, recipientId].sort(),
         createdAt: serverTimestamp(),
-      });
+      };
+
+      if (replyingTo) {
+        msgData.replyTo = {
+          id: replyingTo.id,
+          text: replyingTo.text,
+          senderName: replyingTo.senderName
+        };
+      }
+
+      await addDoc(collection(db, 'messages'), msgData);
       setNewMessage('');
+      setReplyingTo(null);
     } catch (error) {
       console.error("Error sending message:", error);
+    }
+  };
+
+  const handleReaction = async (messageId: string, emoji: string) => {
+    if (!user) return;
+    const msgRef = doc(db, 'messages', messageId);
+    const msg = messages.find(m => m.id === messageId);
+    if (!msg) return;
+
+    const currentReactions = msg.reactions || {};
+    const users = currentReactions[emoji] || [];
+    
+    let newUsers;
+    if (users.includes(user.uid)) {
+      newUsers = users.filter(id => id !== user.uid);
+    } else {
+      newUsers = [...users, user.uid];
+    }
+
+    const newReactions = { ...currentReactions, [emoji]: newUsers };
+    if (newUsers.length === 0) delete newReactions[emoji];
+
+    try {
+      await updateDoc(msgRef, { reactions: newReactions });
+      setShowEmojiPicker(null);
+    } catch (error) {
+      console.error("Error updating reaction:", error);
     }
   };
 
@@ -130,8 +241,8 @@ export default function Chat({ onBack }: ChatProps) {
       )}
 
       <div className="flex-1 flex gap-6 min-h-0">
-        {/* Contacts Sidebar (Optional for Desktop) */}
-        <div className="hidden lg:flex w-80 bg-white rounded-3xl shadow-sm border border-neutral-100 flex-col overflow-hidden">
+        {/* Contacts Sidebar (Visible on Desktop / For Vendors) */}
+        <div className={`hidden lg:flex w-80 bg-white rounded-3xl shadow-sm border border-neutral-100 flex-col overflow-hidden`}>
           <div className="p-6 border-b border-neutral-100">
             <h3 className="text-xl font-black mb-4">Messages</h3>
             <div className="relative">
@@ -139,110 +250,252 @@ export default function Chat({ onBack }: ChatProps) {
               <Input placeholder="Search chats..." className="pl-10 bg-neutral-50 border-none h-11 rounded-xl" />
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-2">
-            <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-2xl border border-orange-100">
-              <div className="w-12 h-12 bg-orange-600 rounded-xl flex items-center justify-center text-white font-bold">
-                PH
-              </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="font-bold text-sm truncate">Papo Hapo Support</h4>
-                <p className="text-xs text-orange-600 font-medium truncate">Online</p>
-              </div>
-            </div>
-            {/* Mock other contacts */}
-            {[1, 2, 3].map(i => (
-              <div key={i} className="flex items-center gap-3 p-3 hover:bg-neutral-50 rounded-2xl transition-colors cursor-pointer">
-                <div className="w-12 h-12 bg-neutral-100 rounded-xl flex items-center justify-center text-neutral-400 font-bold">
-                  V{i}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-bold text-sm truncate text-neutral-800">Vendor {i}</h4>
-                  <p className="text-xs text-neutral-400 truncate">Last message...</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Chat Area */}
-        <Card className="flex-1 border-none shadow-sm rounded-3xl overflow-hidden flex flex-col">
-          <CardHeader className="bg-white border-b border-neutral-100 p-4 flex flex-row items-center justify-between shrink-0">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-orange-600 rounded-xl overflow-hidden flex items-center justify-center text-white font-bold text-sm">
-                {recipientProfile?.photo ? (
-                  <img src={recipientProfile.photo} alt={recipientProfile.name} className="w-full h-full object-cover" />
-                ) : (
-                  recipientProfile?.name?.charAt(0) || 'PH'
-                )}
-              </div>
-              <div>
-                <h4 className="font-bold text-sm">{recipientProfile?.name || 'Papo Hapo Support'}</h4>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                  <span className="text-[10px] text-neutral-500 font-medium uppercase tracking-wider">Online</span>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" className="text-neutral-400 hover:text-orange-600 rounded-xl">
-                <Phone className="w-5 h-5" />
-              </Button>
-              <Button variant="ghost" size="icon" className="text-neutral-400 hover:text-orange-600 rounded-xl">
-                <Video className="w-5 h-5" />
-              </Button>
-              <Button variant="ghost" size="icon" className="text-neutral-400 hover:text-orange-600 rounded-xl">
-                <MoreVertical className="w-5 h-5" />
-              </Button>
-            </div>
-          </CardHeader>
-
-          <CardContent className="flex-1 overflow-y-auto p-6 space-y-4 bg-neutral-50/50" ref={scrollRef}>
-            {messages.map((msg) => {
-              const isMe = msg.senderId === user?.uid;
+          <div className="flex-1 overflow-y-auto p-4 space-y-2 no-scrollbar">
+            {sessions.map(session => {
+              const otherId = session.participants.find(id => id !== user?.uid);
+              const isActive = recipientId === otherId;
               return (
-                <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[80%] p-4 rounded-2xl shadow-sm ${
-                    isMe 
-                      ? 'bg-orange-600 text-white rounded-tr-none' 
-                      : 'bg-white text-neutral-800 rounded-tl-none'
-                  }`}>
-                    <p className="text-sm leading-relaxed">{msg.text}</p>
-                    <p className={`text-[10px] mt-1.5 font-medium opacity-60 ${isMe ? 'text-right' : 'text-left'}`}>
-                      {msg.createdAt?.toDate ? msg.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'}
+                <div 
+                  key={session.id} 
+                  onClick={() => setSearchParams({ to: otherId! })}
+                  className={`flex items-center gap-3 p-3 rounded-2xl transition-all cursor-pointer group ${isActive ? 'bg-orange-50 border border-orange-100' : 'hover:bg-neutral-50 border border-transparent'}`}
+                >
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-white shadow-sm transition-all ${isActive ? 'bg-orange-600 scale-105 shadow-orange-600/20' : 'bg-neutral-200 text-neutral-400 group-hover:bg-neutral-300'}`}>
+                    {otherId?.substring(0, 2).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className={`font-bold text-sm truncate ${isActive ? 'text-orange-600' : 'text-neutral-800'}`}>{otherId === 'SUPPORT_ID' ? 'Papo Hapo Support' : `Chat with ${otherId?.substring(0, 5)}...`}</h4>
+                    <p className={`text-xs truncate ${isActive ? 'text-orange-500/80 font-medium' : 'text-neutral-400'}`}>
+                      {session.lastMessage}
                     </p>
+                  </div>
+                  <div className="text-[10px] text-neutral-300 font-medium">
+                    {session.lastMessageTime?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </div>
                 </div>
               );
             })}
-            {messages.length === 0 && !loading && (
-              <div className="h-full flex flex-col items-center justify-center text-center p-12">
-                <div className="w-20 h-20 bg-orange-50 rounded-3xl flex items-center justify-center text-orange-600 mb-4">
-                  <MessageCircle className="w-10 h-10" />
-                </div>
-                <h3 className="text-xl font-bold text-neutral-800">Start a conversation</h3>
-                <p className="text-neutral-500 text-sm mt-2 max-w-xs">Our support team is here to help you with any questions or issues.</p>
+            {sessions.length === 0 && (
+              <div className="py-20 text-center px-6">
+                <MessageCircle className="w-10 h-10 text-neutral-200 mx-auto mb-2" />
+                <p className="text-xs text-neutral-400 font-bold uppercase tracking-widest leading-relaxed">Hakuna mazungumzo bado</p>
               </div>
             )}
-          </CardContent>
-
-          <div className="p-4 bg-white border-t border-neutral-100 shrink-0">
-            <form onSubmit={handleSendMessage} className="flex gap-3">
-              <Input 
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                placeholder={t('chat_placeholder')}
-                className="flex-1 bg-neutral-50 border-none h-12 rounded-2xl focus-visible:ring-orange-600"
-              />
-              <Button 
-                type="submit" 
-                disabled={!newMessage.trim()}
-                className="w-12 h-12 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl shrink-0 p-0"
-              >
-                <Send className="w-5 h-5" />
-              </Button>
-            </form>
           </div>
-        </Card>
+        </div>
+
+        {/* Chat Area */}
+        {recipientId ? (
+          <Card className="flex-1 border-none shadow-sm rounded-3xl overflow-hidden flex flex-col relative">
+            <CardHeader className="bg-white border-b border-neutral-100 p-4 flex flex-row items-center justify-between shrink-0 z-20">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-orange-600 rounded-xl overflow-hidden flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-orange-600/10">
+                  {recipientProfile?.photo ? (
+                    <img src={recipientProfile.photo} alt={recipientProfile.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  ) : (
+                    recipientProfile?.name?.charAt(0) || '?'
+                  )}
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm">{recipientProfile?.name || 'Loading...'}</h4>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                    <span className="text-[10px] text-neutral-500 font-medium uppercase tracking-wider">Mubashara</span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="icon" className="text-neutral-400 hover:text-orange-600 rounded-xl">
+                  <Phone className="w-4 h-4" />
+                </Button>
+                <Button variant="ghost" size="icon" className="hidden sm:flex text-neutral-400 hover:text-orange-600 rounded-xl">
+                  <Video className="w-4 h-4" />
+                </Button>
+                <Button variant="ghost" size="icon" className="text-neutral-400 hover:text-orange-600 rounded-xl lg:hidden" onClick={() => setRecipientId(null)}>
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            </CardHeader>
+
+            <CardContent className="flex-1 overflow-y-auto p-6 space-y-6 bg-neutral-50/50 no-scrollbar relative" ref={scrollRef}>
+              <AnimatePresence initial={false}>
+                {messages.map((msg) => {
+                  const isMe = msg.senderId === user?.uid;
+                  return (
+                    <motion.div 
+                      key={msg.id} 
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} group`}
+                    >
+                      {/* Sender Name (Only if not me) */}
+                      {!isMe && (
+                        <span className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1.5 ml-1">{msg.senderName}</span>
+                      )}
+
+                      <div className="relative max-w-[85%] sm:max-w-[75%]">
+                        {/* Reply Indicator in Bubble */}
+                        {msg.replyTo && (
+                          <div className={`mb-1 p-2 rounded-xl text-[10px] border-l-4 ${isMe ? 'bg-orange-700/50 border-orange-300 text-orange-50' : 'bg-neutral-100 border-neutral-300 text-neutral-500'}`}>
+                            <span className="font-bold block mb-0.5 opacity-70">@{msg.replyTo.senderName}</span>
+                            <span className="line-clamp-1 italic">{msg.replyTo.text}</span>
+                          </div>
+                        )}
+
+                        <div className={`relative p-4 rounded-[2rem] shadow-sm transition-all group-hover:shadow-md ${
+                          isMe 
+                            ? 'bg-orange-600 text-white rounded-tr-none' 
+                            : 'bg-white border border-neutral-100 text-neutral-800 rounded-tl-none'
+                        }`}>
+                          <p className="text-sm leading-relaxed">{msg.text}</p>
+                          
+                          {/* Message Actions (Invisible by default, appear on hover) */}
+                          <div className={`absolute top-0 ${isMe ? 'right-full mr-2' : 'left-full ml-2'} opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 h-full`}>
+                            <button 
+                              onClick={() => setReplyingTo(msg)}
+                              className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-neutral-400 hover:text-orange-600 transition-all hover:scale-110"
+                              title="Reply"
+                            >
+                              <ReplyIcon className="w-3.5 h-3.5" />
+                            </button>
+                            <button 
+                              onClick={() => setShowEmojiPicker(showEmojiPicker === msg.id ? null : msg.id)}
+                              className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-neutral-400 hover:text-orange-600 transition-all hover:scale-110"
+                              title="React"
+                            >
+                              <Smile className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          {/* Emoji Picker Overlay */}
+                          <AnimatePresence>
+                            {showEmojiPicker === msg.id && (
+                              <motion.div 
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: 10 }}
+                                className={`absolute bottom-full mb-2 ${isMe ? 'right-0' : 'left-0'} bg-white rounded-2xl shadow-xl border border-neutral-100 p-2 flex gap-1 z-[60]`}
+                              >
+                                {emojis.map(e => (
+                                  <button 
+                                    key={e} 
+                                    onClick={() => handleReaction(msg.id, e)}
+                                    className="w-8 h-8 flex items-center justify-center hover:bg-neutral-50 rounded-xl transition-all hover:scale-120 text-lg"
+                                  >
+                                    {e}
+                                  </button>
+                                ))}
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+
+                        {/* Reactions Display */}
+                        {msg.reactions && Object.keys(msg.reactions).length > 0 && (
+                          <div className={`flex flex-wrap gap-1 mt-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                            {Object.entries(msg.reactions).map(([emoji, uids]) => (
+                              <button 
+                                key={emoji} 
+                                onClick={() => handleReaction(msg.id, emoji)}
+                                className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] border transition-all ${
+                                  uids.includes(user?.uid || '') 
+                                    ? 'bg-orange-100 border-orange-200 text-orange-600 shadow-sm' 
+                                    : 'bg-white border-neutral-100 text-neutral-400 hover:border-neutral-200'
+                                }`}
+                              >
+                                <span>{emoji}</span>
+                                <span className="font-bold">{uids.length}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        
+                        <span className={`text-[10px] mt-1.5 font-bold uppercase tracking-tighter opacity-40 block ${isMe ? 'text-right' : 'text-left'}`}>
+                          {msg.createdAt?.toDate ? msg.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Sasa hivi'}
+                        </span>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+              
+              {messages.length === 0 && !loading && (
+                <div className="h-full flex flex-col items-center justify-center text-center p-12 opacity-50">
+                  <div className="w-20 h-20 bg-orange-100 rounded-[2rem] flex items-center justify-center text-orange-600 mb-6 animate-bounce">
+                    <MessageCircle className="w-10 h-10" />
+                  </div>
+                  <h3 className="text-xl font-black text-neutral-800 uppercase tracking-tighter">Anza Mazungumzo</h3>
+                  <p className="text-neutral-500 text-xs mt-2 max-w-[200px] leading-relaxed font-bold uppercase tracking-widest">Timu yetu ipo hapa kukusaidia kwa lolote.</p>
+                </div>
+              )}
+            </CardContent>
+
+            {/* Input Area */}
+            <div className="p-4 bg-white border-t border-neutral-100 shrink-0 z-30">
+              <AnimatePresence>
+                {replyingTo && (
+                  <motion.div 
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="mb-3 bg-neutral-50 rounded-2xl p-3 flex items-center gap-3 border-l-4 border-orange-600 overflow-hidden"
+                  >
+                    <CornerUpLeft className="w-4 h-4 text-orange-600 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-black uppercase text-orange-600 tracking-widest mb-0.5">Kujibu kwa {replyingTo.senderName}</p>
+                      <p className="text-xs text-neutral-500 truncate italic">{replyingTo.text}</p>
+                    </div>
+                    <button 
+                      onClick={() => setReplyingTo(null)}
+                      className="p-1 hover:bg-neutral-200 rounded-full transition-colors"
+                    >
+                      <X className="w-4 h-4 text-neutral-400" />
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              
+              <form onSubmit={handleSendMessage} className="flex gap-3 items-end">
+                <div className="flex-1 bg-neutral-50 rounded-[1.5rem] p-2 flex items-center gap-2 border border-transparent focus-within:border-orange-200 transition-all">
+                  <button type="button" className="p-2 text-neutral-400 hover:text-orange-600 transition-colors">
+                    <Plus className="w-5 h-5" />
+                  </button>
+                  <textarea 
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage(e as any);
+                      }
+                    }}
+                    placeholder={t('chat_placeholder')}
+                    className="flex-1 bg-transparent border-none focus:ring-0 text-sm py-2 px-1 max-h-32 min-h-[44px] resize-none no-scrollbar font-medium"
+                    rows={1}
+                  />
+                  <button type="button" className="p-2 text-neutral-400 hover:text-orange-600 transition-colors">
+                    <Smile className="w-5 h-5" />
+                  </button>
+                </div>
+                <Button 
+                  type="submit" 
+                  disabled={!newMessage.trim()}
+                  className="w-12 h-12 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl shrink-0 p-0 shadow-lg shadow-orange-600/20 active:scale-90 transition-all"
+                >
+                  <Send className="w-5 h-5" />
+                </Button>
+              </form>
+            </div>
+          </Card>
+        ) : (
+          <div className="flex-1 bg-neutral-50/50 rounded-3xl flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-neutral-200">
+            <div className="w-24 h-24 bg-white rounded-[2.5rem] shadow-xl flex items-center justify-center text-orange-600 mb-6">
+              <MessageSquare className="w-12 h-12" />
+            </div>
+            <h3 className="text-2xl font-black text-neutral-900 tracking-tight">Karibu Kwenye Chat</h3>
+            <p className="text-neutral-500 text-sm mt-3 max-w-sm font-medium uppercase tracking-widest leading-relaxed">Chagua mazungumzo upande wa kushoto au anza mapya kutoka kwa duka lolote.</p>
+          </div>
+        )}
       </div>
     </div>
   );

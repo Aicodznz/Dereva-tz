@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, User, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
-import { auth, db, googleProvider, signInWithPopup, signOut, handleFirestoreError, OperationType } from './firebase';
+import { auth, db, googleProvider, signInWithPopup, signOut, signInAnonymously, handleFirestoreError, OperationType } from './firebase';
 import { UserProfile, UserRole } from './types';
 
 interface AuthContextType {
@@ -14,6 +14,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   updateRole: (role: UserRole) => Promise<void>;
   updateProfileData: (data: Partial<UserProfile>) => Promise<void>;
+  signInGuest: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -181,8 +182,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const signInGuest = async () => {
+    try {
+      await signInAnonymously(auth);
+    } catch (error) {
+      console.error('Guest sign in error:', error);
+      throw error;
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signIn, login, signUp, logout, updateRole, updateProfileData }}>
+    <AuthContext.Provider value={{ user, profile, loading, signIn, login, signUp, logout, updateRole, updateProfileData, signInGuest }}>
       {children}
     </AuthContext.Provider>
   );
