@@ -184,7 +184,7 @@ export default function CustomerDashboard() {
   }, [user]);
 
   return (
-    <div className={`pb-24 space-y-8 lg:space-y-12 ${isRTL ? 'text-right' : 'text-left'}`}>
+    <div className={`pb-24 space-y-6 md:space-y-12 lg:space-y-16 ${isRTL ? 'text-right' : 'text-left'}`}>
       <LocationPicker 
         isOpen={isLocationPickerOpen}
         onClose={() => {
@@ -230,7 +230,7 @@ export default function CustomerDashboard() {
       )}
 
       {/* 1. Promotional Carousel (Banners) */}
-      <div className="flex gap-6 overflow-x-auto pb-4 no-scrollbar snap-x py-2 px-1">
+      <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar snap-x py-2 px-1">
         {banners.map((banner, idx) => banner.img && (
           <motion.div 
             key={banner.id} 
@@ -238,7 +238,7 @@ export default function CustomerDashboard() {
             animate={{ opacity: 1, scale: 1, x: 0 }}
             transition={{ delay: 0.1 * idx, ease: [0.22, 1, 0.36, 1] }}
             whileHover={{ y: -8 }}
-            className="min-w-[88%] md:min-w-[45%] lg:min-w-[35%] h-56 md:h-72 rounded-[3rem] overflow-hidden relative snap-center shadow-2xl shadow-neutral-900/10 group cursor-pointer border border-white/20"
+            className="min-w-[92%] md:min-w-[45%] lg:min-w-[35%] h-52 md:h-72 rounded-[2.5rem] overflow-hidden relative snap-center shadow-2xl shadow-neutral-900/10 group cursor-pointer border border-white/20"
           >
             <img src={banner.img} alt={banner.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 ease-out" referrerPolicy="no-referrer" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent flex flex-col justify-end p-8 md:p-10 text-white">
@@ -281,7 +281,7 @@ export default function CustomerDashboard() {
              <ChevronRight className="w-6 h-6" />
           </button>
         </div>
-        <div className="flex gap-6 overflow-x-auto pb-6 no-scrollbar -mx-4 px-4">
+        <div className="flex gap-4 overflow-x-auto pb-6 no-scrollbar -mx-3 px-3">
           {vendors
             .filter(v => ['food', 'grocery', 'pharmacy', 'ecommerce', 'salons', 'hotels'].includes(v.category))
             .map(vendor => {
@@ -298,14 +298,14 @@ export default function CustomerDashboard() {
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.1 * idx }}
-              className="min-w-[280px] group cursor-pointer"
+              className="min-w-[260px] group cursor-pointer"
               onClick={() => {
                 setSelectedVendorId(vendor.id);
                 setIsLocationPickerOpen(true);
               }}
             >
-              <Card className="overflow-hidden rounded-[2.5rem] border-neutral-50 shadow-xl shadow-neutral-900/5 group-hover:shadow-orange-900/10 transition-all border-2 group-hover:border-orange-500/10">
-                <div className="h-40 relative">
+              <Card className="overflow-hidden rounded-[2rem] border-neutral-50 shadow-lg shadow-neutral-900/5 group-hover:shadow-orange-900/10 transition-all border-2 group-hover:border-orange-500/10">
+                <div className="h-36 relative">
                   <img 
                     src={vendor.bannerUrl || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=400&q=80'} 
                     alt={vendor.businessName} 
@@ -327,17 +327,17 @@ export default function CustomerDashboard() {
                      </Badge>
                   </div>
                 </div>
-                <CardContent className="p-5">
-                  <h4 className="font-black text-lg text-neutral-900 group-hover:text-orange-600 transition-colors uppercase tracking-tight truncate">{vendor.businessName}</h4>
-                  <div className="flex items-center gap-3 mt-3">
+                <CardContent className="p-3 md:p-5">
+                  <h4 className="font-black text-base md:text-lg text-neutral-900 group-hover:text-orange-600 transition-colors uppercase tracking-tight truncate">{vendor.businessName}</h4>
+                  <div className="flex items-center gap-2 md:gap-3 mt-2 md:mt-3">
                     <div className="flex items-center gap-1 text-orange-500">
-                      <Star className="w-3.5 h-3.5 fill-current" />
-                      <span className="text-[11px] font-black">{vendor.rating || '4.8'}</span>
+                      <Star className="w-3 md:w-3.5 h-3 md:h-3.5 fill-current" />
+                      <span className="text-[10px] md:text-[11px] font-black">{vendor.rating || '4.8'}</span>
                     </div>
                     <div className="h-1 w-1 rounded-full bg-neutral-300" />
                     <div className="flex items-center gap-1">
-                      <MapPin className="w-3 h-3 text-neutral-400" />
-                      <span className="text-[11px] text-neutral-400 font-bold uppercase tracking-tighter">
+                      <MapPin className="w-2.5 md:w-3 h-2.5 md:h-3 text-neutral-400" />
+                      <span className="text-[9px] md:text-[11px] text-neutral-400 font-bold uppercase tracking-tighter">
                         {vendor.distance < 0.5 
                           ? `${t('very_close')} (${(vendor.distance * 1000).toFixed(0)}m)` 
                           : vendor.distance < 1.5 
@@ -422,7 +422,7 @@ export default function CustomerDashboard() {
           <h3 className="font-black text-xl text-neutral-900 tracking-tight">{t('popular_products') || 'Bidhaa Maarufu'}</h3>
           <button className="text-orange-600 text-sm font-black">{t('view_all') || 'View All'}</button>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 md:gap-6">
           {filteredProducts.map((product, idx) => (
             <motion.div
               key={product.id}

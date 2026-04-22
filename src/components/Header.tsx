@@ -28,36 +28,36 @@ export default function Header() {
 
   return (
     <div className="sticky top-0 z-[150] bg-background/80 backdrop-blur-md border-b border-border shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 h-18 flex items-center justify-between gap-4">
+      <div className="max-w-7xl mx-auto px-2 md:px-4 h-18 flex items-center justify-between gap-2 md:gap-4">
         
-        {/* Left: Logo & Location (on dashboard) */}
-        <div className="flex items-center gap-6">
+        {/* Left: Logo & Location */}
+        <div className="flex items-center gap-2 md:gap-6 min-w-0 flex-shrink">
           <Link to="/" className="flex items-center gap-2 group shrink-0">
             <div className="w-9 h-9 bg-orange-600 rounded-xl flex items-center justify-center transform group-hover:rotate-12 transition-transform shadow-lg shadow-orange-600/20">
               <span className="text-white font-black text-xl italic tracking-tighter">O</span>
             </div>
-            <span className="hidden sm:block font-black text-lg uppercase italic tracking-tighter text-neutral-900 dark:text-white">OmniServe</span>
+            <span className="hidden lg:block font-black text-lg uppercase italic tracking-tighter text-neutral-900 dark:text-white">OmniServe</span>
           </Link>
 
           {isDashboard && (
             <button 
               onClick={onLocationClick}
-              className="flex items-center gap-1.5 min-w-0 max-w-[150px] group"
+              className="flex items-center gap-1 min-w-0 max-w-[100px] md:max-w-[200px] group"
             >
-              <div className="p-1.5 rounded-lg bg-orange-600/10 text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-all">
-                <MapPin className="w-3.5 h-3.5" />
+              <div className="p-1 rounded-lg bg-orange-600/10 text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-all">
+                <MapPin className="w-3 h-3" />
               </div>
-              <div className="flex items-center gap-1 min-w-0">
-                <span className="text-xs font-bold text-neutral-900 dark:text-white truncate">
+              <div className="flex items-center gap-0.5 min-w-0 overflow-hidden">
+                <span className="text-[10px] font-bold text-neutral-900 dark:text-white truncate">
                   {currentAddress}
                 </span>
-                <ChevronDown className="w-3 h-3 text-neutral-400 shrink-0" />
+                <ChevronDown className="w-2.5 h-2.5 text-neutral-400 shrink-0" />
               </div>
             </button>
           )}
         </div>
 
-        {/* Center: Search (Visible on dashboard and other relevant pages) */}
+        {/* Center: Search (Visible on desktop only in main row) */}
         {isDashboard && (
           <div className="flex-1 max-w-md relative group hidden md:block">
             <Search className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 group-focus-within:text-orange-600 transition-colors`} />
@@ -72,29 +72,16 @@ export default function Header() {
         )}
 
         {/* Right: Actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 md:gap-2 shrink-0">
           
-          {/* Cart - Desktop */}
-          <button 
-            onClick={() => setIsCartOpen(true)}
-            className="p-2 relative hidden md:flex items-center justify-center text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-xl transition-all"
-          >
-            <ShoppingCart className="w-5 h-5" />
-            {cartCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-orange-600 text-white text-[10px] font-black w-4 h-4 flex items-center justify-center rounded-full border-2 border-background animate-bounce">
-                {cartCount}
-              </span>
-            )}
-          </button>
-
           {/* Language Selector */}
           <div className="relative">
             <button 
               onClick={() => setShowLangMenu(!showLangMenu)}
-              className="flex items-center gap-1 h-10 px-3 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all font-black text-[10px] uppercase text-neutral-700 dark:text-neutral-200"
+              className="flex items-center gap-0.5 h-10 px-2 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all font-black text-[10px] uppercase text-neutral-700 dark:text-neutral-200"
             >
               <span>{currentLang?.short}</span>
-              <ChevronDown className={`w-3 h-3 text-neutral-400 transition-transform ${showLangMenu ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`w-2.5 h-2.5 text-neutral-400 transition-transform ${showLangMenu ? 'rotate-180' : ''}`} />
             </button>
 
             <AnimatePresence>
@@ -129,15 +116,17 @@ export default function Header() {
 
           <div className="w-px h-6 bg-border hidden sm:block mx-1" />
 
-          {/* User Profile Summary */}
+          {/* Theme Toggle */}
+          <button 
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className="w-9 h-9 md:w-10 md:h-10 flex items-center justify-center rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 transition-all"
+          >
+            {theme === 'dark' ? <Moon className="w-4 h-4 text-blue-400" /> : <Sun className="w-4 h-4 text-orange-500" />}
+          </button>
+
+          {/* User Profile */}
           {user && (
-            <Link to="/profile" className="flex items-center gap-2 group ml-2">
-              <div className="flex flex-col items-end hidden sm:flex">
-                <span className="text-[10px] font-bold text-blue-500 dark:text-blue-400 uppercase tracking-widest">{t('welcome')},</span>
-                <span className="text-xs font-black text-neutral-900 dark:text-white truncate max-w-[80px]">
-                  {profile?.displayName?.split(' ')[0] || 'Mteja'}!
-                </span>
-              </div>
+            <Link to="/profile" className="flex items-center gap-2 group">
               <div className="w-9 h-9 rounded-xl overflow-hidden border-2 border-orange-600/20 group-hover:border-orange-600 transition-all shadow-sm shrink-0">
                 <img 
                   src={profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid}`} 
@@ -149,25 +138,34 @@ export default function Header() {
             </Link>
           )}
 
-          {/* Theme Toggle */}
-          <button 
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 transition-all"
-          >
-            {theme === 'dark' ? <Moon className="w-4.5 h-4.5 text-blue-400" /> : <Sun className="w-4.5 h-4.5 text-orange-500" />}
-          </button>
-
-          {/* Logout (if logged in) */}
+          {/* Logout (Visible for all logged in users on mobile/desktop) */}
           {user && (
             <button 
               onClick={logout}
-              className="w-10 h-10 flex md:hidden items-center justify-center rounded-xl hover:bg-red-50 text-neutral-400 hover:text-red-500 transition-all"
+              className="w-9 h-9 md:w-10 md:h-10 flex items-center justify-center rounded-xl hover:bg-red-50 text-neutral-400 hover:text-red-500 transition-all"
+              title="Logout"
             >
-              <LogOut className="w-5 h-5" />
+              <LogOut className="w-4.5 h-4.5" />
             </button>
           )}
         </div>
       </div>
+
+      {/* Mobile Search Row */}
+      {isDashboard && (
+        <div className="px-3 pb-3 md:hidden">
+          <div className="relative group">
+            <Search className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 group-focus-within:text-orange-600 transition-colors`} />
+            <input 
+              type="text"
+              placeholder={t('search_placeholder')}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className={`w-full h-11 ${isRTL ? 'pr-10 pl-4' : 'pl-10 pr-4'} bg-neutral-100 dark:bg-neutral-800 border boder-border rounded-[18px] text-sm focus:ring-2 focus:ring-orange-500/20 transition-all font-medium`}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

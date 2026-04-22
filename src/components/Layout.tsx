@@ -33,7 +33,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     <div className={`min-h-screen bg-background dark:bg-neutral-950 flex flex-col font-sans selection:bg-orange-100 dark:selection:bg-orange-900/30 selection:text-orange-900 ${isRTL ? 'font-arabic' : ''}`}>
       <Header />
 
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-4 md:py-8 pb-32">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-2 sm:px-6 lg:px-8 py-4 md:py-8 pb-32">
         {children}
       </main>
 
@@ -111,31 +111,31 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </motion.div>
 
             {/* Central Floating Action Button (Kikapu) */}
-            <div className="absolute left-1/2 -translate-x-1/2 -top-12 w-24 h-24 pointer-events-auto">
+            <div className="absolute left-1/2 -translate-x-1/2 -top-10 w-20 h-20 pointer-events-auto">
               <motion.div
                 animate={{
-                  y: [0, -8, 0],
+                  y: [0, -6, 0],
                 }}
                 transition={{
                   duration: 4,
                   repeat: Infinity,
                   ease: "easeInOut"
                 }}
-                className="w-full h-full p-3"
+                className="w-full h-full p-2"
               >
                 <motion.button 
                   whileHover={{ scale: 1.1, rotate: [-1, 1, -1] }}
                   whileTap={{ scale: 0.9 }}
                   onClick={() => setIsCartOpen(true)}
-                  className="w-full h-full bg-gradient-to-br from-orange-400 via-orange-600 to-orange-800 rounded-full flex items-center justify-center text-white shadow-[0_20px_50px_rgba(234,88,12,0.5)] border-[5px] border-white active:scale-90 transition-all group relative overflow-hidden"
+                  className="w-full h-full bg-gradient-to-br from-orange-400 via-orange-600 to-orange-800 rounded-full flex items-center justify-center text-white shadow-[0_15px_40px_rgba(234,88,12,0.5)] border-[4px] border-white active:scale-90 transition-all group relative overflow-hidden"
                 >
                   <div className="absolute inset-0 bg-gradient-to-tr from-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <ShoppingCart className="w-9 h-9 relative z-10 drop-shadow-md" />
+                  <ShoppingCart className="w-8 h-8 relative z-10 drop-shadow-md" />
                   <motion.div 
                     initial={{ scale: 0, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     transition={{ delay: 0.5, type: "spring" }}
-                    className="absolute top-2 right-2 w-7 h-7 bg-white text-orange-600 text-[12px] font-black flex items-center justify-center rounded-full border-2 border-orange-600 shadow-xl"
+                    className="absolute top-1 right-1 w-6 h-6 bg-white text-orange-600 text-[10px] font-black flex items-center justify-center rounded-full border-2 border-orange-600 shadow-xl"
                   >
                     {cartCount}
                   </motion.div>
@@ -143,7 +143,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <motion.div 
                   animate={{ opacity: [0.6, 1, 0.6], scale: [0.95, 1.05, 0.95] }}
                   transition={{ duration: 2, repeat: Infinity }}
-                  className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[11px] font-black text-orange-600 uppercase tracking-widest drop-shadow-[0_2px_4px_rgba(0,0,0,0.1)]"
+                  className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[10px] font-black text-orange-600 uppercase tracking-widest drop-shadow-[0_2px_4px_rgba(0,0,0,0.1)]"
                 >
                   Kikapu
                 </motion.div>
