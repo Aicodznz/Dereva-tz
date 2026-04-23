@@ -14,7 +14,12 @@ export interface RideLocation {
 export interface RideRequest {
   id?: string;
   customerId: string;
+  customerName?: string;
+  customerPhoto?: string;
   driverId: string | null;
+  driverName?: string;
+  driverPhoto?: string;
+  vehicleNumber?: string;
   pickup: RideLocation;
   destination: RideLocation;
   pickupAddress: string;
@@ -26,6 +31,9 @@ export interface RideRequest {
   vehicleType: 'pikipiki' | 'bajaji' | 'gari';
   createdAt: any;
   updatedAt: any;
+  paymentMethod?: 'cash' | 'mpesa' | 'wallet';
+  rating?: number;
+  review?: string;
 }
 
 export const taxiService = {
@@ -63,7 +71,7 @@ export const taxiService = {
   },
 
   // Driver accepts a ride
-  acceptRide: async (rideId: string, driverId: string) => {
+  acceptRide: async (rideId: string, driverId: string, driverInfo: { name: string, photo: string, vehicleNumber: string }) => {
     const rideRef = doc(db, 'rides', rideId);
     const rideSnap = await getDoc(rideRef);
     
@@ -72,6 +80,9 @@ export const taxiService = {
 
     return await updateDoc(rideRef, {
       driverId,
+      driverName: driverInfo.name,
+      driverPhoto: driverInfo.photo,
+      vehicleNumber: driverInfo.vehicleNumber,
       status: 'accepted',
       updatedAt: serverTimestamp()
     });
@@ -81,6 +92,15 @@ export const taxiService = {
   updateRideStatus: async (rideId: string, status: RideRequest['status']) => {
     return await updateDoc(doc(db, 'rides', rideId), {
       status,
+      updatedAt: serverTimestamp()
+    });
+  },
+
+  // Rate a ride
+  rateRide: async (rideId: string, rating: number, review: string) => {
+    return await updateDoc(doc(db, 'rides', rideId), {
+      rating,
+      review,
       updatedAt: serverTimestamp()
     });
   }

@@ -100,7 +100,11 @@ export default function RiderHome() {
   const handleAccept = async () => {
     if (!incomingRequest?.id || !user) return;
     try {
-      await taxiService.acceptRide(incomingRequest.id, user.uid);
+      await taxiService.acceptRide(incomingRequest.id, user.uid, {
+        name: profile?.displayName || 'Dereva',
+        photo: profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`,
+        vehicleNumber: profile?.licensePlate || 'T 123 ABC' // Use actual license plate if available
+      });
       setActiveRide(incomingRequest);
       setIncomingRequest(null);
       toast.success("Safari Imekubaliwa!");
@@ -145,6 +149,16 @@ export default function RiderHome() {
           <Marker position={position}>
             <Popup>Uko Hapa</Popup>
           </Marker>
+          {activeRide && (
+            <>
+               <Marker position={[activeRide.pickup.lat, activeRide.pickup.lng]}>
+                 <Popup>Mteja Yupo Hapa (Pickup)</Popup>
+               </Marker>
+               <Marker position={[activeRide.destination.lat, activeRide.destination.lng]}>
+                 <Popup>Kuelekea (Destination)</Popup>
+               </Marker>
+            </>
+          )}
           <MapControl />
         </MapContainer>
       </div>
@@ -246,13 +260,19 @@ export default function RiderHome() {
             className="absolute inset-x-4 bottom-10 z-50 bg-neutral-900 rounded-[3rem] p-8 text-white shadow-3xl border border-white/10"
           >
              <div className="flex justify-between items-start mb-6">
-                <div>
-                   <Badge className="bg-orange-600 text-white font-black px-4 py-1 mb-2">NEW REQUEST</Badge>
-                   <h2 className="text-3xl font-black italic uppercase tracking-tighter leading-none">TZS {incomingRequest.estimatedFare}</h2>
+                <div className="flex gap-4">
+                   <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-orange-600/30">
+                      <img src={incomingRequest.customerPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${incomingRequest.customerId}`} alt="Customer" />
+                   </div>
+                   <div>
+                      <Badge className="bg-orange-600 text-white font-black px-4 py-1 mb-1 italic">NEW REQUEST</Badge>
+                      <h4 className="text-xl font-black italic uppercase tracking-tighter">{incomingRequest.customerName || 'Mteja'}</h4>
+                      <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">{incomingRequest.distance} KM • 5 MINS</p>
+                   </div>
                 </div>
                 <div className="text-right">
-                   <p className="text-[10px] font-black uppercase text-neutral-400">Time to pickup</p>
-                   <p className="text-xl font-black italic">5 Mins</p>
+                   <p className="text-[10px] font-black uppercase text-neutral-400">Est. Fare</p>
+                   <h2 className="text-2xl font-black italic uppercase tracking-tighter leading-none text-emerald-500">TZS {incomingRequest.estimatedFare}</h2>
                 </div>
              </div>
 
@@ -278,13 +298,13 @@ export default function RiderHome() {
                   onClick={() => setIncomingRequest(null)}
                   className="flex-1 h-16 rounded-2xl border border-neutral-700 font-black uppercase tracking-widest text-neutral-500"
                 >
-                  Reject
+                  Reject ❌
                 </button>
                 <button 
                   onClick={handleAccept}
                   className="flex-1 h-16 rounded-2xl bg-emerald-500 text-white font-black uppercase tracking-widest shadow-xl shadow-emerald-500/20"
                 >
-                  Accept
+                  Accept ✅
                 </button>
              </div>
              
@@ -313,13 +333,14 @@ export default function RiderHome() {
              <div className="flex items-center justify-between mb-8 pb-6 border-b border-neutral-100 dark:border-neutral-800">
                 <div className="flex items-center gap-4">
                    <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-emerald-500/20">
-                      <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${activeRide.customerId}`} alt="Customer" />
+                      <img src={activeRide.customerPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${activeRide.customerId}`} alt="Customer" />
                    </div>
                    <div>
-                      <h4 className="font-black italic uppercase tracking-tighter text-lg">Mteja Mapata</h4>
+                      <h4 className="font-black italic uppercase tracking-tighter text-lg">{activeRide.customerName || 'Mteja Mapata'}</h4>
                       <div className="flex items-center gap-1 text-orange-500 font-bold text-xs">
                          <Star className="w-3 h-3 fill-current" />
                          <span>4.9</span>
+                         <span className="ml-2 text-neutral-400 font-bold">• KM {activeRide.distance}</span>
                       </div>
                    </div>
                 </div>

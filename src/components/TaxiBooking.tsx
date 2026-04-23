@@ -62,7 +62,7 @@ export default function TaxiBooking() {
   const [selectedRide, setSelectedRide] = useState<RideOption | null>(null);
   const [destination, setDestination] = useState('');
   const [pickup, setPickup] = useState('Current Location (D Block, Sector 2)');
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mpesa' | 'card'>('mpesa');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mpesa' | 'wallet'>('mpesa');
   
   const [activeRide, setActiveRide] = useState<RideRequest | null>(null);
   const [rideId, setRideId] = useState<string | null>(null);
@@ -133,6 +133,8 @@ export default function TaxiBooking() {
     try {
       const docRef = await taxiService.requestRide({
         customerId: user.uid,
+        customerName: profile?.displayName || 'Mteja',
+        customerPhoto: profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email}`,
         pickup: { lat: -6.7924, lng: 39.2083 },
         destination: { lat: -6.8235, lng: 39.2695 },
         pickupAddress: pickup,
@@ -140,13 +142,28 @@ export default function TaxiBooking() {
         distance: 5.2,
         duration: 15,
         estimatedFare: selectedRide.price,
-        vehicleType: selectedRide.vehicleType
+        vehicleType: selectedRide.vehicleType,
+        paymentMethod: paymentMethod
       });
       setRideId(docRef.id);
     } catch (error) {
       console.error("Booking error:", error);
       toast.error("Failed to request ride");
       setStep('map');
+    }
+  };
+
+  const [userRating, setUserRating] = useState(0);
+
+  const handleRate = async (rating: number) => {
+    setUserRating(rating);
+    if (!rideId) return;
+    try {
+      await taxiService.rateRide(rideId, rating, "Great ride!");
+      toast.success("Asante kwa maoni yako!");
+      navigate('/');
+    } catch (error) {
+      toast.error("Imeshindwa kutuma maoni");
     }
   };
 
@@ -499,7 +516,7 @@ export default function TaxiBooking() {
           </motion.div>
         )}
 
-        {step === 'arriving' && (
+        {step === 'arriving' && activeRide && (
           <motion.div 
             key="arriving"
             initial={{ opacity: 0, y: 30 }}
@@ -515,17 +532,17 @@ export default function TaxiBooking() {
                 <div className="relative z-10 flex flex-col items-center text-center">
                    <p className="text-[10px] font-black uppercase text-emerald-500 tracking-widest mb-6">Driver Approaching</p>
                    <div className="text-5xl font-black italic mb-2 tracking-tighter">4 Mins</div>
-                   <p className="text-neutral-400 font-bold text-sm">Moses arrives shortly</p>
+                   <p className="text-neutral-400 font-bold text-sm">{activeRide.driverName || 'Dereva'} arrives shortly</p>
 
                    <div className="w-full h-px bg-neutral-800 my-8" />
 
                    <div className="w-full flex items-center justify-between">
                       <div className="flex items-center gap-4">
                          <div className="w-16 h-16 rounded-[1.5rem] bg-orange-600/10 p-1 border-2 border-orange-600/30 overflow-hidden relative">
-                            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Moses" alt="Driver" className="w-full h-full object-cover rounded-xl" />
+                            <img src={activeRide.driverPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${activeRide.driverName}`} alt="Driver" className="w-full h-full object-cover rounded-xl" />
                          </div>
                          <div className="text-left">
-                            <h4 className="text-lg font-black uppercase italic tracking-tighter">Moses</h4>
+                            <h4 className="text-lg font-black uppercase italic tracking-tighter">{activeRide.driverName || 'Dereva'}</h4>
                             <div className="flex items-center gap-1 text-orange-500">
                                <Star className="w-4 h-4 fill-current" />
                                <span className="text-sm font-black">4.9</span>
@@ -548,7 +565,7 @@ export default function TaxiBooking() {
                       </div>
                       <div className="text-left">
                          <p className="text-[10px] font-black text-neutral-500 uppercase tracking-widest leading-none mb-1">Vehicle Details</p>
-                         <h4 className="text-sm font-black">Silver Sedan, T 123 ABC</h4>
+                         <h4 className="text-sm font-black">{activeRide.vehicleNumber || 'T 123 ABC'}</h4>
                       </div>
                    </div>
                 </div>
@@ -578,7 +595,7 @@ export default function TaxiBooking() {
           </motion.div>
         )}
 
-        {step === 'completed' && (
+        {step === 'completed' && activeRide && (
           <motion.div 
             key="completed"
             initial={{ opacity: 0, scale: 0.95 }}
@@ -597,16 +614,16 @@ export default function TaxiBooking() {
                 <div className="flex items-center justify-between border-b border-neutral-800 pb-6">
                    <div className="flex items-center gap-4">
                       <div className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-orange-600/30">
-                         <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Moses" alt="Driver" />
+                         <img src={activeRide.driverPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${activeRide.driverName}`} alt="Driver" />
                       </div>
                       <div className="text-left">
-                         <h4 className="text-lg font-black uppercase italic tracking-tighter">Moses</h4>
-                         <p className="text-[10px] text-neutral-500 font-bold uppercase">Silver Sedan, T 123 ABC</p>
+                         <h4 className="text-lg font-black uppercase italic tracking-tighter">{activeRide.driverName}</h4>
+                         <p className="text-[10px] text-neutral-500 font-bold uppercase">{activeRide.vehicleNumber}</p>
                       </div>
                    </div>
                    <div className="text-right">
-                      <p className="text-[10px] font-black text-emerald-500 uppercase">Paid Via M-Pesa</p>
-                      <p className="text-2xl font-black italic mt-1 tracking-tighter">USD {selectedRide?.price}</p>
+                      <p className="text-[10px] font-black text-emerald-500 uppercase">Paid Via {activeRide.paymentMethod || 'Cash'}</p>
+                      <p className="text-2xl font-black italic mt-1 tracking-tighter">TZS {activeRide.estimatedFare.toLocaleString()}</p>
                    </div>
                 </div>
 
@@ -614,20 +631,26 @@ export default function TaxiBooking() {
                    <p className="text-center text-[10px] font-black uppercase text-neutral-500 tracking-wider">Tafadhali kadiria safari yako:</p>
                    <div className="flex justify-center gap-3">
                       {[1, 2, 3, 4, 5].map((star) => (
-                         <button key={star} className="w-10 h-10 rounded-xl bg-neutral-800 flex items-center justify-center text-orange-600 hover:bg-orange-600 hover:text-white transition-all shadow-lg">
-                            <Star className="w-6 h-6 fill-current" />
+                         <button 
+                          key={star} 
+                          onClick={() => handleRate(star)}
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all shadow-lg ${
+                            userRating >= star ? 'bg-orange-600 text-white' : 'bg-neutral-800 text-orange-600 hover:bg-neutral-700'
+                          }`}
+                        >
+                            <Star className={`w-6 h-6 ${userRating >= star ? 'fill-current' : ''}`} />
                          </button>
                       ))}
                    </div>
                 </div>
 
                 <div className="grid grid-cols-4 gap-3 pt-6">
-                   {[2, 5, 10, 20].map((tip) => (
+                   {[200, 500, 1000, 2000].map((tip) => (
                       <button key={tip} className="flex flex-col items-center gap-2 p-3 bg-neutral-800 rounded-2xl border border-white/5 hover:border-emerald-500/50 hover:bg-emerald-500/5 group transition-all">
                          <div className="w-10 h-10 rounded-full bg-neutral-700 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform">
                             <DollarSign className="w-5 h-5" />
                          </div>
-                         <span className="text-[10px] font-black italic">USD {tip}</span>
+                         <span className="text-[10px] font-black italic">TZS {tip}</span>
                       </button>
                    ))}
                 </div>
