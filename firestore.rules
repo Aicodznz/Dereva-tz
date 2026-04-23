@@ -62,9 +62,9 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId) && incoming().role in ['customer', 'vendor', 'rider', 'admin'];
-      allow update: if isOwner(userId) && 
+      allow update: if (isOwner(userId) || isAdmin()) && 
                     incoming().role == existing().role &&
-                    incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'phoneNumber', 'address', 'updatedAt']);
+                    incoming().diff(existing()).affectedKeys().hasAny(['displayName', 'photoURL', 'phoneNumber', 'address', 'updatedAt', 'status', 'approvalStatus', 'businessName', 'category', 'phone']);
     }
 
     match /vendors/{vendorId} {

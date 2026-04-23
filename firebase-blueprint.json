@@ -12,6 +12,8 @@
         "role": { "type": "string", "enum": ["customer", "vendor", "rider", "admin"] },
         "phoneNumber": { "type": "string" },
         "address": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "active", "suspended", "offline", "online"] },
+        "approvalStatus": { "type": "string", "enum": ["pending", "approved", "rejected"] },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["uid", "email", "role"]
