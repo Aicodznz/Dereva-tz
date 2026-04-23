@@ -253,6 +253,7 @@
     "/coupons/{couponId}": { "schema": "Coupon", "description": "Discount coupons" },
     "/tables/{tableId}": { "schema": "Table", "description": "Dine-in tables" },
     "/staff/{staffId}": { "schema": "Staff", "description": "Vendor staff members" },
-    "/rides/{rideId}": { "schema": "Ride", "description": "Taxi rides" }
+    "/rides/{rideId}": { "schema": "Ride", "description": "Taxi rides" },
+    "/drivers/{driverId}": { "schema": { "$ref": "#/entities/User" }, "description": "Driver live status and location" }
   }
 }

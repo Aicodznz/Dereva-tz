@@ -36,6 +36,8 @@ export default function RiderHome() {
   const [incomingRequest, setIncomingRequest] = useState<RideRequest | null>(null);
   const [activeRide, setActiveRide] = useState<RideRequest | null>(null);
 
+  const [speed, setSpeed] = useState(0);
+
   // Get current location
   useEffect(() => {
     if (navigator.geolocation) {
@@ -44,6 +46,23 @@ export default function RiderHome() {
       });
     }
   }, []);
+
+  // Update speed simulation
+  useEffect(() => {
+    let interval: any;
+    if (isOnline && activeRide) {
+      interval = setInterval(() => {
+        setSpeed(Math.floor(Math.random() * 20) + 40);
+      }, 3000);
+    } else if (isOnline) {
+      interval = setInterval(() => {
+        setSpeed(Math.floor(Math.random() * 5));
+      }, 5000);
+    } else {
+      setSpeed(0);
+    }
+    return () => clearInterval(interval);
+  }, [isOnline, !!activeRide]);
 
   // Listen for requests when online
   useEffect(() => {
@@ -200,13 +219,16 @@ export default function RiderHome() {
       {/* Top Bar Overlays */}
       <div className="absolute top-4 inset-x-4 z-40 flex justify-between items-start">
         <div className="flex flex-col gap-2">
-           <div className="w-12 h-12 bg-white dark:bg-neutral-900 rounded-2xl shadow-lg flex items-center justify-center border border-neutral-200 dark:border-neutral-800">
+           <button 
+             onClick={() => toast.info(`Habari ${profile?.displayName || 'Dereva'}, wasifu wako unakuja hivi karibuni`)}
+             className="w-12 h-12 bg-white dark:bg-neutral-900 rounded-2xl shadow-lg flex items-center justify-center border border-neutral-200 dark:border-neutral-800 active:scale-95 transition-transform"
+           >
             <img 
               src={profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email}`} 
               alt="Profile" 
               className="w-10 h-10 rounded-xl" 
             />
-          </div>
+          </button>
         </div>
 
         <div className="flex flex-col items-center gap-2">
@@ -225,62 +247,89 @@ export default function RiderHome() {
           )}
         </div>
 
-        <div className="w-12 h-12 bg-white dark:bg-neutral-900 rounded-2xl shadow-lg flex items-center justify-center border border-neutral-200 dark:border-neutral-800">
+        <button 
+          onClick={() => toast.info("Huna taarifa mpya kwa sasa")}
+          className="w-12 h-12 bg-white dark:bg-neutral-900 rounded-2xl shadow-lg flex items-center justify-center border border-neutral-200 dark:border-neutral-800 active:scale-95 transition-transform"
+        >
           <Bell className="w-6 h-6 text-neutral-600 dark:text-neutral-400" />
-        </div>
+        </button>
       </div>
 
       {/* Side Controls (Only if not in active ride) */}
       {!activeRide && (
-        <div className="absolute top-36 left-4 z-40 flex flex-col gap-3">
+        <div className="absolute top-36 left-4 z-40 flex flex-col gap-4">
           {[
-            { icon: Settings, color: "text-neutral-600" },
+            { icon: Settings, color: "text-neutral-500" },
             { icon: Car, color: "text-blue-500" },
             { icon: Fuel, color: "text-orange-500" },
             { icon: ParkingCircle, color: "text-red-500" },
-            { icon: Zap, color: "text-emerald-500" },
-            { icon: Gauge, color: "text-neutral-900", label: "0 km/h" }
+            { icon: Zap, color: "text-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]" },
+            { icon: Gauge, color: "text-neutral-900", label: `${speed} km/h` }
           ].map((item, id) => (
-            <motion.div
+            <motion.button
               key={id}
-              whileHover={{ scale: 1.05 }}
-              className="w-12 h-12 bg-white dark:bg-neutral-900 rounded-full shadow-md flex flex-col items-center justify-center border border-neutral-100 dark:border-neutral-800"
+              onClick={() => {
+                if (item.icon === Settings) toast.info("Mipangilio inakuja hivi karibuni");
+                else if (item.icon === Car) toast.info("Taarifa za Chombo zakuja hivi karibuni");
+                else if (item.icon === Fuel) toast.info("Vituo vya Mafuta karibu yako");
+                else if (item.icon === ParkingCircle) toast.info("Maeneo ya Kuegesha");
+                else if (item.icon === Zap) toast.info("Turbo Mode imewashwa!");
+                else toast.info("Kipengele hiki kinakuja hivi karibuni");
+              }}
+              whileHover={{ scale: 1.1, rotate: 5 }}
+              whileTap={{ scale: 0.9 }}
+              className="w-14 h-14 bg-white/90 backdrop-blur-xl rounded-[1.2rem] shadow-2xl flex flex-col items-center justify-center border border-white/50 active:shadow-inner transition-all overflow-hidden relative group cursor-pointer"
             >
-              <item.icon className={`w-5 h-5 ${item.color}`} />
-              {item.label && <span className="text-[7px] font-black">{item.label}</span>}
-            </motion.div>
+              <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <item.icon className={`w-6 h-6 ${item.color} relative z-10 transition-transform group-hover:scale-110`} />
+              {item.label && <span className="text-[8px] font-black tracking-tighter text-neutral-400 mt-0.5">{item.label}</span>}
+            </motion.button>
           ))}
         </div>
       )}
 
       {/* Main Action Button (Online/Offline) */}
       {!activeRide && !incomingRequest && (
-        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-3">
-          <p className={`text-[10px] font-black uppercase tracking-[0.2em] px-4 py-1.5 rounded-full backdrop-blur-md border ${
-            isOnline ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/30' : 'bg-red-500/20 text-red-500 border-red-500/30'
-          }`}>
-            {isOnline ? 'Active & Receiving Requests' : 'Currently Offline'}
-          </p>
+        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-6">
+          <motion.div 
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className={`px-8 py-3 rounded-2xl backdrop-blur-3xl border-2 flex items-center gap-3 shadow-2xl transition-all ${
+              isOnline 
+                ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' 
+                : 'bg-red-500/10 text-red-600 border-red-500/20'
+            }`}
+          >
+            <div className={`w-2.5 h-2.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse shadow-[0_0_10px_#10B981]' : 'bg-red-500'}`} />
+            <span className="text-xs font-black uppercase tracking-[0.2em]">
+              {isOnline ? 'Active & Receiving' : 'System Offline'}
+            </span>
+          </motion.div>
+
           <motion.button
             onClick={toggleStatus}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className={`w-24 h-24 rounded-full border-4 border-white dark:border-neutral-800 shadow-[0_20px_50px_rgba(0,0,0,0.3)] flex items-center justify-center relative ${
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            className={`w-28 h-28 rounded-[2.5rem] border-8 border-white shadow-[0_30px_70px_rgba(0,0,0,0.4)] flex items-center justify-center relative transition-colors ${
               isOnline ? 'bg-emerald-500' : 'bg-red-500'
             }`}
           >
             {isOnline && (
               <motion.div 
-                animate={{ scale: [1, 1.4, 1], opacity: [0.3, 0.1, 0.3] }}
-                transition={{ repeat: Infinity, duration: 2 }}
-                className="absolute inset-0 rounded-full bg-emerald-400"
+                animate={{ scale: [1, 1.6, 1], opacity: [0.2, 0.05, 0.2] }}
+                transition={{ repeat: Infinity, duration: 3 }}
+                className="absolute inset-0 rounded-[2.5rem] bg-emerald-300"
               />
             )}
-            <div className="bg-white dark:bg-neutral-900 w-14 h-14 rounded-full flex items-center justify-center shadow-inner z-10">
-              <Power className={`w-7 h-7 ${isOnline ? 'text-emerald-600' : 'text-red-600'}`} />
+            <div className="bg-white/10 backdrop-blur-xl w-16 h-16 rounded-[1.5rem] flex items-center justify-center shadow-lg border border-white/20 z-10">
+              <Power className="w-8 h-8 text-white shadow-sm" />
             </div>
           </motion.button>
-          <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400 mt-1">Tap to Toggle Status</p>
+          
+          <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400 group flex items-center gap-2">
+            <span>Tap to go</span>
+            <span className={isOnline ? 'text-red-500' : 'text-emerald-500'}>{isOnline ? 'OFFLINE' : 'ONLINE'}</span>
+          </p>
         </div>
       )}
 
@@ -390,7 +439,7 @@ export default function RiderHome() {
                       <Navigation className="w-6 h-6" />
                    </div>
                    <div className="flex-1">
-                      <p className="text-[9px] font-black uppercase text-neutral-400">Current Task</p>
+                      <p className="text-[9px] font-black uppercase text-neutral-400">Kazi ya Sasa</p>
                       <h4 className="text-sm font-black italic uppercase tracking-tighter">
                          {activeRide.status === 'accepted' && 'Pick up passenger'}
                          {activeRide.status === 'arrived' && 'Customer Boarding'}

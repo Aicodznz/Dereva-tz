@@ -18,27 +18,27 @@ import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 const StartPin = L.divIcon({
     className: 'custom-div-icon',
     html: `<div class="relative flex items-center justify-center">
-            <div class="absolute w-12 h-12 bg-emerald-500/30 rounded-full animate-ping"></div>
-            <div class="relative w-9 h-9 bg-white border-2 border-emerald-500 rounded-lg flex items-center justify-center shadow-xl">
-              <span class="text-emerald-500 font-black text-sm">M</span>
+            <div class="absolute w-12 h-12 bg-emerald-500/10 rounded-full animate-ping"></div>
+            <div class="relative w-10 h-10 bg-white border-2 border-emerald-500 rounded-2xl flex items-center justify-center shadow-lg">
+              <span class="text-emerald-500 font-bold text-sm">M</span>
             </div>
             <div class="absolute -bottom-1 w-2 h-2 bg-emerald-500 rotate-45"></div>
           </div>`,
-    iconSize: [36, 36],
-    iconAnchor: [18, 36]
+    iconSize: [40, 40],
+    iconAnchor: [20, 40]
 });
 
 const EndPin = L.divIcon({
   className: 'custom-div-icon',
   html: `<div class="relative flex items-center justify-center">
-          <div class="absolute w-12 h-12 bg-amber-500/30 rounded-full animate-ping"></div>
-          <div class="relative w-9 h-9 bg-white border-2 border-amber-500 rounded-lg flex items-center justify-center shadow-xl">
-            <span class="text-amber-500 font-black text-sm">E</span>
+          <div class="absolute w-12 h-12 bg-amber-500/10 rounded-full animate-ping"></div>
+          <div class="relative w-10 h-10 bg-white border-2 border-amber-500 rounded-2xl flex items-center justify-center shadow-lg">
+            <span class="text-amber-500 font-bold text-sm">E</span>
           </div>
           <div class="absolute -bottom-1 w-2 h-2 bg-amber-500 rotate-45"></div>
         </div>`,
-  iconSize: [36, 36],
-  iconAnchor: [18, 36]
+  iconSize: [40, 40],
+  iconAnchor: [20, 40]
 });
 
 const DriverPin = (type: string) => L.divIcon({
@@ -127,9 +127,9 @@ export default function TaxiBooking() {
   const rideOptions: RideOption[] = [
     { 
       id: 'mini', 
-      name: 'TegeX Gari', 
+      name: 'Gari', 
       icon: Car, 
-      sub: '4 Seats | Deluxe Gari', 
+      sub: '4min | 4 Sitting | Deluxe', 
       priceRange: '2,800', 
       price: 2800, 
       eta: '4',
@@ -137,10 +137,10 @@ export default function TaxiBooking() {
       image: 'https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?auto=format&fit=crop&w=400&q=80' 
     },
     { 
-      id: 'bajaji', 
-      name: 'TegeX Bajaj', 
+      id: 'bajaj', 
+      name: 'Bajaj', 
       icon: Activity, 
-      sub: '3 Siti | Transit', 
+      sub: '5min | 3 Siti | Transit', 
       priceRange: '1,500', 
       price: 1500, 
       eta: '5',
@@ -149,9 +149,9 @@ export default function TaxiBooking() {
     },
     { 
       id: 'bike', 
-      name: 'TegeX Bike', 
+      name: 'Bike', 
       icon: Bike, 
-      sub: '2-wheel rides', 
+      sub: '3min | 2-wheel rides', 
       priceRange: '800', 
       price: 800, 
       eta: '3',
@@ -207,10 +207,20 @@ export default function TaxiBooking() {
     if (!rideId) return;
     const unsubscribe = taxiService.listenToRide(rideId, (ride) => {
       setActiveRide(ride);
-      if (ride.status === 'accepted') setStep('confirmed');
-      if (ride.status === 'arrived') setStep('arriving');
-      if (ride.status === 'started') setStep('on_trip');
+      if (ride.status === 'accepted') setStep('arriving');
+      if (ride.status === 'arrived') {
+        toast.success("Dereva amefika eneo la kuanzia!");
+        setStep('arriving');
+      }
+      if (ride.status === 'started') {
+        toast.info("Safari imeanza! Tulia na ufurahie kiti chako.");
+        setStep('on_trip');
+      }
       if (ride.status === 'completed') setStep('completed');
+      if (ride.status === 'cancelled') {
+        toast.error("Safari imeghairiwa na dereva");
+        setStep('map');
+      }
     });
     return () => unsubscribe();
   }, [rideId]);
@@ -229,8 +239,8 @@ export default function TaxiBooking() {
         customerId: user.uid,
         customerName: profile?.displayName || 'Mteja',
         customerPhoto: profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email}`,
-        pickup: { lat: -6.7924, lng: 39.2083 },
-        destination: { lat: -6.8235, lng: 39.2695 },
+        pickup: { lat: pickupPos[0], lng: pickupPos[1] },
+        destination: { lat: destPos[0], lng: destPos[1] },
         pickupAddress: pickup,
         destinationAddress: destination,
         distance: 5.2,
@@ -242,7 +252,7 @@ export default function TaxiBooking() {
       setRideId(docRef.id);
     } catch (error) {
       console.error("Booking error:", error);
-      toast.error("Failed to request ride");
+      toast.error("Imeshindwa kutuma ombi la safari");
       setStep('map');
     }
   };
@@ -395,27 +405,27 @@ export default function TaxiBooking() {
                 <button className="text-[10px] font-black uppercase text-orange-600">Ondoa Zote</button>
               </div>
               <div className="space-y-4">
-                {recentAddresses.map((addr, idx) => (
-                  <button 
-                    key={idx}
-                    onClick={() => setDestination(addr.name)}
-                    className="w-full flex items-center justify-between group"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-orange-600/10 flex items-center justify-center text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-all">
-                        <MapPin className="w-5 h-5" />
-                      </div>
-                      <div className="text-left">
-                        <h4 className="font-bold text-sm text-neutral-200">{addr.name}</h4>
-                        <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">{addr.area}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 text-neutral-600">
-                      <Clock className="w-3 h-3" />
-                      <span className="text-[10px] font-bold">{addr.time}</span>
-                    </div>
-                  </button>
-                ))}
+                 {recentAddresses.map((addr, idx) => (
+                   <button 
+                     key={idx}
+                     onClick={() => setDestination(addr.name)}
+                     className="w-full flex items-center justify-between p-4 rounded-2xl bg-neutral-900 border border-white/5 hover:border-orange-500/50 hover:bg-neutral-800 transition-all group"
+                   >
+                     <div className="flex items-center gap-4">
+                       <div className="w-10 h-10 rounded-xl bg-orange-600/10 flex items-center justify-center text-orange-600 group-hover:scale-110 transition-transform">
+                         <MapPin className="w-5 h-5 shadow-[0_0_10px_rgba(234,88,12,0.3)]" />
+                       </div>
+                       <div className="text-left">
+                         <h4 className="font-bold text-sm text-neutral-100">{addr.name}</h4>
+                         <p className="text-[9px] text-neutral-600 font-bold uppercase tracking-widest">{addr.area}</p>
+                       </div>
+                     </div>
+                     <div className="flex items-center gap-2 text-neutral-700">
+                       <Clock className="w-3 h-3" />
+                       <span className="text-[10px] font-black tracking-tight">{addr.time}</span>
+                     </div>
+                   </button>
+                 ))}
               </div>
             </div>
 
@@ -468,6 +478,31 @@ export default function TaxiBooking() {
             exit={{ opacity: 0 }}
             className="absolute inset-0 z-10 flex flex-col h-full bg-neutral-950 font-sans"
           >
+            {/* Top Navigation Overlay */}
+            <div className="absolute top-0 inset-x-0 z-[60] px-6 pt-6 pointer-events-none">
+              <div className="flex items-center gap-4 pointer-events-auto">
+                <button 
+                  onClick={() => setStep('home')}
+                  className="w-12 h-12 bg-white/90 backdrop-blur-xl rounded-2xl shadow-2xl flex items-center justify-center border border-white/50 active:scale-90 transition-transform"
+                >
+                  <ArrowLeft className="w-5 h-5 text-neutral-800" />
+                </button>
+                <div className="flex-1 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/10 flex items-center px-4 py-3 gap-3">
+                  <Search className="w-4 h-4 text-neutral-400" />
+                  <input 
+                    type="text" 
+                    placeholder="Wapi unapo kwenda?" 
+                    className="flex-1 bg-transparent text-sm font-bold text-neutral-800 outline-none placeholder:text-neutral-300"
+                    value={destination}
+                    onChange={(e) => handleLocationSearch(e.target.value, 'destination')}
+                  />
+                  <div className="w-8 h-8 rounded-full border-2 border-orange-500 overflow-hidden">
+                    <img src={profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email}`} alt="User" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Map Area */}
             <div className="flex-1 bg-white overflow-hidden relative">
                <style>
@@ -606,12 +641,12 @@ export default function TaxiBooking() {
                         key={ride.id}
                         onClick={() => setSelectedRide(ride)}
                         className={`group relative p-4 rounded-3xl border-2 transition-all flex flex-col items-center gap-2 overflow-hidden ${
-                           selectedRide?.id === ride.id ? 'bg-amber-500/5 border-amber-500 shadow-xl scale-105 shadow-amber-500/20' : 'bg-neutral-50 border-neutral-200'
+                           selectedRide?.id === ride.id ? 'bg-amber-100/50 border-amber-500 shadow-xl scale-105 shadow-amber-500/10' : 'bg-neutral-50 border-neutral-100'
                         }`}
                      >
                         <div className="flex items-center gap-1 absolute top-2 right-2 opacity-70">
                           <Clock className="w-2.5 h-2.5 text-amber-600" />
-                          <span className="text-[8px] font-black">{ride.eta}min</span>
+                          <span className="text-[8px] font-black text-amber-900">{ride.eta}min</span>
                         </div>
                         
                         <div className="w-16 h-10 relative mb-1">
@@ -619,11 +654,11 @@ export default function TaxiBooking() {
                         </div>
                         
                         <div className="text-center">
-                           <h4 className="text-[10px] font-black uppercase leading-none mb-1">{ride.name}</h4>
+                           <h4 className="text-[10px] font-black uppercase leading-none mb-1 text-neutral-900">{ride.name}</h4>
                            <p className="text-[8px] font-bold text-neutral-400 mb-1 leading-none">{ride.sub}</p>
                            <div className="flex flex-col items-center">
-                             <span className="text-[11px] font-black text-amber-600">TZS {ride.price}</span>
-                             <span className="text-[7px] font-black text-emerald-500 uppercase tracking-tighter">Punguzo Tzs 3000</span>
+                             <span className="text-[11px] font-black text-amber-600">TZS {ride.priceRange}</span>
+                             <span className="text-[7px] font-black text-emerald-600 uppercase tracking-tighter bg-emerald-100 px-2 py-0.5 rounded-full mt-1">Punguzo 3k</span>
                            </div>
                         </div>
                      </button>
@@ -736,7 +771,7 @@ export default function TaxiBooking() {
                         <div className="flex items-center justify-between pt-4 border-t border-white/5">
                            <div className="flex items-center gap-2">
                               <DollarSign className="w-4 h-4 text-orange-600" />
-                              <span className="text-lg font-black italic">USD {selectedRide?.price}</span>
+                              <span className="text-lg font-black italic">TZS {selectedRide?.price.toLocaleString()}</span>
                            </div>
                            <Badge className="bg-emerald-500/20 text-emerald-500 border-none font-black text-[10px] px-4 py-1.5 rounded-full">CONFIRMED</Badge>
                         </div>
@@ -747,7 +782,7 @@ export default function TaxiBooking() {
                      onClick={() => setStep('arriving')}
                      className="w-full bg-neutral-100 text-neutral-950 py-5 rounded-3xl font-black uppercase tracking-widest hover:bg-white transition-all shadow-xl shadow-white/5"
                   >
-                     Confirm Details & Start
+                     Subiri Safariianze
                   </button>
                </div>
             </div>
@@ -824,12 +859,13 @@ export default function TaxiBooking() {
                 </div>
              </div>
 
-             <button 
-                onClick={() => setStep('on_trip')}
-                className="w-full bg-emerald-500 py-5 rounded-[2.5rem] font-black uppercase tracking-tighter text-white shadow-2xl shadow-emerald-500/20 active:scale-95 transition-all text-xl italic"
-             >
-                Arrived at Pickup
-             </button>
+             <div className="bg-emerald-500/10 border-2 border-emerald-500/20 p-6 rounded-3xl text-center space-y-2">
+                <p className="text-[10px] font-black uppercase text-emerald-500 tracking-widest">Driver Status</p>
+                <h4 className="text-xl font-black italic uppercase tracking-tighter text-emerald-400">
+                   {activeRide.status === 'accepted' && 'Anakuja kukuachukua...'}
+                   {activeRide.status === 'arrived' && 'Amefika! Tafadhali nenda kwenye gari.'}
+                </h4>
+             </div>
           </motion.div>
         )}
 
@@ -936,23 +972,23 @@ export default function TaxiBooking() {
 
                    <div className="space-y-3">
                       <div className="flex justify-between items-center text-sm">
-                         <span className="font-bold text-neutral-500">Harakati ya Safari:</span>
-                         <span className="font-black italic">USD {selectedRide?.price || '286.00'}</span>
+                         <span className="font-bold text-neutral-500">Gharama ya Safari:</span>
+                         <span className="font-black italic">TZS {selectedRide?.price.toLocaleString() || '2,800'}</span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
                          <span className="font-bold text-neutral-500">Tip Dereva:</span>
-                         <span className="font-black italic">USD 5.00</span>
+                         <span className="font-black italic">TZS 1,000</span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
-                         <span className="font-bold text-neutral-500">Ada ya Platform:</span>
-                         <span className="font-black italic">USD 1.20</span>
+                         <span className="font-bold text-neutral-500">Ada ya Huduma:</span>
+                         <span className="font-black italic">TZS 500</span>
                       </div>
                    </div>
 
                    <div className="pt-6 border-t border-dashed border-neutral-300 flex justify-between items-end">
                       <div>
                          <p className="text-[10px] font-black uppercase text-neutral-400 tracking-widest leading-none mb-1">Jumla ya Malipo:</p>
-                         <p className="text-3xl font-black italic tracking-tighter">USD {(selectedRide?.price || 0) + 6.20}</p>
+                         <p className="text-3xl font-black italic tracking-tighter">TZS {((selectedRide?.price || 0) + 1500).toLocaleString()}</p>
                       </div>
                       <div className="w-12 h-12 bg-emerald-500 rounded-2xl flex items-center justify-center text-white shadow-lg">
                          <CheckCircle2 className="w-7 h-7" />

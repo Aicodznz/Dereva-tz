@@ -4,11 +4,10 @@ export default [
   {
     files: ['**/*.rules'],
     plugins: {
-      '@firebase/security-rules': firebaseRulesPlugin,
+      'firebase-rules': firebaseRulesPlugin,
     },
     rules: {
       ...firebaseRulesPlugin.configs['flat/recommended'].rules,
-      '@firebase/security-rules/no-repeated-get': 'warn'
     }
   }
 ];
