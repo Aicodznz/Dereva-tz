@@ -182,24 +182,28 @@ service cloud.firestore {
                data.status in ['pending', 'accepted', 'arrived', 'started', 'completed', 'cancelled'];
       }
       
+      // Allow read if you are the customer, the assigned driver, or if it's a pending ride (for drivers to find)
       allow read: if isSignedIn() && (
+        isAdmin() ||
         resource.data.customerId == request.auth.uid || 
         resource.data.driverId == request.auth.uid || 
-        isAdmin()
+        resource.data.status == 'pending'
       );
       
       allow create: if isSignedIn() && 
-                    isValidRide(request.resource.data) && 
-                    request.resource.data.customerId == request.auth.uid;
+                    isValidRide(incoming()) && 
+                    incoming().customerId == request.auth.uid;
                     
       allow update: if isSignedIn() && (
-        // Customer canceling or rating
-        (resource.data.customerId == request.auth.uid && 
-         request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'customerRating'])) ||
-        // Driver accepting or updating status
-        (request.resource.data.driverId == request.auth.uid && 
-         request.resource.data.diff(resource.data).affectedKeys().hasAny(['driverId', 'status', 'updatedAt'])) ||
-        isAdmin()
+        isAdmin() ||
+        // Customer actions: Cancel or Rate
+        (existing().customerId == request.auth.uid && 
+         incoming().diff(existing()).affectedKeys().hasAny(['status', 'customerRating', 'updatedAt'])) ||
+        // Driver actions: Accept (when pending) or update status (when assigned)
+        (
+          (existing().status == 'pending' && incoming().driverId == request.auth.uid && incoming().status == 'accepted') ||
+          (existing().driverId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasAny(['status', 'updatedAt', 'location']))
+        )
       );
     }
   }
