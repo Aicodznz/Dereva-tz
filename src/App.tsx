@@ -21,6 +21,8 @@ import RegisterCustomer from './components/auth/RegisterCustomer';
 import RegisterDriver from './components/auth/RegisterDriver';
 import RegisterVendor from './components/auth/RegisterVendor';
 
+import TaxiBooking from './components/TaxiBooking';
+
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) return <div className="flex items-center justify-center h-screen">Loading...</div>;
@@ -49,6 +51,7 @@ function AppContent() {
             <Route path="/service/:id" element={<ServiceDetail />} />
             <Route path="/product/:id" element={<ProductDetail />} />
             <Route path="/vendor/:id" element={<VendorStore />} />
+            <Route path="/taxi" element={<PrivateRoute><TaxiBooking /></PrivateRoute>} />
             <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
             <Route path="/my-orders" element={<PrivateRoute><MyOrders /></PrivateRoute>} />
             <Route path="/chat" element={<PrivateRoute><Chat /></PrivateRoute>} />

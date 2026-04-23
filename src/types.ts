@@ -9,6 +9,16 @@ export interface UserProfile {
   phoneNumber?: string;
   address?: string;
   createdAt: any;
+  approvalStatus?: 'pending' | 'approved' | 'suspended';
+  status?: string;
+  driverType?: 'taxi' | 'delivery';
+  vehicleType?: string;
+  vehicleBrand?: string;
+  vehicleModel?: string;
+  vehicleColor?: string;
+  licensePlate?: string;
+  vehicleYear?: string;
+  carryingCapacity?: string;
 }
 
 export type VendorCategory = 'pharmacy' | 'grocery' | 'restaurant' | 'parcel' | 'taxi' | 'car_rental' | 'salon' | 'hotel' | 'ecommerce';
@@ -83,6 +93,7 @@ export interface RiderProfile {
   uid: string;
   vehicleDetails: string;
   status: 'available' | 'busy' | 'offline';
+  approvalStatus: 'pending' | 'approved' | 'suspended';
   currentPosition?: { lat: number; lng: number };
   rating: number;
 }

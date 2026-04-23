@@ -1260,24 +1260,24 @@ export default function VendorDashboard() {
   const renderFulfillmentColumn = (title: string, statusList: OrderStatus[], color: string) => {
     const filteredOrders = orders.filter(o => statusList.includes(o.status));
     return (
-      <div className="flex-1 min-w-[320px] bg-neutral-900/30 rounded-3xl p-6 border border-neutral-800/50 flex flex-col gap-6 h-[calc(100vh-280px)] overflow-hidden">
+      <div className="flex-1 min-w-[320px] bg-neutral-100/50 dark:bg-neutral-900/30 rounded-3xl p-6 border border-neutral-200 dark:border-neutral-800/50 flex flex-col gap-6 h-[calc(100vh-280px)] overflow-hidden transition-colors">
         <div className="flex items-center justify-between">
            <h3 className={`font-black uppercase tracking-widest text-[10px] ${color}`}>{title}</h3>
-           <Badge variant="outline" className="bg-white/5 border-none text-neutral-500 font-black">{filteredOrders.length}</Badge>
+           <Badge variant="outline" className="bg-black/5 dark:bg-white/5 border-none text-neutral-500 font-black">{filteredOrders.length}</Badge>
         </div>
         <div className="flex-1 overflow-y-auto no-scrollbar space-y-4 pr-2">
-           {filteredOrders.map((order) => (
+           {filteredOrders.map((order, idx) => (
              <motion.div 
                layout
                initial={{ opacity: 0, scale: 0.95 }}
                animate={{ opacity: 1, scale: 1 }}
-               key={`fulfillment-card-${order.id}`} 
-               className="bg-neutral-950 border border-neutral-800 p-5 rounded-2xl space-y-4 hover:border-orange-600/30 transition-all cursor-pointer group"
+               key={`fulfillment-card-${order.id || idx}`}
+               className="bg-card dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 p-5 rounded-2xl space-y-4 hover:border-orange-600/30 transition-all cursor-pointer group"
              >
                 <div className="flex items-center justify-between">
                   <div>
                     <span className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">Order ID</span>
-                    <p className="font-bold text-sm text-white">#{order.id?.slice(-6).toUpperCase()}</p>
+                    <p className="font-bold text-sm text-neutral-900 dark:text-white transition-colors">#{order.id?.slice(-6).toUpperCase()}</p>
                   </div>
                   <div className="flex gap-2">
                     {order.orderType === 'walk_in' && (
@@ -1293,14 +1293,14 @@ export default function VendorDashboard() {
                    {order.items.map((item: any, idx: number) => (
                      <div key={`kds-item-${order.id}-${idx}`} className="flex justify-between items-start">
                         <div className="flex gap-2 items-center">
-                          <span className="w-5 h-5 rounded-lg bg-neutral-800 flex items-center justify-center text-[10px] font-black text-white">{item.quantity}x</span>
-                          <span className="text-xs font-bold text-neutral-300">{item.name}</span>
+                          <span className="w-5 h-5 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-[10px] font-black text-neutral-900 dark:text-white transition-colors">{item.quantity}x</span>
+                          <span className="text-xs font-bold text-neutral-600 dark:text-neutral-300 transition-colors">{item.name}</span>
                         </div>
                      </div>
                    ))}
                 </div>
 
-                <div className="pt-4 border-t border-neutral-900 flex items-center justify-between">
+                <div className="pt-4 border-t border-neutral-100 dark:border-neutral-950 flex items-center justify-between transition-colors">
                    <div className="flex items-center gap-2 text-neutral-500">
                       <Clock className="w-3 h-3" />
                       <span className="text-[10px] font-bold">{order.createdAt ? format(order.createdAt.toDate(), 'HH:mm') : 'Now'}</span>
@@ -1436,11 +1436,11 @@ export default function VendorDashboard() {
            {renderFulfillmentColumn("Archive / Sent", ["delivered", "completed"], "text-green-500")}
         </div>
       ) : (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-3xl overflow-hidden shadow-2xl">
+         <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl overflow-hidden shadow-2xl transition-colors">
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr className="border-b border-neutral-800 bg-neutral-950/50">
+                <tr className="border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-950/50 transition-colors">
                   <th className="px-8 py-5 text-[10px] font-black text-neutral-500 uppercase tracking-widest">Order Details</th>
                   <th className="px-8 py-5 text-[10px] font-black text-neutral-500 uppercase tracking-widest">Mode</th>
                   <th className="px-8 py-5 text-[10px] font-black text-neutral-500 uppercase tracking-widest">Items</th>
@@ -1449,16 +1449,16 @@ export default function VendorDashboard() {
                   <th className="px-8 py-5 text-[10px] font-black text-neutral-500 uppercase tracking-widest text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-neutral-800">
+              <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800 transition-colors">
                 {orders.map((order, idx) => (
-                  <tr key={`orders-table-row-${order.id || idx}`} className="hover:bg-neutral-800/30 transition-colors group">
+                  <tr key={`orders-table-row-${order.id || idx}`} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/30 transition-colors group">
                     <td className="px-8 py-6">
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-neutral-800 flex items-center justify-center text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-all">
+                        <div className="w-12 h-12 rounded-2xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-all">
                           <Receipt className="w-6 h-6" />
                         </div>
                         <div>
-                          <p className="font-bold text-white text-lg">#{order.id?.slice(-6).toUpperCase()}</p>
+                          <p className="font-bold text-neutral-900 dark:text-white text-lg transition-colors">#{order.id?.slice(-6).toUpperCase()}</p>
                           <p className="text-[10px] text-neutral-500 font-bold uppercase">{order.customerName}</p>
                         </div>
                       </div>
@@ -1472,11 +1472,11 @@ export default function VendorDashboard() {
                       </div>
                     </td>
                     <td className="px-8 py-6">
-                      <p className="text-sm font-bold text-neutral-400">{order.items.length} Items</p>
+                      <p className="text-sm font-bold text-neutral-500 dark:text-neutral-400 transition-colors">{order.items.length} Items</p>
                       <p className="text-[10px] text-neutral-600">{order.items[0]?.name}...</p>
                     </td>
                     <td className="px-8 py-6">
-                      <p className="font-black text-white text-lg">TZS {order.totalAmount.toLocaleString()}</p>
+                      <p className="font-black text-neutral-900 dark:text-white text-lg transition-colors">TZS {order.totalAmount.toLocaleString()}</p>
                       <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">{order.paymentMethod}</p>
                     </td>
                     <td className="px-8 py-6 text-right">
@@ -1489,7 +1489,7 @@ export default function VendorDashboard() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="text-neutral-500 hover:text-orange-500 hover:bg-neutral-800 rounded-xl"
+                          className="text-neutral-500 hover:text-orange-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-xl transition-colors"
                           onClick={() => handlePrintOrder(order)}
                         >
                           <Printer className="w-4 h-4" />
@@ -1497,7 +1497,7 @@ export default function VendorDashboard() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="text-neutral-500 hover:text-red-500 hover:bg-neutral-800 rounded-xl"
+                          className="text-neutral-500 hover:text-red-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-xl transition-colors"
                           onClick={() => handleDeleteOrder(order.id!)}
                         >
                           <Trash2 className="w-4 h-4" />
@@ -1515,9 +1515,9 @@ export default function VendorDashboard() {
   );
 
   return (
-    <div className="flex flex-col lg:flex-row min-h-[calc(100vh-12rem)] -mx-4 sm:-mx-6 lg:-mx-8 -my-8 bg-neutral-950 text-white overflow-hidden rounded-3xl border border-neutral-800 shadow-2xl relative">
+    <div className="flex flex-col lg:flex-row min-h-[calc(100vh-12rem)] -mx-4 sm:-mx-6 lg:-mx-8 -my-8 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-white overflow-hidden rounded-3xl border border-neutral-200 dark:border-neutral-800 shadow-2xl relative transition-colors duration-300">
       {/* Mobile Menu Toggle */}
-      <div className="lg:hidden flex items-center justify-between p-4 bg-neutral-900 border-b border-neutral-800 sticky top-0 z-50">
+      <div className="lg:hidden flex items-center justify-between p-4 bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 sticky top-0 z-50 transition-colors duration-300">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center shadow-lg">
             <Store className="w-5 h-5 text-white" />
@@ -1537,7 +1537,7 @@ export default function VendorDashboard() {
       {/* Sidebar - Desktop and Mobile Overlay */}
       <aside className={`
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-        fixed lg:relative inset-y-0 left-0 w-64 bg-neutral-900 border-r border-neutral-800 p-6 flex flex-col gap-8 z-40 transition-transform duration-300 lg:z-auto
+        fixed lg:relative inset-y-0 left-0 w-64 bg-neutral-50 dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800 p-6 flex flex-col gap-8 z-40 transition-all duration-300 lg:z-auto
       `}>
         <div className="hidden lg:flex items-center gap-3 px-2">
           <div className="w-10 h-10 bg-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-orange-900/20">
@@ -1560,7 +1560,7 @@ export default function VendorDashboard() {
               className={`flex items-center justify-between px-4 py-3 rounded-xl transition-all group ${
                 activeTab === item.id 
                   ? 'bg-orange-600 text-white shadow-lg shadow-orange-900/20' 
-                  : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'
+                  : 'text-neutral-500 hover:bg-white dark:hover:bg-neutral-800 hover:text-orange-600 dark:hover:text-white border border-transparent hover:border-neutral-200 dark:hover:border-neutral-700'
               }`}
             >
               <div className="flex items-center gap-3">
@@ -1578,8 +1578,8 @@ export default function VendorDashboard() {
           ))}
         </nav>
 
-        <div className="mt-auto pt-6 border-t border-neutral-800">
-          <Link to="/profile" className="flex items-center gap-3 px-4 py-3 text-neutral-400 hover:text-white transition-colors group">
+        <div className="mt-auto pt-6 border-t border-neutral-200 dark:border-neutral-800 transition-colors">
+          <Link to="/profile" className="flex items-center gap-3 px-4 py-3 text-neutral-400 dark:text-neutral-500 hover:text-orange-600 dark:hover:text-white transition-colors group">
             <History className="w-5 h-5 group-hover:rotate-12 transition-transform" />
             <span className="font-medium text-sm">Switch Role</span>
           </Link>
@@ -1597,14 +1597,14 @@ export default function VendorDashboard() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col overflow-x-hidden overflow-y-auto w-full">
         {/* Top Bar - Only on Desktop typically, but we adjust for mobile */}
-        <header className="h-20 border-b border-neutral-800 px-4 md:px-8 flex items-center justify-between bg-neutral-900/20 backdrop-blur-xl sticky top-0 z-10 w-full">
+        <header className="h-20 border-b border-neutral-200 dark:border-neutral-800 px-4 md:px-8 flex items-center justify-between bg-white/80 dark:bg-neutral-900/20 backdrop-blur-xl sticky top-0 z-10 w-full transition-colors duration-300">
           <div className="hidden sm:flex items-center gap-4 flex-1 max-w-md">
             <div className="relative w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
               <input 
                 type="text" 
                 placeholder="Search orders, products..." 
-                className="w-full bg-neutral-800/50 border-none rounded-xl pl-10 pr-4 h-10 text-sm focus:ring-2 focus:ring-orange-600 transition-all"
+                className="w-full bg-neutral-100 dark:bg-neutral-800/50 border-none rounded-xl pl-10 pr-4 h-10 text-sm focus:ring-2 focus:ring-orange-600 transition-all text-neutral-900 dark:text-white"
               />
             </div>
           </div>
@@ -1616,15 +1616,15 @@ export default function VendorDashboard() {
             >
               <Plus className="w-4 h-4" /> Add Product
             </Button>
-            <div className="h-8 w-px bg-neutral-800 mx-2 hidden md:block"></div>
-            <button className="p-2.5 rounded-xl bg-neutral-800/50 text-neutral-400 hover:text-white transition-all relative">
+            <div className="h-8 w-px bg-neutral-200 dark:bg-neutral-800 mx-2 hidden md:block transition-colors"></div>
+            <button className="p-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800/50 text-neutral-500 dark:text-neutral-400 hover:text-orange-600 dark:hover:text-white transition-all relative">
               <Bell className="w-5 h-5" />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-orange-600 rounded-full border-2 border-neutral-900"></span>
+              <span className="absolute top-2 right-2 w-2 h-2 bg-orange-600 rounded-full border-2 border-white dark:border-neutral-900 transition-colors"></span>
             </button>
-            <div className="h-8 w-px bg-neutral-800 mx-2"></div>
+            <div className="h-8 w-px bg-neutral-200 dark:bg-neutral-800 mx-2 transition-colors"></div>
             <div className="flex items-center gap-3">
               <div className="text-right hidden sm:block">
-                <p className="text-xs font-bold text-white">{profile?.displayName}</p>
+                <p className="text-xs font-bold text-neutral-900 dark:text-white">{profile?.displayName}</p>
                 <p className="text-[10px] text-neutral-500 uppercase tracking-tighter">Owner</p>
               </div>
               <div className="w-10 h-10 rounded-xl bg-orange-600/20 border border-orange-600/30 flex items-center justify-center text-orange-600 font-bold">
@@ -1654,7 +1654,7 @@ export default function VendorDashboard() {
                   <div className="flex items-center gap-3">
                     <Button 
                       variant="outline" 
-                      className="rounded-xl border-neutral-800 bg-neutral-900 gap-2 h-11 px-5"
+                      className="rounded-xl border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-white gap-2 h-11 px-5"
                       onClick={() => toast.info('Data export requested. Your report will be available shortly.')}
                     >
                       <Download className="w-4 h-4" /> Export Data
@@ -1685,7 +1685,7 @@ export default function VendorDashboard() {
                       whileHover={{ y: -4, scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={action.action}
-                      className="flex flex-col items-center justify-center p-6 rounded-[2rem] bg-neutral-900/60 border border-neutral-800 hover:border-orange-600/30 transition-all gap-3 overflow-hidden relative group"
+                      className="flex flex-col items-center justify-center p-6 rounded-[2rem] bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200 dark:border-neutral-800 hover:border-orange-600/30 transition-all gap-3 overflow-hidden relative group shadow-sm"
                     >
                       <div className="absolute inset-0 bg-orange-600/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                       <div className={`p-4 rounded-2xl ${action.color} text-white shadow-lg relative z-10 transition-transform group-hover:scale-110`}>
@@ -1704,10 +1704,10 @@ export default function VendorDashboard() {
                     { label: "Available Items", value: products.length.toString(), icon: Box, trend: "Stable", positive: true, sub: "Unique products listed" },
                     { label: "Low Stock", value: products.filter(p => p.stock < 10).length.toString(), icon: AlertCircle, trend: "Caution", positive: false, sub: "Products needing restock" },
                   ].map((stat, i) => (
-                    <Card key={`stat-card-${stat.label}-${i}`} className="bg-neutral-900/40 border-neutral-800 backdrop-blur-sm overflow-hidden group hover:border-orange-600/50 transition-all cursor-default">
+                    <Card key={`stat-card-${stat.label}-${i}`} className="bg-white dark:bg-neutral-900/40 border-neutral-200 dark:border-neutral-800 backdrop-blur-sm overflow-hidden group hover:border-orange-600/50 transition-all cursor-default shadow-sm">
                       <CardContent className="p-8">
                         <div className="flex items-center justify-between mb-6">
-                          <div className="p-3.5 rounded-2xl bg-neutral-800 text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-all transform group-hover:rotate-6">
+                          <div className="p-3.5 rounded-2xl bg-neutral-100 dark:bg-neutral-800 text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-all transform group-hover:rotate-6">
                             <stat.icon className="w-6 h-6" />
                           </div>
                           <div className={`flex items-center gap-1 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest ${
@@ -1716,7 +1716,7 @@ export default function VendorDashboard() {
                             {stat.trend}
                           </div>
                         </div>
-                        <h3 className="text-3xl font-black text-white tracking-tighter mb-1">{stat.value}</h3>
+                        <h3 className="text-3xl font-black text-neutral-900 dark:text-white tracking-tighter mb-1">{stat.value}</h3>
                         <p className="text-[10px] font-black text-neutral-500 uppercase tracking-widest mb-1">{stat.label}</p>
                         <p className="text-[10px] text-neutral-600 font-medium">{stat.sub}</p>
                       </CardContent>
@@ -1751,15 +1751,15 @@ export default function VendorDashboard() {
 
                 {/* Complex Charts Row */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                  <Card className="lg:col-span-2 bg-neutral-900/40 border-neutral-800 p-8">
+                  <Card className="lg:col-span-2 bg-white dark:bg-neutral-900/40 border-neutral-200 dark:border-neutral-800 p-8 transition-colors">
                     <div className="flex items-center justify-between mb-10">
                       <div>
-                        <h3 className="text-xl font-black uppercase tracking-tight italic">Revenue Stream</h3>
+                        <h3 className="text-xl font-black uppercase tracking-tight italic text-neutral-900 dark:text-white transition-colors">Revenue Stream</h3>
                         <p className="text-xs text-neutral-500">Hourly sales performance</p>
                       </div>
-                      <div className="flex bg-neutral-950 p-1 rounded-xl border border-neutral-800">
-                        <button className="px-4 py-2 text-[10px] font-bold uppercase bg-orange-600 rounded-lg">Sales</button>
-                        <button className="px-4 py-2 text-[10px] font-bold uppercase text-neutral-500 hover:text-white">Orders</button>
+                      <div className="flex bg-neutral-100 dark:bg-neutral-950 p-1 rounded-xl border border-neutral-200 dark:border-neutral-800 transition-colors">
+                        <button className="px-4 py-2 text-[10px] font-bold uppercase bg-orange-600 text-white rounded-lg">Sales</button>
+                        <button className="px-4 py-2 text-[10px] font-bold uppercase text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors">Orders</button>
                       </div>
                     </div>
                     <div className="h-[350px] w-full">
@@ -1784,9 +1784,9 @@ export default function VendorDashboard() {
                     </div>
                   </Card>
 
-                  <Card className="bg-neutral-900/40 border-neutral-800 p-8 flex flex-col justify-between">
+                  <Card className="bg-white dark:bg-neutral-900/40 border-neutral-200 dark:border-neutral-800 p-8 flex flex-col justify-between transition-colors">
                     <div>
-                      <h3 className="text-xl font-black uppercase tracking-tight italic">Inventory Mix</h3>
+                      <h3 className="text-xl font-black uppercase tracking-tight italic text-neutral-900 dark:text-white transition-colors">Inventory Mix</h3>
                       <p className="text-xs text-neutral-500">Distribution by category</p>
                     </div>
                     <div className="h-[250px] w-full mt-6">
@@ -1873,8 +1873,8 @@ export default function VendorDashboard() {
                       <Button variant="ghost" size="sm" className="text-[10px] font-black uppercase text-orange-600" onClick={() => setActiveTab('orders')}>View Fulfillment</Button>
                     </div>
                     <div className="space-y-6">
-                      {orders.filter(o => o.status !== 'completed' && o.status !== 'cancelled').slice(0, 5).map((order) => (
-                        <div key={`live-order-${order.id}`} className="flex items-center justify-between group">
+                      {orders.filter(o => o.status !== 'completed' && o.status !== 'cancelled').slice(0, 5).map((order, idx) => (
+                        <div key={`live-order-${order.id || idx}`} className="flex items-center justify-between group">
                           <div className="flex items-center gap-4">
                              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
                                order.status === 'pending' ? 'bg-yellow-500/10 text-yellow-500' : 
@@ -1909,8 +1909,8 @@ export default function VendorDashboard() {
                   <Card className="bg-neutral-900/40 border-neutral-800 p-8">
                     <h3 className="text-xl font-black uppercase tracking-tight italic mb-6">Recent Sales</h3>
                     <div className="space-y-6">
-                      {orders.slice(0, 5).map((order) => (
-                        <div key={`recent-sale-${order.id}`} className="flex items-center justify-between group">
+                      {orders.slice(0, 5).map((order, idx) => (
+                        <div key={`recent-sale-${order.id || idx}`} className="flex items-center justify-between group">
                           <div className="flex items-center gap-4">
                              <div className="w-12 h-12 rounded-2xl bg-neutral-800 flex items-center justify-center text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-all">
                                 <Receipt className="w-6 h-6" />
@@ -2333,7 +2333,7 @@ export default function VendorDashboard() {
                         <div className="w-24 h-24 bg-neutral-900 rounded-[2.5rem] flex items-center justify-center mb-8 border border-neutral-800">
                            <Layout className="w-10 h-10 text-neutral-700" />
                         </div>
-                        <h3 className="text-2xl font-black text-white italic uppercase mb-2 tracking-tight">Floor Plan Empty</h3>
+              <h3 className="text-xl font-black text-neutral-900 dark:text-white italic uppercase mb-2 tracking-tight transition-colors">Floor Plan Empty</h3>
                         <p className="text-neutral-500 text-sm max-w-xs mx-auto mb-8">Design your dining experience by adding tables and generating unique QR codes for instant ordering.</p>
                         <Button 
                           onClick={() => setIsAddSectionOpen(true)} 
@@ -2369,7 +2369,7 @@ export default function VendorDashboard() {
                           <UserPlus className="w-5 h-5 text-orange-600" />
                           Add Customer
                         </h3>
-                        <button onClick={() => setIsAddCustomerModalOpen(false)} className="text-neutral-500 hover:text-white">
+                 <button onClick={() => setIsAddCustomerModalOpen(false)} className="text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors">
                           <X className="w-5 h-5" />
                         </button>
                       </div>
@@ -2543,7 +2543,7 @@ export default function VendorDashboard() {
                   {coupons.length === 0 && !isAddCouponOpen && (
                     <div className="col-span-full py-32 text-center bg-neutral-900/20 rounded-[3rem] border border-dashed border-neutral-800">
                        <Tag className="w-20 h-20 text-neutral-800 mx-auto mb-6" />
-                       <h3 className="text-xl font-black text-white italic uppercase mb-2">No Active Coupons</h3>
+                       <h3 className="text-xl font-black text-neutral-900 dark:text-white italic uppercase mb-2 transition-colors">No Active Coupons</h3>
                        <p className="text-neutral-500 text-sm max-w-xs mx-auto">Create promotional codes to drive sales and reward your loyal customers.</p>
                        <Button onClick={() => setIsAddCouponOpen(true)} variant="link" className="mt-4 text-orange-500 font-bold uppercase tracking-widest text-[10px]">Launch First Campaign</Button>
                     </div>
@@ -2589,15 +2589,15 @@ export default function VendorDashboard() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                    <Card className="bg-neutral-900/40 border-neutral-800 p-8">
                       <h3 className="text-[10px] font-black uppercase tracking-widest text-neutral-500 mb-2">Total Inventory Value</h3>
-                      <p className="text-3xl font-black text-white italic">TZS {(products.reduce((acc, p) => acc + (p.price * p.stock), 0)).toLocaleString()}</p>
+                      <p className="text-3xl font-black text-neutral-900 dark:text-white italic transition-colors">TZS {(products.reduce((acc, p) => acc + (p.price * p.stock), 0)).toLocaleString()}</p>
                    </Card>
                    <Card className="bg-neutral-900/40 border-neutral-800 p-8">
                       <h3 className="text-[10px] font-black uppercase tracking-widest text-neutral-500 mb-2">Unique Items</h3>
-                      <p className="text-3xl font-black text-white italic">{products.length} Products</p>
+                      <p className="text-3xl font-black text-neutral-900 dark:text-white italic transition-colors small">{products.length} Products</p>
                    </Card>
                    <Card className="bg-neutral-900/40 border-neutral-800 p-8">
                       <h3 className="text-[10px] font-black uppercase tracking-widest text-neutral-500 mb-2">Total Units in Stock</h3>
-                      <p className="text-3xl font-black text-white italic">{products.reduce((acc, p) => acc + p.stock, 0)} Units</p>
+                      <p className="text-3xl font-black text-neutral-900 dark:text-white italic transition-colors">{products.reduce((acc, p) => acc + p.stock, 0)} Units</p>
                    </Card>
                 </div>
 
@@ -2808,9 +2808,9 @@ export default function VendorDashboard() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {staff.map((member) => (
+                  {staff.map((member, idx) => (
                     <motion.div 
-                      key={`staff-card-${member.id}`}
+                      key={`staff-card-${member.id || idx}`}
                       whileHover={{ scale: 1.02 }}
                       className="bg-neutral-900 border border-neutral-800 rounded-[3rem] p-8 relative group overflow-hidden"
                     >
@@ -3106,7 +3106,7 @@ export default function VendorDashboard() {
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-3xl font-black text-white">Duka Settings</h2>
+                    <h2 className="text-3xl font-black text-neutral-900 dark:text-white px-1 italic uppercase tracking-tighter transition-colors duration-300">Duka Settings</h2>
                     <p className="text-neutral-500 font-medium">Manage your store profile, appearance, and contact info</p>
                   </div>
                   <Button 
@@ -3126,11 +3126,11 @@ export default function VendorDashboard() {
 
                 <form id="settings-form" onSubmit={handleUpdateSettings} className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-20">
                   <div className="lg:col-span-2 space-y-6">
-                    <Card className="bg-neutral-900 border-neutral-800 rounded-[2.5rem] overflow-hidden shadow-2xl p-8 space-y-8">
+                    <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 rounded-[2.5rem] overflow-hidden shadow-2xl p-8 space-y-8 transition-colors">
                       <div className="space-y-6">
                         <div className="flex items-center gap-4 text-orange-600">
                           <Store className="w-6 h-6" />
-                          <h3 className="font-black text-xl">Basic Information</h3>
+                          <h3 className="font-black text-xl text-neutral-900 dark:text-white transition-colors">Basic Information</h3>
                         </div>
                         
                         <div className="space-y-2">
@@ -3138,7 +3138,7 @@ export default function VendorDashboard() {
                           <Input 
                             value={updatedProfile.businessName}
                             onChange={e => setUpdatedProfile({...updatedProfile, businessName: e.target.value})}
-                            className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl text-lg font-bold"
+                            className="bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 h-14 rounded-2xl text-lg font-bold text-neutral-900 dark:text-white transition-colors"
                             placeholder="e.g. Papo Hapo Soko"
                             required
                           />
@@ -3149,16 +3149,16 @@ export default function VendorDashboard() {
                           <textarea 
                             value={updatedProfile.description}
                             onChange={e => setUpdatedProfile({...updatedProfile, description: e.target.value})}
-                            className="w-full bg-neutral-950 border border-neutral-800 rounded-2xl p-4 text-sm font-medium text-white min-h-[120px] focus:ring-2 focus:ring-orange-600 focus:outline-none transition-all"
+                            className="w-full bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4 text-sm font-medium text-neutral-900 dark:text-white min-h-[120px] focus:ring-2 focus:ring-orange-600 focus:outline-none transition-all"
                             placeholder="Brief details about your store..."
                           />
                         </div>
                       </div>
 
-                      <div className="space-y-6 pt-6 border-t border-neutral-800">
+                      <div className="space-y-6 pt-6 border-t border-neutral-200 dark:border-neutral-800 transition-colors">
                         <div className="flex items-center gap-4 text-orange-600">
                           <MapPin className="w-6 h-6" />
-                          <h3 className="font-black text-xl">Location & Contact</h3>
+                          <h3 className="font-black text-xl text-neutral-900 dark:text-white transition-colors">Location & Contact</h3>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -3168,14 +3168,14 @@ export default function VendorDashboard() {
                               <Input 
                                 value={updatedProfile.address}
                                 onChange={e => setUpdatedProfile({...updatedProfile, address: e.target.value})}
-                                className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl font-bold flex-1"
+                                className="bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 h-14 rounded-2xl font-bold flex-1 text-neutral-900 dark:text-white transition-colors"
                                 placeholder="e.g. Kariakoo, Dar es Salaam"
                               />
                               <Button 
                                 type="button"
                                 variant="outline"
                                 onClick={() => setIsLocationPickerOpen(true)}
-                                className="h-14 px-6 rounded-2xl border-neutral-800 bg-neutral-950 hover:bg-neutral-900 border-2 gap-2 text-orange-600 font-bold shrink-0"
+                                className="h-14 px-6 rounded-2xl border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 hover:bg-neutral-100 dark:hover:bg-neutral-900 border-2 gap-2 text-orange-600 font-bold shrink-0 transition-colors"
                               >
                                 <MapPin className="w-5 h-5 text-orange-600" />
                                 <span className="hidden sm:inline">Chagua kwenye Ramani</span>
@@ -3192,7 +3192,7 @@ export default function VendorDashboard() {
                             <Input 
                               value={updatedProfile.phoneNumber}
                               onChange={e => setUpdatedProfile({...updatedProfile, phoneNumber: e.target.value})}
-                              className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl font-bold"
+                              className="bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 h-14 rounded-2xl font-bold text-neutral-900 dark:text-white transition-colors"
                               placeholder="+255..."
                             />
                           </div>
@@ -3200,36 +3200,36 @@ export default function VendorDashboard() {
                       </div>
                     </Card>
                     
-                    <Card className="bg-neutral-900 border-neutral-800 rounded-[2.5rem] overflow-hidden shadow-2xl p-8 space-y-8">
+                    <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 rounded-[2.5rem] overflow-hidden shadow-2xl p-8 space-y-8 transition-colors">
                        <div className="flex items-center gap-4 text-orange-600">
                           <Clock className="w-6 h-6" />
-                          <h3 className="font-black text-xl">Opening Hours</h3>
+                          <h3 className="font-black text-xl text-neutral-900 dark:text-white transition-colors">Opening Hours</h3>
                   </div>
                   <Input 
                     value={updatedProfile.operatingHours}
                     onChange={e => setUpdatedProfile({...updatedProfile, operatingHours: e.target.value})}
-                    className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl font-bold"
+                    className="bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 h-14 rounded-2xl font-bold text-neutral-900 dark:text-white transition-colors"
                     placeholder="e.g. 7:00 AM - 9:00 PM"
                   />
               </Card>
                   </div>
 
                   <div className="space-y-8">
-                    <Card className="bg-neutral-900 border-neutral-800 rounded-[2.5rem] overflow-hidden shadow-2xl p-8 space-y-6">
+                    <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 rounded-[2.5rem] overflow-hidden shadow-2xl p-8 space-y-6 transition-colors">
                       <div className="flex items-center gap-4 text-orange-600">
                         <Camera className="w-6 h-6" />
-                        <h3 className="font-black text-xl">Branding</h3>
+                        <h3 className="font-black text-xl text-neutral-900 dark:text-white transition-colors">Branding</h3>
                       </div>
 
                       <div className="space-y-6">
                         <div className="space-y-3 text-center">
                           <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">Logo / Picha ya Duka</label>
                           <div className="relative group mx-auto w-32 h-32">
-                            <div className="w-full h-full rounded-[2.5rem] bg-neutral-950 border-2 border-dashed border-neutral-800 overflow-hidden flex items-center justify-center">
+                            <div className="w-full h-full rounded-[2.5rem] bg-neutral-50 dark:bg-neutral-950 border-2 border-dashed border-neutral-200 dark:border-neutral-800 overflow-hidden flex items-center justify-center transition-colors">
                               {updatedProfile.logoUrl ? (
                                 <img src={updatedProfile.logoUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                               ) : (
-                                <Store className="w-10 h-10 text-neutral-700" />
+                                <Store className="w-10 h-10 text-neutral-400 dark:text-neutral-700" />
                               )}
                             </div>
                             <Button
@@ -3249,17 +3249,17 @@ export default function VendorDashboard() {
 
                         <div className="space-y-3">
                           <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1 text-center block">Banner Image / Picha ya Juu</label>
-                          <div className="relative group aspect-video rounded-3xl bg-neutral-950 border-2 border-dashed border-neutral-800 overflow-hidden flex items-center justify-center">
+                          <div className="relative group aspect-video rounded-3xl bg-neutral-50 dark:bg-neutral-950 border-2 border-dashed border-neutral-200 dark:border-neutral-800 overflow-hidden flex items-center justify-center transition-colors">
                             {updatedProfile.bannerUrl ? (
                               <img src={updatedProfile.bannerUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                             ) : (
-                              <Camera className="w-8 h-8 text-neutral-700" />
+                              <Camera className="w-8 h-8 text-neutral-400 dark:text-neutral-700" />
                             )}
                             <Button
                               type="button" 
                               variant="ghost" 
                               size="icon"
-                              className="absolute bottom-3 right-3 bg-white/10 backdrop-blur-md hover:bg-white/20 text-white rounded-xl h-10 w-10 shadow-lg"
+                              className="absolute bottom-3 right-3 bg-black/10 dark:bg-white/10 backdrop-blur-md hover:bg-black/20 dark:hover:bg-white/20 text-white rounded-xl h-10 w-10 shadow-lg"
                               onClick={() => {
                                 const url = prompt('Enter Banner URL:');
                                 if (url) setUpdatedProfile({...updatedProfile, bannerUrl: url});
@@ -3283,15 +3283,15 @@ export default function VendorDashboard() {
                       </Button>
                     </Card>
 
-                    <Card className="bg-neutral-900 border-neutral-800 rounded-[2.5rem] overflow-hidden p-8 space-y-6">
+                    <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 rounded-[2.5rem] overflow-hidden p-8 space-y-6 transition-colors">
                        <div className="flex items-center justify-between">
                          <div className="flex items-center gap-4 text-orange-600">
                            <Layout className="w-6 h-6" />
-                           <h3 className="font-black text-xl">{vendorContext.locationLabel}</h3>
+                           <h3 className="font-black text-xl text-neutral-900 dark:text-white transition-colors">{vendorContext.locationLabel}</h3>
                          </div>
                          <Button 
                            onClick={() => setIsAddSectionOpen(true)}
-                           className="bg-orange-600 hover:bg-orange-700 h-10 px-4 rounded-xl font-bold gap-2"
+                           className="bg-orange-600 hover:bg-orange-700 h-10 px-4 rounded-xl font-bold gap-2 text-white"
                          >
                            <Plus className="w-4 h-4" /> Add {vendorContext.locationLabelSingular}
                          </Button>
@@ -3300,21 +3300,21 @@ export default function VendorDashboard() {
                        
                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                           {sections.map((section, idx) => (
-                            <Card key={`section-card-${section.id || idx}`} className="bg-neutral-950 border-neutral-800 p-4 border border-white/5 relative group hover:border-orange-600/30 transition-all">
+                            <Card key={`section-card-${section.id || idx}`} className="bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 p-4 border relative group hover:border-orange-600/30 transition-all">
                                <button 
                                  onClick={() => handleDeleteSection(section.id)}
-                                 className="absolute top-2 right-2 text-neutral-600 hover:text-red-500 transition-colors"
+                                 className="absolute top-2 right-2 text-neutral-400 dark:text-neutral-600 hover:text-red-500 transition-colors"
                                >
                                  <Trash2 className="w-4 h-4" />
                                </button>
                                <div className="w-10 h-10 bg-orange-600/10 rounded-lg flex items-center justify-center text-orange-600 font-black mb-3">
                                   {section.number}
                                </div>
-                               <p className="text-[10px] font-black uppercase text-white truncate">{vendorContext.locationLabelSingular} {section.number}</p>
+                               <p className="text-[10px] font-black uppercase text-neutral-900 dark:text-white truncate transition-colors">{vendorContext.locationLabelSingular} {section.number}</p>
                                <Button 
                                  variant="ghost" 
                                  size="sm" 
-                                 className="w-full mt-3 h-8 text-[9px] font-black uppercase hover:bg-orange-600 hover:text-white"
+                                 className="w-full mt-3 h-8 text-[9px] font-black uppercase hover:bg-orange-600 hover:text-white dark:text-neutral-400 group-hover:dark:text-white transition-colors"
                                  onClick={() => {
                                    setSelectedSection(section);
                                    setQrOptions({ ...qrOptions, data: `${window.location.origin}/table/${vendorProfile?.id}/${section.number}` });

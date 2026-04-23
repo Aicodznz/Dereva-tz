@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../AuthContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, onSnapshot, addDoc, serverTimestamp, orderBy, limit, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, serverTimestamp, orderBy, limit, doc, getDoc, updateDoc, getDocs } from 'firebase/firestore';
 import { useLanguage } from '../LanguageContext';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -131,16 +131,28 @@ export default function Chat({ onBack }: ChatProps) {
     if (!recipientId) return;
     
     const fetchRecipient = async () => {
+      // 1. Check if recipientId is a Vendor Document ID (Legacy or direct)
       const vRef = doc(db, 'vendors', recipientId);
       const vSnap = await getDoc(vRef);
       if (vSnap.exists()) {
         setRecipientProfile({ name: vSnap.data().businessName, photo: vSnap.data().logoUrl, role: 'vendor' });
-      } else {
-        const uRef = doc(db, 'users', recipientId);
-        const uSnap = await getDoc(uRef);
-        if (uSnap.exists()) {
-          setRecipientProfile({ name: uSnap.data().displayName, photo: uSnap.data().photoURL, role: uSnap.data().role });
-        }
+        return;
+      }
+
+      // 2. Check if recipientId is an ownerUid (Vendor)
+      const vQuery = query(collection(db, 'vendors'), where('ownerUid', '==', recipientId), limit(1));
+      const vQuerySnap = await getDocs(vQuery);
+      if (!vQuerySnap.empty) {
+        const vData = vQuerySnap.docs[0].data();
+        setRecipientProfile({ name: vData.businessName, photo: vData.logoUrl, role: 'vendor' });
+        return;
+      }
+
+      // 3. Fallback to Users collection
+      const uRef = doc(db, 'users', recipientId);
+      const uSnap = await getDoc(uRef);
+      if (uSnap.exists()) {
+        setRecipientProfile({ name: uSnap.data().displayName, photo: uSnap.data().photoURL, role: uSnap.data().role });
       }
     };
     fetchRecipient();

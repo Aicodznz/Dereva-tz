@@ -141,42 +141,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signUp = async (email: string, pass: string, role: UserRole, extraData?: any) => {
+    const cleanEmail = email.trim().toLowerCase();
+    
+    // Basic format check
+    if (!cleanEmail || !cleanEmail.includes('@') || cleanEmail.length < 5) {
+      throw new Error("Tafadhali weka barua pepe sahihi (mfano: jina@gmail.com)");
+    }
+
     try {
-      console.log('Attempting signup for:', email);
-      const { user: firebaseUser } = await createUserWithEmailAndPassword(auth, email, pass);
+      console.log('Attempting signup for:', cleanEmail);
+      const { user: firebaseUser } = await createUserWithEmailAndPassword(auth, cleanEmail, pass);
       const profileRef = doc(db, 'users', firebaseUser.uid);
       const newProfile: UserProfile = {
         uid: firebaseUser.uid,
-        email: firebaseUser.email || '',
+        email: firebaseUser.email || cleanEmail,
         displayName: extraData?.fullName || '',
         photoURL: '',
         role: role,
         createdAt: new Date(),
         ...extraData
       };
+      
+      // Cleanup to ensure correct email is saved
+      newProfile.email = firebaseUser.email || cleanEmail;
+
       await setDoc(profileRef, newProfile);
       setProfile(newProfile);
-      console.log('Signup successful for:', email);
+      console.log('Signup successful for:', cleanEmail);
     } catch (error: any) {
       console.error('Signup error code:', error.code);
       console.error('Signup error message:', error.message);
       if (error.code === 'auth/operation-not-allowed') {
         throw new Error("Email registration is currently disabled. Please enable 'Email/Password' in your Firebase Console Authentication settings.");
       }
+      if (error.code === 'auth/invalid-email') {
+        throw new Error(`Barua pepe "${cleanEmail}" si sahihi. Tafadhali hakiki na ujaribu tena.`);
+      }
       throw error;
     }
   };
 
   const login = async (email: string, pass: string) => {
+    const cleanEmail = email.trim().toLowerCase();
     try {
-      console.log('Attempting login for:', email);
-      await signInWithEmailAndPassword(auth, email, pass);
-      console.log('Login successful for:', email);
+      console.log('Attempting login for:', cleanEmail);
+      await signInWithEmailAndPassword(auth, cleanEmail, pass);
+      console.log('Login successful for:', cleanEmail);
     } catch (error: any) {
       console.error('Login error code:', error.code);
       console.error('Login error message:', error.message);
       if (error.code === 'auth/operation-not-allowed') {
         throw new Error("Email login is currently disabled. Please enable 'Email/Password' in your Firebase Console Authentication settings.");
+      }
+      if (error.code === 'auth/invalid-email') {
+        throw new Error(`Barua pepe "${cleanEmail}" si sahihi. Tafadhali hakiki na ujaribu tena.`);
       }
       throw error;
     }

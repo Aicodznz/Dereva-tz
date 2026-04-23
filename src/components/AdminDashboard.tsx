@@ -36,6 +36,11 @@ interface UserRecord {
   role: string;
   phone?: string;
   status: 'active' | 'blocked';
+  approvalStatus?: 'pending' | 'approved' | 'suspended';
+  driverType?: string;
+  vehicleBrand?: string;
+  vehicleModel?: string;
+  licensePlate?: string;
   createdAt: any;
 }
 
@@ -43,7 +48,7 @@ interface ProductWithVendor extends Product {
   vendorName?: string;
 }
 
-type AdminTab = 'overview' | 'vendors' | 'products' | 'users' | 'orders' | 'banners' | 'notifications' | 'coupons' | 'settings';
+type AdminTab = 'overview' | 'vendors' | 'drivers' | 'products' | 'users' | 'orders' | 'banners' | 'notifications' | 'coupons' | 'settings';
 
 interface Coupon {
   id?: string;
@@ -257,6 +262,24 @@ export default function AdminDashboard() {
     };
   }, []);
 
+  const handleApproveDriver = async (id: string) => {
+    try {
+      await updateDoc(doc(db, 'users', id), { approvalStatus: 'approved' });
+      toast.success('Driver approved successfully!');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${id}`);
+    }
+  };
+
+  const handleRejectDriver = async (id: string) => {
+    try {
+      await updateDoc(doc(db, 'users', id), { approvalStatus: 'suspended' });
+      toast.error('Driver status updated to suspended.');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${id}`);
+    }
+  };
+
   const handleApprove = async (id: string) => {
     try {
       await updateDoc(doc(db, 'vendors', id), { status: 'active' });
@@ -364,7 +387,7 @@ export default function AdminDashboard() {
             <ShieldAlert className="w-10 h-10" />
           </div>
           <div>
-            <h1 className="text-4xl font-black text-neutral-900 tracking-tighter uppercase italic">{t('admin_control_panel')}</h1>
+            <h1 className="text-4xl font-black text-neutral-900 dark:text-white tracking-tighter uppercase italic">{t('admin_control_panel')}</h1>
             <p className="text-neutral-500 font-medium">Platform-wide management & financial oversight.</p>
           </div>
         </div>
@@ -372,7 +395,7 @@ export default function AdminDashboard() {
           <Link to="/profile">
             <Button variant="outline" className="rounded-2xl border-neutral-200 font-bold">Switch Profile</Button>
           </Link>
-          <div className="bg-neutral-900 text-white px-4 py-2 rounded-2xl flex items-center gap-2">
+          <div className="bg-neutral-900 dark:bg-neutral-800 border border-neutral-800 dark:border-neutral-700 text-white px-4 py-2 rounded-2xl flex items-center gap-2 transition-colors">
             <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
             <span className="text-xs font-black uppercase tracking-widest">Admin Live</span>
           </div>
@@ -380,10 +403,11 @@ export default function AdminDashboard() {
       </div>
 
       {/* Tabs Menu */}
-      <div className="flex flex-wrap gap-2 p-1.5 bg-neutral-100 rounded-[2rem] w-fit">
+      <div className="flex flex-wrap gap-2 p-1.5 bg-neutral-100 dark:bg-neutral-800 rounded-[2rem] w-fit transition-colors">
         {[
           { id: 'overview', label: t('admin_overview'), icon: BarChart3 },
           { id: 'vendors', label: t('admin_businesses'), icon: Store },
+          { id: 'drivers', label: 'Drivers', icon: Bike },
           { id: 'products', label: t('admin_products'), icon: ShoppingBag },
           { id: 'users', label: t('admin_communities'), icon: Users },
           { id: 'orders', label: t('admin_sales_feed'), icon: ShoppingBag },
@@ -396,8 +420,8 @@ export default function AdminDashboard() {
             onClick={() => setActiveTab(tab.id as AdminTab)}
             className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-black uppercase tracking-tight transition-all ${
               activeTab === tab.id 
-                ? 'bg-neutral-900 text-white shadow-xl shadow-neutral-200' 
-                : 'text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200/50'
+                ? 'bg-neutral-900 dark:bg-white dark:text-neutral-900 text-white shadow-xl shadow-neutral-200 dark:shadow-neutral-950' 
+                : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-white dark:hover:bg-neutral-700'
             }`}
           >
             <tab.icon className="w-4 h-4" />
@@ -414,39 +438,39 @@ export default function AdminDashboard() {
             animate={{ opacity: 1, scale: 1 }}
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
           >
-            <Card className="bg-neutral-900 text-white rounded-[2.5rem] border-none shadow-2xl overflow-hidden relative group">
+            <Card className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-none text-neutral-900 dark:text-white rounded-[2.5rem] shadow-2xl overflow-hidden relative group transition-colors">
               <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform">
-                <DollarSign className="w-24 h-24" />
+                <DollarSign className="w-24 h-24 text-neutral-400 dark:text-white" />
               </div>
               <CardHeader>
-                <CardTitle className="text-neutral-400 text-xs font-black uppercase tracking-[0.2rem]">{t('admin_gross_volume')}</CardTitle>
+                <CardTitle className="text-neutral-500 dark:text-neutral-400 text-xs font-black uppercase tracking-[0.2rem] transition-colors">{t('admin_gross_volume')}</CardTitle>
                 <div className="text-3xl font-black mt-2">TZS {stats.totalRev.toLocaleString()}</div>
               </CardHeader>
               <CardContent>
-                <p className="text-neutral-500 text-[10px] font-bold uppercase">Total processed via Mongike</p>
+                <p className="text-neutral-400 dark:text-neutral-500 text-[10px] font-bold uppercase transition-colors">Total processed via Mongike</p>
               </CardContent>
             </Card>
 
-            <Card className="rounded-[2.5rem] border-none shadow-xl bg-teal-50 relative overflow-hidden group">
+            <Card className="rounded-[2.5rem] border-none shadow-xl bg-teal-50 dark:bg-teal-950/20 relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform">
                 <BarChart3 className="w-24 h-24 text-teal-600" />
               </div>
               <CardHeader>
                 <CardTitle className="text-teal-600/60 text-xs font-black uppercase tracking-[0.2rem]">{t('admin_commission')}</CardTitle>
-                <div className="text-3xl font-black text-teal-900 mt-2">TZS {stats.platformFee.toLocaleString()}</div>
+                <div className="text-3xl font-black text-teal-900 dark:text-teal-400 mt-2">TZS {stats.platformFee.toLocaleString()}</div>
               </CardHeader>
               <CardContent>
                 <p className="text-teal-600/50 text-[10px] font-bold uppercase">Target revenue (10%)</p>
               </CardContent>
             </Card>
 
-            <Card className="rounded-[2.5rem] border-none shadow-xl bg-red-50 relative overflow-hidden group">
+            <Card className="rounded-[2.5rem] border-none shadow-xl bg-red-50 dark:bg-red-950/20 relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform">
                 <ShieldAlert className="w-24 h-24 text-red-600" />
               </div>
               <CardHeader>
                 <CardTitle className="text-red-400 text-xs font-black uppercase tracking-[0.2rem]">{t('admin_fees')}</CardTitle>
-                <div className="text-3xl font-black text-red-900 mt-2">- TZS {stats.mongikeFees.toLocaleString()}</div>
+                <div className="text-3xl font-black text-red-900 dark:text-red-400 mt-2">- TZS {stats.mongikeFees.toLocaleString()}</div>
               </CardHeader>
               <CardContent>
                 <p className="text-red-400 text-[10px] font-bold uppercase">Mongike Gateway Costs (3.5%)</p>
@@ -471,7 +495,7 @@ export default function AdminDashboard() {
         {activeTab === 'products' && (
           <motion.div key="products" className="space-y-6">
              <div className="flex justify-between items-center">
-                <h3 className="text-2xl font-black italic uppercase tracking-tighter">{t('admin_inventory_oversight')}</h3>
+                <h3 className="text-2xl font-black italic uppercase tracking-tighter text-neutral-900 dark:text-white">{t('admin_inventory_oversight')}</h3>
                 <div className="relative w-64">
                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
                    <Input 
@@ -482,10 +506,10 @@ export default function AdminDashboard() {
                    />
                 </div>
              </div>
-             <Card className="rounded-[2.5rem] border-none shadow-xl overflow-hidden">
+             <Card className="rounded-[2.5rem] border-none shadow-xl overflow-hidden bg-white dark:bg-neutral-900">
                 <div className="overflow-x-auto">
                    <table className="w-full">
-                      <thead className="bg-neutral-50">
+                      <thead className="bg-neutral-50 dark:bg-neutral-800">
                         <tr className="text-left">
                            <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-neutral-400">{t('admin_products')}</th>
                            <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-neutral-400">{t('admin_merchant')}</th>
@@ -565,7 +589,7 @@ export default function AdminDashboard() {
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
                 <Input 
                   placeholder={t('admin_members_search_placeholder')} 
-                  className="pl-12 h-14 rounded-2xl border-none bg-neutral-100 font-bold"
+                  className="pl-12 h-14 rounded-2xl border-none bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white transition-colors font-bold"
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                 />
@@ -575,10 +599,10 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            <Card className="rounded-[2.5rem] border-none shadow-xl overflow-hidden">
+            <Card className="rounded-[2.5rem] border-none shadow-xl overflow-hidden bg-white dark:bg-neutral-900 transition-colors">
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-neutral-50">
+                  <thead className="bg-neutral-50 dark:bg-neutral-800 transition-colors">
                     <tr className="text-left">
                       <th className="px-8 py-6 text-xs font-black uppercase tracking-widest text-neutral-400">{t('admin_identity')}</th>
                       <th className="px-8 py-6 text-xs font-black uppercase tracking-widest text-neutral-400">{t('admin_role')}</th>
@@ -586,16 +610,16 @@ export default function AdminDashboard() {
                       <th className="px-8 py-6 text-xs font-black uppercase tracking-widest text-neutral-400 text-right">{t('admin_interactions')}</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-neutral-100">
-                    {filteredUsers.map(user => (
-                      <tr key={user.id} className="hover:bg-neutral-50/50 transition-colors">
+                  <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800 transition-colors">
+                    {filteredUsers.map((user, idx) => (
+                        <tr key={user.id || idx} className="hover:bg-neutral-50/50 dark:hover:bg-neutral-800/50 transition-colors">
                         <td className="px-8 py-6">
                           <div className="flex items-center gap-4">
                             <div className="w-12 h-12 rounded-2xl bg-orange-100 flex items-center justify-center font-black text-orange-600">
                               {user.displayName[0]}
                             </div>
                             <div>
-                              <p className="font-black text-neutral-900">{user.displayName}</p>
+                              <p className="font-black text-neutral-900 dark:text-white">{user.displayName}</p>
                               <p className="text-xs text-neutral-400">{user.email}</p>
                             </div>
                           </div>
@@ -649,7 +673,7 @@ export default function AdminDashboard() {
         {activeTab === 'vendors' && (
           <motion.div key="vendors" className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <Card className="rounded-[2.5rem] border-none shadow-xl bg-orange-50 text-orange-900">
+              <Card className="rounded-[2.5rem] border-none shadow-xl bg-orange-50 text-orange-900 transition-colors">
                 <CardHeader>
                   <CardTitle className="text-xs font-black uppercase tracking-[0.2rem]">Onboarding Queue</CardTitle>
                 </CardHeader>
@@ -662,17 +686,17 @@ export default function AdminDashboard() {
                         className="flex items-center justify-between p-4 bg-white rounded-3xl shadow-sm cursor-pointer hover:bg-neutral-50 transition-colors border border-transparent hover:border-orange-100 group"
                       >
                          <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-2xl bg-orange-100 flex items-center justify-center font-black group-hover:scale-110 transition-transform">
-                              {v.businessName[0]}
+                            <div className="w-10 h-10 rounded-2xl bg-orange-100 flex items-center justify-center font-black group-hover:scale-110 transition-transform text-orange-600">
+                               {v.businessName[0]}
                             </div>
                             <div>
-                               <p className="font-bold text-sm group-hover:text-orange-600 transition-colors uppercase italic">{v.businessName}</p>
+                               <p className="font-bold text-sm group-hover:text-orange-600 transition-colors uppercase italic leading-none">{v.businessName}</p>
                                <p className="text-[10px] opacity-60 uppercase font-black">{v.category}</p>
                             </div>
                          </div>
                          <div className="flex gap-2" onClick={e => e.stopPropagation()}>
-                            <Button size="sm" onClick={() => handleApprove(v.id!)} className="bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-[10px]">{t('admin_approve')}</Button>
-                            <Button size="sm" variant="ghost" onClick={() => handleReject(v.id!)} className="text-red-500 hover:bg-red-50 rounded-xl font-bold text-[10px]">{t('admin_reject')}</Button>
+                            <Button size="sm" onClick={() => handleApprove(v.id!)} className="bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-[10px] h-8">{t('admin_approve')}</Button>
+                            <Button size="sm" variant="ghost" onClick={() => handleReject(v.id!)} className="text-red-500 hover:bg-red-50 rounded-xl font-bold text-[10px] h-8">{t('admin_reject')}</Button>
                          </div>
                       </div>
                     ))}
@@ -684,20 +708,20 @@ export default function AdminDashboard() {
               </Card>
 
               <div className="space-y-6">
-                <h3 className="text-2xl font-black italic uppercase tracking-tighter">Active Network</h3>
+                <h3 className="text-2xl font-black italic uppercase tracking-tighter text-neutral-900 dark:text-white transition-colors">Active Network</h3>
                  <div className="grid grid-cols-1 gap-4">
                     {vendors.filter(v => v.status === 'active').map(v => (
                       <Card 
                         key={v.id} 
                         onClick={() => navigate(`/vendor/${v.id}`)}
-                        className="rounded-[2rem] border-none shadow-lg group hover:shadow-2xl transition-all cursor-pointer border-2 border-transparent hover:border-orange-500/20"
+                        className="rounded-[2rem] border-none shadow-lg group hover:shadow-2xl transition-all cursor-pointer border-2 border-transparent hover:border-orange-500/20 bg-white dark:bg-neutral-900 transition-colors"
                       >
                          <CardContent className="p-6 flex items-center justify-between">
                             <div className="flex items-center gap-4">
                                <img src={v.logoUrl} alt="" className="w-16 h-16 rounded-2xl object-cover group-hover:scale-105 transition-transform" />
                                <div>
-                                  <h4 className="font-black text-lg text-neutral-900 group-hover:text-orange-600 transition-colors uppercase italic">{v.businessName}</h4>
-                                  <p className="text-xs text-neutral-400">{v.address}</p>
+                                  <h4 className="font-black text-lg text-neutral-900 dark:text-white group-hover:text-orange-600 transition-colors uppercase italic leading-none">{v.businessName}</h4>
+                                  <p className="text-xs text-neutral-400 mt-1">{v.address}</p>
                                   <Badge className="mt-2 bg-neutral-100 text-neutral-500 border-none font-bold uppercase text-[8px]">{v.category}</Badge>
                                </div>
                             </div>
@@ -714,13 +738,84 @@ export default function AdminDashboard() {
                                      <Ban className="w-5 h-5" />
                                   </Button>
                                </div>
-                               <Button 
-                                 size="sm" 
-                                 variant="ghost" 
-                                 onClick={() => navigate(`/vendor/${v.id}`)}
-                                 className="text-xs font-black uppercase text-neutral-400 hover:text-orange-600"
-                               >
-                                 {t('admin_view_store')} <ExternalLink className="w-3 h-3 ml-1" />
+                            </div>
+                         </CardContent>
+                      </Card>
+                    ))}
+                 </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'drivers' && (
+          <motion.div key="drivers" className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <Card className="rounded-[2.5rem] border-none shadow-xl bg-blue-50 dark:bg-blue-950/20 text-blue-900 dark:text-blue-100 transition-colors">
+                <CardHeader>
+                  <CardTitle className="text-xs font-black uppercase tracking-[0.2rem]">Driver Queue</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {allUsers.filter(u => u.role === 'rider' && u.approvalStatus === 'pending').map(rider => (
+                      <div 
+                        key={rider.id}
+                        className="flex items-center justify-between p-4 bg-white dark:bg-neutral-900 rounded-3xl shadow-sm border border-transparent hover:border-blue-200 dark:hover:border-blue-800 group"
+                      >
+                         <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-2xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center font-black group-hover:scale-110 transition-transform text-blue-600">
+                               {rider.displayName[0]}
+                            </div>
+                            <div>
+                               <p className="font-bold text-sm group-hover:text-blue-600 transition-colors uppercase italic leading-none">{rider.displayName}</p>
+                               <p className="text-[10px] opacity-60 uppercase font-black">{rider.driverType || 'Driver'}</p>
+                            </div>
+                         </div>
+                         <div className="flex gap-2">
+                            <Button size="sm" onClick={() => handleApproveDriver(rider.id)} className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-[10px] h-8 uppercase">Approve</Button>
+                            <Button size="sm" variant="ghost" onClick={() => handleRejectDriver(rider.id)} className="text-red-500 hover:bg-red-50 rounded-xl font-bold text-[10px] h-8 uppercase">Reject</Button>
+                         </div>
+                      </div>
+                    ))}
+                    {allUsers.filter(u => u.role === 'rider' && u.approvalStatus === 'pending').length === 0 && (
+                      <p className="text-center py-8 text-neutral-400 font-bold italic text-sm">No pending drivers</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="space-y-6">
+                <h3 className="text-2xl font-black italic uppercase tracking-tighter text-neutral-900 dark:text-white transition-colors">Verified Drivers</h3>
+                 <div className="grid grid-cols-1 gap-4">
+                    {allUsers.filter(u => u.role === 'rider' && u.approvalStatus === 'approved').map(rider => (
+                      <Card 
+                        key={rider.id}
+                        className="rounded-[2rem] border-none shadow-lg group hover:shadow-2xl transition-all border-2 border-transparent hover:border-blue-500/20 bg-white dark:bg-neutral-900 transition-colors"
+                      >
+                         <CardContent className="p-6 flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                               <div className="w-14 h-14 bg-neutral-100 dark:bg-neutral-800 rounded-2xl flex items-center justify-center text-blue-600 font-black text-xl">
+                                  {rider.displayName[0]}
+                               </div>
+                               <div>
+                                  <h4 className="font-black text-lg text-neutral-900 dark:text-white group-hover:text-blue-600 transition-colors uppercase italic leading-none">{rider.displayName}</h4>
+                                  <p className="text-xs text-neutral-400 mt-1">{rider.email}</p>
+                                  <div className="flex items-center gap-2 mt-2">
+                                    <Badge className="bg-blue-50 text-blue-600 border-none font-bold uppercase text-[8px]">{rider.driverType}</Badge>
+                                    <span className="text-[10px] font-black uppercase text-neutral-400">{rider.licensePlate}</span>
+                                  </div>
+                               </div>
+                            </div>
+                            <div className="flex gap-2">
+                               {rider.phone && (
+                                  <a href={`https://wa.me/${rider.phone.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer">
+                                     <Button size="icon" variant="ghost" className="rounded-xl text-green-600 hover:bg-green-50">
+                                       <MessageCircle className="w-5 h-5" />
+                                     </Button>
+                                  </a>
+                               )}
+                               <Button variant="ghost" onClick={() => handleRejectDriver(rider.id)} className="text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl size-10">
+                                  <Ban className="w-5 h-5" />
                                </Button>
                             </div>
                          </CardContent>

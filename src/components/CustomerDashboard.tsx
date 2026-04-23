@@ -304,7 +304,7 @@ export default function CustomerDashboard() {
                 setIsLocationPickerOpen(true);
               }}
             >
-              <Card className="overflow-hidden rounded-[2rem] border-neutral-50 shadow-lg shadow-neutral-900/5 group-hover:shadow-orange-900/10 transition-all border-2 group-hover:border-orange-500/10">
+              <Card className="overflow-hidden rounded-[2rem] border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-lg shadow-neutral-900/5 group-hover:shadow-orange-900/10 transition-all border-2 group-hover:border-orange-500/10">
                 <div className="h-36 relative">
                   <img 
                     src={vendor.bannerUrl || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=400&q=80'} 
@@ -313,7 +313,7 @@ export default function CustomerDashboard() {
                     referrerPolicy="no-referrer"
                   />
                   <div className="absolute top-4 left-4">
-                    <div className="w-14 h-14 rounded-2xl bg-white p-1 shadow-2xl border border-neutral-100">
+                    <div className="w-14 h-14 rounded-2xl bg-white dark:bg-neutral-800 p-1 shadow-2xl border border-neutral-100 dark:border-neutral-700">
                       <img 
                         src={vendor.logoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${vendor.businessName}`} 
                         alt="Logo" 
@@ -328,7 +328,7 @@ export default function CustomerDashboard() {
                   </div>
                 </div>
                 <CardContent className="p-3 md:p-5">
-                  <h4 className="font-black text-base md:text-lg text-neutral-900 group-hover:text-orange-600 transition-colors uppercase tracking-tight truncate">{vendor.businessName}</h4>
+                  <h4 className="font-black text-base md:text-lg text-neutral-900 dark:text-white group-hover:text-orange-600 transition-colors uppercase tracking-tight truncate">{vendor.businessName}</h4>
                   <div className="flex items-center gap-2 md:gap-3 mt-2 md:mt-3">
                     <div className="flex items-center gap-1 text-orange-500">
                       <Star className="w-3 md:w-3.5 h-3 md:h-3.5 fill-current" />
@@ -355,7 +355,7 @@ export default function CustomerDashboard() {
             </motion.div>
           ))}
           {vendors.filter(v => ['food', 'grocery', 'pharmacy', 'ecommerce', 'salons', 'hotels'].includes(v.category)).length === 0 && (
-            <div className="w-full py-12 text-center bg-neutral-50 rounded-[2.5rem] border border-dashed border-neutral-200 mx-4">
+            <div className="w-full py-12 text-center bg-neutral-50 dark:bg-neutral-900/50 rounded-[2.5rem] border border-dashed border-neutral-200 dark:border-neutral-800 mx-4">
               <p className="text-neutral-400 text-sm italic">Hakuna maduka yaliyopatikana karibu nawe.</p>
             </div>
           )}
@@ -397,7 +397,7 @@ export default function CustomerDashboard() {
                 </button>
               ) : (
                 <Link 
-                  to={`/service/${service.id}`}
+                  to={service.id === 'teksi' ? '/taxi' : `/service/${service.id}`}
                   className="flex flex-col items-center text-center group gap-3"
                 >
                   <motion.div 
@@ -419,7 +419,7 @@ export default function CustomerDashboard() {
       {/* 4. Bidhaa Maarufu (Popular Products) - Horizontal scroll below */}
       <section>
         <div className="flex items-center justify-between mb-6">
-          <h3 className="font-black text-xl text-neutral-900 tracking-tight">{t('popular_products') || 'Bidhaa Maarufu'}</h3>
+          <h3 className="font-black text-xl text-neutral-900 dark:text-white tracking-tight">{t('popular_products') || 'Bidhaa Maarufu'}</h3>
           <button className="text-orange-600 text-sm font-black">{t('view_all') || 'View All'}</button>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 md:gap-6">
@@ -435,7 +435,7 @@ export default function CustomerDashboard() {
                 to={`/product/${product.id}`}
                 className="block group"
               >
-                <Card className="overflow-hidden rounded-[2.5rem] border-neutral-50 shadow-xl shadow-neutral-900/5 hover:shadow-orange-900/10 transition-all h-full group/card border-2 hover:border-orange-500/10">
+                <Card className="overflow-hidden rounded-[2.5rem] border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xl shadow-neutral-900/5 hover:shadow-orange-900/10 transition-all h-full group/card border-2 hover:border-orange-500/10">
                   <div className="h-44 relative overflow-hidden">
                     <img 
                       src={product.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80'} 
@@ -443,22 +443,22 @@ export default function CustomerDashboard() {
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
                       referrerPolicy="no-referrer"
                     />
-                    <motion.button 
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        addItem(product);
-                      }}
-                      className="absolute bottom-4 right-4 w-12 h-12 bg-white rounded-2xl shadow-2xl flex items-center justify-center text-orange-600 hover:bg-orange-600 hover:text-white transition-all transform overflow-hidden group/btn"
-                    >
+                      <motion.button 
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          addItem(product);
+                        }}
+                        className="absolute bottom-4 right-4 w-12 h-12 bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl flex items-center justify-center text-orange-600 hover:bg-orange-600 hover:text-white transition-all transform overflow-hidden group/btn"
+                      >
                       <div className="absolute inset-0 bg-orange-600 -translate-x-full group-hover/btn:translate-x-0 transition-transform" />
                       <ShoppingBasket className="w-6 h-6 relative z-10" />
                     </motion.button>
                   </div>
                   <CardContent className="p-5">
-                    <h4 className="font-black text-sm text-neutral-900 truncate group-hover/card:text-orange-600 transition-colors uppercase tracking-tight">{product.name}</h4>
+                    <h4 className="font-black text-sm text-neutral-900 dark:text-white truncate group-hover/card:text-orange-600 transition-colors uppercase tracking-tight">{product.name}</h4>
                     <div className="flex items-center justify-between mt-2">
                        <p className="text-xs text-orange-600 font-black">
                         TZS {product.price.toLocaleString()}
@@ -471,7 +471,7 @@ export default function CustomerDashboard() {
             </motion.div>
           ))}
           {products.length === 0 && (
-            <div className="min-w-full py-8 text-center bg-neutral-50 rounded-3xl border border-dashed border-neutral-200 col-span-full">
+            <div className="min-w-full py-8 text-center bg-neutral-50 dark:bg-neutral-900/50 rounded-3xl border border-dashed border-neutral-200 dark:border-neutral-800 col-span-full">
               <p className="text-neutral-400 text-xs italic">{t('no_products_found') || 'Hakuna bidhaa maarufu kwa sasa.'}</p>
             </div>
           )}
@@ -481,7 +481,7 @@ export default function CustomerDashboard() {
       {/* 5. Migahawa Maarufu (Restaurants) - Vertical List for prominence */}
       <section>
         <div className="flex items-center justify-between mb-6">
-          <h3 className="font-black text-xl text-neutral-900 tracking-tight">{t('popular_restaurants') || 'Migahawa Maarufu'}</h3>
+          <h3 className="font-black text-xl text-neutral-900 dark:text-white tracking-tight">{t('popular_restaurants') || 'Migahawa Maarufu'}</h3>
           <button className="text-orange-600 text-sm font-black">{t('view_all') || 'View All'}</button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -502,7 +502,7 @@ export default function CustomerDashboard() {
               transition={{ delay: 0.1 * idx }}
             >
               <Link to={`/vendor/${vendor.id}`}>
-                <Card className="overflow-hidden rounded-[2.5rem] border-neutral-50 shadow-xl shadow-neutral-900/5 hover:shadow-orange-900/10 transition-all group border-2 hover:border-orange-500/20">
+                <Card className="overflow-hidden rounded-[2.5rem] border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xl shadow-neutral-900/5 hover:shadow-orange-900/10 transition-all group border-2 hover:border-orange-500/20">
                   <div className="flex p-5 gap-5">
                     <div className="w-32 h-32 rounded-3xl overflow-hidden relative shrink-0 shadow-inner">
                       <img 
@@ -511,14 +511,14 @@ export default function CustomerDashboard() {
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
                         referrerPolicy="no-referrer"
                       />
-                      <div className="absolute top-2 right-2 bg-white/95 backdrop-blur-md px-2 py-1 rounded-xl flex items-center gap-1 shadow-sm">
+                      <div className="absolute top-2 right-2 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md px-2 py-1 rounded-xl flex items-center gap-1 shadow-sm">
                         <Star className="w-3 h-3 text-orange-500 fill-current" />
                         <span className="text-[10px] font-black">{vendor.rating || '4.5'}</span>
                       </div>
                     </div>
                     <div className="flex-1 flex flex-col justify-between py-1">
                       <div>
-                        <h4 className="font-black text-lg text-neutral-900 group-hover:text-orange-600 transition-colors leading-tight">{vendor.businessName}</h4>
+                        <h4 className="font-black text-lg text-neutral-900 dark:text-white group-hover:text-orange-600 transition-colors leading-tight">{vendor.businessName}</h4>
                         <p className="text-xs text-neutral-400 mt-1 line-clamp-2 font-medium">{vendor.description || 'Bidhaa Bora na Huduma Haraka'}</p>
                       </div>
                       <div className="flex items-center justify-between mt-3">
@@ -552,7 +552,7 @@ export default function CustomerDashboard() {
             </motion.div>
           ))}
           {vendors.length === 0 && (
-            <div className="py-12 text-center bg-neutral-50 rounded-3xl border border-dashed border-neutral-200 col-span-full">
+            <div className="py-12 text-center bg-neutral-50 dark:bg-neutral-900/50 rounded-3xl border border-dashed border-neutral-200 dark:border-neutral-800 col-span-full">
               <p className="text-neutral-400 text-sm italic">{t('no_restaurants_found') || 'Hakuna migahawa iliyopatikana karibu nawe.'}</p>
             </div>
           )}

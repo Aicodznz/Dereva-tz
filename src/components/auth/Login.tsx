@@ -30,7 +30,7 @@ export default function Login() {
 
     setLoading(true);
     try {
-      await login(email, password);
+      await login(email.trim(), password);
       toast.success(t('welcome_back'));
       navigate('/');
     } catch (error: any) {

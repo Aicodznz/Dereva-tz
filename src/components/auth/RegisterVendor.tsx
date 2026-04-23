@@ -44,9 +44,14 @@ export default function RegisterVendor() {
       return;
     }
 
+    if (!formData.email || !formData.email.includes('@') || formData.email.length < 5) {
+      toast.error('Tafadhali weka barua pepe sahihi.');
+      return;
+    }
+
     setLoading(true);
     try {
-      await signUp(formData.email, formData.password, 'vendor', {
+      await signUp(formData.email.trim(), formData.password, 'vendor', {
         fullName: formData.ownerName,
         businessName: formData.businessName,
         category: formData.category,

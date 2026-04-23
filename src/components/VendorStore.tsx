@@ -253,7 +253,7 @@ export default function VendorStore() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-white">
+      <div className="flex items-center justify-center h-screen bg-background dark:bg-neutral-950 transition-colors">
         <div className="w-8 h-8 border-4 border-orange-600 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
@@ -262,7 +262,7 @@ export default function VendorStore() {
   if (!vendor) return null;
 
   return (
-    <div className="min-h-screen bg-neutral-50 pb-20">
+    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 pb-20 transition-colors">
       {/* Header Image */}
       <div className="h-56 md:h-80 w-full relative overflow-hidden bg-neutral-200">
         <img 
@@ -331,8 +331,8 @@ export default function VendorStore() {
                 <Button variant="outline" className="flex-1 md:flex-none rounded-xl h-11 border-neutral-200 dark:border-neutral-800 font-black text-[10px] uppercase tracking-widest gap-2">
                   <Share2 className="w-3.5 h-3.5" /> {t('share') || 'Share'}
                 </Button>
-                <Link to={`/chat?to=${id}`} className="flex-1 md:flex-none">
-                  <Button className="w-full bg-orange-600 hover:bg-orange-700 text-white rounded-xl h-11 px-6 font-black text-[10px] uppercase tracking-widest gap-2 shadow-lg shadow-orange-600/20">
+                <Link to={vendor?.ownerUid ? `/chat?to=${vendor.ownerUid}` : '#'} className="flex-1 md:flex-none">
+                  <Button disabled={!vendor?.ownerUid} className="w-full bg-orange-600 hover:bg-orange-700 text-white rounded-xl h-11 px-6 font-black text-[10px] uppercase tracking-widest gap-2 shadow-lg shadow-orange-600/20">
                     <MessageSquare className="w-3.5 h-3.5" /> {t('chat') || 'Chat'}
                   </Button>
                 </Link>
@@ -387,8 +387,8 @@ export default function VendorStore() {
                           to={`/product/${product.id}`}
                           className="group"
                         >
-                          <Card className="overflow-hidden rounded-[2rem] md:rounded-[2.5rem] border-neutral-50 shadow-lg shadow-neutral-900/5 hover:shadow-orange-900/10 transition-all h-full group/card border-2 hover:border-orange-500/10">
-                            <div className="aspect-square relative overflow-hidden bg-neutral-100">
+                          <Card className="overflow-hidden rounded-[2rem] md:rounded-[2.5rem] bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 shadow-lg shadow-neutral-900/5 hover:shadow-orange-900/10 transition-all h-full group/card border-2 hover:border-orange-500/10">
+                            <div className="aspect-square relative overflow-hidden bg-neutral-100 dark:bg-neutral-800">
                               <img 
                                 src={product.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80'} 
                                 alt={product.name} 

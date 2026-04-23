@@ -222,7 +222,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </div>
 
-      <footer className="bg-white border-t border-neutral-200 py-8">
+      <footer className="bg-white dark:bg-neutral-900 border-t border-neutral-200 dark:border-neutral-800 py-8 transition-colors">
         <div className="max-w-7xl mx-auto px-4 text-center">
           <p className="text-sm text-neutral-500">© 2026 OmniServe Super App. All rights reserved.</p>
         </div>
@@ -246,19 +246,19 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed top-0 right-0 h-full w-full max-w-md bg-white z-[201] shadow-2xl flex flex-col"
+              className="fixed top-0 right-0 h-full w-full max-w-md bg-white dark:bg-neutral-900 z-[201] shadow-2xl flex flex-col border-l border-neutral-100 dark:border-neutral-800 transition-colors"
             >
-              <div className="p-6 border-b border-neutral-100 flex items-center justify-between">
+              <div className="p-6 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between">
                 <div>
-                  <h2 className="text-2xl font-black text-neutral-900 flex items-center gap-2">
+                  <h2 className="text-2xl font-black text-neutral-900 dark:text-white flex items-center gap-2">
                     Kikapu <span className="bg-orange-100 text-orange-600 px-3 py-1 rounded-full text-sm">{cartCount}</span>
                   </h2>
                   <p className="text-xs text-neutral-400 font-bold uppercase tracking-widest mt-1">Hakikisha oda yako kabla ya kuagiza</p>
                 </div>
-                <button 
-                  onClick={() => setIsCartOpen(false)}
-                  className="w-12 h-12 bg-neutral-100 rounded-full flex items-center justify-center text-neutral-900 hover:bg-orange-600 hover:text-white transition-all transform active:scale-90"
-                >
+                  <button 
+                    onClick={() => setIsCartOpen(false)}
+                    className="w-12 h-12 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center text-neutral-900 dark:text-white hover:bg-orange-600 hover:text-white transition-all transform active:scale-90"
+                  >
                   <X className="w-6 h-6" />
                 </button>
               </div>
@@ -266,10 +266,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <div className="flex-1 overflow-y-auto p-6 space-y-6 no-scrollbar">
                 {cartItems.length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center text-center">
-                    <div className="w-32 h-32 bg-neutral-50 rounded-full flex items-center justify-center mb-6">
+                    <div className="w-32 h-32 bg-neutral-50 dark:bg-neutral-800 rounded-full flex items-center justify-center mb-6">
                       <ShoppingBag className="w-16 h-16 text-neutral-200" />
                     </div>
-                    <h3 className="text-xl font-black text-neutral-900">Kikapu chako ni tupu</h3>
+                    <h3 className="text-xl font-black text-neutral-900 dark:text-white">Kikapu chako ni tupu</h3>
                     <p className="text-neutral-400 text-sm mt-2 max-w-[200px]">Ongeza bidhaa unazopenda sasa ili ufurahie huduma zetu.</p>
                     <Button 
                       onClick={() => setIsCartOpen(false)} 
@@ -279,9 +279,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     </Button>
                   </div>
                 ) : (
-                  cartItems.map((item) => (
-                    <div key={item.id} className="flex gap-4 group">
-                      <div className="w-24 h-24 bg-neutral-100 rounded-2xl overflow-hidden shadow-sm relative shrink-0">
+                  cartItems.map((item, idx) => (
+                    <div key={`${item.id}-${idx}`} className="flex gap-4 group">
+                      <div className="w-24 h-24 bg-neutral-100 dark:bg-neutral-800 rounded-2xl overflow-hidden shadow-sm relative shrink-0">
                         <img 
                           src={item.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80'} 
                           alt={item.name} 
@@ -292,7 +292,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                       <div className="flex-1 flex flex-col justify-between py-1">
                         <div>
                           <div className="flex justify-between items-start">
-                            <h4 className="font-black text-neutral-900 text-sm uppercase leading-tight line-clamp-1">{item.name}</h4>
+                            <h4 className="font-black text-neutral-900 dark:text-white text-sm uppercase leading-tight line-clamp-1">{item.name}</h4>
                             <button 
                               onClick={() => removeItem(item.id!)}
                               className="text-neutral-300 hover:text-red-500 transition-colors p-1"
@@ -303,22 +303,22 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                           <p className="text-xs text-orange-600 font-black mt-1">TZS {item.price.toLocaleString()}</p>
                         </div>
                         <div className="flex items-center justify-between mt-2">
-                          <div className="flex items-center bg-neutral-100 rounded-xl p-1 gap-3">
+                          <div className="flex items-center bg-neutral-100 dark:bg-neutral-800 rounded-xl p-1 gap-3 transition-colors">
                             <button 
                               onClick={() => removeItem(item.id!)}
-                              className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-neutral-900 hover:bg-orange-600 hover:text-white transition-all shadow-sm"
+                              className="w-8 h-8 bg-white dark:bg-neutral-700 rounded-lg flex items-center justify-center text-neutral-900 dark:text-white hover:bg-orange-600 hover:text-white transition-all shadow-sm"
                             >
                               <Minus className="w-4 h-4" />
                             </button>
-                            <span className="font-black text-sm w-4 text-center">{item.quantity}</span>
+                            <span className="font-black text-sm w-4 text-center text-neutral-900 dark:text-white">{item.quantity}</span>
                             <button 
                               onClick={() => addItem(item)}
-                              className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-neutral-900 hover:bg-orange-600 hover:text-white transition-all shadow-sm"
+                              className="w-8 h-8 bg-white dark:bg-neutral-700 rounded-lg flex items-center justify-center text-neutral-900 dark:text-white hover:bg-orange-600 hover:text-white transition-all shadow-sm"
                             >
                               <Plus className="w-4 h-4" />
                             </button>
                           </div>
-                          <p className="font-black text-sm text-neutral-900">
+                          <p className="font-black text-sm text-neutral-900 dark:text-white">
                              TZS {(item.price * item.quantity).toLocaleString()}
                           </p>
                         </div>
@@ -329,7 +329,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </div>
 
               {cartItems.length > 0 && (
-                <div className="p-6 border-t border-neutral-100 bg-neutral-50/50">
+                <div className="p-6 border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/50 transition-colors">
                   <div className="space-y-3 mb-6">
                     <div className="flex justify-between text-neutral-500 text-sm font-bold uppercase tracking-wider">
                       <span>Jumla Ndogo</span>
@@ -340,7 +340,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                       <span>TZS 0</span>
                     </div>
                     <div className="flex justify-between items-end pt-2">
-                      <span className="text-lg font-black text-neutral-900">JUMLA KUU</span>
+                      <span className="text-lg font-black text-neutral-900 dark:text-white">JUMLA KUU</span>
                       <span className="text-2xl font-black text-orange-600 tracking-tighter">TZS {totalAmount.toLocaleString()}</span>
                     </div>
                   </div>
@@ -360,7 +360,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     </Button>
                     <button 
                       onClick={() => clearCart()}
-                      className="text-neutral-400 hover:text-neutral-900 text-xs font-bold uppercase tracking-widest transition-colors py-2"
+                      className="text-neutral-400 dark:text-neutral-500 hover:text-neutral-900 dark:hover:text-white text-xs font-bold uppercase tracking-widest transition-colors py-2"
                     >
                       Futa Kikapu
                     </button>

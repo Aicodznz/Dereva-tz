@@ -33,10 +33,15 @@ export default function RegisterCustomer() {
       toast.error(t('passwords_dont_match'));
       return;
     }
+
+    if (!formData.email || !formData.email.includes('@') || formData.email.length < 5) {
+      toast.error('Tafadhali weka barua pepe sahihi.');
+      return;
+    }
     
     setLoading(true);
     try {
-      await signUp(formData.email, formData.password, 'customer', {
+      await signUp(formData.email.trim(), formData.password, 'customer', {
         fullName: formData.fullName,
         phone: formData.phone
       });

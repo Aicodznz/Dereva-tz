@@ -2,11 +2,13 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 import { initializeFirestore, doc, getDoc, setDoc, updateDoc, collection, query, where, onSnapshot, getDocFromServer } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+import { toast } from 'sonner';
 import firebaseConfig from '../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
 export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
+  ignoreUndefinedProperties: true,
 }, firebaseConfig.firestoreDatabaseId);
 
 export const storage = getStorage(app);
@@ -62,25 +64,32 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     path
   }
   console.error('Firestore Error details: ', JSON.stringify(errInfo));
-  // If it's a connection error, we might want to warn the user about their network
+  
+  // Custom message for connection errors
   if (errInfo.error.includes('unavailable') || errInfo.error.includes('offline')) {
-    console.warn("Firestore appears to be unavailable. This is usually due to network restrictions or firewall blocking Google APIs.");
+    toast.error("Network Error: Firestore connection failed.", {
+      description: "If you are on a restricted network (proxy/VPN), please try switching to a standard connection or check your browser privacy settings."
+    });
   }
+  
   throw new Error(JSON.stringify(errInfo));
 }
 
 export async function testConnection() {
+  // Give the app a moment to stabilize before checking connection
+  await new Promise(r => setTimeout(r, 1000));
+  
   try {
     // Attempt a cold read to verify backend reachability
-    // We use getDocFromServer to bypass local cache and force a network round-trip
     await getDocFromServer(doc(db, 'test', 'connection'));
     console.log("%cFirestore connection established successfully.", "color: green; font-weight: bold;");
   } catch (error: any) {
     if (error?.code === 'unavailable') {
       console.warn("Firestore connection 'unavailable'. The app will operate in offline mode.");
+      toast.warning("Firestore is currently unavailable. The app will sync when back online.", {
+        description: "Check your internet or browser extensions if this persisted."
+      });
     } else if (error?.code === 'permission-denied') {
-      // If we get a permission-denied, it actually means we SUCCESSFULLY reached the server
-      // and the server rejected us. This is a positive connectivity test!
       console.log("%cFirestore backend reached (Access Denied). Connectivity verified.", "color: orange; font-weight: bold;");
     } else {
       console.error("Firestore connectivity check failed:", error);

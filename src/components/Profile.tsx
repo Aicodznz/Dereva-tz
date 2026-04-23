@@ -129,10 +129,10 @@ export default function Profile() {
         <div className="absolute top-0 left-0 right-0 h-40 bg-gradient-to-br from-orange-400 via-orange-600 to-orange-800 rounded-b-[4rem] shadow-xl" />
         
         <div className="relative z-10 px-6">
-          <div className="bg-white/90 backdrop-blur-xl rounded-[3rem] p-8 shadow-2xl shadow-orange-900/10 border border-white/50 text-center">
+          <div className="bg-white/90 dark:bg-neutral-900/90 backdrop-blur-xl rounded-[3rem] p-8 shadow-2xl shadow-orange-900/10 border border-white/50 dark:border-neutral-800 text-center transition-colors">
             <div className="relative inline-block mt-[-5rem] mb-4">
               <div 
-                className={`w-32 h-32 rounded-[2.5rem] overflow-hidden border-[6px] border-white shadow-2xl mx-auto relative group transition-transform hover:scale-105 active:scale-95 ${view === 'edit' ? 'cursor-pointer' : ''}`}
+                className={`w-32 h-32 rounded-[2.5rem] overflow-hidden border-[6px] border-white dark:border-neutral-900 shadow-2xl mx-auto relative group transition-transform hover:scale-105 active:scale-95 ${view === 'edit' ? 'cursor-pointer' : ''}`}
                 onClick={handleImageClick}
               >
                 <img 
@@ -164,25 +164,25 @@ export default function Profile() {
               )}
             </div>
             
-            <h1 className="text-3xl font-black text-neutral-900 tracking-tighter uppercase italic">{profile.displayName}</h1>
+            <h1 className="text-3xl font-black text-neutral-900 dark:text-white tracking-tighter uppercase italic">{profile.displayName}</h1>
             <div className="flex items-center justify-center gap-2 mt-1">
                <Badge className="bg-orange-100 text-orange-600 font-black px-3 py-1 text-[10px] uppercase border-none hover:bg-orange-200">{profile.role}</Badge>
                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
             </div>
 
             {/* Stats Bar/Wallet */}
-            <div className="grid grid-cols-3 gap-4 mt-8 pt-6 border-t border-neutral-100">
+            <div className="grid grid-cols-3 gap-4 mt-8 pt-6 border-t border-neutral-100 dark:border-neutral-800">
                <div>
                   <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Salio</p>
-                  <p className="text-lg font-black text-neutral-900 italic mt-1">12.5k</p>
+                  <p className="text-lg font-black text-neutral-900 dark:text-white italic mt-1">12.5k</p>
                </div>
-               <div className="border-x border-neutral-100">
+               <div className="border-x border-neutral-100 dark:border-neutral-800">
                   <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Points</p>
                   <p className="text-lg font-black text-orange-600 italic mt-1">840</p>
                </div>
                <div>
                   <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Oda</p>
-                  <p className="text-lg font-black text-neutral-900 italic mt-1">24</p>
+                  <p className="text-lg font-black text-neutral-900 dark:text-white italic mt-1">24</p>
                </div>
             </div>
           </div>
@@ -199,44 +199,44 @@ export default function Profile() {
 
       {view === 'menu' && (
         <div className="space-y-4">
-          <Card className="border-none shadow-sm rounded-3xl overflow-hidden">
+          <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white dark:bg-neutral-900 transition-colors">
             <CardContent className="p-2">
-              <div className="divide-y divide-neutral-100">
+              <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
                 <button 
                   onClick={() => setView('orders')}
-                  className="w-full p-4 flex items-center justify-between hover:bg-neutral-50 transition-colors group"
+                  className="w-full p-4 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors group"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center text-orange-600">
+                    <div className="w-10 h-10 bg-orange-50 dark:bg-orange-950/20 rounded-xl flex items-center justify-center text-orange-600">
                       <ShoppingBag className="w-5 h-5" />
                     </div>
-                    <span className="font-bold text-neutral-700">{t('my_orders')}</span>
+                    <span className="font-bold text-neutral-700 dark:text-neutral-200">{t('my_orders')}</span>
                   </div>
                   <ChevronRight className="w-5 h-5 text-neutral-300 group-hover:text-orange-600 transition-colors" />
                 </button>
 
                 <button 
                   onClick={() => setView('edit')}
-                  className="w-full p-4 flex items-center justify-between hover:bg-neutral-50 transition-colors group"
+                  className="w-full p-4 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors group"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600">
+                    <div className="w-10 h-10 bg-blue-50 dark:bg-blue-950/20 rounded-xl flex items-center justify-center text-blue-600">
                       <User className="w-5 h-5" />
                     </div>
-                    <span className="font-bold text-neutral-700">{t('edit_profile')}</span>
+                    <span className="font-bold text-neutral-700 dark:text-neutral-200">{t('edit_profile')}</span>
                   </div>
                   <ChevronRight className="w-5 h-5 text-neutral-300 group-hover:text-blue-600 transition-colors" />
                 </button>
 
                 <button 
                   onClick={() => setView('chat')}
-                  className="w-full p-4 flex items-center justify-between hover:bg-neutral-50 transition-colors group"
+                  className="w-full p-4 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors group"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center text-green-600">
+                    <div className="w-10 h-10 bg-green-50 dark:bg-green-950/20 rounded-xl flex items-center justify-center text-green-600">
                       <MessageCircle className="w-5 h-5" />
                     </div>
-                    <span className="font-bold text-neutral-700">{t('chat')}</span>
+                    <span className="font-bold text-neutral-700 dark:text-neutral-200">{t('chat')}</span>
                   </div>
                   <ChevronRight className="w-5 h-5 text-neutral-300 group-hover:text-green-600 transition-colors" />
                 </button>
@@ -281,13 +281,13 @@ export default function Profile() {
 
                 <button 
                   onClick={() => setView('language')}
-                  className="w-full p-4 flex items-center justify-between hover:bg-neutral-50 transition-colors group"
+                  className="w-full p-4 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors group"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-teal-50 rounded-xl flex items-center justify-center text-teal-600">
+                    <div className="w-10 h-10 bg-teal-50 dark:bg-teal-950/20 rounded-xl flex items-center justify-center text-teal-600">
                       <Globe className="w-5 h-5" />
                     </div>
-                    <span className="font-bold text-neutral-700">{t('change_language')}</span>
+                    <span className="font-bold text-neutral-700 dark:text-neutral-200">{t('change_language')}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-neutral-400 uppercase">{language === 'en' ? 'English' : 'Kiswahili'}</span>

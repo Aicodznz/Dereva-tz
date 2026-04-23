@@ -55,16 +55,19 @@ export default function RegisterChoice() {
           >
             <Link 
               to={opt.path}
-              className="flex items-center p-4 rounded-2xl border border-neutral-100 hover:border-orange-200 hover:bg-orange-50/30 transition-all group"
+              className="flex items-center p-6 rounded-[2rem] border-2 border-neutral-100 dark:border-neutral-800 hover:border-orange-500 hover:bg-orange-50/10 transition-all group relative overflow-hidden"
             >
-              <div className={`w-14 h-14 rounded-xl flex items-center justify-center mr-4 ${opt.color}`}>
-                <opt.icon className="w-8 h-8" />
+              <div className="absolute top-[-20%] right-[-10%] w-32 h-32 bg-orange-500/5 blur-3xl rounded-full" />
+              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mr-5 shadow-xl transition-transform group-hover:scale-110 ${opt.color}`}>
+                <opt.icon className="w-10 h-10" />
               </div>
               <div className="flex-1">
-                <h3 className="font-bold text-neutral-900">{opt.title}</h3>
-                <p className="text-sm text-neutral-500">{opt.subtitle}</p>
+                <h3 className="font-black text-neutral-900 dark:text-white uppercase italic tracking-tighter text-xl">{opt.title}</h3>
+                <p className="text-sm text-neutral-500 font-medium leading-none mt-1">{opt.subtitle}</p>
               </div>
-              <ArrowRight className="w-5 h-5 text-neutral-300 group-hover:text-orange-600 transition-colors" />
+              <div className="w-10 h-10 rounded-full border border-neutral-100 dark:border-neutral-800 flex items-center justify-center group-hover:bg-orange-600 group-hover:text-white transition-all">
+                <ArrowRight className="w-5 h-5" />
+              </div>
             </Link>
           </motion.div>
         ))}
