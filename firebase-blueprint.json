@@ -211,6 +211,32 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["vendorId", "number", "capacity"]
+    },
+    "Ride": {
+      "title": "Ride",
+      "description": "Taxi booking details",
+      "type": "object",
+      "properties": {
+        "customerId": { "type": "string" },
+        "driverId": { "type": "string" },
+        "pickup": { "type": "object" },
+        "destination": { "type": "object" },
+        "pickupAddress": { "type": "string" },
+        "destinationAddress": { "type": "string" },
+        "distance": { "type": "number" },
+        "duration": { "type": "number" },
+        "estimatedFare": { "type": "number" },
+        "actualFare": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "arrived", "started", "completed", "cancelled"] },
+        "vehicleType": { "type": "string", "enum": ["pikipiki", "bajaji", "gari"] },
+        "paymentMethod": { "type": "string", "enum": ["cash", "mobile_money", "wallet"] },
+        "paymentStatus": { "type": "string", "enum": ["pending", "paid"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "customerRating": { "type": "number" },
+        "driverRating": { "type": "number" }
+      },
+      "required": ["customerId", "pickup", "destination", "status", "vehicleType"]
     }
   },
   "firestore": {
@@ -226,6 +252,7 @@
     "/reviews/{reviewId}/replies/{replyId}": { "schema": "Reply", "description": "Replies to a review" },
     "/coupons/{couponId}": { "schema": "Coupon", "description": "Discount coupons" },
     "/tables/{tableId}": { "schema": "Table", "description": "Dine-in tables" },
-    "/staff/{staffId}": { "schema": "Staff", "description": "Vendor staff members" }
+    "/staff/{staffId}": { "schema": "Staff", "description": "Vendor staff members" },
+    "/rides/{rideId}": { "schema": "Ride", "description": "Taxi rides" }
   }
 }

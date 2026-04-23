@@ -12,6 +12,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
+import { taxiService, RideRequest } from '../services/taxiService';
+import { toast } from 'sonner';
 
 type BookingStep = 'home' | 'map' | 'searching' | 'confirmed' | 'arriving' | 'on_trip' | 'completed' | 'receipt';
 
@@ -25,6 +27,7 @@ interface RideOption {
   eta: string;
   image: string;
   distance?: string;
+  vehicleType: 'pikipiki' | 'bajaji' | 'gari';
 }
 
 export default function TaxiBooking() {
@@ -37,25 +40,30 @@ export default function TaxiBooking() {
   const [pickup, setPickup] = useState('Current Location (D Block, Sector 2)');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mpesa' | 'card'>('mpesa');
   
+  const [activeRide, setActiveRide] = useState<RideRequest | null>(null);
+  const [rideId, setRideId] = useState<string | null>(null);
+  
   const rideOptions: RideOption[] = [
     { 
       id: 'mini', 
       name: 'TegeX Mini', 
       icon: Car, 
       sub: 'City-whetted city car', 
-      priceRange: '200 - 300', 
-      price: 286, 
+      priceRange: '2,000 - 3,000', 
+      price: 2800, 
       eta: '4',
+      vehicleType: 'gari',
       image: 'https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?auto=format&fit=crop&w=400&q=80' 
     },
     { 
-      id: 'cruiser', 
-      name: 'TegeX Cruiser', 
-      icon: Car, 
-      sub: 'Electric SUV ⚡', 
-      priceRange: '300 - 500', 
-      price: 350, 
-      eta: '6',
+      id: 'bajaji', 
+      name: 'TegeX Bajaj', 
+      icon: Activity, 
+      sub: 'Tuk-Tuk transit 🛺', 
+      priceRange: '1,000 - 2,000', 
+      price: 1500, 
+      eta: '5',
+      vehicleType: 'bajaji',
       image: 'https://images.unsplash.com/photo-1593941707882-a5bba14938c7?auto=format&fit=crop&w=400&q=80' 
     },
     { 
@@ -63,20 +71,11 @@ export default function TaxiBooking() {
       name: 'TegeX Bike', 
       icon: Bike, 
       sub: 'Fast city transit', 
-      priceRange: '100 - 150', 
-      price: 120, 
+      priceRange: '500 - 1,000', 
+      price: 800, 
       eta: '3',
+      vehicleType: 'pikipiki',
       image: 'https://images.unsplash.com/photo-1558981403-c5f91cbba527?auto=format&fit=crop&w=400&q=80' 
-    },
-    { 
-      id: 'premium', 
-      name: 'TegeX Premium', 
-      icon: ShieldCheck, 
-      sub: 'Luxury & Comfort', 
-      priceRange: '600 - 900', 
-      price: 750, 
-      eta: '8',
-      image: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=400&q=80' 
     }
   ];
 
@@ -85,26 +84,46 @@ export default function TaxiBooking() {
     { name: 'Address Sirargara', area: 'Koriuba, Mamatia', time: '5min' }
   ];
 
-  // Simulation Logic
+  // Listen for ride updates
   useEffect(() => {
-    if (step === 'searching') {
-      const timer = setTimeout(() => setStep('confirmed'), 3000);
-      return () => clearTimeout(timer);
-    }
-    if (step === 'on_trip') {
-      const timer = setTimeout(() => setStep('completed'), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [step]);
+    if (!rideId) return;
+    const unsubscribe = taxiService.listenToRide(rideId, (ride) => {
+      setActiveRide(ride);
+      if (ride.status === 'accepted') setStep('confirmed');
+      if (ride.status === 'arrived') setStep('arriving');
+      if (ride.status === 'started') setStep('on_trip');
+      if (ride.status === 'completed') setStep('completed');
+    });
+    return () => unsubscribe();
+  }, [rideId]);
 
   const handleBookNow = () => {
     if (!destination) return;
     setStep('map');
   };
 
-  const confirmBooking = () => {
-    if (!selectedRide) return;
+  const confirmBooking = async () => {
+    if (!selectedRide || !user) return;
     setStep('searching');
+    
+    try {
+      const docRef = await taxiService.requestRide({
+        customerId: user.uid,
+        pickup: { lat: -6.7924, lng: 39.2083 },
+        destination: { lat: -6.8235, lng: 39.2695 },
+        pickupAddress: pickup,
+        destinationAddress: destination,
+        distance: 5.2,
+        duration: 15,
+        estimatedFare: selectedRide.price,
+        vehicleType: selectedRide.vehicleType
+      });
+      setRideId(docRef.id);
+    } catch (error) {
+      console.error("Booking error:", error);
+      toast.error("Failed to request ride");
+      setStep('map');
+    }
   };
 
   return (
