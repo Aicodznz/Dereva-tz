@@ -97,6 +97,40 @@ export default function RiderHome() {
 
   const toggleStatus = () => setIsOnline(!isOnline);
 
+  // Update driver location periodically when online
+  useEffect(() => {
+    if (!isOnline || !user || !profile?.vehicleType) return;
+
+    const updateLoc = () => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition((pos) => {
+          const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          setPosition([loc.lat, loc.lng]);
+          
+          // Normalize vehicle type
+          const vType = (profile.vehicleType || '').toLowerCase();
+          const typeMap: Record<string, string> = {
+            'motorcycle': 'pikipiki', 'pikipiki': 'pikipiki', 'bike': 'pikipiki',
+            'bajaj': 'bajaji', 'bajaji': 'bajaji',
+            'car': 'gari', 'gari': 'gari', 'taxi': 'gari'
+          };
+          const targetVehicleType = typeMap[vType] || 'gari';
+
+          taxiService.updateDriverLocation(user.uid, loc, targetVehicleType, true);
+        });
+      }
+    };
+
+    updateLoc(); // Initial update
+    const interval = setInterval(updateLoc, 10000); // Every 10 seconds
+
+    return () => {
+        clearInterval(interval);
+        // Off-boarding: mark as offline in drivers collection
+        taxiService.updateDriverLocation(user.uid, { lat: position[0], lng: position[1] }, (profile?.vehicleType || 'gari').toLowerCase(), false);
+    };
+  }, [isOnline, user, profile?.vehicleType]);
+
   const handleAccept = async () => {
     if (!incomingRequest?.id || !user) return;
     try {

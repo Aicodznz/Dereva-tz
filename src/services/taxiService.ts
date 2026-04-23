@@ -103,5 +103,41 @@ export const taxiService = {
       review,
       updatedAt: serverTimestamp()
     });
+  },
+
+  // Update driver location (for Driver)
+  updateDriverLocation: async (driverId: string, location: RideLocation, vehicleType: string, isOnline: boolean) => {
+    const driverRef = doc(db, 'drivers', driverId);
+    return await updateDoc(driverRef, {
+      location,
+      vehicleType,
+      isOnline,
+      updatedAt: serverTimestamp()
+    }).catch(async (err) => {
+        // If document doesn't exist, create it (for first time online)
+        if (err.code === 'not-found') {
+            const { setDoc } = await import('firebase/firestore');
+            return await setDoc(driverRef, {
+                location,
+                vehicleType,
+                isOnline,
+                updatedAt: serverTimestamp()
+            });
+        }
+        throw err;
+    });
+  },
+
+  // Listen for nearby online drivers (for Customer)
+  listenToNearbyDrivers: (vehicleType: string, callback: (drivers: any[]) => void) => {
+    const q = query(
+      collection(db, 'drivers'),
+      where('isOnline', '==', true),
+      where('vehicleType', '==', vehicleType)
+    );
+    return onSnapshot(q, (snapshot) => {
+      const drivers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      callback(drivers);
+    });
   }
 };

@@ -1,18 +1,56 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { 
   ArrowLeft, MapPin, Search, Navigation2, Clock, Star, 
   CreditCard, ChevronRight, X, Phone, MessageSquare, 
   Car, Bike, Activity, ShieldCheck, HelpCircle, User,
-  CheckCircle2, DollarSign, Wallet
+  CheckCircle2, DollarSign, Wallet, Zap, Layers, Trophy
 } from 'lucide-react';
 
 // Fix leaflet icon issue
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
+// Custom futuristic icons
+const StartPin = L.divIcon({
+    className: 'custom-div-icon',
+    html: `<div class="relative flex items-center justify-center">
+            <div class="absolute w-12 h-12 bg-emerald-500/30 rounded-full animate-ping"></div>
+            <div class="relative w-9 h-9 bg-white border-2 border-emerald-500 rounded-lg flex items-center justify-center shadow-xl">
+              <span class="text-emerald-500 font-black text-sm">M</span>
+            </div>
+            <div class="absolute -bottom-1 w-2 h-2 bg-emerald-500 rotate-45"></div>
+          </div>`,
+    iconSize: [36, 36],
+    iconAnchor: [18, 36]
+});
+
+const EndPin = L.divIcon({
+  className: 'custom-div-icon',
+  html: `<div class="relative flex items-center justify-center">
+          <div class="absolute w-12 h-12 bg-amber-500/30 rounded-full animate-ping"></div>
+          <div class="relative w-9 h-9 bg-white border-2 border-amber-500 rounded-lg flex items-center justify-center shadow-xl">
+            <span class="text-amber-500 font-black text-sm">E</span>
+          </div>
+          <div class="absolute -bottom-1 w-2 h-2 bg-amber-500 rotate-45"></div>
+        </div>`,
+  iconSize: [36, 36],
+  iconAnchor: [18, 36]
+});
+
+const DriverPin = (type: string) => L.divIcon({
+  className: 'custom-div-icon',
+  html: `<div class="relative flex items-center justify-center">
+          <div class="w-6 h-6 bg-neutral-950 border border-cyan-500/50 rounded-full flex items-center justify-center shadow-[0_0_10px_rgba(6,182,212,0.3)]">
+            <div class="w-2 h-2 bg-cyan-400 rounded-full shadow-[0_0_5px_rgba(34,211,238,0.8)]"></div>
+          </div>
+        </div>`,
+  iconSize: [24, 24],
+  iconAnchor: [12, 12]
+});
 
 let DefaultIcon = L.icon({
     iconUrl: icon,
@@ -58,6 +96,25 @@ export default function TaxiBooking() {
   const { user, profile } = useAuth();
   const { t, isRTL } = useLanguage();
   const navigate = useNavigate();
+  const [pickupPos, setPickupPos] = useState<[number, number]>([-6.7924, 39.2083]);
+  const [destPos, setDestPos] = useState<[number, number]>([-6.8235, 39.2695]);
+  const [settingMode, setSettingMode] = useState<'pickup' | 'destination'>('pickup');
+
+  const MapEvents = () => {
+    useMapEvents({
+      click(e) {
+        if (settingMode === 'pickup') {
+          setPickupPos([e.latlng.lat, e.latlng.lng]);
+          setPickup(`Karatasi ya Ramani (${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)})`);
+        } else {
+          setDestPos([e.latlng.lat, e.latlng.lng]);
+          setDestination(`Karatasi ya Ramani (${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)})`);
+        }
+      },
+    });
+    return null;
+  };
+
   const [step, setStep] = useState<BookingStep>('home');
   const [selectedRide, setSelectedRide] = useState<RideOption | null>(null);
   const [destination, setDestination] = useState('');
@@ -70,10 +127,10 @@ export default function TaxiBooking() {
   const rideOptions: RideOption[] = [
     { 
       id: 'mini', 
-      name: 'TegeX Mini', 
+      name: 'TegeX Gari', 
       icon: Car, 
-      sub: 'City-whetted city car', 
-      priceRange: '2,000 - 3,000', 
+      sub: '4 Seats | Deluxe Gari', 
+      priceRange: '2,800', 
       price: 2800, 
       eta: '4',
       vehicleType: 'gari',
@@ -83,8 +140,8 @@ export default function TaxiBooking() {
       id: 'bajaji', 
       name: 'TegeX Bajaj', 
       icon: Activity, 
-      sub: 'Tuk-Tuk transit 🛺', 
-      priceRange: '1,000 - 2,000', 
+      sub: '3 Siti | Transit', 
+      priceRange: '1,500', 
       price: 1500, 
       eta: '5',
       vehicleType: 'bajaji',
@@ -94,14 +151,51 @@ export default function TaxiBooking() {
       id: 'bike', 
       name: 'TegeX Bike', 
       icon: Bike, 
-      sub: 'Fast city transit', 
-      priceRange: '500 - 1,000', 
+      sub: '2-wheel rides', 
+      priceRange: '800', 
       price: 800, 
       eta: '3',
       vehicleType: 'pikipiki',
       image: 'https://images.unsplash.com/photo-1558981403-c5f91cbba527?auto=format&fit=crop&w=400&q=80' 
     }
   ];
+
+  const DAR_LOCATIONS = [
+    { name: 'Kariakoo Market', lat: -6.8184, lng: 39.2748 },
+    { name: 'Posta Mpya', lat: -6.8163, lng: 39.2889 },
+    { name: 'Mwenge Bus Stand', lat: -6.7686, lng: 39.2273 },
+    { name: 'Ubungo Maziwa', lat: -6.7924, lng: 39.2083 },
+    { name: 'Tabata Kisiwani', lat: -6.8235, lng: 39.2695 },
+    { name: 'Mlimani City', lat: -6.7725, lng: 39.2131 }
+  ];
+
+  const [pickupSuggestions, setPickupSuggestions] = useState<any[]>([]);
+  const [destSuggestions, setDestSuggestions] = useState<any[]>([]);
+
+  const handleLocationSearch = (query: string, type: 'pickup' | 'destination') => {
+    const filtered = DAR_LOCATIONS.filter(loc => 
+      loc.name.toLowerCase().includes(query.toLowerCase())
+    );
+    if (type === 'pickup') {
+      setPickup(query);
+      setPickupSuggestions(query.length > 1 ? filtered : []);
+    } else {
+      setDestination(query);
+      setDestSuggestions(query.length > 1 ? filtered : []);
+    }
+  };
+
+  const selectLocation = (loc: any, type: 'pickup' | 'destination') => {
+    if (type === 'pickup') {
+      setPickup(loc.name);
+      setPickupPos([loc.lat, loc.lng]);
+      setPickupSuggestions([]);
+    } else {
+      setDestination(loc.name);
+      setDestPos([loc.lat, loc.lng]);
+      setDestSuggestions([]);
+    }
+  };
 
   const recentAddresses = [
     { name: 'Address Nine Street', area: 'Ncula, Klagorata', time: '1min' },
@@ -154,6 +248,18 @@ export default function TaxiBooking() {
   };
 
   const [userRating, setUserRating] = useState(0);
+  const [nearbyDrivers, setNearbyDrivers] = useState<any[]>([]);
+
+  // Listen for nearby drivers
+  useEffect(() => {
+    if (step === 'map' || step === 'home') {
+      const vType = selectedRide?.vehicleType || 'gari';
+      const unsubscribe = taxiService.listenToNearbyDrivers(vType, (drivers) => {
+        setNearbyDrivers(drivers);
+      });
+      return () => unsubscribe();
+    }
+  }, [step, selectedRide?.vehicleType]);
 
   const handleRate = async (rating: number) => {
     setUserRating(rating);
@@ -167,6 +273,34 @@ export default function TaxiBooking() {
     }
   };
 
+  const [mapIcon, setMapIcon] = useState<any>(null);
+  
+  useEffect(() => {
+    // Create custom icons for different vehicle types
+    const createIcon = (type: string) => {
+      const iconPath = type === 'pikipiki' 
+        ? '<path d="M12 11c0 3.5 2.5 5 2.5 5M5 18a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm14 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-7-8L9 5h4l-1 3Z"/>'
+        : type === 'bajaji'
+        ? '<path d="M4 11h16v6h-16zM6 17v2M18 17v2M12 7l-2 4h4z"/>'
+        : '<path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path d="M9 17h6"/>';
+
+      return L.divIcon({
+        className: 'custom-car-icon',
+        html: `<div class="w-10 h-10 bg-white rounded-full p-2 shadow-xl border-2 border-orange-600 flex items-center justify-center">
+                 <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" class="text-orange-600">${iconPath}</svg>
+               </div>`,
+        iconSize: [40, 40],
+        iconAnchor: [20, 20],
+      });
+    };
+
+    setMapIcon({
+      pikipiki: createIcon('pikipiki'),
+      bajaji: createIcon('bajaji'),
+      gari: createIcon('gari')
+    });
+  }, []);
+
   return (
     <div className="max-w-md mx-auto bg-neutral-950 min-h-screen relative overflow-hidden font-sans text-white">
       {/* Background Decor */}
@@ -176,17 +310,30 @@ export default function TaxiBooking() {
       </div>
 
       {/* Header */}
-      <div className="relative z-10 px-6 pt-12 pb-4 flex items-center justify-between">
+      <div className="relative z-50 px-6 pt-12 pb-4 flex items-center justify-between bg-neutral-950/50 backdrop-blur-md border-b border-white/5">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full border-2 border-orange-600 p-0.5 overflow-hidden">
-             <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email}`} alt="User" className="w-full h-full object-cover rounded-full" />
-          </div>
+          {step !== 'home' ? (
+            <button 
+                onClick={() => setStep('home')}
+                className="w-10 h-10 rounded-xl bg-orange-600/10 flex items-center justify-center border border-orange-600/30 text-orange-600"
+            >
+                <ArrowLeft className="w-5 h-5" />
+            </button>
+          ) : (
+            <div className="w-10 h-10 rounded-full border-2 border-orange-600 p-0.5 overflow-hidden">
+                <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email}`} alt="User" className="w-full h-full object-cover rounded-full" />
+            </div>
+          )}
           <div>
-            <p className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider">Karibu, {profile?.displayName || 'Mteja'}</p>
-            <h1 className="text-xl font-black italic uppercase tracking-tighter">Wapi leo?</h1>
+            <p className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider">
+              {step === 'home' ? `Karibu, ${profile?.displayName || 'Mteja'}` : 'Njia ya Safari'}
+            </p>
+            <h1 className="text-xl font-black italic uppercase tracking-tighter">
+              {step === 'home' ? 'Wapi leo?' : 'Trip Details'}
+            </h1>
           </div>
         </div>
-        <button onClick={() => navigate(-1)} className="w-10 h-10 rounded-xl bg-neutral-900 flex items-center justify-center border border-neutral-800 hover:bg-neutral-800 transition-colors">
+        <button onClick={() => navigate('/')} className="w-10 h-10 rounded-xl bg-neutral-900 flex items-center justify-center border border-neutral-800 hover:bg-neutral-800 transition-colors">
           <X className="w-5 h-5 text-neutral-400" />
         </button>
       </div>
@@ -200,17 +347,30 @@ export default function TaxiBooking() {
             exit={{ opacity: 0, y: -20 }}
             className="px-6 space-y-8 relative z-10 pb-24"
           >
-            {/* Search Input */}
-            <div className="relative group">
-              <div className="absolute inset-y-0 left-4 flex items-center text-orange-600">
-                <MapPin className="w-5 h-5" />
+            {/* Search Inputs */}
+            <div className="space-y-4">
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-4 flex items-center text-emerald-500">
+                  <MapPin className="w-5 h-5" />
+                </div>
+                <input 
+                  value={pickup}
+                  onChange={(e) => setPickup(e.target.value)}
+                  placeholder="Uko wapi?" 
+                  className="w-full bg-neutral-900/80 border border-neutral-800 rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:border-emerald-500 transition-all font-bold placeholder:text-neutral-600"
+                />
               </div>
-              <input 
-                value={destination}
-                onChange={(e) => setDestination(e.target.value)}
-                placeholder="Unataka kwenda wapi?" 
-                className="w-full bg-neutral-900/80 border border-neutral-800 rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:border-orange-600 transition-all font-bold placeholder:text-neutral-600"
-              />
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-4 flex items-center text-orange-600">
+                  <Navigation2 className="w-5 h-5" />
+                </div>
+                <input 
+                  value={destination}
+                  onChange={(e) => setDestination(e.target.value)}
+                  placeholder="Unataka kwenda wapi?" 
+                  className="w-full bg-neutral-900/80 border border-neutral-800 rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:border-orange-600 transition-all font-bold placeholder:text-neutral-600"
+                />
+              </div>
             </div>
 
             {/* Promo Banner */}
@@ -306,20 +466,23 @@ export default function TaxiBooking() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 z-20 flex flex-col pt-12"
+            className="absolute inset-0 z-10 flex flex-col h-full bg-neutral-950 font-sans"
           >
-            <div className="px-6 flex items-center justify-between mb-4">
-              <button onClick={() => setStep('home')} className="w-10 h-10 rounded-xl bg-neutral-900/80 backdrop-blur-md flex items-center justify-center border border-neutral-800">
-                <ArrowLeft className="w-5 h-5" />
-              </button>
-              <h2 className="text-lg font-black uppercase italic">Map and Trip Options</h2>
-              <div className="w-10" />
-            </div>
-
-            {/* Real Map Area */}
-            <div className="flex-1 bg-neutral-900 overflow-hidden relative min-h-[400px]">
+            {/* Map Area */}
+            <div className="flex-1 bg-white overflow-hidden relative">
+               <style>
+                 {`
+                  .leaflet-container {
+                    background: #f0f0f0 !important;
+                  }
+                  .custom-div-icon {
+                    background: transparent;
+                    border: none;
+                  }
+                 `}
+               </style>
                <MapContainer 
-                 center={[-6.7924, 39.2083]} 
+                 center={pickupPos} 
                  zoom={13} 
                  style={{ height: '100%', width: '100%' }}
                  zoomControl={false}
@@ -328,79 +491,154 @@ export default function TaxiBooking() {
                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                  />
-                 <Marker position={[-6.7924, 39.2083]}>
-                   <Popup>Pickup</Popup>
+                 <Marker position={pickupPos} icon={StartPin}>
+                   <Popup>Mwanzo (Pickup)</Popup>
                  </Marker>
-                 <Marker position={[-6.8235, 39.2695]}>
-                    <Popup>Destination</Popup>
+                 <Marker position={destPos} icon={EndPin}>
+                    <Popup>Mwisho (Destination)</Popup>
                  </Marker>
-                 <MapControl position={[-6.7924, 39.2083]} />
+
+                 {/* Render nearby drivers */}
+                 {nearbyDrivers.map((driver: any) => (
+                    <Marker 
+                        key={driver.id} 
+                        position={[driver.location.lat, driver.location.lng]}
+                        icon={DriverPin(driver.vehicleType)}
+                    >
+                        <Popup>{driver.vehicleType.toUpperCase()} iko karibu!</Popup>
+                    </Marker>
+                 ))}
+
+                 <MapControl position={settingMode === 'pickup' ? pickupPos : destPos} />
+                 <MapEvents />
                </MapContainer>
                
-               <div className="absolute inset-0 bg-gradient-to-b from-neutral-950/20 via-transparent to-neutral-950/40 pointer-events-none z-10" />
-               
-               {/* Route Line Marker (Stylized) */}
-               <svg className="absolute inset-0 w-full h-full pointer-events-none z-10">
-                  <path d="M 100 600 Q 150 400 300 300 T 350 100" fill="transparent" stroke="#059669" strokeWidth="6" strokeLinecap="round" strokeDasharray="12 8" />
-                  <circle cx="100" cy="600" r="8" fill="#059669" />
-                  <circle cx="350" cy="100" r="8" fill="#ef4444" />
-               </svg>
-
-               <div className="absolute bottom-8 left-0 right-0 px-6 space-y-4">
-                  {/* Address Display */}
-                  <div className="bg-neutral-900/90 backdrop-blur-xl p-6 rounded-[2rem] border border-white/10 shadow-3xl">
-                     <div className="flex gap-4">
-                        <div className="flex flex-col items-center gap-1">
-                           <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                           <div className="w-0.5 h-10 border-l border-dashed border-neutral-700" />
-                           <div className="w-3 h-3 rounded-full bg-red-500" />
-                        </div>
-                        <div className="flex-1 space-y-4">
-                           <div>
-                              <p className="text-[9px] font-black uppercase text-neutral-500 tracking-widest">Pickup</p>
-                              <p className="text-xs font-bold truncate">{pickup}</p>
-                           </div>
-                           <div>
-                              <p className="text-[9px] font-black uppercase text-neutral-500 tracking-widest">Destination</p>
-                              <p className="text-xs font-bold truncate">{destination}</p>
-                           </div>
-                        </div>
-                     </div>
+               {/* Selection Mode Indicator floating on map */}
+               <div className="absolute top-28 left-0 right-0 flex justify-center z-50 pointer-events-none">
+                  <div className={`px-6 py-3 rounded-full backdrop-blur-xl border-2 shadow-[0_0_30px_rgba(0,0,0,0.2)] flex items-center gap-3 pointer-events-auto transition-all ${settingMode === 'pickup' ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-600' : 'bg-amber-500/10 border-amber-500/50 text-amber-600'}`}>
+                    <div className={`w-3 h-3 rounded-full animate-pulse shadow-[0_0_10px_currentcolor] ${settingMode === 'pickup' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                    <span className="text-[11px] font-black uppercase tracking-[0.2em]">GUSA RAMANI KUCHAGUA {settingMode === 'pickup' ? 'PICKUP' : 'DESTINATION'}</span>
                   </div>
+               </div>
 
-                  {/* Ride Options Scroller */}
-                  <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
-                     {rideOptions.map((ride) => (
-                        <button 
-                           key={ride.id}
-                           onClick={() => setSelectedRide(ride)}
-                           className={`min-w-[200px] flex items-center justify-between p-4 rounded-3xl border transition-all ${
-                              selectedRide?.id === ride.id ? 'bg-orange-600 border-orange-500 shadow-xl shadow-orange-600/30' : 'bg-neutral-800/80 backdrop-blur-md border-neutral-700'
-                           }`}
-                        >
-                           <div className="flex items-center gap-3">
-                              <div className="w-12 h-12 bg-black/20 rounded-2xl flex items-center justify-center p-1">
-                                 <img src={ride.image} alt={ride.name} className="w-full h-full object-contain mix-blend-lighten" />
-                              </div>
-                              <div className="text-left">
-                                 <h4 className="text-[12px] font-black uppercase mb-0.5 leading-none">{ride.name}</h4>
-                                 <p className="text-[9px] font-bold opacity-60 italic whitespace-nowrap">{ride.eta} mins ({ride.id === 'bike' ? '2.5' : '3.2'} km)</p>
-                              </div>
-                           </div>
-                           <div className="text-right">
-                              <p className="text-[12px] font-black italic">USD {ride.price}</p>
-                           </div>
-                        </button>
-                     ))}
-                  </div>
-
-                  <button 
-                     onClick={confirmBooking}
-                     className="w-full bg-emerald-500 py-5 rounded-3xl font-black uppercase tracking-widest hover:bg-emerald-400 shadow-2xl shadow-emerald-900/40 text-sm"
-                  >
-                     Hifadhi Sasa
+               {/* Map Controls - MOVED TO TOP RIGHT */}
+               <div className="absolute right-6 top-6 flex flex-col gap-4 z-40">
+                  <button className="w-12 h-12 rounded-xl bg-white border border-neutral-200 flex items-center justify-center text-neutral-500 shadow-xl active:scale-95 transition-all">
+                    <Navigation2 className="w-5 h-5" />
+                  </button>
+                  <button className="w-12 h-12 rounded-xl bg-white border border-neutral-200 flex items-center justify-center text-neutral-500 shadow-xl active:scale-95 transition-all">
+                    <Layers className="w-5 h-5" />
                   </button>
                </div>
+            </div>
+
+            {/* Bottom Panel */}
+            <div className="bg-white p-8 space-y-6 z-40 border-t-2 border-amber-500/20 shadow-[0_-20px_60px_rgba(0,0,0,0.1)] relative rounded-t-[3rem]">
+               {/* Address Display */}
+               <div className="bg-neutral-50 p-6 rounded-[2rem] border border-neutral-200 shadow-inner space-y-6 relative overflow-hidden group">
+                  <div className="flex items-start gap-4">
+                    <div className="flex flex-col items-center pt-2 gap-2">
+                      <div className="w-4 h-4 rounded-full border-2 border-emerald-500 flex items-center justify-center">
+                        <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
+                      </div>
+                      <div className="w-0.5 h-12 border-l-2 border-dashed border-neutral-300" />
+                      <div className="w-4 h-4 rounded-full border-2 border-amber-500 flex items-center justify-center">
+                        <div className="w-1.5 h-1.5 bg-amber-500 rounded-full" />
+                      </div>
+                    </div>
+                    <div className="flex-1 space-y-4">
+                      <div className="relative">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Pickup Point: <span className="text-neutral-400 italic font-medium">{pickupPos[0].toFixed(4)}, {pickupPos[1].toFixed(4)}</span></label>
+                        <input 
+                          value={pickup}
+                          onFocus={() => setSettingMode('pickup')}
+                          onChange={(e) => handleLocationSearch(e.target.value, 'pickup')}
+                          className="bg-transparent text-sm font-bold w-full focus:outline-none text-neutral-900 placeholder:text-neutral-300"
+                          placeholder="Andika au gusa ramani..."
+                        />
+                        {pickupSuggestions.length > 0 && (
+                          <div className="absolute left-0 right-0 top-full mt-2 bg-white border border-neutral-100 rounded-2xl shadow-2xl z-[60] overflow-hidden max-h-48 overflow-y-auto">
+                            {pickupSuggestions.map((loc, idx) => (
+                              <button 
+                                key={idx}
+                                onClick={() => selectLocation(loc, 'pickup')}
+                                className="w-full px-4 py-3 text-left text-xs font-bold hover:bg-neutral-50 flex items-center gap-3 border-b border-neutral-50 last:border-0"
+                              >
+                                <MapPin className="w-3 h-3 text-emerald-500" />
+                                {loc.name}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div className="relative">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-amber-600">Destination: <span className="text-neutral-400 italic font-medium">{destPos[0].toFixed(4)}, {destPos[1].toFixed(4)}</span></label>
+                        <input 
+                          value={destination}
+                          onFocus={() => setSettingMode('destination')}
+                          onChange={(e) => handleLocationSearch(e.target.value, 'destination')}
+                          className="bg-transparent text-sm font-bold w-full focus:outline-none text-neutral-900 placeholder:text-neutral-300"
+                          placeholder="Andika unapo kwenda..."
+                        />
+                        {destSuggestions.length > 0 && (
+                          <div className="absolute left-0 right-0 top-full mt-2 bg-white border border-neutral-100 rounded-2xl shadow-2xl z-[60] overflow-hidden max-h-48 overflow-y-auto">
+                            {destSuggestions.map((loc, idx) => (
+                              <button 
+                                key={idx}
+                                onClick={() => selectLocation(loc, 'destination')}
+                                className="w-full px-4 py-3 text-left text-xs font-bold hover:bg-neutral-50 flex items-center gap-3 border-b border-neutral-50 last:border-0"
+                              >
+                                <MapPin className="w-3 h-3 text-amber-500" />
+                                {loc.name}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+               </div>
+
+               {/* Vehicle Options */}
+               <div className="grid grid-cols-3 gap-3">
+                  {rideOptions.map((ride) => (
+                     <button 
+                        key={ride.id}
+                        onClick={() => setSelectedRide(ride)}
+                        className={`group relative p-4 rounded-3xl border-2 transition-all flex flex-col items-center gap-2 overflow-hidden ${
+                           selectedRide?.id === ride.id ? 'bg-amber-500/5 border-amber-500 shadow-xl scale-105 shadow-amber-500/20' : 'bg-neutral-50 border-neutral-200'
+                        }`}
+                     >
+                        <div className="flex items-center gap-1 absolute top-2 right-2 opacity-70">
+                          <Clock className="w-2.5 h-2.5 text-amber-600" />
+                          <span className="text-[8px] font-black">{ride.eta}min</span>
+                        </div>
+                        
+                        <div className="w-16 h-10 relative mb-1">
+                           <img src={ride.image} alt={ride.name} className="w-full h-full object-contain mix-blend-multiply group-hover:scale-110 transition-transform" />
+                        </div>
+                        
+                        <div className="text-center">
+                           <h4 className="text-[10px] font-black uppercase leading-none mb-1">{ride.name}</h4>
+                           <p className="text-[8px] font-bold text-neutral-400 mb-1 leading-none">{ride.sub}</p>
+                           <div className="flex flex-col items-center">
+                             <span className="text-[11px] font-black text-amber-600">TZS {ride.price}</span>
+                             <span className="text-[7px] font-black text-emerald-500 uppercase tracking-tighter">Punguzo Tzs 3000</span>
+                           </div>
+                        </div>
+                     </button>
+                  ))}
+               </div>
+
+               {/* Confirm Action Button */}
+               <button 
+                  onClick={confirmBooking}
+                  className="w-full h-20 bg-neutral-900 text-white rounded-[2rem] font-black uppercase tracking-[0.3em] text-sm hover:bg-black transition-all active:scale-95 shadow-2xl flex items-center justify-center gap-4 border border-white/10"
+               >
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  Thibitisha Safari
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+               </button>
             </div>
           </motion.div>
         )}

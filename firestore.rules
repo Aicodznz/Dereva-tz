@@ -198,13 +198,18 @@ service cloud.firestore {
         isAdmin() ||
         // Customer actions: Cancel or Rate
         (existing().customerId == request.auth.uid && 
-         incoming().diff(existing()).affectedKeys().hasAny(['status', 'customerRating', 'updatedAt'])) ||
+         incoming().diff(existing()).affectedKeys().hasAny(['status', 'rating', 'review', 'updatedAt'])) ||
         // Driver actions: Accept (when pending) or update status (when assigned)
         (
           (existing().status == 'pending' && incoming().driverId == request.auth.uid && incoming().status == 'accepted') ||
           (existing().driverId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasAny(['status', 'updatedAt', 'location']))
         )
       );
+    }
+
+    match /drivers/{driverId} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(driverId);
     }
   }
 }
