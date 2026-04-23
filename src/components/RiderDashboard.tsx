@@ -68,9 +68,9 @@ export default function RiderDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 relative">
+    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 relative flex flex-col h-screen overflow-hidden">
       {/* Content Area */}
-      <div className="h-full">
+      <div className="flex-1 relative overflow-hidden">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
@@ -78,7 +78,7 @@ export default function RiderDashboard() {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 1.02 }}
             transition={{ duration: 0.2 }}
-            className="h-full"
+            className="h-full w-full"
           >
             {renderContent()}
           </motion.div>

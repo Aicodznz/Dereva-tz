@@ -1,11 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
 import { 
   ArrowLeft, MapPin, Search, Navigation2, Clock, Star, 
   CreditCard, ChevronRight, X, Phone, MessageSquare, 
   Car, Bike, Activity, ShieldCheck, HelpCircle, User,
   CheckCircle2, DollarSign, Wallet
 } from 'lucide-react';
+
+// Fix leaflet icon issue
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
+let DefaultIcon = L.icon({
+    iconUrl: icon,
+    shadowUrl: iconShadow,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41]
+});
+
+L.Marker.prototype.options.icon = DefaultIcon;
+
+const MapControl = ({ position }: { position: [number, number] }) => {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(position, 15);
+  }, [position]);
+  return null;
+};
 import { useAuth } from '../AuthContext';
 import { useLanguage } from '../LanguageContext';
 import { Button } from '@/components/ui/button';
@@ -275,10 +299,28 @@ export default function TaxiBooking() {
               <div className="w-10" />
             </div>
 
-            {/* Mock Map Area */}
-            <div className="flex-1 bg-neutral-900 overflow-hidden relative">
-               <img src="https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=1200&q=80" alt="Map" className="w-full h-full object-cover opacity-60 grayscale brightness-50" />
-               <div className="absolute inset-0 bg-gradient-to-b from-neutral-950/40 via-transparent to-neutral-950/80 pointer-events-none" />
+            {/* Real Map Area */}
+            <div className="flex-1 bg-neutral-900 overflow-hidden relative min-h-[400px]">
+               <MapContainer 
+                 center={[-6.7924, 39.2083]} 
+                 zoom={13} 
+                 style={{ height: '100%', width: '100%' }}
+                 zoomControl={false}
+               >
+                 <TileLayer
+                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                 />
+                 <Marker position={[-6.7924, 39.2083]}>
+                   <Popup>Pickup</Popup>
+                 </Marker>
+                 <Marker position={[-6.8235, 39.2695]}>
+                    <Popup>Destination</Popup>
+                 </Marker>
+                 <MapControl position={[-6.7924, 39.2083]} />
+               </MapContainer>
+               
+               <div className="absolute inset-0 bg-gradient-to-b from-neutral-950/20 via-transparent to-neutral-950/40 pointer-events-none z-10" />
                
                {/* Route Line Marker (Stylized) */}
                <svg className="absolute inset-0 w-full h-full pointer-events-none z-10">

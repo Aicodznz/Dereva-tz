@@ -131,11 +131,11 @@ export default function RiderHome() {
   return (
     <div className="relative h-full w-full overflow-hidden bg-neutral-100">
       {/* Map Layer */}
-      <div className="absolute inset-0 z-0">
+      <div className="absolute inset-0 z-0 bg-neutral-200">
         <MapContainer 
           center={position} 
           zoom={15} 
-          style={{ height: '100%', width: '100%' }}
+          style={{ height: '100%', width: '100%', minHeight: '100%' }}
           zoomControl={false}
         >
           <TileLayer
@@ -207,26 +207,32 @@ export default function RiderHome() {
 
       {/* Main Action Button (Online/Offline) */}
       {!activeRide && !incomingRequest && (
-        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-40">
+        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-3">
+          <p className={`text-[10px] font-black uppercase tracking-[0.2em] px-4 py-1.5 rounded-full backdrop-blur-md border ${
+            isOnline ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/30' : 'bg-red-500/20 text-red-500 border-red-500/30'
+          }`}>
+            {isOnline ? 'Active & Receiving Requests' : 'Currently Offline'}
+          </p>
           <motion.button
             onClick={toggleStatus}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className={`w-28 h-28 rounded-full border-8 border-white dark:border-neutral-800 shadow-2xl flex items-center justify-center relative ${
+            className={`w-24 h-24 rounded-full border-4 border-white dark:border-neutral-800 shadow-[0_20px_50px_rgba(0,0,0,0.3)] flex items-center justify-center relative ${
               isOnline ? 'bg-emerald-500' : 'bg-red-500'
             }`}
           >
             {isOnline && (
               <motion.div 
-                animate={{ scale: [1, 1.2, 1] }}
+                animate={{ scale: [1, 1.4, 1], opacity: [0.3, 0.1, 0.3] }}
                 transition={{ repeat: Infinity, duration: 2 }}
-                className="absolute inset-0 rounded-full bg-emerald-400/30"
+                className="absolute inset-0 rounded-full bg-emerald-400"
               />
             )}
-            <div className="bg-white dark:bg-neutral-900 w-16 h-16 rounded-full flex items-center justify-center shadow-inner z-10">
-              <Power className={`w-8 h-8 ${isOnline ? 'text-emerald-600' : 'text-red-600'}`} />
+            <div className="bg-white dark:bg-neutral-900 w-14 h-14 rounded-full flex items-center justify-center shadow-inner z-10">
+              <Power className={`w-7 h-7 ${isOnline ? 'text-emerald-600' : 'text-red-600'}`} />
             </div>
           </motion.button>
+          <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400 mt-1">Tap to Toggle Status</p>
         </div>
       )}
 
