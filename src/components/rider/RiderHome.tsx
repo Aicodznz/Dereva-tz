@@ -52,14 +52,27 @@ export default function RiderHome() {
       return;
     }
     
-    const vType = profile.vehicleType.toLowerCase() as any;
+    // Normalize vehicle type for service
+    const vType = (profile.vehicleType || '').toLowerCase();
     const typeMap: Record<string, string> = {
       'motorcycle': 'pikipiki',
+      'pikipiki': 'pikipiki',
+      'bike': 'pikipiki',
+      'pikipiki (bike)': 'pikipiki',
       'bajaj': 'bajaji',
-      'car': 'gari'
+      'bajaji': 'bajaji',
+      'bajaji (tuk-tuk)': 'bajaji',
+      'car': 'gari',
+      'gari': 'gari',
+      'taxi': 'gari',
+      'sedan': 'gari',
+      'gari (taxi/car)': 'gari'
     };
     
-    const unsubscribe = taxiService.listenForRequests(typeMap[vType] || 'gari', (requests) => {
+    const targetVehicleType = typeMap[vType] || 'gari';
+    console.log(`[Rider] Listening for ${targetVehicleType} requests (Original: ${vType})`);
+
+    const unsubscribe = taxiService.listenForRequests(targetVehicleType, (requests) => {
       if (requests.length > 0 && !activeRide) {
         setIncomingRequest(requests[0]);
       } else {

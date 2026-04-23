@@ -124,8 +124,8 @@ export default function RegisterDriver() {
           <Car className="w-8 h-8" />
         </div>
         <div className="flex-1">
-          <h4 className="font-black uppercase italic tracking-tighter text-lg">Cab Taxi Driver</h4>
-          <p className="text-sm text-neutral-500 font-medium leading-tight">Bebea abiria mjini kwa usalama na TegeX.</p>
+          <h4 className="font-black uppercase italic tracking-tighter text-lg">Taxi Driver</h4>
+          <p className="text-sm text-neutral-500 font-medium leading-tight">Huduma ya teksi ya haraka na salama.</p>
         </div>
         <ChevronRight className="w-6 h-6 text-neutral-300 group-hover:text-orange-600" />
       </button>

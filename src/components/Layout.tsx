@@ -37,190 +37,192 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      {/* Mobile Bottom Navigation - Redesigned Modern Style */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-[100] h-24 pointer-events-none flex flex-col justify-end">
-        <div className="relative w-full h-18 pointer-events-auto">
-          {/* Background SVG for the curved cutout */}
-          <div className="absolute inset-x-0 bottom-0 top-0">
-            <svg viewBox="0 0 100 30" preserveAspectRatio="none" className="w-full h-full fill-white dark:fill-neutral-900 backdrop-blur-xl drop-shadow-[0_-5px_25px_rgba(0,0,0,0.05)]">
-               <path d="M0,30 L100,30 L100,2 C90,2 85,2 80,2 C70,2 65,22 50,22 C35,22 30,2 20,2 C15,2 10,2 0,2 Z" />
-            </svg>
-          </div>
-
-          <motion.div 
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className="relative h-full px-6 flex justify-between items-center max-w-md mx-auto"
-          >
-            {/* Left Icons */}
-            <motion.div 
-              whileTap={{ scale: 0.9 }}
-              whileHover={{ y: -2 }}
-              className="flex-1"
-            >
-              <Link 
-                to="/" 
-                className={`flex flex-col items-center gap-1.5 transition-all w-full relative group ${location.pathname === '/' || location.pathname === '/dashboard' ? 'text-orange-600' : 'text-neutral-400'}`}
-              >
-                <div className="relative">
-                  <motion.div
-                    animate={location.pathname === '/' ? { scale: [1, 1.2, 1] } : {}}
-                    transition={{ duration: 0.5 }}
-                  >
-                    <Home className={`w-5 h-5 relative z-10 transition-transform ${location.pathname === '/' ? 'scale-110' : 'group-hover:scale-110'}`} />
-                  </motion.div>
-                  {location.pathname === '/' && (
-                    <motion.div 
-                      layoutId="nav-glow"
-                      className="absolute inset-0 bg-orange-400/30 blur-lg rounded-full -z-0"
-                      transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                    />
-                  )}
-                </div>
-                <span className={`text-[9px] font-black uppercase tracking-tight transition-all ${location.pathname === '/' ? 'opacity-100 translate-y-0 text-orange-600' : 'opacity-70 group-hover:opacity-100'}`}>Nyumbani</span>
-              </Link>
-            </motion.div>
-
-            <motion.div 
-              whileTap={{ scale: 0.9 }}
-              whileHover={{ y: -2 }}
-              className="flex-1 mr-8"
-            >
-              <Link 
-                to="/my-orders" 
-                className={`flex flex-col items-center gap-1.5 transition-all w-full group ${location.pathname === '/my-orders' ? 'text-orange-600' : 'text-neutral-400'}`}
-              >
-                <div className="relative">
-                  <motion.div
-                    animate={location.pathname === '/my-orders' ? { scale: [1, 1.2, 1] } : {}}
-                    transition={{ duration: 0.5 }}
-                  >
-                    <Receipt className={`w-5 h-5 relative z-10 transition-transform ${location.pathname === '/my-orders' ? 'scale-110' : 'group-hover:scale-110'}`} />
-                  </motion.div>
-                  {location.pathname === '/my-orders' && (
-                    <motion.div 
-                      layoutId="nav-glow"
-                      className="absolute inset-0 bg-orange-400/30 blur-lg rounded-full -z-0"
-                      transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                    />
-                  )}
-                </div>
-                <span className={`text-[9px] font-black uppercase tracking-tight transition-all ${location.pathname === '/my-orders' ? 'opacity-100 text-orange-600' : 'opacity-70'}`}>Oda</span>
-              </Link>
-            </motion.div>
-
-            {/* Central Floating Action Button (Kikapu) */}
-            <div className="absolute left-1/2 -translate-x-1/2 -top-10 w-20 h-20 pointer-events-auto">
-              <motion.div
-                animate={{
-                  y: [0, -6, 0],
-                }}
-                transition={{
-                  duration: 4,
-                  repeat: Infinity,
-                  ease: "easeInOut"
-                }}
-                className="w-full h-full p-2"
-              >
-                <motion.button 
-                  whileHover={{ scale: 1.1, rotate: [-1, 1, -1] }}
-                  whileTap={{ scale: 0.9 }}
-                  onClick={() => setIsCartOpen(true)}
-                  className="w-full h-full bg-gradient-to-br from-orange-400 via-orange-600 to-orange-800 rounded-full flex items-center justify-center text-white shadow-[0_15px_40px_rgba(234,88,12,0.5)] border-[4px] border-white active:scale-90 transition-all group relative overflow-hidden"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-tr from-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <ShoppingCart className="w-8 h-8 relative z-10 drop-shadow-md" />
-                  <motion.div 
-                    initial={{ scale: 0, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ delay: 0.5, type: "spring" }}
-                    className="absolute top-1 right-1 w-6 h-6 bg-white text-orange-600 text-[10px] font-black flex items-center justify-center rounded-full border-2 border-orange-600 shadow-xl"
-                  >
-                    {cartCount}
-                  </motion.div>
-                </motion.button>
-                <motion.div 
-                  animate={{ opacity: [0.6, 1, 0.6], scale: [0.95, 1.05, 0.95] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                  className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[10px] font-black text-orange-600 uppercase tracking-widest drop-shadow-[0_2px_4px_rgba(0,0,0,0.1)]"
-                >
-                  Kikapu
-                </motion.div>
-              </motion.div>
+      {/* Mobile Bottom Navigation - Redesigned Modern Style - Hidden for riders as they have their own menu */}
+      {profile?.role !== 'rider' && (
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-[100] h-24 pointer-events-none flex flex-col justify-end">
+          <div className="relative w-full h-18 pointer-events-auto">
+            {/* Background SVG for the curved cutout */}
+            <div className="absolute inset-x-0 bottom-0 top-0">
+              <svg viewBox="0 0 100 30" preserveAspectRatio="none" className="w-full h-full fill-white dark:fill-neutral-900 backdrop-blur-xl drop-shadow-[0_-5px_25px_rgba(0,0,0,0.05)]">
+                 <path d="M0,30 L100,30 L100,2 C90,2 85,2 80,2 C70,2 65,22 50,22 C35,22 30,2 20,2 C15,2 10,2 0,2 Z" />
+              </svg>
             </div>
 
-            {/* Right Icons */}
             <motion.div 
-              whileTap={{ scale: 0.9 }}
-              whileHover={{ y: -2 }}
-              className="flex-1 ml-8"
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="relative h-full px-6 flex justify-between items-center max-w-md mx-auto"
             >
-              <Link 
-                to="/chat" 
-                className={`flex flex-col items-center gap-1.5 transition-all w-full group ${location.pathname === '/chat' ? 'text-orange-600' : 'text-neutral-400'}`}
+              {/* Left Icons */}
+              <motion.div 
+                whileTap={{ scale: 0.9 }}
+                whileHover={{ y: -2 }}
+                className="flex-1"
               >
-                <div className="relative">
-                  <motion.div
-                    animate={location.pathname === '/chat' ? { scale: [1, 1.2, 1] } : {}}
-                    transition={{ duration: 0.5 }}
-                  >
-                    <MessageSquare className={`w-5 h-5 relative z-10 transition-transform ${location.pathname === '/chat' ? 'scale-110' : 'group-hover:scale-110'}`} />
-                  </motion.div>
-                  {location.pathname === '/chat' && (
-                    <motion.div 
-                      layoutId="nav-glow"
-                      className="absolute inset-0 bg-orange-400/30 blur-lg rounded-full -z-0"
-                      transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                    />
-                  )}
-                </div>
-                <span className={`text-[9px] font-black uppercase tracking-tight transition-all ${location.pathname === '/chat' ? 'opacity-100 text-orange-600' : 'opacity-70'}`}>Chat</span>
-              </Link>
-            </motion.div>
-
-            <motion.div 
-              whileTap={{ scale: 0.9 }}
-              whileHover={{ y: -2 }}
-              className="flex-1"
-            >
-              <Link 
-                to="/profile" 
-                className={`flex flex-col items-center gap-1.5 transition-all w-full group ${location.pathname === '/profile' ? 'text-orange-600' : 'text-neutral-400'}`}
-              >
-                <div className="relative">
-                  <motion.div
-                    animate={location.pathname === '/profile' ? { scale: [1, 1.2, 1] } : {}}
-                    transition={{ duration: 0.5 }}
-                    className="w-5 h-5 relative z-10"
-                  >
-                    {user ? (
-                      <div className={`w-full h-full rounded-lg overflow-hidden border-2 transition-all ${location.pathname === '/profile' ? 'border-orange-600 shadow-md shadow-orange-600/20' : 'border-neutral-300 group-hover:border-neutral-400'}`}>
-                        <img 
-                          src={profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid}`} 
-                          alt="Avatar" 
-                          className="w-full h-full object-cover"
-                          referrerPolicy="no-referrer"
-                        />
-                      </div>
-                    ) : (
-                      <User className={`w-full h-full transition-transform ${location.pathname === '/profile' ? 'scale-110' : 'group-hover:scale-110'}`} />
+                <Link 
+                  to="/" 
+                  className={`flex flex-col items-center gap-1.5 transition-all w-full relative group ${location.pathname === '/' || location.pathname === '/dashboard' ? 'text-orange-600' : 'text-neutral-400'}`}
+                >
+                  <div className="relative">
+                    <motion.div
+                      animate={location.pathname === '/' ? { scale: [1, 1.2, 1] } : {}}
+                      transition={{ duration: 0.5 }}
+                    >
+                      <Home className={`w-5 h-5 relative z-10 transition-transform ${location.pathname === '/' ? 'scale-110' : 'group-hover:scale-110'}`} />
+                    </motion.div>
+                    {location.pathname === '/' && (
+                      <motion.div 
+                        layoutId="nav-glow"
+                        className="absolute inset-0 bg-orange-400/30 blur-lg rounded-full -z-0"
+                        transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                      />
                     )}
-                  </motion.div>
-                  {location.pathname === '/profile' && (
+                  </div>
+                  <span className={`text-[9px] font-black uppercase tracking-tight transition-all ${location.pathname === '/' ? 'opacity-100 translate-y-0 text-orange-600' : 'opacity-70 group-hover:opacity-100'}`}>Nyumbani</span>
+                </Link>
+              </motion.div>
+
+              <motion.div 
+                whileTap={{ scale: 0.9 }}
+                whileHover={{ y: -2 }}
+                className="flex-1 mr-8"
+              >
+                <Link 
+                  to="/my-orders" 
+                  className={`flex flex-col items-center gap-1.5 transition-all w-full group ${location.pathname === '/my-orders' ? 'text-orange-600' : 'text-neutral-400'}`}
+                >
+                  <div className="relative">
+                    <motion.div
+                      animate={location.pathname === '/my-orders' ? { scale: [1, 1.2, 1] } : {}}
+                      transition={{ duration: 0.5 }}
+                    >
+                      <Receipt className={`w-5 h-5 relative z-10 transition-transform ${location.pathname === '/my-orders' ? 'scale-110' : 'group-hover:scale-110'}`} />
+                    </motion.div>
+                    {location.pathname === '/my-orders' && (
+                      <motion.div 
+                        layoutId="nav-glow"
+                        className="absolute inset-0 bg-orange-400/30 blur-lg rounded-full -z-0"
+                        transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                      />
+                    )}
+                  </div>
+                  <span className={`text-[9px] font-black uppercase tracking-tight transition-all ${location.pathname === '/my-orders' ? 'opacity-100 text-orange-600' : 'opacity-70'}`}>Oda</span>
+                </Link>
+              </motion.div>
+
+              {/* Central Floating Action Button (Kikapu) */}
+              <div className="absolute left-1/2 -translate-x-1/2 -top-10 w-20 h-20 pointer-events-auto">
+                <motion.div
+                  animate={{
+                    y: [0, -6, 0],
+                  }}
+                  transition={{
+                    duration: 4,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }}
+                  className="w-full h-full p-2"
+                >
+                  <motion.button 
+                    whileHover={{ scale: 1.1, rotate: [-1, 1, -1] }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => setIsCartOpen(true)}
+                    className="w-full h-full bg-gradient-to-br from-orange-400 via-orange-600 to-orange-800 rounded-full flex items-center justify-center text-white shadow-[0_15px_40px_rgba(234,88,12,0.5)] border-[4px] border-white active:scale-90 transition-all group relative overflow-hidden"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-tr from-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <ShoppingCart className="w-8 h-8 relative z-10 drop-shadow-md" />
                     <motion.div 
-                      layoutId="nav-glow"
-                      className="absolute inset-0 bg-orange-400/30 blur-lg rounded-full -z-0"
-                      transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                    />
-                  )}
-                </div>
-                <span className={`text-[9px] font-black uppercase tracking-tight transition-all ${location.pathname === '/profile' ? 'opacity-100 text-orange-600' : 'opacity-70'}`}>Akaunti</span>
-              </Link>
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ delay: 0.5, type: "spring" }}
+                      className="absolute top-1 right-1 w-6 h-6 bg-white text-orange-600 text-[10px] font-black flex items-center justify-center rounded-full border-2 border-orange-600 shadow-xl"
+                    >
+                      {cartCount}
+                    </motion.div>
+                  </motion.button>
+                  <motion.div 
+                    animate={{ opacity: [0.6, 1, 0.6], scale: [0.95, 1.05, 0.95] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[10px] font-black text-orange-600 uppercase tracking-widest drop-shadow-[0_2px_4px_rgba(0,0,0,0.1)]"
+                  >
+                    Kikapu
+                  </motion.div>
+                </motion.div>
+              </div>
+
+              {/* Right Icons */}
+              <motion.div 
+                whileTap={{ scale: 0.9 }}
+                whileHover={{ y: -2 }}
+                className="flex-1 ml-8"
+              >
+                <Link 
+                  to="/chat" 
+                  className={`flex flex-col items-center gap-1.5 transition-all w-full group ${location.pathname === '/chat' ? 'text-orange-600' : 'text-neutral-400'}`}
+                >
+                  <div className="relative">
+                    <motion.div
+                      animate={location.pathname === '/chat' ? { scale: [1, 1.2, 1] } : {}}
+                      transition={{ duration: 0.5 }}
+                    >
+                      <MessageSquare className={`w-5 h-5 relative z-10 transition-transform ${location.pathname === '/chat' ? 'scale-110' : 'group-hover:scale-110'}`} />
+                    </motion.div>
+                    {location.pathname === '/chat' && (
+                      <motion.div 
+                        layoutId="nav-glow"
+                        className="absolute inset-0 bg-orange-400/30 blur-lg rounded-full -z-0"
+                        transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                      />
+                    )}
+                  </div>
+                  <span className={`text-[9px] font-black uppercase tracking-tight transition-all ${location.pathname === '/chat' ? 'opacity-100 text-orange-600' : 'opacity-70'}`}>Chat</span>
+                </Link>
+              </motion.div>
+
+              <motion.div 
+                whileTap={{ scale: 0.9 }}
+                whileHover={{ y: -2 }}
+                className="flex-1"
+              >
+                <Link 
+                  to="/profile" 
+                  className={`flex flex-col items-center gap-1.5 transition-all w-full group ${location.pathname === '/profile' ? 'text-orange-600' : 'text-neutral-400'}`}
+                >
+                  <div className="relative">
+                    <motion.div
+                      animate={location.pathname === '/profile' ? { scale: [1, 1.2, 1] } : {}}
+                      transition={{ duration: 0.5 }}
+                      className="w-5 h-5 relative z-10"
+                    >
+                      {user ? (
+                        <div className={`w-full h-full rounded-lg overflow-hidden border-2 transition-all ${location.pathname === '/profile' ? 'border-orange-600 shadow-md shadow-orange-600/20' : 'border-neutral-300 group-hover:border-neutral-400'}`}>
+                          <img 
+                            src={profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid}`} 
+                            alt="Avatar" 
+                            className="w-full h-full object-cover"
+                            referrerPolicy="no-referrer"
+                          />
+                        </div>
+                      ) : (
+                        <User className={`w-full h-full transition-transform ${location.pathname === '/profile' ? 'scale-110' : 'group-hover:scale-110'}`} />
+                      )}
+                    </motion.div>
+                    {location.pathname === '/profile' && (
+                      <motion.div 
+                        layoutId="nav-glow"
+                        className="absolute inset-0 bg-orange-400/30 blur-lg rounded-full -z-0"
+                        transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                      />
+                    )}
+                  </div>
+                  <span className={`text-[9px] font-black uppercase tracking-tight transition-all ${location.pathname === '/profile' ? 'opacity-100 text-orange-600' : 'opacity-70'}`}>Akaunti</span>
+                </Link>
+              </motion.div>
             </motion.div>
-          </motion.div>
+          </div>
         </div>
-      </div>
+      )}
 
       <footer className="bg-white dark:bg-neutral-900 border-t border-neutral-200 dark:border-neutral-800 py-8 transition-colors">
         <div className="max-w-7xl mx-auto px-4 text-center">

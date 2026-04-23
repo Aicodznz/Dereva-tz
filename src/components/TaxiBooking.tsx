@@ -349,6 +349,7 @@ export default function TaxiBooking() {
         {step === 'searching' && (
           <motion.div 
             key="searching"
+            id="ride-searching-container"
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             className="absolute inset-0 z-30 flex flex-col items-center justify-center p-8 bg-neutral-950/90 backdrop-blur-sm"
@@ -357,22 +358,25 @@ export default function TaxiBooking() {
                 <motion.div 
                   animate={{ rotate: 360 }}
                   transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                  className="absolute inset-0 border-[6px] border-orange-600 border-t-transparent rounded-full shadow-2xl shadow-orange-600/20"
+                  className="absolute inset-0 border-[6px] border-orange-600 border-t-transparent rounded-full shadow-[0_0_50px_rgba(234,88,12,0.3)]"
                 />
-                <div className="absolute inset-4 rounded-full bg-neutral-900 flex items-center justify-center p-8 shadow-inner">
+                <div className="absolute inset-4 rounded-full bg-neutral-900 border border-white/5 flex items-center justify-center p-8 shadow-inner">
                    <img src={selectedRide?.image} alt="Ride" className="w-full h-full object-contain animate-pulse mix-blend-lighten" />
                 </div>
                 <motion.div 
                    animate={{ scale: [1, 1.2, 1] }}
                    transition={{ duration: 1.5, repeat: Infinity }}
-                   className="absolute top-0 right-0 w-8 h-8 bg-orange-600 rounded-full flex items-center justify-center shadow-lg"
+                   className="absolute top-0 right-0 w-8 h-8 bg-orange-600 rounded-full flex items-center justify-center shadow-lg border-2 border-white/20"
                 >
                    <MapPin className="w-4 h-4 text-white" />
                 </motion.div>
              </div>
-             <div className="text-center space-y-2">
-                <h2 className="text-2xl font-black italic uppercase tracking-tighter animate-pulse">Kutafuta Dereva wa Karibu...</h2>
-                <p className="text-neutral-500 font-bold max-w-[250px] mx-auto text-sm">Tunatafuta dereva bora wa {selectedRide?.name} kwa ajili yako.</p>
+             <div className="text-center space-y-3">
+                <Badge className="bg-orange-600/20 text-orange-600 border-none px-4 py-1.5 rounded-full text-[10px] font-black uppercase mb-2">
+                   Searching for {selectedRide?.vehicleType}
+                </Badge>
+                <h2 className="text-2xl font-black italic uppercase tracking-tighter animate-pulse">Kutafuta Dereva...</h2>
+                <p className="text-neutral-500 font-bold max-w-[250px] mx-auto text-sm">Tunatafuta dereva wa {selectedRide?.name} karibu nawe.</p>
              </div>
              <motion.div 
                initial={{ opacity: 0 }}

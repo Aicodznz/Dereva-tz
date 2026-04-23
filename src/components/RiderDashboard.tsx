@@ -36,53 +36,6 @@ export default function RiderDashboard() {
     // Add other routes as needed
   };
 
-  if (profile?.approvalStatus === 'pending') {
-    return (
-      <div className="min-h-[80vh] flex flex-col items-center justify-center p-6 text-center space-y-8 bg-neutral-50 dark:bg-neutral-950">
-        <div className="relative">
-          <motion.div 
-            animate={{ scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] }}
-            transition={{ repeat: Infinity, duration: 4 }}
-            className="w-40 h-40 bg-emerald-100 dark:bg-emerald-950/30 rounded-[4rem] flex items-center justify-center text-emerald-600 shadow-2xl shadow-emerald-500/20 shadow-inner"
-          >
-            <Shield className="w-20 h-20" />
-          </motion.div>
-          <motion.div 
-            animate={{ opacity: [0, 1, 0] }}
-            transition={{ repeat: Infinity, duration: 2 }}
-            className="absolute top-2 right-2 w-10 h-10 bg-orange-500 rounded-full border-4 border-white dark:border-neutral-950 flex items-center justify-center text-white text-[10px] font-black"
-          >
-            !
-          </motion.div>
-        </div>
-
-        <div className="max-w-md space-y-6">
-          <h1 className="text-4xl font-black italic uppercase tracking-tighter leading-tight text-neutral-900 dark:text-white">
-            Uthibitisho <br/> <span className="text-emerald-600">Unashughulikiwa</span>
-          </h1>
-          <p className="text-neutral-500 font-medium leading-relaxed px-4">
-            Asante kwa kujiunga na familia ya <span className="text-emerald-600 font-bold italic underline decoration-2 underline-offset-4">TegeX</span>. 
-            Taarifa zako zinakaguliwa na timu yetu ya Admin. Utapokea taarifa punde tu utakapoidhinishwa kuanza kazi.
-          </p>
-          <div className="flex flex-col items-center gap-1">
-             <div className="px-6 py-2.5 bg-neutral-100 dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 text-[10px] font-black uppercase tracking-widest text-neutral-500">
-               Hali: <span className="text-emerald-600 ml-1">Inasubiri... ⏳</span>
-             </div>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-3 w-full max-w-xs">
-          <Button variant="outline" className="h-16 rounded-2xl font-black uppercase tracking-widest italic border-2 hover:bg-emerald-50" onClick={() => window.location.reload()}>
-            Refresh Hali
-          </Button>
-          <Link to="/" className="text-[10px] font-black uppercase text-neutral-400 hover:text-emerald-600 transition-colors tracking-widest">
-            ‹ Rudi Nyumbani
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
   const renderContent = () => {
     switch (activeTab) {
       case 'home':
