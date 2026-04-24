@@ -350,19 +350,8 @@ export default function TaxiBooking() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="relative z-10 px-6 pt-16 pb-24 space-y-10"
+            className="relative z-10 px-6 pt-12 pb-24 space-y-8"
           >
-            {/* Logo Section */}
-            <div className="space-y-1">
-              <h1 className="text-4xl font-black italic uppercase tracking-tighter text-[#f0eeff]">
-                SwiftApp<br /><span className="text-[#7F77DD]">TegeX</span>
-              </h1>
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-[#1D9E75] animate-pulse" />
-                <p className="text-[10px] font-black text-[#6b6b8a] uppercase tracking-widest">Premium Rides Only</p>
-              </div>
-            </div>
-
             {/* Main Action Box */}
             <div className="bg-[#111118] border border-[#1e1e2e] rounded-[40px] p-8 shadow-[0_20px_50px_rgba(0,0,0,0.5)] space-y-6">
                <div className="space-y-4">
