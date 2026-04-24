@@ -1,7 +1,42 @@
 import { useEffect, useState } from 'react';
 import { collection, query, where, getDocs, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, auth } from '../firebase';
 import { Ride, DriverInfo } from '../types/trip.types';
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+    },
+    operationType,
+    path
+  }
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
 
 export function useMatchmaking(ride: Ride | null) {
   const [isSearching, setIsSearching] = useState(false);
@@ -26,7 +61,14 @@ export function useMatchmaking(ride: Ride | null) {
           where('vehicleType', '==', ride.vehicleType)
         );
 
-        const querySnapshot = await getDocs(q);
+        let querySnapshot;
+        try {
+          querySnapshot = await getDocs(q);
+        } catch (err) {
+          handleFirestoreError(err, OperationType.GET, 'drivers');
+          return;
+        }
+
         let selectedDriver: any = null;
 
         if (!querySnapshot.empty) {
@@ -56,20 +98,26 @@ export function useMatchmaking(ride: Ride | null) {
         }
 
         if (selectedDriver) {
-          await updateDoc(doc(db, 'rides', ride.id), {
-            status: 'accepted',
-            driverId: selectedDriver.id,
-            driverInfo: {
-              name: selectedDriver.name,
-              phone: selectedDriver.phone,
-              photo: selectedDriver.photo,
-              vehicle: selectedDriver.vehicle,
-              rating: selectedDriver.rating,
-              id: selectedDriver.id
-            },
-            driverLocation: selectedDriver.location,
-            acceptedAt: serverTimestamp()
-          });
+          const path = `rides/${ride.id}`;
+          try {
+            await updateDoc(doc(db, 'rides', ride.id), {
+              status: 'accepted',
+              driverId: selectedDriver.id,
+              driverInfo: {
+                name: selectedDriver.name,
+                phone: selectedDriver.phone,
+                photo: selectedDriver.photo,
+                vehicle: selectedDriver.vehicle,
+                rating: selectedDriver.rating,
+                id: selectedDriver.id
+              },
+              driverLocation: selectedDriver.location,
+              acceptedAt: serverTimestamp(),
+              updatedAt: serverTimestamp()
+            });
+          } catch (err) {
+            handleFirestoreError(err, OperationType.UPDATE, path);
+          }
         }
       } catch (error) {
         console.error("Matchmaking error:", error);
@@ -79,7 +127,7 @@ export function useMatchmaking(ride: Ride | null) {
     };
 
     findDriver();
-  }, [ride?.id, ride?.status, ride?.vehicleType]);
+  }, [ride?.id, ride?.status, ride?.vehicleType, isSearching]);
 
   return { isSearching };
 }

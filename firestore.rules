@@ -61,12 +61,16 @@ service cloud.firestore {
     }
 
     function isValidRide(data) {
-      return data.customerId == request.auth.uid &&
-             data.status in ['pending', 'searching', 'accepted', 'driver_arriving', 'on_trip', 'completed', 'rated', 'cancelled'];
+      return data.customerId is string &&
+             data.status in ['pending', 'searching', 'accepted', 'driver_arriving', 'on_trip', 'completed', 'rated', 'cancelled'] &&
+             (!('driverId' in data) || data.driverId == null || data.driverId is string) &&
+             (!('updatedAt' in data) || data.updatedAt == request.time);
     }
 
     function isValidDriver(data) {
       return data.isOnline is bool &&
+             data.status in ['online', 'offline'] &&
+             data.receiving is bool &&
              data.vehicleType is string && data.vehicleType.size() <= 50 &&
              data.location is map;
     }
@@ -146,12 +150,12 @@ service cloud.firestore {
         resource.data.driverId == request.auth.uid || 
         resource.data.status == 'pending'
       );
-      allow create: if isVerified() && isValidRide(incoming());
-      allow update: if isVerified() && (
+      allow create: if isVerified() && isValidRide(incoming()) && incoming().customerId == request.auth.uid && incoming().createdAt == request.time;
+      allow update: if isVerified() && isValidRide(incoming()) && (
         isAdmin() ||
-        // Customer rating/cancel
+        // Customer rating/cancel/matchmaking simulation
         (isOwner(existing().customerId) && (
-          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt', 'rating', 'review']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt', 'rating', 'review', 'driverId', 'driverInfo', 'driverLocation', 'acceptedAt']) ||
           (existing().status == 'completed' && incoming().status == 'rated' && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt', 'rating', 'review']))
         )) ||
         // Driver accept
@@ -174,7 +178,7 @@ service cloud.firestore {
     // Drivers Presence
     match /drivers/{driverId} {
       allow read: if isVerified();
-      allow write: if isVerified() && isOwner(driverId);
+      allow write: if isVerified() && isOwner(driverId) && isValidDriver(incoming());
     }
     match /riders/{riderId} {
       allow read: if isVerified();

@@ -86,7 +86,41 @@ export default function RiderHome() {
     }
   }, [isOnline, nearbyRides, activeRide]);
 
-  const toggleStatus = () => setIsOnline(!isOnline);
+  const toggleStatus = async () => {
+    const nextStatus = !isOnline;
+    setIsOnline(nextStatus);
+    
+    if (user?.uid) {
+      try {
+        const { setDoc, doc, serverTimestamp } = await import('firebase/firestore');
+        const { db } = await import('../../firebase');
+        
+        await setDoc(doc(db, 'drivers', user.uid), {
+          status: nextStatus ? 'online' : 'offline',
+          isOnline: nextStatus,
+          receiving: nextStatus,
+          lastActive: serverTimestamp(),
+          vehicleType: vType,
+          name: profile?.displayName || 'Dereva',
+          phone: profile?.phoneNumber || '',
+          photo: profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`,
+          vehicle: {
+            model: profile?.vehicleModel || 'N/A',
+            plate: profile?.licensePlate || 'T 123 ABC',
+            brand: profile?.vehicleBrand || ''
+          },
+          location: {
+            lat: position[0],
+            lng: position[1]
+          }
+        }, { merge: true });
+        
+        toast.success(nextStatus ? 'Uko Online & Mapokezi' : 'Uko Offline');
+      } catch (err) {
+        console.error("Failed to sync driver status:", err);
+      }
+    }
+  };
 
   // Update driver location periodically when online
   useEffect(() => {
