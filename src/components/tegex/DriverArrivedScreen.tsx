@@ -154,7 +154,7 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
               onClick={onImComing}
               className="px-6 h-10 bg-[#1D9E75] rounded-full text-[10px] font-black uppercase tracking-widest text-white active:scale-95 transition-all"
             >
-              Ninaenda
+              Nimeingia Garini
             </button>
           )}
         </div>

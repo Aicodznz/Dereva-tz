@@ -52,7 +52,14 @@ export const TripCompleteScreen: React.FC<TripCompleteScreenProps> = ({ ride, on
            transition={{ type: "spring", stiffness: 200, damping: 15 }}
            className="w-20 h-20 bg-[#1D9E75] rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(29,158,117,0.5)] mb-8"
         >
-           <Check className="w-10 h-10 text-white" />
+           <svg className="w-10 h-10 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+              <motion.path 
+                initial={{ pathLength: 0 }}
+                animate={{ pathLength: 1 }}
+                transition={{ duration: 0.8, delay: 0.5, ease: "easeInOut" }}
+                d="M20 6L9 17l-5-5" 
+              />
+           </svg>
         </motion.div>
 
         <h2 className="text-3xl font-black italic uppercase tracking-tighter text-[#f0eeff] text-center leading-none mb-2">

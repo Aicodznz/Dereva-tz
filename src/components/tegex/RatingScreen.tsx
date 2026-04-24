@@ -77,12 +77,20 @@ export const RatingScreen: React.FC<RatingScreenProps> = ({ ride, onSubmit, onSk
           ))}
         </div>
 
+        {/* Comment Box */}
+        <div className="w-full mb-8">
+           <textarea 
+             placeholder="Ongeza maoni..."
+             className="w-full bg-[#111118] border border-[#1e1e2e] rounded-2xl p-4 text-sm font-bold text-[#f0eeff] placeholder-[#6b6b8a] outline-none focus:border-[#7F77DD]/50 resize-none h-24"
+           />
+        </div>
+
         <button
           onClick={() => rating > 0 && onSubmit(rating, selectedChips)}
           disabled={rating === 0}
           className="w-full h-14 bg-white text-[#0a0a0f] rounded-[50px] font-black uppercase tracking-[0.2em] text-xs shadow-2xl disabled:opacity-20 transition-all active:scale-95"
         >
-          Tuma Rating
+          Tuma Rating →
         </button>
 
         <button
