@@ -6,19 +6,18 @@ service cloud.firestore {
     // -------------------------------------------------------------------------
     
     function isSignedIn() { return request.auth != null; }
-    function isEmailVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
     
-    // Strict verification pillar 5
-    function isVerified() { return isEmailVerified(); }
+    // Relaxed verification for better compatibility
+    function isVerified() { return isSignedIn(); }
 
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
     
-    // Admin check - Hardcoded email for immediate access + DB check
+    // Improved Admin check
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email == "aicodtznation@gmail.com" ||
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
       );
     }
 
@@ -195,6 +194,14 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isVerified() && incoming().userId == request.auth.uid;
       allow update, delete: if isVerified() && (isOwner(existing().userId) || isAdmin());
+    }
+    match /tables/{id} {
+      allow read: if true;
+      allow write: if isVerified() && (get(/databases/$(database)/documents/vendors/$(incoming().vendorId)).data.ownerUid == request.auth.uid || isAdmin());
+    }
+    match /staff/{id} {
+      allow read: if isVerified() && (resource.data.vendorOwnerUid == request.auth.uid || isAdmin());
+      allow write: if isVerified() && (incoming().vendorOwnerUid == request.auth.uid || isAdmin());
     }
   }
 }
