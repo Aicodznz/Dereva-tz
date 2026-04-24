@@ -49,11 +49,25 @@ let DefaultIcon = L.icon({
 
 L.Marker.prototype.options.icon = DefaultIcon;
 
-const MapControl = ({ position }: { position: [number, number] }) => {
+const MapControl = ({ position, step }: { position: [number, number], step: BookingStep }) => {
   const map = useMap();
+  const lastCenter = React.useRef<number>(0);
+  
   useEffect(() => {
-    map.setView(position, 15);
-  }, [position]);
+    const now = Date.now();
+    const shouldFollow = step === 'arriving' || step === 'on_trip';
+    
+    // Only center every 2 seconds during trip to avoid jitter
+    if (shouldFollow) {
+      if (now - lastCenter.current > 2000) {
+        map.panTo(position, { animate: true, duration: 1.5 });
+        lastCenter.current = now;
+      }
+    } else {
+      map.setView(position, 15);
+      lastCenter.current = now;
+    }
+  }, [position, step]);
   return null;
 };
 import { useAuth } from '../AuthContext';
@@ -140,9 +154,8 @@ export default function TaxiBooking() {
 
         if (progress >= 100) {
           clearInterval(interval);
-          // Auto-advance simulation if testing locally
         }
-      }, 100);
+      }, 32); // ~30fps for smoother motion
     } else {
       setTripProgress(0);
       setEtaSeconds(0);
@@ -152,21 +165,39 @@ export default function TaxiBooking() {
 
   const [driverPos, setDriverPos] = useState<[number, number]>(pickupPos);
   
+  // Generate a slightly curved or stepped path to simulate following roads
+  const getPath = (start: [number, number], end: [number, number]) => {
+    const mid1: [number, number] = [start[0] + (end[0] - start[0]) * 0.2, start[1] + (end[1] - start[1]) * 0.8];
+    const mid2: [number, number] = [start[0] + (end[0] - start[0]) * 0.7, start[1] + (end[1] - start[1]) * 0.3];
+    return [start, mid1, mid2, end];
+  };
+
+  const getInterpolatedPoint = (progress: number, path: [number, number][]) => {
+    const segmentCount = path.length - 1;
+    const scaledProgress = (progress / 100) * segmentCount;
+    const index = Math.max(0, Math.min(Math.floor(scaledProgress), segmentCount - 1));
+    const segmentAlpha = scaledProgress - index;
+    
+    const p1 = path[index];
+    const p2 = path[index + 1];
+    
+    return [
+      p1[0] + (p2[0] - p1[0]) * segmentAlpha,
+      p1[1] + (p2[1] - p1[1]) * segmentAlpha
+    ] as [number, number];
+  };
+
   useEffect(() => {
     if (step === 'arriving') {
       const start: [number, number] = [-6.75, 39.25];
       const end = pickupPos;
-      setDriverPos([
-        start[0] + (end[0] - start[0]) * (tripProgress / 100),
-        start[1] + (end[1] - start[1]) * (tripProgress / 100)
-      ]);
+      const path = getPath(start, end);
+      setDriverPos(getInterpolatedPoint(tripProgress, path));
     } else if (step === 'on_trip') {
       const start = pickupPos;
       const end = destPos;
-      setDriverPos([
-        start[0] + (end[0] - start[0]) * (tripProgress / 100),
-        start[1] + (end[1] - start[1]) * (tripProgress / 100)
-      ]);
+      const path = getPath(start, end);
+      setDriverPos(getInterpolatedPoint(tripProgress, path));
     }
   }, [tripProgress, step, pickupPos, destPos]);
   
@@ -602,31 +633,47 @@ export default function TaxiBooking() {
                  {(step === 'map' || step === 'details' || step === 'arriving' || step === 'on_trip') && (
                    <>
                      <Polyline 
-                       positions={[pickupPos, destPos]} 
+                       positions={getPath(pickupPos, destPos)} 
                        color="#064e3b" 
                        weight={12} 
                        opacity={0.2}
                      />
                      <Polyline 
-                       positions={[pickupPos, destPos]} 
+                       positions={getPath(pickupPos, destPos)} 
                        color="#1D9E75" 
                        weight={7} 
                        opacity={1}
                      />
                      <Polyline 
-                       positions={[pickupPos, destPos]} 
+                       positions={getPath(pickupPos, destPos)} 
                        color="white" 
                        weight={2} 
                        opacity={0.6}
                        dashArray="8, 12"
                      />
+                     
+                     {/* Road Labels */}
+                     {getPath(pickupPos, destPos).slice(1, 3).map((pt, i) => (
+                       <Marker 
+                         key={`label-${i}`}
+                         position={pt}
+                         icon={L.divIcon({
+                           className: 'bg-transparent',
+                           html: `<div class="bg-neutral-900/80 backdrop-blur-sm border border-white/20 px-2 py-0.5 rounded text-[8px] font-black uppercase text-white tracking-widest shadow-lg -rotate-12">
+                                     ${['Bagamoyo Rd', 'Morogoro Rd'][i]}
+                                  </div>`,
+                           iconSize: [80, 20],
+                           iconAnchor: [40, 10]
+                         })}
+                       />
+                     ))}
                    </>
                  )}
 
                  {/* Traveled Path - Purple */}
                  {step === 'on_trip' && (
                    <Polyline 
-                     positions={[pickupPos, driverPos]} 
+                     positions={[...getPath(pickupPos, destPos).slice(0, Math.floor((tripProgress/100)*3) + 1), driverPos]} 
                      color="#8b5cf6" 
                      weight={7} 
                      opacity={0.8}
@@ -690,7 +737,10 @@ export default function TaxiBooking() {
                     </Marker>
                  ))}
 
-                 <MapControl position={settingMode === 'pickup' ? pickupPos : destPos} />
+                 <MapControl 
+                   position={(step === 'arriving' || step === 'on_trip') ? driverPos : (settingMode === 'pickup' ? pickupPos : destPos)} 
+                   step={step}
+                 />
                  <MapEvents />
                </MapContainer>
                
