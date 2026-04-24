@@ -199,8 +199,21 @@ export default function RiderHome() {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           />
-          <Marker position={position}>
-            <Popup>Uko Hapa</Popup>
+          <Marker 
+            position={position}
+            icon={L.divIcon({
+              className: 'rider-marker',
+              html: `<div class="relative items-center justify-center flex">
+                      ${isOnline ? '<div class="absolute w-12 h-12 bg-emerald-500/30 rounded-full animate-ping"></div>' : ''}
+                      <div class="w-10 h-10 ${isOnline ? 'bg-emerald-600' : 'bg-neutral-500'} rounded-2xl border-4 border-white shadow-2xl flex items-center justify-center transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="text-white"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.5 2.5C2.1 10.4 2 10.7 2 11v5c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>
+                      </div>
+                    </div>`,
+              iconSize: [40, 40],
+              iconAnchor: [20, 40]
+            })}
+          >
+            <Popup>{isOnline ? 'Active & Receiving' : 'Offline'}</Popup>
           </Marker>
           {activeRide && (
             <>
@@ -232,6 +245,21 @@ export default function RiderHome() {
         </div>
 
         <div className="flex flex-col items-center gap-2">
+          {isOnline ? (
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="bg-emerald-600/20 text-emerald-500 px-4 py-2 rounded-full border border-emerald-500/30 flex items-center gap-2 shadow-lg backdrop-blur-sm"
+            >
+              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_10px_#10b981]" />
+              <span className="text-[10px] font-black uppercase tracking-widest">Active & Receiving</span>
+            </motion.div>
+          ) : (
+             <div className="bg-neutral-800 text-neutral-400 px-4 py-2 rounded-full border border-white/5 flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Offline</span>
+             </div>
+          )}
+          
           <motion.button
             onClick={() => setShowEarnings(!showEarnings)}
             className="bg-emerald-600 text-white px-6 py-2.5 rounded-full shadow-xl flex items-center gap-2 font-bold"
@@ -240,11 +268,6 @@ export default function RiderHome() {
             <span>{showEarnings ? 'TZS 45,200' : 'TZS **.**'}</span>
           </motion.button>
           
-          {isOnline && (
-            <div className="bg-neutral-900/80 backdrop-blur-md text-white px-4 py-1.5 rounded-full text-xs font-bold border border-white/10">
-              00:00 hrs Online
-            </div>
-          )}
         </div>
 
         <button 
@@ -350,11 +373,11 @@ export default function RiderHome() {
                    <div>
                       <Badge className="bg-orange-600 text-white font-black px-4 py-1 mb-1 italic">NEW REQUEST</Badge>
                       <h4 className="text-xl font-black italic uppercase tracking-tighter">{incomingRequest.customerName || 'Mteja'}</h4>
-                      <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">{incomingRequest.distance} KM • 5 MINS</p>
+                      <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">{incomingRequest.distance} KM • DK 5</p>
                    </div>
                 </div>
                 <div className="text-right">
-                   <p className="text-[10px] font-black uppercase text-neutral-400">Est. Fare</p>
+                   <p className="text-[10px] font-black uppercase text-neutral-400">Gharama Kadiriwa</p>
                    <h2 className="text-2xl font-black italic uppercase tracking-tighter leading-none text-emerald-500">TZS {incomingRequest.estimatedFare}</h2>
                 </div>
              </div>
@@ -363,32 +386,32 @@ export default function RiderHome() {
                 <div className="flex items-start gap-4">
                    <MapPin className="w-5 h-5 text-emerald-500 shrink-0" />
                    <div>
-                      <p className="text-[8px] font-black uppercase text-neutral-400">Pickup</p>
+                      <p className="text-[10px] font-black uppercase text-neutral-400">Mwanzo (Pickup)</p>
                       <p className="text-sm font-bold line-clamp-1">{incomingRequest.pickupAddress}</p>
                    </div>
                 </div>
                 <div className="flex items-start gap-4">
                    <Navigation2 className="w-5 h-5 text-orange-500 shrink-0" />
                    <div>
-                      <p className="text-[8px] font-black uppercase text-neutral-400">Destination</p>
+                      <p className="text-[10px] font-black uppercase text-neutral-400">Kuelekea (Destination)</p>
                       <p className="text-sm font-bold line-clamp-1">{incomingRequest.destinationAddress}</p>
                    </div>
                 </div>
              </div>
 
              <div className="flex gap-4">
-                <button 
-                  onClick={() => setIncomingRequest(null)}
-                  className="flex-1 h-16 rounded-2xl border border-neutral-700 font-black uppercase tracking-widest text-neutral-500"
-                >
-                  Reject ❌
-                </button>
-                <button 
-                  onClick={handleAccept}
-                  className="flex-1 h-16 rounded-2xl bg-emerald-500 text-white font-black uppercase tracking-widest shadow-xl shadow-emerald-500/20"
-                >
-                  Accept ✅
-                </button>
+                  <button 
+                    onClick={() => setIncomingRequest(null)}
+                    className="flex-1 h-16 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 font-black uppercase tracking-widest text-neutral-400 transition-colors"
+                  >
+                    Kataa
+                  </button>
+                  <button 
+                    onClick={handleAccept}
+                    className="flex-1 h-16 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-white font-black uppercase tracking-widest shadow-xl shadow-emerald-500/20 transition-all active:scale-95"
+                  >
+                    Kubali
+                  </button>
              </div>
              
              {/* Progress Bar (Timer Simulation) */}
@@ -441,9 +464,9 @@ export default function RiderHome() {
                    <div className="flex-1">
                       <p className="text-[9px] font-black uppercase text-neutral-400">Kazi ya Sasa</p>
                       <h4 className="text-sm font-black italic uppercase tracking-tighter">
-                         {activeRide.status === 'accepted' && 'Pick up passenger'}
-                         {activeRide.status === 'arrived' && 'Customer Boarding'}
-                         {activeRide.status === 'started' && 'On the way to destination'}
+                         {activeRide.status === 'accepted' && 'Nenda kachukue mteja'}
+                         {activeRide.status === 'arrived' && 'Mteja anapanda'}
+                         {activeRide.status === 'started' && 'Njiani kuelekea mwisho wa safari'}
                       </h4>
                       <p className="text-[10px] text-neutral-500 truncate">
                         {activeRide.status === 'accepted' ? activeRide.pickupAddress : activeRide.destinationAddress}
@@ -458,7 +481,7 @@ export default function RiderHome() {
                     onClick={() => handleUpdateStatus('arrived')}
                     className="w-full h-16 bg-blue-600 hover:bg-blue-500 rounded-2xl font-black uppercase tracking-widest italic"
                   >
-                    I have Arrived
+                    Nimefika (Arrived)
                   </Button>
                 )}
                 {activeRide.status === 'arrived' && (
@@ -466,7 +489,7 @@ export default function RiderHome() {
                     onClick={() => handleUpdateStatus('started')}
                     className="w-full h-16 bg-emerald-600 hover:bg-emerald-500 rounded-2xl font-black uppercase tracking-widest italic"
                   >
-                    Start Trip
+                    Anza Safari (Start Trip)
                   </Button>
                 )}
                 {activeRide.status === 'started' && (
@@ -474,7 +497,7 @@ export default function RiderHome() {
                     onClick={() => handleUpdateStatus('completed')}
                     className="w-full h-16 bg-red-600 hover:bg-red-500 rounded-2xl font-black uppercase tracking-widest italic"
                   >
-                    End Trip
+                    Maliza Safari (End Trip)
                   </Button>
                 )}
                 
@@ -498,7 +521,7 @@ export default function RiderHome() {
                 exit={{ y: -50, opacity: 0 }}
                 className="bg-red-600/90 backdrop-blur-md text-white p-4 rounded-2xl shadow-xl text-center border border-white/10"
               >
-                  <p className="font-black italic uppercase text-xs tracking-widest">You are currently OFFLINE</p>
+                  <p className="font-black italic uppercase text-xs tracking-widest">Kwa sasa haupo HEWANI (Offline)</p>
               </motion.div>
             )}
           </AnimatePresence>
