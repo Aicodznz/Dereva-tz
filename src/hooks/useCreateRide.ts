@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
-import { LocationInfo, RideStatus } from '../types/ride.types';
+import { TripLocation, RideStatus } from '../types/trip.types';
 
 export function useCreateRide() {
   const [isLoading, setIsLoading] = useState(false);
@@ -10,15 +10,19 @@ export function useCreateRide() {
 
   const createRide = async (
     customerId: string,
-    pickup: LocationInfo,
-    destination: LocationInfo,
+    pickup: TripLocation,
+    destination: TripLocation,
     vehicleType: 'mini' | 'bajaj' | 'bike',
     fare: number,
-    routeCoords: [number, number][]
+    routeCoords: { lat: number; lng: number }[]
   ) => {
     setIsLoading(true);
     setError(null);
     try {
+      // Calculate expiration: 5 minutes from now
+      const expiresAt = new Date();
+      expiresAt.setMinutes(expiresAt.getMinutes() + 5);
+
       const docRef = await addDoc(collection(db, 'rides'), {
         status: 'pending' as RideStatus,
         customerId,
@@ -29,10 +33,9 @@ export function useCreateRide() {
         fare,
         routeCoords,
         createdAt: serverTimestamp(),
-        acceptedAt: null,
-        completedAt: null,
+        expiresAt: Timestamp.fromDate(expiresAt),
         driverInfo: null,
-        driverLocation: { lat: pickup.lat, lng: pickup.lng }
+        driverLocation: null,
       });
       setRideId(docRef.id);
       return docRef.id;

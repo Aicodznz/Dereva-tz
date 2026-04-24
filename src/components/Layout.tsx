@@ -19,26 +19,19 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const { isRTL, t } = useLanguage();
 
-  const navItems = [
-    { label: t('welcome') || 'Nyumbani', path: '/', icon: Home },
-    { label: t('my_orders') || 'Oda', path: '/my-orders', icon: Receipt },
-    { label: t('chat') || 'Chat', path: '/chat', icon: MessageSquare },
-  ];
-
-  if (profile?.role === 'admin') {
-    navItems.push({ label: 'Admin', path: '/admin', icon: ShieldCheck });
-  }
+   const isTaxiRoute = location.pathname === '/taxi';
+  const hideBottomNav = isTaxiRoute || profile?.role === 'rider';
 
   return (
     <div className={`min-h-screen bg-background dark:bg-neutral-950 flex flex-col font-sans selection:bg-orange-100 dark:selection:bg-orange-900/30 selection:text-orange-900 ${isRTL ? 'font-arabic' : ''}`}>
       <Header />
 
-      <main className="flex-1 max-w-7xl mx-auto w-full px-2 sm:px-6 lg:px-8 py-4 md:py-8 pb-32">
+      <main className={`flex-1 max-w-7xl mx-auto w-full flex flex-col ${isTaxiRoute ? 'p-0' : 'px-2 sm:px-6 lg:px-8 py-4 md:py-8 pb-32'}`}>
         {children}
       </main>
 
-      {/* Mobile Bottom Navigation - Redesigned Modern Style - Hidden for riders as they have their own menu */}
-      {profile?.role !== 'rider' && (
+      {/* Mobile Bottom Navigation - Redesigned Modern Style - Hidden for riders or on taxi route */}
+      {!hideBottomNav && (
         <div className="md:hidden fixed bottom-0 left-0 right-0 z-[100] h-24 pointer-events-none flex flex-col justify-end">
           <div className="relative w-full h-18 pointer-events-auto">
             {/* Background SVG for the curved cutout */}
@@ -224,11 +217,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      <footer className="bg-white dark:bg-neutral-900 border-t border-neutral-200 dark:border-neutral-800 py-8 transition-colors">
-        <div className="max-w-7xl mx-auto px-4 text-center">
-          <p className="text-sm text-neutral-500">© 2026 OmniServe Super App. All rights reserved.</p>
-        </div>
-      </footer>
+      {!isTaxiRoute && (
+        <footer className="bg-white dark:bg-neutral-900 border-t border-neutral-200 dark:border-neutral-800 py-8 transition-colors">
+          <div className="max-w-7xl mx-auto px-4 text-center">
+            <p className="text-sm text-neutral-500">© 2026 OmniServe Super App. All rights reserved.</p>
+          </div>
+        </footer>
+      )}
 
       {/* Cart Drawer / Side Panel */}
       <AnimatePresence>
