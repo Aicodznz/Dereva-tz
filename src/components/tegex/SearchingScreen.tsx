@@ -11,6 +11,14 @@ interface SearchingScreenProps {
 
 export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel, onTimeout }) => {
   const [dots, setDots] = useState('');
+  const [statusIndex, setStatusIndex] = useState(0);
+
+  const statuses = [
+    `Inatafuta madereva wa ${ride?.vehicleType === 'mini' ? 'Gari' : ride?.vehicleType === 'bajaj' ? 'Bajaji' : 'Pikipiki'}...`,
+    "Inachambua madereva walio karibu nawe...",
+    "Tunatuma ombi lako kwa dereva mwenye usafiri husika...",
+    "Tafadhali subiri kidogo, tunakutafutia dereva bora..."
+  ];
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -18,6 +26,13 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel
     }, 500);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    const statusInterval = setInterval(() => {
+      setStatusIndex(prev => (prev + 1) % statuses.length);
+    }, 3000);
+    return () => clearInterval(statusInterval);
+  }, [statuses.length]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -61,7 +76,14 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel
 
       <div className="mt-12 text-center space-y-2">
         <h2 className="text-2xl font-black text-[#f0eeff]">Inatafuta Dereva Karibu Nawe{dots}</h2>
-        <p className="text-[#6b6b8a] text-sm font-medium">Hii inaweza kuchukua sekunde chache</p>
+        <motion.p 
+          key={statusIndex}
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-[#6b6b8a] text-sm font-medium min-h-[20px]"
+        >
+          {statuses[statusIndex]}
+        </motion.p>
       </div>
 
       {/* Summary Card */}
@@ -98,7 +120,7 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel
 
         <button 
           onClick={onCancel}
-          className="w-full text-sm font-black text-[#D85A30] hover:text-[#D85A30]/80 transition-colors py-2 uppercase tracking-widest"
+          className="w-full h-14 bg-[#0a0a0f] border border-[#1e1e2e] text-[#f0eeff] rounded-2xl font-black uppercase text-xs tracking-widest active:scale-95 transition-transform"
         >
           Ghairi Safari
         </button>

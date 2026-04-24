@@ -21,6 +21,7 @@ import { toast } from 'sonner';
 import { useRouting } from '../hooks/useRouting';
 import { useCreateRide } from '../hooks/useCreateRide';
 import { useTripFlow } from '../hooks/useTripFlow';
+import { useMatchmaking } from '../hooks/useMatchmaking';
 
 // --- SCREENS ---
 import { SearchingScreen } from './tegex/SearchingScreen';
@@ -154,6 +155,7 @@ export default function TaxiBooking() {
   const { createRide, isLoading: isCreatingRide } = useCreateRide();
   const [rideId, setRideId] = useState<string | null>(null);
   const { ride: activeRide, cancelRide, deleteRide } = useTripFlow(rideId);
+  useMatchmaking(activeRide as any);
 
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [searchTimer, setSearchTimer] = useState<any>(null);
