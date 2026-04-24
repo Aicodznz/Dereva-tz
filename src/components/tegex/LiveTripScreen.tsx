@@ -41,13 +41,10 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride }) => {
   }), []);
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="absolute inset-0 z-50 bg-[#0a0a0f] flex flex-col"
+    <div 
+      className="flex-1 w-full bg-[#0a0a0f] flex flex-col relative z-50"
     >
-      <div className="flex-1 relative z-0">
+      <div className="flex-1 relative z-0 min-h-[300px]">
         <MapContainer 
           center={ride.driverLocation || ride.pickup} 
           zoom={16} 
@@ -85,9 +82,7 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride }) => {
         </button>
       </div>
 
-      <motion.div 
-        initial={{ y: '100%' }}
-        animate={{ y: 0 }}
+      <div 
         className="bg-[#111118] rounded-t-[40px] border-t border-[#1e1e2e] p-8 pb-10 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] z-[60]"
       >
         <div className="w-12 h-1.5 bg-[#1e1e2e] rounded-full mx-auto mb-8" />
@@ -114,9 +109,8 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride }) => {
               <span>{progress}%</span>
            </div>
            <div className="h-3 bg-[#0a0a0f] rounded-full overflow-hidden border border-[#1e1e2e]">
-              <motion.div 
-                initial={{ width: 0 }}
-                animate={{ width: `${progress}%` }}
+              <div 
+                style={{ width: `${progress}%` }}
                 className="h-full bg-gradient-to-r from-[#1D9E75] to-[#7F77DD]"
               />
            </div>
@@ -138,7 +132,7 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride }) => {
              SOS Dharura
            </button>
         </div>
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 };

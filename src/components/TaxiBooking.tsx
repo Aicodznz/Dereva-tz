@@ -364,28 +364,31 @@ export default function TaxiBooking() {
   ];
 
   return (
-    <div className="max-w-md mx-auto bg-[#0a0a0f] h-[calc(100dvh-72px)] flex flex-col relative overflow-hidden font-sans text-[#f0eeff]">
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+    <div className="max-w-md mx-auto bg-green-500/5 w-full flex flex-col relative overflow-hidden font-sans text-[#f0eeff] border-x border-[#1e1e2e] h-[calc(100svh-72px)] min-h-[500px]">
+      <div className="absolute inset-0 bg-[#0a0a0f]" />
+      
+      {/* DEBUG FLAG */}
+      <div className="hidden">DEBUG_RENDER_ACTIVE_{step}</div>
+      
+      <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
         <div className="absolute top-[-10%] right-[-10%] w-[300px] h-[300px] bg-[#7F77DD]/10 blur-[100px] rounded-full" />
       </div>
 
-      <AnimatePresence mode="wait">
+      <div className="flex-1 flex flex-col relative z-10 h-full"> 
         {step === 'home' && (
-          <motion.div 
-            key="home"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          <div 
             className="flex-1 flex flex-col px-6 pt-12 pb-24 space-y-8 overflow-y-auto no-scrollbar"
           >
             <div className="bg-[#111118] border border-[#1e1e2e] rounded-[40px] p-8 shadow-2xl space-y-6">
                <div className="space-y-4">
-                  <div className="bg-[#0a0a0f] rounded-2xl border border-[#1e1e2e] p-5 flex items-center gap-4 cursor-pointer active:scale-[0.98] transition-transform" onClick={() => setStep('map')}>
+                  <div className="bg-[#0a0a0f] rounded-2xl border border-[#1e1e2e] p-5 flex items-center gap-4 cursor-pointer active:scale-[0.98] transition-transform" onClick={() => { console.log("Manual pickup click"); setStep('map'); }}>
                     <div className="w-10 h-10 rounded-xl bg-[#1D9E75]/10 flex items-center justify-center text-[#1D9E75]"><MapPin className="w-5 h-5" /></div>
                     <div className="flex-1 overflow-hidden">
                        <p className="text-[9px] font-black text-[#6b6b8a] uppercase tracking-wider mb-1">Unatokea</p>
                        <p className="text-sm font-bold text-[#f0eeff] truncate">{pickup}</p>
                     </div>
                   </div>
-                  <div className="bg-[#0a0a0f] rounded-2xl border border-[#1e1e2e] p-5 flex items-center gap-4 cursor-pointer active:scale-[0.98] transition-transform" onClick={() => setStep('map')}>
+                  <div className="bg-[#0a0a0f] rounded-2xl border border-[#1e1e2e] p-5 flex items-center gap-4 cursor-pointer active:scale-[0.98] transition-transform" onClick={() => { console.log("Manual dest click"); setStep('map'); }}>
                     <div className="w-10 h-10 rounded-xl bg-[#7F77DD]/10 flex items-center justify-center text-[#7F77DD]"><Search className="w-5 h-5" /></div>
                     <div className="flex-1 overflow-hidden">
                        <p className="text-[9px] font-black text-[#6b6b8a] uppercase tracking-wider mb-1">Unakwenda wapi?</p>
@@ -393,15 +396,13 @@ export default function TaxiBooking() {
                     </div>
                   </div>
                </div>
-               <button onClick={() => setStep('map')} className="w-full h-14 bg-white text-[#0a0a0f] rounded-[50px] font-black tracking-[0.2em] text-xs shadow-2xl shadow-white/5 active:scale-95 transition-all">AGIZA USAFIRI SASA</button>
+               <button onClick={() => { console.log("Order now click"); setStep('map'); }} className="w-full h-14 bg-white text-[#0a0a0f] rounded-[50px] font-black tracking-[0.2em] text-xs shadow-2xl shadow-white/5 active:scale-95 transition-all">AGIZA USAFIRI SASA</button>
             </div>
-          </motion.div>
+          </div>
         )}
 
         {step === 'map' && (
-          <motion.div 
-            key="map"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          <div 
             className="flex-1 flex flex-col relative bg-[#0a0a0f] overflow-hidden"
           >
             <div className="absolute top-6 left-6 z-[60]">
@@ -420,7 +421,7 @@ export default function TaxiBooking() {
                </MapContainer>
             </div>
 
-            <motion.div initial={{ y: 300 }} animate={{ y: 0 }} className="relative z-[60] bg-[#111118] rounded-t-[40px] border-t border-[#1e1e2e] p-5 pb-10 space-y-4 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]">
+            <div className="relative z-[60] bg-[#111118] rounded-t-[40px] border-t border-[#1e1e2e] p-5 pb-10 space-y-4 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]">
                <div className="bg-[#0a0a0f] border border-[#1e1e2e] rounded-[28px] p-5 relative">
                   <div className="space-y-6">
                       <div className="flex items-center gap-4">
@@ -450,18 +451,16 @@ export default function TaxiBooking() {
                       </div>
                   </div>
 
-                  <AnimatePresence>
-                    {suggestions.length > 0 && (
-                      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="absolute left-0 right-0 top-full mt-2 z-[100] bg-[#111118] border border-[#1e1e2e] rounded-3xl shadow-2xl overflow-hidden">
-                        {suggestions.map((s, i) => (
-                          <button key={i} onClick={() => selectSuggestion(s)} className="w-full text-left p-4 hover:bg-[#1e1e2e] flex items-center gap-3 border-b border-[#1e1e2e] last:border-0">
-                            <MapPin className="w-4 h-4 text-[#7F77DD]" />
-                            <p className="text-xs font-bold text-[#f0eeff] truncate">{s.display_name}</p>
-                          </button>
-                        ))}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                  {suggestions.length > 0 && (
+                    <div className="absolute left-0 right-0 top-full mt-2 z-[100] bg-[#111118] border border-[#1e1e2e] rounded-3xl shadow-2xl overflow-hidden">
+                      {suggestions.map((s, i) => (
+                        <button key={i} onClick={() => selectSuggestion(s)} className="w-full text-left p-4 hover:bg-[#1e1e2e] flex items-center gap-3 border-b border-[#1e1e2e] last:border-0">
+                          <MapPin className="w-4 h-4 text-[#7F77DD]" />
+                          <p className="text-xs font-bold text-[#f0eeff] truncate">{s.display_name}</p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                </div>
 
                <div className="flex gap-3 overflow-x-auto no-scrollbar py-2">
@@ -474,18 +473,18 @@ export default function TaxiBooking() {
                   ))}
                </div>
 
-               <button onClick={confirmBooking} disabled={isCreatingRide} className="w-full h-14 bg-white text-[#0a0a0f] rounded-[50px] font-black uppercase text-[10px] tracking-[0.2em] flex items-center justify-between px-10 disabled:opacity-50">
+               <button onClick={() => { console.log("Confirm button click"); confirmBooking(); }} disabled={isCreatingRide} className="w-full h-14 bg-white text-[#0a0a0f] rounded-[50px] font-black uppercase text-[10px] tracking-[0.2em] flex items-center justify-between px-10 disabled:opacity-50">
                   <span>{destination ? (selectedRide ? 'THIBITISHA USAFIRI' : 'CHAGUA USAFIRI') : 'WEKA UNAPOKWENDA'}</span>
                   <ArrowRight className="w-5 h-5" />
                </button>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
 
         {step === 'searching' && (
           <SearchingScreen 
             ride={activeRide as any} 
-            onCancel={() => { cancelRide(); setStep('map'); setRideId(null); }} 
+            onCancel={() => { console.log("Cancel from searching"); cancelRide(); setStep('map'); setRideId(null); }} 
             onTimeout={handleTimeout}
           />
         )}
@@ -519,10 +518,8 @@ export default function TaxiBooking() {
           />
         )}
 
-        {step === 'timeout' && (
-          <motion.div 
-            key="timeout"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            {step === 'timeout' && (
+          <div 
             className="absolute inset-0 z-[100] bg-[#0a0a0f] flex flex-col items-center justify-center p-8 text-center"
           >
              <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center text-red-500 mb-8 border border-red-500/30">
@@ -545,9 +542,9 @@ export default function TaxiBooking() {
                   Ghairi
                 </button>
              </div>
-          </motion.div>
+          </div>
         )}
-      </AnimatePresence>
+      </div>
 
       <style>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }

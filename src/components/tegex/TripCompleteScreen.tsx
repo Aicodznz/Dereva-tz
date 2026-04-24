@@ -37,40 +37,26 @@ export const TripCompleteScreen: React.FC<TripCompleteScreenProps> = ({ ride, on
   ));
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="absolute inset-0 z-50 bg-[#0a0a0f] flex flex-col items-center justify-center p-6 overflow-hidden"
+    <div 
+      className="flex-1 w-full bg-[#0a0a0f] flex flex-col items-center justify-center p-6 overflow-hidden relative z-50"
     >
-      {confetti}
-
       <div className="relative z-10 w-full max-w-sm flex flex-col items-center">
-        <motion.div
-           initial={{ scale: 0 }}
-           animate={{ scale: 1 }}
-           transition={{ type: "spring", stiffness: 200, damping: 15 }}
+        <div
            className="w-20 h-20 bg-[#1D9E75] rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(29,158,117,0.5)] mb-8"
         >
            <svg className="w-10 h-10 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
-              <motion.path 
-                initial={{ pathLength: 0 }}
-                animate={{ pathLength: 1 }}
-                transition={{ duration: 0.8, delay: 0.5, ease: "easeInOut" }}
+              <path 
                 d="M20 6L9 17l-5-5" 
               />
            </svg>
-        </motion.div>
+        </div>
 
         <h2 className="text-3xl font-black italic uppercase tracking-tighter text-[#f0eeff] text-center leading-none mb-2">
           Umefika!<br />Safari Imekamilika
         </h2>
         <p className="text-[#6b6b8a] text-sm font-bold mb-12">Shukrani kwa kutumia TegeX</p>
 
-        <motion.div 
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.3 }}
+        <div 
           className="w-full bg-[#111118] border border-[#1e1e2e] rounded-[40px] p-8 shadow-2xl relative overflow-hidden"
         >
           <div className="space-y-6">
@@ -125,8 +111,8 @@ export const TripCompleteScreen: React.FC<TripCompleteScreenProps> = ({ ride, on
               Lipa Sasa
             </button>
           </div>
-        </motion.div>
+        </div>
       </div>
-    </motion.div>
+    </div>
   );
 };

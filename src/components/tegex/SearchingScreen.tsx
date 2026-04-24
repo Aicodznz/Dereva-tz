@@ -42,12 +42,8 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel
   }, [onTimeout]);
 
   return (
-    <motion.div 
-      initial={{ y: '100%', opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      exit={{ y: '100%', opacity: 0 }}
-      transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
-      className="absolute inset-0 z-[100] bg-[#0a0a0f] flex flex-col items-center p-6 pt-20 overflow-hidden"
+    <div 
+      className="flex-1 w-full bg-[#0a0a0f] flex flex-col items-center p-6 pt-20 overflow-hidden relative z-[100]"
     >
       <div className="relative flex items-center justify-center w-full aspect-square max-w-[300px]">
         {/* Radar Rings */}
@@ -128,6 +124,6 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel
           Ghairi Safari
         </button>
       </div>
-    </motion.div>
+    </div>
   );
 };

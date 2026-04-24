@@ -41,14 +41,11 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
   }), [ride.driverInfo]);
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="absolute inset-0 z-50 bg-[#0a0a0f] flex flex-col"
+    <div 
+      className="flex-1 w-full bg-[#0a0a0f] flex flex-col relative z-50"
     >
       {/* Map Layer */}
-      <div className="flex-1 relative z-0">
+      <div className="flex-1 relative z-0 min-h-[300px]">
         <MapContainer 
           center={ride.pickup} 
           zoom={15} 
@@ -72,26 +69,20 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
         </MapContainer>
 
         {/* Floating ETA Chip */}
-        <AnimatePresence>
-          {eta && !isArrived && (
-            <motion.div 
-              initial={{ y: -20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              className="absolute top-8 left-1/2 -translate-x-1/2 bg-[#111118]/90 backdrop-blur-xl border border-[#1e1e2e] rounded-full px-4 py-2 flex items-center gap-2 shadow-2xl z-[60]"
-            >
-              <Clock className="w-3 h-3 text-[#7F77DD]" />
-              <span className="text-[10px] font-black text-[#f0eeff] uppercase tracking-widest whitespace-nowrap">
-                Dereva anakuja — {eta.minutes} min {eta.seconds} sec
-              </span>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {eta && !isArrived && (
+          <div 
+            className="absolute top-8 left-1/2 -translate-x-1/2 bg-[#111118]/90 backdrop-blur-xl border border-[#1e1e2e] rounded-full px-4 py-2 flex items-center gap-2 shadow-2xl z-[60]"
+          >
+            <Clock className="w-3 h-3 text-[#7F77DD]" />
+            <span className="text-[10px] font-black text-[#f0eeff] uppercase tracking-widest whitespace-nowrap">
+              Dereva anakuja — {eta.minutes} min {eta.seconds} sec
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Bottom Sheet */}
-      <motion.div 
-        initial={{ y: '100%' }}
-        animate={{ y: 0 }}
+      <div 
         className={`bg-[#111118] rounded-t-[40px] border-t border-[#1e1e2e] p-8 pb-12 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] z-[60] transition-colors duration-500 ${isArrived ? 'ring-4 ring-[#1D9E75]/20' : ''}`}
       >
         <div className="w-12 h-1.5 bg-[#1e1e2e] rounded-full mx-auto mb-8" />
@@ -158,7 +149,7 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
             </button>
           )}
         </div>
-      </motion.div>
+      </div>
 
       {/* Haptic Simulation Effect */}
       {isArrived && (
@@ -173,6 +164,6 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
           .animate-haptic { animation: vhaptic 0.1s linear infinite; }
         `}</style>
       )}
-    </motion.div>
+    </div>
   );
 };

@@ -24,11 +24,8 @@ export const RatingScreen: React.FC<RatingScreenProps> = ({ ride, onSubmit, onSk
   };
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="absolute inset-0 z-[60] bg-[#0a0a0f] flex flex-col p-8 overflow-y-auto no-scrollbar"
+    <div 
+      className="flex-1 w-full bg-[#0a0a0f] flex flex-col p-8 overflow-y-auto no-scrollbar relative z-[60]"
     >
       <div className="w-full flex-1 flex flex-col items-center justify-center py-10">
         <div className="relative mb-8">
@@ -48,14 +45,12 @@ export const RatingScreen: React.FC<RatingScreenProps> = ({ ride, onSubmit, onSk
         {/* Stars */}
         <div className="flex gap-4 mb-10">
           {[1, 2, 3, 4, 5].map((star) => (
-            <motion.button
+            <button
               key={star}
-              whileHover={{ scale: 1.2 }}
-              whileTap={{ scale: 0.9 }}
               onMouseEnter={() => setHovered(star)}
               onMouseLeave={() => setHovered(0)}
               onClick={() => setRating(star)}
-              className="p-1"
+              className="p-1 active:scale-125 transition-transform"
             >
               <Star 
                 className={`w-10 h-10 transition-colors ${
@@ -64,7 +59,7 @@ export const RatingScreen: React.FC<RatingScreenProps> = ({ ride, onSubmit, onSk
                   : 'text-[#1e1e2e]'
                 }`} 
               />
-            </motion.button>
+            </button>
           ))}
         </div>
 
@@ -95,15 +90,14 @@ export const RatingScreen: React.FC<RatingScreenProps> = ({ ride, onSubmit, onSk
            />
         </div>
 
-        <motion.button
-          whileTap={{ scale: 0.98 }}
+        <button
           onClick={() => rating > 0 && onSubmit(rating, selectedChips)}
           disabled={rating === 0}
-          className="w-full h-16 bg-[#7F77DD] text-white rounded-[50px] font-black uppercase tracking-[0.2em] text-xs shadow-[0_10px_30px_rgba(127,119,221,0.3)] disabled:opacity-30 transition-all flex items-center justify-center gap-3"
+          className="w-full h-16 bg-[#7F77DD] text-white rounded-[50px] font-black uppercase tracking-[0.2em] text-xs shadow-[0_10px_30px_rgba(127,119,221,0.3)] disabled:opacity-30 active:scale-95 transition-all flex items-center justify-center gap-3"
         >
           Kamilisha kwa Tuma
           <ArrowRight className="w-4 h-4" />
-        </motion.button>
+        </button>
 
         <button
           onClick={onSkip}
@@ -112,6 +106,6 @@ export const RatingScreen: React.FC<RatingScreenProps> = ({ ride, onSubmit, onSk
           Ruka kwa Sasa
         </button>
       </div>
-    </motion.div>
+    </div>
   );
 };
