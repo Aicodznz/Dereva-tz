@@ -3,13 +3,16 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { 
-  Bell, User, Shield, Power, Navigation, Fuel, Zap, 
-  ParkingCircle, Car, Settings, Phone, CarFront, Gauge, Eye, EyeOff,
-  Navigation2, CheckCircle, MessageSquare, X, ChevronRight, MapPin, Star
+  Bell, Power, Navigation, Fuel, Zap, 
+  ParkingCircle, Car, Settings, Phone, Gauge, Eye, EyeOff,
+  Navigation2, MessageSquare, MapPin, Star
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../../AuthContext';
-import { taxiService, RideRequest } from '../../services/taxiService';
+import { useNearbyRides } from '../../hooks/useNearbyRides';
+import { useDriverActions } from '../../hooks/useDriverActions';
+import { useRideStatus } from '../../hooks/useRideStatus';
+import { RideStatus, DriverInfo } from '../../types/ride.types';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 
@@ -30,12 +33,17 @@ export default function RiderHome() {
   const { user, profile } = useAuth();
   const [isOnline, setIsOnline] = useState(false);
   const [showEarnings, setShowEarnings] = useState(false);
-  const [showSafetySheet, setShowSafetySheet] = useState(false);
   const [position, setPosition] = useState<[number, number]>([-6.7924, 39.2083]);
   
-  const [incomingRequest, setIncomingRequest] = useState<RideRequest | null>(null);
-  const [activeRide, setActiveRide] = useState<RideRequest | null>(null);
+  const [rideId, setRideId] = useState<string | null>(null);
+  const { ride: activeRide } = useRideStatus(rideId);
+  const vTypeRaw = (profile?.vehicleType || 'gari').toLowerCase();
+  const vType = vTypeRaw.includes('bike') ? 'bike' : vTypeRaw.includes('bajaj') ? 'bajaj' : 'mini';
+  
+  const { rides: nearbyRides } = useNearbyRides(vType as any);
+  const { acceptRide: firestoreAccept, arrivedAtPickup, completeTrip, updateDriverLocation } = useDriverActions(rideId);
 
+  const [incomingRequest, setIncomingRequest] = useState<any>(null);
   const [speed, setSpeed] = useState(0);
 
   // Get current location
@@ -66,59 +74,23 @@ export default function RiderHome() {
 
   // Listen for requests when online
   useEffect(() => {
-    if (!isOnline || !profile?.vehicleType || activeRide) {
+    if (!isOnline || activeRide) {
       setIncomingRequest(null);
       return;
     }
     
-    // Normalize vehicle type for service
-    const vType = (profile.vehicleType || '').toLowerCase();
-    const typeMap: Record<string, string> = {
-      'motorcycle': 'pikipiki',
-      'pikipiki': 'pikipiki',
-      'bike': 'pikipiki',
-      'pikipiki (bike)': 'pikipiki',
-      'bajaj': 'bajaji',
-      'bajaji': 'bajaji',
-      'bajaji (tuk-tuk)': 'bajaji',
-      'car': 'gari',
-      'gari': 'gari',
-      'taxi': 'gari',
-      'sedan': 'gari',
-      'gari (taxi/car)': 'gari'
-    };
-    
-    const targetVehicleType = typeMap[vType] || 'gari';
-    console.log(`[Rider] Listening for ${targetVehicleType} requests (Original: ${vType})`);
-
-    const unsubscribe = taxiService.listenForRequests(targetVehicleType, (requests) => {
-      if (requests.length > 0 && !activeRide) {
-        setIncomingRequest(requests[0]);
-      } else {
-        setIncomingRequest(null);
-      }
-    });
-    
-    return () => unsubscribe();
-  }, [isOnline, profile?.vehicleType, activeRide]);
-
-  // Listen to active ride updates
-  useEffect(() => {
-    if (!activeRide?.id) return;
-    const unsubscribe = taxiService.listenToRide(activeRide.id, (ride) => {
-      setActiveRide(ride);
-      if (activeRide?.id && (ride.status === 'completed' || ride.status === 'cancelled')) {
-         setActiveRide(null);
-      }
-    });
-    return () => unsubscribe();
-  }, [activeRide?.id]);
+    if (nearbyRides.length > 0) {
+      setIncomingRequest(nearbyRides[0]);
+    } else {
+      setIncomingRequest(null);
+    }
+  }, [isOnline, nearbyRides, activeRide]);
 
   const toggleStatus = () => setIsOnline(!isOnline);
 
   // Update driver location periodically when online
   useEffect(() => {
-    if (!isOnline || !user || !profile?.vehicleType) return;
+    if (!isOnline || !user) return;
 
     const updateLoc = () => {
       if (navigator.geolocation) {
@@ -126,51 +98,55 @@ export default function RiderHome() {
           const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
           setPosition([loc.lat, loc.lng]);
           
-          // Normalize vehicle type
-          const vType = (profile.vehicleType || '').toLowerCase();
-          const typeMap: Record<string, string> = {
-            'motorcycle': 'pikipiki', 'pikipiki': 'pikipiki', 'bike': 'pikipiki',
-            'bajaj': 'bajaji', 'bajaji': 'bajaji',
-            'car': 'gari', 'gari': 'gari', 'taxi': 'gari'
-          };
-          const targetVehicleType = typeMap[vType] || 'gari';
-
-          taxiService.updateDriverLocation(user.uid, loc, targetVehicleType, true);
+          if (activeRide) {
+            updateDriverLocation(loc.lat, loc.lng);
+          }
         });
       }
     };
 
     updateLoc(); // Initial update
-    const interval = setInterval(updateLoc, 10000); // Every 10 seconds
+    const interval = setInterval(updateLoc, 3000); // Every 3 seconds
 
-    return () => {
-        clearInterval(interval);
-        // Off-boarding: mark as offline in drivers collection
-        taxiService.updateDriverLocation(user.uid, { lat: position[0], lng: position[1] }, (profile?.vehicleType || 'gari').toLowerCase(), false);
-    };
-  }, [isOnline, user, profile?.vehicleType]);
+    return () => clearInterval(interval);
+  }, [isOnline, user, activeRide?.id]);
 
   const handleAccept = async () => {
     if (!incomingRequest?.id || !user) return;
     try {
-      await taxiService.acceptRide(incomingRequest.id, user.uid, {
+      const driverInfo: DriverInfo = {
         name: profile?.displayName || 'Dereva',
-        photo: profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`,
-        vehicleNumber: profile?.licensePlate || 'T 123 ABC' // Use actual license plate if available
-      });
-      setActiveRide(incomingRequest);
+        initials: (profile?.displayName || 'D').split(' ').map(n => n[0]).join(''),
+        plate: profile?.licensePlate || 'T 123 ABC',
+        rating: 4.8,
+        phone: profile?.phone || '0700000000',
+        photo: profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`
+      };
+      
+      setRideId(incomingRequest.id);
+      await firestoreAccept(user.uid, driverInfo);
       setIncomingRequest(null);
       toast.success("Safari Imekubaliwa!");
-    } catch (error) {
+    } catch (error: any) {
+      console.error("[Rider] Failed to accept ride:", error);
       toast.error("Safari haipatikani tena");
       setIncomingRequest(null);
+      setRideId(null);
     }
   };
 
-  const handleUpdateStatus = async (status: RideRequest['status']) => {
+  const handleUpdateStatus = async (status: RideStatus) => {
     if (!activeRide?.id) return;
     try {
-      await taxiService.updateRideStatus(activeRide.id, status);
+      if (status === 'on_trip') {
+        await arrivedAtPickup();
+      } else if (status === 'completed') {
+        const customerId = activeRide.customerId;
+        const driverId = user!.uid;
+        const fare = activeRide.fare;
+        await completeTrip(customerId, driverId, fare);
+        setRideId(null);
+      }
       toast.success(`Hali: ${status}`);
     } catch (error) {
       toast.error("Imeshindwa kusasisha");
@@ -278,7 +254,7 @@ export default function RiderHome() {
         </button>
       </div>
 
-      {/* Side Controls (Only if not in active ride) */}
+      {/* Side Controls */}
       {!activeRide && (
         <div className="absolute top-36 left-4 z-40 flex flex-col gap-4">
           {[
@@ -291,21 +267,13 @@ export default function RiderHome() {
           ].map((item, id) => (
             <motion.button
               key={id}
-              onClick={() => {
-                if (item.icon === Settings) toast.info("Mipangilio inakuja hivi karibuni");
-                else if (item.icon === Car) toast.info("Taarifa za Chombo zakuja hivi karibuni");
-                else if (item.icon === Fuel) toast.info("Vituo vya Mafuta karibu yako");
-                else if (item.icon === ParkingCircle) toast.info("Maeneo ya Kuegesha");
-                else if (item.icon === Zap) toast.info("Turbo Mode imewashwa!");
-                else toast.info("Kipengele hiki kinakuja hivi karibuni");
-              }}
-              whileHover={{ scale: 1.1, rotate: 5 }}
+              onClick={() => toast.info("Kipengele hiki kinakuja hivi karibuni")}
+              whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
-              className="w-14 h-14 bg-white/90 backdrop-blur-xl rounded-[1.2rem] shadow-2xl flex flex-col items-center justify-center border border-white/50 active:shadow-inner transition-all overflow-hidden relative group cursor-pointer"
+              className="w-14 h-14 bg-white/90 backdrop-blur-xl rounded-[1.2rem] shadow-2xl flex flex-col items-center justify-center border border-white/50 transition-all relative group"
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-              <item.icon className={`w-6 h-6 ${item.color} relative z-10 transition-transform group-hover:scale-110`} />
-              {item.label && <span className="text-[8px] font-black tracking-tighter text-neutral-400 mt-0.5">{item.label}</span>}
+              <item.icon className={`w-6 h-6 ${item.color}`} />
+              {item.label && <span className="text-[8px] font-black text-neutral-400 mt-0.5">{item.label}</span>}
             </motion.button>
           ))}
         </div>
@@ -323,7 +291,7 @@ export default function RiderHome() {
                 : 'bg-red-500/10 text-red-600 border-red-500/20'
             }`}
           >
-            <div className={`w-2.5 h-2.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse shadow-[0_0_10px_#10B981]' : 'bg-red-500'}`} />
+            <div className={`w-2.5 h-2.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
             <span className="text-xs font-black uppercase tracking-[0.2em]">
               {isOnline ? 'Active & Receiving' : 'System Offline'}
             </span>
@@ -333,26 +301,14 @@ export default function RiderHome() {
             onClick={toggleStatus}
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
-            className={`w-28 h-28 rounded-[2.5rem] border-8 border-white shadow-[0_30px_70px_rgba(0,0,0,0.4)] flex items-center justify-center relative transition-colors ${
+            className={`w-28 h-28 rounded-[2.5rem] border-8 border-white shadow-[0_30px_70px_rgba(0,0,0,0.4)] flex items-center justify-center transition-colors ${
               isOnline ? 'bg-emerald-500' : 'bg-red-500'
             }`}
           >
-            {isOnline && (
-              <motion.div 
-                animate={{ scale: [1, 1.6, 1], opacity: [0.2, 0.05, 0.2] }}
-                transition={{ repeat: Infinity, duration: 3 }}
-                className="absolute inset-0 rounded-[2.5rem] bg-emerald-300"
-              />
-            )}
             <div className="bg-white/10 backdrop-blur-xl w-16 h-16 rounded-[1.5rem] flex items-center justify-center shadow-lg border border-white/20 z-10">
               <Power className="w-8 h-8 text-white shadow-sm" />
             </div>
           </motion.button>
-          
-          <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400 group flex items-center gap-2">
-            <span>Tap to go</span>
-            <span className={isOnline ? 'text-red-500' : 'text-emerald-500'}>{isOnline ? 'OFFLINE' : 'ONLINE'}</span>
-          </p>
         </div>
       )}
 
@@ -371,57 +327,39 @@ export default function RiderHome() {
                       <img src={incomingRequest.customerPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${incomingRequest.customerId}`} alt="Customer" />
                    </div>
                    <div>
-                      <Badge className="bg-orange-600 text-white font-black px-4 py-1 mb-1 italic">NEW REQUEST</Badge>
+                      <div className="bg-orange-600 text-white font-black px-4 py-1 mb-1 italic text-[10px] rounded-full inline-block">NEW REQUEST</div>
                       <h4 className="text-xl font-black italic uppercase tracking-tighter">{incomingRequest.customerName || 'Mteja'}</h4>
-                      <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">{incomingRequest.distance} KM • DK 5</p>
+                      <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">{incomingRequest.pickup.address}</p>
                    </div>
                 </div>
                 <div className="text-right">
-                   <p className="text-[10px] font-black uppercase text-neutral-400">Gharama Kadiriwa</p>
-                   <h2 className="text-2xl font-black italic uppercase tracking-tighter leading-none text-emerald-500">TZS {incomingRequest.estimatedFare}</h2>
-                </div>
-             </div>
-
-             <div className="space-y-4 mb-8">
-                <div className="flex items-start gap-4">
-                   <MapPin className="w-5 h-5 text-emerald-500 shrink-0" />
-                   <div>
-                      <p className="text-[10px] font-black uppercase text-neutral-400">Mwanzo (Pickup)</p>
-                      <p className="text-sm font-bold line-clamp-1">{incomingRequest.pickupAddress}</p>
-                   </div>
-                </div>
-                <div className="flex items-start gap-4">
-                   <Navigation2 className="w-5 h-5 text-orange-500 shrink-0" />
-                   <div>
-                      <p className="text-[10px] font-black uppercase text-neutral-400">Kuelekea (Destination)</p>
-                      <p className="text-sm font-bold line-clamp-1">{incomingRequest.destinationAddress}</p>
-                   </div>
+                   <p className="text-[10px] font-black uppercase text-neutral-400">Gharama</p>
+                   <h2 className="text-2xl font-black italic uppercase tracking-tighter leading-none text-emerald-500">TZS {incomingRequest.fare}</h2>
                 </div>
              </div>
 
              <div className="flex gap-4">
                   <button 
                     onClick={() => setIncomingRequest(null)}
-                    className="flex-1 h-16 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 font-black uppercase tracking-widest text-neutral-400 transition-colors"
+                    className="flex-1 h-16 rounded-2xl border border-white/10 bg-white/5 font-black text-neutral-400"
                   >
                     Kataa
                   </button>
                   <button 
                     onClick={handleAccept}
-                    className="flex-1 h-16 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-white font-black uppercase tracking-widest shadow-xl shadow-emerald-500/20 transition-all active:scale-95"
+                    className="flex-1 h-16 rounded-2xl bg-emerald-500 text-white font-black uppercase"
                   >
                     Kubali
                   </button>
              </div>
-             
-             {/* Progress Bar (Timer Simulation) */}
+
              <div className="mt-6 h-1 w-full bg-neutral-800 rounded-full overflow-hidden">
                 <motion.div 
                   initial={{ width: "100%" }}
                   animate={{ width: "0%" }}
                   transition={{ duration: 15, ease: "linear" }}
                   onAnimationComplete={() => setIncomingRequest(null)}
-                  className="h-full bg-orange-600 shadow-[0_0_10px_rgba(234,88,12,0.5)]"
+                  className="h-full bg-orange-600"
                 />
              </div>
           </motion.div>
@@ -439,101 +377,61 @@ export default function RiderHome() {
              <div className="flex items-center justify-between mb-8 pb-6 border-b border-neutral-100 dark:border-neutral-800">
                 <div className="flex items-center gap-4">
                    <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-emerald-500/20">
-                      <img src={activeRide.customerPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${activeRide.customerId}`} alt="Customer" />
+                      <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${activeRide.customerId}`} alt="Customer" />
                    </div>
                    <div>
-                      <h4 className="font-black italic uppercase tracking-tighter text-lg">{activeRide.customerName || 'Mteja Mapata'}</h4>
+                      <h4 className="font-black italic uppercase tracking-tighter text-lg">Mteja: {activeRide.customerId.slice(0,5)}</h4>
                       <div className="flex items-center gap-1 text-orange-500 font-bold text-xs">
                          <Star className="w-3 h-3 fill-current" />
                          <span>4.9</span>
-                         <span className="ml-2 text-neutral-400 font-bold">• KM {activeRide.distance}</span>
                       </div>
                    </div>
                 </div>
                 <div className="flex gap-2">
-                   <button className="w-12 h-12 rounded-2xl bg-neutral-50 dark:bg-neutral-800 flex items-center justify-center text-neutral-600"><Phone className="w-5 h-5" /></button>
-                   <button className="w-12 h-12 rounded-2xl bg-neutral-50 dark:bg-neutral-800 flex items-center justify-center text-emerald-600"><MessageSquare className="w-5 h-5" /></button>
+                   <button className="w-12 h-12 rounded-2xl bg-neutral-50 dark:bg-neutral-800 flex items-center justify-center"><Phone className="w-5 h-5 text-neutral-600" /></button>
+                   <button className="w-12 h-12 rounded-2xl bg-neutral-50 dark:bg-neutral-800 flex items-center justify-center"><MessageSquare className="w-5 h-5 text-emerald-600" /></button>
                 </div>
              </div>
 
              <div className="space-y-6 mb-10">
                 <div className="flex items-center gap-4">
-                   <div className="w-12 h-12 rounded-2xl bg-neutral-50 dark:bg-neutral-800 flex items-center justify-center text-emerald-500">
+                   <div className="w-12 h-12 rounded-2xl bg-neutral-50 dark:bg-neutral-800 flex items-center justify-center text-emerald-500 text-sm">
                       <Navigation className="w-6 h-6" />
                    </div>
                    <div className="flex-1">
-                      <p className="text-[9px] font-black uppercase text-neutral-400">Kazi ya Sasa</p>
-                      <h4 className="text-sm font-black italic uppercase tracking-tighter">
-                         {activeRide.status === 'accepted' && 'Nenda kachukue mteja'}
-                         {activeRide.status === 'arrived' && 'Mteja anapanda'}
-                         {activeRide.status === 'started' && 'Njiani kuelekea mwisho wa safari'}
+                      <p className="text-[9px] font-black uppercase text-neutral-400">Hali ya Safari</p>
+                      <h4 className="text-sm font-black uppercase">
+                         {activeRide.status === 'driver_arriving' && 'On the way to pickup'}
+                         {activeRide.status === 'on_trip' && 'Trip in progress'}
                       </h4>
                       <p className="text-[10px] text-neutral-500 truncate">
-                        {activeRide.status === 'accepted' ? activeRide.pickupAddress : activeRide.destinationAddress}
+                        {activeRide.status === 'driver_arriving' ? activeRide.pickup.address : activeRide.destination.address}
                       </p>
                    </div>
                 </div>
              </div>
 
              <div className="space-y-3">
-                {activeRide.status === 'accepted' && (
+                {activeRide.status === 'driver_arriving' && (
                   <Button 
-                    onClick={() => handleUpdateStatus('arrived')}
+                    onClick={() => handleUpdateStatus('on_trip')}
                     className="w-full h-16 bg-blue-600 hover:bg-blue-500 rounded-2xl font-black uppercase tracking-widest italic"
                   >
                     Nimefika (Arrived)
                   </Button>
                 )}
-                {activeRide.status === 'arrived' && (
-                  <Button 
-                    onClick={() => handleUpdateStatus('started')}
-                    className="w-full h-16 bg-emerald-600 hover:bg-emerald-500 rounded-2xl font-black uppercase tracking-widest italic"
-                  >
-                    Anza Safari (Start Trip)
-                  </Button>
-                )}
-                {activeRide.status === 'started' && (
+                {activeRide.status === 'on_trip' && (
                   <Button 
                     onClick={() => handleUpdateStatus('completed')}
-                    className="w-full h-16 bg-red-600 hover:bg-red-500 rounded-2xl font-black uppercase tracking-widest italic"
+                    className="w-full h-16 bg-red-600 hover:bg-red-500 rounded-2xl font-black uppercase italic"
                   >
                     Maliza Safari (End Trip)
                   </Button>
                 )}
-                
-                <button 
-                  onClick={() => setShowSafetySheet(true)}
-                  className="w-full py-4 text-[10px] font-black uppercase tracking-widest text-neutral-400 hover:text-red-500 transition-colors"
-                >
-                  Emergency SOS
-                </button>
              </div>
           </motion.div>
         )}
       </AnimatePresence>
-
-      <div className="absolute top-0 left-0 w-full p-4 pointer-events-none z-30">
-          <AnimatePresence>
-            {!isOnline && !activeRide && (
-              <motion.div 
-                initial={{ y: -50, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: -50, opacity: 0 }}
-                className="bg-red-600/90 backdrop-blur-md text-white p-4 rounded-2xl shadow-xl text-center border border-white/10"
-              >
-                  <p className="font-black italic uppercase text-xs tracking-widest">Kwa sasa haupo HEWANI (Offline)</p>
-              </motion.div>
-            )}
-          </AnimatePresence>
-      </div>
     </div>
-  );
-}
-
-function Badge({ children, className }: { children: React.ReactNode, className?: string }) {
-  return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${className}`}>
-      {children}
-    </span>
   );
 }

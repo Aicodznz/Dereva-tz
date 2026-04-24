@@ -62,7 +62,7 @@ service cloud.firestore {
 
     function isValidRide(data) {
       return data.customerId == request.auth.uid &&
-             data.status in ['pending', 'searching', 'accepted', 'arriving', 'on_trip', 'completed', 'cancelled'];
+             data.status in ['pending', 'searching', 'accepted', 'driver_arriving', 'on_trip', 'completed', 'rated', 'cancelled'];
     }
 
     function isValidDriver(data) {
@@ -150,14 +150,25 @@ service cloud.firestore {
       allow update: if isVerified() && (
         isAdmin() ||
         // Customer rating/cancel
-        (isOwner(existing().customerId) && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt', 'rating', 'ratingComment'])) ||
+        (isOwner(existing().customerId) && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt', 'rating', 'review']) ||
+          (existing().status == 'completed' && incoming().status == 'rated' && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt', 'rating', 'review']))
+        )) ||
         // Driver accept
-        (existing().status == 'pending' && incoming().driverId == request.auth.uid && incoming().status == 'accepted' && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'driverId', 'updatedAt', 'driverLocation', 'driverName', 'driverPhone', 'driverPhoto'])) ||
-        // Driver update (location/status)
+        (existing().status == 'pending' && incoming().driverId == request.auth.uid && incoming().status == 'driver_arriving' && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'driverId', 'updatedAt', 'driverInfo', 'acceptedAt'])) ||
+        // Driver update (location/status/eta)
         (isOwner(existing().driverId) && (
-          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt', 'driverLocation'])
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt', 'driverLocation', 'eta', 'completedAt']) &&
+          // Fare protection: ensure fare doesn't change after on_trip
+          (existing().status != 'on_trip' || incoming().fare == existing().fare)
         ))
       );
+    }
+
+    // Payments
+    match /payments/{paymentId} {
+      allow read: if isVerified() && (resource.data.customerId == request.auth.uid || resource.data.driverId == request.auth.uid || isAdmin());
+      allow create: if isVerified() && (incoming().driverId == request.auth.uid || isAdmin());
     }
 
     // Drivers Presence

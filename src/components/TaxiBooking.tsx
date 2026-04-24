@@ -1,3 +1,64 @@
+// Priority: shop/amenity/building > road + suburb > suburb + city
+function formatAddress(result: any): string {
+  if (!result || !result.address) return "Location Not Found";
+  const addr = result.address;
+  
+  let primary = addr.shop || addr.amenity || addr.building || addr.office || addr.tourism || addr.point_of_interest;
+  let secondary = addr.road || addr.suburb || addr.neighbourhood;
+  let tertiary = addr.city || addr.town || addr.village || addr.county;
+
+  let label = "";
+  if (primary && secondary) {
+    label = `${primary}, ${secondary}`;
+  } else if (primary) {
+    label = primary;
+  } else if (secondary && tertiary) {
+    label = `${secondary}, ${tertiary}`;
+  } else if (secondary) {
+    label = secondary;
+  } else {
+    label = tertiary || "Unknown Location";
+  }
+
+  // Never include country, postcode, or coordinates
+  return label.length > 35 ? label.substring(0, 32) + "..." : label;
+}
+
+const reverseGeocode = async (lat: number, lng: number) => {
+  try {
+    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`, {
+      headers: { 'Accept-Language': 'en' }
+    });
+    const data = await response.json();
+    return formatAddress(data);
+  } catch (error) {
+    console.error("Geocoding error:", error);
+    return "Unknown Location";
+  }
+};
+
+const BajajSVG = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 11h18v7H3z" />
+    <path d="M5 18v2M19 18v2" />
+    <path d="M12 7v4" />
+    <circle cx="8" cy="18" r="1.5" />
+    <circle cx="16" cy="18" r="1.5" />
+    <path d="M7 7h10l-2-4H9z" />
+  </svg>
+);
+
+const BikeSVG = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="5" cy="18" r="3" />
+    <circle cx="19" cy="18" r="3" />
+    <path d="M12 18V9c0-2 2-2 2-2" />
+    <path d="M8 18l3-9h4l3 9" />
+    <path d="M12 13h4" />
+    <path d="M7 6l2-3h5l1 3" />
+  </svg>
+);
+
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents, Polyline } from 'react-leaflet';
@@ -7,7 +68,8 @@ import {
   ArrowLeft, MapPin, Search, Navigation2, Clock, Star, 
   CreditCard, ChevronRight, X, Phone, MessageSquare, 
   Car, Bike, Activity, ShieldCheck, HelpCircle, User,
-  CheckCircle2, DollarSign, Wallet, Zap, Layers, Trophy
+  CheckCircle2, DollarSign, Wallet, Zap, Layers, Trophy,
+  ArrowRight, RefreshCw
 } from 'lucide-react';
 
 // Fix leaflet icon issue
@@ -17,14 +79,14 @@ import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 // Custom futuristic icons
 const StartPin = L.divIcon({
     className: 'custom-div-icon',
-    html: `<div class="bg-emerald-500 text-white w-8 h-8 rounded-full border-4 border-white shadow-lg flex items-center justify-center font-black">A</div>`,
+    html: `<div class="bg-[#1D9E75] text-white w-8 h-8 rounded-full border-4 border-white shadow-lg flex items-center justify-center font-black">A</div>`,
     iconSize: [32, 32],
     iconAnchor: [16, 16]
 });
 
 const EndPin = L.divIcon({
   className: 'custom-div-icon',
-  html: `<div class="bg-red-500 text-white w-8 h-8 rounded-full border-4 border-white shadow-lg flex items-center justify-center font-black">B</div>`,
+  html: `<div class="bg-[#D85A30] text-white w-8 h-8 rounded-full border-4 border-white shadow-lg flex items-center justify-center font-black">B</div>`,
   iconSize: [32, 32],
   iconAnchor: [16, 16]
 });
@@ -32,8 +94,8 @@ const EndPin = L.divIcon({
 const DriverPin = (type: string) => L.divIcon({
   className: 'custom-div-icon',
   html: `<div class="relative flex items-center justify-center">
-          <div class="w-6 h-6 bg-neutral-950 border border-cyan-500/50 rounded-full flex items-center justify-center shadow-[0_0_10px_rgba(6,182,212,0.3)]">
-            <div class="w-2 h-2 bg-cyan-400 rounded-full shadow-[0_0_5px_rgba(34,211,238,0.8)]"></div>
+          <div class="w-6 h-6 bg-[#0a0a0f] border border-[#7F77DD]/50 rounded-full flex items-center justify-center shadow-[0_0_10px_rgba(127,119,221,0.3)]">
+            <div class="w-2 h-2 bg-[#7F77DD] rounded-full shadow-[0_0_5px_rgba(127,119,221,0.8)]"></div>
           </div>
         </div>`,
   iconSize: [24, 24],
@@ -57,10 +119,10 @@ const MapControl = ({ position, step }: { position: [number, number], step: Book
     const now = Date.now();
     const shouldFollow = step === 'arriving' || step === 'on_trip';
     
-    // Only center every 2 seconds during trip to avoid jitter
+    // Only center every 1 second during trip to avoid jitter
     if (shouldFollow) {
-      if (now - lastCenter.current > 2000) {
-        map.panTo(position, { animate: true, duration: 1.5 });
+      if (now - lastCenter.current > 1000) {
+        map.panTo(position, { animate: true, duration: 1.2 });
         lastCenter.current = now;
       }
     } else {
@@ -70,6 +132,8 @@ const MapControl = ({ position, step }: { position: [number, number], step: Book
   }, [position, step]);
   return null;
 };
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../firebase';
 import { useAuth } from '../AuthContext';
 import { useLanguage } from '../LanguageContext';
 import { Button } from '@/components/ui/button';
@@ -78,6 +142,11 @@ import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
 import { taxiService, RideRequest } from '../services/taxiService';
 import { toast } from 'sonner';
+
+import { useRouting } from '../hooks/useRouting';
+import { useCreateRide } from '../hooks/useCreateRide';
+import { useRideStatus } from '../hooks/useRideStatus';
+import { RideStatus } from '../types/ride.types';
 
 type BookingStep = 'home' | 'map' | 'searching' | 'confirmed' | 'arriving' | 'on_trip' | 'completed' | 'receipt';
 
@@ -98,28 +167,23 @@ export default function TaxiBooking() {
   const { user, profile } = useAuth();
   const { t, isRTL } = useLanguage();
   const navigate = useNavigate();
-  const [pickupPos, setPickupPos] = useState<[number, number]>([-6.7924, 39.2083]);
-  const [destPos, setDestPos] = useState<[number, number]>([-6.8235, 39.2695]);
+  const [pickupPos, setPickupPos] = useState<[number, number]>([-6.7721, 39.2326]);
+  const [destPos, setDestPos] = useState<[number, number]>([-6.8781, 39.2026]);
   const [settingMode, setSettingMode] = useState<'pickup' | 'destination'>('pickup');
 
   const MapEvents = () => {
     useMapEvents({
-      click(e) {
-        const coords = `(${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)})`;
-        const nearby = DAR_LOCATIONS.find(loc => {
-           const dist = Math.sqrt(Math.pow(loc.lat - e.latlng.lat, 2) + Math.pow(loc.lng - e.latlng.lng, 2));
-           return dist < 0.005;
-        });
+      async click(e) {
+        toast.loading("Gusa eneo...");
+        const address = await reverseGeocode(e.latlng.lat, e.latlng.lng);
+        toast.dismiss();
         
-        const locName = nearby ? nearby.name : 'Tabata/Dar Es Salaam';
-        const fullDisplay = `${locName} ${coords}`;
-
         if (settingMode === 'pickup') {
           setPickupPos([e.latlng.lat, e.latlng.lng]);
-          setPickup(fullDisplay);
+          setPickup(address);
         } else {
           setDestPos([e.latlng.lat, e.latlng.lng]);
-          setDestination(fullDisplay);
+          setDestination(address);
         }
       },
     });
@@ -132,108 +196,80 @@ export default function TaxiBooking() {
   const [pickup, setPickup] = useState('Current Location (D Block, Sector 2)');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mpesa' | 'wallet'>('mpesa');
   
-  const [activeRide, setActiveRide] = useState<RideRequest | null>(null);
+  const { routeCoords: osrmCoords, totalDistance, totalDuration: osrmDuration, isLoading: isRouteLoading, error: routeError } = useRouting(pickupPos, destPos);
+  const routeCoords = osrmCoords.length > 0 ? osrmCoords : [pickupPos, destPos];
+  
+  const { createRide, rideId: createdRideId, isLoading: isCreatingRide } = useCreateRide();
   const [rideId, setRideId] = useState<string | null>(null);
+  const { ride: activeRideDoc, isLoading: isRideStatusLoading } = useRideStatus(rideId);
+  const activeRide = activeRideDoc;
+
   const [tripProgress, setTripProgress] = useState(0); // 0 to 100
   const [etaSeconds, setEtaSeconds] = useState(0);
 
-  // Simulated Trip Animation
+  // Calculate trip progress based on driver position relative to route
   useEffect(() => {
-    let interval: any;
-    if (step === 'arriving' || step === 'on_trip') {
-      const totalDuration = 30000; // 30 seconds simulation for demo to make movement obvious
-      const startTime = Date.now();
-      
-      interval = setInterval(() => {
-        const elapsed = Date.now() - startTime;
-        const progress = Math.min((elapsed / totalDuration) * 100, 100);
-        setTripProgress(progress);
-        
-        const remaining = Math.max((totalDuration - elapsed) / 1000, 0);
-        setEtaSeconds(remaining);
-
-        if (progress >= 100) {
-          clearInterval(interval);
+    if (step === 'on_trip' && activeRide?.driverLocation && routeCoords.length > 1) {
+      // Find nearest point on route to estimate progress
+      // Simple index-based estimation for now
+      let minDistance = Infinity;
+      let nearestIndex = 0;
+      routeCoords.forEach((coord, index) => {
+        const dist = Math.sqrt(Math.pow(coord[0] - activeRide.driverLocation!.lat, 2) + Math.pow(coord[1] - activeRide.driverLocation!.lng, 2));
+        if (dist < minDistance) {
+          minDistance = dist;
+          nearestIndex = index;
         }
-      }, 32); // ~30fps for smoother motion
-    } else {
-      setTripProgress(0);
-      setEtaSeconds(0);
+      });
+      setTripProgress((nearestIndex / (routeCoords.length - 1)) * 100);
     }
-    return () => clearInterval(interval);
-  }, [step]);
+  }, [activeRide?.driverLocation, step, routeCoords]);
 
   const [driverPos, setDriverPos] = useState<[number, number]>(pickupPos);
   
-  // Generate a slightly curved or stepped path to simulate following roads
-  const getPath = (start: [number, number], end: [number, number]) => {
-    const mid1: [number, number] = [start[0] + (end[0] - start[0]) * 0.2, start[1] + (end[1] - start[1]) * 0.8];
-    const mid2: [number, number] = [start[0] + (end[0] - start[0]) * 0.7, start[1] + (end[1] - start[1]) * 0.3];
-    return [start, mid1, mid2, end];
-  };
-
-  const getInterpolatedPoint = (progress: number, path: [number, number][]) => {
-    const segmentCount = path.length - 1;
-    const scaledProgress = (progress / 100) * segmentCount;
-    const index = Math.max(0, Math.min(Math.floor(scaledProgress), segmentCount - 1));
-    const segmentAlpha = scaledProgress - index;
-    
-    const p1 = path[index];
-    const p2 = path[index + 1];
-    
-    return [
-      p1[0] + (p2[0] - p1[0]) * segmentAlpha,
-      p1[1] + (p2[1] - p1[1]) * segmentAlpha
-    ] as [number, number];
-  };
-
+  // Link driverPos and ETA to real Firestore data
   useEffect(() => {
-    if (step === 'arriving') {
-      const start: [number, number] = [-6.75, 39.25];
-      const end = pickupPos;
-      const path = getPath(start, end);
-      setDriverPos(getInterpolatedPoint(tripProgress, path));
-    } else if (step === 'on_trip') {
-      const start = pickupPos;
-      const end = destPos;
-      const path = getPath(start, end);
-      setDriverPos(getInterpolatedPoint(tripProgress, path));
+    if (activeRide?.driverLocation) {
+      setDriverPos([activeRide.driverLocation.lat, activeRide.driverLocation.lng]);
     }
-  }, [tripProgress, step, pickupPos, destPos]);
+    if (activeRide?.eta) {
+      setEtaSeconds(activeRide.eta);
+    }
+  }, [activeRide?.driverLocation, activeRide?.eta]);
   
   const rideOptions: RideOption[] = [
     { 
       id: 'mini', 
       name: 'Gari', 
       icon: Car, 
-      sub: '4min | 4 Sitting | Deluxe', 
+      sub: '4 Sitting | Deluxe', 
       priceRange: '2,800', 
       price: 2800, 
       eta: '4',
       vehicleType: 'gari',
-      image: 'https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?auto=format&fit=crop&w=400&q=80' 
+      image: '🚗' 
     },
     { 
       id: 'bajaj', 
       name: 'Bajaj', 
-      icon: Activity, 
-      sub: '5min | 3 Siti | Transit', 
+      icon: BajajSVG, 
+      sub: '3 Siti | Transit', 
       priceRange: '1,500', 
       price: 1500, 
       eta: '5',
       vehicleType: 'bajaji',
-      image: 'https://images.unsplash.com/photo-1593941707882-a5bba14938c7?auto=format&fit=crop&w=400&q=80' 
+      image: '🛺' 
     },
     { 
       id: 'bike', 
       name: 'Bike', 
-      icon: Bike, 
-      sub: '3min | 2-wheel rides', 
+      icon: BikeSVG, 
+      sub: '2-wheel rides', 
       priceRange: '800', 
       price: 800, 
       eta: '3',
       vehicleType: 'pikipiki',
-      image: 'https://images.unsplash.com/photo-1558981403-c5f91cbba527?auto=format&fit=crop&w=400&q=80' 
+      image: '🏍️' 
     }
   ];
 
@@ -293,6 +329,15 @@ export default function TaxiBooking() {
     }
   };
 
+  const swapLocations = () => {
+    const tempPos = pickupPos;
+    const tempAddr = pickup;
+    setPickupPos(destPos);
+    setPickup(destination);
+    setDestPos(tempPos);
+    setDestination(tempAddr);
+  };
+
   const recentAddresses = [
     { name: 'Address Nine Street', area: 'Ncula, Klagorata', time: '1min' },
     { name: 'Address Sirargara', area: 'Koriuba, Mamatia', time: '5min' }
@@ -300,26 +345,23 @@ export default function TaxiBooking() {
 
   // Listen for ride updates
   useEffect(() => {
-    if (!rideId) return;
-    const unsubscribe = taxiService.listenToRide(rideId, (ride) => {
-      setActiveRide(ride);
-      if (ride.status === 'accepted') setStep('arriving');
-      if (ride.status === 'arrived') {
-        toast.success("Dereva amefika eneo la kuanzia!");
-        setStep('arriving');
-      }
-      if (ride.status === 'started') {
-        toast.info("Safari imeanza! Tulia na ufurahie kiti chako.");
-        setStep('on_trip');
-      }
-      if (ride.status === 'completed') setStep('completed');
-      if (ride.status === 'cancelled') {
-        toast.error("Safari imeghairiwa na dereva");
-        setStep('map');
-      }
-    });
-    return () => unsubscribe();
-  }, [rideId]);
+    if (!activeRide) return;
+    
+    if (activeRide.status === 'accepted' || activeRide.status === 'driver_arriving') {
+      setStep('arriving');
+    }
+    if (activeRide.status === 'on_trip') {
+      setStep('on_trip');
+    }
+    if (activeRide.status === 'completed') {
+      setStep('completed');
+    }
+    if (activeRide.status === 'cancelled') {
+      toast.error("Safari imeghairiwa");
+      setStep('map');
+      setRideId(null);
+    }
+  }, [activeRide?.status]);
 
   const handleBookNow = () => {
     if (!destination) return;
@@ -328,24 +370,20 @@ export default function TaxiBooking() {
 
   const confirmBooking = async () => {
     if (!selectedRide || !user) return;
-    setStep('searching');
     
     try {
-      const docRef = await taxiService.requestRide({
-        customerId: user.uid,
-        customerName: profile?.displayName || 'Mteja',
-        customerPhoto: profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email}`,
-        pickup: { lat: pickupPos[0], lng: pickupPos[1] },
-        destination: { lat: destPos[0], lng: destPos[1] },
-        pickupAddress: pickup,
-        destinationAddress: destination,
-        distance: 5.2,
-        duration: 15,
-        estimatedFare: selectedRide.price,
-        vehicleType: selectedRide.vehicleType,
-        paymentMethod: paymentMethod
-      });
-      setRideId(docRef.id);
+      const id = await createRide(
+        user.uid,
+        { lat: pickupPos[0], lng: pickupPos[1], address: pickup },
+        { lat: destPos[0], lng: destPos[1], address: destination },
+        selectedRide.id as any,
+        selectedRide.price,
+        routeCoords
+      );
+      if (id) {
+        setRideId(id);
+        setStep('searching');
+      }
     } catch (error) {
       console.error("Booking error:", error);
       toast.error("Imeshindwa kutuma ombi la safari");
@@ -371,10 +409,15 @@ export default function TaxiBooking() {
     setUserRating(rating);
     if (!rideId) return;
     try {
-      await taxiService.rateRide(rideId, rating, "Great ride!");
+      await updateDoc(doc(db, 'rides', rideId), {
+        rating,
+        status: 'rated',
+        updatedAt: serverTimestamp()
+      });
       toast.success("Asante kwa maoni yako!");
       navigate('/');
     } catch (error) {
+      console.error("Rating error:", error);
       toast.error("Imeshindwa kutuma maoni");
     }
   };
@@ -408,15 +451,15 @@ export default function TaxiBooking() {
   }, []);
 
   return (
-    <div className="max-w-md mx-auto bg-neutral-950 min-h-screen relative overflow-hidden font-sans text-white">
+    <div className="max-w-md mx-auto bg-[#0a0a0f] min-h-screen relative overflow-hidden font-sans text-[#f0eeff]">
       {/* Background Decor */}
       <div className="absolute inset-0 z-0 opacity-20 pointer-events-none">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-orange-600/20 blur-[100px] rounded-full" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-600/10 blur-[100px] rounded-full" />
+        <div className="absolute top-0 right-0 w-64 h-64 bg-[#7F77DD]/10 blur-[100px] rounded-full" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#1D9E75]/10 blur-[100px] rounded-full" />
       </div>
 
       {/* Header */}
-      <div className="relative z-50 px-6 pt-12 pb-4 flex items-center justify-between bg-neutral-950/50 backdrop-blur-md border-b border-white/5">
+      <div className="relative z-50 px-6 pt-12 pb-4 flex items-center justify-between bg-[#0a0a0f]/50 backdrop-blur-md border-b border-[#1e1e2e]">
         <div className="flex items-center gap-3">
           {step !== 'home' ? (
             <button 
@@ -456,67 +499,67 @@ export default function TaxiBooking() {
             {/* Search Inputs */}
             <div className="space-y-4">
               <div className="relative group">
-                <div className="absolute inset-y-0 left-4 flex items-center text-emerald-500">
+                <div className="absolute inset-y-0 left-4 flex items-center text-[#1D9E75]">
                   <MapPin className="w-5 h-5" />
                 </div>
                 <input 
                   value={pickup}
                   onChange={(e) => setPickup(e.target.value)}
                   placeholder="Uko wapi?" 
-                  className="w-full bg-neutral-900/80 border border-neutral-800 rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:border-emerald-500 transition-all font-bold placeholder:text-neutral-600"
+                  className="w-full bg-[#111118] border border-[#1e1e2e] rounded-xl py-4 pl-12 pr-4 focus:outline-none focus:border-[#7F77DD] transition-all font-bold placeholder:text-[#6b6b8a] text-[#f0eeff]"
                 />
               </div>
               <div className="relative group">
-                <div className="absolute inset-y-0 left-4 flex items-center text-orange-600">
+                <div className="absolute inset-y-0 left-4 flex items-center text-[#D85A30]">
                   <Navigation2 className="w-5 h-5" />
                 </div>
                 <input 
                   value={destination}
                   onChange={(e) => setDestination(e.target.value)}
                   placeholder="Unataka kwenda wapi?" 
-                  className="w-full bg-neutral-900/80 border border-neutral-800 rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:border-orange-600 transition-all font-bold placeholder:text-neutral-600"
+                  className="w-full bg-[#111118] border border-[#1e1e2e] rounded-xl py-4 pl-12 pr-4 focus:outline-none focus:border-[#7F77DD] transition-all font-bold placeholder:text-[#6b6b8a] text-[#f0eeff]"
                 />
               </div>
             </div>
 
             {/* Promo Banner */}
-            <div className="relative rounded-[2.5rem] overflow-hidden group">
-               <div className="absolute inset-0 bg-gradient-to-br from-orange-600/40 to-neutral-950 z-0" />
+            <div className="relative rounded-[32px] overflow-hidden group border border-[#1e1e2e]">
+               <div className="absolute inset-0 bg-gradient-to-br from-[#7F77DD]/20 to-[#0a0a0f] z-0" />
                <div className="relative z-10 p-8 space-y-2">
-                 <h2 className="text-3xl font-black italic uppercase leading-none tracking-tighter">Safari yako, kwa<br />mtindo wa Tegex.</h2>
-                 <p className="text-sm font-bold text-orange-400">Pata 15% punguzo la safari ya kwanza.</p>
+                 <h2 className="text-3xl font-black italic uppercase leading-none tracking-tighter text-[#f0eeff]">Safari yako, kwa<br />mtindo wa Tegex.</h2>
+                 <p className="text-sm font-bold text-[#7F77DD]">Pata 15% punguzo la safari ya kwanza.</p>
                </div>
-               <div className="absolute bottom-[-20px] right-[-20px] w-48 h-32 opacity-80 group-hover:scale-110 transition-transform duration-700">
-                  <img src="https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?auto=format&fit=crop&w=400&q=80" alt="Car" className="w-full h-full object-contain" />
+               <div className="absolute bottom-[-20px] right-[-20px] w-48 h-32 opacity-40 group-hover:scale-110 transition-transform duration-700 pointer-events-none">
+                  <Car className="w-full h-full text-[#7F77DD]" />
                </div>
                <div className="absolute bottom-4 left-8">
-                  <Badge className="bg-orange-600 text-white font-black group-hover:px-6 transition-all duration-300">Tegex Prime</Badge>
+                  <Badge className="bg-[#7F77DD] text-white font-black group-hover:px-6 transition-all duration-300">Tegex Premium</Badge>
                </div>
             </div>
 
             {/* Recent Locations */}
             <div>
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-black italic uppercase tracking-tighter">Maeneo ya Karibuni</h3>
-                <button className="text-[10px] font-black uppercase text-orange-600">Ondoa Zote</button>
+                <h3 className="text-lg font-black italic uppercase tracking-tighter text-[#f0eeff]">Maeneo ya Karibuni</h3>
+                <button className="text-[10px] font-black uppercase text-[#7F77DD]">Ondoa Zote</button>
               </div>
               <div className="space-y-4">
                  {recentAddresses.map((addr, idx) => (
                    <button 
                      key={idx}
                      onClick={() => setDestination(addr.name)}
-                     className="w-full flex items-center justify-between p-4 rounded-2xl bg-neutral-900 border border-white/5 hover:border-orange-500/50 hover:bg-neutral-800 transition-all group"
+                     className="w-full flex items-center justify-between p-4 rounded-xl bg-[#111118] border border-[#1e1e2e] hover:border-[#7F77DD] hover:bg-[#7F77DD]/5 transition-all group"
                    >
                      <div className="flex items-center gap-4">
-                       <div className="w-10 h-10 rounded-xl bg-orange-600/10 flex items-center justify-center text-orange-600 group-hover:scale-110 transition-transform">
-                         <MapPin className="w-5 h-5 shadow-[0_0_10px_rgba(234,88,12,0.3)]" />
+                       <div className="w-10 h-10 rounded-lg bg-[#7F77DD]/10 flex items-center justify-center text-[#7F77DD] group-hover:scale-110 transition-transform">
+                         <MapPin className="w-5 h-5" />
                        </div>
                        <div className="text-left">
-                         <h4 className="font-bold text-sm text-neutral-100">{addr.name}</h4>
-                         <p className="text-[9px] text-neutral-600 font-bold uppercase tracking-widest">{addr.area}</p>
+                         <h4 className="font-bold text-sm text-[#f0eeff]">{addr.name}</h4>
+                         <p className="text-[9px] text-[#6b6b8a] font-bold uppercase tracking-widest">{addr.area}</p>
                        </div>
                      </div>
-                     <div className="flex items-center gap-2 text-neutral-700">
+                     <div className="flex items-center gap-2 text-[#6b6b8a]">
                        <Clock className="w-3 h-3" />
                        <span className="text-[10px] font-black tracking-tight">{addr.time}</span>
                      </div>
@@ -527,26 +570,26 @@ export default function TaxiBooking() {
 
             {/* Ride Selection Grid */}
             <div>
-               <h3 className="text-lg font-black italic uppercase tracking-tighter mb-6">Tafuta Gari</h3>
+               <h3 className="text-lg font-black italic uppercase tracking-tighter mb-6 text-[#f0eeff]">Tafuta Gari</h3>
                <div className="grid grid-cols-2 gap-4">
                   {rideOptions.map((ride) => (
                     <button 
                       key={ride.id}
                       onClick={() => {
                         setSelectedRide(ride);
-                        setDestination('Random Location'); // Auto-fill for demo
+                        setStep('map');
                       }}
-                      className={`relative p-6 rounded-[2.5rem] border-2 transition-all flex flex-col items-center text-center space-y-3 ${
-                        selectedRide?.id === ride.id ? 'bg-orange-600/10 border-orange-600 shadow-2xl shadow-orange-600/20' : 'bg-neutral-900 border-neutral-800 hover:border-neutral-700'
+                      className={`relative p-6 rounded-[32px] border transition-all flex flex-col items-center text-center space-y-3 ${
+                        selectedRide?.id === ride.id ? 'bg-[#7F77DD]/10 border-[#7F77DD] shadow-2xl shadow-[#7F77DD]/10' : 'bg-[#111118] border-[#1e1e2e] hover:border-[#6b6b8a]/30'
                       }`}
                     >
-                      <div className="w-20 h-20 relative mb-2">
-                        <img src={ride.image} alt={ride.name} className="w-full h-full object-contain mix-blend-lighten group-hover:scale-110 transition-transform" />
+                      <div className="w-16 h-16 relative mb-2 flex items-center justify-center">
+                         {typeof ride.icon === 'function' ? <ride.icon className="w-12 h-12 text-[#f0eeff]" /> : <span className="text-4xl">{ride.image}</span>}
                       </div>
                       <div className="space-y-1">
-                        <h4 className="text-sm font-black italic uppercase tracking-tighter leading-none">{ride.name}</h4>
-                        <p className="text-[9px] font-bold text-neutral-500">{ride.sub}</p>
-                        <p className="text-[10px] font-black text-orange-600">Price {ride.priceRange}</p>
+                        <h4 className="text-sm font-black italic uppercase tracking-tighter leading-none text-[#f0eeff]">{ride.name}</h4>
+                        <p className="text-[9px] font-bold text-[#6b6b8a]">{ride.sub}</p>
+                        <p className="text-[10px] font-black text-[#7F77DD]">Price {ride.priceRange}</p>
                       </div>
                     </button>
                   ))}
@@ -554,11 +597,11 @@ export default function TaxiBooking() {
             </div>
 
             {/* Book Now Sticky */}
-            <div className="fixed bottom-0 left-0 right-0 p-6 z-50">
+            <div className="fixed bottom-0 left-0 right-0 p-6 z-50 bg-gradient-to-t from-[#0a0a0f] to-transparent">
                <button 
                  onClick={handleBookNow}
                  disabled={!destination}
-                 className="w-full bg-emerald-500 py-5 rounded-2xl font-black uppercase tracking-widest text-white shadow-2xl shadow-emerald-900/40 hover:bg-emerald-400 disabled:opacity-50 disabled:grayscale transition-all active:scale-95"
+                 className="w-full h-14 bg-white text-[#0a0a0f] rounded-[50px] font-black uppercase tracking-widest shadow-2xl hover:bg-neutral-200 disabled:opacity-50 disabled:grayscale transition-all active:scale-95"
                >
                  Agiza Sasa
                </button>
@@ -572,27 +615,27 @@ export default function TaxiBooking() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 z-10 flex flex-col h-full bg-neutral-950 font-sans"
+            className="absolute inset-0 z-10 flex flex-col h-full bg-[#0a0a0f] font-sans"
           >
             {/* Top Navigation Overlay */}
             <div className="absolute top-0 inset-x-0 z-[60] px-6 pt-6 pointer-events-none">
               <div className="flex items-center gap-4 pointer-events-auto">
                 <button 
                   onClick={() => setStep('home')}
-                  className="w-12 h-12 bg-white/90 backdrop-blur-xl rounded-2xl shadow-2xl flex items-center justify-center border border-white/50 active:scale-90 transition-transform"
+                  className="w-12 h-12 bg-[#111118]/90 backdrop-blur-xl rounded-2xl shadow-2xl flex items-center justify-center border border-[#1e1e2e] active:scale-90 transition-transform"
                 >
-                  <ArrowLeft className="w-5 h-5 text-neutral-800" />
+                  <ArrowLeft className="w-5 h-5 text-[#f0eeff]" />
                 </button>
-                <div className="flex-1 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/10 flex items-center px-4 py-3 gap-3">
-                  <Search className="w-4 h-4 text-neutral-500" />
+                <div className="flex-1 bg-[#111118]/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-[#1e1e2e] flex items-center px-4 py-3 gap-3">
+                  <Search className="w-4 h-4 text-[#6b6b8a]" />
                   <input 
                     type="text" 
                     placeholder="Wapi unapo kwenda?" 
-                    className="flex-1 bg-transparent text-sm font-black text-neutral-900 outline-none placeholder:text-neutral-400"
+                    className="flex-1 bg-transparent text-sm font-black text-[#f0eeff] outline-none placeholder:text-[#6b6b8a]"
                     value={destination}
                     onChange={(e) => handleLocationSearch(e.target.value, 'destination')}
                   />
-                  <div className="w-8 h-8 rounded-full border-2 border-orange-500 overflow-hidden">
+                  <div className="w-8 h-8 rounded-full border-2 border-[#7F77DD] overflow-hidden">
                     <img src={profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email}`} alt="User" />
                   </div>
                 </div>
@@ -629,77 +672,52 @@ export default function TaxiBooking() {
                     <Popup>Mwisho (B)</Popup>
                  </Marker>
 
-                 {/* Trip Route Line - Green base */}
-                 {(step === 'map' || step === 'details' || step === 'arriving' || step === 'on_trip') && (
+                 {/* Trip Route Line - Real Road Routing */}
+                 {(step === 'map' || step === 'details' || step === 'searching' || step === 'confirmed' || step === 'arriving' || step === 'on_trip') && routeCoords.length > 0 && (
                    <>
+                     {/* Outer Glow */}
                      <Polyline 
-                       positions={getPath(pickupPos, destPos)} 
-                       color="#064e3b" 
-                       weight={12} 
-                       opacity={0.2}
-                     />
-                     <Polyline 
-                       positions={getPath(pickupPos, destPos)} 
+                       positions={routeCoords} 
                        color="#1D9E75" 
-                       weight={7} 
-                       opacity={1}
+                       weight={10} 
+                       opacity={0.1}
                      />
+                     {/* Full Route Base */}
                      <Polyline 
-                       positions={getPath(pickupPos, destPos)} 
-                       color="white" 
-                       weight={2} 
+                       positions={routeCoords} 
+                       color="#1D9E75" 
+                       weight={4} 
                        opacity={0.6}
-                       dashArray="8, 12"
                      />
-                     
-                     {/* Road Labels */}
-                     {getPath(pickupPos, destPos).slice(1, 3).map((pt, i) => (
-                       <Marker 
-                         key={`label-${i}`}
-                         position={pt}
-                         icon={L.divIcon({
-                           className: 'bg-transparent',
-                           html: `<div class="bg-neutral-900/80 backdrop-blur-sm border border-white/20 px-2 py-0.5 rounded text-[8px] font-black uppercase text-white tracking-widest shadow-lg -rotate-12">
-                                     ${['Bagamoyo Rd', 'Morogoro Rd'][i]}
-                                  </div>`,
-                           iconSize: [80, 20],
-                           iconAnchor: [40, 10]
-                         })}
-                       />
-                     ))}
                    </>
                  )}
 
-                 {/* Traveled Path - Purple */}
-                 {step === 'on_trip' && (
+                 {/* Traveled Path - Purple portion */}
+                 {step === 'on_trip' && routeCoords.length > 0 && (
                    <Polyline 
-                     positions={[...getPath(pickupPos, destPos).slice(0, Math.floor((tripProgress/100)*3) + 1), driverPos]} 
-                     color="#8b5cf6" 
-                     weight={7} 
-                     opacity={0.8}
+                     positions={routeCoords.slice(0, Math.floor((tripProgress/100) * (routeCoords.length - 1)) + 1).concat([driverPos])} 
+                     color="#7F77DD" 
+                     weight={5} 
+                     opacity={1}
                    />
                  )}
 
-                 {/* Driver Marker - Modern Animated Vehicle */}
+                 {/* Driver Marker - initials + pulse anim */}
                  {(step === 'arriving' || step === 'on_trip') && (
                    <Marker 
                      position={driverPos}
                      icon={L.divIcon({
                        className: 'custom-div-icon',
-                       html: `<div class="relative flex flex-col items-center">
-                                <div class="absolute -top-10 bg-neutral-900 text-white px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider shadow-xl border border-white/20 whitespace-nowrap z-50">
-                                  Dereva: ${activeRide?.driverName || 'JK'}
-                                </div>
-                                <div class="absolute w-16 h-16 bg-amber-500/20 rounded-full animate-ping"></div>
-                                <div class="w-14 h-14 bg-white rounded-2xl border-4 border-amber-500 shadow-2xl flex items-center justify-center relative overflow-hidden">
-                                  <div class="absolute bottom-0 left-0 w-full h-1 bg-amber-500"></div>
-                                  <svg viewBox="0 0 24 24" width="30" height="30" stroke="currentColor" stroke-width="2.5" fill="#f59e0b" class="text-amber-700">
-                                    <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path d="M9 17h6"/>
-                                  </svg>
-                                </div>
-                              </div>`,
-                       iconSize: [56, 56],
-                       iconAnchor: [28, 28]
+                       html: `
+                        <div class="relative flex flex-col items-center">
+                          <div class="absolute inset-0 w-16 h-16 bg-amber-500/30 rounded-full animate-ping -translate-x-1/2 -translate-y-1/2 left-1/2 top-1/2"></div>
+                          <div class="w-12 h-12 bg-neutral-900 rounded-full border-4 border-amber-500 shadow-2xl flex items-center justify-center text-white font-black text-sm z-10">
+                            ${activeRide?.driverName?.split(' ').map(n => n[0]).join('') || 'JK'}
+                          </div>
+                        </div>
+                       `,
+                       iconSize: [48, 48],
+                       iconAnchor: [24, 24]
                      })}
                    />
                  )}
@@ -744,129 +762,145 @@ export default function TaxiBooking() {
                  <MapEvents />
                </MapContainer>
                
-               {/* Selection Mode Indicator floating on map */}
-               <div className="absolute top-28 left-0 right-0 flex justify-center z-50 pointer-events-none">
-                  <div className={`px-6 py-3 rounded-full backdrop-blur-xl border-2 shadow-[0_0_30px_rgba(0,0,0,0.2)] flex items-center gap-3 pointer-events-auto transition-all ${settingMode === 'pickup' ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-600' : 'bg-amber-500/10 border-amber-500/50 text-amber-600'}`}>
-                    <div className={`w-3 h-3 rounded-full animate-pulse shadow-[0_0_10px_currentcolor] ${settingMode === 'pickup' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                    <span className="text-[11px] font-black uppercase tracking-[0.2em]">GUSA RAMANI KUCHAGUA {settingMode === 'pickup' ? 'PICKUP' : 'DESTINATION'}</span>
-                  </div>
-               </div>
+                 {/* Selection Mode Indicator floating on map */}
+                 <div className="absolute top-28 left-0 right-0 flex justify-center z-50 pointer-events-none">
+                    {isRouteLoading ? (
+                      <div className="px-6 py-3 rounded-full bg-[#111118] border-2 border-[#D85A30] shadow-xl flex items-center gap-3 animate-pulse">
+                         <div className="w-4 h-4 border-2 border-[#D85A30] border-t-transparent rounded-full animate-spin" />
+                         <span className="text-[11px] font-black uppercase tracking-widest text-[#D85A30]">Tunafuta njia bora...</span>
+                      </div>
+                    ) : (
+                      <div className={`px-6 py-3 rounded-full backdrop-blur-xl border-2 shadow-[0_0_30px_rgba(0,0,0,0.2)] flex items-center gap-3 pointer-events-auto transition-all ${settingMode === 'pickup' ? 'bg-[#1D9E75]/10 border-[#1D9E75]/50 text-[#1D9E75]' : 'bg-[#D85A30]/10 border-[#D85A30]/50 text-[#D85A30]'}`}>
+                        <div className={`w-3 h-3 rounded-full animate-pulse shadow-[0_0_10px_currentcolor] ${settingMode === 'pickup' ? 'bg-[#1D9E75]' : 'bg-[#D85A30]'}`} />
+                        <span className="text-[11px] font-black uppercase tracking-[0.2em]">GUSA RAMANI KUCHAGUA {settingMode === 'pickup' ? 'PICKUP' : 'DESTINATION'}</span>
+                      </div>
+                    )}
+                 </div>
 
                {/* Map Controls - MOVED TO TOP RIGHT */}
                <div className="absolute right-6 top-6 flex flex-col gap-4 z-40">
-                  <button className="w-12 h-12 rounded-xl bg-white border border-neutral-200 flex items-center justify-center text-neutral-500 shadow-xl active:scale-95 transition-all">
+                  {/* Floating ETA Chip */}
+                   {(step === 'on_trip' || step === 'arriving') && (
+                    <div className="bg-[#111118] border border-[#1e1e2e] rounded-2xl p-4 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-right-4 duration-500">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-[#D85A30]/20 flex items-center justify-center">
+                          <Clock className="w-5 h-5 text-[#D85A30]" />
+                        </div>
+                        <div className="text-left">
+                          <p className="text-[10px] font-black text-[#6b6b8a] uppercase tracking-widest leading-none mb-1">
+                            {step === 'on_trip' ? 'Muda uliobaki' : 'Dereva anawasili'}
+                          </p>
+                          <h4 className="text-xl font-black text-[#f0eeff] italic tracking-tighter">
+                            {Math.floor(etaSeconds / 60)}:{Math.floor(etaSeconds % 60).toString().padStart(2, '0')}
+                          </h4>
+                        </div>
+                      </div>
+                      <div className="mt-3 pt-3 border-t border-[#1e1e2e] flex items-center justify-between">
+                         <div className="flex items-center gap-1.5">
+                            <Navigation2 className="w-3 h-3 text-[#1D9E75] rotate-45" />
+                            <span className="text-[10px] font-black text-[#6b6b8a] capitalize">
+                               {(totalDistance * (1 - tripProgress/100) / 1000).toFixed(1)} km
+                            </span>
+                         </div>
+                         <div className="w-1.5 h-1.5 rounded-full bg-[#1D9E75] animate-pulse" />
+                      </div>
+                    </div>
+                  )}
+                  
+                  <button className="w-12 h-12 rounded-xl bg-[#111118] border border-[#1e1e2e] flex items-center justify-center text-[#6b6b8a] shadow-xl active:scale-95 transition-all">
                     <Navigation2 className="w-5 h-5" />
                   </button>
-                  <button className="w-12 h-12 rounded-xl bg-white border border-neutral-200 flex items-center justify-center text-neutral-500 shadow-xl active:scale-95 transition-all">
+                  <button className="w-12 h-12 rounded-xl bg-[#111118] border border-[#1e1e2e] flex items-center justify-center text-[#6b6b8a] shadow-xl active:scale-95 transition-all">
                     <Layers className="w-5 h-5" />
                   </button>
                </div>
             </div>
 
             {/* Bottom Panel */}
-            <div className="bg-white text-neutral-900 p-8 space-y-6 z-40 border-t-2 border-amber-500/20 shadow-[0_-20px_60px_rgba(0,0,0,0.1)] relative rounded-t-[3rem]">
-               {/* Address Display */}
-               <div className="bg-neutral-50 p-6 rounded-[2rem] border border-neutral-200 shadow-inner space-y-6 relative group">
-                  <div className="flex items-start gap-4">
-                    <div className="flex flex-col items-center pt-2 gap-2">
-                      <div className="w-4 h-4 rounded-full border-2 border-emerald-500 flex items-center justify-center">
-                        <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
-                      </div>
-                      <div className="w-0.5 h-12 border-l-2 border-dashed border-neutral-300" />
-                      <div className="w-4 h-4 rounded-full border-2 border-amber-500 flex items-center justify-center">
-                        <div className="w-1.5 h-1.5 bg-amber-500 rounded-full" />
-                      </div>
-                    </div>
-                    <div className="flex-1 space-y-4">
-                      <div className="relative">
-                        <label className="text-[11px] font-black uppercase tracking-widest text-emerald-700 mb-1 block">Eneo la Mwanzo:</label>
-                        <input 
-                          value={pickup}
-                          onFocus={() => setSettingMode('pickup')}
-                          onChange={(e) => handleLocationSearch(e.target.value, 'pickup')}
-                          className="bg-transparent text-lg font-black w-full focus:outline-none text-neutral-900 placeholder:text-neutral-300 border-b-2 border-emerald-500/10 focus:border-emerald-500 transition-all pb-1"
-                          placeholder="Andika au gusa ramani..."
-                        />
-                        {pickupSuggestions.length > 0 && (
-                          <div className="absolute left-0 right-0 top-full mt-2 bg-white border-2 border-emerald-500/20 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.2)] z-[100] overflow-hidden max-h-72 overflow-y-auto">
-                            {pickupSuggestions.map((loc, idx) => (
-                              <button 
-                                key={idx}
-                                onClick={() => selectLocation(loc, 'pickup')}
-                                className="w-full px-6 py-5 text-left hover:bg-emerald-50 flex items-center gap-4 border-b border-neutral-100 last:border-0 transition-all text-neutral-900"
-                              >
-                                <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0 shadow-sm">
-                                  <MapPin className="w-5 h-5 text-emerald-600" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-base font-black text-neutral-900 leading-tight truncate">{loc.name}</p>
-                                  <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Temeke, Dar Es Salaam</p>
-                                </div>
-                                <ChevronRight className="w-4 h-4 text-neutral-300" />
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <div className="relative">
-                        <label className="text-[11px] font-black uppercase tracking-widest text-amber-700 mb-1 block">Eneo la Mwisho:</label>
-                        <input 
-                          value={destination}
-                          onFocus={() => setSettingMode('destination')}
-                          onChange={(e) => handleLocationSearch(e.target.value, 'destination')}
-                          className="bg-transparent text-lg font-black w-full focus:outline-none text-neutral-900 placeholder:text-neutral-300 border-b-2 border-amber-500/10 focus:border-amber-500 transition-all pb-1"
-                          placeholder="Andika unapo kwenda..."
-                        />
-                        {destSuggestions.length > 0 && (
-                          <div className="absolute left-0 right-0 top-full mt-2 bg-white border-2 border-amber-500/20 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.2)] z-[100] overflow-hidden max-h-72 overflow-y-auto">
-                            {destSuggestions.map((loc, idx) => (
-                              <button 
-                                key={idx}
-                                onClick={() => selectLocation(loc, 'destination')}
-                                className="w-full px-6 py-5 text-left hover:bg-amber-50 flex items-center gap-4 border-b border-neutral-100 last:border-0 transition-all text-neutral-900"
-                              >
-                                <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0 shadow-sm">
-                                  <MapPin className="w-5 h-5 text-amber-600" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-base font-black text-neutral-900 leading-tight truncate">{loc.name}</p>
-                                  <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Dar Es Salaam</p>
-                                </div>
-                                <ChevronRight className="w-4 h-4 text-neutral-300" />
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
+            <motion.div 
+              initial={{ y: 100, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              className="bg-[#111118] text-[#f0eeff] p-6 pb-12 space-y-6 z-40 border-t border-[#1e1e2e] shadow-[0_-20px_50px_rgba(0,0,0,0.5)] relative rounded-t-[32px] overflow-hidden"
+            >
+               {/* Location Input Section */}
+               <div className="bg-[#111118] p-4 rounded-2xl border border-[#1e1e2e] relative shadow-inner">
+                  <div className="flex items-center gap-4 relative">
+                     {/* Dots and line */}
+                     <div className="flex flex-col items-center gap-1 py-1">
+                        <div className="w-2.5 h-2.5 rounded-full bg-[#1D9E75] shadow-[0_0_8px_#1D9E75]" />
+                        <div className="w-[1px] h-10 bg-[#1e1e2e]" />
+                        <div className="w-2.5 h-2.5 rounded-full bg-[#D85A30]" />
+                     </div>
+
+                     <div className="flex-1 space-y-4">
+                        <div className="flex justify-between items-center group">
+                           <div className="flex-1">
+                              <p className="text-[10px] font-bold text-[#6b6b8a] uppercase tracking-widest mb-0.5">ENEO LA MWANZO</p>
+                              <p className="text-sm font-medium text-[#f0eeff] line-clamp-1">{pickup}</p>
+                           </div>
+                           <button onClick={() => setSettingMode('pickup')} className="text-[11px] font-bold text-[#7F77DD] hover:underline px-2">Badilisha</button>
+                        </div>
+                        
+                        {/* Subtle Badge */}
+                        <div className="flex items-center gap-2">
+                           <div className="h-[1px] flex-1 bg-[#1e1e2e]" />
+                           <div className="bg-[#1D9E75]/10 text-[#1D9E75] text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter border border-[#1D9E75]/20">Njia ya Haraka</div>
+                           <div className="h-[1px] flex-1 bg-[#1e1e2e]" />
+                        </div>
+
+                        <div className="flex justify-between items-center group">
+                           <div className="flex-1">
+                              <p className="text-[10px] font-bold text-[#6b6b8a] uppercase tracking-widest mb-0.5">ENEO LA MWISHO</p>
+                              <p className="text-sm font-medium text-[#f0eeff] line-clamp-1">{destination || 'Unakwenda wapi?'}</p>
+                           </div>
+                           <button onClick={() => setSettingMode('destination')} className="text-[11px] font-bold text-[#7F77DD] hover:underline px-2">Badilisha</button>
+                        </div>
+                     </div>
+                     
+                     {/* Swap Icon */}
+                     <button onClick={swapLocations} className="ml-2 w-8 h-8 rounded-full bg-[#1e1e2e] flex items-center justify-center text-[#6b6b8a] hover:text-[#f0eeff] transition-all hover:rotate-180 duration-500">
+                        <RefreshCw className="w-4 h-4" />
+                     </button>
+                  </div>
+                  
+                  {/* Distance Indicator */}
+                  <div className="mt-4 flex items-center gap-2 justify-center border-t border-[#1e1e2e] pt-3">
+                     <Navigation2 className="w-3 h-3 text-[#6b6b8a] rotate-45" />
+                     <span className="text-[9px] font-bold text-[#6b6b8a] uppercase tracking-widest">Total distance: {(totalDistance/1000).toFixed(1)} km</span>
                   </div>
                </div>
 
                {/* Vehicle Options */}
-               <div className="grid grid-cols-3 gap-3">
+               <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar -mx-6 px-6">
                   {rideOptions.map((ride) => (
                      <button 
                         key={ride.id}
                         onClick={() => setSelectedRide(ride)}
-                        className={`group relative p-4 rounded-3xl border-2 transition-all flex flex-col items-center gap-2 overflow-hidden ${
-                           selectedRide?.id === ride.id ? 'bg-amber-100/50 border-amber-500 shadow-xl scale-105 shadow-amber-500/10' : 'bg-neutral-50 border-neutral-100'
+                        className={`shrink-0 w-[140px] p-4 rounded-2xl border transition-all flex flex-col items-center relative overflow-hidden backdrop-blur-sm ${
+                           selectedRide?.id === ride.id 
+                           ? 'bg-[#7F77DD]/5 border-[#7F77DD] shadow-[0_0_20px_rgba(127,119,221,0.1)] scale-[1.02]' 
+                           : 'bg-[#111118] border-[#1e1e2e] hover:border-[#6b6b8a]/30'
                         }`}
                      >
-                        <div className="flex items-center gap-1 absolute top-2 right-2 opacity-70">
-                          <Clock className="w-2.5 h-2.5 text-amber-600" />
-                          <span className="text-[8px] font-black text-amber-900">{ride.eta}min</span>
+                        <div className="flex items-center gap-1 absolute top-2 right-2 bg-black/40 px-2 py-0.5 rounded-full border border-white/5">
+                          <Clock className="w-2.5 h-2.5 text-[#6b6b8a]" />
+                          <span className="text-[9px] font-bold text-[#6b6b8a]">{ride.eta} min</span>
                         </div>
                         
-                        <div className="w-16 h-10 relative mb-1">
-                           <img src={ride.image} alt={ride.name} className="w-full h-full object-contain mix-blend-multiply group-hover:scale-110 transition-transform" />
+                        <div className="w-16 h-12 flex items-center justify-center mb-2">
+                           {typeof ride.icon === 'function' ? (
+                             <ride.icon className={`w-10 h-10 ${selectedRide?.id === ride.id ? 'text-[#7F77DD]' : 'text-[#f0eeff]'}`} />
+                           ) : (
+                             <span className="text-3xl">{ride.image}</span>
+                           )}
                         </div>
                         
                         <div className="text-center">
-                           <h4 className="text-[10px] font-black uppercase leading-none mb-1 text-neutral-900">{ride.name}</h4>
-                           <p className="text-[8px] font-bold text-neutral-400 mb-1 leading-none">{ride.sub}</p>
+                           <h4 className="text-xs font-bold uppercase text-[#f0eeff] mb-0.5 leading-none">{ride.name}</h4>
+                           <p className="text-[9px] font-bold text-[#6b6b8a] mb-2 leading-none">{ride.sub}</p>
                            <div className="flex flex-col items-center">
-                             <span className="text-[11px] font-black text-amber-600">TZS {ride.priceRange}</span>
-                             <span className="text-[7px] font-black text-emerald-600 uppercase tracking-tighter bg-emerald-100 px-2 py-0.5 rounded-full mt-1">Punguzo 3k</span>
+                             <span className="text-sm font-black text-[#f0eeff]">TZS {ride.priceRange}</span>
+                             <span className="text-[8px] font-bold text-[#1D9E75] uppercase tracking-widest bg-[#1D9E75]/10 px-2 py-0.5 rounded-full mt-1 border border-[#1D9E75]/20">PUNGUZO 3K</span>
                            </div>
                         </div>
                      </button>
@@ -876,13 +910,16 @@ export default function TaxiBooking() {
                {/* Confirm Action Button */}
                <button 
                   onClick={confirmBooking}
-                  className="w-full h-20 bg-neutral-900 text-white rounded-[2rem] font-black uppercase tracking-[0.3em] text-sm hover:bg-black transition-all active:scale-95 shadow-2xl flex items-center justify-center gap-4 border border-white/10"
+                  disabled={!selectedRide || !destination}
+                  className="group w-full h-[56px] bg-white text-[#0a0a0f] rounded-[50px] font-bold uppercase tracking-[0.1em] text-sm overflow-hidden flex items-center justify-between px-8 shadow-[0_10px_30px_rgba(255,255,255,0.1)] active:scale-[0.98] transition-all disabled:opacity-50 disabled:grayscale"
                >
-                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  Thibitisha Safari
-                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <div className="flex items-center gap-3">
+                     <div className="w-2 h-2 rounded-full bg-[#1D9E75] animate-pulse shadow-[0_0_8px_#1D9E75]" />
+                     <span>THIBITISHA SAFARI</span>
+                  </div>
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                </button>
-            </div>
+            </motion.div>
           </motion.div>
         )}
 
@@ -892,31 +929,33 @@ export default function TaxiBooking() {
             id="ride-searching-container"
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="absolute inset-0 z-30 flex flex-col items-center justify-center p-8 bg-neutral-950/90 backdrop-blur-sm"
+            className="absolute inset-0 z-[100] flex flex-col items-center justify-center p-8 bg-[#0a0a0f]/95 backdrop-blur-md"
           >
              <div className="relative w-64 h-64 mb-8">
                 <motion.div 
                   animate={{ rotate: 360 }}
                   transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                  className="absolute inset-0 border-[6px] border-orange-600 border-t-transparent rounded-full shadow-[0_0_50px_rgba(234,88,12,0.3)]"
+                  className="absolute inset-0 border-[4px] border-[#7F77DD]/30 border-t-[#7F77DD] rounded-full shadow-[0_0_50px_rgba(127,119,221,0.2)]"
                 />
-                <div className="absolute inset-4 rounded-full bg-neutral-900 border border-white/5 flex items-center justify-center p-8 shadow-inner">
-                   <img src={selectedRide?.image} alt="Ride" className="w-full h-full object-contain animate-pulse mix-blend-lighten" />
+                <div className="absolute inset-6 rounded-full bg-[#111118] border border-[#1e1e2e] flex items-center justify-center p-8 shadow-inner">
+                   <div className="w-full h-full flex items-center justify-center text-6xl animate-pulse">
+                      {selectedRide?.image}
+                   </div>
                 </div>
                 <motion.div 
                    animate={{ scale: [1, 1.2, 1] }}
                    transition={{ duration: 1.5, repeat: Infinity }}
-                   className="absolute top-0 right-0 w-8 h-8 bg-orange-600 rounded-full flex items-center justify-center shadow-lg border-2 border-white/20"
+                   className="absolute top-0 right-0 w-8 h-8 bg-[#1D9E75] rounded-full flex items-center justify-center shadow-lg border-2 border-white/20"
                 >
                    <MapPin className="w-4 h-4 text-white" />
                 </motion.div>
              </div>
             <div className="text-center space-y-3">
-                <Badge className="bg-orange-500/20 text-orange-400 border-none px-4 py-1.5 rounded-full text-[11px] font-black uppercase mb-2">
+                <Badge className="bg-[#7F77DD]/20 text-[#7F77DD] border-none px-4 py-1.5 rounded-full text-[11px] font-black uppercase mb-2">
                    Kutafuta dereva: {selectedRide?.vehicleType}
                 </Badge>
-                <h2 className="text-3xl font-black italic uppercase tracking-tighter animate-pulse text-white">Kutafuta Dereva...</h2>
-                <p className="text-neutral-400 font-bold max-w-[250px] mx-auto text-sm">Tunatafuta dereva wa {selectedRide?.name} karibu nawe.</p>
+                <h2 className="text-3xl font-black italic uppercase tracking-tighter animate-pulse text-[#f0eeff]">Kutafuta Dereva...</h2>
+                <p className="text-[#6b6b8a] font-bold max-w-[250px] mx-auto text-sm">Tunatafuta dereva wa {selectedRide?.name} karibu nawe.</p>
              </div>
              <motion.div 
                initial={{ opacity: 0 }}
@@ -924,7 +963,7 @@ export default function TaxiBooking() {
                transition={{ delay: 1 }}
                className="mt-12 w-full max-w-[200px]"
              >
-                <button onClick={() => setStep('map')} className="w-full border border-neutral-800 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] text-neutral-500 hover:text-red-500 hover:border-red-500/30 transition-all">GHAIRI SAFARI</button>
+                <button onClick={() => setStep('map')} className="w-full border border-[#1e1e2e] py-4 rounded-[50px] font-black uppercase tracking-widest text-[10px] text-[#6b6b8a] hover:text-red-500 hover:border-red-500/30 transition-all">GHAIRI SAFARI</button>
              </motion.div>
           </motion.div>
         )}
@@ -936,59 +975,59 @@ export default function TaxiBooking() {
             animate={{ opacity: 1, scale: 1 }}
             className="px-6 relative z-10 flex flex-col h-[85vh] justify-center"
           >
-            <div className="bg-neutral-900 border border-neutral-800 rounded-[3rem] p-10 shadow-3xl relative overflow-hidden group">
-               <div className="absolute top-[-20%] right-[-20%] w-64 h-64 bg-emerald-500/10 blur-[80px] rounded-full group-hover:scale-150 transition-all" />
+            <div className="bg-[#111118] border border-[#1e1e2e] rounded-[32px] p-10 shadow-3xl relative overflow-hidden group">
+               <div className="absolute top-[-20%] right-[-20%] w-64 h-64 bg-[#1D9E75]/10 blur-[80px] rounded-full group-hover:scale-150 transition-all" />
                <div className="absolute inset-0 z-0 bg-noise opacity-10" />
 
                <div className="relative z-10 space-y-8">
                   <div className="flex flex-col items-center text-center">
-                     <div className="w-20 h-20 rounded-[2rem] bg-emerald-500/10 flex items-center justify-center text-emerald-500 mb-6 border-2 border-dashed border-emerald-500/20 shadow-xl shadow-emerald-950/20">
+                     <div className="w-20 h-20 rounded-[2rem] bg-[#1D9E75]/10 flex items-center justify-center text-[#1D9E75] mb-6 border-2 border-dashed border-[#1D9E75]/20 shadow-xl shadow-emerald-950/20">
                         <CheckCircle2 className="w-10 h-10" />
                      </div>
-                     <h2 className="text- emerald-500 text-3xl font-black italic uppercase italic tracking-tighter">Safari Imethibitishwa!</h2>
-                     <p className="text-neutral-400 font-bold mt-2">Ahsante {profile?.displayName || 'Mteja'}, kiti chako kimetengwa.</p>
+                     <h2 className="text-[#1D9E75] text-3xl font-black italic uppercase tracking-tighter">Safari Imethibitishwa!</h2>
+                     <p className="text-[#6b6b8a] font-bold mt-2">Ahsante {profile?.displayName || 'Mteja'}, kiti chako kimetengwa.</p>
                   </div>
 
                   <div className="space-y-4">
-                     <div className="flex items-center justify-between p-5 bg-neutral-800/50 rounded-3xl border border-white/5">
+                     <div className="flex items-center justify-between p-5 bg-[#0a0a0f] rounded-3xl border border-[#1e1e2e]">
                         <div className="flex items-center gap-4">
-                           <div className="w-14 h-14 bg-black/20 rounded-2xl p-1 overflow-hidden">
-                              <img src={selectedRide?.image} alt="Car" className="w-full h-full object-contain mix-blend-lighten" />
+                           <div className="w-14 h-14 bg-black/20 rounded-2xl p-1 overflow-hidden flex items-center justify-center text-4xl">
+                              {selectedRide?.image}
                            </div>
                            <div>
-                              <h4 className="text-sm font-black uppercase italic">{selectedRide?.name}</h4>
-                              <p className="text-[10px] font-bold text-neutral-500">Usafiri Uliochaguliwa</p>
+                              <h4 className="text-sm font-black uppercase italic text-[#f0eeff]">{selectedRide?.name}</h4>
+                              <p className="text-[10px] font-bold text-[#6b6b8a]">Usafiri Uliochaguliwa</p>
                            </div>
                         </div>
-                        <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                        <CheckCircle2 className="w-5 h-5 text-[#1D9E75]" />
                      </div>
 
-                     <div className="p-6 bg-neutral-800/50 rounded-3xl border border-white/5 space-y-4">
+                     <div className="p-6 bg-[#0a0a0f] rounded-3xl border border-[#1e1e2e] space-y-4">
                         <div className="flex justify-between items-start">
                            <div>
-                              <p className="text-[9px] font-black uppercase text-neutral-500 tracking-widest mb-1">Pickup</p>
-                              <p className="text-xs font-bold leading-tight line-clamp-1">{pickup}</p>
+                              <p className="text-[9px] font-black uppercase text-[#6b6b8a] tracking-widest mb-1">Pickup</p>
+                              <p className="text-xs font-bold leading-tight line-clamp-1 text-[#f0eeff]">{pickup}</p>
                            </div>
                         </div>
-                        <div className="flex justify-between items-start pt-4 border-t border-white/5">
+                        <div className="flex justify-between items-start pt-4 border-t border-[#1e1e2e]">
                            <div>
-                              <p className="text-[9px] font-black uppercase text-neutral-500 tracking-widest mb-1">Mwisho (Destination)</p>
-                              <p className="text-xs font-bold leading-tight line-clamp-1">{destination}</p>
+                              <p className="text-[9px] font-black uppercase text-[#6b6b8a] tracking-widest mb-1">Mwisho (Destination)</p>
+                              <p className="text-xs font-bold leading-tight line-clamp-1 text-[#f0eeff]">{destination}</p>
                            </div>
                         </div>
-                        <div className="flex items-center justify-between pt-4 border-t border-white/5">
+                        <div className="flex items-center justify-between pt-4 border-t border-[#1e1e2e]">
                            <div className="flex items-center gap-2">
-                              <DollarSign className="w-4 h-4 text-orange-600" />
-                              <span className="text-lg font-black italic">TZS {selectedRide?.price.toLocaleString()}</span>
+                              <DollarSign className="w-4 h-4 text-[#D85A30]" />
+                              <span className="text-lg font-black italic text-[#f0eeff]">TZS {selectedRide?.price.toLocaleString()}</span>
                            </div>
-                           <Badge className="bg-emerald-500/20 text-emerald-500 border-none font-black text-[10px] px-4 py-1.5 rounded-full">IMETHIBITISHWA</Badge>
+                           <Badge className="bg-[#1D9E75]/20 text-[#1D9E75] border-none font-black text-[10px] px-4 py-1.5 rounded-full">IMETHIBITISHWA</Badge>
                         </div>
                      </div>
                   </div>
 
                   <button 
                      onClick={() => setStep('arriving')}
-                     className="w-full bg-neutral-100 text-neutral-950 py-5 rounded-3xl font-black uppercase tracking-widest hover:bg-white transition-all shadow-xl shadow-white/5"
+                     className="w-full bg-white text-[#0a0a0f] py-5 rounded-[50px] font-black uppercase tracking-widest hover:bg-neutral-200 transition-all shadow-xl active:scale-95"
                   >
                      Subiri Dereva Afike
                   </button>
@@ -1005,177 +1044,175 @@ export default function TaxiBooking() {
             className="px-6 pt-12 space-y-8 relative z-10"
           >
              {/* Driver Card */}
-             <div className="bg-neutral-900 border border-neutral-800 rounded-[3rem] p-8 shadow-3xl border-b-emerald-500 border-b-2 overflow-hidden relative group">
-                <div className="absolute top-0 right-0 p-8 opacity-20 group-hover:scale-110 transition-transform">
-                   <Navigation2 className="w-24 h-24 text-orange-600 rotate-45" />
+             <div className="bg-[#111118] border border-[#1e1e2e] rounded-[32px] p-8 shadow-3xl border-b-[#1D9E75] border-b-2 overflow-hidden relative group">
+                <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform">
+                   <Navigation2 className="w-24 h-24 text-[#D85A30] rotate-45" />
                 </div>
                 
                 <div className="relative z-10 flex flex-col items-center text-center">
-                   <p className="text-[10px] font-black uppercase text-emerald-500 tracking-widest mb-6">Dereva Anakuja</p>
-                   <div className="text-5xl font-black italic mb-2 tracking-tighter text-white">
+                   <p className="text-[10px] font-black uppercase text-[#1D9E75] tracking-widest mb-6">Dereva Anakuja</p>
+                   <div className="text-5xl font-black italic mb-2 tracking-tighter text-[#f0eeff]">
                     {etaSeconds > 60 
                       ? `${Math.floor(etaSeconds / 60)} DK ${Math.floor(etaSeconds % 60)} SEK` 
                       : `${etaSeconds.toFixed(2)} SEK`}
                    </div>
-                   <p className="text-neutral-400 font-bold text-sm">{activeRide.driverName || 'Dereva'}</p>
+                   <p className="text-[#6b6b8a] font-bold text-sm">{activeRide.driverName || 'Dereva'}</p>
 
-                   <div className="w-full h-px bg-neutral-800 my-8" />
+                   <div className="w-full h-px bg-[#1e1e2e] my-8" />
 
                    <div className="w-full flex items-center justify-between">
                       <div className="flex items-center gap-4">
-                         <div className="w-16 h-16 rounded-[1.5rem] bg-orange-600/10 p-1 border-2 border-orange-600/30 overflow-hidden relative">
+                         <div className="w-16 h-16 rounded-[1.5rem] bg-[#D85A30]/10 p-1 border-2 border-[#D85A30]/30 overflow-hidden relative">
                             <img src={activeRide.driverPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${activeRide.driverName}`} alt="Driver" className="w-full h-full object-cover rounded-xl" />
                          </div>
                          <div className="text-left">
-                            <h4 className="text-lg font-black uppercase italic tracking-tighter">{activeRide.driverName || 'Dereva'}</h4>
-                            <div className="flex items-center gap-1 text-orange-500">
+                            <h4 className="text-lg font-black uppercase italic tracking-tighter text-[#f0eeff]">{activeRide.driverName || 'Dereva'}</h4>
+                            <div className="flex items-center gap-1 text-[#D85A30]">
                                <Star className="w-4 h-4 fill-current" />
                                <span className="text-sm font-black">4.9</span>
                             </div>
                          </div>
                       </div>
                       <div className="flex gap-2">
-                         <button className="w-12 h-12 rounded-2xl bg-neutral-800 flex items-center justify-center text-white border border-white/5 hover:bg-neutral-700 transition-all">
+                         <button className="w-12 h-12 rounded-2xl bg-[#0a0a0f] flex items-center justify-center text-[#f0eeff] border border-[#1e1e2e] hover:bg-[#111118] transition-all">
                             <Phone className="w-5 h-5" />
                          </button>
-                         <button className="w-12 h-12 rounded-2xl bg-neutral-800 flex items-center justify-center text-white border border-white/5 hover:bg-neutral-700 transition-all">
+                         <button className="w-12 h-12 rounded-2xl bg-[#0a0a0f] flex items-center justify-center text-[#f0eeff] border border-[#1e1e2e] hover:bg-[#111118] transition-all">
                             <MessageSquare className="w-5 h-5" />
                          </button>
                       </div>
                    </div>
 
-                   <div className="w-full bg-neutral-800/40 rounded-3xl p-5 mt-6 border border-white/5 flex items-center gap-5 group/car">
-                      <div className="w-20 h-14 bg-black/30 rounded-2xl flex items-center justify-center p-1 overflow-hidden">
-                         <img src={selectedRide?.image} alt="Vehicle" className="w-full h-full object-contain mix-blend-lighten group-hover/car:scale-110 transition-transform" />
+                   <div className="w-full bg-[#0a0a0f]/40 rounded-3xl p-5 mt-6 border border-[#1e1e2e] flex items-center gap-5 group/car">
+                      <div className="w-20 h-14 bg-black/30 rounded-2xl flex items-center justify-center text-4xl p-1 overflow-hidden">
+                         {selectedRide?.image}
                       </div>
                       <div className="text-left">
-                         <p className="text-[10px] font-black text-neutral-500 uppercase tracking-widest leading-none mb-1">Maelezo ya Chombo</p>
-                         <h4 className="text-sm font-black">{activeRide.vehicleNumber || 'T 123 ABC'}</h4>
+                         <p className="text-[10px] font-black text-[#6b6b8a] uppercase tracking-widest leading-none mb-1">Maelezo ya Chombo</p>
+                         <h4 className="text-sm font-black text-[#f0eeff]">{activeRide.vehicleNumber || 'T 123 ABC'}</h4>
                       </div>
                    </div>
                 </div>
              </div>
 
              <div className="space-y-4">
-                <p className="text-[10px] font-black uppercase text-neutral-500 tracking-widest ml-4">Maelezo ya Safari ya Sasa</p>
-                <div className="p-6 bg-neutral-900 border border-neutral-800 rounded-3xl space-y-6">
+                <p className="text-[10px] font-black uppercase text-[#6b6b8a] tracking-widest ml-4">Maelezo ya Safari ya Sasa</p>
+                <div className="p-6 bg-[#111118] border border-[#1e1e2e] rounded-3xl space-y-6">
                    <div className="flex gap-4">
-                      <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 shrink-0">
-                         <div className="w-3 h-3 rounded-full bg-emerald-500 animate-ping" />
+                      <div className="w-10 h-10 rounded-2xl bg-[#1D9E75]/10 flex items-center justify-center text-[#1D9E75] shrink-0">
+                         <div className="w-3 h-3 rounded-full bg-[#1D9E75] animate-ping" />
                       </div>
                       <div>
-                         <p className="text-[9px] font-black uppercase text-neutral-500 tracking-widest mb-1">Pickup</p>
-                         <p className="text-xs font-bold leading-tight">{pickup}</p>
+                         <p className="text-[9px] font-black uppercase text-[#6b6b8a] tracking-widest mb-1">Pickup</p>
+                         <p className="text-xs font-bold leading-tight text-[#f0eeff]">{pickup}</p>
                       </div>
                    </div>
                 </div>
              </div>
 
-             <div className="bg-emerald-500/10 border-2 border-emerald-500/20 p-6 rounded-3xl text-center space-y-2">
-                <p className="text-[10px] font-black uppercase text-emerald-500 tracking-widest">Driver Status</p>
-                <h4 className="text-xl font-black italic uppercase tracking-tighter text-emerald-400">
+             <div className="bg-[#1D9E75]/10 border-2 border-[#1D9E75]/20 p-6 rounded-3xl text-center space-y-2">
+                <p className="text-[10px] font-black uppercase text-[#1D9E75] tracking-widest">Driver Status</p>
+                <h4 className="text-xl font-black italic uppercase tracking-tighter text-[#1D9E75]">
                    {activeRide.status === 'accepted' && 'Anakuja kukuachukua...'}
                    {activeRide.status === 'arrived' && 'Amefika! Tafadhali nenda kwenye gari.'}
                 </h4>
              </div>
           </motion.div>
         )}
-
-        {step === 'on_trip' && activeRide && (
+         {step === 'on_trip' && activeRide && (
           <motion.div 
             key="on_trip"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             className="px-6 pt-12 space-y-6 relative z-10"
           >
-             <div className="bg-neutral-900 border border-neutral-800 rounded-[3rem] p-8 shadow-3xl border-b-amber-500 border-b-4 overflow-hidden relative group">
+             <div className="bg-[#111118] border border-[#1e1e2e] rounded-[32px] p-8 shadow-3xl border-b-[#7F77DD] border-b-4 overflow-hidden relative group">
                 <div className="relative z-10 flex flex-col items-center text-center">
-                   <div className="flex items-center gap-2 bg-amber-500/10 px-4 py-1.5 rounded-full border border-amber-500/20 mb-6">
-                      <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse shadow-[0_0_8px_#f59e0b]" />
-                      <span className="text-[10px] font-black uppercase text-amber-500 tracking-widest leading-none">SAFARI INAENDELEA</span>
+                   <div className="flex items-center gap-2 bg-[#7F77DD]/10 px-4 py-1.5 rounded-full border border-[#7F77DD]/20 mb-6">
+                      <div className="w-2 h-2 bg-[#7F77DD] rounded-full animate-pulse shadow-[0_0_8px_#7F77DD]" />
+                      <span className="text-[10px] font-black uppercase text-[#7F77DD] tracking-widest leading-none">SAFARI INAENDELEA</span>
                    </div>
                    
-                   <div className={`text-6xl font-black italic mb-2 tracking-tighter ${tripProgress >= 95 ? 'text-emerald-400' : 'text-white'}`}>
+                   <div className={`text-6xl font-black italic mb-2 tracking-tighter ${tripProgress >= 95 ? 'text-[#1D9E75]' : 'text-[#f0eeff]'}`}>
                      {tripProgress >= 100 ? 'UMEFIKA!' : (
                        etaSeconds > 60 
                          ? `${Math.floor(etaSeconds / 60)}:${Math.floor(etaSeconds % 60).toString().padStart(2, '0')}` 
                          : `${etaSeconds.toFixed(2)}`
                      )}
                    </div>
-                   <p className="text-neutral-500 font-bold text-xs uppercase tracking-widest mb-8">
-                     {tripProgress >= 100 ? 'TUMEFATILIA MWISHO WA SAFARI' : `${(2.5 * (1 - tripProgress/100)).toFixed(1)} KM IMESALIA`}
+                   <p className="text-[#6b6b8a] font-bold text-xs uppercase tracking-widest mb-8">
+                     {tripProgress >= 100 ? 'TUMEFATILIA MWISHO WA SAFARI' : `${(totalDistance * (1 - tripProgress/100) / 1000).toFixed(1)} KM IMESALIA`}
                    </p>
 
                    {/* Progress Visual */}
-                   <div className="w-full h-3 bg-neutral-800 rounded-full mb-8 relative overflow-hidden">
+                   <div className="w-full h-3 bg-[#1e1e2e] rounded-full mb-8 relative overflow-hidden">
                       <motion.div 
                         initial={{ width: 0 }}
                         animate={{ width: `${tripProgress}%` }}
-                        className="absolute h-full bg-gradient-to-r from-amber-500 to-emerald-500 rounded-full"
+                        className="absolute h-full bg-gradient-to-r from-[#7F77DD] to-[#1D9E75] rounded-full"
                       />
                    </div>
 
                    <div className="w-full flex justify-between items-center px-2">
                        <div className="flex flex-col items-start">
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-2 ${tripProgress > 0 ? 'bg-emerald-500 text-white' : 'bg-neutral-700 text-neutral-500'}`}>
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-2 ${tripProgress > 0 ? 'bg-[#1D9E75] text-white' : 'bg-[#1e1e2e] text-[#6b6b8a]'}`}>
                              <p className="text-[10px] font-black">A</p>
                           </div>
-                          <p className="text-[8px] font-black text-neutral-500 uppercase tracking-widest">Kuanza</p>
+                          <p className="text-[8px] font-black text-[#6b6b8a] uppercase tracking-widest">Kuanza</p>
                        </div>
-                       <div className="flex-1 h-px bg-neutral-800 mx-4 border-t border-dashed border-neutral-700" />
+                       <div className="flex-1 h-px bg-[#1e1e2e] mx-4 border-t border-dashed border-[#1e1e2e]" />
                        <div className="flex flex-col items-center">
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-2 border-2 transition-colors ${tripProgress > 10 && tripProgress < 90 ? 'bg-amber-500 border-white text-white' : 'bg-neutral-800 border-neutral-700 text-neutral-500'}`}>
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-2 border-2 transition-colors ${tripProgress > 10 && tripProgress < 90 ? 'bg-[#7F77DD] border-white text-white' : 'bg-[#1e1e2e] border-[#1e1e2e] text-[#6b6b8a]'}`}>
                              <Navigation2 className="w-5 h-5 rotate-45" />
                           </div>
-                          <p className={`text-[8px] font-black uppercase tracking-widest ${tripProgress > 10 && tripProgress < 90 ? 'text-amber-500' : 'text-neutral-500'}`}>Ulipo Sasa</p>
+                          <p className={`text-[8px] font-black uppercase tracking-widest ${tripProgress > 10 && tripProgress < 90 ? 'text-[#7F77DD]' : 'text-[#6b6b8a]'}`}>Ulipo Sasa</p>
                        </div>
-                       <div className="flex-1 h-px bg-neutral-800 mx-4 border-t border-dashed border-neutral-700" />
+                       <div className="flex-1 h-px bg-[#1e1e18] mx-4 border-t border-dashed border-[#1e1e2e]" />
                        <div className="flex flex-col items-end">
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-2 ${tripProgress >= 100 ? 'bg-emerald-500 text-white' : 'bg-neutral-700 text-neutral-500'}`}>
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-2 ${tripProgress >= 100 ? 'bg-[#1D9E75] text-white' : 'bg-[#1e1e2e] text-[#6b6b8a]'}`}>
                              <p className="text-[10px] font-black">B</p>
                           </div>
-                          <p className="text-[8px] font-black text-neutral-500 uppercase tracking-widest">Mwisho</p>
+                          <p className="text-[8px] font-black text-[#6b6b8a] uppercase tracking-widest">Mwisho</p>
                        </div>
                    </div>
                 </div>
              </div>
 
               {/* Driver Detailed Card */}
-              <div className="bg-neutral-900 border border-neutral-800 rounded-[2.5rem] p-6 shadow-2xl">
+              <div className="bg-[#111118] border border-[#1e1e2e] rounded-[2.5rem] p-6 shadow-2xl">
                  <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-4">
                        <div className="relative">
-                          <div className="w-16 h-16 rounded-full overflow-hidden border-4 border-neutral-800 bg-neutral-800">
+                          <div className="w-16 h-16 rounded-full overflow-hidden border-4 border-[#0a0a0f] bg-[#0a0a0f]">
                              <img src={activeRide.driverPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${activeRide.driverName}`} alt="Driver" className="w-full h-full object-cover" />
                           </div>
-                          <div className="absolute -bottom-1 -right-1 bg-emerald-500 w-5 h-5 rounded-full border-2 border-neutral-900 flex items-center justify-center">
+                          <div className="absolute -bottom-1 -right-1 bg-[#1D9E75] w-5 h-5 rounded-full border-2 border-[#0a0a0f] flex items-center justify-center">
                              <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
                           </div>
                        </div>
                        <div>
-                          <h4 className="font-black uppercase italic text-lg leading-none mb-1">{activeRide.driverName}</h4>
+                          <h4 className="font-black uppercase italic text-lg leading-none mb-1 text-[#f0eeff]">{activeRide.driverName}</h4>
                           <div className="flex items-center gap-2">
-                             <div className="flex items-center bg-amber-500/10 px-2 py-0.5 rounded text-amber-500">
-                                <Star className="w-3 h-3 fill-amber-500" />
+                             <div className="flex items-center bg-[#D85A30]/10 px-2 py-0.5 rounded text-[#D85A30]">
+                                <Star className="w-3 h-3 fill-[#D85A30]" />
                                 <span className="text-[10px] font-black ml-1">4.9</span>
                              </div>
-                             <p className="text-[10px] text-neutral-500 font-bold tracking-widest uppercase">{activeRide.vehicleNumber}</p>
+                             <p className="text-[10px] text-[#6b6b8a] font-bold tracking-widest uppercase">{activeRide.vehicleNumber}</p>
                           </div>
                        </div>
                     </div>
                     <div className="flex gap-2">
-                       <button className="w-12 h-12 bg-emerald-500 rounded-2xl flex items-center justify-center text-white shadow-lg hover:scale-105 active:scale-95 transition-transform">
+                       <button className="w-12 h-12 bg-[#1D9E75] rounded-2xl flex items-center justify-center text-white shadow-lg hover:scale-105 active:scale-95 transition-transform">
                           <Phone className="w-5 h-5 fill-white" />
                        </button>
-                       <button className="w-12 h-12 bg-neutral-800 border border-neutral-700 rounded-2xl flex items-center justify-center text-white hover:scale-105 active:scale-95 transition-transform">
-                          <MessageCircle className="w-5 h-5" />
+                       <button className="w-12 h-12 bg-[#0a0a0f] border border-[#1e1e2e] rounded-2xl flex items-center justify-center text-[#f0eeff] hover:scale-105 active:scale-95 transition-transform">
+                          <MessageSquare className="w-5 h-5" />
                        </button>
                     </div>
                  </div>
-                 <button onClick={() => setStep('map')} className="w-full py-4 bg-orange-600/10 text-orange-500 rounded-2xl font-black text-xs uppercase tracking-widest border border-orange-500/20 hover:bg-orange-600 hover:text-white transition-all">Ghairi Safari</button>
               </div>
            </motion.div>
-         )}
+        )}
 
          {step === 'completed' && activeRide && (
           <motion.div 
@@ -1185,39 +1222,39 @@ export default function TaxiBooking() {
             className="px-6 pt-20 space-y-8 relative z-10"
           >
              <div className="text-center space-y-4">
-                <div className="w-24 h-24 bg-emerald-500/10 rounded-[2.5rem] flex items-center justify-center mx-auto border-2 border-dashed border-emerald-500/30 text-emerald-500 shadow-3xl shadow-emerald-950/20">
+                <div className="w-24 h-24 bg-[#1D9E75]/10 rounded-[2.5rem] flex items-center justify-center mx-auto border-2 border-dashed border-[#1D9E75]/30 text-[#1D9E75] shadow-3xl shadow-emerald-950/20">
                    <ShieldCheck className="w-12 h-12" />
                 </div>
-                <h2 className="text-4xl font-black italic uppercase tracking-tighter">Safari Imekamilika</h2>
-                <p className="text-neutral-400 font-bold max-w-[250px] mx-auto text-sm">Asante kwa kusafiri nasi leo! Tumekufikisha salama.</p>
+                <h2 className="text-4xl font-black italic uppercase tracking-tighter text-[#f0eeff]">Safari Imekamilika</h2>
+                <p className="text-[#6b6b8a] font-bold max-w-[250px] mx-auto text-sm">Asante kwa kusafiri nasi leo! Tumekufikisha salama.</p>
              </div>
 
-             <div className="bg-neutral-900 border border-neutral-800 rounded-[3rem] p-8 space-y-6">
-                <div className="flex items-center justify-between border-b border-neutral-800 pb-6">
+             <div className="bg-[#111118] border border-[#1e1e2e] rounded-[32px] p-8 space-y-6">
+                <div className="flex items-center justify-between border-b border-[#1e1e2e] pb-6">
                    <div className="flex items-center gap-4">
-                      <div className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-orange-600/30">
+                      <div className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-[#D85A30]/30">
                          <img src={activeRide.driverPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${activeRide.driverName}`} alt="Driver" />
                       </div>
                       <div className="text-left">
-                         <h4 className="text-lg font-black uppercase italic tracking-tighter">{activeRide.driverName}</h4>
-                         <p className="text-[10px] text-neutral-500 font-bold uppercase">{activeRide.vehicleNumber}</p>
+                         <h4 className="text-lg font-black uppercase italic tracking-tighter text-[#f0eeff]">{activeRide.driverName}</h4>
+                         <p className="text-[10px] text-[#6b6b8a] font-bold uppercase">{activeRide.vehicleNumber}</p>
                       </div>
                    </div>
                    <div className="text-right">
-                      <p className="text-[10px] font-black text-emerald-500 uppercase">Paid Via {activeRide.paymentMethod || 'Cash'}</p>
-                      <p className="text-2xl font-black italic mt-1 tracking-tighter">TZS {activeRide.estimatedFare.toLocaleString()}</p>
+                      <p className="text-[10px] font-black text-[#1D9E75] uppercase">Paid Via {activeRide.paymentMethod || 'Cash'}</p>
+                      <p className="text-2xl font-black italic mt-1 tracking-tighter text-[#f0eeff]">TZS {activeRide.estimatedFare.toLocaleString()}</p>
                    </div>
                 </div>
 
                 <div className="space-y-4">
-                   <p className="text-center text-[10px] font-black uppercase text-neutral-500 tracking-wider">Tafadhali kadiria safari yako:</p>
+                   <p className="text-center text-[10px] font-black uppercase text-[#6b6b8a] tracking-wider">Tafadhali kadiria safari yako:</p>
                    <div className="flex justify-center gap-3">
                       {[1, 2, 3, 4, 5].map((star) => (
                          <button 
                           key={star} 
                           onClick={() => handleRate(star)}
                           className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all shadow-lg ${
-                            userRating >= star ? 'bg-orange-600 text-white' : 'bg-neutral-800 text-orange-600 hover:bg-neutral-700'
+                            userRating >= star ? 'bg-[#7F77DD] text-white' : 'bg-[#0a0a0f] text-[#6b6b8a] hover:bg-[#111118]'
                           }`}
                         >
                             <Star className={`w-6 h-6 ${userRating >= star ? 'fill-current' : ''}`} />
@@ -1225,29 +1262,18 @@ export default function TaxiBooking() {
                       ))}
                    </div>
                 </div>
-
-                <div className="grid grid-cols-4 gap-3 pt-6">
-                   {[200, 500, 1000, 2000].map((tip) => (
-                      <button key={tip} className="flex flex-col items-center gap-2 p-3 bg-neutral-800 rounded-2xl border border-white/5 hover:border-emerald-500/50 hover:bg-emerald-500/5 group transition-all">
-                         <div className="w-10 h-10 rounded-full bg-neutral-700 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform">
-                            <DollarSign className="w-5 h-5" />
-                         </div>
-                         <span className="text-[10px] font-black italic">TZS {tip}</span>
-                      </button>
-                   ))}
-                </div>
              </div>
 
              <div className="flex gap-4">
                 <button 
                   onClick={() => setStep('receipt')}
-                  className="flex-1 border border-neutral-800 py-5 rounded-[2.5rem] font-black uppercase tracking-tighter text-sm italic hover:bg-white/5"
+                  className="flex-1 border border-[#1e1e2e] py-5 rounded-[50px] font-black uppercase tracking-tighter text-sm italic text-[#6b6b8a] hover:bg-white/5"
                 >
                   View Receipt
                 </button>
                 <button 
                   onClick={() => navigate('/')}
-                  className="flex-1 bg-emerald-500 py-5 rounded-[2.5rem] font-black uppercase tracking-tighter text-sm italic text-white shadow-2xl shadow-emerald-500/20"
+                  className="flex-1 bg-white text-[#0a0a0f] py-5 rounded-[50px] font-black uppercase tracking-tighter text-sm italic shadow-2xl"
                 >
                   Nyumbani Sasa
                 </button>
@@ -1263,29 +1289,25 @@ export default function TaxiBooking() {
             className="px-6 pt-12 space-y-8 relative z-10 flex flex-col items-center"
           >
              <div className="text-center space-y-2 mb-8">
-                <h2 className="text-3xl font-black italic uppercase tracking-tighter">Malipo na Stakabadhi</h2>
-                <Badge className="bg-emerald-500/20 text-emerald-500 border-none px-6 py-2 rounded-xl font-black tracking-widest text-[10px]">MALIPO IMETHIBITISHWA</Badge>
+                <h2 className="text-3xl font-black italic uppercase tracking-tighter text-[#f0eeff]">Malipo na Stakabadhi</h2>
+                <Badge className="bg-[#1D9E75]/20 text-[#1D9E75] border-none px-6 py-2 rounded-xl font-black tracking-widest text-[10px]">MALIPO IMETHIBITISHWA</Badge>
              </div>
 
              {/* Stylized Receipt */}
-             <div className="w-full max-w-[320px] bg-white rounded-t-3xl relative p-10 text-neutral-900 shadow-2xl group">
+             <div className="w-full max-w-[320px] bg-white rounded-t-3xl relative p-10 text-[#0a0a0f] shadow-2xl group">
                 {/* Receipt Zigzag Bottom */}
                 <div className="absolute bottom-[-10px] left-0 right-0 h-[20px] bg-[radial-gradient(circle_at_10px_-4px,white_10px,transparent_11px)] bg-[length:20px_20px]" />
                 
                 <div className="space-y-6">
                    <div className="text-center pb-6 border-b border-dashed border-neutral-300">
-                      <div className="w-16 h-16 bg-neutral-100 rounded-2xl mx-auto flex items-center justify-center text-neutral-800 mb-4 font-black text-2xl tracking-tighter italic">TX</div>
-                      <h3 className="font-black italic uppercase text-xl">Maelezo ya Malipo:</h3>
+                      <div className="w-16 h-16 bg-[#0a0a0f] rounded-2xl mx-auto flex items-center justify-center text-white mb-4 font-black text-2xl tracking-tighter italic">TX</div>
+                      <h3 className="font-black italic uppercase text-xl text-[#0a0a0f]">Maelezo ya Malipo:</h3>
                    </div>
 
                    <div className="space-y-3">
                       <div className="flex justify-between items-center text-sm">
                          <span className="font-bold text-neutral-500">Gharama ya Safari:</span>
                          <span className="font-black italic">TZS {selectedRide?.price.toLocaleString() || '2,800'}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-sm">
-                         <span className="font-bold text-neutral-500">Tip Dereva:</span>
-                         <span className="font-black italic">TZS 1,000</span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
                          <span className="font-bold text-neutral-500">Ada ya Huduma:</span>
@@ -1296,22 +1318,10 @@ export default function TaxiBooking() {
                    <div className="pt-6 border-t border-dashed border-neutral-300 flex justify-between items-end">
                       <div>
                          <p className="text-[10px] font-black uppercase text-neutral-400 tracking-widest leading-none mb-1">Jumla ya Malipo:</p>
-                         <p className="text-3xl font-black italic tracking-tighter">TZS {((selectedRide?.price || 0) + 1500).toLocaleString()}</p>
+                         <p className="text-3xl font-black italic tracking-tighter text-[#0a0a0f]">TZS {((selectedRide?.price || 0) + 500).toLocaleString()}</p>
                       </div>
-                      <div className="w-12 h-12 bg-emerald-500 rounded-2xl flex items-center justify-center text-white shadow-lg">
+                      <div className="w-12 h-12 bg-[#1D9E75] rounded-2xl flex items-center justify-center text-white shadow-lg">
                          <CheckCircle2 className="w-7 h-7" />
-                      </div>
-                   </div>
-
-                   <div className="pt-6">
-                      <div className="flex items-center gap-4 bg-neutral-50 p-4 rounded-2xl border border-neutral-100">
-                         <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-white shadow-md">
-                            <Wallet className="w-5 h-5" />
-                         </div>
-                         <div className="text-left overflow-hidden">
-                            <p className="text-xs font-black uppercase tracking-tight truncate">Malipo kwa M-Pesa</p>
-                            <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest truncate">Transaction ID: 0823347081</p>
-                         </div>
                       </div>
                    </div>
                 </div>
@@ -1320,9 +1330,9 @@ export default function TaxiBooking() {
              <div className="pt-12 w-full flex flex-col gap-4">
                 <button 
                   onClick={() => navigate('/')}
-                  className="w-full bg-emerald-500 py-6 rounded-[2.5rem] font-black uppercase tracking-tighter text-lg italic text-white shadow-2xl shadow-emerald-500/20 flex items-center justify-center gap-3 active:scale-95 transition-all"
+                  className="w-full bg-white text-[#0a0a0f] py-6 rounded-[50px] font-black uppercase tracking-tighter text-lg italic shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all"
                 >
-                  <Navigation2 className="w-5 h-5" />
+                  <Navigation2 className="w-5 h-5 pointer-events-none" />
                   Nyumbani Sasa
                 </button>
              </div>
