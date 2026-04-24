@@ -17,28 +17,16 @@ import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 // Custom futuristic icons
 const StartPin = L.divIcon({
     className: 'custom-div-icon',
-    html: `<div class="relative flex items-center justify-center">
-            <div class="absolute w-12 h-12 bg-emerald-500/10 rounded-full animate-ping"></div>
-            <div class="relative w-10 h-10 bg-white border-2 border-emerald-500 rounded-2xl flex items-center justify-center shadow-lg">
-              <span class="text-emerald-500 font-bold text-sm">M</span>
-            </div>
-            <div class="absolute -bottom-1 w-2 h-2 bg-emerald-500 rotate-45"></div>
-          </div>`,
-    iconSize: [40, 40],
-    iconAnchor: [20, 40]
+    html: `<div class="bg-emerald-500 text-white w-8 h-8 rounded-full border-4 border-white shadow-lg flex items-center justify-center font-black">A</div>`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16]
 });
 
 const EndPin = L.divIcon({
   className: 'custom-div-icon',
-  html: `<div class="relative flex items-center justify-center">
-          <div class="absolute w-12 h-12 bg-amber-500/10 rounded-full animate-ping"></div>
-          <div class="relative w-10 h-10 bg-white border-2 border-amber-500 rounded-2xl flex items-center justify-center shadow-lg">
-            <span class="text-amber-500 font-bold text-sm">E</span>
-          </div>
-          <div class="absolute -bottom-1 w-2 h-2 bg-amber-500 rotate-45"></div>
-        </div>`,
-  iconSize: [40, 40],
-  iconAnchor: [20, 40]
+  html: `<div class="bg-red-500 text-white w-8 h-8 rounded-full border-4 border-white shadow-lg flex items-center justify-center font-black">B</div>`,
+  iconSize: [32, 32],
+  iconAnchor: [16, 16]
 });
 
 const DriverPin = (type: string) => L.divIcon({
@@ -104,13 +92,12 @@ export default function TaxiBooking() {
     useMapEvents({
       click(e) {
         const coords = `(${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)})`;
-        // Try to find if user clicked near a known location
         const nearby = DAR_LOCATIONS.find(loc => {
            const dist = Math.sqrt(Math.pow(loc.lat - e.latlng.lat, 2) + Math.pow(loc.lng - e.latlng.lng, 2));
-           return dist < 0.005; // Roughly 500m
+           return dist < 0.005;
         });
         
-        const locName = nearby ? nearby.name : 'Eneo la Ramani';
+        const locName = nearby ? nearby.name : 'Tabata/Dar Es Salaam';
         const fullDisplay = `${locName} ${coords}`;
 
         if (settingMode === 'pickup') {
@@ -605,38 +592,67 @@ export default function TaxiBooking() {
                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                  />
                  <Marker position={pickupPos} icon={StartPin}>
-                   <Popup>Mwanzo (Pickup)</Popup>
+                   <Popup>Mwanzo (A)</Popup>
                  </Marker>
                  <Marker position={destPos} icon={EndPin}>
-                    <Popup>Mwisho (Destination)</Popup>
+                    <Popup>Mwisho (B)</Popup>
                  </Marker>
 
-                 {/* Trip Route Line */}
+                 {/* Trip Route Line - Green base */}
                  {(step === 'map' || step === 'details' || step === 'arriving' || step === 'on_trip') && (
+                   <>
+                     <Polyline 
+                       positions={[pickupPos, destPos]} 
+                       color="#064e3b" 
+                       weight={12} 
+                       opacity={0.2}
+                     />
+                     <Polyline 
+                       positions={[pickupPos, destPos]} 
+                       color="#1D9E75" 
+                       weight={7} 
+                       opacity={1}
+                     />
+                     <Polyline 
+                       positions={[pickupPos, destPos]} 
+                       color="white" 
+                       weight={2} 
+                       opacity={0.6}
+                       dashArray="8, 12"
+                     />
+                   </>
+                 )}
+
+                 {/* Traveled Path - Purple */}
+                 {step === 'on_trip' && (
                    <Polyline 
-                     positions={[pickupPos, destPos]} 
-                     color="#10b981" 
-                     weight={6} 
-                     opacity={0.6}
-                     dashArray="1, 10"
-                     lineCap="round"
+                     positions={[pickupPos, driverPos]} 
+                     color="#8b5cf6" 
+                     weight={7} 
+                     opacity={0.8}
                    />
                  )}
 
-                 {/* Driver Marker - Animated */}
+                 {/* Driver Marker - Modern Animated Vehicle */}
                  {(step === 'arriving' || step === 'on_trip') && (
                    <Marker 
                      position={driverPos}
                      icon={L.divIcon({
                        className: 'custom-div-icon',
-                       html: `<div class="relative flex items-center justify-center">
+                       html: `<div class="relative flex flex-col items-center">
+                                <div class="absolute -top-10 bg-neutral-900 text-white px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider shadow-xl border border-white/20 whitespace-nowrap z-50">
+                                  Dereva: ${activeRide?.driverName || 'JK'}
+                                </div>
                                 <div class="absolute w-16 h-16 bg-amber-500/20 rounded-full animate-ping"></div>
-                                <div class="w-12 h-12 bg-amber-500 rounded-2xl border-4 border-white shadow-2xl flex items-center justify-center">
-                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="text-white"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.5 2.5C2.1 10.4 2 10.7 2 11v5c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>
+                                <div class="w-14 h-14 bg-white rounded-2xl border-4 border-amber-500 shadow-2xl flex items-center justify-center relative overflow-hidden">
+                                  <div class="absolute bottom-0 left-0 w-full h-1 bg-amber-500"></div>
+                                  <svg viewBox="0 0 24 24" width="30" height="30" stroke="currentColor" stroke-width="2.5" fill="#f59e0b" class="text-amber-700">
+                                    <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path d="M9 17h6"/>
+                                  </svg>
                                 </div>
                               </div>`,
-                       iconSize: [48, 48],
-                       iconAnchor: [24, 24]
+                       iconSize: [56, 56],
+                       iconAnchor: [28, 28]
                      })}
                    />
                  )}
@@ -1020,55 +1036,93 @@ export default function TaxiBooking() {
             key="on_trip"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            className="px-6 pt-12 space-y-8 relative z-10"
+            className="px-6 pt-12 space-y-6 relative z-10"
           >
-             <div className="bg-neutral-900 border border-neutral-800 rounded-[3rem] p-8 shadow-3xl border-b-amber-500 border-b-2 overflow-hidden relative group">
+             <div className="bg-neutral-900 border border-neutral-800 rounded-[3rem] p-8 shadow-3xl border-b-amber-500 border-b-4 overflow-hidden relative group">
                 <div className="relative z-10 flex flex-col items-center text-center">
-                   <div className="bg-amber-500/20 text-amber-500 px-4 py-1.5 rounded-full text-[10px] font-black uppercase mb-6 tracking-widest inline-block border border-amber-500/10">NJIANI KUELEKEA MWISHO WA SAFARI</div>
-                   
-                   <div className="text-5xl font-black italic mb-2 tracking-tighter text-white">
-                     {etaSeconds > 60 
-                       ? `${Math.floor(etaSeconds / 60)} DK ${Math.floor(etaSeconds % 60)} SEK` 
-                       : `${etaSeconds.toFixed(2)} SEK`}
+                   <div className="flex items-center gap-2 bg-amber-500/10 px-4 py-1.5 rounded-full border border-amber-500/20 mb-6">
+                      <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse shadow-[0_0_8px_#f59e0b]" />
+                      <span className="text-[10px] font-black uppercase text-amber-500 tracking-widest leading-none">SAFARI INAENDELEA</span>
                    </div>
-                   <p className="text-neutral-400 font-bold text-sm">Umbali uliobaki kufika mwisho wa safari</p>
+                   
+                   <div className={`text-6xl font-black italic mb-2 tracking-tighter ${tripProgress >= 95 ? 'text-emerald-400' : 'text-white'}`}>
+                     {tripProgress >= 100 ? 'UMEFIKA!' : (
+                       etaSeconds > 60 
+                         ? `${Math.floor(etaSeconds / 60)}:${Math.floor(etaSeconds % 60).toString().padStart(2, '0')}` 
+                         : `${etaSeconds.toFixed(2)}`
+                     )}
+                   </div>
+                   <p className="text-neutral-500 font-bold text-xs uppercase tracking-widest mb-8">
+                     {tripProgress >= 100 ? 'TUMEFATILIA MWISHO WA SAFARI' : `${(2.5 * (1 - tripProgress/100)).toFixed(1)} KM IMESALIA`}
+                   </p>
 
-                   <div className="w-full h-px bg-neutral-800 my-8" />
+                   {/* Progress Visual */}
+                   <div className="w-full h-3 bg-neutral-800 rounded-full mb-8 relative overflow-hidden">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${tripProgress}%` }}
+                        className="absolute h-full bg-gradient-to-r from-amber-500 to-emerald-500 rounded-full"
+                      />
+                   </div>
 
-                   <div className="w-full space-y-6 text-left">
-                      <div className="flex gap-4">
-                         <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 shrink-0">
-                            <MapPin className="w-5 h-5" />
-                         </div>
-                         <div className="flex-1">
-                            <p className="text-[9px] font-black uppercase text-neutral-500 tracking-widest mb-1">MWANZO (PICKUP)</p>
-                            <p className="text-sm font-bold leading-tight line-clamp-1">{pickup}</p>
-                         </div>
-                      </div>
-                      <div className="flex gap-4">
-                         <div className="w-10 h-10 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 shrink-0">
-                            <Navigation2 className="w-5 h-5 rotate-45" />
+                   <div className="w-full flex justify-between items-center px-2">
+                       <div className="flex flex-col items-start">
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-2 ${tripProgress > 0 ? 'bg-emerald-500 text-white' : 'bg-neutral-700 text-neutral-500'}`}>
+                             <p className="text-[10px] font-black">A</p>
                           </div>
-                          <div className="flex-1">
-                             <p className="text-[9px] font-black uppercase text-neutral-500 tracking-widest mb-1">MWISHO (DESTINATION)</p>
-                             <p className="text-sm font-bold leading-tight line-clamp-1">{destination}</p>
+                          <p className="text-[8px] font-black text-neutral-500 uppercase tracking-widest">Kuanza</p>
+                       </div>
+                       <div className="flex-1 h-px bg-neutral-800 mx-4 border-t border-dashed border-neutral-700" />
+                       <div className="flex flex-col items-center">
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-2 border-2 transition-colors ${tripProgress > 10 && tripProgress < 90 ? 'bg-amber-500 border-white text-white' : 'bg-neutral-800 border-neutral-700 text-neutral-500'}`}>
+                             <Navigation2 className="w-5 h-5 rotate-45" />
+                          </div>
+                          <p className={`text-[8px] font-black uppercase tracking-widest ${tripProgress > 10 && tripProgress < 90 ? 'text-amber-500' : 'text-neutral-500'}`}>Ulipo Sasa</p>
+                       </div>
+                       <div className="flex-1 h-px bg-neutral-800 mx-4 border-t border-dashed border-neutral-700" />
+                       <div className="flex flex-col items-end">
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-2 ${tripProgress >= 100 ? 'bg-emerald-500 text-white' : 'bg-neutral-700 text-neutral-500'}`}>
+                             <p className="text-[10px] font-black">B</p>
+                          </div>
+                          <p className="text-[8px] font-black text-neutral-500 uppercase tracking-widest">Mwisho</p>
+                       </div>
+                   </div>
+                </div>
+             </div>
+
+              {/* Driver Detailed Card */}
+              <div className="bg-neutral-900 border border-neutral-800 rounded-[2.5rem] p-6 shadow-2xl">
+                 <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-4">
+                       <div className="relative">
+                          <div className="w-16 h-16 rounded-full overflow-hidden border-4 border-neutral-800 bg-neutral-800">
+                             <img src={activeRide.driverPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${activeRide.driverName}`} alt="Driver" className="w-full h-full object-cover" />
+                          </div>
+                          <div className="absolute -bottom-1 -right-1 bg-emerald-500 w-5 h-5 rounded-full border-2 border-neutral-900 flex items-center justify-center">
+                             <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                          </div>
+                       </div>
+                       <div>
+                          <h4 className="font-black uppercase italic text-lg leading-none mb-1">{activeRide.driverName}</h4>
+                          <div className="flex items-center gap-2">
+                             <div className="flex items-center bg-amber-500/10 px-2 py-0.5 rounded text-amber-500">
+                                <Star className="w-3 h-3 fill-amber-500" />
+                                <span className="text-[10px] font-black ml-1">4.9</span>
+                             </div>
+                             <p className="text-[10px] text-neutral-500 font-bold tracking-widest uppercase">{activeRide.vehicleNumber}</p>
                           </div>
                        </div>
                     </div>
-                 </div>
-              </div>
-
-              <div className="bg-neutral-800/50 rounded-[2.5rem] p-6 border border-white/5 flex items-center justify-between">
-                 <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-amber-500">
-                       <img src={activeRide.driverPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${activeRide.driverName}`} alt="Driver" />
-                    </div>
-                    <div>
-                       <h4 className="font-black uppercase italic text-sm">{activeRide.driverName}</h4>
-                       <p className="text-[10px] text-neutral-500 font-bold tracking-widest uppercase">{activeRide.vehicleNumber}</p>
+                    <div className="flex gap-2">
+                       <button className="w-12 h-12 bg-emerald-500 rounded-2xl flex items-center justify-center text-white shadow-lg hover:scale-105 active:scale-95 transition-transform">
+                          <Phone className="w-5 h-5 fill-white" />
+                       </button>
+                       <button className="w-12 h-12 bg-neutral-800 border border-neutral-700 rounded-2xl flex items-center justify-center text-white hover:scale-105 active:scale-95 transition-transform">
+                          <MessageCircle className="w-5 h-5" />
+                       </button>
                     </div>
                  </div>
-                 <button className="px-6 py-3 bg-red-600/10 text-red-500 rounded-2xl font-black text-xs uppercase tracking-widest border border-red-500/20">SOS</button>
+                 <button onClick={() => setStep('map')} className="w-full py-4 bg-orange-600/10 text-orange-500 rounded-2xl font-black text-xs uppercase tracking-widest border border-orange-500/20 hover:bg-orange-600 hover:text-white transition-all">Ghairi Safari</button>
               </div>
            </motion.div>
          )}
