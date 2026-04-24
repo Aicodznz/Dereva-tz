@@ -103,12 +103,22 @@ export default function TaxiBooking() {
   const MapEvents = () => {
     useMapEvents({
       click(e) {
+        const coords = `(${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)})`;
+        // Try to find if user clicked near a known location
+        const nearby = DAR_LOCATIONS.find(loc => {
+           const dist = Math.sqrt(Math.pow(loc.lat - e.latlng.lat, 2) + Math.pow(loc.lng - e.latlng.lng, 2));
+           return dist < 0.005; // Roughly 500m
+        });
+        
+        const locName = nearby ? nearby.name : 'Eneo la Ramani';
+        const fullDisplay = `${locName} ${coords}`;
+
         if (settingMode === 'pickup') {
           setPickupPos([e.latlng.lat, e.latlng.lng]);
-          setPickup(`Karatasi ya Ramani (${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)})`);
+          setPickup(fullDisplay);
         } else {
           setDestPos([e.latlng.lat, e.latlng.lng]);
-          setDestination(`Karatasi ya Ramani (${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)})`);
+          setDestination(fullDisplay);
         }
       },
     });
@@ -130,7 +140,7 @@ export default function TaxiBooking() {
   useEffect(() => {
     let interval: any;
     if (step === 'arriving' || step === 'on_trip') {
-      const totalDuration = 60000; // 1 minute simulation for demo
+      const totalDuration = 30000; // 30 seconds simulation for demo to make movement obvious
       const startTime = Date.now();
       
       interval = setInterval(() => {
@@ -602,13 +612,14 @@ export default function TaxiBooking() {
                  </Marker>
 
                  {/* Trip Route Line */}
-                 {(step === 'details' || step === 'arriving' || step === 'on_trip') && (
+                 {(step === 'map' || step === 'details' || step === 'arriving' || step === 'on_trip') && (
                    <Polyline 
                      positions={[pickupPos, destPos]} 
                      color="#10b981" 
-                     weight={5} 
-                     opacity={0.8}
-                     dashArray="10, 10"
+                     weight={6} 
+                     opacity={0.6}
+                     dashArray="1, 10"
+                     lineCap="round"
                    />
                  )}
 
@@ -618,11 +629,14 @@ export default function TaxiBooking() {
                      position={driverPos}
                      icon={L.divIcon({
                        className: 'custom-div-icon',
-                       html: `<div class="w-12 h-12 bg-amber-500 rounded-full border-4 border-white shadow-2xl flex items-center justify-center animate-bounce">
-                               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="text-white"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.5 2.5C2.1 10.4 2 10.7 2 11v5c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>
+                       html: `<div class="relative flex items-center justify-center">
+                                <div class="absolute w-16 h-16 bg-amber-500/20 rounded-full animate-ping"></div>
+                                <div class="w-12 h-12 bg-amber-500 rounded-2xl border-4 border-white shadow-2xl flex items-center justify-center">
+                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="text-white"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.5 2.5C2.1 10.4 2 10.7 2 11v5c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>
+                                </div>
                               </div>`,
                        iconSize: [48, 48],
-                       iconAnchor: [24, 48]
+                       iconAnchor: [24, 24]
                      })}
                    />
                  )}
@@ -632,9 +646,31 @@ export default function TaxiBooking() {
                     <Marker 
                         key={driver.id} 
                         position={[driver.location.lat, driver.location.lng]}
-                        icon={DriverPin(driver.vehicleType)}
+                        icon={L.divIcon({
+                          className: 'custom-div-icon',
+                          html: `<div class="relative flex items-center justify-center">
+                                   <div class="absolute w-12 h-12 bg-cyan-400/40 rounded-full animate-ping"></div>
+                                   <div class="absolute w-8 h-8 bg-cyan-400/20 rounded-full animate-pulse"></div>
+                                   <div class="w-7 h-7 bg-white p-1 rounded-full border-2 border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.5)] flex items-center justify-center">
+                                      <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="3" fill="none" class="text-cyan-600">
+                                        <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path d="M9 17h6"/>
+                                      </svg>
+                                   </div>
+                                   <div class="absolute -top-8 bg-neutral-900 border border-cyan-500/30 px-2 py-0.5 rounded-full shadow-lg whitespace-nowrap">
+                                      <p class="text-[7px] font-black uppercase text-cyan-400 tracking-widest leading-none">Active & Receiving</p>
+                                   </div>
+                                 </div>`,
+                          iconSize: [40, 40],
+                          iconAnchor: [20, 20]
+                        })}
                     >
-                        <Popup>{driver.vehicleType.toUpperCase()} iko karibu!</Popup>
+                        <Popup>
+                          <div class="p-2 text-neutral-900">
+                            <p class="font-black text-[10px] uppercase tracking-widest text-cyan-600 mb-1">Active & Receiving</p>
+                            <p class="text-xs font-bold">${driver.vehicleType.toUpperCase()} IKO HEWANI</p>
+                            <p class="text-[9px] text-neutral-400 mt-1">Tayari kupokea abiria</p>
+                          </div>
+                        </Popup>
                     </Marker>
                  ))}
 
@@ -992,7 +1028,7 @@ export default function TaxiBooking() {
                    
                    <div className="text-5xl font-black italic mb-2 tracking-tighter text-white">
                      {etaSeconds > 60 
-                       ? `${Math.floor(etaSeconds / 60)} DK` 
+                       ? `${Math.floor(etaSeconds / 60)} DK ${Math.floor(etaSeconds % 60)} SEK` 
                        : `${etaSeconds.toFixed(2)} SEK`}
                    </div>
                    <p className="text-neutral-400 font-bold text-sm">Umbali uliobaki kufika mwisho wa safari</p>
