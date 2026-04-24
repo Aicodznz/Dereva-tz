@@ -11,7 +11,7 @@ import {
   ArrowRight, RefreshCw, RotateCw
 } from 'lucide-react';
 import { doc, updateDoc, serverTimestamp, setDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, auth } from '../firebase';
 import { useAuth } from '../AuthContext';
 import { useLanguage } from '../LanguageContext';
 import { Badge } from '@/components/ui/badge';
@@ -138,7 +138,7 @@ interface RideOption {
 // --- MAIN COMPONENT ---
 
 export default function TaxiBooking() {
-  const { user } = useAuth();
+  const { user, signInGuest } = useAuth();
   const navigate = useNavigate();
 
   const [step, setStep] = useState<BookingStep>('home');
@@ -237,38 +237,65 @@ export default function TaxiBooking() {
   };
 
   const confirmBooking = async () => {
-    if (!selectedRide || !user || !destination) {
+    console.log("Confirming booking for ride option:", selectedRide?.id);
+    if (!selectedRide || !destination) {
        toast.error("Tafadhali chagua unapoenda");
        return;
     }
     
     try {
-      // Convert [number, number][] to {lat, lng}[]
+      setStep('searching'); 
+      console.log("Starting ride creation flow...");
+      
       const formattedCoords = routeCoords.map(c => ({ lat: c[0], lng: c[1] }));
       
+      // Ensure user is signed in for the demo
+      let currentUserId = user?.uid;
+      if (!currentUserId) {
+        console.log("No user found, signing in as guest for demo...");
+        try {
+          await signInGuest();
+          // Need to wait slightly for auth state to update
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } catch (e) {
+          console.error("Guest sign in failed", e);
+        }
+      }
+
       const id = await createRide(
-        user.uid,
+        auth.currentUser?.uid || 'guest_user',
         { lat: pickupPos[0], lng: pickupPos[1], address: pickup },
         { lat: destPos[0], lng: destPos[1], address: destination },
         selectedRide.id as any,
         selectedRide.price,
         formattedCoords
       );
+      
       if (id) {
+        console.log("Ride created successfully. ID:", id);
         setRideId(id);
-        setStep('searching');
+      } else {
+        console.error("Ride creation returned null ID");
+        setStep('map');
+        toast.error("Imeshindwa kuunda safari. Jaribu tena.");
       }
     } catch (error) {
-      toast.error("Imeshindwa kutuma ombi");
+      console.error("Error in confirmBooking:", error);
+      setStep('map');
+      toast.error("Imeshindwa kuunda safari. Angalia mtandao wako.");
     }
   };
 
   useEffect(() => {
     if (!activeRide) return;
     
+    console.log("Trip status updated:", activeRide.status);
+    
     switch (activeRide.status) {
       case 'accepted':
-        if (step === 'searching' || step === 'map') setStep('found');
+        if (step !== 'found' && step !== 'arriving' && step !== 'on_trip' && step !== 'completed' && step !== 'rating') {
+          setStep('found');
+        }
         break;
       case 'driver_arrived':
         setStep('arriving');

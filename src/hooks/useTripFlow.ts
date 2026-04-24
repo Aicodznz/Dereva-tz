@@ -21,7 +21,45 @@ export function useTripFlow(rideId: string | null) {
       (docSnap) => {
         setIsLoading(false);
         if (docSnap.exists()) {
-          setRide({ id: docSnap.id, ...docSnap.data() } as Ride);
+          const data = docSnap.data() as Ride;
+          const currentRide = { id: docSnap.id, ...data } as Ride;
+          setRide(currentRide);
+
+          // Simulated driver flow for demo purposes
+          if (data.status === 'accepted' && !data.startedAt && !data.arrivedAt) {
+            console.log("DEMO: Simulating driver arrival in 8s...");
+            setTimeout(async () => {
+              try {
+                await updateDoc(doc(db, 'rides', rideId), {
+                  status: 'driver_arrived',
+                  arrivedAt: serverTimestamp(),
+                  updatedAt: serverTimestamp()
+                });
+                
+                console.log("DEMO: Simulating trip start in 8s...");
+                setTimeout(async () => {
+                   try {
+                     await updateDoc(doc(db, 'rides', rideId), {
+                       status: 'on_trip',
+                       startedAt: serverTimestamp(),
+                       updatedAt: serverTimestamp()
+                     });
+
+                     console.log("DEMO: Simulating trip completion in 12s...");
+                     setTimeout(async () => {
+                       try {
+                         await updateDoc(doc(db, 'rides', rideId), {
+                           status: 'completed',
+                           completedAt: serverTimestamp(),
+                           updatedAt: serverTimestamp()
+                         });
+                       } catch (e) { console.error("Demo completion fail", e); }
+                     }, 12000);
+                   } catch (e) { console.error("Demo start fail", e); }
+                }, 8000);
+              } catch (e) { console.error("Demo arrival fail", e); }
+            }, 8000);
+          }
         } else {
           setRide(null);
           setError('Ride not found');

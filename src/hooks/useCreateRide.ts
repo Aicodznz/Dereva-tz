@@ -40,6 +40,7 @@ export function useCreateRide() {
       setRideId(docRef.id);
       return docRef.id;
     } catch (err: any) {
+      console.error("Firebase Create Ride Error:", err);
       setError(err.message);
       return null;
     } finally {

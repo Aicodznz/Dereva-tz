@@ -72,7 +72,7 @@ import { HeaderProvider } from './HeaderContext';
 
 export default function App() {
   return (
-    <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={true}>
       <AuthProvider>
         <LanguageProvider>
           <HeaderProvider>

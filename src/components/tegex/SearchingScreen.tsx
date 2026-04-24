@@ -14,7 +14,7 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel
   const [statusIndex, setStatusIndex] = useState(0);
 
   const statuses = [
-    `Inatafuta madereva wa ${ride?.vehicleType === 'mini' ? 'Gari' : ride?.vehicleType === 'bajaj' ? 'Bajaji' : 'Pikipiki'}...`,
+    `Inatafuta madereva wa ${ride?.vehicleType === 'mini' ? 'Gari' : ride?.vehicleType === 'bajaj' ? 'Bajaji' : 'Pikipiki'} Karibu Nawe...`,
     "Inachambua madereva walio karibu nawe...",
     "Tunatuma ombi lako kwa dereva mwenye usafiri husika...",
     "Tafadhali subiri kidogo, tunakutafutia dereva bora..."
@@ -40,8 +40,6 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel
     }, 5 * 60 * 1000); // 5 minutes timeout
     return () => clearTimeout(timeout);
   }, [onTimeout]);
-
-  if (!ride) return null;
 
   return (
     <motion.div 
@@ -80,9 +78,9 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel
           key={statusIndex}
           initial={{ opacity: 0, y: 5 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-[#6b6b8a] text-sm font-medium min-h-[20px]"
+          className="text-[#6b6b8a] text-sm font-medium min-h-[40px] px-8"
         >
-          {statuses[statusIndex]}
+          {ride ? statuses[statusIndex] : "Inatayarisha utafutaji wa haraka..."}
         </motion.p>
       </div>
 
@@ -91,29 +89,34 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel
         <div className="bg-[#111118] border border-[#1e1e2e] rounded-[32px] p-6 shadow-2xl">
           <div className="space-y-4">
             <div className="flex items-start gap-4">
-              <div className="w-2 h-2 rounded-full bg-[#1D9E75] mt-1.5 shrink-0" />
-              <p className="text-xs font-bold text-[#f0eeff] truncate">{ride.pickup.address}</p>
+              <div className="w-2.5 h-2.5 rounded-full bg-[#1D9E75] mt-1.5 shrink-0" />
+              <div className="overflow-hidden">
+                <p className="text-[9px] font-black text-[#6b6b8a] uppercase tracking-widest leading-none mb-1">Unatokea</p>
+                <p className="text-xs font-bold text-[#f0eeff] truncate">{ride?.pickup.address || "Tafadhali subiri..."}</p>
+              </div>
             </div>
-            <div className="w-px h-4 bg-[#1e1e2e] ml-1" />
             <div className="flex items-start gap-4">
-              <div className="w-2 h-2 rounded-full bg-[#D85A30] mt-1.5 shrink-0" />
-              <p className="text-xs font-bold text-[#f0eeff] truncate">{ride.destination.address}</p>
+              <div className="w-2.5 h-2.5 rounded-full bg-[#D85A30] mt-1.5 shrink-0" />
+              <div className="overflow-hidden">
+                <p className="text-[9px] font-black text-[#6b6b8a] uppercase tracking-widest leading-none mb-1">Unakwenda</p>
+                <p className="text-xs font-bold text-[#f0eeff] truncate">{ride?.destination.address || "Tafadhali subiri..."}</p>
+              </div>
             </div>
           </div>
           
           <div className="mt-6 pt-6 border-t border-[#1e1e2e] flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="text-2xl">
-                {ride.vehicleType === 'mini' ? '🚗' : ride.vehicleType === 'bajaj' ? '🛺' : '🏍️'}
+                {ride?.vehicleType === 'mini' ? '🚗' : ride?.vehicleType === 'bajaj' ? '🛺' : '🏍️'}
               </div>
               <div className="text-left">
-                <p className="text-[10px] font-black text-[#6b6b8a] uppercase tracking-widest">{ride.vehicleType}</p>
-                <p className="text-sm font-black text-[#f0eeff]">Usafiri wa Haraka</p>
+                <p className="text-[10px] font-black text-[#6b6b8a] uppercase tracking-widest">{ride?.vehicleType || 'Taxi'}</p>
+                <p className="text-xs font-black text-[#f0eeff]">Usafiri wa Haraka</p>
               </div>
             </div>
             <div className="text-right">
               <p className="text-[10px] font-black text-[#6b6b8a] uppercase tracking-widest">Gharama</p>
-              <p className="text-lg font-black text-[#7F77DD]">TZS {ride.fare.toLocaleString()}</p>
+              <p className="text-lg font-black text-[#7F77DD]">TZS {ride?.fare.toLocaleString() || "0"}</p>
             </div>
           </div>
         </div>

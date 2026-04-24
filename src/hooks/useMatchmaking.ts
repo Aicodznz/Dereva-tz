@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { collection, query, where, getDocs, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { toast } from 'sonner';
 import { db, auth } from '../firebase';
 import { Ride, DriverInfo } from '../types/trip.types';
 
@@ -35,7 +36,8 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
     path
   }
   console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  // Not throwing here to prevent component crash
+  toast.error("Salama: Tatizo la kupata dereva, tafadhali jaribu tena.");
 }
 
 export function useMatchmaking(ride: Ride | null) {

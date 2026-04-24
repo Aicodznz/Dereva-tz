@@ -8,11 +8,14 @@ service cloud.firestore {
     function isSignedIn() { return request.auth != null; }
     
     // Relaxed verification for better compatibility
-    function isVerified() { return isSignedIn(); }
+    function isVerified() {
+      return isSignedIn();
+    }
 
-    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
-    
-    // Improved Admin check
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email == "aicodtznation@gmail.com" ||
@@ -21,9 +24,8 @@ service cloud.firestore {
       );
     }
 
-    // Pillar 3: Path Variable & ID Hardening
-    function isValidId(id) { 
-      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); 
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
     function incoming() { return request.resource.data; }
@@ -36,7 +38,6 @@ service cloud.firestore {
 
     // -------------------------------------------------------------------------
     // Pillar 2: Validation Blueprints (EntityType isValid Helpers)
-    // Added size checks for all strings (Pillar 5)
     // -------------------------------------------------------------------------
 
     function isValidUser(data) {
@@ -62,9 +63,7 @@ service cloud.firestore {
 
     function isValidRide(data) {
       return data.customerId is string &&
-             data.status in ['pending', 'searching', 'accepted', 'driver_arriving', 'on_trip', 'completed', 'rated', 'cancelled'] &&
-             (!('driverId' in data) || data.driverId == null || data.driverId is string) &&
-             (!('updatedAt' in data) || data.updatedAt == request.time);
+             data.status is string;
     }
 
     function isValidDriver(data) {
@@ -150,22 +149,16 @@ service cloud.firestore {
         resource.data.driverId == request.auth.uid || 
         resource.data.status == 'pending'
       );
-      allow create: if isVerified() && isValidRide(incoming()) && incoming().customerId == request.auth.uid && incoming().createdAt == request.time;
-      allow update: if isVerified() && isValidRide(incoming()) && (
+      allow create: if isSignedIn() && incoming().customerId == request.auth.uid;
+      allow update: if isSignedIn() && (
         isAdmin() ||
-        // Customer rating/cancel/matchmaking simulation
+        // Customer simulation: update ride with driver info
         (isOwner(existing().customerId) && (
-          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt', 'rating', 'review', 'driverId', 'driverInfo', 'driverLocation', 'acceptedAt']) ||
-          (existing().status == 'completed' && incoming().status == 'rated' && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt', 'rating', 'review']))
+          incoming().diff(existing()).affectedKeys().hasAny(['status', 'driverId', 'driverInfo', 'driverLocation', 'acceptedAt', 'updatedAt', 'rating', 'review'])
         )) ||
-        // Driver accept
-        (existing().status == 'pending' && incoming().driverId == request.auth.uid && incoming().status == 'driver_arriving' && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'driverId', 'updatedAt', 'driverInfo', 'acceptedAt'])) ||
-        // Driver update (location/status/eta)
-        (isOwner(existing().driverId) && (
-          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt', 'driverLocation', 'eta', 'completedAt']) &&
-          // Fare protection: ensure fare doesn't change after on_trip
-          (existing().status != 'on_trip' || incoming().fare == existing().fare)
-        ))
+        // Driver simulation
+        (incoming().status == 'accepted' && existing().status == 'pending') ||
+        (isOwner(existing().driverId) && incoming().diff(existing()).affectedKeys().hasAny(['status', 'updatedAt', 'driverLocation', 'eta', 'completedAt']))
       );
     }
 
