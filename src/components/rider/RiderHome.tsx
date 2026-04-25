@@ -5,13 +5,15 @@ import L from 'leaflet';
 import { 
   Bell, Power, Navigation, Fuel, Zap, 
   ParkingCircle, Car, Settings, Phone, Gauge, Eye, EyeOff,
-  Navigation2, MessageSquare, MapPin, Star
+  Navigation2, MessageSquare, MapPin, Star, X as CloseX
 } from 'lucide-react';
+import Chat from '../Chat';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../../AuthContext';
 import { useNearbyRides } from '../../hooks/useNearbyRides';
 import { useDriverActions } from '../../hooks/useDriverActions';
 import { useRideStatus } from '../../hooks/useRideStatus';
+import { useDriverRideListener } from '../../hooks/useDriverRideListener';
 import { RideStatus, DriverInfo } from '../../types/ride.types';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -33,6 +35,7 @@ export default function RiderHome() {
   const { user, profile } = useAuth();
   const [isOnline, setIsOnline] = useState(false);
   const [showEarnings, setShowEarnings] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const [position, setPosition] = useState<[number, number]>([-6.7924, 39.2083]);
   
   const [rideId, setRideId] = useState<string | null>(null);
@@ -41,6 +44,7 @@ export default function RiderHome() {
   const vType = vTypeRaw.includes('bike') ? 'bike' : vTypeRaw.includes('bajaj') ? 'bajaj' : 'mini';
   
   const { rides: nearbyRides } = useNearbyRides(vType as any);
+  const { assignedRide } = useDriverRideListener(user?.uid, isOnline);
   const { acceptRide: firestoreAccept, arrivedAtPickup, completeTrip, updateDriverLocation } = useDriverActions(rideId);
 
   const [incomingRequest, setIncomingRequest] = useState<any>(null);
@@ -72,19 +76,28 @@ export default function RiderHome() {
     return () => clearInterval(interval);
   }, [isOnline, !!activeRide]);
 
-  // Listen for requests when online
+  // Listen for requests or assigned rides when online
   useEffect(() => {
-    if (!isOnline || activeRide) {
+    if (!isOnline) {
       setIncomingRequest(null);
+      setRideId(null);
       return;
     }
     
-    if (nearbyRides.length > 0) {
+    // If we have an assigned ride (that we are already on or just got)
+    if (assignedRide) {
+      setRideId(assignedRide.id);
+      setIncomingRequest(null);
+      return;
+    }
+
+    // If no active ride yet, check for nearby pending ones
+    if (nearbyRides.length > 0 && !activeRide) {
       setIncomingRequest(nearbyRides[0]);
     } else {
       setIncomingRequest(null);
     }
-  }, [isOnline, nearbyRides, activeRide]);
+  }, [isOnline, nearbyRides, assignedRide, !!activeRide]);
 
   const toggleStatus = async () => {
     const nextStatus = !isOnline;
@@ -126,14 +139,28 @@ export default function RiderHome() {
   useEffect(() => {
     if (!isOnline || !user) return;
 
-    const updateLoc = () => {
+    const updateLoc = async () => {
       if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition((pos) => {
+        navigator.geolocation.getCurrentPosition(async (pos) => {
           const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
           setPosition([loc.lat, loc.lng]);
           
+          // Update active ride tracking if exists
           if (activeRide) {
             updateDriverLocation(loc.lat, loc.lng);
+          }
+
+          // ALWAYS update the public "drivers" collection if online
+          // so passengers can see the driver on their map
+          try {
+            const { setDoc, doc } = await import('firebase/firestore');
+            const { db } = await import('../../firebase');
+            await setDoc(doc(db, 'drivers', user.uid), {
+              location: { lat: loc.lat, lng: loc.lng },
+              lastActive: new Date() // Using Date for more frequent updates without serverTimestamp overhead if needed, but let's keep it consistent
+            }, { merge: true });
+          } catch (err) {
+            console.error("Failed to update public driver location:", err);
           }
         });
       }
@@ -363,7 +390,16 @@ export default function RiderHome() {
                    <div>
                       <div className="bg-orange-600 text-white font-black px-4 py-1 mb-1 italic text-[10px] rounded-full inline-block">NEW REQUEST</div>
                       <h4 className="text-xl font-black italic uppercase tracking-tighter">{incomingRequest.customerName || 'Mteja'}</h4>
-                      <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">{incomingRequest.pickup.address}</p>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1.5 overflow-hidden">
+                          <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full shrink-0" />
+                          <p className="text-[9px] font-bold text-neutral-300 uppercase tracking-tight truncate">{incomingRequest.pickup.address}</p>
+                        </div>
+                        <div className="flex items-center gap-1.5 overflow-hidden">
+                          <div className="w-1.5 h-1.5 bg-orange-500 rounded-full shrink-0" />
+                          <p className="text-[9px] font-bold text-neutral-300 uppercase tracking-tight truncate">{incomingRequest.destination.address}</p>
+                        </div>
+                      </div>
                    </div>
                 </div>
                 <div className="text-right">
@@ -400,7 +436,7 @@ export default function RiderHome() {
         )}
       </AnimatePresence>
 
-      {/* Active Ride Controls */}
+       {/* Active Ride Controls */}
       <AnimatePresence>
         {activeRide && (
           <motion.div 
@@ -423,7 +459,12 @@ export default function RiderHome() {
                 </div>
                 <div className="flex gap-2">
                    <button className="w-12 h-12 rounded-2xl bg-neutral-50 dark:bg-neutral-800 flex items-center justify-center"><Phone className="w-5 h-5 text-neutral-600" /></button>
-                   <button className="w-12 h-12 rounded-2xl bg-neutral-50 dark:bg-neutral-800 flex items-center justify-center"><MessageSquare className="w-5 h-5 text-emerald-600" /></button>
+                   <button 
+                     onClick={() => setIsChatOpen(true)}
+                     className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-neutral-800 flex items-center justify-center"
+                   >
+                     <MessageSquare className="w-5 h-5 text-emerald-600" />
+                   </button>
                 </div>
              </div>
 
@@ -433,14 +474,21 @@ export default function RiderHome() {
                       <Navigation className="w-6 h-6" />
                    </div>
                    <div className="flex-1">
-                      <p className="text-[9px] font-black uppercase text-neutral-400">Hali ya Safari</p>
-                      <h4 className="text-sm font-black uppercase">
-                         {activeRide.status === 'driver_arriving' && 'On the way to pickup'}
-                         {activeRide.status === 'on_trip' && 'Trip in progress'}
+                      <p className="text-[9px] font-black uppercase text-neutral-400">Marudio ya Safari</p>
+                      <h4 className="text-sm font-black uppercase text-emerald-600">
+                         {activeRide.status === 'driver_arriving' && 'Unaelekea kuchukua abiria'}
+                         {activeRide.status === 'on_trip' && 'Safari inaendelea...'}
                       </h4>
-                      <p className="text-[10px] text-neutral-500 truncate">
-                        {activeRide.status === 'driver_arriving' ? activeRide.pickup.address : activeRide.destination.address}
-                      </p>
+                      <div className="mt-1 space-y-0.5">
+                        <p className="text-[10px] text-emerald-500 font-bold flex items-center gap-1 leading-tight">
+                          <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shrink-0" />
+                          {activeRide.pickup.address}
+                        </p>
+                        <p className="text-[10px] text-orange-500 font-bold flex items-center gap-1 leading-tight">
+                          <span className="w-1.5 h-1.5 bg-orange-500 rounded-full shrink-0" />
+                          {activeRide.destination.address}
+                        </p>
+                      </div>
                    </div>
                 </div>
              </div>

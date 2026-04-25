@@ -2,15 +2,16 @@ import React, { useMemo } from 'react';
 import { motion } from 'motion/react';
 import { MapContainer, TileLayer, Marker, Polyline } from 'react-leaflet';
 import L from 'leaflet';
-import { Shield, Clock, Navigation2, MapPin } from 'lucide-react';
+import { Shield, Clock, Navigation2, MapPin, MessageSquare } from 'lucide-react';
 import { Ride } from '../../types/trip.types';
 import { useDriverTracking } from '../../hooks/useDriverTracking';
 
 interface LiveTripScreenProps {
   ride: Ride;
+  onMessage?: () => void;
 }
 
-export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride }) => {
+export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage }) => {
   const { distance, eta } = useDriverTracking(ride.driverLocation, ride.destination);
   
   // Progress calculation
@@ -128,9 +129,19 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride }) => {
                  </h4>
               </div>
            </div>
-           <button className="text-[10px] font-black text-red-500 uppercase tracking-widest">
-             SOS Dharura
-           </button>
+           <div className="flex items-center gap-3">
+             {onMessage && (
+               <button 
+                 onClick={onMessage}
+                 className="w-10 h-10 bg-[#111118] border border-[#1e1e2e] rounded-xl flex items-center justify-center text-[#1D9E75] active:scale-90 transition-transform"
+               >
+                 <MessageSquare className="w-4 h-4" />
+               </button>
+             )}
+             <button className="text-[10px] font-black text-red-500 uppercase tracking-widest">
+               SOS Dharura
+             </button>
+           </div>
         </div>
       </div>
     </div>

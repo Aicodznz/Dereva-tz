@@ -5,11 +5,12 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { 
   ArrowLeft, MapPin, Search, Navigation2, Clock, Star, 
-  ChevronRight, X, Phone, MessageSquare, 
+  ChevronRight, X as CloseX, Phone, MessageSquare, 
   Car, Activity, ShieldCheck, User,
   CheckCircle2, DollarSign, Zap, Layers, Trophy,
   ArrowRight, RefreshCw, RotateCw
 } from 'lucide-react';
+import Chat from './Chat';
 import { doc, updateDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { useAuth } from '../AuthContext';
@@ -22,6 +23,7 @@ import { useRouting } from '../hooks/useRouting';
 import { useCreateRide } from '../hooks/useCreateRide';
 import { useTripFlow } from '../hooks/useTripFlow';
 import { useMatchmaking } from '../hooks/useMatchmaking';
+import { useNearbyDrivers } from '../hooks/useNearbyDrivers';
 
 // --- SCREENS ---
 import { SearchingScreen } from './tegex/SearchingScreen';
@@ -142,6 +144,7 @@ export default function TaxiBooking() {
   const navigate = useNavigate();
 
   const [step, setStep] = useState<BookingStep>('home');
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const [settingMode, setSettingMode] = useState<'pickup' | 'destination'>('pickup');
   const [selectedRide, setSelectedRide] = useState<RideOption | null>(null);
 
@@ -159,6 +162,35 @@ export default function TaxiBooking() {
 
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [searchTimer, setSearchTimer] = useState<any>(null);
+
+  const { drivers } = useNearbyDrivers();
+
+  const getDriverIcon = (type: string) => {
+    let iconStr = '🚗';
+    let ringColor = '#7F77DD';
+    if (type === 'bike') {
+      iconStr = '🏍️';
+      ringColor = '#1D9E75';
+    }
+    if (type === 'bajaj') {
+      iconStr = '🛺';
+      ringColor = '#D85A30';
+    }
+
+    return L.divIcon({
+      className: 'driver-marker-icon',
+      html: `
+        <div class="relative flex items-center justify-center">
+          <div class="absolute w-12 h-12 bg-white/20 rounded-full animate-ping"></div>
+          <div class="w-10 h-10 bg-[#111118] border-2 border-[#1e1e2e] rounded-2xl flex items-center justify-center text-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] ring-2 ring-${ringColor}/50 transition-all">
+            ${iconStr}
+          </div>
+        </div>
+      `,
+      iconSize: [40, 40],
+      iconAnchor: [20, 20]
+    });
+  };
 
   const StartPin = React.useMemo(() => L.divIcon({
       className: 'custom-div-icon',
@@ -293,6 +325,7 @@ export default function TaxiBooking() {
     
     switch (activeRide.status) {
       case 'accepted':
+      case 'driver_arriving':
         if (step !== 'found' && step !== 'arriving' && step !== 'on_trip' && step !== 'completed' && step !== 'rating') {
           setStep('found');
         }
@@ -417,6 +450,18 @@ export default function TaxiBooking() {
                  <MapControl position={settingMode === 'pickup' ? pickupPos : destPos} step={step} />
                  <Marker position={pickupPos} icon={StartPin} />
                  <Marker position={destPos} icon={EndPin} />
+                 
+                 {/* Nearby Drivers - Show all initially, or filtered if ride selected */}
+                 {drivers
+                   .filter(d => !selectedRide || d.vehicleType === selectedRide.vehicleType)
+                   .map(driver => (
+                   <Marker 
+                     key={driver.id} 
+                     position={[driver.lat, driver.lng]} 
+                     icon={getDriverIcon(driver.vehicleType)}
+                   />
+                 ))}
+
                  {routeCoords.length > 1 && <Polyline positions={routeCoords} color="#7F77DD" weight={4} opacity={0.6} dashArray="8, 12" />}
                </MapContainer>
             </div>
@@ -496,14 +541,17 @@ export default function TaxiBooking() {
         {step === 'arriving' && activeRide && (
           <DriverArrivedScreen 
             ride={activeRide as any} 
-            onCall={() => toast.info(`Inapiga simu kwa ${activeRide.driverInfo?.phone}`)} 
-            onMessage={() => toast.info("Chat inafunguliwa...")}
+            onCall={() => window.open(`tel:${activeRide.driverInfo?.phone}`)} 
+            onMessage={() => setIsChatOpen(true)}
             onImComing={() => toast.success("Dereva amejulishwa unakuja!")}
           />
         )}
 
         {step === 'on_trip' && activeRide && (
-          <LiveTripScreen ride={activeRide as any} />
+          <LiveTripScreen 
+            ride={activeRide as any} 
+            onMessage={() => setIsChatOpen(true)}
+          />
         )}
 
         {step === 'completed' && activeRide && (
@@ -523,7 +571,7 @@ export default function TaxiBooking() {
             className="absolute inset-0 z-[100] bg-[#0a0a0f] flex flex-col items-center justify-center p-8 text-center"
           >
              <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center text-red-500 mb-8 border border-red-500/30">
-                <X className="w-10 h-10" />
+                <CloseX className="w-10 h-10" />
              </div>
              <h2 className="text-2xl font-black text-[#f0eeff] mb-4">Hakuna Dereva Karibu Nawe Sasa Hivi</h2>
              <p className="text-[#6b6b8a] text-sm font-bold mb-12">Samahani, madereva wetu wote wako mbali kwa sasa. Tafadhali jaribu tena baada ya muda mfupi.</p>
@@ -545,6 +593,26 @@ export default function TaxiBooking() {
           </div>
         )}
       </div>
+
+      {/* Chat Overlay */}
+      <AnimatePresence>
+        {isChatOpen && activeRide && (
+          <motion.div
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            className="absolute inset-x-0 bottom-0 top-[72px] z-[200] bg-[#0a0a0f] p-4 pt-12"
+          >
+             <button 
+               onClick={() => setIsChatOpen(false)}
+               className="absolute top-4 right-4 w-10 h-10 bg-[#111118] border border-[#1e1e2e] rounded-xl flex items-center justify-center z-[210] active:scale-95 transition-transform"
+             >
+               <CloseX className="w-6 h-6 text-[#f0eeff]" />
+             </button>
+             <Chat onBack={() => setIsChatOpen(false)} />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <style>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }
