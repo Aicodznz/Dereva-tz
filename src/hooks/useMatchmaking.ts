@@ -74,29 +74,11 @@ export function useMatchmaking(ride: Ride | null) {
         let selectedDriver: any = null;
 
         if (!querySnapshot.empty) {
-          // Find the closest driver (simulated here since we don't have many real drivers)
-          // For now, take the first one that matches
+          // Find the closest driver
           const driverDoc = querySnapshot.docs[0];
           selectedDriver = { id: driverDoc.id, ...driverDoc.data() };
         } else {
-          // FALLBACK FOR DEMO: If no real drivers exist in DB, create a mock one
-          // This ensures the user sees the flow even in an empty database
-          selectedDriver = {
-            id: 'mock_driver_' + Math.random().toString(36).substr(2, 9),
-            name: 'Juma Matata',
-            phone: '+255 712 345 678',
-            photo: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Juma',
-            vehicle: {
-              model: ride.vehicleType === 'mini' ? 'Toyota Axio' : ride.vehicleType === 'bajaj' ? 'TVS King' : 'Boxer BM150',
-              plate: 'T ' + Math.floor(Math.random() * 999) + ' DAR',
-              color: 'Nyeupe'
-            },
-            rating: 4.8,
-            location: {
-              lat: ride.pickup.lat + (Math.random() - 0.5) * 0.01,
-              lng: ride.pickup.lng + (Math.random() - 0.5) * 0.01
-            }
-          };
+          console.log("No real drivers found yet...");
         }
 
         if (selectedDriver) {

@@ -19,6 +19,15 @@ export function useDriverActions(rideId: string | null) {
     if (!rideId) return;
     const rideRef = doc(db, 'rides', rideId);
     await updateDoc(rideRef, {
+      status: 'driver_arrived' as RideStatus,
+      updatedAt: serverTimestamp()
+    });
+  };
+
+  const startTrip = async () => {
+    if (!rideId) return;
+    const rideRef = doc(db, 'rides', rideId);
+    await updateDoc(rideRef, {
       status: 'on_trip' as RideStatus,
       updatedAt: serverTimestamp()
     });
@@ -57,5 +66,5 @@ export function useDriverActions(rideId: string | null) {
     });
   };
 
-  return { acceptRide, arrivedAtPickup, completeTrip, updateDriverLocation };
+  return { acceptRide, arrivedAtPickup, startTrip, completeTrip, updateDriverLocation };
 }

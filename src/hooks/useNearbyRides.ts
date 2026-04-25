@@ -12,7 +12,6 @@ export function useNearbyRides(vehicleType: 'mini' | 'bajaj' | 'bike') {
       collection(db, 'rides'),
       where('status', '==', 'pending'),
       where('vehicleType', '==', vehicleType),
-      orderBy('createdAt', 'desc'),
       limit(10)
     );
 

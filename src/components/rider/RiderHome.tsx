@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import Chat from '../Chat';
 import { motion, AnimatePresence } from 'motion/react';
+import { doc, updateDoc, serverTimestamp, setDoc, getDoc } from 'firebase/firestore';
+import { db } from '../../firebase';
 import { useAuth } from '../../AuthContext';
 import { useNearbyRides } from '../../hooks/useNearbyRides';
 import { useDriverActions } from '../../hooks/useDriverActions';
@@ -45,7 +47,7 @@ export default function RiderHome() {
   
   const { rides: nearbyRides } = useNearbyRides(vType as any);
   const { assignedRide } = useDriverRideListener(user?.uid, isOnline);
-  const { acceptRide: firestoreAccept, arrivedAtPickup, completeTrip, updateDriverLocation } = useDriverActions(rideId);
+  const { acceptRide: firestoreAccept, arrivedAtPickup, startTrip, completeTrip, updateDriverLocation } = useDriverActions(rideId);
 
   const [incomingRequest, setIncomingRequest] = useState<any>(null);
   const [speed, setSpeed] = useState(0);
@@ -99,15 +101,25 @@ export default function RiderHome() {
     }
   }, [isOnline, nearbyRides, assignedRide, !!activeRide]);
 
+  // Restore online status from Firestore on mount
+  useEffect(() => {
+    if (user?.uid) {
+      getDoc(doc(db, 'drivers', user.uid)).then(snap => {
+        if (snap.exists()) {
+          const data = snap.data();
+          setIsOnline(!!data.isOnline);
+        }
+      }).catch(err => console.error("Error restoring driver status:", err));
+    }
+  }, [user?.uid]);
+
   const toggleStatus = async () => {
     const nextStatus = !isOnline;
     setIsOnline(nextStatus);
     
     if (user?.uid) {
       try {
-        const { setDoc, doc, serverTimestamp } = await import('firebase/firestore');
-        const { db } = await import('../../firebase');
-        
+        console.log(`Setting driver ${user.uid} to ${nextStatus ? 'ONLINE' : 'OFFLINE'}`);
         await setDoc(doc(db, 'drivers', user.uid), {
           status: nextStatus ? 'online' : 'offline',
           isOnline: nextStatus,
@@ -131,6 +143,7 @@ export default function RiderHome() {
         toast.success(nextStatus ? 'Uko Online & Mapokezi' : 'Uko Offline');
       } catch (err) {
         console.error("Failed to sync driver status:", err);
+        setIsOnline(!nextStatus); // Revert on failure
       }
     }
   };
@@ -153,16 +166,20 @@ export default function RiderHome() {
           // ALWAYS update the public "drivers" collection if online
           // so passengers can see the driver on their map
           try {
-            const { setDoc, doc } = await import('firebase/firestore');
-            const { db } = await import('../../firebase');
             await setDoc(doc(db, 'drivers', user.uid), {
               location: { lat: loc.lat, lng: loc.lng },
-              lastActive: new Date() // Using Date for more frequent updates without serverTimestamp overhead if needed, but let's keep it consistent
+              isOnline: true,
+              receiving: true,
+              status: 'online',
+              lastActive: new Date(),
+              vehicleType: vType // Keep vehicle type synced
             }, { merge: true });
           } catch (err) {
             console.error("Failed to update public driver location:", err);
           }
-        });
+        }, (err) => {
+          console.error("Geolocation error:", err);
+        }, { enableHighAccuracy: true });
       }
     };
 
@@ -199,8 +216,10 @@ export default function RiderHome() {
   const handleUpdateStatus = async (status: RideStatus) => {
     if (!activeRide?.id) return;
     try {
-      if (status === 'on_trip') {
+      if (status === 'driver_arrived') {
         await arrivedAtPickup();
+      } else if (status === 'on_trip') {
+        await startTrip();
       } else if (status === 'completed') {
         const customerId = activeRide.customerId;
         const driverId = user!.uid;
@@ -208,7 +227,7 @@ export default function RiderHome() {
         await completeTrip(customerId, driverId, fare);
         setRideId(null);
       }
-      toast.success(`Hali: ${status}`);
+      toast.success(`Hali imesasishwa`);
     } catch (error) {
       toast.error("Imeshindwa kusasisha");
     }
@@ -477,6 +496,7 @@ export default function RiderHome() {
                       <p className="text-[9px] font-black uppercase text-neutral-400">Marudio ya Safari</p>
                       <h4 className="text-sm font-black uppercase text-emerald-600">
                          {activeRide.status === 'driver_arriving' && 'Unaelekea kuchukua abiria'}
+                         {activeRide.status === 'driver_arrived' && 'Umewasili kwa abiria'}
                          {activeRide.status === 'on_trip' && 'Safari inaendelea...'}
                       </h4>
                       <div className="mt-1 space-y-0.5">
@@ -496,10 +516,18 @@ export default function RiderHome() {
              <div className="space-y-3">
                 {activeRide.status === 'driver_arriving' && (
                   <Button 
-                    onClick={() => handleUpdateStatus('on_trip')}
+                    onClick={() => handleUpdateStatus('driver_arrived')}
                     className="w-full h-16 bg-blue-600 hover:bg-blue-500 rounded-2xl font-black uppercase tracking-widest italic"
                   >
                     Nimefika (Arrived)
+                  </Button>
+                )}
+                {activeRide.status === 'driver_arrived' && (
+                  <Button 
+                    onClick={() => handleUpdateStatus('on_trip')}
+                    className="w-full h-16 bg-emerald-600 hover:bg-emerald-500 rounded-2xl font-black uppercase tracking-widest italic shadow-[0_10px_30px_rgba(16,185,129,0.3)]"
+                  >
+                    Anzisha Safari (Start Trip)
                   </Button>
                 )}
                 {activeRide.status === 'on_trip' && (

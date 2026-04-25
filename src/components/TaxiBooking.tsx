@@ -182,7 +182,7 @@ export default function TaxiBooking() {
       html: `
         <div class="relative flex items-center justify-center">
           <div class="absolute w-12 h-12 bg-white/20 rounded-full animate-ping"></div>
-          <div class="w-10 h-10 bg-[#111118] border-2 border-[#1e1e2e] rounded-2xl flex items-center justify-center text-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] ring-2 ring-${ringColor}/50 transition-all">
+          <div class="w-10 h-10 bg-[#111118] border-2 border-[#1e1e2e] rounded-2xl flex items-center justify-center text-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] ring-2 ring-[${ringColor}]/50 transition-all">
             ${iconStr}
           </div>
         </div>
