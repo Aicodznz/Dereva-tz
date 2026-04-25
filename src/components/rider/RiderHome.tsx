@@ -152,42 +152,58 @@ export default function RiderHome() {
   useEffect(() => {
     if (!isOnline || !user) return;
 
-    const updateLoc = async () => {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(async (pos) => {
-          const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-          setPosition([loc.lat, loc.lng]);
-          
-          // Update active ride tracking if exists
-          if (activeRide) {
-            updateDriverLocation(loc.lat, loc.lng);
-          }
+    let watchId: number | null = null;
+    let lastErrorTime = 0;
 
-          // ALWAYS update the public "drivers" collection if online
-          // so passengers can see the driver on their map
-          try {
-            await setDoc(doc(db, 'drivers', user.uid), {
-              location: { lat: loc.lat, lng: loc.lng },
-              isOnline: true,
-              receiving: true,
-              status: 'online',
-              lastActive: new Date(),
-              vehicleType: vType // Keep vehicle type synced
-            }, { merge: true });
-          } catch (err) {
-            console.error("Failed to update public driver location:", err);
-          }
-        }, (err) => {
-          console.error("Geolocation error:", err);
-        }, { enableHighAccuracy: true });
+    const startTracking = () => {
+      if (navigator.geolocation) {
+        watchId = navigator.geolocation.watchPosition(
+          async (pos) => {
+            const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            setPosition([loc.lat, loc.lng]);
+            
+            // Update active ride tracking if exists
+            if (activeRide) {
+              updateDriverLocation(loc.lat, loc.lng);
+            }
+
+            // ALWAYS update the public "drivers" collection if online
+            // so passengers can see the driver on their map
+            try {
+              await setDoc(doc(db, 'drivers', user.uid), {
+                location: { lat: loc.lat, lng: loc.lng },
+                isOnline: true,
+                receiving: true,
+                status: 'online',
+                lastActive: new Date(),
+                vehicleType: vType // Keep vehicle type synced
+              }, { merge: true });
+            } catch (err) {
+              // Silent fail for Firestore updates to avoid UI flickering
+              console.warn("Silent location sync fail:", err);
+            }
+          }, 
+          (err) => {
+            const now = Date.now();
+            // Only log errors every 30 seconds to avoid flooding
+            if (now - lastErrorTime > 30000) {
+              console.error("Geolocation error:", err.message || "Unknown error", err.code);
+              lastErrorTime = now;
+            }
+          }, 
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
+        );
       }
     };
 
-    updateLoc(); // Initial update
-    const interval = setInterval(updateLoc, 3000); // Every 3 seconds
+    startTracking();
 
-    return () => clearInterval(interval);
-  }, [isOnline, user, activeRide?.id]);
+    return () => {
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    };
+  }, [isOnline, user?.uid, activeRide?.id]);
 
   const handleAccept = async () => {
     if (!incomingRequest?.id || !user) return;

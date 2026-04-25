@@ -16,7 +16,7 @@ export function useDriverRideListener(driverId: string | undefined, isOnline: bo
     const q = query(
       collection(db, 'rides'),
       where('driverId', '==', driverId),
-      where('status', 'in', ['accepted', 'driver_arrived', 'on_trip']),
+      where('status', 'in', ['accepted', 'driver_arriving', 'driver_arrived', 'on_trip']),
       limit(1)
     );
 
