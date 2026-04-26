@@ -153,7 +153,7 @@ export default function TaxiBooking() {
   const [pickup, setPickup] = useState('Tabata Shule, Dar es Salaam');
   const [destination, setDestination] = useState('');
 
-  const { routeCoords } = useRouting(pickupPos, destPos);
+  const { routeCoords, totalDistance, totalDuration } = useRouting(pickupPos, destPos);
 
   const { createRide, isLoading: isCreatingRide } = useCreateRide();
   const [rideId, setRideId] = useState<string | null>(null);
@@ -306,7 +306,9 @@ export default function TaxiBooking() {
       const customerInfo = {
         name: customerName,
         rating: 5.0,
-        avatar: currentUser?.photoURL || null
+        avatar: currentUser?.photoURL || null,
+        photo: currentUser?.photoURL || null,
+        phone: profile?.phoneNumber || ""
       };
 
       const id = await createRide(
@@ -316,6 +318,8 @@ export default function TaxiBooking() {
         { lat: destPos[0], lng: destPos[1], address: destination },
         selectedRide.id as any,
         selectedRide.price,
+        totalDistance / 1000,
+        Math.ceil(totalDuration / 60),
         formattedCoords
       );
       

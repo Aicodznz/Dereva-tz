@@ -21,6 +21,8 @@ export interface CustomerInfo {
   name: string;
   rating: number;
   avatar: string | null;
+  photo?: string;
+  phone?: string;
 }
 
 export interface Ride {
@@ -36,6 +38,8 @@ export interface Ride {
   fare: number;
   routeCoords: [number, number][]; // OSRM coords
   driverLocation?: { lat: number; lng: number };
+  distance?: number;
+  duration?: string | number;
   eta?: {
     minutes: number;
     seconds: number;

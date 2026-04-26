@@ -152,13 +152,16 @@ service cloud.firestore {
       allow create: if isSignedIn() && incoming().customerId == request.auth.uid;
       allow update: if isSignedIn() && (
         isAdmin() ||
-        // Customer simulation: update ride with driver info
+        // Customer updates
         (isOwner(existing().customerId) && (
-          incoming().diff(existing()).affectedKeys().hasAny(['status', 'driverId', 'driverInfo', 'driverLocation', 'acceptedAt', 'updatedAt', 'rating', 'review'])
+          incoming().diff(existing()).affectedKeys().hasAny(['status', 'rating', 'review', 'updatedAt'])
         )) ||
-        // Driver simulation
-        (incoming().status == 'accepted' && existing().status == 'pending') ||
-        (isOwner(existing().driverId) && incoming().diff(existing()).affectedKeys().hasAny(['status', 'updatedAt', 'driverLocation', 'eta', 'completedAt']))
+        // Driver acceptance
+        (resource.data.status == 'pending' && incoming().status == 'accepted' && incoming().driverId == request.auth.uid) ||
+        // Active driver updates
+        (isOwner(existing().driverId) && (
+          incoming().diff(existing()).affectedKeys().hasAny(['status', 'updatedAt', 'driverLocation', 'eta', 'completedAt', 'arrivedAt', 'startedAt', 'paymentMethod', 'paymentStatus', 'paidAt', 'customerRating', 'fullyCompleted'])
+        ))
       );
     }
 

@@ -25,6 +25,11 @@ import { RideStatus, DriverInfo } from '../../types/ride.types';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 
+import IncomingRideCard from '../tegex/IncomingRideCard';
+import DriverTripSheet from '../tegex/DriverTripSheet';
+import PaymentConfirmScreen from '../tegex/PaymentConfirmScreen';
+import RateCustomerScreen from '../tegex/RateCustomerScreen';
+
 // Fix leaflet icon issue
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
@@ -52,31 +57,47 @@ export default function RiderHome() {
   const vType = vTypeRaw.includes('bike') ? 'bike' : vTypeRaw.includes('bajaj') ? 'bajaj' : 'mini';
   
   const { showEarnings, toggleEarnings, stats } = useDriverDashboard();
-  const nearbyRequests = useIncomingRequests(vType, isOnline);
+  const nearbyRequests = useIncomingRequests(vType, isOnline, position ? { lat: position[0], lng: position[1] } : null);
   const { assignedRide } = useDriverRideListener(user?.uid, isOnline);
   const { acceptRide: firestoreAccept, arrivedAtPickup, startTrip, completeTrip, updateDriverLocation } = useDriverActions(rideId);
 
   const [incomingRequest, setIncomingRequest] = useState<any>(null);
+  const [showPayment, setShowPayment] = useState(false);
+  const [showRating, setShowRating] = useState(false);
   const [speed, setSpeed] = useState(0);
   const [isGoingOnline, setIsGoingOnline] = useState(false);
 
-  // Sound & Vibration for new requests
   useEffect(() => {
-    if (incomingRequest && isOnline) {
-      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-      try {
-        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const oscillator = audioCtx.createOscillator();
-        const gainNode = audioCtx.createGain();
-        oscillator.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
-        oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
-        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        oscillator.start();
-        oscillator.stop(audioCtx.currentTime + 0.3);
-      } catch (e) {}
+    if (nearbyRequests.length > 0 && !activeRide && !incomingRequest && isOnline && !showPayment && !showRating) {
+      setIncomingRequest(nearbyRequests[0]);
     }
-  }, [incomingRequest?.id]);
+  }, [nearbyRequests, activeRide, incomingRequest, isOnline, showPayment, showRating]);
+  useEffect(() => {
+    if (!isOnline || !user?.uid) return;
+    
+    const interval = setInterval(async () => {
+      // Update global driver presence
+      try {
+        await setDoc(doc(db, 'drivers', user.uid), {
+          location: {
+            lat: position[0],
+            lng: position[1],
+            heading: rotation
+          },
+          lastActive: serverTimestamp()
+        }, { merge: true });
+
+        // Update active ride tracking if it's on_trip or driver_arriving
+        if (rideId && activeRide && (activeRide.status === 'accepted' || activeRide.status === 'driver_arrived' || activeRide.status === 'on_trip')) {
+          await updateDriverLocation(position[0], position[1], rotation);
+        }
+      } catch (e) {
+        console.error("Failed to update driver presence:", e);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [isOnline, user?.uid, position, rotation, rideId, activeRide?.status]);
 
   // Get current location
   useEffect(() => {
@@ -265,7 +286,7 @@ export default function RiderHome() {
       };
       
       setRideId(incomingRequest.id);
-      await firestoreAccept(user.uid, driverInfo);
+      await firestoreAccept(user.uid, driverInfo, { lat: position[0], lng: position[1] });
       setIncomingRequest(null);
       toast.success("Safari Imekubaliwa!");
     } catch (error: any) {
@@ -281,18 +302,29 @@ export default function RiderHome() {
     try {
       if (status === 'driver_arrived') {
         await arrivedAtPickup();
+        toast.success("Umefika kwa mteja!");
       } else if (status === 'on_trip') {
         await startTrip();
-      } else if (status === 'completed') {
-        const customerId = activeRide.customerId;
-        const driverId = user!.uid;
-        const fare = activeRide.fare;
-        await completeTrip(customerId, driverId, fare);
-        setRideId(null);
+        toast.success("Safari imeanza!");
       }
-      toast.success(`Hali imesasishwa`);
-    } catch (error) {
-      toast.error("Imeshindwa kusasisha");
+    } catch (e) {
+      console.error("Status update error:", e);
+      toast.error("Imeshindwa kusasisha hali");
+    }
+  };
+
+  const handleComplete = async () => {
+    if (!activeRide || !user) return;
+    try {
+      await completeTrip(
+        activeRide.customerId,
+        user.uid,
+        activeRide.fare
+      );
+      setShowPayment(true);
+      toast.success("Safari Imekamilika!");
+    } catch (e) {
+      toast.error("Imeshindwa kukamilisha safari");
     }
   };
 
@@ -515,181 +547,47 @@ export default function RiderHome() {
                 </div>
              </motion.div>
           )}
-
-          {incomingRequest && (
-            <motion.div 
-               key="incoming"
-               initial={{ y: 300 }} animate={{ y: 0 }} exit={{ y: 300 }}
-               className="bg-[#111118] border-t border-[#1e1e2e] p-4 pb-10 rounded-t-[40px] shadow-[0_-40px_100px_rgba(127,119,221,0.2)]"
-             >
-                <div className="flex flex-col gap-6 p-4">
-                   <div className="flex justify-between items-start">
-                      <div className="flex gap-4">
-                         <div className="relative">
-                            <svg className="w-16 h-16 transform -rotate-90">
-                              <circle cx="32" cy="32" r="30" stroke="#1e1e2e" strokeWidth="4" fill="none" />
-                              <motion.circle 
-                                cx="32" cy="32" r="30" stroke="#7F77DD" strokeWidth="4" fill="none"
-                                initial={{ pathLength: 1 }}
-                                animate={{ pathLength: 0 }}
-                                transition={{ duration: 15, ease: "linear" }}
-                                onAnimationComplete={() => setIncomingRequest(null)}
-                              />
-                            </svg>
-                            <div className="absolute inset-0 flex items-center justify-center text-xl font-black italic text-[#7F77DD]"><Zap className="w-6 h-6" /></div>
-                         </div>
-                         <div>
-                            <div className="bg-[#7F77DD]/20 text-[#7F77DD] text-[10px] font-black px-3 py-1 rounded-full mb-1 italic inline-block tracking-widest border border-[#7F77DD]/30">⚡ OMBI JIPYA</div>
-                            <h2 className="text-3xl font-black italic uppercase tracking-tighter -mt-1 leading-none text-[#7F77DD]">#{incomingRequest.id.slice(-4).toUpperCase()}</h2>
-                         </div>
-                      </div>
-                      <div className="text-right">
-                         <p className="text-[10px] font-black uppercase text-neutral-500">MAPATO YAKO</p>
-                         <h3 className="text-2xl font-black italic text-emerald-500 leading-none">TZS {(incomingRequest.fare ?? 0).toLocaleString()}</h3>
-                      </div>
-                   </div>
-
-                   <div className="bg-[#0a0a0f] border border-[#1e1e2e] rounded-3xl p-5 space-y-4">
-                      <div className="flex items-start gap-4">
-                         <div className="mt-1 w-2.5 h-2.5 bg-emerald-500 rounded-full" />
-                         <div className="flex-1 overflow-hidden">
-                            <p className="text-[9px] font-black text-neutral-600 uppercase mb-0.5">Pickup: Ubungo</p>
-                            <p className="text-sm font-bold truncate leading-tight">{incomingRequest.pickup.address}</p>
-                         </div>
-                      </div>
-                      <div className="h-4 w-px bg-neutral-800 ml-[5px]" />
-                      <div className="flex items-start gap-4">
-                         <div className="mt-1 w-2.5 h-2.5 bg-orange-500 rounded-full" />
-                         <div className="flex-1 overflow-hidden">
-                            <p className="text-[9px] font-black text-neutral-600 uppercase mb-0.5">Mwisho: {incomingRequest.destination.address.split(',')[0]}</p>
-                            <p className="text-sm font-bold truncate leading-tight">{incomingRequest.destination.address}</p>
-                         </div>
-                      </div>
-                   </div>
-
-                   <div className="flex items-center justify-around py-2 border-y border-[#1e1e2e]">
-                      <div className="flex flex-col items-center">
-                         <MapIcon className="w-5 h-5 text-neutral-500 mb-1" />
-                         <p className="text-[10px] font-black uppercase italic">12 KM</p>
-                      </div>
-                      <div className="w-px h-6 bg-[#1e1e2e]" />
-                      <div className="flex flex-col items-center">
-                         <Clock className="w-5 h-5 text-neutral-500 mb-1" />
-                         <p className="text-[10px] font-black uppercase italic">~18 DAK</p>
-                      </div>
-                   </div>
-
-                   <div className="flex gap-4">
-                      <button 
-                        onClick={() => setIncomingRequest(null)}
-                        className="w-[35%] h-16 rounded-2xl border-2 border-red-500/20 text-red-500 font-black uppercase italic text-sm"
-                      >
-                        Kataa
-                      </button>
-                      <button 
-                        onClick={handleAccept}
-                        className="w-[65%] h-16 rounded-2xl bg-[#1D9E75] text-white font-black uppercase italic text-lg shadow-[0_10px_30px_rgba(29,158,117,0.3)] flex items-center justify-center gap-3"
-                      >
-                        KUBALI <ArrowRight className="w-6 h-6" />
-                      </button>
-                   </div>
-                </div>
-             </motion.div>
-          )}
-
-          {activeRide && (
-            <motion.div 
-               key="active"
-               initial={{ y: 300 }} animate={{ y: 0 }} exit={{ y: 300 }}
-               className="bg-[#111118] border-t border-[#1e1e2e] p-6 pb-12 rounded-t-[40px] shadow-[0_-20px_60px_rgba(0,0,0,0.8)]"
-             >
-                <div className="flex flex-col gap-6">
-                   <div className="flex items-center justify-between border-b border-[#1e1e2e] pb-6">
-                      <div className="flex items-center gap-4">
-                         <div className="w-16 h-16 bg-[#0a0a0f] border-2 border-[#1e1e2e] rounded-2xl overflow-hidden shadow-xl">
-                            <img src={activeRide.customerInfo?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${activeRide.customerId}`} alt="Customer" className="w-full h-full object-cover" />
-                         </div>
-                         <div className="space-y-1">
-                            <p className="text-[10px] font-black uppercase text-neutral-500 italic">MTEJA</p>
-                            <h3 className="text-xl font-black italic uppercase tracking-tighter leading-none">{activeRide.customerInfo?.name || "Mteja"}</h3>
-                            <div className="flex items-center gap-1.5 text-[#amber-500]">
-                               <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
-                               <span className="text-xs font-black text-amber-500">{activeRide.customerInfo?.rating || "4.9"}</span>
-                               <span className="text-[10px] text-neutral-600 ml-2 font-bold px-2 py-0.5 bg-[#0a0a0f] rounded-full">TZS {(activeRide.fare ?? 0).toLocaleString()}</span>
-                            </div>
-                         </div>
-                      </div>
-                      <div className="flex gap-2">
-                         <button onClick={() => window.open(`tel:${activeRide.customerInfo?.phone || '0700000000'}`)} className="w-14 h-14 bg-[#1D9E75]/10 border border-[#1D9E75]/20 rounded-2xl flex items-center justify-center transition-all active:scale-95">
-                           <Phone className="w-6 h-6 text-[#1D9E75]" />
-                         </button>
-                         <button onClick={() => setIsChatOpen(true)} className="w-14 h-14 bg-[#7F77DD]/10 border border-[#7F77DD]/20 rounded-2xl flex items-center justify-center transition-all active:scale-95">
-                           <MessageSquare className="w-6 h-6 text-[#7F77DD]" />
-                         </button>
-                      </div>
-                   </div>
-
-                   <div className="space-y-6">
-                      <div className="flex items-start gap-4">
-                         <div className="w-10 h-10 bg-[#0a0a0f] border border-[#1e1e2e] rounded-xl flex items-center justify-center text-[#7F77DD]">
-                           {activeRide.status === 'on_trip' ? <MapIcon className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
-                         </div>
-                         <div className="flex-1 overflow-hidden">
-                            <p className="text-[9px] font-black uppercase text-neutral-600 mb-0.5">
-                               {activeRide.status === 'on_trip' ? 'MWISHO WA SAFARI' : 'PICKUP POINT'}
-                            </p>
-                            <h4 className="text-sm font-bold truncate leading-tight">
-                               {activeRide.status === 'on_trip' ? activeRide.destination.address : activeRide.pickup.address}
-                            </h4>
-                            <p className="text-[11px] font-bold text-[#7F77DD] italic">
-                               {activeRide.status === 'on_trip' ? 'ETA: 08:22 · 5.1 km imebaki' : 'Umbali: 1.2 km · ETA: 4 dak'}
-                            </p>
-                         </div>
-                      </div>
-
-                      {activeRide.status === 'on_trip' && (
-                        <div className="space-y-1.5">
-                           <div className="flex justify-between text-[10px] font-black uppercase italic text-neutral-500">
-                             <span>Progress</span>
-                             <span>62%</span>
-                           </div>
-                           <div className="h-2 w-full bg-[#0a0a0f] rounded-full overflow-hidden border border-[#1e1e2e]">
-                              <motion.div initial={{ width: 0 }} animate={{ width: "62%" }} className="h-full bg-[#7F77DD] shadow-[0_0_10px_#7F77DD]" />
-                           </div>
-                        </div>
-                      )}
-
-                      <div className="flex gap-4"> 
-                        {activeRide.status === 'driver_arriving' && (
-                          <button 
-                            onClick={() => handleUpdateStatus('driver_arrived')}
-                            className="w-full h-16 bg-[#7F77DD] text-white font-black uppercase italic tracking-widest text-lg shadow-[0_10px_30px_rgba(127,119,221,0.3)] flex items-center justify-center gap-3"
-                          >
-                            NIMEFIKA <CheckCircle2 className="w-6 h-6" />
-                          </button>
-                        )}
-                        {activeRide.status === 'driver_arrived' && (
-                          <button 
-                            onClick={() => handleUpdateStatus('on_trip')}
-                            className="w-full h-16 bg-[#1D9E75] text-white font-black uppercase italic tracking-widest text-lg shadow-[0_10px_30px_rgba(29,158,117,0.3)] flex items-center justify-center gap-3"
-                          >
-                            ANZISHA SAFARI <ArrowRight className="w-6 h-6" />
-                          </button>
-                        )}
-                        {activeRide.status === 'on_trip' && (
-                          <button 
-                            onClick={() => handleUpdateStatus('completed')}
-                            className="w-full h-16 bg-red-600 text-white font-black uppercase italic tracking-widest text-lg shadow-[0_10px_30px_rgba(220,38,38,0.3)] flex items-center justify-center gap-3"
-                          >
-                            MALIZA SAFARI <CheckCircle2 className="w-6 h-6" />
-                          </button>
-                        )}
-                      </div>
-                   </div>
-                </div>
-             </motion.div>
-          )}
         </AnimatePresence>
+
+        <AnimatePresence>
+            {incomingRequest && (
+              <IncomingRideCard 
+                ride={incomingRequest}
+                onAccept={handleAccept}
+                onDecline={() => setIncomingRequest(null)}
+                onTimeout={() => setIncomingRequest(null)}
+              />
+            )}
+
+            {activeRide && !showPayment && !showRating && (
+              <DriverTripSheet 
+                ride={activeRide as any}
+                onArrive={() => handleUpdateStatus('driver_arrived')}
+                onStart={() => handleUpdateStatus('on_trip')}
+                onComplete={handleComplete}
+              />
+            )}
+
+            {activeRide && showPayment && (
+              <PaymentConfirmScreen 
+                ride={activeRide as any}
+                onPaymentConfirmed={() => {
+                  setShowPayment(false);
+                  setShowRating(true);
+                }}
+              />
+            )}
+
+            {activeRide && showRating && (
+              <RateCustomerScreen 
+                ride={activeRide as any}
+                onDone={() => {
+                  setShowRating(false);
+                  setRideId(null);
+                }}
+              />
+            )}
+          </AnimatePresence>
       </div>
 
       {/* Chat Overlay */}

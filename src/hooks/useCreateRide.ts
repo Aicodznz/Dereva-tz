@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { collection, addDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { TripLocation, RideStatus } from '../types/trip.types';
+import { CustomerInfo } from '../types/ride.types';
 
 export function useCreateRide() {
   const [isLoading, setIsLoading] = useState(false);
@@ -10,11 +11,13 @@ export function useCreateRide() {
 
   const createRide = async (
     customerId: string,
-    customerInfo: { name: string; rating: number; avatar: string | null },
+    customerInfo: CustomerInfo,
     pickup: TripLocation,
     destination: TripLocation,
     vehicleType: 'mini' | 'bajaj' | 'bike',
     fare: number,
+    distance: number,
+    duration: number,
     routeCoords: { lat: number; lng: number }[]
   ) => {
     setIsLoading(true);
@@ -33,6 +36,8 @@ export function useCreateRide() {
         destination,
         vehicleType,
         fare,
+        distance,
+        duration,
         routeCoords,
         createdAt: serverTimestamp(),
         expiresAt: Timestamp.fromDate(expiresAt),
