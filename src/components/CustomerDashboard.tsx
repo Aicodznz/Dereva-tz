@@ -233,7 +233,7 @@ export default function CustomerDashboard() {
       <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar snap-x py-2 px-1">
         {banners.map((banner, idx) => banner.img && (
           <motion.div 
-            key={banner.id} 
+            key={`promo-banner-${banner.id || idx}`} 
             initial={{ opacity: 0, scale: 0.9, x: 50 }}
             animate={{ opacity: 1, scale: 1, x: 0 }}
             transition={{ delay: 0.1 * idx, ease: [0.22, 1, 0.36, 1] }}
@@ -293,7 +293,7 @@ export default function CustomerDashboard() {
             .sort((a, b) => a.distance - b.distance)
             .map((vendor, idx) => (
             <motion.div
-              key={vendor.id}
+              key={`nearby-vendor-${vendor.id || idx}`}
               initial={{ opacity: 0, x: 50 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
@@ -425,7 +425,7 @@ export default function CustomerDashboard() {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 md:gap-6">
           {filteredProducts.map((product, idx) => (
             <motion.div
-              key={product.id}
+              key={`product-${product.id || idx}`}
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -495,7 +495,7 @@ export default function CustomerDashboard() {
             .sort((a, b) => a.distance - b.distance)
             .map((vendor, idx) => (
             <motion.div
-              key={vendor.id}
+              key={`popular-restaurant-${vendor.id || idx}`}
               initial={{ opacity: 0, scale: 0.95 }}
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}

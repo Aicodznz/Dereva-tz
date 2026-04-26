@@ -519,14 +519,14 @@ export default function AdminDashboard() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-neutral-100">
-                         {allProducts.filter(p => !searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase())).map(product => {
+                         {allProducts.filter(p => !searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase())).map((product, idx) => {
                             const currentVendor = vendors.find(v => v.id === product.vendorId);
                            const mongikeFee = product.price * 0.035;
                            const platformCommission = product.price * 0.10;
                            const netToVendor = product.price - platformCommission;
                            
                            return (
-                             <tr key={product.id}>
+                             <tr key={product.id || `prod-${idx}`}>
                                 <td className="px-8 py-6">
                                    <div className="flex items-center gap-4">
                                       <img src={product.imageUrl || "https://picsum.photos/seed/food/100"} className="w-12 h-12 rounded-xl object-cover" />
@@ -679,9 +679,9 @@ export default function AdminDashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {vendors.filter(v => v.status === 'pending').map(v => (
+                    {vendors.filter(v => v.status === 'pending').map((v, idx) => (
                       <div 
-                        key={v.id} 
+                        key={v.id || `pend-${idx}`} 
                         onClick={() => navigate(`/vendor/${v.id}`)}
                         className="flex items-center justify-between p-4 bg-white rounded-3xl shadow-sm cursor-pointer hover:bg-neutral-50 transition-colors border border-transparent hover:border-orange-100 group"
                       >
@@ -710,9 +710,9 @@ export default function AdminDashboard() {
               <div className="space-y-6">
                 <h3 className="text-2xl font-black italic uppercase tracking-tighter text-neutral-900 dark:text-white transition-colors">Active Network</h3>
                  <div className="grid grid-cols-1 gap-4">
-                    {vendors.filter(v => v.status === 'active').map(v => (
+                    {vendors.filter(v => v.status === 'active').map((v, idx) => (
                       <Card 
-                        key={v.id} 
+                        key={v.id || `actv-${idx}`} 
                         onClick={() => navigate(`/vendor/${v.id}`)}
                         className="rounded-[2rem] border-none shadow-lg group hover:shadow-2xl transition-all cursor-pointer border-2 border-transparent hover:border-orange-500/20 bg-white dark:bg-neutral-900 transition-colors"
                       >

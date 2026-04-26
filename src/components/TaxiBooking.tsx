@@ -513,6 +513,7 @@ export default function TaxiBooking() {
                  {/* Assigned Driver Marker */}
                  {activeRide?.driverLocation && (
                    <Marker 
+                     key={`active-driver-${activeRide.driverId || 'presence'}`}
                      position={[activeRide.driverLocation.lat, activeRide.driverLocation.lng]} 
                      icon={getDriverIcon(activeRide.vehicleType)}
                    />

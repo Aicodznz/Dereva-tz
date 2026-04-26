@@ -173,11 +173,11 @@ service cloud.firestore {
 
     // Drivers Presence
     match /drivers/{driverId} {
-      allow read: if isVerified();
+      allow read: if true;
       allow write: if isVerified() && isOwner(driverId) && isValidDriver(incoming());
     }
     match /riders/{riderId} {
-      allow read: if isVerified();
+      allow read: if true;
       allow write: if isVerified() && isOwner(riderId);
     }
 
