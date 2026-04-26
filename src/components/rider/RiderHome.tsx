@@ -57,21 +57,23 @@ export default function RiderHome() {
   const vType = vTypeRaw.includes('bike') ? 'bike' : vTypeRaw.includes('bajaj') ? 'bajaj' : 'mini';
   
   const { showEarnings, toggleEarnings, stats } = useDriverDashboard();
-  const nearbyRequests = useIncomingRequests(vType, isOnline, position ? { lat: position[0], lng: position[1] } : null);
+  const nearbyRequests = useIncomingRequests(vType, isOnline, position ? { lat: position[0], lng: position[1] } : null, user?.uid);
   const { assignedRide } = useDriverRideListener(user?.uid, isOnline);
   const { acceptRide: firestoreAccept, arrivedAtPickup, startTrip, completeTrip, updateDriverLocation } = useDriverActions(rideId);
 
   const [incomingRequest, setIncomingRequest] = useState<any>(null);
+  const [declinedRequests, setDeclinedRequests] = useState<Set<string>>(new Set());
   const [showPayment, setShowPayment] = useState(false);
   const [showRating, setShowRating] = useState(false);
   const [speed, setSpeed] = useState(0);
   const [isGoingOnline, setIsGoingOnline] = useState(false);
 
   useEffect(() => {
-    if (nearbyRequests.length > 0 && !activeRide && !incomingRequest && isOnline && !showPayment && !showRating) {
-      setIncomingRequest(nearbyRequests[0]);
+    const freshRequests = nearbyRequests.filter(r => !declinedRequests.has(r.id));
+    if (freshRequests.length > 0 && !activeRide && !incomingRequest && isOnline && !showPayment && !showRating) {
+      setIncomingRequest(freshRequests[0]);
     }
-  }, [nearbyRequests, activeRide, incomingRequest, isOnline, showPayment, showRating]);
+  }, [nearbyRequests, activeRide, incomingRequest, isOnline, showPayment, showRating, declinedRequests]);
   useEffect(() => {
     if (!isOnline || !user?.uid) return;
     
@@ -554,8 +556,14 @@ export default function RiderHome() {
               <IncomingRideCard 
                 ride={incomingRequest}
                 onAccept={handleAccept}
-                onDecline={() => setIncomingRequest(null)}
-                onTimeout={() => setIncomingRequest(null)}
+                onDecline={() => {
+                  setDeclinedRequests(prev => new Set(prev).add(incomingRequest.id));
+                  setIncomingRequest(null);
+                }}
+                onTimeout={() => {
+                  setDeclinedRequests(prev => new Set(prev).add(incomingRequest.id));
+                  setIncomingRequest(null);
+                }}
               />
             )}
 
