@@ -70,10 +70,15 @@ export default function RiderHome() {
 
   useEffect(() => {
     const freshRequests = nearbyRequests.filter(r => !declinedRequests.has(r.id));
-    if (freshRequests.length > 0 && !activeRide && !incomingRequest && isOnline && !showPayment && !showRating) {
+    
+    // Only set incoming request if we are online, not in an active ride, and not already showing one
+    if (isOnline && freshRequests.length > 0 && !activeRide && !incomingRequest && !showPayment && !showRating) {
       setIncomingRequest(freshRequests[0]);
+    } else if (!isOnline || activeRide || freshRequests.length === 0) {
+      if (incomingRequest) setIncomingRequest(null);
     }
   }, [nearbyRequests, activeRide, incomingRequest, isOnline, showPayment, showRating, declinedRequests]);
+
   useEffect(() => {
     if (!isOnline || !user?.uid) return;
     
@@ -127,36 +132,27 @@ export default function RiderHome() {
     return () => clearInterval(interval);
   }, [isOnline, !!activeRide]);
 
-  // Listen for requests or assigned rides when online
+  // Listen for assigned rides when online
   useEffect(() => {
     if (!isOnline) {
-      setIncomingRequest(null);
       setRideId(null);
       return;
     }
     
-    // If we have an assigned ride (that we are already on or just got)
     if (assignedRide) {
       setRideId(assignedRide.id);
-      setIncomingRequest(null);
-      return;
     }
+  }, [isOnline, assignedRide]);
 
-    // If no active ride yet, check for nearby pending ones
-    if (nearbyRequests.length > 0 && !activeRide) {
-      setIncomingRequest(nearbyRequests[0]);
-    } else {
-      setIncomingRequest(null);
-    }
-  }, [isOnline, nearbyRequests, assignedRide, !!activeRide]);
-
-  // Restore online status from Firestore on mount
+  // Restore online status from Firestore on mount - ONLY ONCE
   useEffect(() => {
-    if (user?.uid) {
+    if (user?.uid && !isOnline) {
       getDoc(doc(db, 'drivers', user.uid)).then(snap => {
         if (snap.exists()) {
           const data = snap.data();
-          setIsOnline(!!data.isOnline);
+          if (data.isOnline !== undefined) {
+            setIsOnline(!!data.isOnline);
+          }
         }
       }).catch(err => console.error("Error restoring driver status:", err));
     }
@@ -169,14 +165,13 @@ export default function RiderHome() {
     }
 
     const nextStatus = !isOnline;
+    setIsOnline(nextStatus);
     
     if (nextStatus) {
       setIsGoingOnline(true);
-      await new Promise(r => setTimeout(r, 1500));
-      setIsGoingOnline(false);
+      // Small delay for UX feel
+      setTimeout(() => setIsGoingOnline(false), 800);
     }
-
-    setIsOnline(nextStatus);
     
     if (user?.uid) {
       try {
@@ -204,7 +199,8 @@ export default function RiderHome() {
         toast.success(nextStatus ? 'Uko Online & Mapokezi' : 'Uko Offline');
       } catch (err) {
         console.error("Failed to sync driver status:", err);
-        setIsOnline(!nextStatus); // Revert on failure
+        // Only revert if it's a critical error (like auth)
+        // setIsOnline(!nextStatus); 
       }
     }
   };
