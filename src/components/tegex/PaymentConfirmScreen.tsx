@@ -49,7 +49,7 @@ export default function PaymentConfirmScreen({ ride, onPaymentConfirmed }: Payme
 
         <div className="w-full bg-[#111118] border border-[#1e1e2e] rounded-[40px] p-8">
            <p className="text-[10px] font-black uppercase text-neutral-500 tracking-widest mb-1">KIASI CHA KULIPWA</p>
-           <h3 className="text-5xl font-black italic text-[#7F77DD] tracking-tighter">TZS {ride.fare.toLocaleString()}</h3>
+           <h3 className="text-5xl font-black italic text-[#7F77DD] tracking-tighter">TZS {(ride?.fare ?? 0).toLocaleString()}</h3>
         </div>
 
         <div className="w-full grid grid-cols-2 gap-4">

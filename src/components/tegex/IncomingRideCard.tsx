@@ -59,7 +59,7 @@ export default function IncomingRideCard({ ride, onAccept, onDecline, onTimeout 
           </div>
           <div className="text-right">
             <p className="text-[10px] font-black uppercase text-neutral-500">MAPATO</p>
-            <h3 className="text-2xl font-black italic text-emerald-500 leading-none">TZS {ride.fare.toLocaleString()}</h3>
+            <h3 className="text-2xl font-black italic text-emerald-500 leading-none">TZS {(ride?.fare ?? 0).toLocaleString()}</h3>
           </div>
         </div>
 
