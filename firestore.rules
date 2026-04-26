@@ -168,7 +168,7 @@ service cloud.firestore {
     // Payments
     match /payments/{paymentId} {
       allow read: if isVerified() && (resource.data.customerId == request.auth.uid || resource.data.driverId == request.auth.uid || isAdmin());
-      allow create: if isVerified() && (incoming().driverId == request.auth.uid || isAdmin());
+      allow create: if isVerified() && (incoming().customerId == request.auth.uid || incoming().driverId == request.auth.uid || isAdmin());
     }
 
     // Drivers Presence

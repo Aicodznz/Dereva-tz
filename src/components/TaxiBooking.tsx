@@ -140,7 +140,7 @@ interface RideOption {
 // --- MAIN COMPONENT ---
 
 export default function TaxiBooking() {
-  const { user, signInGuest } = useAuth();
+  const { user, profile, signInGuest } = useAuth();
   const navigate = useNavigate();
 
   const [step, setStep] = useState<BookingStep>('home');
@@ -279,26 +279,49 @@ export default function TaxiBooking() {
       setStep('searching'); 
       console.log("Starting ride creation flow...");
       
+      if (routeCoords.length === 0) {
+        console.warn("No route coordinates found. Attempting to proceed anyway but performance might be degraded.");
+      }
+
       const formattedCoords = routeCoords.map(c => ({ lat: c[0], lng: c[1] }));
       
       // Ensure user is signed in for the demo
-      let currentUserId = user?.uid;
-      if (!currentUserId) {
+      let currentUser = auth.currentUser;
+      if (!currentUser) {
         console.log("No user found, signing in as guest for demo...");
         try {
           await signInGuest();
-          // Need to wait slightly for auth state to update
-          await new Promise(resolve => setTimeout(resolve, 500));
+          // The auth state change might take a moment
+          await new Promise(resolve => {
+            const unsub = auth.onAuthStateChanged(u => {
+              if (u) {
+                currentUser = u;
+                unsub();
+                resolve(u);
+              }
+            });
+            // Timeout if it takes too long
+            setTimeout(() => { unsub(); resolve(null); }, 3000);
+          });
         } catch (e) {
           console.error("Guest sign in failed", e);
         }
       }
       
-      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        toast.error("Hujajisajili. Tafadhali jaribu tena.");
+        setStep('map');
+        return;
+      }
+
+      console.log("Current authorized user UID:", currentUser.uid);
+      
       let customerName = "Mteja";
-      if (currentUser?.displayName) {
+      if (profile?.displayName) {
+        customerName = profile.displayName;
+      } else if (currentUser.displayName) {
         customerName = currentUser.displayName;
-      } else if (currentUser?.email) {
+      } else if (currentUser.email) {
         const part = currentUser.email.split('@')[0];
         customerName = part.charAt(0).toUpperCase() + part.slice(1);
       }
@@ -306,13 +329,13 @@ export default function TaxiBooking() {
       const customerInfo = {
         name: customerName,
         rating: 5.0,
-        avatar: currentUser?.photoURL || null,
-        photo: currentUser?.photoURL || null,
-        phone: profile?.phoneNumber || ""
+        avatar: profile?.photoURL || currentUser.photoURL || null,
+        photo: profile?.photoURL || currentUser.photoURL || null,
+        phone: profile?.phone || ""
       };
 
       const id = await createRide(
-        currentUser?.uid || 'guest_user',
+        currentUser.uid,
         customerInfo,
         { lat: pickupPos[0], lng: pickupPos[1], address: pickup },
         { lat: destPos[0], lng: destPos[1], address: destination },
@@ -327,14 +350,14 @@ export default function TaxiBooking() {
         console.log("Ride created successfully. ID:", id);
         setRideId(id);
       } else {
-        console.error("Ride creation returned null ID");
+        console.error("Ride creation failed - createRide returned null");
         setStep('map');
-        toast.error("Imeshindwa kuunda safari. Jaribu tena.");
+        toast.error("Imeshindwa kuunda safari. Angalia usalama wa akaunti yako au salio.");
       }
-    } catch (error) {
-      console.error("Error in confirmBooking:", error);
+    } catch (error: any) {
+      console.error("Critical error in confirmBooking:", error);
       setStep('map');
-      toast.error("Imeshindwa kuunda safari. Angalia mtandao wako.");
+      toast.error(`Itilafu: ${error.message || "Tatizo la kiufundi limejitokeza"}`);
     }
   };
 

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { collection, addDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, handleFirestoreError, OperationType } from '../firebase';
 import { TripLocation, RideStatus } from '../types/trip.types';
 import { CustomerInfo } from '../types/ride.types';
 
@@ -27,7 +27,7 @@ export function useCreateRide() {
       const expiresAt = new Date();
       expiresAt.setMinutes(expiresAt.getMinutes() + 5);
 
-      const docRef = await addDoc(collection(db, 'rides'), {
+      const rideData = {
         status: 'pending' as RideStatus,
         customerId,
         customerInfo,
@@ -43,12 +43,15 @@ export function useCreateRide() {
         expiresAt: Timestamp.fromDate(expiresAt),
         driverInfo: null,
         driverLocation: null,
-      });
+      };
+
+      const docRef = await addDoc(collection(db, 'rides'), rideData);
       setRideId(docRef.id);
       return docRef.id;
     } catch (err: any) {
       console.error("Firebase Create Ride Error:", err);
       setError(err.message);
+      handleFirestoreError(err, OperationType.CREATE, 'rides');
       return null;
     } finally {
       setIsLoading(false);
