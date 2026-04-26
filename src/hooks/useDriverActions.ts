@@ -3,9 +3,8 @@ import { db } from '../firebase';
 import { DriverInfo, RideStatus } from '../types/ride.types';
 
 export function useDriverActions(rideId: string | null) {
-  const acceptRide = async (driverId: string, driverInfo: DriverInfo, currentLoc: { lat: number, lng: number }) => {
-    if (!rideId) return;
-    const rideRef = doc(db, 'rides', rideId);
+  const acceptRide = async (targetRideId: string, driverId: string, driverInfo: DriverInfo, currentLoc: { lat: number, lng: number }) => {
+    const rideRef = doc(db, 'rides', targetRideId);
     
     await runTransaction(db, async (transaction) => {
       const rideDoc = await transaction.get(rideRef);

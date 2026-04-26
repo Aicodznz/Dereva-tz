@@ -1,6 +1,6 @@
 import { FieldValue, Timestamp } from 'firebase/firestore';
 
-export type RideStatus = 'pending' | 'accepted' | 'driver_arriving' | 'driver_arrived' | 'on_trip' | 'completed' | 'cancelled';
+export type RideStatus = 'pending' | 'accepted' | 'driver_arriving' | 'driver_arrived' | 'on_trip' | 'completed' | 'cancelled' | 'rated';
 
 export interface LatLng {
   lat: number;

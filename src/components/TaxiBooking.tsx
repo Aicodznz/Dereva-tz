@@ -331,7 +331,7 @@ export default function TaxiBooking() {
         rating: 5.0,
         avatar: profile?.photoURL || currentUser.photoURL || null,
         photo: profile?.photoURL || currentUser.photoURL || null,
-        phone: profile?.phone || ""
+        phone: profile?.phoneNumber || ""
       };
 
       const id = await createRide(
@@ -364,31 +364,47 @@ export default function TaxiBooking() {
   useEffect(() => {
     if (!activeRide) return;
     
-    console.log("Trip status updated:", activeRide.status);
+    const currentStatus = activeRide.status;
+    console.log(`[TaxiBooking] Status Sync: ${currentStatus} | Current Step: ${step} | RideID: ${activeRide.id}`);
     
-    switch (activeRide.status) {
-      case 'accepted':
-      case 'driver_arriving':
-        if (step !== 'found' && step !== 'arriving' && step !== 'on_trip' && step !== 'completed' && step !== 'rating') {
+    // Auto-transition based on ride status - check for multiple positive statuses
+    const isFound = currentStatus === 'accepted' || currentStatus === 'driver_arriving' || currentStatus === 'driver_arrived' || currentStatus === 'on_trip';
+    
+    if (isFound) {
+      if (step === 'searching' || step === 'map' || step === 'home') {
+        console.log(`[TaxiBooking] --> Transitioning to appropriate active screen based on status: ${currentStatus}`);
+        
+        if (currentStatus === 'accepted' || currentStatus === 'driver_arriving') {
           setStep('found');
+        } else if (currentStatus === 'driver_arrived') {
+          setStep('arriving');
+        } else if (currentStatus === 'on_trip') {
+          setStep('on_trip');
         }
-        break;
-      case 'driver_arrived':
+      }
+    }
+    
+    if (currentStatus === 'driver_arrived') {
+      if (step !== 'arriving' && step !== 'on_trip' && step !== 'completed') {
         setStep('arriving');
-        break;
-      case 'on_trip':
+      }
+    } else if (currentStatus === 'on_trip') {
+      if (step !== 'on_trip' && step !== 'completed') {
         setStep('on_trip');
-        break;
-      case 'completed':
-        if (step !== 'rating') setStep('completed');
-        break;
-      case 'cancelled':
+      }
+    } else if (currentStatus === 'completed' || currentStatus === 'rated') {
+      if (step !== 'rating' && step !== 'completed') {
+        console.log("[TaxiBooking] --> Transitioning to COMPLETED screen");
+        setStep('completed');
+      }
+    } else if (currentStatus === 'cancelled') {
+      if (step !== 'home') {
+        toast.info("Safari imeghairiwa");
         setStep('home');
         setRideId(null);
-        toast.info("Safari imeghairiwa");
-        break;
+      }
     }
-  }, [activeRide?.status]);
+  }, [activeRide?.status, activeRide?.id, step, rideId]);
 
   const handleTimeout = () => {
     deleteRide();
@@ -494,9 +510,17 @@ export default function TaxiBooking() {
                  <Marker position={pickupPos} icon={StartPin} />
                  <Marker position={destPos} icon={EndPin} />
                  
+                 {/* Assigned Driver Marker */}
+                 {activeRide?.driverLocation && (
+                   <Marker 
+                     position={[activeRide.driverLocation.lat, activeRide.driverLocation.lng]} 
+                     icon={getDriverIcon(activeRide.vehicleType)}
+                   />
+                 )}
+
                  {/* Nearby Drivers - Show all initially, or filtered if ride selected */}
                  {drivers
-                   .filter(d => !selectedRide || d.vehicleType === selectedRide.vehicleType)
+                   .filter(d => (!selectedRide || d.vehicleType === selectedRide.vehicleType) && d.id !== activeRide?.driverId)
                    .map(driver => (
                    <Marker 
                      key={driver.id} 

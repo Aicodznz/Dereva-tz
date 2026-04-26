@@ -79,33 +79,6 @@ export default function RiderHome() {
     }
   }, [nearbyRequests, activeRide, incomingRequest, isOnline, showPayment, showRating, declinedRequests]);
 
-  useEffect(() => {
-    if (!isOnline || !user?.uid) return;
-    
-    const interval = setInterval(async () => {
-      // Update global driver presence
-      try {
-        await setDoc(doc(db, 'drivers', user.uid), {
-          location: {
-            lat: position[0],
-            lng: position[1],
-            heading: rotation
-          },
-          lastActive: serverTimestamp()
-        }, { merge: true });
-
-        // Update active ride tracking if it's on_trip or driver_arriving
-        if (rideId && activeRide && (activeRide.status === 'accepted' || activeRide.status === 'driver_arrived' || activeRide.status === 'on_trip')) {
-          await updateDriverLocation(position[0], position[1], rotation);
-        }
-      } catch (e) {
-        console.error("Failed to update driver presence:", e);
-      }
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [isOnline, user?.uid, position, rotation, rideId, activeRide?.status]);
-
   // Get current location
   useEffect(() => {
     if (navigator.geolocation) {
@@ -132,6 +105,70 @@ export default function RiderHome() {
     return () => clearInterval(interval);
   }, [isOnline, !!activeRide]);
 
+  const StartPin = React.useMemo(() => L.divIcon({
+    className: 'custom-div-icon',
+    html: `
+      <div class="relative flex flex-col items-center">
+        <div class="bg-white/90 backdrop-blur-sm border border-emerald-500 rounded-lg px-2 py-1 mb-1 shadow-xl">
+          <p class="text-[8px] font-black text-emerald-600 uppercase whitespace-nowrap">PICKUP MTEJA</p>
+        </div>
+        <div class="bg-[#1D9E75] text-white w-8 h-8 rounded-full border-2 border-white shadow-lg flex items-center justify-center font-black">A</div>
+        <div class="w-0.5 h-2 bg-emerald-500"></div>
+      </div>
+    `,
+    iconSize: [80, 60],
+    iconAnchor: [40, 60]
+  }), []);
+
+  const EndPin = React.useMemo(() => L.divIcon({
+    className: 'custom-div-icon',
+    html: `
+      <div class="relative flex flex-col items-center">
+        <div class="bg-white/90 backdrop-blur-sm border border-orange-500 rounded-lg px-2 py-1 mb-1 shadow-xl">
+          <p class="text-[8px] font-black text-orange-600 uppercase whitespace-nowrap">DESTINATION</p>
+        </div>
+        <div class="bg-[#D85A30] text-white w-8 h-8 rounded-full border-2 border-white shadow-lg flex items-center justify-center font-black">B</div>
+        <div class="w-0.5 h-2 bg-orange-500"></div>
+      </div>
+    `,
+    iconSize: [80, 60],
+    iconAnchor: [40, 60]
+  }), []);
+
+  // Unified location and presence sync
+  useEffect(() => {
+    if (!isOnline || !user?.uid) return;
+    
+    // Global presence update (every 10s)
+    const presenceInterval = setInterval(async () => {
+      try {
+        await updateDoc(doc(db, 'drivers', user.uid), {
+          location: { lat: position[0], lng: position[1], heading: rotation },
+          lastActive: serverTimestamp()
+        });
+      } catch (e) {
+        console.error("Presence update failed", e);
+      }
+    }, 10000);
+
+    // Ride tracking (every 1s for smoother customer experience)
+    let rideInterval: any;
+    if (rideId && activeRide && (activeRide.status === 'accepted' || activeRide.status === 'driver_arriving' || activeRide.status === 'driver_arrived' || activeRide.status === 'on_trip')) {
+      rideInterval = setInterval(async () => {
+        try {
+          await updateDriverLocation(position[0], position[1], rotation);
+        } catch (e) {
+          console.warn("Ride location sync fail", e);
+        }
+      }, 1000);
+    }
+
+    return () => {
+      clearInterval(presenceInterval);
+      if (rideInterval) clearInterval(rideInterval);
+    };
+  }, [isOnline, user?.uid, rideId, activeRide?.status, position, rotation]);
+
   // Listen for assigned rides when online
   useEffect(() => {
     if (!isOnline) {
@@ -139,10 +176,11 @@ export default function RiderHome() {
       return;
     }
     
-    if (assignedRide) {
+    if (assignedRide && !rideId) {
+      console.log("[Rider] Restored assigned ride:", assignedRide.id);
       setRideId(assignedRide.id);
     }
-  }, [isOnline, assignedRide]);
+  }, [isOnline, assignedRide, rideId]);
 
   // Restore online status from Firestore on mount - ONLY ONCE
   useEffect(() => {
@@ -283,9 +321,18 @@ export default function RiderHome() {
         photo: profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`
       };
       
+      console.log("[Rider] Accepting ride:", incomingRequest.id);
+      
+      // Update local state first for instant UI response
       setRideId(incomingRequest.id);
-      await firestoreAccept(user.uid, driverInfo, { lat: position[0], lng: position[1] });
       setIncomingRequest(null);
+
+      // Force update location immediately upon acceptance
+      await firestoreAccept(incomingRequest.id, user.uid, driverInfo, { lat: position[0], lng: position[1] });
+      
+      // Also update the drivers collection to 'busy' or similar if needed, 
+      // but status 'online' is usually enough if filtered by 'active'
+      
       toast.success("Safari Imekubaliwa!");
     } catch (error: any) {
       console.error("[Rider] Failed to accept ride:", error);
@@ -328,9 +375,33 @@ export default function RiderHome() {
 
   const MapControl = () => {
     const map = useMap();
+    
     useEffect(() => {
-      map.setView(position, 15);
-    }, [position]);
+      if (activeRide) {
+        const points: [number, number][] = [position];
+        
+        if (activeRide.status === 'accepted' || activeRide.status === 'driver_arriving' || activeRide.status === 'driver_arrived') {
+          points.push([activeRide.pickup.lat, activeRide.pickup.lng]);
+        } else if (activeRide.status === 'on_trip') {
+          points.push([activeRide.destination.lat, activeRide.destination.lng]);
+        }
+
+        if (points.length > 1) {
+          try {
+            const bounds = L.latLngBounds(points);
+            // Smaller padding for driver to see both clearly
+            map.fitBounds(bounds, { padding: [100, 100], animate: true, duration: 1.5 });
+          } catch (e) {
+            map.flyTo(position, 17);
+          }
+        } else {
+          map.flyTo(position, 17);
+        }
+      } else {
+        map.setView(position, 15);
+      }
+    }, [position, activeRide?.id, activeRide?.status]);
+
     return null;
   };
 
@@ -422,6 +493,50 @@ export default function RiderHome() {
             radius={30}
             pathOptions={{ color: '#7F77DD', fillOpacity: 0.1, weight: 1 }}
           />
+
+          {activeRide && (
+            <>
+              <Marker 
+                position={[activeRide.pickup.lat, activeRide.pickup.lng]} 
+                icon={StartPin} 
+              >
+                <Popup>
+                  <div className="p-2 text-center">
+                    <p className="font-bold">Eneo la Pickup</p>
+                    <a 
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${activeRide.pickup.lat},${activeRide.pickup.lng}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-500 underline"
+                    >
+                      Fungua Google Maps
+                    </a>
+                  </div>
+                </Popup>
+              </Marker>
+              <Marker 
+                position={[activeRide.destination.lat, activeRide.destination.lng]} 
+                icon={EndPin} 
+              >
+                <Popup>
+                  <div className="p-2 text-center">
+                    <p className="font-bold">Eneo la Kushusha</p>
+                    <a 
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${activeRide.destination.lat},${activeRide.destination.lng}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-500 underline"
+                    >
+                      Fungua Google Maps
+                    </a>
+                  </div>
+                </Popup>
+              </Marker>
+              {activeRide.routeCoords && (
+                <Polyline positions={activeRide.routeCoords} color="#7F77DD" weight={4} opacity={0.6} dashArray="8, 12" />
+              )}
+            </>
+          )}
 
           {activeRide?.routeCoords && (
             <>

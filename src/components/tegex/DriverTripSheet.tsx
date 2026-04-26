@@ -44,9 +44,14 @@ export default function DriverTripSheet({ ride, onArrive, onStart, onComplete }:
              <a href={`tel:${ride.customerInfo?.phone}`} className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500">
                 <Phone className="w-5 h-5" />
              </a>
-             <button className="w-12 h-12 rounded-2xl bg-[#7F77DD]/10 border border-[#7F77DD]/20 flex items-center justify-center text-[#7F77DD]">
-                <MessageSquare className="w-5 h-5" />
-             </button>
+             <a 
+               href={`https://www.google.com/maps/dir/?api=1&destination=${ride.status === 'on_trip' ? ride.destination.lat : ride.pickup.lat},${ride.status === 'on_trip' ? ride.destination.lng : ride.pickup.lng}`}
+               target="_blank"
+               rel="noopener noreferrer"
+               className="w-12 h-12 rounded-2xl bg-[#7F77DD]/10 border border-[#7F77DD]/20 flex items-center justify-center text-[#7F77DD]"
+             >
+                <Navigation2 className="w-5 h-5" />
+             </a>
           </div>
         </div>
 
@@ -54,7 +59,7 @@ export default function DriverTripSheet({ ride, onArrive, onStart, onComplete }:
           <div className="flex items-start gap-4">
             <div className={`mt-1 w-2.5 h-2.5 ${isArriving || isArrived ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-neutral-700'} rounded-full`} />
             <div className="flex-1">
-              <p className="text-[9px] font-black text-neutral-600 uppercase mb-0.5">Pickup Location</p>
+              <p className="text-[9px] font-black text-[#1D9E75] uppercase mb-0.5">Eneo la Kumchukua Mteja</p>
               <p className="text-sm font-bold text-white leading-tight">{ride.pickup.address}</p>
             </div>
           </div>
@@ -62,7 +67,7 @@ export default function DriverTripSheet({ ride, onArrive, onStart, onComplete }:
           <div className="flex items-start gap-4">
             <div className={`mt-1 w-2.5 h-2.5 ${isOnTrip ? 'bg-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.5)]' : 'bg-neutral-700'} rounded-full`} />
             <div className="flex-1">
-              <p className="text-[9px] font-black text-neutral-600 uppercase mb-0.5">Destination</p>
+              <p className="text-[9px] font-black text-[#D85A30] uppercase mb-0.5">Eneo la Kumshusha Mteja</p>
               <p className="text-sm font-bold text-white leading-tight">{ride.destination.address}</p>
             </div>
           </div>

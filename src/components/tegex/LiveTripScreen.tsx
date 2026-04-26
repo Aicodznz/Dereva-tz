@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { motion } from 'motion/react';
-import { MapContainer, TileLayer, Marker, Polyline } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { Shield, Clock, Navigation2, MapPin, MessageSquare } from 'lucide-react';
 import { Ride } from '../../types/trip.types';
@@ -10,6 +10,33 @@ interface LiveTripScreenProps {
   ride: Ride;
   onMessage?: () => void;
 }
+
+const MapControl = ({ position, target }: { position: { lat: number, lng: number } | any, target: { lat: number, lng: number } | any }) => {
+  const map = useMap();
+  const lastFitRef = React.useRef<{ lat: number, lng: number } | null>(null);
+
+  React.useEffect(() => {
+    if (position && target) {
+      const latLngPos = L.latLng(position.lat, position.lng);
+      
+      // Smooth travel follow
+      map.flyTo([position.lat, position.lng], map.getZoom(), { duration: 0.8 });
+
+      const distFromLastFit = lastFitRef.current ? latLngPos.distanceTo(lastFitRef.current) : 1000;
+      if (distFromLastFit > 150) {
+        const bounds = L.latLngBounds([
+          [position.lat, position.lng],
+          [target.lat, target.lng]
+        ]);
+        map.fitBounds(bounds, { padding: [100, 100], animate: true, duration: 1.5 });
+        lastFitRef.current = { lat: position.lat, lng: position.lng };
+      }
+    } else if (position) {
+      map.flyTo([position.lat, position.lng], 16, { duration: 0.5 });
+    }
+  }, [position?.lat, position?.lng, target?.lat, target?.lng, map]);
+  return null;
+};
 
 export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage }) => {
   const { distance, eta } = useDriverTracking(ride.driverLocation, ride.destination);
@@ -53,6 +80,7 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage 
           zoomControl={false}
         >
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+          <MapControl position={ride.driverLocation} target={ride.destination} />
           <Marker position={ride.destination} icon={destPin} />
           {ride.driverLocation && (
             <>

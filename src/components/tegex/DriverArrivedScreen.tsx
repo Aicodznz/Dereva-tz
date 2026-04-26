@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { MapContainer, TileLayer, Marker, Polyline } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { Phone, MessageSquare, Star, Clock, Navigation2 } from 'lucide-react';
 import { Ride } from '../../types/trip.types';
@@ -12,6 +12,36 @@ interface DriverArrivedScreenProps {
   onMessage: () => void;
   onImComing?: () => void;
 }
+
+const MapControl = ({ position, target }: { position: { lat: number, lng: number } | any, target: { lat: number, lng: number } | any }) => {
+  const map = useMap();
+  const lastFitRef = React.useRef<{ lat: number, lng: number } | null>(null);
+
+  React.useEffect(() => {
+    if (position && target) {
+      const latLngPos = L.latLng(position.lat, position.lng);
+      const latLngTarget = L.latLng(target.lat, target.lng);
+      const totalDist = latLngPos.distanceTo(latLngTarget);
+
+      // Smooth flying to the driver's current position to show movement
+      map.flyTo([position.lat, position.lng], map.getZoom(), { duration: 0.8 });
+
+      // Only refit bounds if significantly changed to avoid jumpy zoom
+      const distFromLastFit = lastFitRef.current ? latLngPos.distanceTo(lastFitRef.current) : 1000;
+      if (distFromLastFit > 100) {
+        const bounds = L.latLngBounds([
+          [position.lat, position.lng],
+          [target.lat, target.lng]
+        ]);
+        map.fitBounds(bounds, { padding: [80, 80], animate: true, duration: 1.5 });
+        lastFitRef.current = { lat: position.lat, lng: position.lng };
+      }
+    } else if (position) {
+      map.flyTo([position.lat, position.lng], 16, { duration: 0.5 });
+    }
+  }, [position?.lat, position?.lng, target?.lat, target?.lng, map]);
+  return null;
+};
 
 export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, onCall, onMessage, onImComing }) => {
   const { distance, eta } = useDriverTracking(ride.driverLocation, ride.pickup);
@@ -53,6 +83,7 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
           zoomControl={false}
         >
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+          <MapControl position={ride.driverLocation} target={ride.pickup} />
           <Marker position={ride.pickup} icon={userPin} />
           {ride.driverLocation && (
             <>
