@@ -74,34 +74,9 @@ export function useMatchmaking(ride: Ride | null) {
         let selectedDriver: any = null;
 
         if (!querySnapshot.empty) {
-          // Find the closest driver
-          const driverDoc = querySnapshot.docs[0];
-          selectedDriver = { id: driverDoc.id, ...driverDoc.data() };
+          console.log("Real drivers found nearby. Manual acceptance enabled.");
         } else {
           console.log("No real drivers found yet...");
-        }
-
-        if (selectedDriver) {
-          const path = `rides/${ride.id}`;
-          try {
-            await updateDoc(doc(db, 'rides', ride.id), {
-              status: 'accepted',
-              driverId: selectedDriver.id,
-              driverInfo: {
-                name: selectedDriver.name,
-                phone: selectedDriver.phone,
-                photo: selectedDriver.photo,
-                vehicle: selectedDriver.vehicle,
-                rating: selectedDriver.rating,
-                id: selectedDriver.id
-              },
-              driverLocation: selectedDriver.location,
-              acceptedAt: serverTimestamp(),
-              updatedAt: serverTimestamp()
-            });
-          } catch (err) {
-            handleFirestoreError(err, OperationType.UPDATE, path);
-          }
         }
       } catch (error) {
         console.error("Matchmaking error:", error);

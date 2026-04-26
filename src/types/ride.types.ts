@@ -17,11 +17,18 @@ export interface DriverInfo {
   photo?: string;
 }
 
+export interface CustomerInfo {
+  name: string;
+  rating: number;
+  avatar: string | null;
+}
+
 export interface Ride {
   id?: string;
   rideId?: string; // Duplicate for internal tracking if needed
   status: RideStatus;
   customerId: string;
+  customerInfo?: CustomerInfo;
   driverId: string | null;
   pickup: LocationInfo;
   destination: LocationInfo;

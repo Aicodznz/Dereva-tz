@@ -112,7 +112,7 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel
             </div>
             <div className="text-right">
               <p className="text-[10px] font-black text-[#6b6b8a] uppercase tracking-widest">Gharama</p>
-              <p className="text-lg font-black text-[#7F77DD]">TZS {ride?.fare.toLocaleString() || "0"}</p>
+              <p className="text-lg font-black text-[#7F77DD]">TZS {ride?.fare?.toLocaleString() || "0"}</p>
             </div>
           </div>
         </div>

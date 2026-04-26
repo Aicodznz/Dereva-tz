@@ -10,6 +10,7 @@ export function useCreateRide() {
 
   const createRide = async (
     customerId: string,
+    customerInfo: { name: string; rating: number; avatar: string | null },
     pickup: TripLocation,
     destination: TripLocation,
     vehicleType: 'mini' | 'bajaj' | 'bike',
@@ -26,6 +27,7 @@ export function useCreateRide() {
       const docRef = await addDoc(collection(db, 'rides'), {
         status: 'pending' as RideStatus,
         customerId,
+        customerInfo,
         driverId: null,
         pickup,
         destination,

@@ -72,13 +72,13 @@ export const TripCompleteScreen: React.FC<TripCompleteScreenProps> = ({ ride, on
                </div>
                <div className="flex justify-between items-center text-sm font-bold text-[#6b6b8a]">
                   <span>Umbali (4.2 km)</span>
-                  <span className="text-[#f0eeff]">TZS {(ride.fare - 1200).toLocaleString()}</span>
+                  <span className="text-[#f0eeff]">TZS {(ride?.fare ? ride.fare - 1200 : 0).toLocaleString()}</span>
                </div>
                <div className="h-px bg-[#1e1e2e]" />
                <div className="flex justify-between items-end">
                   <div className="text-left">
                      <p className="text-[10px] font-black text-[#6b6b8a] uppercase tracking-widest leading-none mb-1">Jumla</p>
-                     <h3 className="text-3xl font-black italic text-[#7F77DD]">TZS {ride.fare.toLocaleString()}</h3>
+                     <h3 className="text-3xl font-black italic text-[#7F77DD]">TZS {(ride?.fare ?? 0).toLocaleString()}</h3>
                   </div>
                   <div className="px-3 py-1 bg-[#1D9E75]/10 border border-[#1D9E75]/30 rounded-full text-[8px] font-black text-[#1D9E75] uppercase">
                      Bado Hujalipa

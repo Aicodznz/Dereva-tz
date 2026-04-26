@@ -1,21 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline, Circle } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { 
   Bell, Power, Navigation, Fuel, Zap, 
   ParkingCircle, Car, Settings, Phone, Gauge, Eye, EyeOff,
-  Navigation2, MessageSquare, MapPin, Star, X as CloseX
+  Navigation2, MessageSquare, MapPin, Star, X as CloseX,
+  Clock, TrendingUp, Info, Wifi, Battery, Map as MapIcon,
+  CheckCircle2, ArrowRight, RefreshCw, DollarSign
 } from 'lucide-react';
 import Chat from '../Chat';
 import { motion, AnimatePresence } from 'motion/react';
 import { doc, updateDoc, serverTimestamp, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../AuthContext';
-import { useNearbyRides } from '../../hooks/useNearbyRides';
 import { useDriverActions } from '../../hooks/useDriverActions';
 import { useRideStatus } from '../../hooks/useRideStatus';
 import { useDriverRideListener } from '../../hooks/useDriverRideListener';
+import { useIncomingRequests } from '../../hooks/useIncomingRequests';
+import { useDriverDashboard } from '../../hooks/useDriverDashboard';
+import { createDriverMarkerIcon } from '../../utils/driverMarker';
+import { calculateBearing, getMapBounds } from '../../utils/mapHelpers';
 import { RideStatus, DriverInfo } from '../../types/ride.types';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -36,21 +41,42 @@ L.Marker.prototype.options.icon = DefaultIcon;
 export default function RiderHome() {
   const { user, profile } = useAuth();
   const [isOnline, setIsOnline] = useState(false);
-  const [showEarnings, setShowEarnings] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [position, setPosition] = useState<[number, number]>([-6.7924, 39.2083]);
+  const [lastPosition, setLastPosition] = useState<[number, number] | null>(null);
+  const [rotation, setRotation] = useState(0);
   
   const [rideId, setRideId] = useState<string | null>(null);
   const { ride: activeRide } = useRideStatus(rideId);
   const vTypeRaw = (profile?.vehicleType || 'gari').toLowerCase();
   const vType = vTypeRaw.includes('bike') ? 'bike' : vTypeRaw.includes('bajaj') ? 'bajaj' : 'mini';
   
-  const { rides: nearbyRides } = useNearbyRides(vType as any);
+  const { showEarnings, toggleEarnings, stats } = useDriverDashboard();
+  const nearbyRequests = useIncomingRequests(vType, isOnline);
   const { assignedRide } = useDriverRideListener(user?.uid, isOnline);
   const { acceptRide: firestoreAccept, arrivedAtPickup, startTrip, completeTrip, updateDriverLocation } = useDriverActions(rideId);
 
   const [incomingRequest, setIncomingRequest] = useState<any>(null);
   const [speed, setSpeed] = useState(0);
+  const [isGoingOnline, setIsGoingOnline] = useState(false);
+
+  // Sound & Vibration for new requests
+  useEffect(() => {
+    if (incomingRequest && isOnline) {
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+      try {
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
+        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        oscillator.start();
+        oscillator.stop(audioCtx.currentTime + 0.3);
+      } catch (e) {}
+    }
+  }, [incomingRequest?.id]);
 
   // Get current location
   useEffect(() => {
@@ -94,12 +120,12 @@ export default function RiderHome() {
     }
 
     // If no active ride yet, check for nearby pending ones
-    if (nearbyRides.length > 0 && !activeRide) {
-      setIncomingRequest(nearbyRides[0]);
+    if (nearbyRequests.length > 0 && !activeRide) {
+      setIncomingRequest(nearbyRequests[0]);
     } else {
       setIncomingRequest(null);
     }
-  }, [isOnline, nearbyRides, assignedRide, !!activeRide]);
+  }, [isOnline, nearbyRequests, assignedRide, !!activeRide]);
 
   // Restore online status from Firestore on mount
   useEffect(() => {
@@ -114,7 +140,19 @@ export default function RiderHome() {
   }, [user?.uid]);
 
   const toggleStatus = async () => {
+    if (isOnline && activeRide) {
+       toast.error("Una safari inayoendelea. Maliza kwanza.");
+       return;
+    }
+
     const nextStatus = !isOnline;
+    
+    if (nextStatus) {
+      setIsGoingOnline(true);
+      await new Promise(r => setTimeout(r, 1500));
+      setIsGoingOnline(false);
+    }
+
     setIsOnline(nextStatus);
     
     if (user?.uid) {
@@ -160,6 +198,15 @@ export default function RiderHome() {
         watchId = navigator.geolocation.watchPosition(
           async (pos) => {
             const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            
+            setLastPosition(prev => {
+              if (prev && (prev[0] !== loc.lat || prev[1] !== loc.lng)) {
+                const b = calculateBearing(prev[0], prev[1], loc.lat, loc.lng);
+                setRotation(b);
+              }
+              return [loc.lat, loc.lng];
+            });
+            
             setPosition([loc.lat, loc.lng]);
             
             // Update active ride tracking if exists
@@ -258,302 +305,413 @@ export default function RiderHome() {
   };
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-neutral-100">
+    <div className="relative h-full w-full overflow-hidden bg-[#0a0a0f] text-[#f0eeff]">
+      {/* Top Bar Overlays */}
+      <div className="absolute top-4 inset-x-4 z-40 flex flex-col gap-3">
+        <div className="flex justify-between items-center">
+          <button 
+            onClick={() => toast.info(`Habari ${profile?.displayName || 'Dereva'}`)}
+            className="w-12 h-12 bg-[#111118]/80 backdrop-blur-xl rounded-2xl shadow-lg flex items-center justify-center border border-[#1e1e2e] active:scale-95 transition-transform overflow-hidden"
+          >
+            {profile?.photoURL ? (
+              <img src={profile.photoURL} alt="Profile" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full bg-[#7F77DD]/20 flex items-center justify-center text-[#7F77DD] font-black text-sm">
+                {(profile?.displayName || 'D').split(' ').map(n => n[0]).join('')}
+              </div>
+            )}
+          </button>
+
+          <div className="flex flex-col items-center">
+            {isOnline ? (
+              <motion.div 
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="bg-emerald-500/10 text-emerald-500 px-4 py-2 rounded-full border border-emerald-500/20 flex items-center gap-2 shadow-lg backdrop-blur-md"
+              >
+                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_10px_#10b981]" />
+                <span className="text-[10px] font-black uppercase tracking-widest leading-none">ACTIVE & RECEIVING</span>
+              </motion.div>
+            ) : (
+               <div className="bg-neutral-800/80 backdrop-blur-md text-neutral-400 px-4 py-2 rounded-full border border-white/5 flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500 leading-none">OFFLINE</span>
+               </div>
+            )}
+          </div>
+
+          <button 
+            onClick={() => toast.info("Huna taarifa mpya")}
+            className="w-12 h-12 bg-[#111118]/80 backdrop-blur-xl rounded-2xl shadow-lg flex items-center justify-center border border-[#1e1e2e] relative"
+          >
+            <Bell className="w-6 h-6 text-neutral-400" />
+            <div className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-red-500 border-2 border-[#111118] rounded-full" />
+          </button>
+        </div>
+
+        {/* Info Strip */}
+        <div className="flex items-center justify-center gap-4 py-1.5 px-4 bg-[#111118]/60 backdrop-blur-md rounded-xl border border-[#1e1e2e]/50 w-fit mx-auto shadow-2xl">
+           <div className="flex items-center gap-1.5 text-[9px] font-bold text-neutral-400">
+             <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+             <span>{profile?.rating || '4.8'} RATING</span>
+           </div>
+           <div className="w-px h-3 bg-neutral-800" />
+           <div className="flex items-center gap-1.5 text-[9px] font-bold text-neutral-400">
+             <Wifi className="w-3 h-3 text-emerald-500" />
+             <span>NETWORK: GOOD</span>
+           </div>
+           <div className="w-px h-3 bg-neutral-800" />
+           <div className="flex items-center gap-1.5 text-[9px] font-bold text-neutral-400">
+             <Battery className="w-3 h-3 text-emerald-500" />
+             <span>TRIP MODE ON</span>
+           </div>
+        </div>
+      </div>
+
       {/* Map Layer */}
-      <div className="absolute inset-0 z-0 bg-neutral-200">
+      <div className="absolute inset-0 z-0 bg-[#0a0a0f]">
         <MapContainer 
           center={position} 
           zoom={15} 
-          style={{ height: '100%', width: '100%', minHeight: '100%' }}
+          style={{ height: '100%', width: '100%' }}
           zoomControl={false}
+          className="grayscale contrast-[1.1] brightness-[0.7]"
         >
-          <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          />
+          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+          
           <Marker 
             position={position}
-            icon={L.divIcon({
-              className: 'rider-marker',
-              html: `<div class="relative items-center justify-center flex">
-                      ${isOnline ? '<div class="absolute w-12 h-12 bg-emerald-500/30 rounded-full animate-ping"></div>' : ''}
-                      <div class="w-10 h-10 ${isOnline ? 'bg-emerald-600' : 'bg-neutral-500'} rounded-2xl border-4 border-white shadow-2xl flex items-center justify-center transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="text-white"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.5 2.5C2.1 10.4 2 10.7 2 11v5c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>
-                      </div>
-                    </div>`,
-              iconSize: [40, 40],
-              iconAnchor: [20, 40]
-            })}
-          >
-            <Popup>{isOnline ? 'Active & Receiving' : 'Offline'}</Popup>
-          </Marker>
-          {activeRide && (
+            icon={createDriverMarkerIcon(
+              (profile?.displayName || 'D').split(' ').map(n => n[0]).join(''),
+              isOnline,
+              rotation
+            )}
+          />
+
+          <Circle 
+            center={position}
+            radius={30}
+            pathOptions={{ color: '#7F77DD', fillOpacity: 0.1, weight: 1 }}
+          />
+
+          {activeRide?.routeCoords && (
             <>
-               <Marker position={[activeRide.pickup.lat, activeRide.pickup.lng]}>
-                 <Popup>Mteja Yupo Hapa (Pickup)</Popup>
-               </Marker>
-               <Marker position={[activeRide.destination.lat, activeRide.destination.lng]}>
-                 <Popup>Kuelekea (Destination)</Popup>
-               </Marker>
+              <Polyline positions={activeRide.routeCoords} color="#1D9E75" weight={6} opacity={0.5} />
+              {/* Pulse effect or similar could be added here, but simple polyline for now */}
             </>
           )}
+
           <MapControl />
         </MapContainer>
       </div>
 
-      {/* Top Bar Overlays */}
-      <div className="absolute top-4 inset-x-4 z-40 flex justify-between items-start">
-        <div className="flex flex-col gap-2">
-           <button 
-             onClick={() => toast.info(`Habari ${profile?.displayName || 'Dereva'}, wasifu wako unakuja hivi karibuni`)}
-             className="w-12 h-12 bg-white dark:bg-neutral-900 rounded-2xl shadow-lg flex items-center justify-center border border-neutral-200 dark:border-neutral-800 active:scale-95 transition-transform"
-           >
-            <img 
-              src={profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email}`} 
-              alt="Profile" 
-              className="w-10 h-10 rounded-xl" 
-            />
-          </button>
-        </div>
-
-        <div className="flex flex-col items-center gap-2">
-          {isOnline ? (
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="bg-emerald-600/20 text-emerald-500 px-4 py-2 rounded-full border border-emerald-500/30 flex items-center gap-2 shadow-lg backdrop-blur-sm"
-            >
-              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_10px_#10b981]" />
-              <span className="text-[10px] font-black uppercase tracking-widest">Active & Receiving</span>
-            </motion.div>
-          ) : (
-             <div className="bg-neutral-800 text-neutral-400 px-4 py-2 rounded-full border border-white/5 flex items-center gap-2">
-                <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Offline</span>
-             </div>
-          )}
-          
-          <motion.button
-            onClick={() => setShowEarnings(!showEarnings)}
-            className="bg-emerald-600 text-white px-6 py-2.5 rounded-full shadow-xl flex items-center gap-2 font-bold"
-          >
-            {showEarnings ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-            <span>{showEarnings ? 'TZS 45,200' : 'TZS **.**'}</span>
-          </motion.button>
-          
-        </div>
-
-        <button 
-          onClick={() => toast.info("Huna taarifa mpya kwa sasa")}
-          className="w-12 h-12 bg-white dark:bg-neutral-900 rounded-2xl shadow-lg flex items-center justify-center border border-neutral-200 dark:border-neutral-800 active:scale-95 transition-transform"
-        >
-          <Bell className="w-6 h-6 text-neutral-600 dark:text-neutral-400" />
-        </button>
-      </div>
-
-      {/* Side Controls */}
-      {!activeRide && (
-        <div className="absolute top-36 left-4 z-40 flex flex-col gap-4">
-          {[
-            { icon: Settings, color: "text-neutral-500" },
-            { icon: Car, color: "text-blue-500" },
-            { icon: Fuel, color: "text-orange-500" },
-            { icon: ParkingCircle, color: "text-red-500" },
-            { icon: Zap, color: "text-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]" },
-            { icon: Gauge, color: "text-neutral-900", label: `${speed} km/h` }
-          ].map((item, id) => (
-            <motion.button
-              key={id}
-              onClick={() => toast.info("Kipengele hiki kinakuja hivi karibuni")}
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              className="w-14 h-14 bg-white/90 backdrop-blur-xl rounded-[1.2rem] shadow-2xl flex flex-col items-center justify-center border border-white/50 transition-all relative group"
-            >
-              <item.icon className={`w-6 h-6 ${item.color}`} />
-              {item.label && <span className="text-[8px] font-black text-neutral-400 mt-0.5">{item.label}</span>}
-            </motion.button>
-          ))}
-        </div>
-      )}
-
-      {/* Main Action Button (Online/Offline) */}
+      {/* Floating Buttons */}
       {!activeRide && !incomingRequest && (
-        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-6">
-          <motion.div 
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            className={`px-8 py-3 rounded-2xl backdrop-blur-3xl border-2 flex items-center gap-3 shadow-2xl transition-all ${
-              isOnline 
-                ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' 
-                : 'bg-red-500/10 text-red-600 border-red-500/20'
-            }`}
+        <div className="absolute bottom-1/2 translate-y-[-20%] right-4 z-40 flex flex-col gap-4">
+           <motion.button
+            onClick={toggleEarnings}
+            className="w-14 h-14 bg-[#111118] border-2 border-[#1e1e2e] rounded-2xl shadow-2xl flex flex-col items-center justify-center group active:scale-95 transition-all"
           >
-            <div className={`w-2.5 h-2.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
-            <span className="text-xs font-black uppercase tracking-[0.2em]">
-              {isOnline ? 'Active & Receiving' : 'System Offline'}
-            </span>
-          </motion.div>
-
-          <motion.button
-            onClick={toggleStatus}
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            className={`w-28 h-28 rounded-[2.5rem] border-8 border-white shadow-[0_30px_70px_rgba(0,0,0,0.4)] flex items-center justify-center transition-colors ${
-              isOnline ? 'bg-emerald-500' : 'bg-red-500'
-            }`}
-          >
-            <div className="bg-white/10 backdrop-blur-xl w-16 h-16 rounded-[1.5rem] flex items-center justify-center shadow-lg border border-white/20 z-10">
-              <Power className="w-8 h-8 text-white shadow-sm" />
-            </div>
+            {showEarnings ? <Eye className="w-5 h-5 text-[#7F77DD]" /> : <EyeOff className="w-5 h-5 text-neutral-500" />}
+            <span className="text-[8px] font-black text-neutral-500 mt-1 uppercase tracking-tighter">Budget</span>
           </motion.button>
+          
+           <button className="w-14 h-14 bg-[#111118] border border-[#1e1e2e] rounded-2xl shadow-2xl flex items-center justify-center text-neutral-400 active:scale-95 transition-transform">
+             <MapIcon className="w-6 h-6" />
+           </button>
         </div>
       )}
 
-      {/* Incoming Request Modal */}
-      <AnimatePresence>
-        {incomingRequest && (
-          <motion.div 
-            initial={{ y: 300, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 300, opacity: 0 }}
-            className="absolute inset-x-4 bottom-10 z-50 bg-neutral-900 rounded-[3rem] p-8 text-white shadow-3xl border border-white/10"
-          >
-             <div className="flex justify-between items-start mb-6">
-                <div className="flex gap-4">
-                   <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-orange-600/30">
-                      <img src={incomingRequest.customerPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${incomingRequest.customerId}`} alt="Customer" />
-                   </div>
-                   <div>
-                      <div className="bg-orange-600 text-white font-black px-4 py-1 mb-1 italic text-[10px] rounded-full inline-block">NEW REQUEST</div>
-                      <h4 className="text-xl font-black italic uppercase tracking-tighter">{incomingRequest.customerName || 'Mteja'}</h4>
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-1.5 overflow-hidden">
-                          <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full shrink-0" />
-                          <p className="text-[9px] font-bold text-neutral-300 uppercase tracking-tight truncate">{incomingRequest.pickup.address}</p>
-                        </div>
-                        <div className="flex items-center gap-1.5 overflow-hidden">
-                          <div className="w-1.5 h-1.5 bg-orange-500 rounded-full shrink-0" />
-                          <p className="text-[9px] font-bold text-neutral-300 uppercase tracking-tight truncate">{incomingRequest.destination.address}</p>
-                        </div>
+      {/* Earnings Toggle Overlay */}
+      {!activeRide && !incomingRequest && (
+        <div className="absolute top-32 left-1/2 -translate-x-1/2 z-40">
+           <motion.div 
+             onClick={toggleEarnings}
+             className="bg-[#111118]/90 backdrop-blur-xl border border-[#1e1e2e] px-6 py-3 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] cursor-pointer flex flex-col items-center gap-1 active:scale-95 transition-all"
+           >
+              <div className="flex items-center gap-3">
+                <p className="text-[10px] font-black text-neutral-500 uppercase tracking-widest italic">Mapato Leo</p>
+                <div className="flex items-center gap-1.5 bg-[#7F77DD]/10 px-2 py-0.5 rounded-full border border-[#7F77DD]/20">
+                  <TrendingUp className="w-3 h-3 text-[#7F77DD]" />
+                  <span className="text-[9px] font-black text-[#7F77DD]">{stats.todayTrips} SAFARI</span>
+                </div>
+              </div>
+              <h2 className="text-2xl font-black italic tracking-tighter leading-none">
+                {showEarnings ? `TZS ${(stats?.todayEarnings ?? 0).toLocaleString()}` : "TZS ••••••"}
+              </h2>
+           </motion.div>
+        </div>
+      )}
+
+      {/* Bottom Sheet Redesign */}
+      <div className="absolute inset-x-0 bottom-0 z-50">
+        <AnimatePresence mode="wait">
+          {!isOnline && (
+             <motion.div 
+               key="offline"
+               initial={{ y: 100 }} animate={{ y: 0 }} exit={{ y: 100 }}
+               className="bg-[#111118] border-t border-[#1e1e2e] p-10 flex flex-col items-center gap-6 rounded-t-[40px] shadow-[0_-20px_60px_rgba(0,0,0,0.8)]"
+             >
+                <div className="text-center space-y-2">
+                   <h3 className="text-xl font-black italic tracking-tighter text-neutral-400">UKO OFFLINE</h3>
+                   <p className="text-xs font-bold text-neutral-600">Bonyeza chini kuanza safari</p>
+                </div>
+                <motion.button
+                  onClick={toggleStatus}
+                  disabled={isGoingOnline}
+                  whileTap={{ scale: 0.95 }}
+                  className="w-24 h-24 bg-red-500 rounded-[2rem] border-8 border-[#0a0a0f] shadow-2xl flex items-center justify-center"
+                >
+                  {isGoingOnline ? <RefreshCw className="w-8 h-8 text-white animate-spin" /> : <Power className="w-8 h-8 text-white" />}
+                </motion.button>
+             </motion.div>
+          )}
+
+          {isOnline && !incomingRequest && !activeRide && (
+            <motion.div 
+               key="waiting"
+               initial={{ y: 100 }} animate={{ y: 0 }} exit={{ y: 100 }}
+               className="bg-[#111118] border-t border-[#1e1e2e] p-8 rounded-t-[40px] shadow-[0_-20px_60px_rgba(0,0,0,0.8)]"
+             >
+                <div className="flex items-center justify-between mb-8">
+                   <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                         <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                         <span className="text-xs font-black text-emerald-500 uppercase tracking-widest italic">ACTIVE & RECEIVING</span>
                       </div>
+                      <h4 className="text-lg font-black italic tracking-tighter uppercase">Unangoja maombi...</h4>
                    </div>
-                </div>
-                <div className="text-right">
-                   <p className="text-[10px] font-black uppercase text-neutral-400">Gharama</p>
-                   <h2 className="text-2xl font-black italic uppercase tracking-tighter leading-none text-emerald-500">TZS {incomingRequest.fare}</h2>
-                </div>
-             </div>
-
-             <div className="flex gap-4">
-                  <button 
-                    onClick={() => setIncomingRequest(null)}
-                    className="flex-1 h-16 rounded-2xl border border-white/10 bg-white/5 font-black text-neutral-400"
-                  >
-                    Kataa
-                  </button>
-                  <button 
-                    onClick={handleAccept}
-                    className="flex-1 h-16 rounded-2xl bg-emerald-500 text-white font-black uppercase"
-                  >
-                    Kubali
-                  </button>
-             </div>
-
-             <div className="mt-6 h-1 w-full bg-neutral-800 rounded-full overflow-hidden">
-                <motion.div 
-                  initial={{ width: "100%" }}
-                  animate={{ width: "0%" }}
-                  transition={{ duration: 15, ease: "linear" }}
-                  onAnimationComplete={() => setIncomingRequest(null)}
-                  className="h-full bg-orange-600"
-                />
-             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-       {/* Active Ride Controls */}
-      <AnimatePresence>
-        {activeRide && (
-          <motion.div 
-            initial={{ y: 300, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            className="absolute inset-x-4 bottom-10 z-50 bg-white dark:bg-neutral-900 rounded-[3rem] p-8 shadow-3xl border border-neutral-100 dark:border-neutral-800"
-          >
-             <div className="flex items-center justify-between mb-8 pb-6 border-b border-neutral-100 dark:border-neutral-800">
-                <div className="flex items-center gap-4">
-                   <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-emerald-500/20">
-                      <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${activeRide.customerId}`} alt="Customer" />
-                   </div>
-                   <div>
-                      <h4 className="font-black italic uppercase tracking-tighter text-lg">Mteja: {activeRide.customerId.slice(0,5)}</h4>
-                      <div className="flex items-center gap-1 text-orange-500 font-bold text-xs">
-                         <Star className="w-3 h-3 fill-current" />
-                         <span>4.9</span>
-                      </div>
-                   </div>
-                </div>
-                <div className="flex gap-2">
-                   <button className="w-12 h-12 rounded-2xl bg-neutral-50 dark:bg-neutral-800 flex items-center justify-center"><Phone className="w-5 h-5 text-neutral-600" /></button>
                    <button 
-                     onClick={() => setIsChatOpen(true)}
-                     className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-neutral-800 flex items-center justify-center"
+                     onClick={toggleStatus}
+                     className="w-12 h-12 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-center text-red-500"
                    >
-                     <MessageSquare className="w-5 h-5 text-emerald-600" />
+                     <Power className="w-6 h-6" />
                    </button>
                 </div>
-             </div>
 
-             <div className="space-y-6 mb-10">
-                <div className="flex items-center gap-4">
-                   <div className="w-12 h-12 rounded-2xl bg-neutral-50 dark:bg-neutral-800 flex items-center justify-center text-emerald-500 text-sm">
-                      <Navigation className="w-6 h-6" />
+                <div className="grid grid-cols-3 gap-3 mb-8">
+                   <div className="bg-[#0a0a0f] border border-[#1e1e2e] p-4 rounded-3xl flex flex-col items-center">
+                      <DollarSign className="w-5 h-5 text-[#7F77DD] mb-1" />
+                      <p className="text-[8px] font-black text-neutral-500 uppercase">Mapato</p>
+                      <p className="text-xs font-black italic">TZS {(stats?.todayEarnings ?? 0).toLocaleString()}</p>
                    </div>
-                   <div className="flex-1">
-                      <p className="text-[9px] font-black uppercase text-neutral-400">Marudio ya Safari</p>
-                      <h4 className="text-sm font-black uppercase text-emerald-600">
-                         {activeRide.status === 'driver_arriving' && 'Unaelekea kuchukua abiria'}
-                         {activeRide.status === 'driver_arrived' && 'Umewasili kwa abiria'}
-                         {activeRide.status === 'on_trip' && 'Safari inaendelea...'}
-                      </h4>
-                      <div className="mt-1 space-y-0.5">
-                        <p className="text-[10px] text-emerald-500 font-bold flex items-center gap-1 leading-tight">
-                          <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shrink-0" />
-                          {activeRide.pickup.address}
-                        </p>
-                        <p className="text-[10px] text-orange-500 font-bold flex items-center gap-1 leading-tight">
-                          <span className="w-1.5 h-1.5 bg-orange-500 rounded-full shrink-0" />
-                          {activeRide.destination.address}
-                        </p>
+                   <div className="bg-[#0a0a0f] border border-[#1e1e2e] p-4 rounded-3xl flex flex-col items-center">
+                      <Navigation2 className="w-5 h-5 text-emerald-500 mb-1" />
+                      <p className="text-[8px] font-black text-neutral-500 uppercase">Safari</p>
+                      <p className="text-xs font-black italic">{stats.todayTrips}</p>
+                   </div>
+                   <div className="bg-[#0a0a0f] border border-[#1e1e2e] p-4 rounded-3xl flex flex-col items-center">
+                      <Clock className="w-5 h-5 text-amber-500 mb-1" />
+                      <p className="text-[8px] font-black text-neutral-500 uppercase">Saa</p>
+                      <p className="text-xs font-black italic">{stats.activeHours}h</p>
+                   </div>
+                </div>
+
+                <div className="bg-[#7F77DD]/5 border border-[#7F77DD]/10 rounded-2xl p-4 flex items-center gap-4">
+                   <div className="w-10 h-10 bg-[#7F77DD]/20 rounded-xl flex items-center justify-center text-[#7F77DD]"><TrendingUp className="w-6 h-6" /></div>
+                   <div>
+                      <p className="text-[9px] font-black text-[#7F77DD] uppercase tracking-widest italic leading-none mb-1">Busy Zone Alert</p>
+                      <p className="text-[11px] font-bold text-neutral-400">Mahitaji makubwa Ubungo, Mlimani City. Elekea huko!</p>
+                   </div>
+                </div>
+             </motion.div>
+          )}
+
+          {incomingRequest && (
+            <motion.div 
+               key="incoming"
+               initial={{ y: 300 }} animate={{ y: 0 }} exit={{ y: 300 }}
+               className="bg-[#111118] border-t border-[#1e1e2e] p-4 pb-10 rounded-t-[40px] shadow-[0_-40px_100px_rgba(127,119,221,0.2)]"
+             >
+                <div className="flex flex-col gap-6 p-4">
+                   <div className="flex justify-between items-start">
+                      <div className="flex gap-4">
+                         <div className="relative">
+                            <svg className="w-16 h-16 transform -rotate-90">
+                              <circle cx="32" cy="32" r="30" stroke="#1e1e2e" strokeWidth="4" fill="none" />
+                              <motion.circle 
+                                cx="32" cy="32" r="30" stroke="#7F77DD" strokeWidth="4" fill="none"
+                                initial={{ pathLength: 1 }}
+                                animate={{ pathLength: 0 }}
+                                transition={{ duration: 15, ease: "linear" }}
+                                onAnimationComplete={() => setIncomingRequest(null)}
+                              />
+                            </svg>
+                            <div className="absolute inset-0 flex items-center justify-center text-xl font-black italic text-[#7F77DD]"><Zap className="w-6 h-6" /></div>
+                         </div>
+                         <div>
+                            <div className="bg-[#7F77DD]/20 text-[#7F77DD] text-[10px] font-black px-3 py-1 rounded-full mb-1 italic inline-block tracking-widest border border-[#7F77DD]/30">⚡ OMBI JIPYA</div>
+                            <h2 className="text-3xl font-black italic uppercase tracking-tighter -mt-1 leading-none text-[#7F77DD]">#{incomingRequest.id.slice(-4).toUpperCase()}</h2>
+                         </div>
+                      </div>
+                      <div className="text-right">
+                         <p className="text-[10px] font-black uppercase text-neutral-500">MAPATO YAKO</p>
+                         <h3 className="text-2xl font-black italic text-emerald-500 leading-none">TZS {(incomingRequest.fare ?? 0).toLocaleString()}</h3>
+                      </div>
+                   </div>
+
+                   <div className="bg-[#0a0a0f] border border-[#1e1e2e] rounded-3xl p-5 space-y-4">
+                      <div className="flex items-start gap-4">
+                         <div className="mt-1 w-2.5 h-2.5 bg-emerald-500 rounded-full" />
+                         <div className="flex-1 overflow-hidden">
+                            <p className="text-[9px] font-black text-neutral-600 uppercase mb-0.5">Pickup: Ubungo</p>
+                            <p className="text-sm font-bold truncate leading-tight">{incomingRequest.pickup.address}</p>
+                         </div>
+                      </div>
+                      <div className="h-4 w-px bg-neutral-800 ml-[5px]" />
+                      <div className="flex items-start gap-4">
+                         <div className="mt-1 w-2.5 h-2.5 bg-orange-500 rounded-full" />
+                         <div className="flex-1 overflow-hidden">
+                            <p className="text-[9px] font-black text-neutral-600 uppercase mb-0.5">Mwisho: {incomingRequest.destination.address.split(',')[0]}</p>
+                            <p className="text-sm font-bold truncate leading-tight">{incomingRequest.destination.address}</p>
+                         </div>
+                      </div>
+                   </div>
+
+                   <div className="flex items-center justify-around py-2 border-y border-[#1e1e2e]">
+                      <div className="flex flex-col items-center">
+                         <MapIcon className="w-5 h-5 text-neutral-500 mb-1" />
+                         <p className="text-[10px] font-black uppercase italic">12 KM</p>
+                      </div>
+                      <div className="w-px h-6 bg-[#1e1e2e]" />
+                      <div className="flex flex-col items-center">
+                         <Clock className="w-5 h-5 text-neutral-500 mb-1" />
+                         <p className="text-[10px] font-black uppercase italic">~18 DAK</p>
+                      </div>
+                   </div>
+
+                   <div className="flex gap-4">
+                      <button 
+                        onClick={() => setIncomingRequest(null)}
+                        className="w-[35%] h-16 rounded-2xl border-2 border-red-500/20 text-red-500 font-black uppercase italic text-sm"
+                      >
+                        Kataa
+                      </button>
+                      <button 
+                        onClick={handleAccept}
+                        className="w-[65%] h-16 rounded-2xl bg-[#1D9E75] text-white font-black uppercase italic text-lg shadow-[0_10px_30px_rgba(29,158,117,0.3)] flex items-center justify-center gap-3"
+                      >
+                        KUBALI <ArrowRight className="w-6 h-6" />
+                      </button>
+                   </div>
+                </div>
+             </motion.div>
+          )}
+
+          {activeRide && (
+            <motion.div 
+               key="active"
+               initial={{ y: 300 }} animate={{ y: 0 }} exit={{ y: 300 }}
+               className="bg-[#111118] border-t border-[#1e1e2e] p-6 pb-12 rounded-t-[40px] shadow-[0_-20px_60px_rgba(0,0,0,0.8)]"
+             >
+                <div className="flex flex-col gap-6">
+                   <div className="flex items-center justify-between border-b border-[#1e1e2e] pb-6">
+                      <div className="flex items-center gap-4">
+                         <div className="w-16 h-16 bg-[#0a0a0f] border-2 border-[#1e1e2e] rounded-2xl overflow-hidden shadow-xl">
+                            <img src={activeRide.customerInfo?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${activeRide.customerId}`} alt="Customer" className="w-full h-full object-cover" />
+                         </div>
+                         <div className="space-y-1">
+                            <p className="text-[10px] font-black uppercase text-neutral-500 italic">MTEJA</p>
+                            <h3 className="text-xl font-black italic uppercase tracking-tighter leading-none">{activeRide.customerInfo?.name || "Mteja"}</h3>
+                            <div className="flex items-center gap-1.5 text-[#amber-500]">
+                               <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                               <span className="text-xs font-black text-amber-500">{activeRide.customerInfo?.rating || "4.9"}</span>
+                               <span className="text-[10px] text-neutral-600 ml-2 font-bold px-2 py-0.5 bg-[#0a0a0f] rounded-full">TZS {(activeRide.fare ?? 0).toLocaleString()}</span>
+                            </div>
+                         </div>
+                      </div>
+                      <div className="flex gap-2">
+                         <button onClick={() => window.open(`tel:${activeRide.customerInfo?.phone || '0700000000'}`)} className="w-14 h-14 bg-[#1D9E75]/10 border border-[#1D9E75]/20 rounded-2xl flex items-center justify-center transition-all active:scale-95">
+                           <Phone className="w-6 h-6 text-[#1D9E75]" />
+                         </button>
+                         <button onClick={() => setIsChatOpen(true)} className="w-14 h-14 bg-[#7F77DD]/10 border border-[#7F77DD]/20 rounded-2xl flex items-center justify-center transition-all active:scale-95">
+                           <MessageSquare className="w-6 h-6 text-[#7F77DD]" />
+                         </button>
+                      </div>
+                   </div>
+
+                   <div className="space-y-6">
+                      <div className="flex items-start gap-4">
+                         <div className="w-10 h-10 bg-[#0a0a0f] border border-[#1e1e2e] rounded-xl flex items-center justify-center text-[#7F77DD]">
+                           {activeRide.status === 'on_trip' ? <MapIcon className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
+                         </div>
+                         <div className="flex-1 overflow-hidden">
+                            <p className="text-[9px] font-black uppercase text-neutral-600 mb-0.5">
+                               {activeRide.status === 'on_trip' ? 'MWISHO WA SAFARI' : 'PICKUP POINT'}
+                            </p>
+                            <h4 className="text-sm font-bold truncate leading-tight">
+                               {activeRide.status === 'on_trip' ? activeRide.destination.address : activeRide.pickup.address}
+                            </h4>
+                            <p className="text-[11px] font-bold text-[#7F77DD] italic">
+                               {activeRide.status === 'on_trip' ? 'ETA: 08:22 · 5.1 km imebaki' : 'Umbali: 1.2 km · ETA: 4 dak'}
+                            </p>
+                         </div>
+                      </div>
+
+                      {activeRide.status === 'on_trip' && (
+                        <div className="space-y-1.5">
+                           <div className="flex justify-between text-[10px] font-black uppercase italic text-neutral-500">
+                             <span>Progress</span>
+                             <span>62%</span>
+                           </div>
+                           <div className="h-2 w-full bg-[#0a0a0f] rounded-full overflow-hidden border border-[#1e1e2e]">
+                              <motion.div initial={{ width: 0 }} animate={{ width: "62%" }} className="h-full bg-[#7F77DD] shadow-[0_0_10px_#7F77DD]" />
+                           </div>
+                        </div>
+                      )}
+
+                      <div className="flex gap-4"> 
+                        {activeRide.status === 'driver_arriving' && (
+                          <button 
+                            onClick={() => handleUpdateStatus('driver_arrived')}
+                            className="w-full h-16 bg-[#7F77DD] text-white font-black uppercase italic tracking-widest text-lg shadow-[0_10px_30px_rgba(127,119,221,0.3)] flex items-center justify-center gap-3"
+                          >
+                            NIMEFIKA <CheckCircle2 className="w-6 h-6" />
+                          </button>
+                        )}
+                        {activeRide.status === 'driver_arrived' && (
+                          <button 
+                            onClick={() => handleUpdateStatus('on_trip')}
+                            className="w-full h-16 bg-[#1D9E75] text-white font-black uppercase italic tracking-widest text-lg shadow-[0_10px_30px_rgba(29,158,117,0.3)] flex items-center justify-center gap-3"
+                          >
+                            ANZISHA SAFARI <ArrowRight className="w-6 h-6" />
+                          </button>
+                        )}
+                        {activeRide.status === 'on_trip' && (
+                          <button 
+                            onClick={() => handleUpdateStatus('completed')}
+                            className="w-full h-16 bg-red-600 text-white font-black uppercase italic tracking-widest text-lg shadow-[0_10px_30px_rgba(220,38,38,0.3)] flex items-center justify-center gap-3"
+                          >
+                            MALIZA SAFARI <CheckCircle2 className="w-6 h-6" />
+                          </button>
+                        )}
                       </div>
                    </div>
                 </div>
-             </div>
+             </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
 
-             <div className="space-y-3">
-                {activeRide.status === 'driver_arriving' && (
-                  <Button 
-                    onClick={() => handleUpdateStatus('driver_arrived')}
-                    className="w-full h-16 bg-blue-600 hover:bg-blue-500 rounded-2xl font-black uppercase tracking-widest italic"
-                  >
-                    Nimefika (Arrived)
-                  </Button>
-                )}
-                {activeRide.status === 'driver_arrived' && (
-                  <Button 
-                    onClick={() => handleUpdateStatus('on_trip')}
-                    className="w-full h-16 bg-emerald-600 hover:bg-emerald-500 rounded-2xl font-black uppercase tracking-widest italic shadow-[0_10px_30px_rgba(16,185,129,0.3)]"
-                  >
-                    Anzisha Safari (Start Trip)
-                  </Button>
-                )}
-                {activeRide.status === 'on_trip' && (
-                  <Button 
-                    onClick={() => handleUpdateStatus('completed')}
-                    className="w-full h-16 bg-red-600 hover:bg-red-500 rounded-2xl font-black uppercase italic"
-                  >
-                    Maliza Safari (End Trip)
-                  </Button>
-                )}
+      {/* Chat Overlay */}
+      <AnimatePresence>
+        {isChatOpen && activeRide && (
+          <motion.div
+            initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+            className="absolute inset-0 z-[100] bg-[#0a0a0f] p-4 flex flex-col"
+          >
+             <div className="flex items-center justify-between py-4 border-b border-[#1e1e2e] mb-2">
+                <div className="flex items-center gap-3">
+                   <div className="w-10 h-10 rounded-xl overflow-hidden bg-[#111118] border border-[#1e1e2e]">
+                      <img src={activeRide.customerInfo?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${activeRide.customerId}`} alt="Customer" className="w-full h-full object-cover" />
+                   </div>
+                   <h4 className="font-black italic uppercase italic">{activeRide.customerInfo?.name || "Mteja"}</h4>
+                </div>
+                <button onClick={() => setIsChatOpen(false)} className="w-10 h-10 bg-[#111118] border border-[#1e1e2e] rounded-xl flex items-center justify-center text-neutral-400">
+                  <CloseX className="w-6 h-6" />
+                </button>
+             </div>
+             <div className="flex-1">
+               <Chat onBack={() => setIsChatOpen(false)} />
              </div>
           </motion.div>
         )}

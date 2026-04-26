@@ -293,9 +293,25 @@ export default function TaxiBooking() {
           console.error("Guest sign in failed", e);
         }
       }
+      
+      const currentUser = auth.currentUser;
+      let customerName = "Mteja";
+      if (currentUser?.displayName) {
+        customerName = currentUser.displayName;
+      } else if (currentUser?.email) {
+        const part = currentUser.email.split('@')[0];
+        customerName = part.charAt(0).toUpperCase() + part.slice(1);
+      }
+      
+      const customerInfo = {
+        name: customerName,
+        rating: 5.0,
+        avatar: currentUser?.photoURL || null
+      };
 
       const id = await createRide(
-        auth.currentUser?.uid || 'guest_user',
+        currentUser?.uid || 'guest_user',
+        customerInfo,
         { lat: pickupPos[0], lng: pickupPos[1], address: pickup },
         { lat: destPos[0], lng: destPos[1], address: destination },
         selectedRide.id as any,
