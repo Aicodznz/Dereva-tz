@@ -4,7 +4,7 @@ import QRCodeStyling, { DotType, CornerSquareType, CornerDotType } from "qr-code
 import { toPng } from 'html-to-image';
 import { storageService } from '../services/storageService';
 import { db, auth } from '../firebase';
-import { collection, query, where, orderBy, onSnapshot, getDocs, doc, updateDoc, deleteDoc, addDoc, getDoc, limit } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, getDocs, doc, updateDoc, deleteDoc, addDoc, getDoc, limit, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '../AuthContext';
 import { VendorProfile, VendorCategory, Product, Order, OrderStatus } from '../types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -574,7 +574,7 @@ export default function VendorDashboard() {
       await addDoc(collection(db, 'staff'), {
         ...newStaff,
         vendorId: vendorProfile.id,
-        createdAt: new Date().toISOString()
+        createdAt: serverTimestamp()
       });
       setIsAddStaffOpen(false);
       setNewStaff({ name: '', role: 'waiter', phone: '' });
@@ -715,7 +715,7 @@ export default function VendorDashboard() {
         ownerUid: user.uid,
         status: 'pending',
         rating: 0,
-        createdAt: new Date().toISOString(),
+        createdAt: serverTimestamp(),
       });
     } catch (error) {
       console.error(error);
@@ -836,7 +836,7 @@ export default function VendorDashboard() {
         await updateDoc(doc(db, 'products', editingProduct.id), {
           ...productData,
           vendorCategory: vendorProfile.category,
-          updatedAt: new Date().toISOString(),
+          updatedAt: serverTimestamp(),
         });
       } else {
         await addDoc(collection(db, 'products'), {
@@ -844,7 +844,7 @@ export default function VendorDashboard() {
           vendorId: vendorProfile.id,
           vendorOwnerUid: user.uid,
           vendorCategory: vendorProfile.category,
-          createdAt: new Date().toISOString(),
+          createdAt: serverTimestamp(),
         });
       }
       setIsAddProductOpen(false);
@@ -930,7 +930,7 @@ export default function VendorDashboard() {
         vendorId: vendorProfile.id,
         vendorOwnerUid: user?.uid,
         createdBy: user?.uid,
-        createdAt: new Date().toISOString()
+        createdAt: serverTimestamp()
       });
       setIsAddCouponOpen(false);
       setNewCoupon({ code: '', discountType: 'percentage', discountValue: 0, active: true, productId: null });
@@ -963,7 +963,7 @@ export default function VendorDashboard() {
 
       await updateDoc(doc(db, 'vendors', vendorProfile.id), {
         ...cleanProfile,
-        updatedAt: new Date().toISOString()
+        updatedAt: serverTimestamp()
       });
       
       toast.success('Duka limefanyiwa maboresho!');
@@ -1033,8 +1033,8 @@ export default function VendorDashboard() {
         orderType: orderType,
         tableNumber: (orderType === 'walk_in' || orderType === 'pickup') ? tableNumber : null,
         paymentMethod: paymentMethod,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
         deliveryAddress: orderType === 'delivery' ? (posCustomer?.address || 'POS Delivery') : 'In-Store POS',
       };
 
@@ -1093,7 +1093,7 @@ export default function VendorDashboard() {
         vendorId: vendorProfile.id,
         vendorOwnerUid: user?.uid,
         status: 'available',
-        createdAt: new Date().toISOString()
+        createdAt: serverTimestamp()
       });
       setIsAddSectionOpen(false);
       setNewSection({ number: '', capacity: 10 });
@@ -1255,7 +1255,7 @@ export default function VendorDashboard() {
     try {
       await updateDoc(doc(db, 'orders', orderId), {
         status: newStatus,
-        updatedAt: new Date().toISOString()
+        updatedAt: serverTimestamp()
       });
       const alertMsg = newStatus === 'accepted' ? 'Order Accepted' : (newStatus === 'cancelled' ? 'Order Cancelled' : `Order #${orderId.slice(-4)} moved to ${newStatus}`);
       toast.success(alertMsg);

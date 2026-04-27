@@ -682,7 +682,7 @@ export default function VendorStore() {
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-neutral-500 uppercase">Picha za Bidhaa (Optional)</label>
                   <div className="flex flex-wrap gap-3">
-                    {reviewImages.map((url, idx) => (
+                    {reviewImages.map((url, idx) => url && (
                       <div key={`review-img-${idx}-${url.slice(-20)}`} className="w-20 h-20 rounded-2xl overflow-hidden relative group">
                         <img src={url} alt="Preview" className="w-full h-full object-cover" />
                         <button 

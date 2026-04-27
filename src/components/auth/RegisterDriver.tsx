@@ -93,7 +93,6 @@ export default function RegisterDriver() {
         driverType,
         approvalStatus: 'pending',
         status: 'offline',
-        createdAt: new Date().toISOString()
       });
       toast.success(t('registration_submitted'));
       navigate('/');

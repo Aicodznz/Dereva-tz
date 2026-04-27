@@ -614,7 +614,7 @@ export default function ProductDetail() {
             {/* Thumbnails */}
             {product.imageUrls && product.imageUrls.length > 1 && (
               <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar px-4 lg:px-0">
-                {product.imageUrls.map((url, idx) => (
+                {product.imageUrls.map((url, idx) => url && (
                   <button
                     key={`gallery-thumb-${idx}`}
                     onClick={() => setActiveImageIndex(idx)}
@@ -921,7 +921,7 @@ export default function ProductDetail() {
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-neutral-500 uppercase">Picha za Bidhaa (Optional)</label>
                   <div className="flex flex-wrap gap-3">
-                    {reviewImages.map((url, idx) => (
+                    {reviewImages.map((url, idx) => url && (
                       <div key={`review-preview-${idx}`} className="w-20 h-20 rounded-2xl overflow-hidden relative group">
                         <img src={url} alt="Preview" className="w-full h-full object-cover" />
                         <button 

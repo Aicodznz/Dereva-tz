@@ -144,7 +144,7 @@ export default function AdminDashboard() {
           tin: "123-456-789",
           ownerUid: "admin",
           operatingHours: "08:00 - 22:00",
-          createdAt: new Date().toISOString()
+          createdAt: serverTimestamp()
         },
         {
           businessName: "Papo Hapo Pizza",
@@ -160,7 +160,7 @@ export default function AdminDashboard() {
           tin: "987-654-321",
           ownerUid: "admin",
           operatingHours: "10:00 - 23:00",
-          createdAt: new Date().toISOString()
+          createdAt: serverTimestamp()
         },
         {
           businessName: "Afya Pharmacy",
@@ -176,7 +176,7 @@ export default function AdminDashboard() {
           tin: "456-789-123",
           ownerUid: "admin",
           operatingHours: "24 Hours",
-          createdAt: new Date().toISOString()
+          createdAt: serverTimestamp()
         }
       ];
 
@@ -309,7 +309,7 @@ export default function AdminDashboard() {
   const handleAddBanner = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await addDoc(collection(db, 'banners'), { ...newBanner, createdAt: new Date().toISOString() });
+      await addDoc(collection(db, 'banners'), { ...newBanner, createdAt: serverTimestamp() });
       setIsAddBannerOpen(false);
       setNewBanner({ title: '', sub: '', img: '', active: true });
       toast.success('Banner added successfully!');
@@ -321,7 +321,7 @@ export default function AdminDashboard() {
   const handleAddCoupon = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await addDoc(collection(db, 'coupons'), { ...newCoupon, createdBy: 'admin', createdAt: new Date().toISOString() });
+      await addDoc(collection(db, 'coupons'), { ...newCoupon, createdBy: 'admin', createdAt: serverTimestamp() });
       setIsAddCouponOpen(false);
       setNewCoupon({ code: '', discountType: 'percentage', discountValue: 0, active: true, vendorId: null, productId: null });
       toast.success('Coupon added successfully!');
@@ -344,7 +344,7 @@ export default function AdminDashboard() {
           userId: u.id,
           type: 'system',
           isRead: false,
-          createdAt: new Date().toISOString()
+          createdAt: serverTimestamp()
         })
       );
 
@@ -709,7 +709,7 @@ export default function AdminDashboard() {
                       >
                          <CardContent className="p-6 flex items-center justify-between">
                             <div className="flex items-center gap-4">
-                               <img src={v.logoUrl} alt="" className="w-16 h-16 rounded-2xl object-cover group-hover:scale-105 transition-transform" />
+                               <img src={v.logoUrl || `https://api.dicebear.com/7.x/identicon/svg?seed=${v.businessName}`} alt="" className="w-16 h-16 rounded-2xl object-cover group-hover:scale-105 transition-transform" />
                                <div>
                                   <h4 className="font-black text-lg text-neutral-900 dark:text-white group-hover:text-orange-600 transition-colors uppercase italic leading-none">{v.businessName}</h4>
                                   <p className="text-xs text-neutral-400 mt-1">{v.address}</p>
