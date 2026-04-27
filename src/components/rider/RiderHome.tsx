@@ -83,9 +83,14 @@ export default function RiderHome() {
   // Get current location
   useEffect(() => {
     if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition((pos) => {
-        setPosition([pos.coords.latitude, pos.coords.longitude]);
-      });
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setPosition([pos.coords.latitude, pos.coords.longitude]);
+        },
+        (err) => {
+          console.warn("Initial geolocation failed", err.message);
+        }
+      );
     }
   }, []);
 
@@ -298,6 +303,15 @@ export default function RiderHome() {
             // Only log errors every 30 seconds to avoid flooding
             if (now - lastErrorTime > 30000) {
               console.error("Geolocation error:", err.message || "Unknown error", err.code);
+              if (err.code === 1) {
+                toast.error("Ruhusa ya Location imekataliwa. Tafadhali ruhusu kwenye browser ili uweze kupokea safari.", {
+                  description: "Nenda kwenye Settings za browser yako na uruhusu 'Location' kwa tovuti hii.",
+                  duration: 10000
+                });
+                setIsOnline(false);
+              } else if (err.code === 3) {
+                toast.error("Imeshindwa kupata Location (Timeout). Kabla hujazima GPS, hakikisha ipo wazi.");
+              }
               lastErrorTime = now;
             }
           }, 
