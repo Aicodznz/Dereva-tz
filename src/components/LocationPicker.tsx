@@ -180,7 +180,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
           setIsLocating(false);
         },
         (err) => {
-          console.error(err);
+          if (err.code !== 1) console.warn(err);
           let msg = 'Imeshindwa kupata mahali ulipo.';
           if (err.code === 1) msg = 'Tafadhali ruhusu ruhusa ya mahali (location permission) kwenye browser yako.';
           else if (err.code === 2) msg = 'Mahali hapajapatikana. Angalia GPS yako.';

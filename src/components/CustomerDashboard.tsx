@@ -116,7 +116,9 @@ export default function CustomerDashboard() {
             setLocation(prev => ({ ...prev, lat: latitude, lng: longitude }));
           }
         },
-        (err) => console.log('Location access denied or unavailable:', err),
+        (err) => {
+          if (err.code !== 1) console.log('Location access denied or unavailable:', err);
+        },
         { timeout: 10000 }
       );
     }

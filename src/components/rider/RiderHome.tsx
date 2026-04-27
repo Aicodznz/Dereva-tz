@@ -88,7 +88,7 @@ export default function RiderHome() {
           setPosition([pos.coords.latitude, pos.coords.longitude]);
         },
         (err) => {
-          console.warn("Initial geolocation failed", err.message);
+          if (err.code !== 1) console.warn("Initial geolocation failed", err.message);
         }
       );
     }
@@ -302,7 +302,9 @@ export default function RiderHome() {
             const now = Date.now();
             // Only log errors every 30 seconds to avoid flooding
             if (now - lastErrorTime > 30000) {
-              console.error("Geolocation error:", err.message || "Unknown error", err.code);
+              if (err.code !== 1) console.error("Geolocation error:", err.message || "Unknown error", err.code);
+              else console.warn("Geolocation permission denied");
+              
               if (err.code === 1) {
                 toast.error("Ruhusa ya Location imekataliwa. Tafadhali ruhusu kwenye browser ili uweze kupokea safari.", {
                   description: "Nenda kwenye Settings za browser yako na uruhusu 'Location' kwa tovuti hii.",
