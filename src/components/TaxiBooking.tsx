@@ -11,8 +11,8 @@ import {
   ArrowRight, RefreshCw, RotateCw
 } from 'lucide-react';
 import Chat from './Chat';
-import { doc, updateDoc, serverTimestamp, setDoc } from 'firebase/firestore';
-import { db, auth } from '../firebase';
+import { db } from '../firebase';
+import { doc, updateDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '../AuthContext';
 import { useLanguage } from '../LanguageContext';
 import { Badge } from '@/components/ui/badge';
@@ -286,23 +286,13 @@ export default function TaxiBooking() {
       const formattedCoords = routeCoords.map(c => ({ lat: c[0], lng: c[1] }));
       
       // Ensure user is signed in for the demo
-      let currentUser = auth.currentUser;
+      let currentUser = user;
       if (!currentUser) {
         console.log("No user found, signing in as guest for demo...");
         try {
           await signInGuest();
           // The auth state change might take a moment
-          await new Promise(resolve => {
-            const unsub = auth.onAuthStateChanged(u => {
-              if (u) {
-                currentUser = u;
-                unsub();
-                resolve(u);
-              }
-            });
-            // Timeout if it takes too long
-            setTimeout(() => { unsub(); resolve(null); }, 3000);
-          });
+          // We wait for user from useAuth to be updated
         } catch (e) {
           console.error("Guest sign in failed", e);
         }
@@ -314,7 +304,7 @@ export default function TaxiBooking() {
         return;
       }
 
-      console.log("Current authorized user UID:", currentUser.uid);
+      console.log("Current authorized user ID:", currentUser.uid);
       
       let customerName = "Mteja";
       if (profile?.displayName) {
@@ -419,7 +409,7 @@ export default function TaxiBooking() {
   const handlePayment = async (method: string) => {
     if (!rideId || !user || !activeRide) return;
     try {
-      await setDoc(doc(db, 'payments', `pay_${rideId}`), {
+      await addDoc(collection(db, 'payments'), {
         rideId,
         customerId: user.uid,
         driverId: activeRide.driverId,
@@ -430,6 +420,7 @@ export default function TaxiBooking() {
       });
       setStep('rating');
     } catch (err) {
+      console.error(err);
       toast.error("Malipo yameshindwa");
     }
   };
@@ -440,11 +431,13 @@ export default function TaxiBooking() {
       await updateDoc(doc(db, 'rides', rideId), {
         rating: ratingValue,
         feedback,
-        rated: true
+        rated: true,
+        updatedAt: serverTimestamp()
       });
       toast.success("Asante kwa maoni yako!");
       setTimeout(() => navigate('/'), 1500);
     } catch (err) {
+      console.error(err);
       navigate('/');
     }
   };

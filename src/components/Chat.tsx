@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { db, auth } from '../firebase';
+import { collection, query, where, orderBy, onSnapshot, addDoc, getDocs, doc, getDoc, updateDoc, limit, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '../AuthContext';
-import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, onSnapshot, addDoc, serverTimestamp, orderBy, limit, doc, getDoc, updateDoc, getDocs } from 'firebase/firestore';
 import { useLanguage } from '../LanguageContext';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -87,20 +87,18 @@ export default function Chat({ onBack }: ChatProps) {
   useEffect(() => {
     if (!user) return;
     
-    // We want to see all chats where current user is a participant
-    const q = query(
-      collection(db, 'messages'),
-      where('participants', 'array-contains', user.uid),
-      orderBy('createdAt', 'desc'),
-      limit(200)
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const allMsgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+    const fetchSessions = async () => {
+      const q = query(
+        collection(db, 'messages'),
+        where('participants', 'array-contains', user.uid),
+        orderBy('createdAt', 'desc'),
+        limit(200)
+      );
+      const snap = await getDocs(q);
+      const messages = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
       
-      // Group unique sessions by chatId
       const sessionsMap = new Map<string, ChatSession>();
-      allMsgs.forEach(m => {
+      messages.forEach(m => {
         if (!m.chatId || sessionsMap.has(m.chatId)) return;
         
         const otherParticipantId = m.participants.find((id: string) => id !== user.uid);
@@ -109,16 +107,20 @@ export default function Chat({ onBack }: ChatProps) {
           participants: m.participants,
           lastMessage: m.text,
           lastMessageTime: m.createdAt,
-          // We'll hydrate profiles later if needed or just use sender info from last message
         });
       });
       
       setSessions(Array.from(sessionsMap.values()));
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'messages/sessions');
-    });
+    };
 
-    return () => unsubscribe();
+    fetchSessions();
+
+    const unsub = onSnapshot(
+      query(collection(db, 'messages'), where('participants', 'array-contains', user.uid)),
+      () => fetchSessions()
+    );
+
+    return () => unsub();
   }, [user]);
 
   useEffect(() => {
@@ -131,28 +133,33 @@ export default function Chat({ onBack }: ChatProps) {
     if (!recipientId) return;
     
     const fetchRecipient = async () => {
-      // 1. Check if recipientId is a Vendor Document ID (Legacy or direct)
-      const vRef = doc(db, 'vendors', recipientId);
-      const vSnap = await getDoc(vRef);
-      if (vSnap.exists()) {
-        setRecipientProfile({ name: vSnap.data().businessName, photo: vSnap.data().logoUrl, role: 'vendor' });
+      // 1. Check if recipientId is a Vendor
+      const vendorsRef = collection(db, 'vendors');
+      const q1 = query(vendorsRef, where('id', '==', recipientId)); // This might not work if doc ID is recipientId
+      const q2 = query(vendorsRef, where('ownerUid', '==', recipientId));
+      
+      const [snap1, snap2] = await Promise.all([
+        getDoc(doc(db, 'vendors', recipientId)),
+        getDocs(q2)
+      ]);
+
+      if (snap1.exists()) {
+        const vData = snap1.data();
+        setRecipientProfile({ name: vData.businessName, photo: vData.logoUrl, role: 'vendor' });
         return;
       }
-
-      // 2. Check if recipientId is an ownerUid (Vendor)
-      const vQuery = query(collection(db, 'vendors'), where('ownerUid', '==', recipientId), limit(1));
-      const vQuerySnap = await getDocs(vQuery);
-      if (!vQuerySnap.empty) {
-        const vData = vQuerySnap.docs[0].data();
+      
+      if (!snap2.empty) {
+        const vData = snap2.docs[0].data();
         setRecipientProfile({ name: vData.businessName, photo: vData.logoUrl, role: 'vendor' });
         return;
       }
 
-      // 3. Fallback to Users collection
-      const uRef = doc(db, 'users', recipientId);
-      const uSnap = await getDoc(uRef);
+      // 2. Check if recipientId is a User
+      const uSnap = await getDoc(doc(db, 'users', recipientId));
       if (uSnap.exists()) {
-        setRecipientProfile({ name: uSnap.data().displayName, photo: uSnap.data().photoURL, role: uSnap.data().role });
+        const uData = uSnap.data();
+        setRecipientProfile({ name: uData.displayName, photo: uData.photoURL, role: uData.role });
       }
     };
     fetchRecipient();
@@ -161,23 +168,26 @@ export default function Chat({ onBack }: ChatProps) {
   useEffect(() => {
     if (!user || !chatId) return;
 
-    const q = query(
-      collection(db, 'messages'),
-      where('participants', 'array-contains', user?.uid),
-      where('chatId', '==', chatId),
-      orderBy('createdAt', 'asc'),
-      limit(100)
+    const fetchMessages = async () => {
+      const q = query(
+        collection(db, 'messages'),
+        where('chatId', '==', chatId),
+        orderBy('createdAt', 'asc'),
+        limit(100)
+      );
+      const snap = await getDocs(q);
+      setMessages(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message)));
+      setLoading(false);
+    };
+
+    fetchMessages();
+
+    const unsub = onSnapshot(
+      query(collection(db, 'messages'), where('chatId', '==', chatId)),
+      () => fetchMessages()
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as Message));
-      setLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'messages/chat');
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
+    return () => unsub();
   }, [user, chatId]);
 
   useEffect(() => {
@@ -195,10 +205,10 @@ export default function Chat({ onBack }: ChatProps) {
         chatId: chatId,
         text: newMessage,
         senderId: user.uid,
-        senderName: profile?.displayName || (user.isAnonymous ? 'Guest' : 'User'),
+        senderName: profile?.displayName || 'User',
         senderPhoto: profile?.photoURL || '',
         participants: [user.uid, recipientId].sort(),
-        createdAt: serverTimestamp(),
+        createdAt: new Date().toISOString(),
       };
 
       if (replyingTo) {
@@ -210,16 +220,16 @@ export default function Chat({ onBack }: ChatProps) {
       }
 
       await addDoc(collection(db, 'messages'), msgData);
+      
       setNewMessage('');
       setReplyingTo(null);
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'messages');
+      console.error(error);
     }
   };
 
   const handleReaction = async (messageId: string, emoji: string) => {
     if (!user) return;
-    const msgRef = doc(db, 'messages', messageId);
     const msg = messages.find(m => m.id === messageId);
     if (!msg) return;
 
@@ -237,10 +247,10 @@ export default function Chat({ onBack }: ChatProps) {
     if (newUsers.length === 0) delete newReactions[emoji];
 
     try {
-      await updateDoc(msgRef, { reactions: newReactions });
+      await updateDoc(doc(db, 'messages', messageId), { reactions: newReactions });
       setShowEmojiPicker(null);
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `messages/${messageId}/reaction`);
+      console.error(error);
     }
   };
 
@@ -288,7 +298,7 @@ export default function Chat({ onBack }: ChatProps) {
                     </p>
                   </div>
                   <div className="text-[10px] text-neutral-300 font-medium">
-                    {session.lastMessageTime?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {session.lastMessageTime ? new Date(session.lastMessageTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                   </div>
                 </div>
               );
@@ -429,7 +439,7 @@ export default function Chat({ onBack }: ChatProps) {
                         )}
                         
                         <span className={`text-[10px] mt-1.5 font-bold uppercase tracking-tighter opacity-40 block ${isMe ? 'text-right' : 'text-left'}`}>
-                          {msg.createdAt?.toDate ? msg.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Sasa hivi'}
+                          {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Sasa hivi'}
                         </span>
                       </div>
                     </motion.div>

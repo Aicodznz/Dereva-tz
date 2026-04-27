@@ -1,11 +1,11 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { onAuthStateChanged, User, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
-import { auth, db, googleProvider, signInWithPopup, signOut, signInAnonymously, handleFirestoreError, OperationType } from './firebase';
+import { auth, db } from './firebase';
+import { User as FirebaseUser, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInAnonymously, GoogleAuthProvider, signInWithPopup, updatePassword } from 'firebase/auth';
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { UserProfile, UserRole } from './types';
 
 interface AuthContextType {
-  user: User | null;
+  user: FirebaseUser | null;
   profile: UserProfile | null;
   loading: boolean;
   signIn: () => Promise<void>;
@@ -15,98 +15,69 @@ interface AuthContextType {
   updateRole: (role: UserRole) => Promise<void>;
   updateProfileData: (data: Partial<UserProfile>) => Promise<void>;
   signInGuest: () => Promise<void>;
+  changePassword: (newPass: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<FirebaseUser | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let unsubProfile: (() => void) | null = null;
-
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      // Clean up previous profile listener if it exists
-      if (unsubProfile) {
-        unsubProfile();
-        unsubProfile = null;
-      }
-
-      setUser(firebaseUser);
-      
-      if (firebaseUser) {
-        const profileRef = doc(db, 'users', firebaseUser.uid);
-        
-        const initProfile = async () => {
-          try {
-            const profileSnap = await getDoc(profileRef);
-
-            if (!profileSnap.exists()) {
-              setProfile(prev => {
-                if (prev) return prev;
-                
-                const isAdminEmail = firebaseUser.email === 'aicodtznation@gmail.com';
-                const newProfile: UserProfile = {
-                  uid: firebaseUser.uid,
-                  email: firebaseUser.email || '',
-                  displayName: firebaseUser.displayName || (isAdminEmail ? 'Super Admin' : ''),
-                  photoURL: firebaseUser.photoURL || '',
-                  role: isAdminEmail ? 'admin' : 'customer',
-                  createdAt: new Date(),
-                };
-                setDoc(profileRef, newProfile).catch(err => {
-                  console.error('Error creating default profile:', err);
-                });
-                return newProfile;
-              });
-            }
-          } catch (error) {
-            console.error('Error in initProfile:', error);
-            // Only handle error if user is still logged in
-            if (auth.currentUser) {
-              handleFirestoreError(error, OperationType.GET, `users/${firebaseUser.uid}`);
-            }
-          }
-        };
-
-        initProfile();
-
-        unsubProfile = onSnapshot(profileRef, (doc) => {
-          if (doc.exists()) {
-            setProfile(doc.data() as UserProfile);
-          }
-          setLoading(false);
-        }, (error) => {
-          // Only log error if user is still logged in to avoid noise on logout
-          if (auth.currentUser) {
-            console.error('Profile snapshot error:', error);
-            handleFirestoreError(error, OperationType.GET, `users/${firebaseUser.uid}`);
-          }
-          setLoading(false);
-        });
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        await fetchProfile(currentUser.uid);
       } else {
         setProfile(null);
         setLoading(false);
       }
     });
 
-    return () => {
-      unsubscribe();
-      if (unsubProfile) unsubProfile();
-    };
+    return () => unsubscribe();
   }, []);
 
-  const signIn = async () => {
+  const fetchProfile = async (uid: string) => {
     try {
-      await signInWithPopup(auth, googleProvider);
-    } catch (error: any) {
-      if (error.code === 'auth/popup-closed-by-user') {
-        // Silently handle expected user cancellation
-        console.log('User cancelled the sign-in popup.');
-        return;
+      const docRef = doc(db, 'users', uid);
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
+        setProfile(docSnap.data() as UserProfile);
+      } else {
+        // Profile doesn't exist, check if we should create it
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          const isAdminEmail = currentUser.email === 'aicodtznation@gmail.com';
+          const newProfile: any = {
+            uid: currentUser.uid,
+            email: currentUser.email || '',
+            displayName: currentUser.displayName || (isAdminEmail ? 'Super Admin' : ''),
+            fullName: currentUser.displayName || (isAdminEmail ? 'Super Admin' : ''),
+            photoURL: currentUser.photoURL || '',
+            role: isAdminEmail ? 'admin' : 'customer',
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          };
+
+          await setDoc(doc(db, 'users', currentUser.uid), newProfile);
+          setProfile(newProfile);
+        }
       }
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const signIn = async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (error: any) {
       console.error('Sign in error:', error);
       throw error;
     }
@@ -122,61 +93,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const updateRole = async (role: UserRole) => {
     if (!user) return;
-    const profileRef = doc(db, 'users', user.uid);
     try {
-      await setDoc(profileRef, { role }, { merge: true });
+      const docRef = doc(db, 'users', user.uid);
+      await updateDoc(docRef, { role });
+      setProfile(prev => prev ? { ...prev, role } : null);
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}`);
+      console.error('Update role error:', error);
     }
   };
 
   const updateProfileData = async (data: Partial<UserProfile>) => {
     if (!user) return;
-    const profileRef = doc(db, 'users', user.uid);
     try {
-      await setDoc(profileRef, data, { merge: true });
+      const docRef = doc(db, 'users', user.uid);
+      await updateDoc(docRef, data as any);
+      setProfile(prev => prev ? { ...prev, ...data } : null);
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}`);
+      console.error('Update profile error:', error);
     }
   };
 
   const signUp = async (email: string, pass: string, role: UserRole, extraData?: any) => {
     const cleanEmail = email.trim().toLowerCase();
     
-    // Basic format check
     if (!cleanEmail || !cleanEmail.includes('@') || cleanEmail.length < 5) {
       throw new Error("Tafadhali weka barua pepe sahihi (mfano: jina@gmail.com)");
     }
 
     try {
-      console.log('Attempting signup for:', cleanEmail);
-      const { user: firebaseUser } = await createUserWithEmailAndPassword(auth, cleanEmail, pass);
-      const profileRef = doc(db, 'users', firebaseUser.uid);
-      const newProfile: UserProfile = {
-        uid: firebaseUser.uid,
-        email: firebaseUser.email || cleanEmail,
+      const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, pass);
+      const newUser = userCredential.user;
+
+      const newProfile: any = {
+        uid: newUser.uid,
+        email: newUser.email || cleanEmail,
         displayName: extraData?.fullName || '',
+        fullName: extraData?.fullName || '',
         photoURL: '',
         role: role,
-        createdAt: new Date(),
-        ...extraData
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       };
       
-      // Cleanup to ensure correct email is saved
-      newProfile.email = firebaseUser.email || cleanEmail;
-
-      await setDoc(profileRef, newProfile);
+      const dbFields = ['phoneNumber', 'address', 'approvalStatus', 'status', 'driverType', 'vehicleType', 'vehicleBrand', 'vehicleModel', 'vehicleColor', 'licensePlate', 'vehicleYear', 'carryingCapacity'];
+      if (extraData) {
+        Object.keys(extraData).forEach(key => {
+          if (dbFields.includes(key)) {
+            newProfile[key] = extraData[key];
+          }
+        });
+      }
+      
+      await setDoc(doc(db, 'users', newUser.uid), newProfile);
       setProfile(newProfile);
-      console.log('Signup successful for:', cleanEmail);
     } catch (error: any) {
-      console.error('Signup error code:', error.code);
-      console.error('Signup error message:', error.message);
-      if (error.code === 'auth/operation-not-allowed') {
-        throw new Error("Email registration is currently disabled. Please enable 'Email/Password' in your Firebase Console Authentication settings.");
-      }
-      if (error.code === 'auth/invalid-email') {
-        throw new Error(`Barua pepe "${cleanEmail}" si sahihi. Tafadhali hakiki na ujaribu tena.`);
-      }
+      console.error('Signup error:', error);
       throw error;
     }
   };
@@ -184,18 +155,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, pass: string) => {
     const cleanEmail = email.trim().toLowerCase();
     try {
-      console.log('Attempting login for:', cleanEmail);
       await signInWithEmailAndPassword(auth, cleanEmail, pass);
-      console.log('Login successful for:', cleanEmail);
     } catch (error: any) {
-      console.error('Login error code:', error.code);
-      console.error('Login error message:', error.message);
-      if (error.code === 'auth/operation-not-allowed') {
-        throw new Error("Email login is currently disabled. Please enable 'Email/Password' in your Firebase Console Authentication settings.");
-      }
-      if (error.code === 'auth/invalid-email') {
-        throw new Error(`Barua pepe "${cleanEmail}" si sahihi. Tafadhali hakiki na ujaribu tena.`);
-      }
+      console.error('Login error:', error);
       throw error;
     }
   };
@@ -209,8 +171,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const changePasswordMethod = async (newPass: string) => {
+    if (!auth.currentUser) throw new Error("No user logged in");
+    try {
+      await updatePassword(auth.currentUser, newPass);
+    } catch (error: any) {
+      console.error('Change password error:', error);
+      throw error;
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signIn, login, signUp, logout, updateRole, updateProfileData, signInGuest }}>
+    <AuthContext.Provider value={{ user, profile, loading, signIn, login, signUp, logout, updateRole, updateProfileData, signInGuest, changePassword: changePasswordMethod }}>
       {children}
     </AuthContext.Provider>
   );

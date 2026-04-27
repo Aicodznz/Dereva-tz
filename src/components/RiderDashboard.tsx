@@ -1,8 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../AuthContext';
-import { db } from '../firebase';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { Order } from '../types';
 import { 
   Home, BarChart2, Briefcase, Settings, 
   MapPin, Shield, CheckCircle, Bell

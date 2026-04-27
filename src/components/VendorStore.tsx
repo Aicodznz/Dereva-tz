@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
-import { collection, query, where, onSnapshot, doc, getDoc, addDoc, serverTimestamp, updateDoc, arrayUnion, arrayRemove, deleteDoc, orderBy } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType, storage, auth } from '../firebase';
+import { storageService } from '../services/storageService';
+import { db, auth } from '../firebase';
+import { collection, query, where, onSnapshot, getDocs, doc, getDoc, addDoc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore';
 import { VendorProfile, Product } from '../types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -15,7 +16,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { useCart } from '../CartContext';
 import { useLanguage } from '../LanguageContext';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { useAuth } from '../AuthContext';
 
 interface ReviewReply {
   id: string;
@@ -46,6 +47,7 @@ export default function VendorStore() {
   const navigate = useNavigate();
   const { addItem } = useCart();
   const { t } = useLanguage();
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const tableNumber = searchParams.get('table');
   const [vendor, setVendor] = useState<VendorProfile | null>(null);
@@ -80,82 +82,80 @@ export default function VendorStore() {
   useEffect(() => {
     if (!id) return;
 
-    // Fetch Vendor
     const fetchVendor = async () => {
       try {
-        const docRef = doc(db, 'vendors', id);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          setVendor({ id: docSnap.id, ...docSnap.data() } as VendorProfile);
+        const vSnap = await getDoc(doc(db, 'vendors', id));
+        if (vSnap.exists()) {
+          setVendor({ id: vSnap.id, ...vSnap.data() } as VendorProfile);
         }
       } catch (error) {
-        handleFirestoreError(error, OperationType.GET, `vendors/${id}`);
+        console.error('Error fetching vendor:', error);
+      }
+    };
+
+    const fetchProducts = async () => {
+      try {
+        const q = query(collection(db, 'products'), where('vendorId', '==', id));
+        const snap = await getDocs(q);
+        setProducts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching products:', error);
+        setLoading(false);
+      }
+    };
+
+    const fetchReviews = async () => {
+      try {
+        const q = query(
+          collection(db, 'reviews'),
+          where('targetId', '==', id),
+          where('targetType', '==', 'vendor'),
+          orderBy('createdAt', 'desc')
+        );
+        const snap = await getDocs(q);
+        const reviewsData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Review));
+        
+        // Fetch replies for each review
+        const reviewsWithReplies = await Promise.all(reviewsData.map(async (review) => {
+          const rq = query(
+            collection(db, 'review_replies'),
+            where('reviewId', '==', review.id),
+            orderBy('createdAt', 'asc')
+          );
+          const rSnap = await getDocs(rq);
+          return { ...review, replies: rSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ReviewReply)) };
+        }));
+
+        setReviews(reviewsWithReplies);
+      } catch (error) {
+        console.error('Error fetching reviews:', error);
       }
     };
 
     fetchVendor();
+    fetchProducts();
+    fetchReviews();
 
-    // Fetch Products
-    const qProducts = query(collection(db, 'products'), where('vendorId', '==', id));
-    const unsubProducts = onSnapshot(qProducts, (snapshot) => {
-      setProducts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
-      setLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'products');
-    });
-
-    // Fetch Reviews with Replies
-    const qReviews = query(collection(db, 'reviews'), where('targetId', '==', id), where('targetType', '==', 'vendor'), orderBy('createdAt', 'desc'));
-    const unsubReviews = onSnapshot(qReviews, (snapshot) => {
-      const reviewData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Review));
-      setReviews(reviewData);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'reviews');
-    });
+    const pUnsub = onSnapshot(query(collection(db, 'products'), where('vendorId', '==', id)), () => fetchProducts());
+    const rUnsub = onSnapshot(query(collection(db, 'reviews'), where('targetId', '==', id), where('targetType', '==', 'vendor')), () => fetchReviews());
 
     return () => {
-      unsubProducts();
-      unsubReviews();
+      pUnsub();
+      rUnsub();
     };
   }, [id]);
 
-  // Separate effect for fetching replies when reviews change
-  useEffect(() => {
-    if (reviews.length === 0) return;
-
-    const unsubscribes: (() => void)[] = [];
-
-    reviews.forEach(review => {
-      const qReplies = query(collection(db, 'reviews', review.id, 'replies'), orderBy('createdAt', 'asc'));
-      const unsub = onSnapshot(qReplies, (replySnap) => {
-        const replies = replySnap.docs.map(d => ({ id: d.id, ...d.data() } as ReviewReply));
-        setReviews(prev => prev.map(r => r.id === review.id ? { ...r, replies } : r));
-      }, (error) => {
-        handleFirestoreError(error, OperationType.GET, 'reviews/replies');
-      });
-      unsubscribes.push(unsub);
-    });
-
-    return () => unsubscribes.forEach(unsub => unsub());
-  }, [reviews.map(r => r.id).join(',')]);
-
   const handleFileUpload = async (files: FileList) => {
-    if (!files || files.length === 0) return;
+    if (!files || files.length === 0 || !user) return;
     setIsUploading(true);
     const fileArray = Array.from(files);
     
     for (const file of fileArray) {
       try {
-        const storageRef = ref(storage, `reviews/${auth.currentUser?.uid}/${Date.now()}_${file.name}`);
-        const uploadTask = uploadBytesResumable(storageRef, file);
-        
-        await new Promise<void>((resolve, reject) => {
-          uploadTask.on('state_changed', null, reject, async () => {
-            const url = await getDownloadURL(uploadTask.snapshot.ref);
-            setReviewImages(prev => [...prev, url]);
-            resolve();
-          });
-        });
+        const path = storageService.getReviewPath(user.uid, file.name);
+        const publicUrl = await storageService.uploadFile('reviews', path, file);
+        setReviewImages(prev => [...prev, publicUrl]);
       } catch (error) {
         toast.error('Imeshindwa kupakia picha');
       }
@@ -165,48 +165,52 @@ export default function VendorStore() {
 
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth.currentUser) {
+    if (!user) {
       toast.error('Tafadhali ingia ili uweze kutoa maoni');
       return;
     }
 
     try {
       await addDoc(collection(db, 'reviews'), {
-        userId: auth.currentUser.uid,
-        userName: auth.currentUser.displayName || 'Mteja',
-        userPhoto: auth.currentUser.photoURL || '',
+        userId: user.uid,
+        userName: user.displayName || 'Mteja',
+        userPhoto: user.photoURL || '',
         targetId: id,
         targetType: 'vendor',
         rating,
         comment,
         images: reviewImages,
         likes: [],
-        createdAt: serverTimestamp()
+        createdAt: new Date().toISOString()
       });
-      
+
       toast.success('Asante kwa maoni yako!');
       setIsReviewModalOpen(false);
       setComment('');
       setRating(5);
       setReviewImages([]);
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'reviews');
+      console.error('Create review error:', error);
     }
   };
 
   const handleLikeReview = async (reviewId: string, isLiked: boolean) => {
-    if (!auth.currentUser) {
+    if (!user) {
       toast.error('Tafadhali ingia ili uweze kulike');
       return;
     }
 
     try {
-      const reviewRef = doc(db, 'reviews', reviewId);
-      await updateDoc(reviewRef, {
-        likes: isLiked ? arrayRemove(auth.currentUser.uid) : arrayUnion(auth.currentUser.uid)
-      });
+      const review = reviews.find(r => r.id === reviewId);
+      if (!review) return;
+
+      const newLikes = isLiked 
+        ? (review.likes || []).filter(uid => uid !== user.uid)
+        : [...(review.likes || []), user.uid];
+
+      await updateDoc(doc(db, 'reviews', reviewId), { likes: newLikes });
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `reviews/${reviewId}`);
+      console.error('Like review error:', error);
     }
   };
 
@@ -215,39 +219,41 @@ export default function VendorStore() {
       await deleteDoc(doc(db, 'reviews', reviewId));
       toast.success('Maoni yamefutwa');
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `reviews/${reviewId}`);
+      console.error('Delete review error:', error);
     }
   };
 
   const handleReplyReview = async (reviewId: string) => {
-    if (!auth.currentUser) {
+    if (!user) {
       toast.error('Tafadhali ingia ili uweze kujibu');
       return;
     }
     if (!replyText.trim()) return;
 
     try {
-      await addDoc(collection(db, 'reviews', reviewId, 'replies'), {
-        userId: auth.currentUser.uid,
-        userName: auth.currentUser.displayName || 'User',
-        userPhoto: auth.currentUser.photoURL || '',
+      await addDoc(collection(db, 'review_replies'), {
+        reviewId: reviewId,
+        userId: user.uid,
+        userName: user.displayName || 'User',
+        userPhoto: user.photoURL || '',
         text: replyText,
-        createdAt: serverTimestamp()
+        createdAt: new Date().toISOString()
       });
+
       setReplyText('');
       setReplyingTo(null);
       toast.success('Jibu lako limetumwa');
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, `reviews/${reviewId}/replies`);
+      console.error('Reply review error:', error);
     }
   };
 
-  const handleDeleteReply = async (reviewId: string, replyId: string) => {
+  const handleDeleteReply = async (_reviewId: string, replyId: string) => {
     try {
-      await deleteDoc(doc(db, 'reviews', reviewId, 'replies', replyId));
+      await deleteDoc(doc(db, 'review_replies', replyId));
       toast.success('Jibu limefutwa');
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `reviews/${reviewId}/replies/${replyId}`);
+      console.error('Delete reply error:', error);
     }
   };
 
@@ -461,9 +467,9 @@ export default function VendorStore() {
 
                     <div className="grid grid-cols-1 gap-6">
                       {reviews.map((review) => {
-                        const isLiked = review.likes?.includes(auth.currentUser?.uid || '');
-                        const isOwner = review.userId === auth.currentUser?.uid;
-                        const isVendorOwner = vendor.ownerUid === auth.currentUser?.uid;
+                        const isLiked = review.likes?.includes(user?.uid || '');
+                        const isOwner = review.userId === user?.uid;
+                        const isVendorOwner = vendor.ownerUid === user?.uid;
 
                         return (
                           <Card key={review.id} className="bg-white border border-neutral-100 rounded-3xl p-6 shadow-sm">
@@ -535,7 +541,7 @@ export default function VendorStore() {
                                           )}
                                         </div>
                                         <p className="text-xs text-neutral-600">{reply.text}</p>
-                                        {reply.userId === auth.currentUser?.uid && (
+                                        {reply.userId === user?.uid && (
                                           <button 
                                             onClick={() => handleDeleteReply(review.id, reply.id)}
                                             className="absolute top-2 right-2 text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"

@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { CreditCard, Banknote, CheckCircle2, QrCode, Phone } from 'lucide-react';
 import { Ride } from '../../types/ride.types';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 
 interface PaymentConfirmScreenProps {
   ride: Ride;
@@ -24,6 +24,7 @@ export default function PaymentConfirmScreen({ ride, onPaymentConfirmed }: Payme
         paidAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
+      
       onPaymentConfirmed();
     } catch (e) {
       console.error("Payment confirmation failed:", e);

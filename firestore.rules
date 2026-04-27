@@ -2,13 +2,13 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     // -------------------------------------------------------------------------
-    // Phase 3: Primitives & Global Helpers (Hardened)
+    // Phase 3: Primitives & Global Helpers
     // -------------------------------------------------------------------------
     
     function isSignedIn() { return request.auth != null; }
     
-    // Relaxed verification for better compatibility
     function isVerified() {
+      // Relaxed for development, but ideally mandatory email_verified
       return isSignedIn();
     }
 
@@ -19,58 +19,49 @@ service cloud.firestore {
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email == "aicodtznation@gmail.com" ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
       );
-    }
-
-    function isValidId(id) {
-      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
 
-    // Default Deny (Global Safety Net)
+    // Default Deny
     match /{document=**} {
       allow read, write: if false;
     }
 
     // -------------------------------------------------------------------------
-    // Pillar 2: Validation Blueprints (EntityType isValid Helpers)
+    // Pillar 2: Validation Blueprints
     // -------------------------------------------------------------------------
 
     function isValidUser(data) {
-      return data.keys().hasAll(['uid', 'email', 'role', 'createdAt']) &&
-             data.uid == request.auth.uid &&
-             data.email is string && data.email.size() <= 256 &&
-             data.role in ['customer', 'vendor', 'rider', 'admin'] &&
-             data.createdAt == request.time;
+      return data.uid == request.auth.uid &&
+             data.role in ['customer', 'vendor', 'rider', 'admin'];
     }
 
     function isValidVendor(data) {
-      return data.businessName is string && data.businessName.size() >= 2 && data.businessName.size() <= 100 &&
-             data.ownerUid == request.auth.uid &&
-             data.status in ['pending', 'active', 'suspended'];
+      return data.businessName is string && data.businessName.size() <= 100 &&
+             data.ownerUid == request.auth.uid;
     }
 
     function isValidOrder(data) {
-      return data.customerId is string && data.customerId.size() <= 128 &&
-             data.vendorId is string && data.vendorId.size() <= 128 &&
-             data.totalAmount is number && data.totalAmount >= 0 &&
-             data.status in ['pending', 'confirmed', 'preparing', 'ready_for_pickup', 'on_the_way', 'delivered', 'cancelled'];
+      return data.customerId is string &&
+             data.vendorId is string &&
+             data.status is string;
     }
 
     function isValidRide(data) {
       return data.customerId is string &&
-             data.status is string;
+             data.status in [
+               'pending', 'accepted', 'arrived', 'started', 
+               'completed', 'cancelled', 'searching', 'arriving', 
+               'on_trip', 'driver_arriving', 'driver_arrived', 'ready_for_pickup'
+             ];
     }
 
     function isValidDriver(data) {
       return data.isOnline is bool &&
-             data.status in ['online', 'offline'] &&
-             data.receiving is bool &&
-             data.vehicleType is string && data.vehicleType.size() <= 50 &&
              data.location is map;
     }
 
@@ -78,16 +69,22 @@ service cloud.firestore {
     // Phase 4: Match Blocks
     // -------------------------------------------------------------------------
 
-    // Users (Split PII Isolation implicit via owner/admin check)
+    // Users
     match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
+      allow get: if isVerified(); // Allow basic profile fetch for chats/orders
       allow list: if isAdmin();
       allow create: if isVerified() && isValidUser(incoming());
       allow update: if isVerified() && (
-        (isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'phone', 'address', 'vehicleType', 'vehicleBrand', 'vehicleModel', 'licensePlate', 'driverType'])) ||
+        (isOwner(userId) && (
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'displayName', 'fullName', 'photoURL', 'phoneNumber', 'address', 'role',
+            'vehicleType', 'vehicleBrand', 'vehicleModel', 'licensePlate', 'driverType',
+            'nidaNumber', 'mobileMoneyNumber', 'city', 'preferredWorkArea', 'availability',
+            'updatedAt'
+          ])
+        )) ||
         isAdmin()
       );
-      allow delete: if isAdmin();
     }
 
     // Vendors
@@ -95,7 +92,9 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isVerified() && isValidVendor(incoming());
       allow update: if isVerified() && (
-        (isOwner(existing().ownerUid) && incoming().diff(existing()).affectedKeys().hasOnly(['businessName', 'description', 'location', 'logoUrl', 'bannerUrl', 'address', 'deliveryRadius', 'tin', 'operatingHours'])) ||
+        (isOwner(existing().ownerUid) && (
+          incoming().diff(existing()).affectedKeys().hasAny(['businessName', 'description', 'location', 'logoUrl', 'bannerUrl', 'address', 'deliveryRadius', 'tin', 'operatingHours', 'status', 'rating', 'updatedAt'])
+        )) ||
         isAdmin()
       );
     }
@@ -103,16 +102,14 @@ service cloud.firestore {
     // Products
     match /products/{productId} {
       allow read: if true;
-      allow create: if isVerified() && get(/databases/$(database)/documents/vendors/$(incoming().vendorId)).data.ownerUid == request.auth.uid;
-      allow update: if isVerified() && (
-        (get(/databases/$(database)/documents/vendors/$(existing().vendorId)).data.ownerUid == request.auth.uid && 
-         incoming().diff(existing()).affectedKeys().hasOnly(['name', 'description', 'price', 'imageUrl', 'imageUrls', 'category', 'status', 'variations', 'addOns', 'medicationType', 'expiryDate', 'stockQuantity'])) ||
+      allow write: if isVerified() && (
+        (get(/databases/$(database)/documents/vendors/$(incoming().vendorId)).data.ownerUid == request.auth.uid) ||
+        (resource != null && get(/databases/$(database)/documents/vendors/$(resource.data.vendorId)).data.ownerUid == request.auth.uid) ||
         isAdmin()
       );
-      allow delete: if isVerified() && (isAdmin() || get(/databases/$(database)/documents/vendors/$(resource.data.vendorId)).data.ownerUid == request.auth.uid);
     }
 
-    // Orders (Pillar 8: Secure List Queries)
+    // Orders
     match /orders/{orderId} {
       allow get: if isVerified() && (
         isAdmin() || 
@@ -130,18 +127,14 @@ service cloud.firestore {
       allow create: if isVerified() && isValidOrder(incoming()) && incoming().customerId == request.auth.uid;
       allow update: if isVerified() && (
         isAdmin() ||
-        // Customer cancel
-        (isOwner(existing().customerId) && incoming().status == 'cancelled' && existing().status == 'pending' && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])) ||
-        // Vendor workflow
-        (isOwner(existing().vendorOwnerUid) && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt', 'riderId', 'paymentStatus'])) ||
-        // Rider accept
-        (existing().status == 'ready_for_pickup' && incoming().riderId == request.auth.uid && incoming().status == 'on_the_way' && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'riderId', 'updatedAt'])) ||
-        // Rider complete
-        (isOwner(existing().riderId) && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt', 'paymentStatus']))
+        isOwner(existing().customerId) ||
+        isOwner(existing().vendorOwnerUid) ||
+        isOwner(existing().riderId) ||
+        (existing().status == 'ready_for_pickup' && incoming().riderId == request.auth.uid)
       );
     }
 
-    // Rides (Taxi)
+    // Rides
     match /rides/{rideId} {
       allow read: if isVerified() && (
         isAdmin() || 
@@ -149,33 +142,21 @@ service cloud.firestore {
         resource.data.driverId == request.auth.uid || 
         resource.data.status == 'pending'
       );
-      allow create: if isSignedIn() && incoming().customerId == request.auth.uid;
-      allow update: if isSignedIn() && (
+      allow create: if isVerified() && isValidRide(incoming()) && incoming().customerId == request.auth.uid;
+      allow update: if isVerified() && (
         isAdmin() ||
-        // Customer updates
-        (isOwner(existing().customerId) && (
-          incoming().diff(existing()).affectedKeys().hasAny(['status', 'rating', 'review', 'updatedAt'])
-        )) ||
-        // Driver acceptance
-        (resource.data.status == 'pending' && incoming().status == 'accepted' && incoming().driverId == request.auth.uid) ||
-        // Active driver updates
-        (isOwner(existing().driverId) && (
-          incoming().diff(existing()).affectedKeys().hasAny(['status', 'updatedAt', 'driverLocation', 'eta', 'completedAt', 'arrivedAt', 'startedAt', 'paymentMethod', 'paymentStatus', 'paidAt', 'customerRating', 'fullyCompleted'])
-        ))
+        isOwner(existing().customerId) ||
+        (existing().status == 'pending' && incoming().driverId == request.auth.uid) ||
+        isOwner(existing().driverId)
       );
-    }
-
-    // Payments
-    match /payments/{paymentId} {
-      allow read: if isVerified() && (resource.data.customerId == request.auth.uid || resource.data.driverId == request.auth.uid || isAdmin());
-      allow create: if isVerified() && (incoming().customerId == request.auth.uid || incoming().driverId == request.auth.uid || isAdmin());
     }
 
     // Drivers Presence
     match /drivers/{driverId} {
       allow read: if true;
-      allow write: if isVerified() && isOwner(driverId) && isValidDriver(incoming());
+      allow write: if isVerified() && isOwner(driverId);
     }
+    
     match /riders/{riderId} {
       allow read: if true;
       allow write: if isVerified() && isOwner(riderId);
@@ -185,22 +166,19 @@ service cloud.firestore {
     match /messages/{messageId} {
       allow read: if isVerified() && (resource.data.participants.hasAny([request.auth.uid]) || isAdmin());
       allow create: if isVerified() && incoming().participants.hasAny([request.auth.uid]);
-      
-      match /chats/{chatId} {
-        allow read: if isVerified() && (get(/databases/$(database)/documents/messages/$(messageId)).data.participants.hasAny([request.auth.uid]) || isAdmin());
-        allow create: if isVerified() && get(/databases/$(database)/documents/messages/$(messageId)).data.participants.hasAny([request.auth.uid]);
-      }
     }
 
-    // Supporting Features
-    match /banners/{id} { allow read: if true; allow write: if isAdmin(); }
+    // Notifications
     match /notifications/{id} { 
-      allow list: if isVerified() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow get: if isVerified() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isVerified() && (isAdmin() || incoming().userId == request.auth.uid);
-      allow update: if isVerified() && (isOwner(existing().userId) || isAdmin());
+      allow read: if isVerified() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow write: if isVerified() && (isAdmin() || incoming().userId == request.auth.uid);
     }
-    match /coupons/{id} { allow read: if isVerified(); allow write: if isAdmin(); }
+
+    // Coupons, Reviews, Tables, Staff
+    match /coupons/{id} {
+      allow read: if isVerified();
+      allow write: if isVerified() && (isAdmin() || incoming().vendorOwnerUid == request.auth.uid || (resource != null && resource.data.vendorOwnerUid == request.auth.uid));
+    }
     match /reviews/{id} {
       allow read: if true;
       allow create: if isVerified() && incoming().userId == request.auth.uid;
@@ -208,11 +186,16 @@ service cloud.firestore {
     }
     match /tables/{id} {
       allow read: if true;
-      allow write: if isVerified() && (get(/databases/$(database)/documents/vendors/$(incoming().vendorId)).data.ownerUid == request.auth.uid || isAdmin());
+      allow write: if isVerified() && (isAdmin() || incoming().vendorOwnerUid == request.auth.uid || (resource != null && resource.data.vendorOwnerUid == request.auth.uid));
     }
     match /staff/{id} {
       allow read: if isVerified() && (resource.data.vendorOwnerUid == request.auth.uid || isAdmin());
-      allow write: if isVerified() && (incoming().vendorOwnerUid == request.auth.uid || isAdmin());
+      allow write: if isVerified() && (isAdmin() || incoming().vendorOwnerUid == request.auth.uid || (resource != null && resource.data.vendorOwnerUid == request.auth.uid));
+    }
+    match /banners/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /payments/{id} {
+      allow read: if isVerified() && (resource.data.customerId == request.auth.uid || resource.data.driverId == request.auth.uid || isAdmin());
+      allow create: if isVerified();
     }
   }
 }

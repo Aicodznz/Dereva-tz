@@ -55,7 +55,7 @@ export default function RegisterVendor() {
         fullName: formData.ownerName,
         businessName: formData.businessName,
         category: formData.category,
-        phone: formData.phone,
+        phoneNumber: formData.phone,
         status: 'pending' // Vendors need approval
       });
       toast.success(t('registration_submitted'));

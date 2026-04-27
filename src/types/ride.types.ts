@@ -1,5 +1,3 @@
-import { Timestamp } from 'firebase/firestore';
-
 export type RideStatus = 'pending' | 'accepted' | 'driver_arriving' | 'driver_arrived' | 'on_trip' | 'completed' | 'cancelled' | 'rated';
 
 export interface LocationInfo {
@@ -45,9 +43,9 @@ export interface Ride {
     seconds: number;
     distanceKm: number;
   };
-  createdAt: Timestamp | any;
-  acceptedAt: Timestamp | any | null;
-  completedAt: Timestamp | any | null;
+  createdAt: string | any;
+  acceptedAt: string | any | null;
+  completedAt: string | any | null;
   driverInfo: DriverInfo | null;
   paymentId?: string;
 }
@@ -59,5 +57,5 @@ export interface PaymentRecord {
   amount: number;
   method: 'mongike' | 'lipanamba' | 'qr';
   status: 'pending' | 'completed';
-  createdAt: Timestamp | any;
+  createdAt: string | any;
 }

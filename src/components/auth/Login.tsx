@@ -36,9 +36,7 @@ export default function Login() {
     } catch (error: any) {
       console.error('Login error details:', error);
       
-      if (error.code === 'auth/operation-not-allowed') {
-        toast.error(t('auth_disabled_instructions'), { duration: 8000 });
-      } else if (error.code === 'auth/invalid-credential' || error.message?.includes('auth/invalid-credential')) {
+      if (error.message?.includes('invalid-credential') || error.message?.includes('Invalid login credentials')) {
         toast.error(t('invalid_email_or_password'));
       } else {
         toast.error(error.message || t('login_failed'));
@@ -52,9 +50,7 @@ export default function Login() {
     try {
       await signIn();
     } catch (error: any) {
-      if (error.code === 'auth/operation-not-allowed') {
-        toast.error("Google login is currently disabled in Firebase console.");
-      }
+      toast.error("Google login failed.");
     }
   };
 

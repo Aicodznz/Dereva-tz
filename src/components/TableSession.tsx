@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import { VendorProfile } from '../types';
 import { toast } from 'sonner';
 
@@ -18,9 +18,9 @@ export default function TableSession() {
 
       try {
         const vendorSnap = await getDoc(doc(db, 'vendors', vendorId));
+
         if (vendorSnap.exists()) {
-          const vendor = vendorSnap.data() as VendorProfile;
-          
+          const vendor = vendorSnap.data();
           // Save session to localStorage
           const session = {
             vendorId,

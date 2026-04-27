@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Star, Heart, MessageSquare, FastForward } from 'lucide-react';
 import { Ride } from '../../types/ride.types';
-import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 
 interface RateCustomerScreenProps {
   ride: Ride;
@@ -28,8 +28,10 @@ export default function RateCustomerScreen({ ride, onDone }: RateCustomerScreenP
     try {
       await updateDoc(doc(db, 'rides', ride.id), {
         customerRating: { stars: rating, tags: selectedTags },
-        fullyCompleted: true
+        fullyCompleted: true,
+        updatedAt: serverTimestamp()
       });
+      
       onDone();
     } catch (e) {
       console.error("Rating submission failed:", e);

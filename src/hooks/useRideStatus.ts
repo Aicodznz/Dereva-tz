@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { Ride } from '../types/ride.types';
 
 export function useRideStatus(rideId: string | null) {
@@ -15,25 +15,22 @@ export function useRideStatus(rideId: string | null) {
     }
 
     setIsLoading(true);
-    const unsubscribe = onSnapshot(
-      doc(db, 'rides', rideId),
-      (docSnap) => {
-        if (docSnap.exists()) {
-          setRide({ id: docSnap.id, ...docSnap.data() } as Ride);
-          setError(null);
-        } else {
-          setError('Ride not found');
-          setRide(null);
-        }
-        setIsLoading(false);
-      },
-      (err) => {
-        setError(err.message);
-        setIsLoading(false);
+    
+    const unsub = onSnapshot(doc(db, 'rides', rideId), (snap) => {
+      if (snap.exists()) {
+        setRide({ id: snap.id, ...snap.data() } as Ride);
+        setError(null);
+      } else {
+        setRide(null);
+        setError('Ride not found');
       }
-    );
+      setIsLoading(false);
+    }, (err) => {
+      setError(err.message);
+      setIsLoading(false);
+    });
 
-    return () => unsubscribe();
+    return () => unsub();
   }, [rideId]);
 
   return { ride, isLoading, error };

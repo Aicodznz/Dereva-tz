@@ -1,10 +1,5 @@
-import { 
-  collection, addDoc, updateDoc, doc, onSnapshot, 
-  query, where, serverTimestamp, getDocs, getDoc,
-  Timestamp,
-  GeoPoint
-} from 'firebase/firestore';
 import { db } from '../firebase';
+import { collection, doc, setDoc, updateDoc, onSnapshot, query, where, getDoc, getDocs, addDoc, serverTimestamp, orderBy } from 'firebase/firestore';
 
 export interface RideLocation {
   lat: number;
@@ -39,18 +34,22 @@ export interface RideRequest {
 export const taxiService = {
   // Create a new ride request
   requestRide: async (rideData: Omit<RideRequest, 'id' | 'createdAt' | 'updatedAt' | 'driverId' | 'status'>) => {
-    return await addDoc(collection(db, 'rides'), {
+    const rideRef = collection(db, 'rides');
+    const newRide = {
       ...rideData,
       driverId: null,
       status: 'pending',
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
-    });
+    };
+    const docRef = await addDoc(rideRef, newRide);
+    return { id: docRef.id, ...newRide };
   },
 
   // Listen for ride updates (for Customer)
   listenToRide: (rideId: string, callback: (ride: RideRequest) => void) => {
-    return onSnapshot(doc(db, 'rides', rideId), (docSnap) => {
+    const docRef = doc(db, 'rides', rideId);
+    return onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
         callback({ id: docSnap.id, ...docSnap.data() } as RideRequest);
       }
@@ -59,11 +58,13 @@ export const taxiService = {
 
   // Listen for nearby ride requests (for Driver)
   listenForRequests: (vehicleType: string, callback: (requests: RideRequest[]) => void) => {
+    const rideRef = collection(db, 'rides');
     const q = query(
-      collection(db, 'rides'), 
-      where('status', '==', 'pending'),
+      rideRef, 
+      where('status', '==', 'pending'), 
       where('vehicleType', '==', vehicleType)
     );
+
     return onSnapshot(q, (snapshot) => {
       const requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RideRequest));
       callback(requests);
@@ -73,12 +74,13 @@ export const taxiService = {
   // Driver accepts a ride
   acceptRide: async (rideId: string, driverId: string, driverInfo: { name: string, photo: string, vehicleNumber: string }) => {
     const rideRef = doc(db, 'rides', rideId);
-    const rideSnap = await getDoc(rideRef);
     
+    // In Firestore, we should use a transaction or simply check status before update
+    const rideSnap = await getDoc(rideRef);
     if (!rideSnap.exists()) throw new Error('Ride not found');
     if (rideSnap.data().status !== 'pending') throw new Error('Ride already taken');
 
-    return await updateDoc(rideRef, {
+    await updateDoc(rideRef, {
       driverId,
       driverName: driverInfo.name,
       driverPhoto: driverInfo.photo,
@@ -86,55 +88,58 @@ export const taxiService = {
       status: 'accepted',
       updatedAt: serverTimestamp()
     });
+    
+    const updatedSnap = await getDoc(rideRef);
+    return { id: updatedSnap.id, ...updatedSnap.data() };
   },
 
   // Update ride status
   updateRideStatus: async (rideId: string, status: RideRequest['status']) => {
-    return await updateDoc(doc(db, 'rides', rideId), {
+    const rideRef = doc(db, 'rides', rideId);
+    await updateDoc(rideRef, {
       status,
       updatedAt: serverTimestamp()
     });
+    const updatedSnap = await getDoc(rideRef);
+    return { id: updatedSnap.id, ...updatedSnap.data() };
   },
 
   // Rate a ride
   rateRide: async (rideId: string, rating: number, review: string) => {
-    return await updateDoc(doc(db, 'rides', rideId), {
+    const rideRef = doc(db, 'rides', rideId);
+    await updateDoc(rideRef, {
       rating,
       review,
       updatedAt: serverTimestamp()
     });
+    const updatedSnap = await getDoc(rideRef);
+    return { id: updatedSnap.id, ...updatedSnap.data() };
   },
 
   // Update driver location (for Driver)
   updateDriverLocation: async (driverId: string, location: RideLocation, vehicleType: string, isOnline: boolean) => {
     const driverRef = doc(db, 'drivers', driverId);
-    return await updateDoc(driverRef, {
+    await setDoc(driverRef, {
+      id: driverId,
       location,
       vehicleType,
       isOnline,
       updatedAt: serverTimestamp()
-    }).catch(async (err) => {
-        // If document doesn't exist, create it (for first time online)
-        if (err.code === 'not-found') {
-            const { setDoc } = await import('firebase/firestore');
-            return await setDoc(driverRef, {
-                location,
-                vehicleType,
-                isOnline,
-                updatedAt: serverTimestamp()
-            });
-        }
-        throw err;
-    });
+    }, { merge: true });
+    
+    const updatedSnap = await getDoc(driverRef);
+    return { id: updatedSnap.id, ...updatedSnap.data() };
   },
 
   // Listen for nearby online drivers (for Customer)
   listenToNearbyDrivers: (vehicleType: string, callback: (drivers: any[]) => void) => {
+    const driverRef = collection(db, 'drivers');
     const q = query(
-      collection(db, 'drivers'),
+      driverRef,
       where('isOnline', '==', true),
       where('vehicleType', '==', vehicleType)
     );
+
     return onSnapshot(q, (snapshot) => {
       const drivers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       callback(drivers);

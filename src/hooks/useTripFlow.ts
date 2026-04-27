@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { doc, onSnapshot, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
+import { doc, onSnapshot, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { Ride, RideStatus } from '../types/trip.types';
 import { toast } from 'sonner';
 
@@ -16,27 +16,23 @@ export function useTripFlow(rideId: string | null) {
     }
 
     setIsLoading(true);
-    const unsubscribe = onSnapshot(
-      doc(db, 'rides', rideId),
-      (docSnap) => {
-        setIsLoading(false);
-        if (docSnap.exists()) {
-          const data = docSnap.data() as Ride;
-          const currentRide = { id: docSnap.id, ...data } as Ride;
-          setRide(currentRide);
-        } else {
-          setRide(null);
-          setError('Ride not found');
-        }
-      },
-      (err) => {
-        setIsLoading(false);
-        console.error('Error listening to ride:', err);
-        setError(err.message);
+    
+    const unsub = onSnapshot(doc(db, 'rides', rideId), (snap) => {
+      if (snap.exists()) {
+        setRide({ id: snap.id, ...snap.data() } as Ride);
+        setError(null);
+      } else {
+        setRide(null);
+        setError('Ride not found');
       }
-    );
+      setIsLoading(false);
+    }, (err) => {
+      console.error('Error fetching ride:', err);
+      setError(err.message);
+      setIsLoading(false);
+    });
 
-    return () => unsubscribe();
+    return () => unsub();
   }, [rideId]);
 
   const updateStatus = async (status: RideStatus) => {
@@ -58,6 +54,7 @@ export function useTripFlow(rideId: string | null) {
       await updateDoc(doc(db, 'rides', rideId), {
         status: 'cancelled',
         cancelledAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       });
       toast.success('Safari imeghairiwa');
     } catch (err) {

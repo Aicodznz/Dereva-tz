@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import { db } from '../firebase';
+import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestore';
 import { VendorProfile, Product, VendorCategory } from '../types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -42,36 +42,42 @@ export default function ServiceDetail() {
       return;
     }
 
-    setLoading(true);
+    const fetchData = async () => {
+      setLoading(true);
+      
+      try {
+        const vendorsRef = collection(db, 'vendors');
+        const vQuery = query(
+          vendorsRef, 
+          where('category', '==', config.category),
+          where('status', '==', 'active')
+        );
+        const vendorsSnap = await getDocs(vQuery);
+        setVendors(vendorsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as VendorProfile)));
 
-    // Filter vendors by category
-    const qVendors = query(
-      collection(db, 'vendors'), 
-      where('category', '==', config.category),
-      where('status', '==', 'active')
-    );
-    
-    const unsubVendors = onSnapshot(qVendors, (snapshot) => {
+        const productsRef = collection(db, 'products');
+        const productsSnap = await getDocs(productsRef);
+        setProducts(productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+
+    const vUnsub = onSnapshot(query(collection(db, 'vendors'), where('category', '==', config.category), where('status', '==', 'active')), (snapshot) => {
       setVendors(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VendorProfile)));
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'vendors');
     });
 
-    // Filter products
-    const qAllProducts = query(collection(db, 'products'));
-
-    const unsubProducts = onSnapshot(qAllProducts, (snapshot) => {
-      const allProds = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-      setProducts(allProds);
-      setLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'products');
-      setLoading(false);
+    const pUnsub = onSnapshot(collection(db, 'products'), (snapshot) => {
+      setProducts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
     });
 
     return () => {
-      unsubVendors();
-      unsubProducts();
+      vUnsub();
+      pUnsub();
     };
   }, [id, config]);
 

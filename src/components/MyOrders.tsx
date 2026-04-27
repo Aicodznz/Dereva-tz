@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../AuthContext';
-import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, onSnapshot, orderBy, doc, updateDoc } from 'firebase/firestore';
+import { db } from '../firebase';
+import { collection, query, where, orderBy, onSnapshot, getDocs } from 'firebase/firestore';
 import { Order } from '../types';
 import { useLanguage } from '../LanguageContext';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -28,7 +28,7 @@ interface MyOrdersProps {
 }
 
 export default function MyOrders({ onBack }: MyOrdersProps) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { t } = useLanguage();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,7 +36,8 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
   const [isPaying, setIsPaying] = useState(false);
 
   const handlePayNow = async (order: Order) => {
-    if (!user?.phoneNumber && !order.customerPhone) {
+    const userPhone = user?.phoneNumber || profile?.phoneNumber || '';
+    if (!userPhone && !order.customerPhone) {
       toast.error("Tafadhali weka namba ya simu kwenye profile yako kwanza.");
       return;
     }
@@ -46,13 +47,12 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
       const response = await initiatePayment({
         order_id: order.id!,
         amount: order.totalAmount,
-        buyer_phone: (order.customerPhone || user?.phoneNumber || '').replace(/[^0-9]/g, ''),
+        buyer_phone: (order.customerPhone || userPhone || '').replace(/[^0-9]/g, ''),
         fee_payer: 'MERCHANT'
       });
 
       if (response.status === 'success') {
         toast.success("Ombi la malipo limetumwa kwenye simu yako. Tafadhali weka namba ya siri.");
-        // We rely on the snapshot listener to update when paymentStatus changes to 'paid'
       } else {
         toast.error(response.message || "Imeshindikana kuanzisha malipo.");
       }
@@ -67,25 +67,38 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
   useEffect(() => {
     if (!user) return;
 
+    const fetchOrders = async () => {
+      try {
+        const ordersRef = collection(db, 'orders');
+        const q = query(
+          ordersRef, 
+          where('customerId', '==', user.uid), 
+          orderBy('createdAt', 'desc')
+        );
+        const querySnapshot = await getDocs(q);
+        const ordersList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
+        setOrders(ordersList);
+      } catch (error) {
+        console.error('Error fetching orders:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrders();
+
     const q = query(
-      collection(db, 'orders'),
-      where('customerId', '==', user.uid),
+      collection(db, 'orders'), 
+      where('customerId', '==', user.uid), 
       orderBy('createdAt', 'desc')
     );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const ordersData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Order[];
-      setOrders(ordersData);
-      setLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'orders/my');
-      setLoading(false);
+    
+    const unsub = onSnapshot(q, (snapshot) => {
+      const ordersList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
+      setOrders(ordersList);
     });
 
-    return () => unsubscribe();
+    return () => unsub();
   }, [user]);
 
   const activeOrders = orders.filter(o => ['pending', 'preparing', 'out_for_delivery', 'accepted'].includes(o.status));

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot, limit } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import { db } from '../firebase';
+import { collection, query, where, onSnapshot, getDocs, limit, orderBy } from 'firebase/firestore';
 import { VendorProfile, Product } from '../types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -140,46 +140,78 @@ export default function CustomerDashboard() {
       setTableSession(JSON.parse(savedSession));
     }
 
-    const qVendors = query(collection(db, 'vendors'), where('status', '==', 'active'));
-    const unsubVendors = onSnapshot(qVendors, (snapshot) => {
-      const vendorData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VendorProfile));
-      setVendors(vendorData);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'vendors');
+    // Fetch Vendors
+    const fetchVendors = async () => {
+      try {
+        const vendorsRef = collection(db, 'vendors');
+        const q = query(vendorsRef, where('status', '==', 'active'));
+        const querySnapshot = await getDocs(q);
+        const vendorsList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VendorProfile));
+        setVendors(vendorsList);
+      } catch (error) {
+        console.error('Error fetching vendors:', error);
+      }
+    };
+
+    // Fetch Products
+    const fetchProducts = async () => {
+      try {
+        const productsRef = collection(db, 'products');
+        const q = query(productsRef, limit(10));
+        const querySnapshot = await getDocs(q);
+        const productsList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+        setProducts(productsList);
+      } catch (error) {
+        console.error('Error fetching products:', error);
+      }
+    };
+
+    // Fetch Banners
+    const fetchBanners = async () => {
+      try {
+        const bannersRef = collection(db, 'banners');
+        const q = query(bannersRef, where('active', '==', true));
+        const querySnapshot = await getDocs(q);
+        const bannersList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+        setBanners(bannersList);
+      } catch (error) {
+        console.error('Error fetching banners:', error);
+      }
+    };
+
+    fetchVendors();
+    fetchProducts();
+    fetchBanners();
+
+    // Setup Realtime subscriptions
+    const vendorsUnsub = onSnapshot(query(collection(db, 'vendors'), where('status', '==', 'active')), (snapshot) => {
+      const vendorsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VendorProfile));
+      setVendors(vendorsList);
     });
 
-    const qProducts = query(collection(db, 'products'), limit(10));
-    const unsubProducts = onSnapshot(qProducts, (snapshot) => {
-      const productData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-      setProducts(productData);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'products');
+    const productsUnsub = onSnapshot(query(collection(db, 'products'), limit(10)), (snapshot) => {
+      const productsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+      setProducts(productsList);
     });
 
-    const qBanners = query(collection(db, 'banners'), where('active', '==', true));
-    const unsubBanners = onSnapshot(qBanners, (snapshot) => {
-      setBanners(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any)));
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'banners');
-    });
-
+    let notificationUnsub: (() => void) | undefined;
     if (user) {
-      const qNotifs = query(collection(db, 'notifications'), where('userId', '==', user.uid), where('isRead', '==', false));
-      const unsubNotifs = onSnapshot(qNotifs, (snapshot) => {
+      const notificationsRef = collection(db, 'notifications');
+      const q = query(
+        notificationsRef, 
+        where('userId', '==', user.uid), 
+        where('isRead', '==', false)
+      );
+      
+      notificationUnsub = onSnapshot(q, (snapshot) => {
         setUnreadCount(snapshot.size);
       });
-      return () => {
-        unsubVendors();
-        unsubProducts();
-        unsubBanners();
-        unsubNotifs();
-      };
     }
 
     return () => {
-      unsubVendors();
-      unsubProducts();
-      unsubBanners();
+      vendorsUnsub();
+      productsUnsub();
+      if (notificationUnsub) notificationUnsub();
     };
   }, [user]);
 

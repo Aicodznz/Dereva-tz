@@ -2,10 +2,10 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { initiatePayment } from '../services/paymentService';
 import QRCodeStyling, { DotType, CornerSquareType, CornerDotType } from "qr-code-styling";
 import { toPng } from 'html-to-image';
+import { storageService } from '../services/storageService';
+import { db, auth } from '../firebase';
+import { collection, query, where, orderBy, onSnapshot, getDocs, doc, updateDoc, deleteDoc, addDoc, getDoc, limit } from 'firebase/firestore';
 import { useAuth } from '../AuthContext';
-import { db, storage, auth, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, onSnapshot, addDoc, serverTimestamp, orderBy, limit, deleteDoc, doc, updateDoc } from 'firebase/firestore';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { VendorProfile, VendorCategory, Product, Order, OrderStatus } from '../types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -553,11 +553,18 @@ export default function VendorDashboard() {
 
   useEffect(() => {
     if (!vendorProfile?.id) return;
-    const q = query(collection(db, 'staff'), where('vendorId', '==', vendorProfile.id));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setStaff(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
-    return () => unsubscribe();
+    
+    const fetchStaff = async () => {
+      const q = query(collection(db, 'staff'), where('vendorId', '==', vendorProfile.id));
+      const snap = await getDocs(q);
+      setStaff(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    };
+
+    fetchStaff();
+
+    const unsub = onSnapshot(query(collection(db, 'staff'), where('vendorId', '==', vendorProfile.id)), () => fetchStaff());
+
+    return () => unsub();
   }, [vendorProfile?.id]);
 
   const handleAddStaff = async (e: React.FormEvent) => {
@@ -567,13 +574,13 @@ export default function VendorDashboard() {
       await addDoc(collection(db, 'staff'), {
         ...newStaff,
         vendorId: vendorProfile.id,
-        createdAt: serverTimestamp()
+        createdAt: new Date().toISOString()
       });
       setIsAddStaffOpen(false);
       setNewStaff({ name: '', role: 'waiter', phone: '' });
       toast.success('Staff member added successfully');
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'staff');
+      console.error(error);
     }
   };
 
@@ -582,73 +589,73 @@ export default function VendorDashboard() {
       await deleteDoc(doc(db, 'staff', id));
       toast.success('Staff member removed');
     } catch (error) {
-       handleFirestoreError(error, OperationType.DELETE, `staff/${id}`);
+      console.error(error);
     }
   };
 
   useEffect(() => {
     if (!user) return;
-    const q = query(collection(db, 'vendors'), where('ownerUid', '==', user.uid));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      if (!snapshot.empty) {
-        setVendorProfile({ id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as VendorProfile);
+    const fetchVendor = async () => {
+      const q = query(collection(db, 'vendors'), where('ownerUid', '==', user.uid), limit(1));
+      const snap = await getDocs(q);
+      
+      if (!snap.empty) {
+        const doc = snap.docs[0];
+        setVendorProfile({ id: doc.id, ...doc.data() } as VendorProfile);
         setShowOnboarding(false);
       } else {
         setShowOnboarding(true);
       }
       setLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'vendors');
-    });
-    return () => unsubscribe();
+    };
+
+    fetchVendor();
+
+    const unsub = onSnapshot(query(collection(db, 'vendors'), where('ownerUid', '==', user.uid)), () => fetchVendor());
+
+    return () => unsub();
   }, [user]);
 
   useEffect(() => {
-    if (!vendorProfile?.id) return;
+    if (!vendorProfile?.id || !user) return;
     
-    const ordersQ = query(
-      collection(db, 'orders'), 
-      where('vendorId', '==', vendorProfile.id),
-      where('vendorOwnerUid', '==', user.uid),
-      orderBy('createdAt', 'desc'),
-      limit(10)
-    );
-    
-    const unsubOrders = onSnapshot(ordersQ, (snap) => {
-      setOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)));
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'orders');
-    });
+    const fetchOrders = async () => {
+      const q = query(
+        collection(db, 'orders'), 
+        where('vendorId', '==', vendorProfile.id),
+        orderBy('createdAt', 'desc'),
+        limit(10)
+      );
+      const snap = await getDocs(q);
+      setOrders(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
+    };
 
-    const productsQ = query(
-      collection(db, 'products'), 
-      where('vendorId', '==', vendorProfile.id)
-    );
-    
-    const unsubProducts = onSnapshot(productsQ, (snap) => {
-      setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Product)));
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'products');
-    });
+    const fetchProducts = async () => {
+      const q = query(collection(db, 'products'), where('vendorId', '==', vendorProfile.id));
+      const snap = await getDocs(q);
+      setProducts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
+    };
 
-    const aislesQ = query(
-      collection(db, 'tables'),
-      where('vendorId', '==', vendorProfile.id),
-      where('vendorOwnerUid', '==', user.uid)
-    );
+    const fetchSections = async () => {
+      const q = query(collection(db, 'tables'), where('vendorId', '==', vendorProfile.id));
+      const snap = await getDocs(q);
+      setSections(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    };
 
-    const unsubSections = onSnapshot(aislesQ, (snap) => {
-      setSections(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'tables');
-    });
+    fetchOrders();
+    fetchProducts();
+    fetchSections();
+
+    const unsubs = [
+      onSnapshot(query(collection(db, 'orders'), where('vendorId', '==', vendorProfile.id)), () => fetchOrders()),
+      onSnapshot(query(collection(db, 'products'), where('vendorId', '==', vendorProfile.id)), () => fetchProducts()),
+      onSnapshot(query(collection(db, 'tables'), where('vendorId', '==', vendorProfile.id)), () => fetchSections()),
+    ];
 
     return () => {
-      unsubOrders();
-      unsubProducts();
-      unsubSections();
+      unsubs.forEach(unsub => unsub());
     };
-  }, [vendorProfile?.id]);
+  }, [vendorProfile?.id, user?.uid]);
 
   // Auto-occupy tables on new Dine-In orders for restaurants
   useEffect(() => {
@@ -657,7 +664,7 @@ export default function VendorDashboard() {
     // Only process very recent orders to avoid infinite loop or flickering
     const now = Date.now();
     orders.forEach(order => {
-      const orderTime = order.createdAt?.toMillis() || 0;
+      const orderTime = order.createdAt ? new Date(order.createdAt).getTime() : 0;
       // If order is walk_in (Dine In) and pending, and has table number, and is relatively fresh (within last 5 mins)
       if (order.status === 'pending' && order.orderType === 'walk_in' && order.tableNumber && (now - orderTime < 300000)) {
         const table = sections.find(s => s.number === order.tableNumber);
@@ -685,16 +692,19 @@ export default function VendorDashboard() {
 
   useEffect(() => {
     if (!vendorProfile?.id || !user) return;
-    const q = query(
-      collection(db, 'coupons'), 
-      where('vendorId', '==', vendorProfile.id),
-      where('vendorOwnerUid', '==', user.uid)
-    );
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setCoupons(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
-    return () => unsubscribe();
-  }, [vendorProfile?.id]);
+    
+    const fetchCoupons = async () => {
+      const q = query(collection(db, 'coupons'), where('vendorId', '==', vendorProfile.id));
+      const snap = await getDocs(q);
+      setCoupons(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    };
+
+    fetchCoupons();
+
+    const unsub = onSnapshot(query(collection(db, 'coupons'), where('vendorId', '==', vendorProfile.id)), () => fetchCoupons());
+
+    return () => unsub();
+  }, [vendorProfile?.id, user?.uid]);
 
   const handleOnboarding = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -705,15 +715,18 @@ export default function VendorDashboard() {
         ownerUid: user.uid,
         status: 'pending',
         rating: 0,
-        createdAt: serverTimestamp(),
+        createdAt: new Date().toISOString(),
       });
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'vendors');
+      console.error(error);
     }
   };
 
 
-  const handleFileUpload = async (files: FileList | File[]) => {
+  const logoInputRef = React.useRef<HTMLInputElement>(null);
+  const bannerInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = async (files: FileList | File[], isProductUpload = true) => {
     if (!files || files.length === 0) return;
     
     if (!vendorProfile?.id) {
@@ -721,11 +734,6 @@ export default function VendorDashboard() {
       return;
     }
 
-    if (!auth.currentUser) {
-      toast.error('Tafadhali ingia kwenye akaunti yako kwanza ili uweze kupakia picha.');
-      return;
-    }
-    
     const fileArray = Array.from(files);
     const validFiles = fileArray.filter(file => file.type.startsWith('image/'));
     
@@ -737,56 +745,68 @@ export default function VendorDashboard() {
     setIsUploading(true);
     setUploadProgress(0);
     
-    const uploadPromises = validFiles.map(async (file, index) => {
-      try {
-        const storageRef = ref(storage, `products/${vendorProfile.id}/${Date.now()}_${index}_${file.name}`);
-        const uploadTask = uploadBytesResumable(storageRef, file);
-
-        return new Promise<string>((resolve, reject) => {
-          const timeout = setTimeout(() => {
-            uploadTask.cancel();
-            reject(new Error(`Muda wa kupakia umeisha kwa ${file.name}. Tafadhali jaribu tena.`));
-          }, 300000); // 5 minute timeout per file
-
-          uploadTask.on('state_changed', 
-            (snapshot) => {
-              const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-              setUploadProgress(prev => Math.max(prev, progress));
-            }, 
-            (error) => {
-              clearTimeout(timeout);
-              if (error.code === 'storage/canceled') {
-                // Ignore cancellation error as it's handled by timeout or manual cancel
-                return;
-              }
-              console.error('Upload error:', error);
-              reject(error);
-            }, 
-            async () => {
-              clearTimeout(timeout);
-              const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-              resolve(downloadURL);
-            }
-          );
-        });
-      } catch (error: any) {
-        throw new Error(`Imeshindwa kuanza kupakia ${file.name}: ${error.message}`);
-      }
-    });
-
     try {
+      const uploadPromises = validFiles.map(async (file, index) => {
+        let path = '';
+        if (isProductUpload) {
+          path = storageService.getProductPath(vendorProfile.id, newProduct.id || 'new', file.name);
+        } else {
+          // This case is handled by specific handleLogoUpload / handleBannerUpload now
+          // but kept here for generic image array if needed
+          path = `${vendorProfile.id}/misc/${Date.now()}_${file.name}`;
+        }
+        return await storageService.uploadFile(isProductUpload ? 'products' : 'vendors', path, file);
+      });
+
       const urls = await Promise.all(uploadPromises);
-      setNewProduct(prev => ({ 
-        ...prev, 
-        imageUrls: [...(prev.imageUrls || []), ...urls],
-        imageUrl: prev.imageUrl || urls[0]
-      }));
-      toast.success(`${urls.length} picha zimepakiwa!`);
+      
+      if (isProductUpload) {
+        setNewProduct(prev => ({ 
+          ...prev, 
+          imageUrls: [...(prev.imageUrls || []), ...urls],
+          imageUrl: prev.imageUrl || urls[0]
+        }));
+      }
+      return urls;
     } catch (error: any) {
       toast.error(error.message || 'Kuna tatizo lilitokea wakati wa kupakia.');
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
+    }
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && vendorProfile?.id) {
+      setIsUploading(true);
+      try {
+        const path = storageService.getVendorPath(vendorProfile.id, 'logo', file.name);
+        const url = await storageService.uploadFile('vendors', path, file);
+        setUpdatedProfile(prev => ({ ...prev, logoUrl: url }));
+        toast.success("Logo imepakiwa!");
+      } catch (error: any) {
+        toast.error("Imeshindwa kupakia logo: " + error.message);
+      } finally {
+        setIsUploading(false);
+      }
+    }
+  };
+
+  const handleBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && vendorProfile?.id) {
+      setIsUploading(true);
+      try {
+        const path = storageService.getVendorPath(vendorProfile.id, 'banner', file.name);
+        const url = await storageService.uploadFile('vendors', path, file);
+        setUpdatedProfile(prev => ({ ...prev, bannerUrl: url }));
+        toast.success("Banner imepakiwa!");
+      } catch (error: any) {
+        toast.error("Imeshindwa kupakia banner: " + error.message);
+      } finally {
+        setIsUploading(false);
+      }
     }
   };
 
@@ -807,7 +827,6 @@ export default function VendorDashboard() {
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!vendorProfile?.id) return;
-    // Clean up product data to remove any undefined fields
     const productData = Object.fromEntries(
       Object.entries(newProduct).filter(([_, v]) => v !== undefined)
     );
@@ -817,7 +836,7 @@ export default function VendorDashboard() {
         await updateDoc(doc(db, 'products', editingProduct.id), {
           ...productData,
           vendorCategory: vendorProfile.category,
-          updatedAt: serverTimestamp(),
+          updatedAt: new Date().toISOString(),
         });
       } else {
         await addDoc(collection(db, 'products'), {
@@ -825,7 +844,7 @@ export default function VendorDashboard() {
           vendorId: vendorProfile.id,
           vendorOwnerUid: user.uid,
           vendorCategory: vendorProfile.category,
-          createdAt: serverTimestamp(),
+          createdAt: new Date().toISOString(),
         });
       }
       setIsAddProductOpen(false);
@@ -845,7 +864,7 @@ export default function VendorDashboard() {
         imageUrls: [],
       });
     } catch (error) {
-      handleFirestoreError(error, editingProduct ? OperationType.UPDATE : OperationType.CREATE, 'products');
+      console.error(error);
     }
   };
 
@@ -862,7 +881,7 @@ export default function VendorDashboard() {
       setIsDeleteModalOpen(false);
       setProductToDelete(null);
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, 'products');
+      console.error(error);
     }
   };
 
@@ -879,7 +898,7 @@ export default function VendorDashboard() {
       setIsDeleteOrderModalOpen(false);
       setOrderToDelete(null);
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, 'orders');
+      console.error(error);
     }
   };
 
@@ -911,13 +930,13 @@ export default function VendorDashboard() {
         vendorId: vendorProfile.id,
         vendorOwnerUid: user?.uid,
         createdBy: user?.uid,
-        createdAt: serverTimestamp()
+        createdAt: new Date().toISOString()
       });
       setIsAddCouponOpen(false);
       setNewCoupon({ code: '', discountType: 'percentage', discountValue: 0, active: true, productId: null });
       toast.success('Coupon added successfully!');
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'coupons');
+      console.error(error);
     }
   };
 
@@ -926,7 +945,7 @@ export default function VendorDashboard() {
       await deleteDoc(doc(db, 'coupons', id));
       toast.success('Coupon deleted.');
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `coupons/${id}`);
+      console.error(error);
     }
   };
 
@@ -935,7 +954,6 @@ export default function VendorDashboard() {
     if (!vendorProfile?.id) return;
     setIsSavingSettings(true);
     try {
-      // Ensure we don't send undefined to Firestore
       const cleanProfile = Object.entries(updatedProfile).reduce((acc, [key, value]) => {
         if (value !== undefined) {
           acc[key] = value;
@@ -945,11 +963,12 @@ export default function VendorDashboard() {
 
       await updateDoc(doc(db, 'vendors', vendorProfile.id), {
         ...cleanProfile,
-        updatedAt: serverTimestamp()
+        updatedAt: new Date().toISOString()
       });
+      
       toast.success('Duka limefanyiwa maboresho!');
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `vendors/${vendorProfile.id}`);
+      console.error(error);
     } finally {
       setIsSavingSettings(false);
     }
@@ -1014,12 +1033,13 @@ export default function VendorDashboard() {
         orderType: orderType,
         tableNumber: (orderType === 'walk_in' || orderType === 'pickup') ? tableNumber : null,
         paymentMethod: paymentMethod,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
         deliveryAddress: orderType === 'delivery' ? (posCustomer?.address || 'POS Delivery') : 'In-Store POS',
       };
 
-      const docRef = await addDoc(collection(db, 'orders'), orderData);
+      const orderRef = await addDoc(collection(db, 'orders'), orderData);
+      const orderId = orderRef.id;
       
       // Auto-occupy table if it's a restaurant Dine-In
       if (orderType === 'walk_in' && vendorProfile.category === 'restaurant' && tableNumber) {
@@ -1038,7 +1058,7 @@ export default function VendorDashboard() {
             : posCustomer.phone.replace('+', '');
             
           await initiatePayment({
-            order_id: docRef.id,
+            order_id: orderId,
             amount: Math.round(cartTotal * 1.18),
             buyer_phone: formattedPhone,
             fee_payer: 'MERCHANT'
@@ -1058,7 +1078,7 @@ export default function VendorDashboard() {
       setOrderType('walk_in');
       setActiveTab('orders');
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'orders');
+      console.error(error);
     } finally {
       setIsProcessingSale(false);
     }
@@ -1073,13 +1093,13 @@ export default function VendorDashboard() {
         vendorId: vendorProfile.id,
         vendorOwnerUid: user?.uid,
         status: 'available',
-        createdAt: serverTimestamp()
+        createdAt: new Date().toISOString()
       });
       setIsAddSectionOpen(false);
       setNewSection({ number: '', capacity: 10 });
       toast.success('Shelf/Section added successfully!');
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'sections');
+      console.error(error);
     }
   };
 
@@ -1088,7 +1108,7 @@ export default function VendorDashboard() {
       await deleteDoc(doc(db, 'tables', id));
       toast.success('Section removed.');
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, 'sections');
+      console.error(error);
     }
   };
 
@@ -1097,7 +1117,7 @@ export default function VendorDashboard() {
       await updateDoc(doc(db, 'tables', tableId), { status });
       toast.success('Table status updated!');
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `tables/${tableId}`);
+      console.error(error);
     }
   };
 
@@ -1235,12 +1255,12 @@ export default function VendorDashboard() {
     try {
       await updateDoc(doc(db, 'orders', orderId), {
         status: newStatus,
-        updatedAt: serverTimestamp()
+        updatedAt: new Date().toISOString()
       });
       const alertMsg = newStatus === 'accepted' ? 'Order Accepted' : (newStatus === 'cancelled' ? 'Order Cancelled' : `Order #${orderId.slice(-4)} moved to ${newStatus}`);
       toast.success(alertMsg);
     } catch (error) {
-       handleFirestoreError(error, OperationType.UPDATE, `orders/${orderId}`);
+       console.error(error);
     }
   };
 
@@ -1303,7 +1323,7 @@ export default function VendorDashboard() {
                 <div className="pt-4 border-t border-neutral-100 dark:border-neutral-950 flex items-center justify-between transition-colors">
                    <div className="flex items-center gap-2 text-neutral-500">
                       <Clock className="w-3 h-3" />
-                      <span className="text-[10px] font-bold">{order.createdAt ? format(order.createdAt.toDate(), 'HH:mm') : 'Now'}</span>
+                      <span className="text-[10px] font-bold">{order.createdAt ? format(new Date(order.createdAt), 'HH:mm') : 'Now'}</span>
                    </div>
                    <div className="flex gap-2">
                       {order.status === 'pending' && (
@@ -3020,9 +3040,9 @@ export default function VendorDashboard() {
                       onClick={async () => {
                         const loadingToast = toast.loading('Applying price changes...');
                         try {
-                          await Promise.all(Object.entries(bulkPrices).map(([id, price]) => 
-                            updateDoc(doc(db, 'products', id), { price })
-                          ));
+                          await Promise.all(Object.entries(bulkPrices).map(async ([id, price]) => {
+                            await updateDoc(doc(db, 'products', id), { price });
+                          }));
                           toast.success('Prices updated successfully!', { id: loadingToast });
                           setBulkPrices({});
                         } catch (err) {
@@ -3237,13 +3257,18 @@ export default function VendorDashboard() {
                               variant="ghost" 
                               size="icon"
                               className="absolute -bottom-2 -right-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl h-10 w-10 shadow-lg"
-                              onClick={() => {
-                                const url = prompt('Enter Logo URL:');
-                                if (url) setUpdatedProfile({...updatedProfile, logoUrl: url});
-                              }}
+                              onClick={() => logoInputRef.current?.click()}
+                              disabled={isUploading}
                             >
-                              <Plus className="w-5 h-5" />
+                              {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
                             </Button>
+                            <input 
+                              type="file" 
+                              ref={logoInputRef} 
+                              className="hidden" 
+                              accept="image/*" 
+                              onChange={handleLogoUpload} 
+                            />
                           </div>
                         </div>
 
@@ -3260,13 +3285,18 @@ export default function VendorDashboard() {
                               variant="ghost" 
                               size="icon"
                               className="absolute bottom-3 right-3 bg-black/10 dark:bg-white/10 backdrop-blur-md hover:bg-black/20 dark:hover:bg-white/20 text-white rounded-xl h-10 w-10 shadow-lg"
-                              onClick={() => {
-                                const url = prompt('Enter Banner URL:');
-                                if (url) setUpdatedProfile({...updatedProfile, bannerUrl: url});
-                              }}
+                              onClick={() => bannerInputRef.current?.click()}
+                              disabled={isUploading}
                             >
-                              <Plus className="w-5 h-5" />
+                              {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
                             </Button>
+                            <input 
+                              type="file" 
+                              ref={bannerInputRef} 
+                              className="hidden" 
+                              accept="image/*" 
+                              onChange={handleBannerUpload} 
+                            />
                           </div>
                         </div>
                       </div>
@@ -4645,8 +4675,8 @@ export default function VendorDashboard() {
             <div className="space-y-1 mb-4">
                <p className="text-[11px] font-bold text-neutral-900">Order #{orderToPrint.id?.slice(-8).toUpperCase()}</p>
                <div className="flex justify-between items-center text-[10px] font-bold text-neutral-600">
-                  <span>{format(orderToPrint.createdAt?.toDate() || new Date(), 'dd-MM-yyyy')}</span>
-                  <span>{format(orderToPrint.createdAt?.toDate() || new Date(), 'HH:mm A')}</span>
+                  <span>{format(orderToPrint.createdAt ? new Date(orderToPrint.createdAt) : new Date(), 'dd-MM-yyyy')}</span>
+                  <span>{format(orderToPrint.createdAt ? new Date(orderToPrint.createdAt) : new Date(), 'HH:mm A')}</span>
                </div>
             </div>
 

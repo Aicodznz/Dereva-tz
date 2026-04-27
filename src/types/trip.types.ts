@@ -1,5 +1,3 @@
-import { FieldValue, Timestamp } from 'firebase/firestore';
-
 export type RideStatus = 'pending' | 'accepted' | 'driver_arriving' | 'driver_arrived' | 'on_trip' | 'completed' | 'cancelled' | 'rated';
 
 export interface LatLng {
@@ -36,12 +34,12 @@ export interface Ride {
   routeCoords?: LatLng[];
   driverLocation?: LatLng;
   driverInfo?: DriverInfo;
-  createdAt: Timestamp | FieldValue;
-  expiresAt: Timestamp | FieldValue;
-  acceptedAt?: Timestamp | FieldValue;
-  arrivedAt?: Timestamp | FieldValue;
-  startedAt?: Timestamp | FieldValue;
-  completedAt?: Timestamp | FieldValue;
+  createdAt: string | any;
+  expiresAt: string | any;
+  acceptedAt?: string | any;
+  arrivedAt?: string | any;
+  startedAt?: string | any;
+  completedAt?: string | any;
   rating?: number;
   feedback?: string[];
   rated?: boolean;

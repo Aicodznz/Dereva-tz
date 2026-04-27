@@ -89,6 +89,7 @@ export default function RegisterDriver() {
     try {
       await signUp(formData.email.trim(), formData.password, 'rider', {
         ...formData,
+        phoneNumber: formData.phone,
         driverType,
         approvalStatus: 'pending',
         status: 'offline',

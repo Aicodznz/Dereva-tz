@@ -11,8 +11,8 @@ import {
 } from 'lucide-react';
 import Chat from '../Chat';
 import { motion, AnimatePresence } from 'motion/react';
-import { doc, updateDoc, serverTimestamp, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { doc, updateDoc, getDoc, setDoc, serverTimestamp, collection, query, where, limit, onSnapshot } from 'firebase/firestore';
 import { useAuth } from '../../AuthContext';
 import { useDriverActions } from '../../hooks/useDriverActions';
 import { useRideStatus } from '../../hooks/useRideStatus';
@@ -24,6 +24,7 @@ import { calculateBearing, getMapBounds } from '../../utils/mapHelpers';
 import { RideStatus, DriverInfo } from '../../types/ride.types';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 import IncomingRideCard from '../tegex/IncomingRideCard';
 import DriverTripSheet from '../tegex/DriverTripSheet';
@@ -185,14 +186,20 @@ export default function RiderHome() {
   // Restore online status from Firestore on mount - ONLY ONCE
   useEffect(() => {
     if (user?.uid && !isOnline) {
-      getDoc(doc(db, 'drivers', user.uid)).then(snap => {
-        if (snap.exists()) {
-          const data = snap.data();
-          if (data.isOnline !== undefined) {
-            setIsOnline(!!data.isOnline);
+      const restoreStatus = async () => {
+        try {
+          const snap = await getDoc(doc(db, 'drivers', user.uid));
+          if (snap.exists()) {
+            const data = snap.data();
+            if (data && data.isOnline !== undefined) {
+               setIsOnline(!!data.isOnline);
+            }
           }
+        } catch (err) {
+          console.error("Error restoring driver status:", err);
         }
-      }).catch(err => console.error("Error restoring driver status:", err));
+      };
+      restoreStatus();
     }
   }, [user?.uid]);
 
@@ -215,6 +222,7 @@ export default function RiderHome() {
       try {
         console.log(`Setting driver ${user.uid} to ${nextStatus ? 'ONLINE' : 'OFFLINE'}`);
         await setDoc(doc(db, 'drivers', user.uid), {
+          id: user.uid,
           status: nextStatus ? 'online' : 'offline',
           isOnline: nextStatus,
           receiving: nextStatus,
@@ -237,8 +245,6 @@ export default function RiderHome() {
         toast.success(nextStatus ? 'Uko Online & Mapokezi' : 'Uko Offline');
       } catch (err) {
         console.error("Failed to sync driver status:", err);
-        // Only revert if it's a critical error (like auth)
-        // setIsOnline(!nextStatus); 
       }
     }
   };
@@ -274,14 +280,14 @@ export default function RiderHome() {
             // ALWAYS update the public "drivers" collection if online
             // so passengers can see the driver on their map
             try {
-              await setDoc(doc(db, 'drivers', user.uid), {
+              await updateDoc(doc(db, 'drivers', user.uid), {
                 location: { lat: loc.lat, lng: loc.lng },
                 isOnline: true,
                 receiving: true,
                 status: 'online',
-                lastActive: new Date(),
+                lastActive: serverTimestamp(),
                 vehicleType: vType // Keep vehicle type synced
-              }, { merge: true });
+              });
             } catch (err) {
               // Silent fail for Firestore updates to avoid UI flickering
               console.warn("Silent location sync fail:", err);

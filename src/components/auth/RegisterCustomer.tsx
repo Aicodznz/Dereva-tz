@@ -43,7 +43,7 @@ export default function RegisterCustomer() {
     try {
       await signUp(formData.email.trim(), formData.password, 'customer', {
         fullName: formData.fullName,
-        phone: formData.phone
+        phoneNumber: formData.phone
       });
       toast.success(t('account_created_success'));
       navigate('/');

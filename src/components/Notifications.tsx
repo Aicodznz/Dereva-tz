@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, writeBatch } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import { db } from '../firebase';
+import { collection, query, where, orderBy, onSnapshot, getDocs, doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { useAuth } from '../AuthContext';
 import { useLanguage } from '../LanguageContext';
 import { motion, AnimatePresence } from 'motion/react';
@@ -20,7 +20,7 @@ interface Notification {
   body: string;
   type: 'order' | 'promotion' | 'system' | 'review';
   isRead: boolean;
-  createdAt: any;
+  createdAt: string;
   actionUrl?: string;
 }
 
@@ -36,45 +36,61 @@ export default function Notifications() {
   useEffect(() => {
     if (!user) return;
 
+    const fetchNotifications = async () => {
+      try {
+        const notificationsRef = collection(db, 'notifications');
+        const q = query(
+          notificationsRef, 
+          where('userId', '==', user.uid), 
+          orderBy('createdAt', 'desc')
+        );
+        const querySnapshot = await getDocs(q);
+        const notifs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification));
+        setNotifications(notifs);
+      } catch (error) {
+        console.error("Error fetching notifications:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchNotifications();
+
     const q = query(
-      collection(db, 'notifications'),
-      where('userId', '==', user.uid),
+      collection(db, 'notifications'), 
+      where('userId', '==', user.uid), 
       orderBy('createdAt', 'desc')
     );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setNotifications(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification)));
-      setLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'notifications');
-      setLoading(false);
+    
+    const unsub = onSnapshot(q, (snapshot) => {
+      const notifs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification));
+      setNotifications(notifs);
     });
 
-    return () => unsubscribe();
+    return () => unsub();
   }, [user]);
 
   const markAsRead = async (id: string) => {
     try {
       await updateDoc(doc(db, 'notifications', id), { isRead: true });
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `notifications/${id}`);
+      console.error("Error marking notification as read:", error);
     }
   };
 
   const markAllAsRead = async () => {
     if (!user || notifications.length === 0) return;
-    const unread = notifications.filter(n => !n.isRead);
-    if (unread.length === 0) return;
+    const unreadIds = notifications.filter(n => !n.isRead).map(n => n.id);
+    if (unreadIds.length === 0) return;
 
-    const batch = writeBatch(db);
-    unread.forEach(n => {
-      batch.update(doc(db, 'notifications', n.id), { isRead: true });
-    });
-    
     try {
+      const batch = writeBatch(db);
+      unreadIds.forEach(id => {
+        batch.update(doc(db, 'notifications', id), { isRead: true });
+      });
       await batch.commit();
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, 'notifications/batch');
+      console.error("Error marking all notifications as read:", error);
     }
   };
 
@@ -192,7 +208,7 @@ export default function Notifications() {
                       {notif.title}
                     </h3>
                     <span className="text-[10px] text-neutral-400 whitespace-nowrap mt-1">
-                      {notif.createdAt?.seconds ? format(new Date(notif.createdAt.seconds * 1000), 'HH:mm') : 'Just now'}
+                      {notif.createdAt ? format(new Date(notif.createdAt), 'HH:mm') : 'Just now'}
                     </span>
                   </div>
                   <p className="text-xs text-neutral-500 mt-1 line-clamp-2 leading-relaxed">

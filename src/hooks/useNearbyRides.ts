@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, limit, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
+import { collection, query, where, onSnapshot, limit } from 'firebase/firestore';
 import { Ride } from '../types/ride.types';
 
 export function useNearbyRides(vehicleType: 'mini' | 'bajaj' | 'bike') {
@@ -15,13 +15,15 @@ export function useNearbyRides(vehicleType: 'mini' | 'bajaj' | 'bike') {
       limit(10)
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const pendingRides = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Ride));
-      setRides(pendingRides);
+    const unsub = onSnapshot(q, (snap) => {
+      setRides(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Ride)));
+      setIsLoading(false);
+    }, (error) => {
+      console.error("Error fetching nearby rides:", error);
       setIsLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => unsub();
   }, [vehicleType]);
 
   return { rides, isLoading };

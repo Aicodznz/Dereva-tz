@@ -31,12 +31,12 @@ import { toast } from 'sonner';
 import { useLanguage } from '../LanguageContext';
 import MyOrders from './MyOrders';
 import Chat from './Chat';
-import { updatePassword } from 'firebase/auth';
+import { storageService } from '../services/storageService';
 
 type ProfileView = 'menu' | 'edit' | 'orders' | 'chat' | 'password' | 'language';
 
 export default function Profile() {
-  const { profile, user, logout, updateProfileData } = useAuth();
+  const { profile, user, logout, updateProfileData, changePassword } = useAuth();
   const { t, language, setLanguage } = useLanguage();
   const [view, setView] = useState<ProfileView>('menu');
   const [loading, setLoading] = useState(false);
@@ -82,16 +82,12 @@ export default function Profile() {
 
     setLoading(true);
     try {
-      await updatePassword(user, passwordData.newPassword);
+      await changePassword(passwordData.newPassword);
       toast.success("Password updated successfully!");
       setView('menu');
       setPasswordData({ newPassword: '', confirmPassword: '' });
     } catch (error: any) {
-      if (error.code === 'auth/requires-recent-login') {
-        toast.error("Please sign out and sign in again to change your password for security reasons.");
-      } else {
-        toast.error("Failed to update password: " + error.message);
-      }
+      toast.error("Failed to update password: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -103,14 +99,22 @@ export default function Profile() {
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData({ ...formData, photoURL: reader.result as string });
-      };
-      reader.readAsDataURL(file);
+    if (file && user) {
+      setLoading(true);
+      try {
+        const path = storageService.getProfilePath(user.uid, file.name);
+        const publicUrl = await storageService.uploadFile('profiles', path, file);
+        
+        setFormData({ ...formData, photoURL: publicUrl });
+        await updateProfileData({ ...formData, photoURL: publicUrl });
+        toast.success("Profile photo updated!");
+      } catch (error: any) {
+        toast.error("Failed to upload photo: " + error.message);
+      } finally {
+        setLoading(false);
+      }
     }
   };
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { collection, query, where, onSnapshot, doc, updateDoc, addDoc, serverTimestamp, deleteDoc, getDocs, orderBy } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import { db, auth } from '../firebase';
+import { collection, query, orderBy, onSnapshot, getDocs, doc, updateDoc, deleteDoc, addDoc, serverTimestamp, where } from 'firebase/firestore';
 import { VendorProfile, Order, Product } from '../types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -144,7 +144,7 @@ export default function AdminDashboard() {
           tin: "123-456-789",
           ownerUid: "admin",
           operatingHours: "08:00 - 22:00",
-          createdAt: serverTimestamp()
+          createdAt: new Date().toISOString()
         },
         {
           businessName: "Papo Hapo Pizza",
@@ -160,7 +160,7 @@ export default function AdminDashboard() {
           tin: "987-654-321",
           ownerUid: "admin",
           operatingHours: "10:00 - 23:00",
-          createdAt: serverTimestamp()
+          createdAt: new Date().toISOString()
         },
         {
           businessName: "Afya Pharmacy",
@@ -176,7 +176,7 @@ export default function AdminDashboard() {
           tin: "456-789-123",
           ownerUid: "admin",
           operatingHours: "24 Hours",
-          createdAt: serverTimestamp()
+          createdAt: new Date().toISOString()
         }
       ];
 
@@ -214,51 +214,39 @@ export default function AdminDashboard() {
   }, [allOrders, vendors, allUsers]);
 
   useEffect(() => {
-    const unsubVendors = onSnapshot(collection(db, 'vendors'), (snapshot) => {
-      setVendors(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VendorProfile)));
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'vendors');
-    });
-    
-    const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
-      setAllUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserRecord)));
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'users');
-    });
-    
-    const qOrders = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
-    const unsubOrders = onSnapshot(qOrders, (snapshot) => {
-      setAllOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'orders');
-    });
+    const fetchData = async () => {
+      const vendorsSnap = await getDocs(collection(db, 'vendors'));
+      setVendors(vendorsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as VendorProfile)));
 
-    const unsubBanners = onSnapshot(collection(db, 'banners'), (snapshot) => {
-      setBanners(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner)));
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'banners');
-    });
+      const usersSnap = await getDocs(collection(db, 'users'));
+      setAllUsers(usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserRecord)));
 
-    const unsubCoupons = onSnapshot(collection(db, 'coupons'), (snapshot) => {
-      setCoupons(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Coupon)));
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'coupons');
-    });
+      const ordersSnap = await getDocs(query(collection(db, 'orders'), orderBy('createdAt', 'desc')));
+      setAllOrders(ordersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
 
-    const unsubProducts = onSnapshot(query(collection(db, 'products')), (snapshot) => {
-      const prods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-      setAllProducts(prods);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'products');
-    });
+      const bannersSnap = await getDocs(collection(db, 'banners'));
+      setBanners(bannersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner)));
+
+      const couponsSnap = await getDocs(collection(db, 'coupons'));
+      setCoupons(couponsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Coupon)));
+
+      const productsSnap = await getDocs(collection(db, 'products'));
+      setAllProducts(productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ProductWithVendor)));
+    };
+
+    fetchData();
+
+    const unsubscribes = [
+      onSnapshot(collection(db, 'vendors'), () => fetchData()),
+      onSnapshot(collection(db, 'users'), () => fetchData()),
+      onSnapshot(collection(db, 'orders'), () => fetchData()),
+      onSnapshot(collection(db, 'banners'), () => fetchData()),
+      onSnapshot(collection(db, 'coupons'), () => fetchData()),
+      onSnapshot(collection(db, 'products'), () => fetchData()),
+    ];
 
     return () => {
-      unsubVendors();
-      unsubUsers();
-      unsubOrders();
-      unsubProducts();
-      unsubBanners();
-      unsubCoupons();
+      unsubscribes.forEach(unsub => unsub());
     };
   }, []);
 
@@ -267,7 +255,7 @@ export default function AdminDashboard() {
       await updateDoc(doc(db, 'users', id), { approvalStatus: 'approved' });
       toast.success('Driver approved successfully!');
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${id}`);
+      console.error(error);
     }
   };
 
@@ -276,7 +264,7 @@ export default function AdminDashboard() {
       await updateDoc(doc(db, 'users', id), { approvalStatus: 'suspended' });
       toast.error('Driver status updated to suspended.');
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${id}`);
+      console.error(error);
     }
   };
 
@@ -285,7 +273,7 @@ export default function AdminDashboard() {
       await updateDoc(doc(db, 'vendors', id), { status: 'active' });
       toast.success('Vendor approved successfully!');
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `vendors/${id}`);
+      console.error(error);
     }
   };
 
@@ -294,7 +282,7 @@ export default function AdminDashboard() {
       await updateDoc(doc(db, 'vendors', id), { status: 'suspended' });
       toast.error('Vendor status updated to suspended.');
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `vendors/${id}`);
+      console.error(error);
     }
   };
 
@@ -304,7 +292,7 @@ export default function AdminDashboard() {
       await updateDoc(doc(db, 'users', id), { status: newStatus });
       toast.success(`User ${newStatus === 'blocked' ? 'blocked' : 'unblocked'}`);
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${id}`);
+      console.error(error);
     }
   };
 
@@ -314,31 +302,31 @@ export default function AdminDashboard() {
       await deleteDoc(doc(db, 'users', id));
       toast.success('User deleted successfully');
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `users/${id}`);
+      console.error(error);
     }
   };
 
   const handleAddBanner = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await addDoc(collection(db, 'banners'), { ...newBanner, createdAt: serverTimestamp() });
+      await addDoc(collection(db, 'banners'), { ...newBanner, createdAt: new Date().toISOString() });
       setIsAddBannerOpen(false);
       setNewBanner({ title: '', sub: '', img: '', active: true });
       toast.success('Banner added successfully!');
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'banners');
+      console.error(error);
     }
   };
 
   const handleAddCoupon = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await addDoc(collection(db, 'coupons'), { ...newCoupon, createdBy: 'admin', createdAt: serverTimestamp() });
+      await addDoc(collection(db, 'coupons'), { ...newCoupon, createdBy: 'admin', createdAt: new Date().toISOString() });
       setIsAddCouponOpen(false);
       setNewCoupon({ code: '', discountType: 'percentage', discountValue: 0, active: true, vendorId: null, productId: null });
       toast.success('Coupon added successfully!');
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'coupons');
+      console.error(error);
     }
   };
 
@@ -348,22 +336,25 @@ export default function AdminDashboard() {
     setIsSending(true);
     try {
       const usersSnap = await getDocs(collection(db, 'users'));
-      const batch = usersSnap.docs.map(userDoc => {
-        return addDoc(collection(db, 'notifications'), {
+      
+      const batchPromises = usersSnap.docs.map(u => 
+        addDoc(collection(db, 'notifications'), {
           title: notifTitle,
           body: notifBody,
-          userId: userDoc.id,
+          userId: u.id,
           type: 'system',
           isRead: false,
-          createdAt: serverTimestamp()
-        });
-      });
-      await Promise.all(batch);
+          createdAt: new Date().toISOString()
+        })
+      );
+
+      await Promise.all(batchPromises);
+
       setNotifTitle('');
       setNotifBody('');
-      toast.success(`Notification sent to ${usersSnap.size} users!`);
+      toast.success(`Notification sent to ${usersSnap.docs.length} users!`);
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'notifications');
+      console.error(error);
     } finally {
       setIsSending(false);
     }
@@ -850,7 +841,7 @@ export default function AdminDashboard() {
                            <tr key={order.id}>
                               <td className="px-8 py-6">
                                  <span className="font-black text-neutral-900">#{order.id?.slice(-8).toUpperCase()}</span>
-                                 <p className="text-[10px] text-neutral-400">{order.createdAt?.toDate?.().toLocaleString() || 'Just now'}</p>
+                                 <p className="text-[10px] text-neutral-400">{order.createdAt ? new Date(order.createdAt).toLocaleString() : 'Just now'}</p>
                               </td>
                               <td className="px-8 py-6 italic font-bold text-sm text-neutral-600">
                                  {vendors.find(v => v.id === order.vendorId)?.businessName || (order.vendorId ? `ID: ${order.vendorId.slice(0, 8)}...` : 'Unknown Merchant')}

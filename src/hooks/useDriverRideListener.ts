@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, limit } from 'firebase/firestore';
 import { db } from '../firebase';
+import { collection, query, where, onSnapshot, limit } from 'firebase/firestore';
 import { Ride } from '../types/ride.types';
 
 export function useDriverRideListener(driverId: string | undefined, isOnline: boolean) {
@@ -12,7 +12,6 @@ export function useDriverRideListener(driverId: string | undefined, isOnline: bo
       return;
     }
 
-    // Listen for rides CURRENTLY assigned to this driver that are not completed or cancelled
     const q = query(
       collection(db, 'rides'),
       where('driverId', '==', driverId),
@@ -20,16 +19,17 @@ export function useDriverRideListener(driverId: string | undefined, isOnline: bo
       limit(1)
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      if (!snapshot.empty) {
-        const rideData = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as Ride;
-        setAssignedRide(rideData);
+    const unsub = onSnapshot(q, (snap) => {
+      if (!snap.empty) {
+        setAssignedRide({ id: snap.docs[0].id, ...snap.docs[0].data() } as Ride);
       } else {
         setAssignedRide(null);
       }
+    }, (error) => {
+      console.error("Error listening for assigned ride:", error);
     });
 
-    return () => unsubscribe();
+    return () => unsub();
   }, [driverId, isOnline]);
 
   return { assignedRide };
