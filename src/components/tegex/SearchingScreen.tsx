@@ -88,14 +88,14 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel
               <div className="w-2.5 h-2.5 rounded-full bg-[#1D9E75] mt-1.5 shrink-0" />
               <div className="overflow-hidden">
                 <p className="text-[9px] font-black text-[#6b6b8a] uppercase tracking-widest leading-none mb-1">Unatokea</p>
-                <p className="text-xs font-bold text-[#f0eeff] truncate">{ride?.pickup.address || "Tafadhali subiri..."}</p>
+                <p className="text-xs font-bold text-[#f0eeff] truncate">{ride?.pickup?.address || "Tafadhali subiri..."}</p>
               </div>
             </div>
             <div className="flex items-start gap-4">
               <div className="w-2.5 h-2.5 rounded-full bg-[#D85A30] mt-1.5 shrink-0" />
               <div className="overflow-hidden">
                 <p className="text-[9px] font-black text-[#6b6b8a] uppercase tracking-widest leading-none mb-1">Unakwenda</p>
-                <p className="text-xs font-bold text-[#f0eeff] truncate">{ride?.destination.address || "Tafadhali subiri..."}</p>
+                <p className="text-xs font-bold text-[#f0eeff] truncate">{ride?.destination?.address || "Tafadhali subiri..."}</p>
               </div>
             </div>
           </div>

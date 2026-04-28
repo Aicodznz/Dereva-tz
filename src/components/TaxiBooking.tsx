@@ -314,46 +314,46 @@ export default function TaxiBooking() {
       const formattedCoords = routeCoords.map(c => ({ lat: c[0], lng: c[1] }));
       
       // Ensure user is signed in for the demo
-      let currentUser = user;
-      if (!currentUser) {
+      let activeUser = auth.currentUser;
+      if (!activeUser) {
         console.log("No user found, signing in as guest for demo...");
         try {
           await signInGuest();
-          // The auth state change might take a moment
-          // We wait for user from useAuth to be updated
+          // We must get the fresh user from auth since the state variable won't update until next render
+          activeUser = auth.currentUser;
         } catch (e) {
           console.error("Guest sign in failed", e);
         }
       }
       
-      if (!currentUser) {
+      if (!activeUser) {
         toast.error("Hujajisajili. Tafadhali jaribu tena.");
         setStep('map');
         return;
       }
 
-      console.log("Current authorized user ID:", currentUser.uid);
+      console.log("Current authorized user ID:", activeUser.uid);
       
       let customerName = "Mteja";
       if (profile?.displayName) {
         customerName = profile.displayName;
-      } else if (currentUser.displayName) {
-        customerName = currentUser.displayName;
-      } else if (currentUser.email) {
-        const part = currentUser.email.split('@')[0];
+      } else if (activeUser.displayName) {
+        customerName = activeUser.displayName;
+      } else if (activeUser.email) {
+        const part = activeUser.email.split('@')[0];
         customerName = part.charAt(0).toUpperCase() + part.slice(1);
       }
       
       const customerInfo = {
         name: customerName,
         rating: 5.0,
-        avatar: profile?.photoURL || currentUser.photoURL || null,
-        photo: profile?.photoURL || currentUser.photoURL || null,
+        avatar: profile?.photoURL || activeUser.photoURL || null,
+        photo: profile?.photoURL || activeUser.photoURL || null,
         phone: profile?.phoneNumber || ""
       };
 
       const id = await createRide(
-        currentUser.uid,
+        activeUser.uid,
         customerInfo,
         { lat: pickupPos[0], lng: pickupPos[1], address: pickup },
         { lat: destPos[0], lng: destPos[1], address: destination },

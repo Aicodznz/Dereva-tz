@@ -30,7 +30,7 @@ export const RatingScreen: React.FC<RatingScreenProps> = ({ ride, onSubmit, onSk
       <div className="w-full flex-1 flex flex-col items-center justify-center py-10">
         <div className="relative mb-8">
           <div className="w-24 h-24 rounded-full overflow-hidden ring-4 ring-[#7F77DD]/20 bg-[#111118] flex items-center justify-center text-3xl font-black text-[#7F77DD]">
-            {ride.driverInfo?.photo ? <img src={ride.driverInfo.photo} className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : ride.driverInfo?.name.charAt(0)}
+            {ride.driverInfo?.photo ? <img src={ride.driverInfo.photo} className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : ride.driverInfo?.name?.charAt(0) || 'D'}
           </div>
           <div className="absolute -bottom-2 -right-2 bg-[#1D9E75] text-white p-2 rounded-xl border-2 border-[#0a0a0f]">
             <CheckCircle2 className="w-4 h-4" />
