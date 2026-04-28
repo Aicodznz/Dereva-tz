@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { MapPin, Clock, Zap, Map as MapIcon, X, Star, User, ArrowRight } from 'lucide-react';
+import { MapPin, Clock, Zap, Map as MapIcon, X, Star, User, ArrowRight, Car } from 'lucide-react';
 import { Ride } from '../../types/ride.types';
 
 interface IncomingRideCardProps {
