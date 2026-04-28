@@ -150,8 +150,48 @@ export default function TaxiBooking() {
 
   const [pickupPos, setPickupPos] = useState<[number, number]>([-6.7721, 39.2326]);
   const [destPos, setDestPos] = useState<[number, number]>([-6.8235, 39.2695]);
-  const [pickup, setPickup] = useState('Tabata Shule, Dar es Salaam');
+  const [pickup, setPickup] = useState('Tafuta eneo lako...');
   const [destination, setDestination] = useState('');
+
+  const reverseGeocode = async (lat: number, lng: number) => {
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`, {
+        headers: { 'Accept-Language': 'sw,en' }
+      });
+      const data = await response.json();
+      return formatAddress(data);
+    } catch (error) {
+      return "Unknown Area";
+    }
+  };
+
+  const handleCurrentLocation = () => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          setPickupPos([lat, lng]);
+          setSettingMode('pickup');
+          const addr = await reverseGeocode(lat, lng);
+          if (addr && addr !== "Unknown Area") {
+             setPickup(addr);
+          }
+          toast.success("Location updated");
+        },
+        (error) => {
+          console.error("Geolocation error:", error);
+          toast.error("Imeshindwa kupata eneo lako. Hakikisha GPS imewashwa.");
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    }
+  };
+
+  // Auto-detect current location
+  useEffect(() => {
+    handleCurrentLocation();
+  }, []);
 
   const { routeCoords, totalDistance, totalDuration } = useRouting(pickupPos, destPos);
 
@@ -241,18 +281,6 @@ export default function TaxiBooking() {
       setDestination(suggestion.display_name);
     }
     setSuggestions([]);
-  };
-
-  const reverseGeocode = async (lat: number, lng: number) => {
-    try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`, {
-        headers: { 'Accept-Language': 'sw,en' }
-      });
-      const data = await response.json();
-      return formatAddress(data);
-    } catch (error) {
-      return "Unknown Area";
-    }
   };
 
   const handleMapClick = async (e: L.LeafletMouseEvent) => {
@@ -541,6 +569,13 @@ export default function TaxiBooking() {
                              className="w-full bg-transparent text-sm font-bold text-[#f0eeff] border-none outline-none p-0" 
                            />
                         </div>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleCurrentLocation(); }}
+                          className="p-2 hover:bg-white/5 rounded-full transition-colors text-[#1D9E75]"
+                          title="Eneo langu"
+                        >
+                           <Navigation2 className="w-4 h-4" />
+                        </button>
                       </div>
                       <div className="flex items-center gap-4">
                         <div className={`w-2.5 h-2.5 rounded-full ${settingMode === 'destination' ? 'bg-[#D85A30] ring-4 ring-[#D85A30]/20' : 'bg-[#6b6b8a]'}`} />

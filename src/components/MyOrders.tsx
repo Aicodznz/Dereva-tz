@@ -72,11 +72,18 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
         const ordersRef = collection(db, 'orders');
         const q = query(
           ordersRef, 
-          where('customerId', '==', user.uid), 
-          orderBy('createdAt', 'desc')
+          where('customerId', '==', user.uid)
         );
         const querySnapshot = await getDocs(q);
         const ordersList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
+        
+        // Client-side sorting
+        ordersList.sort((a, b) => {
+          const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
+          const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+          return dateB.getTime() - dateA.getTime();
+        });
+
         setOrders(ordersList);
       } catch (error) {
         console.error('Error fetching orders:', error);
@@ -89,13 +96,22 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
 
     const q = query(
       collection(db, 'orders'), 
-      where('customerId', '==', user.uid), 
-      orderBy('createdAt', 'desc')
+      where('customerId', '==', user.uid)
     );
     
     const unsub = onSnapshot(q, (snapshot) => {
       const ordersList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
+      
+      // Client-side sorting
+      ordersList.sort((a, b) => {
+        const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
+        const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+        return dateB.getTime() - dateA.getTime();
+      });
+
       setOrders(ordersList);
+    }, (error: any) => {
+      console.error('Error in orders snapshot:', error);
     });
 
     return () => unsub();

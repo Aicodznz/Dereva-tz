@@ -41,11 +41,18 @@ export default function Notifications() {
         const notificationsRef = collection(db, 'notifications');
         const q = query(
           notificationsRef, 
-          where('userId', '==', user.uid), 
-          orderBy('createdAt', 'desc')
+          where('userId', '==', user.uid)
         );
         const querySnapshot = await getDocs(q);
         const notifs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification));
+        
+        // Client-side sorting
+        notifs.sort((a, b) => {
+          const dateA = new Date(a.createdAt);
+          const dateB = new Date(b.createdAt);
+          return dateB.getTime() - dateA.getTime();
+        });
+
         setNotifications(notifs);
       } catch (error) {
         console.error("Error fetching notifications:", error);
@@ -58,13 +65,22 @@ export default function Notifications() {
 
     const q = query(
       collection(db, 'notifications'), 
-      where('userId', '==', user.uid), 
-      orderBy('createdAt', 'desc')
+      where('userId', '==', user.uid)
     );
     
     const unsub = onSnapshot(q, (snapshot) => {
       const notifs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification));
+      
+      // Client-side sorting
+      notifs.sort((a, b) => {
+        const dateA = new Date(a.createdAt);
+        const dateB = new Date(b.createdAt);
+        return dateB.getTime() - dateA.getTime();
+      });
+
       setNotifications(notifs);
+    }, (error: any) => {
+      console.error("Error in notifications snapshot:", error);
     });
 
     return () => unsub();

@@ -91,11 +91,17 @@ export default function Chat({ onBack }: ChatProps) {
       const q = query(
         collection(db, 'messages'),
         where('participants', 'array-contains', user.uid),
-        orderBy('createdAt', 'desc'),
         limit(200)
       );
       const snap = await getDocs(q);
       const messages = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+      
+      // Sort client-side
+      messages.sort((a, b) => {
+        const dateA = new Date(a.createdAt);
+        const dateB = new Date(b.createdAt);
+        return dateB.getTime() - dateA.getTime();
+      });
       
       const sessionsMap = new Map<string, ChatSession>();
       messages.forEach(m => {
@@ -172,11 +178,19 @@ export default function Chat({ onBack }: ChatProps) {
       const q = query(
         collection(db, 'messages'),
         where('chatId', '==', chatId),
-        orderBy('createdAt', 'asc'),
         limit(100)
       );
       const snap = await getDocs(q);
-      setMessages(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message)));
+      const msgs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
+      
+      // Sort client-side asc
+      msgs.sort((a, b) => {
+        const dateA = new Date(a.createdAt);
+        const dateB = new Date(b.createdAt);
+        return dateA.getTime() - dateB.getTime();
+      });
+      
+      setMessages(msgs);
       setLoading(false);
     };
 
