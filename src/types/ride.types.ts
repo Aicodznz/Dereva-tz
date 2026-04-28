@@ -13,6 +13,11 @@ export interface DriverInfo {
   rating: number;
   phone: string;
   photo?: string;
+  vehicle: {
+    model: string;
+    plate: string;
+    color?: string;
+  };
 }
 
 export interface CustomerInfo {

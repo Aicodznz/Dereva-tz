@@ -15,7 +15,7 @@ export const RatingScreen: React.FC<RatingScreenProps> = ({ ride, onSubmit, onSk
   const [selectedChips, setSelectedChips] = useState<string[]>([]);
   const [comment, setComment] = useState('');
 
-  const chips = ['Salama', 'Haraka', 'Rafiki', 'Gari Safi', 'Njia Nzuri'];
+  const chips = ['Salama', 'Haraka', 'Rafiki', 'Gari Safi', 'Njia Nzuri', 'Mpole'];
 
   const toggleChip = (chip: string) => {
     setSelectedChips(prev => 
@@ -37,10 +37,12 @@ export const RatingScreen: React.FC<RatingScreenProps> = ({ ride, onSubmit, onSk
           </div>
         </div>
 
-        <h2 className="text-2xl font-black text-center text-[#f0eeff] mb-2 leading-tight">
-          Je, {ride.driverInfo?.name || "Dereva"} alikuwaje?
+        <h2 className="text-2xl font-black text-center text-[#f0eeff] mb-2 leading-tight italic uppercase">
+          Je, safari ilikuwaje na {ride.driverInfo?.name.split(' ')[0] || "Dereva"}?
         </h2>
-        <p className="text-[#6b6b8a] text-xs font-bold mb-10 text-center px-4">Shiriki uzoefu wako ili kusaidia kuboresha safari zijazo</p>
+        <p className="text-[#6b6b8a] text-[10px] font-black uppercase tracking-widest mb-10 text-center px-4 italic">
+          (gusa nyota — 1 mpaka 5)
+        </p>
 
         {/* Stars */}
         <div className="flex gap-4 mb-10">
@@ -63,6 +65,10 @@ export const RatingScreen: React.FC<RatingScreenProps> = ({ ride, onSubmit, onSk
           ))}
         </div>
 
+        <div className="w-full mb-4">
+           <p className="text-[10px] font-black text-neutral-500 uppercase tracking-widest text-center mb-4">Chagua (unaweza chagua mengi):</p>
+        </div>
+
         {/* Chips */}
         <div className="flex flex-wrap justify-center gap-3 mb-10">
           {chips.map((chip) => (
@@ -75,37 +81,39 @@ export const RatingScreen: React.FC<RatingScreenProps> = ({ ride, onSubmit, onSk
                 : 'bg-[#111118] border-[#1e1e2e] text-[#6b6b8a]'
               }`}
             >
-              {chip}
+              [{chip}]
             </button>
           ))}
         </div>
 
         {/* Comment Box */}
         <div className="w-full mb-8">
+           <p className="text-[10px] font-black text-neutral-500 uppercase tracking-widest mb-3">Maoni (hiari):</p>
            <textarea 
              value={comment}
              onChange={(e) => setComment(e.target.value)}
-             placeholder="Tuambie zaidi (hiari)..."
+             placeholder="Andika maoni yako hapa..."
              className="w-full bg-[#111118] border border-[#1e1e2e] rounded-3xl p-5 text-sm font-bold text-[#f0eeff] placeholder-[#6b6b8a] outline-none focus:border-[#7F77DD]/30 resize-none h-32 transition-colors"
            />
         </div>
 
-        <button
-          onClick={() => rating > 0 && onSubmit(rating, selectedChips)}
-          disabled={rating === 0}
-          className="w-full h-16 bg-[#7F77DD] text-white rounded-[50px] font-black uppercase tracking-[0.2em] text-xs shadow-[0_10px_30px_rgba(127,119,221,0.3)] disabled:opacity-30 active:scale-95 transition-all flex items-center justify-center gap-3"
-        >
-          Kamilisha kwa Tuma
-          <ArrowRight className="w-4 h-4" />
-        </button>
+        <div className="w-full flex flex-col gap-4">
+          <button
+            onClick={() => rating > 0 && onSubmit(rating, selectedChips)}
+            disabled={rating === 0}
+            className="w-full h-16 bg-[#7F77DD] text-white rounded-[50px] font-black uppercase tracking-[0.2em] text-xs shadow-[0_10px_30px_rgba(127,119,221,0.3)] disabled:opacity-30 active:scale-95 transition-all flex items-center justify-center gap-3"
+          >
+            TUMA TATHMINI
+          </button>
 
-        <button
-          onClick={onSkip}
-          className="mt-8 text-[10px] font-black text-[#6b6b8a] uppercase tracking-widest hover:text-[#f0eeff] transition-colors"
-        >
-          Ruka kwa Sasa
-        </button>
+          <button
+            onClick={onSkip}
+            className="text-[10px] font-black text-[#6b6b8a] uppercase tracking-widest hover:text-[#f0eeff] transition-colors"
+          >
+            Ruka →
+          </button>
+        </div>
       </div>
     </div>
   );
-};
+}

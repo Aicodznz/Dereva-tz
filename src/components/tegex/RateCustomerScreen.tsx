@@ -10,7 +10,7 @@ interface RateCustomerScreenProps {
   onDone: () => void;
 }
 
-const TAGS = ['Mpole', 'Mwepesi', 'Safi', 'Mzuri', 'Hana Tabu'];
+const TAGS = ['Salama', 'Mtupoa', 'Safi', 'Mzuri', 'Mpole'];
 
 export default function RateCustomerScreen({ ride, onDone }: RateCustomerScreenProps) {
   const [rating, setRating] = useState(5);

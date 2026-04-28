@@ -44,7 +44,7 @@ export function useDriverDashboard() {
         // Client-side filtering for today's completed trips
         if (data.status === 'completed' && createdAt >= today) {
           trips++;
-          earnings += (data.actualFare || data.estimatedFare || 0);
+          earnings += (data.fare || 0);
         }
       });
 

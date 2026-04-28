@@ -72,8 +72,27 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
 
   return (
     <div 
-      className="flex-1 w-full bg-[#0a0a0f] flex flex-col relative z-50"
+      className={`flex-1 w-full bg-[#0a0a0f] flex flex-col relative z-50 ${isArrived ? 'animate-haptic' : ''}`}
     >
+      {/* Top Notification Banner */}
+      <AnimatePresence>
+        {isArrived && (
+          <motion.div 
+            initial={{ y: -100 }}
+            animate={{ y: 24 }}
+            className="absolute top-0 inset-x-4 z-[70] bg-[#1D9E75] p-4 rounded-2xl shadow-2xl border-2 border-white/20 flex items-center gap-4 animate-bounce"
+          >
+            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-2xl">🚗</div>
+            <div className="flex-1">
+              <h4 className="text-sm font-black text-white italic uppercase tracking-tighter leading-none mb-1">Dereva Amefika!</h4>
+              <p className="text-[10px] font-bold text-white/80 uppercase whitespace-nowrap">
+                {ride.driverInfo?.vehicle.model} · {ride.driverInfo?.vehicle.plate}
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Map Layer */}
       <div className="flex-1 relative z-0 min-h-[300px]">
         <MapContainer 

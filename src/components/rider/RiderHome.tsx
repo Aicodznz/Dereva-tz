@@ -345,7 +345,12 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
         plate: profile?.licensePlate || 'T 123 ABC',
         rating: 4.8,
         phone: profile?.phoneNumber || '0700000000',
-        photo: profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`
+        photo: profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`,
+        vehicle: {
+          model: profile?.vehicleModel || (vType === 'bike' ? 'Honda SanLG' : vType === 'bajaj' ? 'TVS King' : 'Toyota Axio'),
+          plate: profile?.licensePlate || 'T 123 ABC',
+          color: profile?.vehicleColor || 'Nyekundu'
+        }
       };
       
       console.log("[Rider] Accepting ride:", incomingRequest.id);
@@ -576,16 +581,15 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                   </div>
                 </Popup>
               </Marker>
-              {activeRide.routeCoords && (
-                <Polyline positions={activeRide.routeCoords} color="#7F77DD" weight={4} opacity={0.6} dashArray="8, 12" />
-              )}
-            </>
-          )}
-
-          {activeRide?.routeCoords && (
-            <>
-              <Polyline positions={activeRide.routeCoords} color="#1D9E75" weight={6} opacity={0.5} />
-              {/* Pulse effect or similar could be added here, but simple polyline for now */}
+            {activeRide.routeCoords && (
+              <Polyline 
+                positions={activeRide.routeCoords} 
+                color={activeRide.status === 'on_trip' ? "#1D9E75" : "#7F77DD"} 
+                weight={activeRide.status === 'on_trip' ? 6 : 4} 
+                opacity={0.8} 
+                dashArray={activeRide.status === 'on_trip' ? undefined : "8, 12"} 
+              />
+            )}
             </>
           )}
 
