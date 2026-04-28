@@ -44,13 +44,18 @@ let DefaultIcon = L.icon({
 
 L.Marker.prototype.options.icon = DefaultIcon;
 
-export default function RiderHome() {
+interface RiderHomeProps {
+  onNavVisibilityChange?: (visible: boolean) => void;
+}
+
+export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
   const { user, profile } = useAuth();
   const [isOnline, setIsOnline] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [position, setPosition] = useState<[number, number]>([-6.7924, 39.2083]);
   const [lastPosition, setLastPosition] = useState<[number, number] | null>(null);
   const [rotation, setRotation] = useState(0);
+  const [showTopInfo, setShowTopInfo] = useState(false);
   
   const [rideId, setRideId] = useState<string | null>(null);
   const { ride: activeRide } = useRideStatus(rideId);
@@ -433,7 +438,11 @@ export default function RiderHome() {
       <div className="absolute top-4 inset-x-4 z-40 flex flex-col gap-3">
         <div className="flex justify-between items-center">
           <button 
-            onClick={() => toast.info(`Habari ${profile?.displayName || 'Dereva'}`)}
+            onClick={() => {
+              const nextVal = !showTopInfo;
+              setShowTopInfo(nextVal);
+              if (onNavVisibilityChange) onNavVisibilityChange(!nextVal);
+            }}
             className="w-12 h-12 bg-[#111118]/80 backdrop-blur-xl rounded-2xl shadow-lg flex items-center justify-center border border-[#1e1e2e] active:scale-95 transition-transform overflow-hidden"
           >
             {profile?.photoURL ? (
@@ -472,22 +481,35 @@ export default function RiderHome() {
         </div>
 
         {/* Info Strip */}
-        <div className="flex items-center justify-center gap-4 py-1.5 px-4 bg-[#111118]/60 backdrop-blur-md rounded-xl border border-[#1e1e2e]/50 w-fit mx-auto shadow-2xl">
-           <div className="flex items-center gap-1.5 text-[9px] font-bold text-neutral-400">
-             <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
-             <span>{profile?.rating || '4.8'} RATING</span>
-           </div>
-           <div className="w-px h-3 bg-neutral-800" />
-           <div className="flex items-center gap-1.5 text-[9px] font-bold text-neutral-400">
-             <Wifi className="w-3 h-3 text-emerald-500" />
-             <span>NETWORK: GOOD</span>
-           </div>
-           <div className="w-px h-3 bg-neutral-800" />
-           <div className="flex items-center gap-1.5 text-[9px] font-bold text-neutral-400">
-             <Battery className="w-3 h-3 text-emerald-500" />
-             <span>TRIP MODE ON</span>
-           </div>
-        </div>
+        <AnimatePresence>
+          {showTopInfo && (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              onClick={() => {
+                setShowTopInfo(false);
+                if (onNavVisibilityChange) onNavVisibilityChange(true);
+              }}
+              className="flex items-center justify-center gap-4 py-1.5 px-4 bg-[#111118]/60 backdrop-blur-md rounded-xl border border-[#1e1e2e]/50 w-fit mx-auto shadow-2xl cursor-pointer hover:bg-[#111118]/80 transition-colors"
+            >
+               <div className="flex items-center gap-1.5 text-[9px] font-bold text-neutral-400">
+                 <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                 <span>{profile?.rating || '4.8'} RATING</span>
+               </div>
+               <div className="w-px h-3 bg-neutral-800" />
+               <div className="flex items-center gap-1.5 text-[9px] font-bold text-neutral-400">
+                 <Wifi className="w-3 h-3 text-emerald-500" />
+                 <span>NETWORK: GOOD</span>
+               </div>
+               <div className="w-px h-3 bg-neutral-800" />
+               <div className="flex items-center gap-1.5 text-[9px] font-bold text-neutral-400">
+                 <Battery className="w-3 h-3 text-emerald-500" />
+                 <span>TRIP MODE ON</span>
+               </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Map Layer */}

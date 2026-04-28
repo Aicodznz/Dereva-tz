@@ -23,6 +23,7 @@ export default function RiderDashboard() {
   const [activeTab, setActiveTab] = useState<NavTab>('home');
   const [prevTab, setPrevTab] = useState<NavTab>('home');
   const [notificationsCount, setNotificationsCount] = useState(3);
+  const [isNavVisible, setIsNavVisible] = useState(true);
 
   // Handle nested navigation
   const handleSettingsNavigate = (view: string) => {
@@ -36,7 +37,7 @@ export default function RiderDashboard() {
   const renderContent = () => {
     switch (activeTab) {
       case 'home':
-        return <RiderHome />;
+        return <RiderHome onNavVisibilityChange={setIsNavVisible} />;
       case 'performance':
         return <RiderStats />;
       case 'rides':
@@ -83,59 +84,69 @@ export default function RiderDashboard() {
       </div>
 
       {/* Modern Bottom Tab Bar */}
-      <div className="fixed bottom-0 inset-x-0 z-50 p-4 pointer-events-none">
-        <div className="max-w-md mx-auto pointer-events-auto">
-          <div className="bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-white/20 dark:border-neutral-800/50 h-20 rounded-[2.5rem] shadow-2xl flex items-center justify-around px-2 relative">
-            {/* Active Indicator Background */}
-            <motion.div 
-              layoutId="nav-glow"
-              className="absolute w-12 h-1 bg-emerald-500 rounded-full -top-0.5"
-              initial={false}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              style={{ 
-                left: `calc(${(navItems.findIndex(item => item.id === activeTab)) * 20}% + 10% - 24px)` 
-              }}
-            />
+      <AnimatePresence>
+        {isNavVisible && (
+          <motion.div 
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+            className="fixed bottom-0 inset-x-0 z-50 p-4 pointer-events-none"
+          >
+            <div className="max-w-md mx-auto pointer-events-auto">
+              <div className="bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-white/20 dark:border-neutral-800/50 h-20 rounded-[2.5rem] shadow-2xl flex items-center justify-around px-2 relative">
+                {/* Active Indicator Background */}
+                <motion.div 
+                  layoutId="nav-glow"
+                  className="absolute w-12 h-1 bg-emerald-500 rounded-full -top-0.5"
+                  initial={false}
+                  transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                  style={{ 
+                    left: `calc(${(navItems.findIndex(item => item.id === activeTab)) * 20}% + 10% - 24px)` 
+                  }}
+                />
 
-            {navItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => {
-                  setPrevTab(activeTab);
-                  setActiveTab(item.id as NavTab);
-                }}
-                className={`relative flex flex-col items-center justify-center transition-all duration-300 ${
-                  activeTab === item.id ? 'text-emerald-600 scale-110' : 'text-neutral-400'
-                } ${item.isMain ? '-mt-12' : ''}`}
-              >
-                {item.isMain ? (
-                  <div className={`w-16 h-16 rounded-full shadow-2xl flex items-center justify-center border-4 border-white dark:border-neutral-900 ${
-                    activeTab === item.id ? 'bg-emerald-600 text-white shadow-emerald-500/40' : 'bg-neutral-900 text-white dark:bg-neutral-800'
-                  }`}>
-                    <item.icon className="w-8 h-8" />
-                  </div>
-                ) : (
-                  <div className="p-2 relative">
-                    <item.icon className={`w-6 h-6 ${activeTab === item.id ? 'stroke-[2.5px]' : 'stroke-2'}`} />
-                    {item.badge && item.badge > 0 && (
-                      <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[8px] font-black flex items-center justify-center rounded-full border-2 border-white dark:border-neutral-900">
-                        {item.badge}
-                      </span>
+                {navItems.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setPrevTab(activeTab);
+                      setActiveTab(item.id as NavTab);
+                    }}
+                    className={`relative flex flex-col items-center justify-center transition-all duration-300 ${
+                      activeTab === item.id ? 'text-emerald-600 scale-110' : 'text-neutral-400'
+                    } ${item.isMain ? '-mt-12' : ''}`}
+                  >
+                    {item.isMain ? (
+                      <div className={`w-16 h-16 rounded-full shadow-2xl flex items-center justify-center border-4 border-white dark:border-neutral-900 ${
+                        activeTab === item.id ? 'bg-emerald-600 text-white shadow-emerald-500/40' : 'bg-neutral-900 text-white dark:bg-neutral-800'
+                      }`}>
+                        <item.icon className="w-8 h-8" />
+                      </div>
+                    ) : (
+                      <div className="p-2 relative">
+                        <item.icon className={`w-6 h-6 ${activeTab === item.id ? 'stroke-[2.5px]' : 'stroke-2'}`} />
+                        {item.badge && item.badge > 0 && (
+                          <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[8px] font-black flex items-center justify-center rounded-full border-2 border-white dark:border-neutral-900">
+                            {item.badge}
+                          </span>
+                        )}
+                      </div>
                     )}
-                  </div>
-                )}
-                {!item.isMain && (
-                   <span className={`text-[8px] font-black uppercase tracking-widest mt-1 ${
-                     activeTab === item.id ? 'opacity-100' : 'opacity-0'
-                   } transition-opacity`}>
-                      {item.label}
-                   </span>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+                    {!item.isMain && (
+                       <span className={`text-[8px] font-black uppercase tracking-widest mt-1 ${
+                         activeTab === item.id ? 'opacity-100' : 'opacity-0'
+                       } transition-opacity`}>
+                          {item.label}
+                       </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
