@@ -11,7 +11,7 @@ import {
   ArrowRight, RefreshCw, RotateCw
 } from 'lucide-react';
 import Chat from './Chat';
-import { db } from '../firebase';
+import { db, auth } from '../firebase';
 import { doc, updateDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '../AuthContext';
 import { useLanguage } from '../LanguageContext';
