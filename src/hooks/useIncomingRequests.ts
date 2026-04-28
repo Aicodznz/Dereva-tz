@@ -22,12 +22,18 @@ export function useIncomingRequests(vehicleType: string, isOnline: boolean, driv
       where('status', '==', 'pending'),
       where('vehicleType', '==', vehicleType),
       where('createdAt', '>=', twoMinutesAgo),
-      orderBy('createdAt', 'desc'),
-      limit(10)
+      limit(20)
     );
 
     const unsub = onSnapshot(q, (snap) => {
-      const rides = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Ride));
+      const rides = snap.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as Ride))
+        .sort((a, b) => {
+          // Manual sort by createdAt desc
+          const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+          const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+          return timeB - timeA;
+        });
       
       const allNearby = rides.filter(ride => {
         // Filter out own rides
@@ -39,6 +45,10 @@ export function useIncomingRequests(vehicleType: string, isOnline: boolean, driv
           driverLocation.lat, 
           driverLocation.lng
         );
+        
+        // Attach distance to pickup for the UI
+        (ride as any).distanceToPickup = dist;
+        
         return dist <= 5;
       });
 

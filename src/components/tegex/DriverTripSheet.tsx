@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Phone, MessageSquare, MapPin, Navigation2, CheckCircle2 } from 'lucide-react';
+import { Phone, MessageSquare, MapPin, Navigation2, CheckCircle2, ArrowRight } from 'lucide-react';
 import { Ride } from '../../types/ride.types';
 
 interface DriverTripSheetProps {

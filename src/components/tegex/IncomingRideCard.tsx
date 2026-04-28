@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { MapPin, Clock, Zap, Map as MapIcon, X, Star } from 'lucide-react';
+import { MapPin, Clock, Zap, Map as MapIcon, X, Star, User, ArrowRight } from 'lucide-react';
 import { Ride } from '../../types/ride.types';
 
 interface IncomingRideCardProps {
@@ -61,7 +61,7 @@ export default function IncomingRideCard({ ride, onAccept, onDecline, onTimeout 
              <div className="flex-1 overflow-hidden">
                 <p className="text-sm font-black text-white leading-tight">{ride.pickup.address}</p>
                 <p className="text-[10px] font-bold text-neutral-600 mt-1">
-                   {ride.distance?.toFixed(1) || '12.4'} km · ~{ride.duration || '22'} dak
+                   {(ride as any).distanceToPickup?.toFixed(1) || '0.5'} km kutoka kwako · ~{ride.duration || '22'} dak safari
                 </p>
              </div>
           </div>

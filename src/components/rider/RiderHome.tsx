@@ -60,7 +60,7 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
   const [rideId, setRideId] = useState<string | null>(null);
   const { ride: activeRide } = useRideStatus(rideId);
   const vTypeRaw = (profile?.vehicleType || 'gari').toLowerCase();
-  const vType = vTypeRaw.includes('bike') ? 'bike' : vTypeRaw.includes('bajaj') ? 'bajaj' : 'mini';
+  const vType = (vTypeRaw.includes('bike') || vTypeRaw.includes('piki')) ? 'bike' : vTypeRaw.includes('bajaj') ? 'bajaj' : 'mini';
   
   const { showEarnings, toggleEarnings, stats } = useDriverDashboard();
   const nearbyRequests = useIncomingRequests(vType, isOnline, position ? { lat: position[0], lng: position[1] } : null, user?.uid);
