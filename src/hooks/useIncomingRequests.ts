@@ -15,19 +15,21 @@ export function useIncomingRequests(vehicleType: string, isOnline: boolean, driv
     }
 
     // Only look for rides created in the last 2 minutes to avoid "ghost" old orders
-    const twoMinutesAgo = new Timestamp(Math.floor((Date.now() - 2 * 60 * 1000) / 1000), 0);
-    
     const q = query(
       collection(db, 'rides'),
       where('status', '==', 'pending'),
       where('vehicleType', '==', vehicleType),
-      where('createdAt', '>=', twoMinutesAgo),
-      limit(20)
+      limit(50)
     );
 
     const unsub = onSnapshot(q, (snap) => {
+      const twoMinutesAgoMs = Date.now() - 2 * 60 * 1000;
       const rides = snap.docs
         .map(doc => ({ id: doc.id, ...doc.data() } as Ride))
+        .filter(ride => {
+          const createdAtMs = ride.createdAt?.toMillis ? ride.createdAt.toMillis() : 0;
+          return createdAtMs >= twoMinutesAgoMs;
+        })
         .sort((a, b) => {
           // Manual sort by createdAt desc
           const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
@@ -36,8 +38,8 @@ export function useIncomingRequests(vehicleType: string, isOnline: boolean, driv
         });
       
       const allNearby = rides.filter(ride => {
-        // Filter out own rides
-        if (ride.customerId === currentUserId) return false;
+        // For testing/prototype, we allow self-ordering.
+        // if (ride.customerId === currentUserId) return false;
 
         const dist = getDistanceKm(
           ride.pickup.lat, 
@@ -49,7 +51,7 @@ export function useIncomingRequests(vehicleType: string, isOnline: boolean, driv
         // Attach distance to pickup for the UI
         (ride as any).distanceToPickup = dist;
         
-        return dist <= 5;
+        return dist <= 10; // Increased to 10km
       });
 
       // Sound alert logic: if we have a NEW request that we didn't have before

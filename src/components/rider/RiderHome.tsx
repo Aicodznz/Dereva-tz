@@ -76,11 +76,14 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
 
   useEffect(() => {
     const freshRequests = nearbyRequests.filter(r => !declinedRequests.has(r.id));
+    const currentStillValid = incomingRequest ? freshRequests.find(r => r.id === incomingRequest.id) : null;
     
     // Only set incoming request if we are online, not in an active ride, and not already showing one
-    if (isOnline && freshRequests.length > 0 && !activeRide && !incomingRequest && !showPayment && !showRating) {
-      setIncomingRequest(freshRequests[0]);
-    } else if (!isOnline || activeRide || freshRequests.length === 0) {
+    if (isOnline && freshRequests.length > 0 && !activeRide && !showPayment && !showRating) {
+      if (!incomingRequest || !currentStillValid) {
+        setIncomingRequest(freshRequests[0]);
+      }
+    } else if (!isOnline || activeRide || freshRequests.length === 0 || (incomingRequest && !currentStillValid)) {
       if (incomingRequest) setIncomingRequest(null);
     }
   }, [nearbyRequests, activeRide, incomingRequest, isOnline, showPayment, showRating, declinedRequests]);
