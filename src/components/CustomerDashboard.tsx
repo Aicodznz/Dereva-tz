@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { db } from '../firebase';
+import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, onSnapshot, getDocs, limit, orderBy } from 'firebase/firestore';
 import { VendorProfile, Product } from '../types';
 import { Card, CardContent } from '@/components/ui/card';
@@ -144,40 +144,43 @@ export default function CustomerDashboard() {
 
     // Fetch Vendors
     const fetchVendors = async () => {
+      const path = 'vendors';
       try {
-        const vendorsRef = collection(db, 'vendors');
+        const vendorsRef = collection(db, path);
         const q = query(vendorsRef, where('status', '==', 'active'));
         const querySnapshot = await getDocs(q);
         const vendorsList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VendorProfile));
         setVendors(vendorsList);
       } catch (error) {
-        console.error('Error fetching vendors:', error);
+        handleFirestoreError(error, OperationType.GET, path);
       }
     };
 
     // Fetch Products
     const fetchProducts = async () => {
+      const path = 'products';
       try {
-        const productsRef = collection(db, 'products');
+        const productsRef = collection(db, path);
         const q = query(productsRef, limit(10));
         const querySnapshot = await getDocs(q);
         const productsList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
         setProducts(productsList);
       } catch (error) {
-        console.error('Error fetching products:', error);
+        handleFirestoreError(error, OperationType.GET, path);
       }
     };
 
     // Fetch Banners
     const fetchBanners = async () => {
+      const path = 'banners';
       try {
-        const bannersRef = collection(db, 'banners');
+        const bannersRef = collection(db, path);
         const q = query(bannersRef, where('active', '==', true));
         const querySnapshot = await getDocs(q);
         const bannersList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
         setBanners(bannersList);
       } catch (error) {
-        console.error('Error fetching banners:', error);
+        handleFirestoreError(error, OperationType.GET, path);
       }
     };
 
@@ -186,28 +189,43 @@ export default function CustomerDashboard() {
     fetchBanners();
 
     // Setup Realtime subscriptions
-    const vendorsUnsub = onSnapshot(query(collection(db, 'vendors'), where('status', '==', 'active')), (snapshot) => {
-      const vendorsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VendorProfile));
-      setVendors(vendorsList);
-    });
+    const vendorsPath = 'vendors';
+    const vendorsUnsub = onSnapshot(
+      query(collection(db, vendorsPath), where('status', '==', 'active')), 
+      (snapshot) => {
+        const vendorsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VendorProfile));
+        setVendors(vendorsList);
+      },
+      (error) => handleFirestoreError(error, OperationType.GET, vendorsPath)
+    );
 
-    const productsUnsub = onSnapshot(query(collection(db, 'products'), limit(10)), (snapshot) => {
-      const productsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-      setProducts(productsList);
-    });
+    const productsPath = 'products';
+    const productsUnsub = onSnapshot(
+      query(collection(db, productsPath), limit(10)), 
+      (snapshot) => {
+        const productsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+        setProducts(productsList);
+      },
+      (error) => handleFirestoreError(error, OperationType.GET, productsPath)
+    );
 
     let notificationUnsub: (() => void) | undefined;
     if (user) {
-      const notificationsRef = collection(db, 'notifications');
+      const notificationsPath = 'notifications';
+      const notificationsRef = collection(db, notificationsPath);
       const q = query(
         notificationsRef, 
         where('userId', '==', user.uid), 
         where('isRead', '==', false)
       );
       
-      notificationUnsub = onSnapshot(q, (snapshot) => {
-        setUnreadCount(snapshot.size);
-      });
+      notificationUnsub = onSnapshot(
+        q, 
+        (snapshot) => {
+          setUnreadCount(snapshot.size);
+        },
+        (error) => handleFirestoreError(error, OperationType.GET, notificationsPath)
+      );
     }
 
     return () => {

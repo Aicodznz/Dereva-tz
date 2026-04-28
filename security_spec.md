@@ -1,33 +1,29 @@
-# Security Specification for Papo Hapo Super App
+# Security Specification - Papo Hapo Super App
 
-## 1. Data Invariants
-- **Users**: A user can only access and modify their own profile. Only admins can list all users or change roles.
-- **Vendors**: Profiles are public, but only the owner can modify them.
-- **Products**: Publicly readable. Only the vendor owner can modify products belonging to their vendor.
-- **Orders**: A customer can see their own orders. A vendor owner can see orders for their vendor. A rider can see orders assigned to them.
-- **Rides**: A customer can see their own rides. A driver can see pending rides or rides assigned to them.
-- **Drivers**: Online status and location are public (for customers to find them), but only the driver can update their own status.
-- **Messages**: Only participants of a chat can read/write messages in that chat's subcollection.
+## Data Invariants
+1. A Product must belong to an existing Vendor.
+2. An Order must reference a valid Customer and Vendor.
+3. Access to Order details is limited to the Customer, the Vendor Owner, the assigned Rider, and Admins.
+4. Notifications are private to the recipient user.
+5. Users cannot elevate their own roles or privileges.
+6. Immutable fields like `createdAt` and `ownerUid` must not be changed after creation.
+7. Document IDs must be between 1 and 128 characters and match `^[a-zA-Z0-9_\\-]+$`.
 
-## 2. The "Dirty Dozen" Payloads (Attack Vectors)
+## The "Dirty Dozen" Payloads (Exploit Attempts)
 
-1. **Identity Spoofing (User)**: Attempting to create/update a user profile with a different UID.
-2. **Privilege Escalation**: A regular user trying to set their role to `admin` in `users` collection.
-3. **Ghost Write (Order)**: Creating an order for another customer.
-4. **Price Manipulation**: Updating an order's `totalAmount` to 0 after it's been created.
-5. **Unauthorized Status Change**: A customer trying to mark their order as `delivered`.
-6. **Ride Hijacking**: A driver trying to accept a ride that's already `in_progress` or assigned to someone else.
-7. **Cross-Vendor Access**: A vendor owner trying to update products of another vendor.
-8. **PII Leak**: A non-admin trying to list all user documents to scrape emails.
-9. **Resource Exhaustion**: Sending a 1MB string as a product name.
-10. **Orphaned Message**: Writing a message to a chat the user is not a participant of.
-11. **Shadow Update (Driver)**: Trying to set `isVerified: true` on a driver profile via the client SDK.
-12. **Future Timestamp**: Setting `createdAt` to a time in the future.
+1. **Identity Spoofing**: Creating a vendor profile with `ownerUid` set to another user.
+2. **Role Escalation**: Updating a user profile to set `role: 'admin'`.
+3. **Shadow Update**: Updating a vendor profile with an extra field `isVerified: true`.
+4. **ID Poisoning**: Creating a product with a 2KB long string as the document ID.
+5. **PII Leak**: A signed-in user attempting to read the private info of another user.
+6. **State Shortcut**: Updating an order status from `pending` directly to `delivered` bypassing intermediate steps.
+7. **Resource Poisoning**: Sending a 1MB string into a `description` field.
+8. **Orphaned Write**: Creating a product referencing a non-existent vendor.
+9. **Timestamp Spoofing**: Sending a client-side timestamp in `createdAt` instead of `serverTimestamp()`.
+10. **Query Scrape**: Attempting to list all `notifications` without filtering by `userId`.
+11. **Outcome Bypass**: Updating an order `totalAmount` after it has been `accepted`.
+12. **Relationship Poisoning**: Adding a member to a vendor staff list when the user is not the owner of that vendor.
 
-## 3. Test Runner (Conceptual) - firestore.rules.test.ts
-```typescript
-// This file would be used with @firebase/rules-unit-testing
-import { assertFails, assertSucceeds, initializeTestApp, ... } from '@firebase/rules-unit-testing';
-
-// ... (Test logic mapping to the Dirty Dozen)
-```
+## Test Runner (firestore.rules.test.ts)
+*(Placeholder: In a full environment, this would be executed via Firebase Emulators)*
+The rules will be designed to fail all the above scenarios.

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { db, auth } from '../firebase';
+import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, orderBy, onSnapshot, getDocs, doc, updateDoc, deleteDoc, addDoc, serverTimestamp, where } from 'firebase/firestore';
 import { VendorProfile, Order, Product } from '../types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -215,34 +215,40 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const vendorsSnap = await getDocs(collection(db, 'vendors'));
-      setVendors(vendorsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as VendorProfile)));
+      try {
+        const vendorsSnap = await getDocs(collection(db, 'vendors'));
+        setVendors(vendorsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as VendorProfile)));
 
-      const usersSnap = await getDocs(collection(db, 'users'));
-      setAllUsers(usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserRecord)));
+        const usersSnap = await getDocs(collection(db, 'users'));
+        setAllUsers(usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserRecord)));
 
-      const ordersSnap = await getDocs(query(collection(db, 'orders'), orderBy('createdAt', 'desc')));
-      setAllOrders(ordersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
+        const ordersSnap = await getDocs(query(collection(db, 'orders'), orderBy('createdAt', 'desc')));
+        setAllOrders(ordersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
 
-      const bannersSnap = await getDocs(collection(db, 'banners'));
-      setBanners(bannersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner)));
+        const bannersSnap = await getDocs(collection(db, 'banners'));
+        setBanners(bannersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner)));
 
-      const couponsSnap = await getDocs(collection(db, 'coupons'));
-      setCoupons(couponsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Coupon)));
+        const couponsSnap = await getDocs(collection(db, 'coupons'));
+        setCoupons(couponsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Coupon)));
 
-      const productsSnap = await getDocs(collection(db, 'products'));
-      setAllProducts(productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ProductWithVendor)));
+        const productsSnap = await getDocs(collection(db, 'products'));
+        setAllProducts(productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ProductWithVendor)));
+      } catch (error) {
+        handleFirestoreError(error, OperationType.GET, 'admin_overview');
+      }
     };
 
     fetchData();
 
+    const errorHandler = (path: string) => (error: any) => handleFirestoreError(error, OperationType.GET, path);
+
     const unsubscribes = [
-      onSnapshot(collection(db, 'vendors'), () => fetchData()),
-      onSnapshot(collection(db, 'users'), () => fetchData()),
-      onSnapshot(collection(db, 'orders'), () => fetchData()),
-      onSnapshot(collection(db, 'banners'), () => fetchData()),
-      onSnapshot(collection(db, 'coupons'), () => fetchData()),
-      onSnapshot(collection(db, 'products'), () => fetchData()),
+      onSnapshot(collection(db, 'vendors'), () => fetchData(), errorHandler('vendors')),
+      onSnapshot(collection(db, 'users'), () => fetchData(), errorHandler('users')),
+      onSnapshot(collection(db, 'orders'), () => fetchData(), errorHandler('orders')),
+      onSnapshot(collection(db, 'banners'), () => fetchData(), errorHandler('banners')),
+      onSnapshot(collection(db, 'coupons'), () => fetchData(), errorHandler('coupons')),
+      onSnapshot(collection(db, 'products'), () => fetchData(), errorHandler('products')),
     ];
 
     return () => {

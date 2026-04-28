@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { auth, db } from './firebase';
+import { auth, db, handleFirestoreError, OperationType } from './firebase';
 import { User as FirebaseUser, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInAnonymously, GoogleAuthProvider, signInWithPopup, updatePassword } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { toast } from 'sonner';
 import { UserProfile, UserRole } from './types';
 
 interface AuthContextType {
@@ -40,6 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const fetchProfile = async (uid: string) => {
+    const path = `users/${uid}`;
     try {
       const docRef = doc(db, 'users', uid);
       const docSnap = await getDoc(docRef);
@@ -67,7 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
     } catch (error) {
-      console.error('Error fetching profile:', error);
+      handleFirestoreError(error, OperationType.GET, path);
     } finally {
       setLoading(false);
     }
@@ -148,6 +150,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setProfile(newProfile);
     } catch (error: any) {
       console.error('Signup error:', error);
+      if (error.code === 'auth/configuration-not-found') {
+        toast.error("Firebase Authentication haijawezeshwa kule Console.", {
+          description: "Tafadhali washa 'Email/Password' kwenye mradi wako mpya wa Firebase.",
+          duration: 10000
+        });
+      }
       throw error;
     }
   };
@@ -158,6 +166,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await signInWithEmailAndPassword(auth, cleanEmail, pass);
     } catch (error: any) {
       console.error('Login error:', error);
+      if (error.code === 'auth/configuration-not-found') {
+        toast.error("Firebase Auth haijaanzishwa.", {
+          description: "Washa 'Email/Password' auth kwenye Firebase Console.",
+          duration: 10000
+        });
+      }
       throw error;
     }
   };

@@ -1,19 +1,15 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
     // -------------------------------------------------------------------------
     // Phase 3: Primitives & Global Helpers
     // -------------------------------------------------------------------------
-    
+
     function isSignedIn() { return request.auth != null; }
     
-    function isVerified() {
-      // Relaxed for development, but ideally mandatory email_verified
-      return isSignedIn();
-    }
-
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
+    function isValidId(id) { 
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); 
     }
 
     function isAdmin() {
@@ -25,6 +21,8 @@ service cloud.firestore {
 
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
+    
+    function isOwner(uid) { return isSignedIn() && request.auth.uid == uid; }
 
     // Default Deny
     match /{document=**} {
@@ -37,32 +35,31 @@ service cloud.firestore {
 
     function isValidUser(data) {
       return data.uid == request.auth.uid &&
+             data.keys().hasAll(['uid', 'email', 'role']) &&
+             data.email is string &&
              data.role in ['customer', 'vendor', 'rider', 'admin'];
     }
 
     function isValidVendor(data) {
-      return data.businessName is string && data.businessName.size() <= 100 &&
-             data.ownerUid == request.auth.uid;
+      return data.ownerUid == request.auth.uid &&
+             data.businessName is string && data.businessName.size() <= 100 &&
+             data.category in ["pharmacy", "grocery", "restaurant", "parcel", "taxi", "car_rental", "salon", "hotel", "ecommerce"];
+    }
+
+    function isValidProduct(data) {
+      return data.vendorId is string &&
+             data.name is string && data.name.size() <= 150 &&
+             data.price is number && data.price >= 0;
     }
 
     function isValidOrder(data) {
-      return data.customerId is string &&
-             data.vendorId is string &&
-             data.status is string;
+      return data.customerId == request.auth.uid &&
+             data.status in ["pending", "accepted", "preparing", "out_for_delivery", "delivered", "cancelled"];
     }
 
-    function isValidRide(data) {
-      return data.customerId is string &&
-             data.status in [
-               'pending', 'accepted', 'arrived', 'started', 
-               'completed', 'cancelled', 'searching', 'arriving', 
-               'on_trip', 'driver_arriving', 'driver_arrived', 'ready_for_pickup'
-             ];
-    }
-
-    function isValidDriver(data) {
-      return data.isOnline is bool &&
-             data.location is map;
+    function isValidNotification(data) {
+      return data.userId is string &&
+             data.title is string && data.title.size() <= 200;
     }
 
     // -------------------------------------------------------------------------
@@ -71,18 +68,16 @@ service cloud.firestore {
 
     // Users
     match /users/{userId} {
-      allow get: if isVerified(); // Allow basic profile fetch for chats/orders
+      allow get: if isSignedIn();
       allow list: if isAdmin();
-      allow create: if isVerified() && isValidUser(incoming());
-      allow update: if isVerified() && (
-        (isOwner(userId) && (
-          incoming().diff(existing()).affectedKeys().hasOnly([
-            'displayName', 'fullName', 'photoURL', 'phoneNumber', 'address', 'role',
-            'vehicleType', 'vehicleBrand', 'vehicleModel', 'licensePlate', 'driverType',
-            'nidaNumber', 'mobileMoneyNumber', 'city', 'preferredWorkArea', 'availability',
-            'updatedAt'
-          ])
-        )) ||
+      allow create: if isSignedIn() && isValidUser(incoming());
+      allow update: if isSignedIn() && (
+        (isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly([
+          'displayName', 'fullName', 'photoURL', 'phoneNumber', 'address', 'role',
+          'vehicleType', 'vehicleBrand', 'vehicleModel', 'licensePlate', 'driverType',
+          'nidaNumber', 'mobileMoneyNumber', 'city', 'preferredWorkArea', 'availability',
+          'updatedAt'
+        ]) && incoming().role == existing().role) ||
         isAdmin()
       );
     }
@@ -90,11 +85,13 @@ service cloud.firestore {
     // Vendors
     match /vendors/{vendorId} {
       allow read: if true;
-      allow create: if isVerified() && isValidVendor(incoming());
-      allow update: if isVerified() && (
-        (isOwner(existing().ownerUid) && (
-          incoming().diff(existing()).affectedKeys().hasAny(['businessName', 'description', 'location', 'logoUrl', 'bannerUrl', 'address', 'deliveryRadius', 'tin', 'operatingHours', 'status', 'rating', 'updatedAt'])
-        )) ||
+      allow create: if isSignedIn() && isValidVendor(incoming());
+      allow update: if isSignedIn() && (
+        (isOwner(existing().ownerUid) && incoming().ownerUid == existing().ownerUid &&
+         incoming().diff(existing()).affectedKeys().hasOnly([
+           'businessName', 'description', 'location', 'logoUrl', 'bannerUrl', 'address', 
+           'deliveryRadius', 'tin', 'operatingHours', 'status', 'rating', 'updatedAt', 'category'
+         ])) ||
         isAdmin()
       );
     }
@@ -102,100 +99,115 @@ service cloud.firestore {
     // Products
     match /products/{productId} {
       allow read: if true;
-      allow write: if isVerified() && (
-        (get(/databases/$(database)/documents/vendors/$(incoming().vendorId)).data.ownerUid == request.auth.uid) ||
-        (resource != null && get(/databases/$(database)/documents/vendors/$(resource.data.vendorId)).data.ownerUid == request.auth.uid) ||
+      allow create: if isSignedIn() && isValidProduct(incoming()) && (
+        get(/databases/$(database)/documents/vendors/$(incoming().vendorId)).data.ownerUid == request.auth.uid ||
+        isAdmin()
+      );
+      allow update: if isSignedIn() && (
+        (get(/databases/$(database)/documents/vendors/$(existing().vendorId)).data.ownerUid == request.auth.uid &&
+         incoming().vendorId == existing().vendorId &&
+         incoming().diff(existing()).affectedKeys().hasAny(['name', 'description', 'price', 'category', 'stock', 'imageUrl', 'unit', 'variations', 'updatedAt'])) ||
+        isAdmin()
+      );
+      allow delete: if isSignedIn() && (
+        get(/databases/$(database)/documents/vendors/$(existing().vendorId)).data.ownerUid == request.auth.uid ||
         isAdmin()
       );
     }
 
     // Orders
     match /orders/{orderId} {
-      allow get: if isVerified() && (
-        isAdmin() || 
-        resource.data.customerId == request.auth.uid || 
-        resource.data.vendorOwnerUid == request.auth.uid ||
-        resource.data.riderId == request.auth.uid
-      );
-      allow list: if isVerified() && (
-        isAdmin() || 
+      allow get: if isSignedIn() && (
         resource.data.customerId == request.auth.uid || 
         resource.data.vendorOwnerUid == request.auth.uid ||
         resource.data.riderId == request.auth.uid ||
-        resource.data.status == 'ready_for_pickup'
+        isAdmin()
       );
-      allow create: if isVerified() && isValidOrder(incoming()) && incoming().customerId == request.auth.uid;
-      allow update: if isVerified() && (
-        isAdmin() ||
-        isOwner(existing().customerId) ||
-        isOwner(existing().vendorOwnerUid) ||
-        isOwner(existing().riderId) ||
-        (existing().status == 'ready_for_pickup' && incoming().riderId == request.auth.uid)
-      );
-    }
-
-    // Rides
-    match /rides/{rideId} {
-      allow read: if isVerified() && (
-        isAdmin() || 
+      allow list: if isSignedIn() && (
         resource.data.customerId == request.auth.uid || 
-        resource.data.driverId == request.auth.uid || 
-        resource.data.status == 'pending'
+        resource.data.vendorOwnerUid == request.auth.uid ||
+        resource.data.riderId == request.auth.uid ||
+        isAdmin()
       );
-      allow create: if isVerified() && isValidRide(incoming()) && incoming().customerId == request.auth.uid;
-      allow update: if isVerified() && (
+      allow create: if isSignedIn() && isValidOrder(incoming());
+      allow update: if isSignedIn() && (
         isAdmin() ||
-        isOwner(existing().customerId) ||
-        (existing().status == 'pending' && incoming().driverId == request.auth.uid) ||
-        isOwner(existing().driverId)
+        (resource.data.customerId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) && incoming().status == 'cancelled') ||
+        (resource.data.vendorOwnerUid == request.auth.uid && incoming().diff(existing()).affectedKeys().hasAny(['status', 'riderId', 'updatedAt'])) ||
+        (resource.data.riderId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']))
       );
-    }
-
-    // Drivers Presence
-    match /drivers/{driverId} {
-      allow read: if true;
-      allow write: if isVerified() && isOwner(driverId);
-    }
-    
-    match /riders/{riderId} {
-      allow read: if true;
-      allow write: if isVerified() && isOwner(riderId);
-    }
-
-    // Communications
-    match /messages/{messageId} {
-      allow read: if isVerified() && (resource.data.participants.hasAny([request.auth.uid]) || isAdmin());
-      allow create: if isVerified() && incoming().participants.hasAny([request.auth.uid]);
     }
 
     // Notifications
-    match /notifications/{id} { 
-      allow read: if isVerified() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow write: if isVerified() && (isAdmin() || incoming().userId == request.auth.uid);
+    match /notifications/{id} {
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAdmin() || (isSignedIn() && incoming().userId == request.auth.uid);
+      allow update: if isSignedIn() && (resource.data.userId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['isRead']));
     }
 
-    // Coupons, Reviews, Tables, Staff
-    match /coupons/{id} {
-      allow read: if isVerified();
-      allow write: if isVerified() && (isAdmin() || incoming().vendorOwnerUid == request.auth.uid || (resource != null && resource.data.vendorOwnerUid == request.auth.uid));
+    // Banners
+    match /banners/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
+
+    // Coupons
+    match /coupons/{id} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || (isSignedIn() && incoming().vendorOwnerUid == request.auth.uid);
+    }
+
+    // Reviews
     match /reviews/{id} {
       allow read: if true;
-      allow create: if isVerified() && incoming().userId == request.auth.uid;
-      allow update, delete: if isVerified() && (isOwner(existing().userId) || isAdmin());
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
     }
+
+    // Tables
     match /tables/{id} {
       allow read: if true;
-      allow write: if isVerified() && (isAdmin() || incoming().vendorOwnerUid == request.auth.uid || (resource != null && resource.data.vendorOwnerUid == request.auth.uid));
+      allow write: if isAdmin() || (isSignedIn() && incoming().vendorOwnerUid == request.auth.uid);
     }
+
+    // Staff
     match /staff/{id} {
-      allow read: if isVerified() && (resource.data.vendorOwnerUid == request.auth.uid || isAdmin());
-      allow write: if isVerified() && (isAdmin() || incoming().vendorOwnerUid == request.auth.uid || (resource != null && resource.data.vendorOwnerUid == request.auth.uid));
+      allow read: if isSignedIn() && (resource.data.vendorOwnerUid == request.auth.uid || isAdmin());
+      allow write: if isAdmin() || (isSignedIn() && incoming().vendorOwnerUid == request.auth.uid);
     }
-    match /banners/{id} { allow read: if true; allow write: if isAdmin(); }
-    match /payments/{id} {
-      allow read: if isVerified() && (resource.data.customerId == request.auth.uid || resource.data.driverId == request.auth.uid || isAdmin());
-      allow create: if isVerified();
+
+    // Rides (Taxi)
+    match /rides/{rideId} {
+      allow get, list: if isSignedIn() && (
+        resource.data.customerId == request.auth.uid || 
+        resource.data.driverId == request.auth.uid ||
+        resource.data.status == 'pending' ||
+        isAdmin()
+      );
+      allow create: if isSignedIn() && incoming().customerId == request.auth.uid;
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        (resource.data.customerId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])) ||
+        (existing().status == 'pending' && incoming().diff(existing()).affectedKeys().hasOnly(['driverId', 'status', 'updatedAt'])) ||
+        (resource.data.driverId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasAny(['status', 'currentPosition', 'updatedAt']))
+      );
+    }
+
+    // Drivers/Riders live status
+    match /drivers/{id} {
+      allow read: if true;
+      allow write: if isOwner(id) || isAdmin();
+    }
+    match /riders/{id} {
+      allow read: if true;
+      allow write: if isOwner(id) || isAdmin();
+    }
+    
+    // Messages
+    match /messages/{id} {
+      allow read: if isSignedIn() && (resource.data.participants.hasAny([request.auth.uid]) || isAdmin());
+      allow create: if isSignedIn() && incoming().participants.hasAny([request.auth.uid]);
     }
   }
 }

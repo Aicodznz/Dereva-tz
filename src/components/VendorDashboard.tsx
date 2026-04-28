@@ -6,6 +6,7 @@ import { storageService } from '../services/storageService';
 import { db, auth } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, getDocs, doc, updateDoc, deleteDoc, addDoc, getDoc, limit, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '../AuthContext';
+import { handleFirestoreError, OperationType } from '../firebase';
 import { VendorProfile, VendorCategory, Product, Order, OrderStatus } from '../types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -596,22 +597,33 @@ export default function VendorDashboard() {
   useEffect(() => {
     if (!user) return;
     const fetchVendor = async () => {
-      const q = query(collection(db, 'vendors'), where('ownerUid', '==', user.uid), limit(1));
-      const snap = await getDocs(q);
-      
-      if (!snap.empty) {
-        const doc = snap.docs[0];
-        setVendorProfile({ id: doc.id, ...doc.data() } as VendorProfile);
-        setShowOnboarding(false);
-      } else {
-        setShowOnboarding(true);
+      const path = 'vendors';
+      try {
+        const q = query(collection(db, 'vendors'), where('ownerUid', '==', user.uid), limit(1));
+        const snap = await getDocs(q);
+        
+        if (!snap.empty) {
+          const doc = snap.docs[0];
+          setVendorProfile({ id: doc.id, ...doc.data() } as VendorProfile);
+          setShowOnboarding(false);
+        } else {
+          setShowOnboarding(true);
+        }
+      } catch (error) {
+        handleFirestoreError(error, OperationType.GET, path);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchVendor();
 
-    const unsub = onSnapshot(query(collection(db, 'vendors'), where('ownerUid', '==', user.uid)), () => fetchVendor());
+    const path = 'vendors';
+    const unsub = onSnapshot(
+      query(collection(db, path), where('ownerUid', '==', user.uid)), 
+      () => fetchVendor(),
+      (error) => handleFirestoreError(error, OperationType.GET, path)
+    );
 
     return () => unsub();
   }, [user]);
@@ -620,36 +632,53 @@ export default function VendorDashboard() {
     if (!vendorProfile?.id || !user) return;
     
     const fetchOrders = async () => {
-      const q = query(
-        collection(db, 'orders'), 
-        where('vendorId', '==', vendorProfile.id),
-        orderBy('createdAt', 'desc'),
-        limit(10)
-      );
-      const snap = await getDocs(q);
-      setOrders(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
+      const path = 'orders';
+      try {
+        const q = query(
+          collection(db, path), 
+          where('vendorId', '==', vendorProfile.id),
+          orderBy('createdAt', 'desc'),
+          limit(10)
+        );
+        const snap = await getDocs(q);
+        setOrders(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
+      } catch (error) {
+        handleFirestoreError(error, OperationType.GET, path);
+      }
     };
 
     const fetchProducts = async () => {
-      const q = query(collection(db, 'products'), where('vendorId', '==', vendorProfile.id));
-      const snap = await getDocs(q);
-      setProducts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
+      const path = 'products';
+      try {
+        const q = query(collection(db, path), where('vendorId', '==', vendorProfile.id));
+        const snap = await getDocs(q);
+        setProducts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
+      } catch (error) {
+        handleFirestoreError(error, OperationType.GET, path);
+      }
     };
 
     const fetchSections = async () => {
-      const q = query(collection(db, 'tables'), where('vendorId', '==', vendorProfile.id));
-      const snap = await getDocs(q);
-      setSections(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const path = 'tables';
+      try {
+        const q = query(collection(db, path), where('vendorId', '==', vendorProfile.id));
+        const snap = await getDocs(q);
+        setSections(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      } catch (error) {
+        handleFirestoreError(error, OperationType.GET, path);
+      }
     };
 
     fetchOrders();
     fetchProducts();
     fetchSections();
 
+    const errorHandler = (path: string) => (error: any) => handleFirestoreError(error, OperationType.GET, path);
+
     const unsubs = [
-      onSnapshot(query(collection(db, 'orders'), where('vendorId', '==', vendorProfile.id)), () => fetchOrders()),
-      onSnapshot(query(collection(db, 'products'), where('vendorId', '==', vendorProfile.id)), () => fetchProducts()),
-      onSnapshot(query(collection(db, 'tables'), where('vendorId', '==', vendorProfile.id)), () => fetchSections()),
+      onSnapshot(query(collection(db, 'orders'), where('vendorId', '==', vendorProfile.id)), () => fetchOrders(), errorHandler('orders')),
+      onSnapshot(query(collection(db, 'products'), where('vendorId', '==', vendorProfile.id)), () => fetchProducts(), errorHandler('products')),
+      onSnapshot(query(collection(db, 'tables'), where('vendorId', '==', vendorProfile.id)), () => fetchSections(), errorHandler('tables')),
     ];
 
     return () => {
