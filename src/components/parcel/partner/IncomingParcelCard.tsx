@@ -63,8 +63,8 @@ const categoryConfig: Record<ParcelCategory, {
 const IncomingParcelCard: React.FC<Props> = ({ parcel }) => {
   const [timeLeft, setTimeLeft] = useState(15);
   const { acceptParcel } = useAcceptParcel();
-  const config = categoryConfig[parcel.category];
-  const Icon = config.icon;
+  const config = categoryConfig[parcel.category] || categoryConfig.package;
+  const Icon = config.icon || Box;
 
   useEffect(() => {
     if (timeLeft <= 0) return;

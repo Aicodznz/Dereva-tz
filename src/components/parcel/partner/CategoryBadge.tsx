@@ -8,14 +8,19 @@ interface Props {
 }
 
 const CategoryBadge: React.FC<Props> = ({ category, size = 'sm' }) => {
-  const config = {
+  const categories: Record<string, { icon: any, color: string, label: string }> = {
     gift: { icon: Package, color: '#D4537E', label: 'Zawadi' },
     document: { icon: FileText, color: '#378ADD', label: 'Hati' },
     electronics: { icon: Smartphone, color: '#EF9F27', label: 'Elektroniki' },
     package: { icon: Box, color: '#888780', label: 'Kifurushi' },
     medicine: { icon: Pill, color: '#E24B4A', label: 'Dawa' },
     pet_supplies: { icon: Dog, color: '#639922', label: 'Mifugo' }
-  }[category];
+  };
+
+  // Add aliases for common plural/mismatched strings
+  const config = categories[category] || 
+                 categories[category?.replace(/s$/, '')] || 
+                 categories.package;
 
   const Icon = config.icon;
 

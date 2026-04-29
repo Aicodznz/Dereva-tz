@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import { useAuth } from '../../../AuthContext';
 
@@ -18,13 +18,13 @@ export function usePartnerLocation() {
 
       try {
         const partnerRef = doc(db, 'partners', user.uid);
-        await updateDoc(partnerRef, {
+        await setDoc(partnerRef, {
           location: {
             lat: latitude,
             lng: longitude,
-            updatedAt: serverTimestamp(),
           },
-        });
+          updatedAt: serverTimestamp(),
+        }, { merge: true });
       } catch (error) {
         console.error('Pigo la kusasisha eneo:', error);
       }

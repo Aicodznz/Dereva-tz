@@ -4,6 +4,8 @@ import CustomerDashboard from './CustomerDashboard';
 import VendorDashboard from './VendorDashboard';
 import RiderDashboard from './RiderDashboard';
 import AdminDashboard from './AdminDashboard';
+import ParcelHome from './parcel/ParcelHome';
+import ParcelPartnerController from './parcel/partner/ParcelPartnerController';
 
 export default function Dashboard() {
   const { profile, loading } = useAuth();

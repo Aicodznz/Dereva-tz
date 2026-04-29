@@ -17,14 +17,15 @@ const categoryConfig: Record<string, {
   icon: any, 
   color: string, 
   baseFare: number,
-  desc: string 
+  desc: string,
+  type: ParcelCategory
 }> = {
-  gifts: { title: 'Zawadi', icon: Package, color: 'bg-pink-500', baseFare: 5000, desc: 'Tuma zawadi kwa uangalifu mkubwa.' },
-  docs: { title: 'Hati', icon: FileText, color: 'bg-blue-500', baseFare: 3000, desc: 'Uwasilishaji wa haraka wa nyaraka.' },
-  electronics: { title: 'Elektroniki', icon: Smartphone, color: 'bg-amber-500', baseFare: 7000, desc: 'Vifaa vya kielektroniki, salama zaidi.' },
-  package: { title: 'Kifurushi', icon: Box, color: 'bg-neutral-500', baseFare: 4000, desc: 'Mzigo wowote, mdogo au mkubwa.' },
-  medicines: { title: 'Dawa', icon: Pill, color: 'bg-red-500', baseFare: 2500, desc: 'Dawa muhimu, kwa haraka zaidi.' },
-  pet: { title: 'Mifugo', icon: Dog, color: 'bg-green-500', baseFare: 6000, desc: 'Chakula na vifaa vya wanyama.' }
+  gifts: { title: 'Zawadi', icon: Package, color: 'bg-pink-500', baseFare: 5000, desc: 'Tuma zawadi kwa uangalifu mkubwa.', type: 'gift' },
+  documents: { title: 'Hati', icon: FileText, color: 'bg-blue-500', baseFare: 3000, desc: 'Uwasilishaji wa haraka wa nyaraka.', type: 'document' },
+  electronics: { title: 'Elektroniki', icon: Smartphone, color: 'bg-amber-500', baseFare: 7000, desc: 'Vifaa vya kielektroniki, salama zaidi.', type: 'electronics' },
+  package: { title: 'Kifurushi', icon: Box, color: 'bg-neutral-500', baseFare: 4000, desc: 'Mzigo wowote, mdogo au mkubwa.', type: 'package' },
+  medicines: { title: 'Dawa', icon: Pill, color: 'bg-red-500', baseFare: 2500, desc: 'Dawa muhimu, kwa haraka zaidi.', type: 'medicine' },
+  pet_supplies: { title: 'Mifugo', icon: Dog, color: 'bg-green-500', baseFare: 6000, desc: 'Chakula na vifaa vya wanyama.', type: 'pet_supplies' }
 };
 
 const ParcelRequestFlow: React.FC = () => {
@@ -58,7 +59,7 @@ const ParcelRequestFlow: React.FC = () => {
       const parcelData = {
         customerId: user.uid,
         status: 'pending',
-        category: category.replace('s', '') as ParcelCategory,
+        category: config.type,
         categoryDetails: formData.categoryDetails,
         sender: formData.sender,
         recipient: formData.recipient,

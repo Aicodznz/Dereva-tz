@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Bell, MapPin, TrendingUp, Package, FileText, Smartphone, Box, Pill, Dog, Power, User } from 'lucide-react';
 import { useAuth } from '../../../AuthContext';
-import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import { Partner } from '../../../types/parcel';
 import CategoryBadge from './CategoryBadge';
@@ -31,7 +31,7 @@ const PartnerDashboard: React.FC = () => {
           activeParcelIds: [],
           location: { lat: -6.7924, lng: 39.2083, updatedAt: serverTimestamp() }
         };
-        updateDoc(doc(db, 'partners', user.uid), initialPartner);
+        setDoc(doc(db, 'partners', user.uid), initialPartner);
       }
     });
     return () => unsubscribe();
