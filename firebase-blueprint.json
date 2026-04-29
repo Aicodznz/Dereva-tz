@@ -237,6 +237,43 @@
         "driverRating": { "type": "number" }
       },
       "required": ["customerId", "pickup", "destination", "status", "vehicleType"]
+    },
+    "Parcel": {
+      "title": "Parcel Delivery",
+      "description": "Parcel delivery request and fulfillment details",
+      "type": "object",
+      "properties": {
+        "status": { "type": "string", "enum": ["pending", "accepted", "at_sender", "picked_up", "in_transit", "arrived_recipient", "delivered", "rated"] },
+        "category": { "type": "string", "enum": ["gift", "document", "electronics", "package", "medicine", "pet_supplies"] },
+        "categoryDetails": { "type": "object" },
+        "sender": { "type": "object" },
+        "recipient": { "type": "object" },
+        "partnerId": { "type": "string" },
+        "partnerInfo": { "type": "object" },
+        "partnerLocation": { "type": "object" },
+        "pricing": { "type": "object" },
+        "paymentMethod": { "type": "string" },
+        "paymentStatus": { "type": "string" },
+        "photos": { "type": "object" },
+        "specialHandling": { "type": "object" },
+        "timestamps": { "type": "object" }
+      },
+       "required": ["status", "category", "sender", "recipient"]
+    },
+    "Partner": {
+      "title": "Delivery Partner",
+      "description": "Rider specifically for parcel delivery delivery",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "vehicleType": { "type": "string" },
+        "isOnline": { "type": "boolean" },
+        "location": { "type": "object" },
+        "earnings": { "type": "object" },
+        "activeParcelIds": { "type": "array" }
+      },
+      "required": ["name", "isOnline"]
     }
   },
   "firestore": {
@@ -254,6 +291,8 @@
     "/tables/{tableId}": { "schema": "Table", "description": "Dine-in tables" },
     "/staff/{staffId}": { "schema": "Staff", "description": "Vendor staff members" },
     "/rides/{rideId}": { "schema": "Ride", "description": "Taxi rides" },
-    "/drivers/{driverId}": { "schema": { "$ref": "#/entities/User" }, "description": "Driver live status and location" }
+    "/drivers/{driverId}": { "schema": { "$ref": "#/entities/User" }, "description": "Driver live status and location" },
+    "/parcels/{parcelId}": { "schema": "Parcel", "description": "Parcel delivery jobs" },
+    "/partners/{partnerId}": { "schema": "Partner", "description": "Parcel delivery partner profiles" }
   }
 }

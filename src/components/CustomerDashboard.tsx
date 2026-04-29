@@ -6,7 +6,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
   Utensils, ShoppingCart, Pill, Package, Car, Scissors, Hotel, Star, 
-  Search, Bell, MapPin, ChevronRight, ShoppingBag, Tag, Plus, ShoppingBasket
+  Search, Bell, MapPin, ChevronRight, ShoppingBag, Tag, Plus, ShoppingBasket,
+  FileText, Smartphone, Box, Dog
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
@@ -236,7 +237,7 @@ export default function CustomerDashboard() {
   }, [user]);
 
   return (
-    <div className={`pb-24 space-y-6 md:space-y-12 lg:space-y-16 ${isRTL ? 'text-right' : 'text-left'}`}>
+    <div className={`pb-24 space-y-8 md:space-y-16 lg:space-y-24 ${isRTL ? 'text-right' : 'text-left'}`}>
       <LocationPicker 
         isOpen={isLocationPickerOpen}
         onClose={() => {
@@ -250,6 +251,73 @@ export default function CustomerDashboard() {
         preSelectedVendorId={selectedVendorId}
         isMapViewOnly={isMapViewOnly}
       />
+
+      {/* Hero Section - High-End Aesthetic */}
+      <section className="relative h-[440px] md:h-[520px] rounded-[3.5rem] overflow-hidden group shadow-2xl shadow-neutral-900/20 border border-white/5 mx-2">
+         <motion.div 
+            initial={{ scale: 1.1, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 1.5, ease: [0.22, 1, 0.36, 1] }}
+            className="absolute inset-0"
+         >
+            <img 
+              src="https://images.unsplash.com/photo-1549465220-1d8c9708458c?auto=format&fit=crop&w=1200&q=80" 
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-[4s] ease-out" 
+              alt="Hero" 
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+         </motion.div>
+         
+         <div className="absolute inset-0 p-10 md:p-16 flex flex-col justify-end text-white">
+            <motion.div
+              initial={{ y: 50, opacity: 0 }}
+              whileInView={{ y: 0, opacity: 1 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.3, duration: 1, ease: [0.22, 1, 0.36, 1] }}
+            >
+               <span className="text-[10px] font-black uppercase tracking-[0.4em] text-orange-500 mb-4 block">Huduma Bora Kiganjani</span>
+               <h2 className="text-5xl md:text-7xl font-black italic uppercase tracking-tighter leading-[0.85] mb-8">
+                  Dunia <br /> 
+                  <span className="text-orange-600">Yako 📦</span>
+               </h2>
+               <div className="flex flex-wrap gap-4">
+                  <Link 
+                    to="/taxi"
+                    className="bg-white/10 backdrop-blur-xl border border-white/20 px-8 py-5 rounded-[2rem] flex items-center gap-5 group/item cursor-pointer hover:bg-white hover:text-black transition-all"
+                  >
+                     <div className="w-12 h-12 bg-orange-600 rounded-2xl flex items-center justify-center shadow-lg group-hover/item:scale-110 transition-transform">
+                        <Car size={24} />
+                     </div>
+                     <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest opacity-50">Safari</p>
+                        <p className="text-lg font-black italic tracking-tighter uppercase">Agiza Teksi</p>
+                     </div>
+                  </Link>
+                  <button 
+                    onClick={() => {
+                        const el = document.getElementById('parcel-section');
+                        el?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className="bg-white/10 backdrop-blur-xl border border-white/20 px-8 py-5 rounded-[2rem] flex items-center gap-5 group/item cursor-pointer hover:bg-white hover:text-black transition-all"
+                  >
+                     <div className="w-12 h-12 bg-pink-500 rounded-2xl flex items-center justify-center shadow-lg group-hover/item:scale-110 transition-transform">
+                        <Package size={24} />
+                     </div>
+                     <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest opacity-50">Tuma</p>
+                        <p className="text-lg font-black italic tracking-tighter uppercase">Safirisha Parcel</p>
+                     </div>
+                  </button>
+               </div>
+            </motion.div>
+         </div>
+         
+         <div className="absolute top-8 right-8 flex gap-2">
+            <div className="w-2 h-2 rounded-full bg-orange-600 animate-pulse" />
+            <div className="w-2 h-2 rounded-full bg-white/20" />
+            <div className="w-2 h-2 rounded-full bg-white/20" />
+         </div>
+      </section>
 
       {tableSession && (
         <motion.div 
@@ -468,7 +536,54 @@ export default function CustomerDashboard() {
         </div>
       </section>
 
-      {/* 4. Bidhaa Maarufu (Popular Products) - Horizontal scroll below */}
+      {/* Parcel Delivery Sub-Categories (New Request) */}
+      <section id="parcel-section" className="px-2 scroll-mt-24">
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex flex-col">
+            <h3 className="font-black text-2xl text-neutral-900 tracking-tight font-display italic uppercase tracking-tighter">
+               Safirisha Parcel 📦
+            </h3>
+            <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-[0.1em]">Tuma chochote, popote, muda wowote kwa usalama</p>
+          </div>
+        </div>
+        <div className="flex gap-4 overflow-x-auto pb-6 no-scrollbar -mx-2 px-2">
+           {[
+             { id: 'gifts', label: 'Gifts', sub: 'Send heartfelt presents', icon: Package, color: 'bg-pink-500', img: 'https://images.unsplash.com/photo-1549465220-1d8c9708458c?w=300&h=300&fit=crop' },
+             { id: 'docs', label: 'Documents', sub: 'From IDs to forms', icon: FileText, color: 'bg-blue-500', img: 'https://images.unsplash.com/photo-1586769852836-bc069f19e1b6?w=300&h=300&fit=crop' },
+             { id: 'electronics', label: 'Electronics', sub: 'Safeguard your gadgets', icon: Smartphone, color: 'bg-amber-500', img: 'https://images.unsplash.com/photo-1550009158-9ebf69173e03?w=300&h=300&fit=crop' },
+             { id: 'package', label: 'Package', sub: 'Small or large packages', icon: Box, color: 'bg-neutral-500', img: 'https://images.unsplash.com/photo-1566576721346-d4a3b4eaad5b?w=300&h=300&fit=crop' },
+             { id: 'medicines', label: 'Medicines', sub: 'Medical essentials fast', icon: Pill, color: 'bg-red-500', img: 'https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=300&h=300&fit=crop' },
+             { id: 'pet', label: 'Pet Supplies', sub: 'Furry friend needs', icon: Dog, color: 'bg-green-500', img: 'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?w=300&h=300&fit=crop' }
+           ].map((cat, i) => (
+              <motion.div 
+                key={cat.id}
+                whileHover={{ y: -8, scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="min-w-[180px] md:min-w-[220px] bg-white dark:bg-neutral-900 rounded-[2.5rem] overflow-hidden border border-neutral-100 dark:border-neutral-800 shadow-2xl shadow-neutral-900/5 group relative"
+              >
+                 <div className="h-40 relative overflow-hidden">
+                    <img src={cat.img} alt={cat.label} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className={`absolute top-4 left-4 w-12 h-12 ${cat.color} rounded-2xl flex items-center justify-center text-white shadow-2xl transform group-hover:rotate-12 transition-transform`}>
+                       <cat.icon size={24} />
+                    </div>
+                 </div>
+                 <div className="p-5 border-t border-neutral-50 dark:border-neutral-800">
+                    <h4 className="font-black text-sm text-neutral-900 dark:text-white uppercase tracking-tighter italic">{cat.label}</h4>
+                    <p className="text-[10px] text-neutral-400 mt-1 font-bold italic line-clamp-1 opacity-60">{cat.sub}</p>
+                    <Link 
+                      to={`/parcel-request/${cat.id}`}
+                      className="mt-5 w-full py-3 bg-neutral-900 dark:bg-white text-white dark:text-black text-[9px] font-black rounded-2xl uppercase tracking-widest hover:bg-orange-600 dark:hover:bg-orange-600 hover:text-white transition-all flex items-center justify-center gap-2"
+                    >
+                       TUMA SASA <ChevronRight size={14} />
+                    </Link>
+                 </div>
+              </motion.div>
+           ))}
+        </div>
+      </section>
+
+      {/* 4. Bidhaa Maarufu (Popular Products) */}
       <section>
         <div className="flex items-center justify-between mb-6">
           <h3 className="font-black text-xl text-neutral-900 dark:text-white tracking-tight">{t('popular_products') || 'Bidhaa Maarufu'}</h3>

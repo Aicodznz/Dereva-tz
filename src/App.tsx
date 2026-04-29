@@ -22,6 +22,8 @@ import RegisterDriver from './components/auth/RegisterDriver';
 import RegisterVendor from './components/auth/RegisterVendor';
 
 import TaxiBooking from './components/TaxiBooking';
+import ParcelPartnerController from './components/parcel/partner/ParcelPartnerController';
+import ParcelRequestFlow from './components/parcel/ParcelRequestFlow';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -52,6 +54,8 @@ function AppContent() {
             <Route path="/product/:id" element={<ProductDetail />} />
             <Route path="/vendor/:id" element={<VendorStore />} />
             <Route path="/taxi" element={<PrivateRoute><TaxiBooking /></PrivateRoute>} />
+            <Route path="/parcel-partner" element={<PrivateRoute><ParcelPartnerController /></PrivateRoute>} />
+            <Route path="/parcel-request/:category" element={<PrivateRoute><ParcelRequestFlow /></PrivateRoute>} />
             <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
             <Route path="/my-orders" element={<PrivateRoute><MyOrders /></PrivateRoute>} />
             <Route path="/chat" element={<PrivateRoute><Chat /></PrivateRoute>} />

@@ -1,0 +1,96 @@
+import React, { useEffect, useState, useRef } from 'react';
+import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import { usePartnerLocation } from '../../../hooks/parcel/partner/usePartnerLocation';
+
+interface Props {
+  destination?: { lat: number; lng: number };
+  isDashed?: boolean;
+  routeColor?: string;
+}
+
+// Fixed Leaflet Icon issue
+const partnerIcon = new L.Icon({
+  iconUrl: 'https://cdn-icons-png.flaticon.com/512/2850/2850335.png',
+  iconSize: [40, 40],
+  iconAnchor: [20, 40],
+});
+
+const destinationIcon = new L.Icon({
+  iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png',
+  iconSize: [35, 35],
+  iconAnchor: [17, 35],
+});
+
+const MapController = ({ location, destination }: { location: [number, number], destination?: {lat:number, lng:number} }) => {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (destination) {
+      const bounds = L.latLngBounds([location, [destination.lat, destination.lng]]);
+      map.fitBounds(bounds, { padding: [50, 50] });
+    } else {
+      map.setView(location, 15);
+    }
+  }, [location, destination, map]);
+
+  return null;
+};
+
+const ParcelMapView: React.FC<Props> = ({ destination, isDashed = false, routeColor = '#6366f1' }) => {
+  const partnerLoc = usePartnerLocation() || { lat: -6.7924, lng: 39.2083 }; // Default Dar center
+  const [route, setRoute] = useState<[number, number][]>([]);
+
+  useEffect(() => {
+    if (destination) {
+      fetch(`https://router.project-osrm.org/route/v1/driving/${partnerLoc.lng},${partnerLoc.lat};${destination.lng},${destination.lat}?overview=full&geometries=geojson`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.routes && data.routes[0]) {
+            const coords = data.routes[0].geometry.coordinates.map((c: any) => [c[1], c[0]]);
+            setRoute(coords);
+          }
+        });
+    } else {
+      setRoute([]);
+    }
+  }, [partnerLoc, destination]);
+
+  return (
+    <div className="w-full h-full bg-[#111118]">
+      <MapContainer 
+        center={[partnerLoc.lat, partnerLoc.lng]} 
+        zoom={15} 
+        zoomControl={false}
+        className="w-full h-full"
+      >
+        <TileLayer
+          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          attribution='&copy; OpenStreetMap &copy; CARTO'
+        />
+        
+        <Marker position={[partnerLoc.lat, partnerLoc.lng]} icon={partnerIcon} />
+        
+        {destination && (
+          <Marker position={[destination.lat, destination.lng]} icon={destinationIcon} />
+        )}
+
+        {route.length > 0 && (
+          <Polyline 
+            positions={route} 
+            pathOptions={{ 
+                color: routeColor, 
+                weight: 5, 
+                dashArray: isDashed ? '10, 10' : undefined 
+            }} 
+          />
+        )}
+
+        <MapController location={[partnerLoc.lat, partnerLoc.lng]} destination={destination} />
+      </MapContainer>
+    </div>
+  );
+};
+
+export default ParcelMapView;

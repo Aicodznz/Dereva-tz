@@ -23,10 +23,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const hideBottomNav = isTaxiRoute || profile?.role === 'rider';
 
   return (
-    <div className={`min-h-screen bg-background dark:bg-neutral-950 flex flex-col font-sans selection:bg-orange-100 dark:selection:bg-orange-900/30 selection:text-orange-900 ${isRTL ? 'font-arabic' : ''}`}>
+    <div className={`min-h-screen bg-neutral-50 dark:bg-neutral-950 flex flex-col font-sans selection:bg-orange-100 dark:selection:bg-orange-900/30 selection:text-orange-900 overflow-x-hidden ${isRTL ? 'font-arabic' : ''}`}>
+      {/* Visual Grain Overlay */}
+      <div className="fixed inset-0 pointer-events-none z-[1000] opacity-[0.03] contrast-150 mix-blend-multiply flex-none">
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
+      </div>
+
       <Header />
 
-      <main className={`flex-1 max-w-7xl mx-auto w-full flex flex-col ${isTaxiRoute ? 'p-0' : 'px-2 sm:px-6 lg:px-8 py-4 md:py-8 pb-32'}`}>
+      <main className={`flex-1 max-w-7xl mx-auto w-full flex flex-col relative z-10 ${isTaxiRoute ? 'p-0' : 'px-4 sm:px-6 lg:px-8 py-6 md:py-10 pb-32'}`}>
         {children}
       </main>
 

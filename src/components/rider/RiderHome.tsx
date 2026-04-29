@@ -7,8 +7,9 @@ import {
   ParkingCircle, Car, Settings, Phone, Gauge, Eye, EyeOff,
   Navigation2, MessageSquare, MapPin, Star, X as CloseX,
   Clock, TrendingUp, Info, Wifi, Battery, Map as MapIcon,
-  CheckCircle2, ArrowRight, RefreshCw, DollarSign
+  CheckCircle2, ArrowRight, RefreshCw, DollarSign, Package
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import Chat from '../Chat';
 import { motion, AnimatePresence } from 'motion/react';
 import { db } from '../../firebase';
@@ -708,6 +709,29 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                       <p className="text-[9px] font-black text-[#7F77DD] uppercase tracking-widest italic leading-none mb-1">Busy Zone Alert</p>
                       <p className="text-[11px] font-bold text-neutral-400">Mahitaji makubwa Ubungo, Mlimani City. Elekea huko!</p>
                    </div>
+                </div>
+
+                <div className="mt-6 bg-gradient-to-br from-pink-500/10 to-orange-500/5 border border-pink-500/10 rounded-[2.5rem] p-6 flex flex-col gap-6 relative overflow-hidden group">
+                   <div className="absolute -top-10 -right-10 w-40 h-40 bg-pink-500/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-1000" />
+                   <div className="flex items-center gap-5 relative z-10">
+                      <div className="w-14 h-14 bg-pink-500 rounded-[1.5rem] flex items-center justify-center text-white shadow-2xl shadow-pink-500/30 rotate-3 group-hover:rotate-12 transition-transform">
+                         <Package className="w-8 h-8" />
+                      </div>
+                      <div>
+                         <div className="flex items-center gap-2 mb-1">
+                            <span className="flex h-2 w-2 rounded-full bg-pink-500 animate-pulse" />
+                            <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.3em] leading-none">HUDUMA MPYA</p>
+                         </div>
+                         <h4 className="text-xl font-black text-neutral-900 uppercase italic tracking-tighter">Parcel & Delivery</h4>
+                         <p className="text-[11px] font-bold text-neutral-400 mt-1">Anza kupokea oda za kusafirisha vifurushi leo!</p>
+                      </div>
+                   </div>
+                   <Link 
+                     to="/parcel-partner"
+                     className="bg-neutral-900 text-white text-xs font-black py-4 rounded-2xl uppercase tracking-widest text-center shadow-xl shadow-neutral-900/10 hover:bg-pink-500 transition-colors relative z-10"
+                   >
+                     FUNGUA DASHBOARD YA PARCEL
+                   </Link>
                 </div>
              </motion.div>
           )}
