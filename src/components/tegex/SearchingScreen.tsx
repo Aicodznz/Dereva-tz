@@ -81,8 +81,15 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel
       </div>
 
       {/* Summary Card */}
-      <div className="absolute bottom-8 left-6 right-6 space-y-6">
+      <motion.div 
+        drag="y"
+        dragConstraints={{ top: 0, bottom: 250 }}
+        dragElastic={0.05}
+        dragMomentum={false}
+        className="absolute bottom-8 left-6 right-6 space-y-6 touch-none"
+      >
         <div className="bg-[#111118] border border-[#1e1e2e] rounded-[32px] p-6 shadow-2xl">
+          <div className="w-10 h-1 bg-[#1e1e2e] rounded-full mx-auto mb-4 cursor-grab active:cursor-grabbing opacity-50" />
           <div className="space-y-4">
             <div className="flex items-start gap-4">
               <div className="w-2.5 h-2.5 rounded-full bg-[#1D9E75] mt-1.5 shrink-0" />
@@ -123,7 +130,7 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel
         >
           Ghairi Safari
         </button>
-      </div>
+      </motion.div>
     </div>
   );
 };

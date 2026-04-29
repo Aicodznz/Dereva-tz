@@ -132,10 +132,14 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
       </div>
 
       {/* Bottom Sheet */}
-      <div 
-        className={`bg-[#111118] rounded-t-[40px] border-t border-[#1e1e2e] p-8 pb-12 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] z-[60] transition-colors duration-500 ${isArrived ? 'ring-4 ring-[#1D9E75]/20' : ''}`}
+      <motion.div 
+        drag="y"
+        dragConstraints={{ top: 0, bottom: 400 }}
+        dragElastic={0.05}
+        dragMomentum={false}
+        className={`bg-[#111118] rounded-t-[40px] border-t border-[#1e1e2e] p-8 pb-12 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] z-[60] transition-colors duration-500 touch-none ${isArrived ? 'ring-4 ring-[#1D9E75]/20' : ''}`}
       >
-        <div className="w-12 h-1.5 bg-[#1e1e2e] rounded-full mx-auto mb-8" />
+        <div className="w-12 h-1.5 bg-[#1e1e2e] rounded-full mx-auto mb-8 cursor-grab active:cursor-grabbing" />
         
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
@@ -199,7 +203,7 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
             </button>
           )}
         </div>
-      </div>
+      </motion.div>
 
       {/* Haptic Simulation Effect */}
       {isArrived && (

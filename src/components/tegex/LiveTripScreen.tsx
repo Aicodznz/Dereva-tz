@@ -111,10 +111,14 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage 
         </button>
       </div>
 
-      <div 
-        className="bg-[#111118] rounded-t-[40px] border-t border-[#1e1e2e] p-8 pb-10 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] z-[60]"
+      <motion.div 
+        drag="y"
+        dragConstraints={{ top: 0, bottom: 400 }}
+        dragElastic={0.05}
+        dragMomentum={false}
+        className="bg-[#111118] rounded-t-[40px] border-t border-[#1e1e2e] p-8 pb-10 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] z-[60] touch-none"
       >
-        <div className="w-12 h-1.5 bg-[#1e1e2e] rounded-full mx-auto mb-8" />
+        <div className="w-12 h-1.5 bg-[#1e1e2e] rounded-full mx-auto mb-8 cursor-grab active:cursor-grabbing" />
         
         <div className="flex items-center justify-between mb-8">
            <div className="space-y-1">
@@ -171,7 +175,7 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage 
              </button>
            </div>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 };

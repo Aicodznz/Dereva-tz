@@ -555,7 +555,14 @@ export default function TaxiBooking() {
                </MapContainer>
             </div>
 
-            <div className="relative z-[60] bg-[#111118] rounded-t-[40px] border-t border-[#1e1e2e] p-5 pb-10 space-y-4 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]">
+            <motion.div 
+              drag="y"
+              dragConstraints={{ top: 0, bottom: 350 }}
+              dragElastic={0.05}
+              dragMomentum={false}
+              className="relative z-[60] bg-[#111118] rounded-t-[40px] border-t border-[#1e1e2e] p-5 pb-10 space-y-4 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] touch-none"
+            >
+               <div className="w-12 h-1.5 bg-neutral-800 rounded-full mx-auto mb-2 opacity-50" />
                <div className="bg-[#0a0a0f] border border-[#1e1e2e] rounded-[28px] p-5 relative">
                   <div className="space-y-6">
                       <div className="flex items-center gap-4">
@@ -618,7 +625,7 @@ export default function TaxiBooking() {
                   <span>{destination ? (selectedRide ? 'THIBITISHA USAFIRI' : 'CHAGUA USAFIRI') : 'WEKA UNAPOKWENDA'}</span>
                   <ArrowRight className="w-5 h-5" />
                </button>
-            </div>
+            </motion.div>
           </div>
         )}
 
