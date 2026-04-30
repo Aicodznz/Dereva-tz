@@ -235,7 +235,7 @@ export default function CustomerDashboard() {
       productsUnsub();
       if (notificationUnsub) notificationUnsub();
     };
-  }, [user]);
+  }, [user?.uid]);
 
   return (
     <div className={`pb-24 space-y-8 md:space-y-16 lg:space-y-24 ${isRTL ? 'text-right' : 'text-left'}`}>

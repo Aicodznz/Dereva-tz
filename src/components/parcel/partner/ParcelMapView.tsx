@@ -33,7 +33,7 @@ const MapController = ({ location, destination }: { location: [number, number], 
     } else {
       map.setView(location, 15);
     }
-  }, [location, destination, map]);
+  }, [location[0], location[1], destination?.lat, destination?.lng, map]);
 
   return null;
 };
@@ -43,7 +43,7 @@ const ParcelMapView: React.FC<Props> = ({ destination, isDashed = false, routeCo
   const [route, setRoute] = useState<[number, number][]>([]);
 
   useEffect(() => {
-    if (destination) {
+    if (destination && partnerLoc) {
       fetch(`https://router.project-osrm.org/route/v1/driving/${partnerLoc.lng},${partnerLoc.lat};${destination.lng},${destination.lat}?overview=full&geometries=geojson`)
         .then(res => res.json())
         .then(data => {
@@ -55,7 +55,7 @@ const ParcelMapView: React.FC<Props> = ({ destination, isDashed = false, routeCo
     } else {
       setRoute([]);
     }
-  }, [partnerLoc, destination]);
+  }, [partnerLoc?.lat, partnerLoc?.lng, destination?.lat, destination?.lng]);
 
   return (
     <div className="w-full h-full bg-[#111118]">

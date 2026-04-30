@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import { Parcel } from '../../../types/parcel';
@@ -20,6 +20,13 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 export function useIncomingParcels() {
   const [parcels, setParcels] = useState<Parcel[]>([]);
   const partnerLocation = usePartnerLocation();
+  const locationRef = useRef(partnerLocation);
+
+  useEffect(() => {
+    locationRef.current = partnerLocation;
+    // Trigger a refresh of the parcels list when location changes
+    // setParcels checks will happen in the snapshot listener anyway
+  }, [partnerLocation]);
 
   useEffect(() => {
     const q = query(collection(db, 'parcels'), where('status', '==', 'pending'));
@@ -28,30 +35,28 @@ export function useIncomingParcels() {
       const incomingParcels: Parcel[] = [];
       snapshot.forEach((doc) => {
         const data = doc.data() as Omit<Parcel, 'id'> & { id: string };
-        if (partnerLocation) {
+        const loc = locationRef.current;
+        if (loc) {
           const dist = calculateDistance(
-            partnerLocation.lat,
-            partnerLocation.lng,
+            loc.lat,
+            loc.lng,
             data.sender.lat,
             data.sender.lng
           );
           if (dist <= 6) {
             incomingParcels.push({ ...data, id: doc.id });
-            // Alert logic (vibration + beep)
+            // Alert logic 
             if (snapshot.docChanges().some(change => change.type === 'added' && change.doc.id === doc.id)) {
                 triggerAlert();
             }
           }
-        } else {
-            // If location not available yet, just show them? 
-            // Better to wait for location to filter
         }
       });
       setParcels(incomingParcels);
     });
 
     return () => unsubscribe();
-  }, [partnerLocation]);
+  }, []); // No dependencies - subscription is stable
 
   const triggerAlert = () => {
     if ('vibrate' in navigator) {

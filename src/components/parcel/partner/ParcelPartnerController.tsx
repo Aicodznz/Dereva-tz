@@ -63,7 +63,7 @@ const ParcelPartnerController: React.FC = () => {
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user?.uid]);
 
   // Handle incoming request overlay
   const showIncoming = incomingParcels.length > 0 && !activeParcel;

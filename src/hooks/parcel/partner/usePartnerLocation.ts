@@ -14,7 +14,11 @@ export function usePartnerLocation() {
 
     const updatePosition = async (position: GeolocationPosition) => {
       const { latitude, longitude } = position.coords;
-      setLocation({ lat: latitude, lng: longitude });
+      
+      setLocation(prev => {
+        if (prev && prev.lat === latitude && prev.lng === longitude) return prev;
+        return { lat: latitude, lng: longitude };
+      });
 
       try {
         const partnerRef = doc(db, 'partners', user.uid);
@@ -41,7 +45,7 @@ export function usePartnerLocation() {
     return () => {
       if (watchId) navigator.geolocation.clearWatch(watchId);
     };
-  }, [user]);
+  }, [user?.uid]);
 
   return location;
 }

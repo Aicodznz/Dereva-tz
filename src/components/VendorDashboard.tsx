@@ -626,7 +626,7 @@ export default function VendorDashboard() {
     );
 
     return () => unsub();
-  }, [user]);
+  }, [user?.uid]);
 
   useEffect(() => {
     if (!vendorProfile?.id || !user) return;

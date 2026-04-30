@@ -127,7 +127,7 @@ export default function Chat({ onBack }: ChatProps) {
     );
 
     return () => unsub();
-  }, [user]);
+  }, [user?.uid]);
 
   useEffect(() => {
     if (activeRecipientId) {
@@ -202,7 +202,7 @@ export default function Chat({ onBack }: ChatProps) {
     );
 
     return () => unsub();
-  }, [user, chatId]);
+  }, [user?.uid, chatId]);
 
   useEffect(() => {
     if (scrollRef.current) {

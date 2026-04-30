@@ -722,16 +722,31 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                             <span className="flex h-2 w-2 rounded-full bg-pink-500 animate-pulse" />
                             <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.3em] leading-none">HUDUMA MPYA</p>
                          </div>
-                         <h4 className="text-xl font-black text-neutral-900 uppercase italic tracking-tighter">Parcel & Delivery</h4>
-                         <p className="text-[11px] font-bold text-neutral-400 mt-1">Anza kupokea oda za kusafirisha vifurushi leo!</p>
+                         <h4 className="text-xl font-black text-white uppercase italic tracking-tighter leading-none mb-1">Parcel & Delivery</h4>
+                         <p className="text-[11px] font-bold text-neutral-400">Anza kupokea oda za kusafirisha vifurushi leo!</p>
                       </div>
                    </div>
-                   <Link 
-                     to="/parcel-partner"
-                     className="bg-neutral-900 text-white text-xs font-black py-4 rounded-2xl uppercase tracking-widest text-center shadow-xl shadow-neutral-900/10 hover:bg-pink-500 transition-colors relative z-10"
+                   <button 
+                     onClick={async () => {
+                        const confirmed = window.confirm("Je, unataka kujisajili kama Mshirika wa Usafirishaji (Delivery Partner)? Hii itakuruhusu kupokea vifurushi.");
+                        if (confirmed && user?.uid) {
+                          try {
+                            await updateDoc(doc(db, 'users', user.uid), {
+                              driverType: 'delivery',
+                              isDeliveryPartner: true,
+                              deliveryRegistrationDate: serverTimestamp()
+                            });
+                            toast.success("Usajili umekamilika! Karibu kwenye usafirishaji.");
+                            // Dashboard.tsx will handle the rest
+                          } catch (err) {
+                            toast.error("Imeshindwa kusajili. Jaribu tena.");
+                          }
+                        }
+                     }}
+                     className="bg-pink-500 text-white text-xs font-black py-4 rounded-2xl uppercase tracking-widest text-center shadow-xl shadow-pink-500/30 hover:bg-pink-600 transition-all relative z-10"
                    >
-                     FUNGUA DASHBOARD YA PARCEL
-                   </Link>
+                     JIUNGE NA USAFIRISHAJI 📦
+                   </button>
                 </div>
              </motion.div>
           )}

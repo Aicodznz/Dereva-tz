@@ -115,7 +115,7 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
     });
 
     return () => unsub();
-  }, [user]);
+  }, [user?.uid]);
 
   const activeOrders = orders.filter(o => ['pending', 'preparing', 'out_for_delivery', 'accepted'].includes(o.status));
   const previousOrders = orders.filter(o => ['delivered', 'cancelled', 'completed'].includes(o.status));

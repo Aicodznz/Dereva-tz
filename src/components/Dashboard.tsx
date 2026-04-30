@@ -22,6 +22,9 @@ export default function Dashboard() {
     case 'vendor':
       return <VendorDashboard />;
     case 'rider':
+      if (profile.driverType === 'delivery') {
+        return <ParcelPartnerController />;
+      }
       return <RiderDashboard />;
     case 'customer':
       return <CustomerDashboard />;

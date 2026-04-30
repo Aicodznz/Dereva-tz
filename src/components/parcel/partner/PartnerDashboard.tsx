@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Bell, MapPin, TrendingUp, Package, FileText, Smartphone, Box, Pill, Dog, Power, User } from 'lucide-react';
+import { Bell, MapPin, TrendingUp, Package, FileText, Smartphone, Box, Pill, Dog, Power, User, Car } from 'lucide-react';
 import { useAuth } from '../../../AuthContext';
 import { doc, onSnapshot, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../../firebase';
@@ -13,19 +13,23 @@ const PartnerDashboard: React.FC = () => {
   const [partner, setPartner] = useState<Partner | null>(null);
   const [isOnline, setIsOnline] = useState(false);
 
+  const profileRef = React.useRef(profile);
+  useEffect(() => { profileRef.current = profile; }, [profile]);
+
   useEffect(() => {
     if (!user) return;
+    
     const unsubscribe = onSnapshot(doc(db, 'partners', user.uid), (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.data() as Partner;
         setPartner(data);
         setIsOnline(data.isOnline);
       } else {
-        // Create partner entry if not exists
+        const currentProfile = profileRef.current;
         const initialPartner: any = {
-          name: profile?.displayName || profile?.fullName || 'Partner',
-          phone: (profile as any)?.phoneNumber || '',
-          vehicleType: (profile as any)?.vehicleType || 'pikipiki',
+          name: currentProfile?.displayName || currentProfile?.fullName || 'Partner',
+          phone: (currentProfile as any)?.phoneNumber || '',
+          vehicleType: (currentProfile as any)?.vehicleType || 'pikipiki',
           isOnline: false,
           earnings: { today: 0, week: 0, total: 0 },
           activeParcelIds: [],
@@ -35,7 +39,7 @@ const PartnerDashboard: React.FC = () => {
       }
     });
     return () => unsubscribe();
-  }, [user, profile]);
+  }, [user?.uid]);
 
   const toggleOnline = async () => {
     if (!user) return;
@@ -81,6 +85,18 @@ const PartnerDashboard: React.FC = () => {
             </span>
           </motion.button>
           
+          <button 
+            onClick={async () => {
+                if (window.confirm("Je, unataka kurudi kwenye Dashboard ya Teksi?")) {
+                    await updateDoc(doc(db, 'users', user.uid), { driverType: 'taxi' });
+                }
+            }}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 transition-colors"
+          >
+            <Car className="w-4 h-4 text-orange-400" />
+            <span className="text-[10px] font-black uppercase text-white/60">Taxi Mode</span>
+          </button>
+
           <button className="relative">
             <Bell className="w-5 h-5 text-white/60" />
             <div className="absolute -top-1 -right-1 w-2 h-2 bg-pink-500 rounded-full" />

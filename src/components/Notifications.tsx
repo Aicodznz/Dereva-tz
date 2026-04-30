@@ -84,7 +84,7 @@ export default function Notifications() {
     });
 
     return () => unsub();
-  }, [user]);
+  }, [user?.uid]);
 
   const markAsRead = async (id: string) => {
     try {
