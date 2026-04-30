@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Bell, MapPin, TrendingUp, Package, FileText, Smartphone, Box, Pill, Dog, Power, User, Car } from 'lucide-react';
+import { Bell, MapPin, TrendingUp, Package, FileText, Smartphone, Box, Pill, Dog, Power, User, Car, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../../AuthContext';
 import { doc, onSnapshot, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../../firebase';
@@ -8,12 +8,14 @@ import { Partner } from '../../../types/parcel';
 import CategoryBadge from './CategoryBadge';
 import ParcelMapView from './ParcelMapView';
 import { useTheme } from 'next-themes';
+import { usePartnerLocation } from '../../../hooks/parcel/partner/usePartnerLocation';
 
 const PartnerDashboard: React.FC = () => {
   const { user, profile } = useAuth();
   const { theme } = useTheme();
   const [partner, setPartner] = useState<Partner | null>(null);
   const [isOnline, setIsOnline] = useState(false);
+  const { location, error: gpsError } = usePartnerLocation();
 
   const profileRef = React.useRef(profile);
   useEffect(() => { profileRef.current = profile; }, [profile]);
@@ -195,6 +197,20 @@ const PartnerDashboard: React.FC = () => {
             <div className="absolute inset-0 transition-colors">
               <ParcelMapView />
             </div>
+
+            {gpsError && (
+              <div className="absolute top-6 left-6 right-6 z-[60] lg:left-12 lg:right-12">
+                <div className="max-w-sm mx-auto bg-red-500 text-white p-4 rounded-3xl flex items-center gap-4 shadow-2xl border-2 border-white/20 backdrop-blur-xl">
+                  <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+                    <AlertTriangle className="w-6 h-6" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-[10px] font-black uppercase tracking-widest leading-none mb-1">Hitilafu ya GPS!</p>
+                    <p className="text-[11px] font-bold opacity-90 leading-tight">TAFADHALI RUHUSU LOCATION ILI UWEZE KUFANYA KAZI.</p>
+                  </div>
+                </div>
+              </div>
+            )}
             
             {/* Status Overlays */}
             {!isOnline && (

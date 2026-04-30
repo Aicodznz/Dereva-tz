@@ -19,14 +19,12 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 
 export function useIncomingParcels() {
   const [parcels, setParcels] = useState<Parcel[]>([]);
-  const partnerLocation = usePartnerLocation();
+  const { location: partnerLocation } = usePartnerLocation();
   const locationRef = useRef(partnerLocation);
 
   useEffect(() => {
     locationRef.current = partnerLocation;
-    // Trigger a refresh of the parcels list when location changes
-    // setParcels checks will happen in the snapshot listener anyway
-  }, [partnerLocation]);
+  }, [partnerLocation?.lat, partnerLocation?.lng]);
 
   useEffect(() => {
     const q = query(collection(db, 'parcels'), where('status', '==', 'pending'));

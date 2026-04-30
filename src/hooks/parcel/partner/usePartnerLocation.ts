@@ -6,6 +6,7 @@ import { useAuth } from '../../../AuthContext';
 export function usePartnerLocation() {
   const { user } = useAuth();
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [error, setError] = useState<GeolocationPositionError | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -14,6 +15,7 @@ export function usePartnerLocation() {
 
     const updatePosition = async (position: GeolocationPosition) => {
       const { latitude, longitude } = position.coords;
+      setError(null);
       
       setLocation(prev => {
         if (prev && prev.lat === latitude && prev.lng === longitude) return prev;
@@ -29,16 +31,19 @@ export function usePartnerLocation() {
           },
           updatedAt: serverTimestamp(),
         }, { merge: true });
-      } catch (error) {
-        console.error('Pigo la kusasisha eneo:', error);
+      } catch (err) {
+        console.error('Pigo la kusasisha eneo:', err);
       }
     };
 
     if ('geolocation' in navigator) {
       watchId = navigator.geolocation.watchPosition(
         updatePosition,
-        (error) => console.error('Hitilafu ya GPS:', error),
-        { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
+        (err) => {
+          console.error('Hitilafu ya GPS:', err);
+          setError(err);
+        },
+        { enableHighAccuracy: true, maximumAge: 10000, timeout: 10000 }
       );
     }
 
@@ -47,5 +52,5 @@ export function usePartnerLocation() {
     };
   }, [user?.uid]);
 
-  return location;
+  return { location, error };
 }

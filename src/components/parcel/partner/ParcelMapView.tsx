@@ -40,7 +40,8 @@ const MapController = ({ location, destination }: { location: [number, number], 
 };
 
 const ParcelMapView: React.FC<Props> = ({ destination, isDashed = false, routeColor = '#6366f1' }) => {
-  const partnerLoc = usePartnerLocation() || { lat: -6.7924, lng: 39.2083 }; // Default Dar center
+  const { location, error: gpsError } = usePartnerLocation();
+  const partnerLoc = location || { lat: -6.7924, lng: 39.2083 }; // Default Dar center
   const [route, setRoute] = useState<[number, number][]>([]);
   const { theme, resolvedTheme } = useTheme();
 
