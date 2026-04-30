@@ -19,8 +19,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const { isRTL, t } = useLanguage();
 
-   const isTaxiRoute = location.pathname === '/taxi';
-  const hideBottomNav = isTaxiRoute || profile?.role === 'rider';
+  const isTaxiRoute = location.pathname === '/taxi';
+  const isPartnerRoute = location.pathname === '/parcel-partner' || (location.pathname === '/dashboard' && profile?.role === 'rider' && profile?.driverType === 'delivery');
+  const hideBottomNav = isTaxiRoute || isPartnerRoute || profile?.role === 'rider';
 
   return (
     <div className={`min-h-screen bg-neutral-50 dark:bg-neutral-950 flex flex-col font-sans selection:bg-orange-100 dark:selection:bg-orange-900/30 selection:text-orange-900 overflow-x-hidden ${isRTL ? 'font-arabic' : ''}`}>
@@ -31,7 +32,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       <Header />
 
-      <main className={`flex-1 max-w-7xl mx-auto w-full flex flex-col relative z-10 ${isTaxiRoute ? 'p-0' : 'px-4 sm:px-6 lg:px-8 py-6 md:py-10 pb-32'}`}>
+      <main className={`flex-1 ${isPartnerRoute ? '' : 'max-w-7xl mx-auto'} w-full flex flex-col relative z-10 ${(isTaxiRoute || isPartnerRoute) ? 'p-0' : 'px-4 sm:px-6 lg:px-8 py-6 md:py-10 pb-32'}`}>
         {children}
       </main>
 

@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { usePartnerLocation } from '../../../hooks/parcel/partner/usePartnerLocation';
+import { useTheme } from 'next-themes';
 
 interface Props {
   destination?: { lat: number; lng: number };
@@ -41,6 +42,7 @@ const MapController = ({ location, destination }: { location: [number, number], 
 const ParcelMapView: React.FC<Props> = ({ destination, isDashed = false, routeColor = '#6366f1' }) => {
   const partnerLoc = usePartnerLocation() || { lat: -6.7924, lng: 39.2083 }; // Default Dar center
   const [route, setRoute] = useState<[number, number][]>([]);
+  const { theme, resolvedTheme } = useTheme();
 
   useEffect(() => {
     if (destination && partnerLoc) {
@@ -57,8 +59,30 @@ const ParcelMapView: React.FC<Props> = ({ destination, isDashed = false, routeCo
     }
   }, [partnerLoc?.lat, partnerLoc?.lng, destination?.lat, destination?.lng]);
 
+  const [isDark, setIsDark] = useState(true);
+
+  useEffect(() => {
+    // Check next-themes and fallback to document class
+    const checkTheme = () => {
+      const dark = resolvedTheme === 'dark' || document.documentElement.classList.contains('dark');
+      setIsDark(dark);
+    };
+
+    checkTheme();
+    
+    // Set up an observer for class changes on html element
+    const observer = new MutationObserver(checkTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    
+    return () => observer.disconnect();
+  }, [resolvedTheme]);
+
+  const tileLayerUrl = isDark 
+    ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+    : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
+
   return (
-    <div className="w-full h-full bg-[#111118]">
+    <div className="w-full h-full bg-[#f3f4f6] dark:bg-[#111118] transition-colors">
       <MapContainer 
         center={[partnerLoc.lat, partnerLoc.lng]} 
         zoom={15} 
@@ -66,7 +90,8 @@ const ParcelMapView: React.FC<Props> = ({ destination, isDashed = false, routeCo
         className="w-full h-full"
       >
         <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          key={isDark ? 'dark' : 'light'} // Re-render when theme changes
+          url={tileLayerUrl}
           attribution='&copy; OpenStreetMap &copy; CARTO'
         />
         
