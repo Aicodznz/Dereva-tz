@@ -25,6 +25,8 @@ import TaxiBooking from './components/TaxiBooking';
 import ParcelPartnerController from './components/parcel/partner/ParcelPartnerController';
 import ParcelRequestFlow from './components/parcel/ParcelRequestFlow';
 import ParcelHome from './components/parcel/ParcelHome';
+import ParcelHistory from './components/parcel/ParcelHistory';
+import TaxiHistory from './components/tegex/TaxiHistory';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -55,7 +57,9 @@ function AppContent() {
             <Route path="/product/:id" element={<ProductDetail />} />
             <Route path="/vendor/:id" element={<VendorStore />} />
             <Route path="/taxi" element={<PrivateRoute><TaxiBooking /></PrivateRoute>} />
+            <Route path="/taxi/history" element={<PrivateRoute><TaxiHistory /></PrivateRoute>} />
             <Route path="/service/vifurushi" element={<PrivateRoute><ParcelHome /></PrivateRoute>} />
+            <Route path="/parcel/history" element={<PrivateRoute><ParcelHistory /></PrivateRoute>} />
             <Route path="/parcel-partner" element={<PrivateRoute><ParcelPartnerController /></PrivateRoute>} />
             <Route path="/parcel-request/:category" element={<PrivateRoute><ParcelRequestFlow /></PrivateRoute>} />
             <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />

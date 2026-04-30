@@ -1,10 +1,14 @@
-import React from 'react';
-import { motion } from 'motion/react';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   Package, FileText, Smartphone, Box, Pill, Dog, 
-  ChevronRight, ArrowLeft, ShieldCheck, Clock, MapPin
+  ChevronRight, ArrowLeft, ShieldCheck, Clock, MapPin,
+  TrendingUp, CheckCircle2
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../AuthContext';
+import { collection, query, where, onSnapshot, limit } from 'firebase/firestore';
+import { db } from '../../firebase';
 
 const categories = [
   { id: 'gifts', label: 'Gifts', sub: 'Send heartfelt presents', icon: Package, color: 'bg-pink-500', img: 'https://images.unsplash.com/photo-1549465220-1d8c9708458c?w=600&h=400&fit=crop' },
@@ -17,18 +21,47 @@ const categories = [
 
 const ParcelHome: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [activeParcel, setActiveParcel] = useState<any>(null);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const q = query(
+      collection(db, 'parcels'),
+      where('senderId', '==', user.uid),
+      where('status', 'in', ['pending', 'accepted', 'picked_up']),
+      limit(1)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (!snapshot.empty) {
+        setActiveParcel({ id: snapshot.docs[0].id, ...snapshot.docs[0].data() });
+      } else {
+        setActiveParcel(null);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [user]);
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 pb-32">
       {/* Header */}
       <div className="p-6 flex items-center gap-4 sticky top-0 bg-white/80 dark:bg-neutral-950/80 backdrop-blur-xl z-50">
-        <button onClick={() => navigate('/')} className="w-12 h-12 rounded-[1.5rem] bg-white dark:bg-neutral-900 flex items-center justify-center shadow-lg transform active:scale-95 transition-all">
+        <button onClick={() => navigate('/')} className="w-12 h-12 rounded-[1.5rem] bg-white dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 flex items-center justify-center shadow-lg transform active:scale-95 transition-all shrink-0">
           <ArrowLeft size={20} />
         </button>
-        <div>
-          <h1 className="text-2xl font-black italic uppercase tracking-tighter">Vifurushi & Pacho 📦</h1>
-          <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Huduma ya uhakika ya usafirishaji</p>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-2xl font-black italic uppercase tracking-tighter truncate">Vifurushi & Pacho 📦</h1>
+          <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest leading-none mt-0.5">Huduma ya uhakika ya usafirishaji</p>
         </div>
+        <button 
+          onClick={() => navigate('/parcel/history')}
+          className="w-12 h-12 rounded-[1.5rem] bg-orange-600 text-white flex items-center justify-center shadow-xl shadow-orange-600/20 active:scale-95 transition-all shrink-0"
+        >
+          <Clock size={20} />
+        </button>
       </div>
 
       <div className="px-6 space-y-12 max-w-2xl mx-auto mt-6">
@@ -45,6 +78,40 @@ const ParcelHome: React.FC = () => {
             <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">Bei nafuu • Rider rafiki • Usalama 100%</p>
           </div>
         </section>
+
+        <AnimatePresence>
+          {activeParcel && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden"
+            >
+              <button 
+                onClick={() => navigate('/parcel/history')}
+                className="w-full bg-orange-600 rounded-[2.5rem] p-6 text-white text-left shadow-2xl shadow-orange-600/30 flex items-center gap-4 relative group overflow-hidden"
+              >
+                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
+                  <Package size={80} />
+                </div>
+                <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center shrink-0">
+                  <div className="w-2 h-2 bg-white rounded-full animate-ping" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[10px] font-black uppercase tracking-widest bg-white/20 px-2 py-0.5 rounded-full">Oda Moja Inaendelea</span>
+                    <TrendingUp size={12} />
+                  </div>
+                  <h3 className="text-xl font-black italic uppercase tracking-tighter leading-tight">
+                    {activeParcel.status === 'pending' ? 'Inatafuta Dereva...' : activeParcel.status === 'accepted' ? 'Dereva anakuja kwako' : 'Mzigo upo njiani'}
+                  </h3>
+                  <p className="text-[10px] uppercase font-bold tracking-widest opacity-70 mt-1">Gusa kuona maelezo zaidi</p>
+                </div>
+                <ChevronRight size={24} className="opacity-40" />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Categories Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

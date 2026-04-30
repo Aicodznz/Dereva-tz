@@ -144,7 +144,7 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-[#7F77DD]/30 bg-[#0a0a0f] flex items-center justify-center text-xl font-black text-[#7F77DD]">
-              {ride.driverInfo?.photo ? <img src={ride.driverInfo.photo} className="w-full h-full object-cover" /> : ride.driverInfo?.name?.charAt(0) || 'D'}
+              {ride.driverInfo?.photo ? <img src={ride.driverInfo.photo} className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : ride.driverInfo?.name?.charAt(0) || 'D'}
             </div>
             <div>
               <h4 className="text-xl font-black uppercase italic tracking-tighter leading-none mb-1">

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Package, FileText, Smartphone, Box, Pill, Dog, 
-  MapPin, User, Phone, ChevronRight, ArrowLeft, 
+  User, Phone, ChevronRight, ArrowLeft, 
   Clock, CreditCard, ShieldCheck, Info, AlertTriangle, Search, Map
 } from 'lucide-react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
@@ -139,6 +139,7 @@ const ParcelRequestFlow: React.FC = () => {
           isOpen={showLocationPicker.isOpen}
           onClose={() => setShowLocationPicker({ ...showLocationPicker, isOpen: false })}
           onSelect={handleLocationSelect}
+          useParcelIcon={true}
           initialLocation={
             showLocationPicker.type === 'sender' 
               ? { lat: formData.sender.lat, lng: formData.sender.lng, address: formData.sender.address }
@@ -187,7 +188,9 @@ const ParcelRequestFlow: React.FC = () => {
                     <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest pl-2">Mahali (Pickup Address)</label>
                     <div className="flex gap-2">
                       <div className="relative flex-1">
-                        <MapPin className="absolute left-6 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
+                        <div className="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 bg-red-500 rounded-lg flex items-center justify-center shadow-lg shadow-red-500/20">
+                          <Package className="text-white" size={14} />
+                        </div>
                         <input 
                           type="text" 
                           placeholder="e.g. Masaki, Dar es Salaam"
@@ -258,7 +261,9 @@ const ParcelRequestFlow: React.FC = () => {
                     <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest pl-2">Atapokelea wapi?</label>
                     <div className="flex gap-2">
                       <div className="relative flex-1">
-                        <MapPin className="absolute left-6 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
+                        <div className="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 bg-red-500 rounded-lg flex items-center justify-center shadow-lg shadow-red-500/20">
+                          <Package className="text-white" size={14} />
+                        </div>
                         <input 
                           type="text" 
                           placeholder="e.g. Sinza Kijiweni"

@@ -492,6 +492,19 @@ export default function TaxiBooking() {
           <div 
             className="flex-1 flex flex-col px-6 pt-12 pb-24 space-y-8 overflow-y-auto no-scrollbar"
           >
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-black italic tracking-tighter text-white">TEKSI-PAPA 🚕</h1>
+                <p className="text-[10px] font-bold text-[#6b6b8a] uppercase tracking-widest mt-1">Usafiri wa haraka na uhakika</p>
+              </div>
+              <button 
+                onClick={() => navigate('/taxi/history')}
+                className="w-12 h-12 rounded-2xl bg-[#111118] border border-[#1e1e2e] flex items-center justify-center shadow-lg active:scale-95 transition-all text-white"
+              >
+                <Clock size={20} />
+              </button>
+            </div>
+
             <div className="bg-[#111118] border border-[#1e1e2e] rounded-[40px] p-8 shadow-2xl space-y-6">
                <div className="space-y-4">
                   <div className="bg-[#0a0a0f] rounded-2xl border border-[#1e1e2e] p-5 flex items-center gap-4 cursor-pointer active:scale-[0.98] transition-transform" onClick={() => { console.log("Manual pickup click"); setStep('map'); }}>
@@ -518,8 +531,9 @@ export default function TaxiBooking() {
           <div 
             className="flex-1 flex flex-col relative bg-[#0a0a0f] overflow-hidden"
           >
-            <div className="absolute top-6 left-6 z-[60]">
+            <div className="absolute top-6 left-6 right-6 z-[60] flex items-center justify-between">
                <button onClick={() => setStep('home')} className="w-12 h-12 bg-[#111118]/90 backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform"><ArrowLeft className="w-6 h-6" /></button>
+               <button onClick={() => navigate('/taxi/history')} className="w-12 h-12 bg-[#111118]/90 backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform"><Clock className="w-6 h-6" /></button>
             </div>
 
             <div className="flex-1 relative z-0">

@@ -1,24 +1,45 @@
 import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { Search, MapPin, X, Navigation, Loader2, Star, ArrowRight } from 'lucide-react';
+import { Search, MapPin, X, Navigation, Loader2, Star, ArrowRight, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 
-// Fix for default marker icon in Leaflet
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
-
-let DefaultIcon = L.icon({
-    iconUrl: icon,
-    shadowUrl: iconShadow,
+// Fix for default marker icon in Leaflet - using CDN for maximum stability in preview environment
+const DefaultIcon = L.icon({
+    iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
     iconSize: [25, 41],
     iconAnchor: [12, 41]
 });
 
-L.Marker.prototype.options.icon = DefaultIcon;
+// Custom Icon for Vendors - Matching Screenshot Style (Blue Circle)
+const VendorIcon = L.divIcon({
+  html: `<div class="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center shadow-[0_4px_15px_rgba(0,0,0,0.3)] border-2 border-white transform transition-transform hover:scale-110 active:scale-95"><div class="text-white"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-shopping-bag"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></div></div>`,
+  className: 'bg-transparent',
+  iconSize: [40, 40],
+  iconAnchor: [20, 20],
+});
+
+const ParcelPinIcon = L.divIcon({
+  html: `<div class="relative w-12 h-12 flex items-center justify-center">
+    <div class="absolute inset-0 bg-red-600 rounded-full rounded-bl-none rotate-45 shadow-[0_10px_20px_rgba(220,38,38,0.3)] border-[3px] border-white"></div>
+    <div class="relative z-10 w-7 h-7 bg-white rounded-full flex items-center justify-center -rotate-45 shadow-inner">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-package"><path d="M16.5 9.4 7.5 4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="M3.27 6.96 12 12.01l8.73-5.05"/><path d="M12 22.08V12"/></svg>
+    </div>
+  </div>`,
+  className: 'bg-transparent',
+  iconSize: [48, 48],
+  iconAnchor: [24, 48],
+});
+
+try {
+  L.Marker.prototype.options.icon = DefaultIcon;
+} catch (e) {
+  console.warn('Failed to set default Leaflet icon:', e);
+}
 
 interface LocationPickerProps {
   isOpen: boolean;
@@ -28,14 +49,21 @@ interface LocationPickerProps {
   vendors?: any[];
   preSelectedVendorId?: string;
   isMapViewOnly?: boolean;
+  useParcelIcon?: boolean;
 }
 
 function MapController({ center, zoom }: { center: L.LatLng, zoom?: number }) {
   const map = useMap();
   useEffect(() => {
-    // Force a reasonable zoom if currently zoomed out too far
-    const finalZoom = zoom || (map.getZoom() < 10 ? 14 : map.getZoom());
-    map.flyTo(center, finalZoom, { duration: 1.5 });
+    if (!map) return;
+    try {
+      // Force a reasonable zoom if currently zoomed out too far
+      const currentZoom = map.getZoom();
+      const finalZoom = zoom || (currentZoom < 10 ? 14 : currentZoom);
+      map.flyTo(center, finalZoom, { duration: 1.5 });
+    } catch (e) {
+      console.warn('Map flyTo failed:', e);
+    }
   }, [center, map, zoom]);
   return null;
 }
@@ -63,9 +91,7 @@ function InteractionHandler({ onInteraction }: { onInteraction: () => void }) {
   return null;
 }
 
-function LocationMarker({ position, setPosition, onPositionChange, isMapViewOnly }: { position: L.LatLng, setPosition: (pos: L.LatLng) => void, onPositionChange: (pos: L.LatLng) => void, isMapViewOnly?: boolean }) {
-  const map = useMap();
-  
+function LocationMarker({ position, setPosition, onPositionChange, isMapViewOnly, icon }: { position: L.LatLng, setPosition: (pos: L.LatLng) => void, onPositionChange: (pos: L.LatLng) => void, isMapViewOnly?: boolean, icon: L.Icon | L.DivIcon }) {
   useMapEvents({
     click(e) {
       if (isMapViewOnly) return;
@@ -82,12 +108,12 @@ function LocationMarker({ position, setPosition, onPositionChange, isMapViewOnly
 
   if (isMapViewOnly) return null;
 
-  return position === null ? null : (
-    <Marker position={position}></Marker>
+  return (
+    <Marker position={position} icon={icon}></Marker>
   );
 }
 
-export default function LocationPicker({ isOpen, onClose, onSelect, initialLocation, vendors = [], preSelectedVendorId, isMapViewOnly = false }: LocationPickerProps) {
+export default function LocationPicker({ isOpen, onClose, onSelect, initialLocation, vendors = [], preSelectedVendorId, isMapViewOnly = false, useParcelIcon = false }: LocationPickerProps) {
   const navigate = useNavigate();
   const [position, setPosition] = useState<L.LatLng>(
     new L.LatLng(initialLocation?.lat || -6.7924, initialLocation?.lng || 39.2083) // Default to DSM
@@ -95,6 +121,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
   const [address, setAddress] = useState(initialLocation?.address || '');
   const [isLocating, setIsLocating] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [mapReady, setMapReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [label, setLabel] = useState<'Home' | 'Work' | 'Other' | null>(null);
   const [selectedVendor, setSelectedVendor] = useState<any>(null);
@@ -136,14 +163,6 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
       }
     }
   }, [isOpen, preSelectedVendorId, vendors]);
-
-  // Custom Icon for Vendors - Matching Screenshot Style (Blue Circle)
-  const VendorIcon = L.divIcon({
-    html: `<div class="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center shadow-[0_4px_15px_rgba(0,0,0,0.3)] border-2 border-white transform transition-transform hover:scale-110 active:scale-95"><div class="text-white"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-shopping-bag"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></div></div>`,
-    className: 'bg-transparent',
-    iconSize: [40, 40],
-    iconAnchor: [20, 20],
-  });
 
   // Reverse geocoding function
   const reverseGeocode = async (lat: number, lng: number) => {
@@ -351,6 +370,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                 zoom={14} 
                 style={{ height: '100%', width: '100%' }}
                 zoomControl={false}
+                whenReady={() => setTimeout(() => setMapReady(true), 100)}
               >
                 <TileLayer
                   url={mapType === 'satellite' 
@@ -359,33 +379,38 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                   }
                   attribution='&copy; ESRI &copy; OpenStreetMap'
                 />
-                <MapController center={position} />
-                <AutoFitBounds vendors={vendors} />
-                <InteractionHandler onInteraction={() => {}} />
-                <LocationMarker 
-                  position={position} 
-                  setPosition={setPosition} 
-                  isMapViewOnly={isMapViewOnly}
-                  onPositionChange={(pos) => {
-                    reverseGeocode(pos.lat, pos.lng);
-                    setSelectedVendor(null); // Clear selection when user moves marker
-                  }} 
-                />
-                
-                {/* Vendor Markers */}
-                {vendors?.map((v) => v.location && (
-                  <Marker 
-                    key={v.id} 
-                    position={[v.location.lat, v.location.lng]} 
-                    icon={VendorIcon}
-                    eventHandlers={{
-                      click: () => {
-                        setSelectedVendor(v);
-                        setPosition(new L.LatLng(v.location.lat, v.location.lng));
-                      }
-                    }}
-                  />
-                ))}
+                {mapReady && (
+                  <>
+                    <MapController center={position} />
+                    <AutoFitBounds vendors={vendors} />
+                    <InteractionHandler onInteraction={() => {}} />
+                    <LocationMarker 
+                      position={position} 
+                      setPosition={setPosition} 
+                      isMapViewOnly={isMapViewOnly}
+                      icon={useParcelIcon ? ParcelPinIcon : DefaultIcon}
+                      onPositionChange={(pos) => {
+                        reverseGeocode(pos.lat, pos.lng);
+                        setSelectedVendor(null); // Clear selection when user moves marker
+                      }} 
+                    />
+                    
+                    {/* Vendor Markers */}
+                    {vendors?.map((v) => v.location && (
+                      <Marker 
+                        key={v.id} 
+                        position={[v.location.lat, v.location.lng]} 
+                        icon={VendorIcon}
+                        eventHandlers={{
+                          click: () => {
+                            setSelectedVendor(v);
+                            setPosition(new L.LatLng(v.location.lat, v.location.lng));
+                          }
+                        }}
+                      />
+                    ))}
+                  </>
+                )}
               </MapContainer>
 
               {/* No Stores Found Banner */}
@@ -424,7 +449,16 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
               
               {!isMapViewOnly && (
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-full pointer-events-none z-[1000] mb-5">
-                   <MapPin className="w-10 h-10 text-orange-600 drop-shadow-lg animate-bounce" />
+                   {useParcelIcon ? (
+                     <div className="relative w-12 h-12 flex items-center justify-center animate-bounce">
+                        <div className="absolute inset-0 bg-red-600 rounded-full rounded-bl-none rotate-45 shadow-[0_10px_20px_rgba(220,38,38,0.3)] border-[3px] border-white"></div>
+                        <div className="relative z-10 w-7 h-7 bg-white rounded-full flex items-center justify-center -rotate-45 shadow-inner">
+                          <Package className="text-red-500" size={16} strokeWidth={3} />
+                        </div>
+                     </div>
+                   ) : (
+                     <MapPin className="w-10 h-10 text-orange-600 drop-shadow-lg animate-bounce" />
+                   )}
                 </div>
               )}
 
@@ -501,7 +535,13 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
               {!isMapViewOnly && (
                 <div className="flex items-start gap-4 p-4 bg-neutral-50 rounded-3xl border border-neutral-100 group hover:border-orange-100 transition-colors">
                   <div className="w-10 h-10 rounded-2xl bg-orange-100 flex items-center justify-center shrink-0">
-                    <MapPin className="w-6 h-6 text-orange-600" />
+                    {useParcelIcon ? (
+                      <div className="w-6 h-6 flex items-center justify-center text-red-600">
+                        <Package size={24} strokeWidth={3} />
+                      </div>
+                    ) : (
+                      <MapPin className="w-6 h-6 text-orange-600" />
+                    )}
                   </div>
                   <div className="flex-1">
                     <p className="text-[10px] font-black text-orange-600 uppercase tracking-widest italic">Anwani Iliyochaguliwa</p>
