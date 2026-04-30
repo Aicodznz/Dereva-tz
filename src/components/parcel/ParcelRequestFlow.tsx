@@ -4,13 +4,14 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Package, FileText, Smartphone, Box, Pill, Dog, 
   MapPin, User, Phone, ChevronRight, ArrowLeft, 
-  Clock, CreditCard, ShieldCheck, Info, AlertTriangle
+  Clock, CreditCard, ShieldCheck, Info, AlertTriangle, Search, Map
 } from 'lucide-react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../AuthContext';
 import { ParcelCategory } from '../../types/parcel';
 import { toast } from 'sonner';
+import LocationPicker from '../LocationPicker';
 
 const categoryConfig: Record<string, { 
   title: string, 
@@ -44,6 +45,31 @@ const ParcelRequestFlow: React.FC = () => {
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showLocationPicker, setShowLocationPicker] = useState<{ type: 'sender' | 'recipient', isOpen: boolean }>({ type: 'sender', isOpen: false });
+
+  const handleLocationSelect = (loc: { address: string; lat: number; lng: number }) => {
+    if (showLocationPicker.type === 'sender') {
+      setFormData({
+        ...formData,
+        sender: {
+          ...formData.sender,
+          address: loc.address,
+          lat: loc.lat,
+          lng: loc.lng
+        }
+      });
+    } else {
+      setFormData({
+        ...formData,
+        recipient: {
+          ...formData.recipient,
+          address: loc.address,
+          lat: loc.lat,
+          lng: loc.lng
+        }
+      });
+    }
+  };
 
   const handleNext = () => setStep(prev => prev + 1);
   const handlePrev = () => setStep(prev => prev - 1);
@@ -108,7 +134,17 @@ const ParcelRequestFlow: React.FC = () => {
         </div>
       </div>
 
-      <div className="p-6 max-w-xl mx-auto">
+      <div className="p-6 max-w-xl mx-auto overflow-x-hidden">
+        <LocationPicker 
+          isOpen={showLocationPicker.isOpen}
+          onClose={() => setShowLocationPicker({ ...showLocationPicker, isOpen: false })}
+          onSelect={handleLocationSelect}
+          initialLocation={
+            showLocationPicker.type === 'sender' 
+              ? { lat: formData.sender.lat, lng: formData.sender.lng, address: formData.sender.address }
+              : { lat: formData.recipient.lat, lng: formData.recipient.lng, address: formData.recipient.address }
+          }
+        />
         <AnimatePresence mode="wait">
           {step === 1 && (
             <motion.div 
@@ -149,15 +185,24 @@ const ParcelRequestFlow: React.FC = () => {
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest pl-2">Mahali (Pickup Address)</label>
-                    <div className="relative">
-                      <MapPin className="absolute left-6 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
-                      <input 
-                        type="text" 
-                        placeholder="e.g. Masaki, Dar es Salaam"
-                        className="w-full bg-neutral-100 dark:bg-neutral-900 border-none rounded-2xl pl-14 pr-6 py-4 focus:ring-2 focus:ring-neutral-200 dark:focus:ring-neutral-800 font-bold"
-                        value={formData.sender.address}
-                        onChange={e => setFormData({ ...formData, sender: { ...formData.sender, address: e.target.value } })}
-                      />
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <MapPin className="absolute left-6 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
+                        <input 
+                          type="text" 
+                          placeholder="e.g. Masaki, Dar es Salaam"
+                          className="w-full bg-neutral-100 dark:bg-neutral-900 border-none rounded-2xl pl-14 pr-6 py-4 focus:ring-2 focus:ring-neutral-200 dark:focus:ring-neutral-800 font-bold"
+                          value={formData.sender.address}
+                          onChange={e => setFormData({ ...formData, sender: { ...formData.sender, address: e.target.value } })}
+                        />
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => setShowLocationPicker({ type: 'sender', isOpen: true })}
+                        className="w-14 h-14 bg-neutral-900 dark:bg-white text-white dark:text-black rounded-2xl flex items-center justify-center shrink-0 shadow-lg active:scale-95 transition-transform"
+                      >
+                        <Map size={20} />
+                      </button>
                     </div>
                   </div>
                </div>
@@ -211,15 +256,24 @@ const ParcelRequestFlow: React.FC = () => {
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest pl-2">Atapokelea wapi?</label>
-                    <div className="relative">
-                      <MapPin className="absolute left-6 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
-                      <input 
-                        type="text" 
-                        placeholder="e.g. Sinza Kijiweni"
-                        className="w-full bg-neutral-100 dark:bg-neutral-900 border-none rounded-2xl pl-14 pr-6 py-4 focus:ring-2 focus:ring-neutral-200 dark:focus:ring-neutral-800 font-bold"
-                        value={formData.recipient.address}
-                        onChange={e => setFormData({ ...formData, recipient: { ...formData.recipient, address: e.target.value } })}
-                      />
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <MapPin className="absolute left-6 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
+                        <input 
+                          type="text" 
+                          placeholder="e.g. Sinza Kijiweni"
+                          className="w-full bg-neutral-100 dark:bg-neutral-900 border-none rounded-2xl pl-14 pr-6 py-4 focus:ring-2 focus:ring-neutral-200 dark:focus:ring-neutral-800 font-bold"
+                          value={formData.recipient.address}
+                          onChange={e => setFormData({ ...formData, recipient: { ...formData.recipient, address: e.target.value } })}
+                        />
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => setShowLocationPicker({ type: 'recipient', isOpen: true })}
+                        className="w-14 h-14 bg-neutral-900 dark:bg-white text-white dark:text-black rounded-2xl flex items-center justify-center shrink-0 shadow-lg active:scale-95 transition-transform"
+                      >
+                        <Map size={20} />
+                      </button>
                     </div>
                   </div>
                   <div className="space-y-2">

@@ -98,7 +98,31 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
   const [error, setError] = useState<string | null>(null);
   const [label, setLabel] = useState<'Home' | 'Work' | 'Other' | null>(null);
   const [selectedVendor, setSelectedVendor] = useState<any>(null);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
   const [mapType, setMapType] = useState<'standard' | 'satellite'>('standard');
+
+  // Debounced search for suggestions
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      if (address.length > 2 && !isSearching) {
+        fetchSuggestions(address);
+      } else if (address.length <= 2) {
+        setSuggestions([]);
+      }
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [address]);
+
+  const fetchSuggestions = async (query: string) => {
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`);
+      const data = await response.json();
+      setSuggestions(data);
+    } catch (err) {
+      console.error('Failed to fetch suggestions:', err);
+    }
+  };
 
   // Handle pre-selected vendor
   useEffect(() => {
@@ -237,7 +261,10 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                     placeholder="Andika anwani au jina la sehemu..." 
                     className="pl-12 h-14 bg-neutral-50 border-none rounded-2xl pr-12 text-base font-medium focus:ring-2 focus:ring-orange-500"
                     value={address}
-                    onChange={(e) => setAddress(e.target.value)}
+                    onChange={(e) => {
+                      setAddress(e.target.value);
+                      if (e.target.value.length === 0) setSuggestions([]);
+                    }}
                     onKeyDown={(e) => e.key === 'Enter' && handleSearch(address)}
                   />
                   {isSearching && (
@@ -246,6 +273,37 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                     </div>
                   )}
                 </div>
+
+                {/* Autocomplete Suggestions */}
+                <AnimatePresence>
+                  {suggestions.length > 0 && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="bg-white border border-neutral-100 rounded-2xl shadow-xl max-h-60 overflow-y-auto no-scrollbar"
+                    >
+                      {suggestions.map((suggestion, index) => (
+                        <button
+                          key={index}
+                          onClick={() => {
+                            const newPos = new L.LatLng(parseFloat(suggestion.lat), parseFloat(suggestion.lon));
+                            setPosition(newPos);
+                            setAddress(suggestion.display_name);
+                            setSuggestions([]);
+                          }}
+                          className="w-full px-4 py-3 text-left hover:bg-neutral-50 flex items-start gap-3 border-b border-neutral-50 last:border-0 transition-colors"
+                        >
+                          <MapPin className="w-4 h-4 mt-1 text-neutral-400 shrink-0" />
+                          <div>
+                            <p className="text-sm font-bold text-neutral-900 leading-tight">{suggestion.display_name.split(',')[0]}</p>
+                            <p className="text-[10px] text-neutral-500 font-medium truncate max-w-[300px]">{suggestion.display_name}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
                 
                 {error && (
                   <motion.div 
