@@ -475,7 +475,7 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
             exit={{ y: -100, opacity: 0 }}
             className="absolute top-24 inset-x-6 z-40 flex flex-col gap-4"
           >
-            <div className="flex justify-between items-center bg-white/95 dark:bg-[#1a1a2e] p-2 rounded-[2.5rem] shadow-2xl border border-neutral-200 dark:border-white/10 backdrop-blur-3xl">
+            <div className="flex justify-between items-center bg-white/95 dark:bg-[#111118]/95 p-2 rounded-[2.5rem] shadow-2xl border border-neutral-200 dark:border-white/10 backdrop-blur-3xl">
               <button 
                 onClick={() => {
                   const nextVal = !showTopInfo;
@@ -505,8 +505,8 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                   </motion.div>
                 ) : (
                   <div className="flex items-center gap-2">
-                      <div className="w-2.5 h-2.5 bg-neutral-400 rounded-full" />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500 leading-none">SYSTEM OFFLINE</span>
+                      <div className="w-2.5 h-2.5 bg-neutral-400 dark:bg-neutral-600 rounded-full" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500 dark:text-neutral-500 leading-none">SYSTEM OFFLINE</span>
                   </div>
                 )}
               </div>
@@ -736,15 +736,24 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
       <motion.div 
         initial={{ y: 0 }}
         animate={{ y: isMinimized ? 1000 : 0 }}
-        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-        className="absolute inset-x-0 bottom-0 z-50"
+        transition={{ type: 'spring', damping: 30, stiffness: 200 }}
+        drag="y"
+        dragConstraints={{ top: 0, bottom: 0 }}
+        dragElastic={0.1}
+        onDragEnd={(_, info) => {
+          // We no longer trigger setIsMinimized(true) here. 
+          // Minimization must be explicitly done via the eye button.
+        }}
+        className="absolute inset-x-0 bottom-0 z-50 cursor-grab active:cursor-grabbing"
       >
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-10 h-1.5 bg-neutral-600/30 rounded-full mt-3 z-[60]" />
+        
         <AnimatePresence mode="wait">
           {!isOnline && (
              <motion.div 
                key="offline"
                initial={{ y: 100 }} animate={{ y: 0 }} exit={{ y: 100 }}
-               className="bg-[#111118] border-t border-[#1e1e2e] p-10 flex flex-col items-center gap-6 rounded-t-[40px] shadow-[0_-20px_60px_rgba(0,0,0,0.8)]"
+               className="bg-[#111118] border-t border-[#1e1e2e] pt-10 pb-10 px-10 flex flex-col items-center gap-6 rounded-t-[40px] shadow-[0_-20px_60px_rgba(0,0,0,0.8)]"
              >
                 <div className="text-center space-y-2">
                    <h3 className="text-xl font-black italic tracking-tighter text-neutral-400">UKO OFFLINE</h3>
@@ -784,20 +793,20 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                 </div>
 
                 <div className="grid grid-cols-3 gap-3 mb-8">
-                   <div className="bg-[#0a0a0f] border border-[#1e1e2e] p-4 rounded-3xl flex flex-col items-center">
-                      <DollarSign className="w-5 h-5 text-[#7F77DD] mb-1" />
-                      <p className="text-[8px] font-black text-neutral-500 uppercase">Mapato</p>
-                      <p className="text-xs font-black italic">TZS {(stats?.todayEarnings ?? 0).toLocaleString()}</p>
+                   <div className="bg-[#1a1a2e] border border-[#7F77DD]/30 p-4 rounded-3xl flex flex-col items-center shadow-lg transition-transform hover:scale-105">
+                      <DollarSign className="w-5 h-5 text-emerald-500 mb-1" />
+                      <p className="text-[8px] font-black text-neutral-400 uppercase">Mapato</p>
+                      <p className="text-xs font-black italic text-white">TZS {(stats?.todayEarnings ?? 0).toLocaleString()}</p>
                    </div>
-                   <div className="bg-[#0a0a0f] border border-[#1e1e2e] p-4 rounded-3xl flex flex-col items-center">
+                   <div className="bg-[#1a1a2e] border border-[#7F77DD]/30 p-4 rounded-3xl flex flex-col items-center shadow-lg transition-transform hover:scale-105">
                       <Navigation2 className="w-5 h-5 text-emerald-500 mb-1" />
-                      <p className="text-[8px] font-black text-neutral-500 uppercase">Safari</p>
-                      <p className="text-xs font-black italic">{stats.todayTrips}</p>
+                      <p className="text-[8px] font-black text-neutral-400 uppercase">Safari</p>
+                      <p className="text-xs font-black italic text-white">{stats.todayTrips}</p>
                    </div>
-                   <div className="bg-[#0a0a0f] border border-[#1e1e2e] p-4 rounded-3xl flex flex-col items-center">
+                   <div className="bg-[#1a1a2e] border border-[#7F77DD]/30 p-4 rounded-3xl flex flex-col items-center shadow-lg transition-transform hover:scale-105">
                       <Clock className="w-5 h-5 text-amber-500 mb-1" />
-                      <p className="text-[8px] font-black text-neutral-500 uppercase">Saa</p>
-                      <p className="text-xs font-black italic">{stats.activeHours}h</p>
+                      <p className="text-[8px] font-black text-neutral-400 uppercase">Saa</p>
+                      <p className="text-xs font-black italic text-white">{stats.activeHours}h</p>
                    </div>
                 </div>
 
@@ -808,47 +817,9 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                       <p className="text-[11px] font-bold text-neutral-400">Mahitaji makubwa Ubungo, Mlimani City. Elekea huko!</p>
                    </div>
                 </div>
-
-                <div className="mt-6 bg-gradient-to-br from-pink-500/10 to-orange-500/5 border border-pink-500/10 rounded-[2.5rem] p-6 flex flex-col gap-6 relative overflow-hidden group">
-                   <div className="absolute -top-10 -right-10 w-40 h-40 bg-pink-500/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-1000" />
-                   <div className="flex items-center gap-5 relative z-10">
-                      <div className="w-14 h-14 bg-pink-500 rounded-[1.5rem] flex items-center justify-center text-white shadow-2xl shadow-pink-500/30 rotate-3 group-hover:rotate-12 transition-transform">
-                         <Package className="w-8 h-8" />
-                      </div>
-                      <div>
-                         <div className="flex items-center gap-2 mb-1">
-                            <span className="flex h-2 w-2 rounded-full bg-pink-500 animate-pulse" />
-                            <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.3em] leading-none">HUDUMA MPYA</p>
-                         </div>
-                         <h4 className="text-xl font-black text-white uppercase italic tracking-tighter leading-none mb-1">Parcel & Delivery</h4>
-                         <p className="text-[11px] font-bold text-neutral-400">Anza kupokea oda za kusafirisha vifurushi leo!</p>
-                      </div>
-                   </div>
-                   <button 
-                     onClick={async () => {
-                        const confirmed = window.confirm("Je, unataka kujisajili kama Mshirika wa Usafirishaji (Delivery Partner)? Hii itakuruhusu kupokea vifurushi.");
-                        if (confirmed && user?.uid) {
-                          try {
-                            await updateDoc(doc(db, 'users', user.uid), {
-                              driverType: 'delivery',
-                              isDeliveryPartner: true,
-                              deliveryRegistrationDate: serverTimestamp()
-                            });
-                            toast.success("Usajili umekamilika! Karibu kwenye usafirishaji.");
-                            // Dashboard.tsx will handle the rest
-                          } catch (err) {
-                            toast.error("Imeshindwa kusajili. Jaribu tena.");
-                          }
-                        }
-                     }}
-                     className="bg-pink-500 text-white text-xs font-black py-4 rounded-2xl uppercase tracking-widest text-center shadow-xl shadow-pink-500/30 hover:bg-pink-600 transition-all relative z-10"
-                   >
-                     JIUNGE NA USAFIRISHAJI 📦
-                   </button>
-                </div>
-             </motion.div>
-          )}
-        </AnimatePresence>
+         </motion.div>
+      )}
+    </AnimatePresence>
 
         <AnimatePresence>
             {incomingRequest && (

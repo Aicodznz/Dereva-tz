@@ -13,7 +13,7 @@ const HeaderContext = createContext<HeaderContextType | undefined>(undefined);
 
 export function HeaderProvider({ children }: { children: React.ReactNode }) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [location, setLocation] = useState('Select Location');
+  const [location, setLocation] = useState('Papo Hapo');
   const [onLocationClick, setOnLocationClick] = useState<() => void>(() => () => {});
 
   return (
