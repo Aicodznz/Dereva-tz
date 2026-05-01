@@ -69,6 +69,9 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
   const { assignedRide } = useDriverRideListener(user?.uid, isOnline);
   const { acceptRide: firestoreAccept, arrivedAtPickup, startTrip, completeTrip, updateDriverLocation } = useDriverActions(rideId);
 
+  const [incomingRequest, setIncomingRequest] = useState<any>(null);
+  const [declinedRequests, setDeclinedRequests] = useState<Set<string>>(new Set());
+
   // Dynamic Routing for Driver
   const routingTarget = useMemo<[number, number] | null>(() => {
     if (activeRide) {
@@ -89,9 +92,6 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
     position, 
     routingTarget || position
   );
-
-  const [incomingRequest, setIncomingRequest] = useState<any>(null);
-  const [declinedRequests, setDeclinedRequests] = useState<Set<string>>(new Set());
   const [showPayment, setShowPayment] = useState(false);
   const [showRating, setShowRating] = useState(false);
   const [speed, setSpeed] = useState(0);
