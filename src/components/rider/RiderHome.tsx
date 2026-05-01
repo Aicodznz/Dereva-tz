@@ -531,20 +531,20 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                     setShowTopInfo(false);
                     if (onNavVisibilityChange) onNavVisibilityChange(true);
                   }}
-                  className="flex items-center justify-center gap-4 py-3 px-6 bg-white dark:bg-[#1a1a2e] rounded-2xl border-2 border-neutral-200 dark:border-white/10 w-fit mx-auto shadow-2xl cursor-pointer hover:scale-105 transition-all"
+                  className="flex items-center justify-center gap-3 py-2 px-4 bg-white dark:bg-[#1a1a2e] rounded-xl border border-neutral-200 dark:border-white/10 w-fit mx-auto shadow-xl cursor-pointer hover:bg-neutral-50 dark:hover:bg-[#1a1a2e] transition-all"
                 >
-                  <div className="flex items-center gap-1.5 text-[10px] font-black text-neutral-700 dark:text-neutral-300 uppercase tracking-widest">
-                    <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+                  <div className="flex items-center gap-1.5 whitespace-nowrap text-[9px] font-black text-neutral-700 dark:text-neutral-300 uppercase tracking-wider">
+                    <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
                     <span>{profile?.rating || '4.8'} RATING</span>
                   </div>
-                  <div className="w-px h-4 bg-neutral-200 dark:bg-white/10" />
-                  <div className="flex items-center gap-1.5 text-[10px] font-black text-neutral-700 dark:text-neutral-300 uppercase tracking-widest">
-                    <Wifi className="w-4 h-4 text-emerald-500" />
+                  <div className="w-px h-3 bg-neutral-200 dark:bg-white/10" />
+                  <div className="flex items-center gap-1.5 whitespace-nowrap text-[9px] font-black text-neutral-700 dark:text-neutral-300 uppercase tracking-wider">
+                    <Wifi className="w-3.5 h-3.5 text-emerald-500" />
                     <span>NETWORK: GOOD</span>
                   </div>
-                  <div className="w-px h-4 bg-neutral-200 dark:bg-white/10" />
-                  <div className="flex items-center gap-1.5 text-[10px] font-black text-neutral-700 dark:text-neutral-300 uppercase tracking-widest">
-                    <Battery className="w-4 h-4 text-emerald-500" />
+                  <div className="w-px h-3 bg-neutral-200 dark:bg-white/10" />
+                  <div className="flex items-center gap-1.5 whitespace-nowrap text-[9px] font-black text-neutral-700 dark:text-neutral-300 uppercase tracking-wider">
+                    <Battery className="w-3.5 h-3.5 text-emerald-500" />
                     <span>TRIP MODE ON</span>
                   </div>
                 </motion.div>
