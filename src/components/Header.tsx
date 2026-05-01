@@ -45,7 +45,7 @@ export default function Header() {
             <span className="hidden lg:block font-black text-lg uppercase italic tracking-tighter text-neutral-900 dark:text-white">OmniServe</span>
           </Link>
 
-          {isDashboard && (
+          {isDashboard && !isRiderDashboard && (
             <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-600/10 dark:bg-orange-600/20 rounded-full border border-orange-600/20 shadow-sm transition-all">
               <MapPin className="w-3.5 h-3.5 text-orange-600" />
               <span className="text-xs font-black text-orange-600 uppercase tracking-widest leading-none">Papo Hapo</span>

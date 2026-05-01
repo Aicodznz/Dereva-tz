@@ -475,48 +475,48 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
             exit={{ y: -100, opacity: 0 }}
             className="absolute top-24 inset-x-6 z-40 flex flex-col gap-4"
           >
-            <div className="flex justify-between items-center bg-white/95 dark:bg-[#111118]/95 p-2 rounded-[2.5rem] shadow-2xl border border-neutral-200 dark:border-white/10 backdrop-blur-3xl">
+            <div className="flex justify-between items-center bg-white/95 dark:bg-[#111118]/95 p-1.5 rounded-full shadow-2xl border border-neutral-200 dark:border-white/10 backdrop-blur-3xl">
               <button 
                 onClick={() => {
                   const nextVal = !showTopInfo;
                   setShowTopInfo(nextVal);
                   if (onNavVisibilityChange) onNavVisibilityChange(!nextVal);
                 }}
-                className="w-12 h-12 bg-orange-600 rounded-2xl shadow-lg flex items-center justify-center active:scale-95 transition-transform overflow-hidden shrink-0"
+                className="w-10 h-10 bg-orange-600 rounded-full shadow-lg flex items-center justify-center active:scale-95 transition-transform overflow-hidden shrink-0"
               >
                 {profile?.photoURL ? (
                   <img src={profile.photoURL} alt="Profile" className="w-full h-full object-cover" />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-white font-black text-sm uppercase">
+                  <div className="w-full h-full flex items-center justify-center text-white font-black text-xs uppercase">
                     {(profile?.displayName || 'D').split(' ').map(n => n[0]).join('')}
                   </div>
                 )}
               </button>
 
-              <div className="flex-1 flex flex-col items-center px-4">
+              <div className="flex-1 flex flex-col items-center px-2">
                 {isOnline ? (
                   <motion.div 
                     initial={{ scale: 0.9, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    className="flex items-center gap-2"
+                    className="flex items-center gap-1.5"
                   >
-                    <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
-                    <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest leading-none">ACTIVE & RECEIVING</span>
+                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                    <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-tighter leading-none">ACTIVE & RECEIVING</span>
                   </motion.div>
                 ) : (
-                  <div className="flex items-center gap-2">
-                      <div className="w-2.5 h-2.5 bg-neutral-400 dark:bg-neutral-600 rounded-full" />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500 dark:text-neutral-500 leading-none">SYSTEM OFFLINE</span>
+                  <div className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 bg-neutral-400 dark:bg-neutral-600 rounded-full" />
+                      <span className="text-[9px] font-black uppercase tracking-tighter text-neutral-500 dark:text-neutral-500 leading-none">SYSTEM OFFLINE</span>
                   </div>
                 )}
               </div>
 
               <button 
                 onClick={() => toast.info("Huna taarifa mpya")}
-                className="w-12 h-12 bg-neutral-100 dark:bg-white/5 rounded-2xl flex items-center justify-center relative shrink-0"
+                className="w-10 h-10 bg-neutral-100 dark:bg-white/5 rounded-full flex items-center justify-center relative shrink-0"
               >
-                <Bell className="w-6 h-6 text-neutral-600 dark:text-neutral-400" />
-                <div className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-red-500 border-2 border-white dark:border-[#1a1a2e] rounded-full shadow-sm" />
+                <Bell className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />
+                <div className="absolute top-2 right-2 w-2 h-2 bg-red-500 border border-white dark:border-[#1a1a2e] rounded-full shadow-sm" />
               </button>
             </div>
 
@@ -659,19 +659,19 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
 
       {/* Earnings Toggle Overlay */}
       {!activeRide && !incomingRequest && !isMinimized && (
-        <div className="absolute top-32 left-1/2 -translate-x-1/2 z-40">
+        <div className="absolute top-28 left-1/2 -translate-x-1/2 z-40">
            <motion.div 
              onClick={toggleEarnings}
-             className="bg-[#111118]/90 backdrop-blur-xl border border-[#1e1e2e] px-6 py-3 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] cursor-pointer flex flex-col items-center gap-1 active:scale-95 transition-all"
+             className="bg-[#111118]/90 backdrop-blur-xl border border-[#1e1e2e] px-4 py-2 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.5)] cursor-pointer flex flex-col items-center gap-0.5 active:scale-95 transition-all"
            >
-              <div className="flex items-center gap-3">
-                <p className="text-[10px] font-black text-neutral-500 uppercase tracking-widest italic">Mapato Leo</p>
-                <div className="flex items-center gap-1.5 bg-[#7F77DD]/10 px-2 py-0.5 rounded-full border border-[#7F77DD]/20">
-                  <TrendingUp className="w-3 h-3 text-[#7F77DD]" />
-                  <span className="text-[9px] font-black text-[#7F77DD]">{stats.todayTrips} SAFARI</span>
+              <div className="flex items-center gap-2">
+                <p className="text-[8px] font-black text-neutral-500 uppercase tracking-widest italic">Mapato Leo</p>
+                <div className="flex items-center gap-1 bg-[#7F77DD]/10 px-1.5 py-0.5 rounded-full border border-[#7F77DD]/20">
+                  <TrendingUp className="w-2.5 h-2.5 text-[#7F77DD]" />
+                  <span className="text-[8px] font-black text-[#7F77DD] uppercase">{stats.todayTrips} SAFARI</span>
                 </div>
               </div>
-              <h2 className="text-2xl font-black italic tracking-tighter leading-none">
+              <h2 className="text-lg font-black italic tracking-tighter leading-none">
                 {showEarnings ? `TZS ${(stats?.todayEarnings ?? 0).toLocaleString()}` : "TZS ••••••"}
               </h2>
            </motion.div>
@@ -680,52 +680,50 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
 
       {/* Map Mode Toggle Button - Ultra Modern Hyper-Floating style */}
       {!activeRide && !incomingRequest && (
-        <div className="absolute bottom-12 right-6 z-[65]">
+        <div className={`absolute bottom-8 right-6 z-[80] transition-all duration-500`}>
           <motion.button 
-            whileHover={{ scale: 1.05, y: -2 }}
-            whileTap={{ scale: 0.95 }}
+            whileHover={{ scale: 1.1, y: -4 }}
+            whileTap={{ scale: 0.9 }}
             onClick={() => {
               const nextVal = !isMinimized;
               setIsMinimized(nextVal);
               if (onNavVisibilityChange) onNavVisibilityChange(!nextVal);
             }}
-            className={`w-18 h-18 rounded-[2.5rem] shadow-[0_25px_60px_rgba(0,0,0,0.5)] flex items-center justify-center transition-all duration-500 backdrop-blur-3xl border-2 ${
+            className={`w-16 h-16 rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.4)] flex items-center justify-center transition-all duration-500 backdrop-blur-3xl border-4 ${
               isMinimized 
-                ? 'bg-emerald-500 border-emerald-300 ring-4 ring-emerald-500/30 text-white shadow-emerald-500/60' 
-                : 'bg-white/95 dark:bg-[#1a1a2e]/95 border-neutral-200 dark:border-white/10 text-neutral-600 dark:text-neutral-300 hover:border-emerald-500 dark:hover:border-emerald-500 hover:text-emerald-500 dark:hover:text-emerald-400'
+                ? 'bg-orange-600 border-orange-400 text-white ring-8 ring-orange-600/20' 
+                : 'bg-white/95 dark:bg-[#1a1a2e]/95 border-neutral-200 dark:border-white/10 text-neutral-600 dark:text-neutral-300 shadow-xl'
             }`}
-            title={isMinimized ? "Show Dashboard" : "Full Map Mode"}
           >
             <AnimatePresence mode="wait">
               {isMinimized ? (
                 <motion.div 
                   key="eye"
-                  initial={{ rotate: -90, opacity: 0, scale: 0.5 }}
+                  initial={{ rotate: -180, opacity: 0, scale: 0.3 }}
                   animate={{ rotate: 0, opacity: 1, scale: 1 }}
-                  exit={{ rotate: 90, opacity: 0, scale: 0.5 }}
-                  transition={{ type: 'spring', damping: 15 }}
+                  exit={{ rotate: 180, opacity: 0, scale: 0.3 }}
+                  transition={{ type: 'spring', damping: 12 }}
                 >
-                  <Eye className="w-9 h-9" />
+                  <Eye className="w-8 h-8" />
                 </motion.div>
               ) : (
                 <motion.div 
                   key="eye-off"
-                  initial={{ rotate: 90, opacity: 0, scale: 0.5 }}
+                  initial={{ rotate: 180, opacity: 0, scale: 0.3 }}
                   animate={{ rotate: 0, opacity: 1, scale: 1 }}
-                  exit={{ rotate: -90, opacity: 0, scale: 0.5 }}
-                   transition={{ type: 'spring', damping: 15 }}
+                  exit={{ rotate: -180, opacity: 0, scale: 0.3 }}
+                   transition={{ type: 'spring', damping: 12 }}
                 >
-                  <EyeOff className="w-9 h-9" />
+                  <EyeOff className="w-8 h-8" />
                 </motion.div>
               )}
             </AnimatePresence>
             
-            {/* Glowing ring when minimized */}
             {isMinimized && (
               <motion.div 
-                animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0, 0.3] }}
-                transition={{ duration: 2, repeat: Infinity }}
-                className="absolute inset-0 rounded-[2.5rem] bg-emerald-400 -z-10" 
+                animate={{ scale: [1, 1.4, 1], opacity: [0.5, 0, 0.5] }}
+                transition={{ duration: 1.5, repeat: Infinity }}
+                className="absolute inset-0 rounded-full bg-orange-400 -z-10" 
               />
             )}
           </motion.button>
@@ -792,21 +790,24 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                    </button>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3 mb-8">
-                   <div className="bg-[#1a1a2e] border border-[#7F77DD]/30 p-4 rounded-3xl flex flex-col items-center shadow-lg transition-transform hover:scale-105">
-                      <DollarSign className="w-5 h-5 text-emerald-500 mb-1" />
-                      <p className="text-[8px] font-black text-neutral-400 uppercase">Mapato</p>
-                      <p className="text-xs font-black italic text-white">TZS {(stats?.todayEarnings ?? 0).toLocaleString()}</p>
+                <div className="grid grid-cols-3 gap-2 mb-6">
+                   <div className="bg-[#1a1a2e] border border-[#7F77DD]/20 p-3 rounded-2xl flex flex-col items-center shadow-lg transition-transform hover:scale-105">
+                      <DollarSign className="w-4 h-4 text-emerald-500 mb-0.5" />
+                      <p className="text-[7px] font-black text-neutral-400 uppercase">Mapato</p>
+                      <p className="text-xs font-black italic text-white flex flex-col items-center leading-tight">
+                        <span className="text-[8px] opacity-70 not-italic">TZS</span>
+                        {(stats?.todayEarnings ?? 0).toLocaleString()}
+                      </p>
                    </div>
-                   <div className="bg-[#1a1a2e] border border-[#7F77DD]/30 p-4 rounded-3xl flex flex-col items-center shadow-lg transition-transform hover:scale-105">
-                      <Navigation2 className="w-5 h-5 text-emerald-500 mb-1" />
-                      <p className="text-[8px] font-black text-neutral-400 uppercase">Safari</p>
-                      <p className="text-xs font-black italic text-white">{stats.todayTrips}</p>
+                   <div className="bg-[#1a1a2e] border border-[#7F77DD]/20 p-3 rounded-2xl flex flex-col items-center shadow-lg transition-transform hover:scale-105">
+                      <Navigation2 className="w-4 h-4 text-emerald-500 mb-0.5" />
+                      <p className="text-[7px] font-black text-neutral-400 uppercase">Safari</p>
+                      <p className="text-sm font-black italic text-white">{stats.todayTrips}</p>
                    </div>
-                   <div className="bg-[#1a1a2e] border border-[#7F77DD]/30 p-4 rounded-3xl flex flex-col items-center shadow-lg transition-transform hover:scale-105">
-                      <Clock className="w-5 h-5 text-amber-500 mb-1" />
-                      <p className="text-[8px] font-black text-neutral-400 uppercase">Saa</p>
-                      <p className="text-xs font-black italic text-white">{stats.activeHours}h</p>
+                   <div className="bg-[#1a1a2e] border border-[#7F77DD]/20 p-3 rounded-2xl flex flex-col items-center shadow-lg transition-transform hover:scale-105">
+                      <Clock className="w-4 h-4 text-amber-500 mb-0.5" />
+                      <p className="text-[7px] font-black text-neutral-400 uppercase">Saa</p>
+                      <p className="text-sm font-black italic text-white">{stats.activeHours}h</p>
                    </div>
                 </div>
 
