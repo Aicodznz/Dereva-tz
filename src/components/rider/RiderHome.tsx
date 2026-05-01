@@ -473,49 +473,50 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
             initial={{ y: -100, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -100, opacity: 0 }}
-            className="absolute top-4 inset-x-4 z-40 flex flex-col gap-3"
+            className="absolute top-24 inset-x-6 z-40 flex flex-col gap-4"
           >
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center bg-white/95 dark:bg-[#1a1a2e] p-2 rounded-[2.5rem] shadow-2xl border border-neutral-200 dark:border-white/10 backdrop-blur-3xl">
               <button 
                 onClick={() => {
                   const nextVal = !showTopInfo;
                   setShowTopInfo(nextVal);
                   if (onNavVisibilityChange) onNavVisibilityChange(!nextVal);
                 }}
-                className="w-12 h-12 bg-[#111118]/80 backdrop-blur-xl rounded-2xl shadow-lg flex items-center justify-center border border-[#1e1e2e] active:scale-95 transition-transform overflow-hidden"
+                className="w-12 h-12 bg-orange-600 rounded-2xl shadow-lg flex items-center justify-center active:scale-95 transition-transform overflow-hidden shrink-0"
               >
                 {profile?.photoURL ? (
                   <img src={profile.photoURL} alt="Profile" className="w-full h-full object-cover" />
                 ) : (
-                  <div className="w-full h-full bg-[#7F77DD]/20 flex items-center justify-center text-[#7F77DD] font-black text-sm">
+                  <div className="w-full h-full flex items-center justify-center text-white font-black text-sm uppercase">
                     {(profile?.displayName || 'D').split(' ').map(n => n[0]).join('')}
                   </div>
                 )}
               </button>
 
-              <div className="flex flex-col items-center">
+              <div className="flex-1 flex flex-col items-center px-4">
                 {isOnline ? (
                   <motion.div 
                     initial={{ scale: 0.9, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    className="bg-emerald-500/10 text-emerald-500 px-4 py-2 rounded-full border border-emerald-500/20 flex items-center gap-2 shadow-lg backdrop-blur-md"
+                    className="flex items-center gap-2"
                   >
-                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_10px_#10b981]" />
-                    <span className="text-[10px] font-black uppercase tracking-widest leading-none">ACTIVE & RECEIVING</span>
+                    <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+                    <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest leading-none">ACTIVE & RECEIVING</span>
                   </motion.div>
                 ) : (
-                  <div className="bg-neutral-800/80 backdrop-blur-md text-neutral-400 px-4 py-2 rounded-full border border-white/5 flex items-center gap-2">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500 leading-none">OFFLINE</span>
+                  <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 bg-neutral-400 rounded-full" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500 leading-none">SYSTEM OFFLINE</span>
                   </div>
                 )}
               </div>
 
               <button 
                 onClick={() => toast.info("Huna taarifa mpya")}
-                className="w-12 h-12 bg-[#111118]/80 backdrop-blur-xl rounded-2xl shadow-lg flex items-center justify-center border border-[#1e1e2e] relative"
+                className="w-12 h-12 bg-neutral-100 dark:bg-white/5 rounded-2xl flex items-center justify-center relative shrink-0"
               >
-                <Bell className="w-6 h-6 text-neutral-400" />
-                <div className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-red-500 border-2 border-[#111118] rounded-full" />
+                <Bell className="w-6 h-6 text-neutral-600 dark:text-neutral-400" />
+                <div className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-red-500 border-2 border-white dark:border-[#1a1a2e] rounded-full shadow-sm" />
               </button>
             </div>
 
@@ -530,20 +531,20 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                     setShowTopInfo(false);
                     if (onNavVisibilityChange) onNavVisibilityChange(true);
                   }}
-                  className="flex items-center justify-center gap-4 py-1.5 px-4 bg-[#111118]/60 backdrop-blur-md rounded-xl border border-[#1e1e2e]/50 w-fit mx-auto shadow-2xl cursor-pointer hover:bg-[#111118]/80 transition-colors"
+                  className="flex items-center justify-center gap-4 py-3 px-6 bg-white dark:bg-[#1a1a2e] rounded-2xl border-2 border-neutral-200 dark:border-white/10 w-fit mx-auto shadow-2xl cursor-pointer hover:scale-105 transition-all"
                 >
-                  <div className="flex items-center gap-1.5 text-[9px] font-bold text-neutral-400">
-                    <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                  <div className="flex items-center gap-1.5 text-[10px] font-black text-neutral-700 dark:text-neutral-300 uppercase tracking-widest">
+                    <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
                     <span>{profile?.rating || '4.8'} RATING</span>
                   </div>
-                  <div className="w-px h-3 bg-neutral-800" />
-                  <div className="flex items-center gap-1.5 text-[9px] font-bold text-neutral-400">
-                    <Wifi className="w-3 h-3 text-emerald-500" />
+                  <div className="w-px h-4 bg-neutral-200 dark:bg-white/10" />
+                  <div className="flex items-center gap-1.5 text-[10px] font-black text-neutral-700 dark:text-neutral-300 uppercase tracking-widest">
+                    <Wifi className="w-4 h-4 text-emerald-500" />
                     <span>NETWORK: GOOD</span>
                   </div>
-                  <div className="w-px h-3 bg-neutral-800" />
-                  <div className="flex items-center gap-1.5 text-[9px] font-bold text-neutral-400">
-                    <Battery className="w-3 h-3 text-emerald-500" />
+                  <div className="w-px h-4 bg-neutral-200 dark:bg-white/10" />
+                  <div className="flex items-center gap-1.5 text-[10px] font-black text-neutral-700 dark:text-neutral-300 uppercase tracking-widest">
+                    <Battery className="w-4 h-4 text-emerald-500" />
                     <span>TRIP MODE ON</span>
                   </div>
                 </motion.div>
@@ -688,10 +689,10 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
               setIsMinimized(nextVal);
               if (onNavVisibilityChange) onNavVisibilityChange(!nextVal);
             }}
-            className={`w-18 h-18 rounded-[2.5rem] shadow-[0_25px_60px_rgba(0,0,0,0.4)] flex items-center justify-center transition-all duration-500 backdrop-blur-3xl border-2 ${
+            className={`w-18 h-18 rounded-[2.5rem] shadow-[0_25px_60px_rgba(0,0,0,0.5)] flex items-center justify-center transition-all duration-500 backdrop-blur-3xl border-2 ${
               isMinimized 
-                ? 'bg-emerald-500 border-emerald-300 ring-4 ring-emerald-500/20 text-white shadow-emerald-500/50' 
-                : 'bg-white/90 dark:bg-[#111118]/90 border-white/20 dark:border-white/10 text-neutral-600 dark:text-neutral-400 hover:border-emerald-500/50 hover:text-emerald-500'
+                ? 'bg-emerald-500 border-emerald-300 ring-4 ring-emerald-500/30 text-white shadow-emerald-500/60' 
+                : 'bg-white/95 dark:bg-[#1a1a2e]/95 border-neutral-200 dark:border-white/10 text-neutral-600 dark:text-neutral-300 hover:border-emerald-500 dark:hover:border-emerald-500 hover:text-emerald-500 dark:hover:text-emerald-400'
             }`}
             title={isMinimized ? "Show Dashboard" : "Full Map Mode"}
           >
