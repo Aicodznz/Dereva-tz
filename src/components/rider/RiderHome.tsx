@@ -642,17 +642,21 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
 
       {/* Floating Buttons */}
       {!activeRide && !incomingRequest && !isMinimized && (
-        <div className="absolute bottom-1/2 translate-y-[-20%] right-4 z-40 flex flex-col gap-4">
+        <div className="absolute bottom-1/2 translate-y-[-20%] right-4 z-40 flex flex-col gap-3">
            <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={toggleEarnings}
-            className="w-14 h-14 bg-[#111118] border-2 border-[#1e1e2e] rounded-2xl shadow-2xl flex flex-col items-center justify-center group active:scale-95 transition-all"
+            className={`w-12 h-12 border-2 rounded-2xl shadow-2xl flex flex-col items-center justify-center transition-all ${
+              showEarnings ? 'bg-[#7F77DD] border-[#7F77DD] text-white' : 'bg-[#111118] border-[#1e1e2e] text-neutral-500'
+            }`}
           >
-            {showEarnings ? <Eye className="w-5 h-5 text-[#7F77DD]" /> : <EyeOff className="w-5 h-5 text-neutral-500" />}
-            <span className="text-[8px] font-black text-neutral-500 mt-1 uppercase tracking-tighter">Budget</span>
+            {showEarnings ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+            <span className="text-[7px] font-black mt-0.5 uppercase tracking-tighter">Budget</span>
           </motion.button>
           
-           <button className="w-14 h-14 bg-[#111118] border border-[#1e1e2e] rounded-2xl shadow-2xl flex items-center justify-center text-neutral-400 active:scale-95 transition-transform">
-             <MapIcon className="w-6 h-6" />
+           <button className="w-12 h-12 bg-[#111118] border border-[#1e1e2e] rounded-2xl shadow-2xl flex items-center justify-center text-neutral-400 active:scale-95 transition-transform">
+             <MapIcon className="w-5 h-5" />
            </button>
         </div>
       )}
@@ -660,21 +664,28 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
       {/* Earnings Toggle Overlay */}
       {!activeRide && !incomingRequest && !isMinimized && (
         <div className="absolute top-28 left-1/2 -translate-x-1/2 z-40">
-           <motion.div 
-             onClick={toggleEarnings}
-             className="bg-[#111118]/90 backdrop-blur-xl border border-[#1e1e2e] px-4 py-2 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.5)] cursor-pointer flex flex-col items-center gap-0.5 active:scale-95 transition-all"
-           >
-              <div className="flex items-center gap-2">
-                <p className="text-[8px] font-black text-neutral-500 uppercase tracking-widest italic">Mapato Leo</p>
-                <div className="flex items-center gap-1 bg-[#7F77DD]/10 px-1.5 py-0.5 rounded-full border border-[#7F77DD]/20">
-                  <TrendingUp className="w-2.5 h-2.5 text-[#7F77DD]" />
-                  <span className="text-[8px] font-black text-[#7F77DD] uppercase">{stats.todayTrips} SAFARI</span>
-                </div>
-              </div>
-              <h2 className="text-lg font-black italic tracking-tighter leading-none">
-                {showEarnings ? `TZS ${(stats?.todayEarnings ?? 0).toLocaleString()}` : "TZS ••••••"}
-              </h2>
-           </motion.div>
+          <AnimatePresence>
+            {showEarnings && (
+               <motion.div 
+                 initial={{ opacity: 0, y: -20, scale: 0.9 }}
+                 animate={{ opacity: 1, y: 0, scale: 1 }}
+                 exit={{ opacity: 0, y: -20, scale: 0.9 }}
+                 onClick={toggleEarnings}
+                 className="bg-[#111118]/90 backdrop-blur-xl border border-[#1e1e2e] px-4 py-2 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.5)] cursor-pointer flex flex-col items-center gap-0.5 active:scale-95 transition-all"
+               >
+                  <div className="flex items-center gap-2">
+                    <p className="text-[8px] font-black text-neutral-500 uppercase tracking-widest italic">Mapato Leo</p>
+                    <div className="flex items-center gap-1 bg-[#7F77DD]/10 px-1.5 py-0.5 rounded-full border border-[#7F77DD]/20">
+                      <TrendingUp className="w-2.5 h-2.5 text-[#7F77DD]" />
+                      <span className="text-[8px] font-black text-[#7F77DD] uppercase">{stats.todayTrips} SAFARI</span>
+                    </div>
+                  </div>
+                  <h2 className="text-lg font-black italic tracking-tighter leading-none">
+                    TZS {(stats?.todayEarnings ?? 0).toLocaleString()}
+                  </h2>
+               </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       )}
 
@@ -796,7 +807,7 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                       <p className="text-[7px] font-black text-neutral-400 uppercase">Mapato</p>
                       <p className="text-xs font-black italic text-white flex flex-col items-center leading-tight">
                         <span className="text-[8px] opacity-70 not-italic">TZS</span>
-                        {(stats?.todayEarnings ?? 0).toLocaleString()}
+                        {showEarnings ? (stats?.todayEarnings ?? 0).toLocaleString() : "••••••"}
                       </p>
                    </div>
                    <div className="bg-[#1a1a2e] border border-[#7F77DD]/20 p-3 rounded-2xl flex flex-col items-center shadow-lg transition-transform hover:scale-105">
