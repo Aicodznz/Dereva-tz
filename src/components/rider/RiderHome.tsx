@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline, Circle } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -20,6 +20,7 @@ import { useRideStatus } from '../../hooks/useRideStatus';
 import { useDriverRideListener } from '../../hooks/useDriverRideListener';
 import { useIncomingRequests } from '../../hooks/useIncomingRequests';
 import { useDriverDashboard } from '../../hooks/useDriverDashboard';
+import { useRouting } from '../../hooks/useRouting';
 import { createDriverMarkerIcon } from '../../utils/driverMarker';
 import { calculateBearing, getMapBounds } from '../../utils/mapHelpers';
 import { RideStatus, DriverInfo } from '../../types/ride.types';
@@ -67,6 +68,27 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
   const nearbyRequests = useIncomingRequests(vType, isOnline, position ? { lat: position[0], lng: position[1] } : null, user?.uid);
   const { assignedRide } = useDriverRideListener(user?.uid, isOnline);
   const { acceptRide: firestoreAccept, arrivedAtPickup, startTrip, completeTrip, updateDriverLocation } = useDriverActions(rideId);
+
+  // Dynamic Routing for Driver
+  const routingTarget = useMemo<[number, number] | null>(() => {
+    if (activeRide) {
+      if (activeRide.status === 'on_trip') {
+        return [activeRide.destination.lat, activeRide.destination.lng];
+      }
+      // For all other active statuses (accepted, arriving, arrived), go to pickup
+      if (['accepted', 'driver_arriving', 'driver_arrived'].includes(activeRide.status)) {
+        return [activeRide.pickup.lat, activeRide.pickup.lng];
+      }
+    } else if (incomingRequest) {
+      return [incomingRequest.pickup.lat, incomingRequest.pickup.lng];
+    }
+    return null;
+  }, [activeRide?.status, activeRide?.pickup?.lat, activeRide?.destination?.lat, incomingRequest?.id]);
+
+  const { routeCoords: dynamicRoute } = useRouting(
+    position, 
+    routingTarget || position
+  );
 
   const [incomingRequest, setIncomingRequest] = useState<any>(null);
   const [declinedRequests, setDeclinedRequests] = useState<Set<string>>(new Set());
@@ -448,7 +470,6 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
         if (points.length > 1) {
           try {
             const bounds = L.latLngBounds(points);
-            // Smaller padding for driver to see both clearly
             map.fitBounds(bounds, { padding: [100, 100], animate: true, duration: 1.5 });
           } catch (e) {
             map.flyTo(position, 17);
@@ -456,10 +477,13 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
         } else {
           map.flyTo(position, 17);
         }
+      } else if (incomingRequest) {
+        // Focus on pickup location of the request
+        map.flyTo([incomingRequest.pickup.lat, incomingRequest.pickup.lng], 16, { animate: true, duration: 1.5 });
       } else {
         map.setView(position, 15);
       }
-    }, [position, activeRide?.id, activeRide?.status]);
+    }, [position, activeRide?.id, activeRide?.status, incomingRequest?.id]);
 
     return null;
   };
@@ -586,8 +610,28 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
             pathOptions={{ color: theme === 'dark' ? '#10b981' : '#7F77DD', fillOpacity: 0.1, weight: 1 }}
           />
 
+          {/* Incoming Request Preview */}
+          {incomingRequest && (
+            <>
+              <Marker 
+                position={[incomingRequest.pickup.lat, incomingRequest.pickup.lng]} 
+                icon={StartPin}
+              />
+              {dynamicRoute && dynamicRoute.length > 0 && (
+                <Polyline 
+                  positions={dynamicRoute} 
+                  color="#FFA500" 
+                  weight={4} 
+                  opacity={0.6} 
+                  dashArray="10, 15" 
+                />
+              )}
+            </>
+          )}
+
           {activeRide && (
             <>
+              {/* Pickup Marker */}
               <Marker 
                 position={[activeRide.pickup.lat, activeRide.pickup.lng]} 
                 icon={StartPin} 
@@ -606,6 +650,8 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                   </div>
                 </Popup>
               </Marker>
+
+              {/* Destination Marker */}
               <Marker 
                 position={[activeRide.destination.lat, activeRide.destination.lng]} 
                 icon={EndPin} 
@@ -624,15 +670,28 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                   </div>
                 </Popup>
               </Marker>
-            {activeRide.routeCoords && (
-              <Polyline 
-                positions={activeRide.routeCoords} 
-                color={activeRide.status === 'on_trip' ? "#1D9E75" : "#7F77DD"} 
-                weight={activeRide.status === 'on_trip' ? 6 : 4} 
-                opacity={0.8} 
-                dashArray={activeRide.status === 'on_trip' ? undefined : "8, 12"} 
-              />
-            )}
+
+              {/* 1. Static Route (Original from ride data) */}
+              {activeRide.routeCoords && (
+                <Polyline 
+                  positions={activeRide.routeCoords} 
+                  color="#ffffff40" 
+                  weight={2} 
+                  opacity={0.4} 
+                  dashArray="4, 8" 
+                />
+              )}
+
+              {/* 2. Dynamic Live Route (Driver to Current Target) */}
+              {dynamicRoute && dynamicRoute.length > 0 && (
+                <Polyline 
+                  positions={dynamicRoute} 
+                  color={activeRide.status === 'on_trip' ? "#1D9E75" : "#7F77DD"} 
+                  weight={6} 
+                  opacity={0.9} 
+                  className="animate-[pulse_2s_infinite]"
+                />
+              )}
             </>
           )}
 
