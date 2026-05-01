@@ -20,11 +20,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const { isRTL, t } = useLanguage();
 
   const isTaxiRoute = location.pathname === '/taxi';
-  const isPartnerRoute = location.pathname === '/parcel-partner' || (location.pathname === '/dashboard' && profile?.role === 'rider' && profile?.driverType === 'delivery');
-  const hideBottomNav = isTaxiRoute || isPartnerRoute || profile?.role === 'rider';
+  const isDashboardRoute = location.pathname === '/dashboard' || location.pathname === '/';
+  const isRiderDashboard = profile?.role === 'rider' && isDashboardRoute;
+  const isPartnerRoute = location.pathname === '/parcel-partner' || (isDashboardRoute && profile?.role === 'rider' && profile?.driverType === 'delivery');
+  const isFullscreen = isTaxiRoute || isPartnerRoute || isRiderDashboard;
+  const hideBottomNav = isFullscreen || profile?.role === 'rider';
 
   return (
-    <div className={`min-h-screen bg-neutral-50 dark:bg-neutral-950 flex flex-col font-sans selection:bg-orange-100 dark:selection:bg-orange-900/30 selection:text-orange-900 overflow-x-hidden ${isRTL ? 'font-arabic' : ''}`}>
+    <div className={`${isFullscreen ? 'h-screen w-full overflow-hidden' : 'min-h-screen overflow-x-hidden'} bg-neutral-50 dark:bg-neutral-950 flex flex-col font-sans selection:bg-orange-100 dark:selection:bg-orange-900/30 selection:text-orange-900 ${isRTL ? 'font-arabic' : ''}`}>
       {/* Visual Grain Overlay */}
       <div className="fixed inset-0 pointer-events-none z-[1000] opacity-[0.03] contrast-150 mix-blend-multiply flex-none">
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
@@ -32,11 +35,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       <Header />
 
-      <main className={`flex-1 ${isPartnerRoute ? '' : 'max-w-7xl mx-auto'} w-full flex flex-col relative z-10 ${(isTaxiRoute || isPartnerRoute) ? 'p-0' : 'px-4 sm:px-6 lg:px-8 py-6 md:py-10 pb-32'}`}>
+      <main className={`flex-1 ${isFullscreen ? 'fixed inset-0 z-0' : 'max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 md:py-10 pb-32 relative z-10'}`}>
         {children}
       </main>
 
-      {/* Mobile Bottom Navigation - Redesigned Modern Style - Hidden for riders or on taxi route */}
       {!hideBottomNav && (
         <div className="md:hidden fixed bottom-0 left-0 right-0 z-[100] h-24 pointer-events-none flex flex-col justify-end">
           <div className="relative w-full h-18 pointer-events-auto">
@@ -223,13 +225,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {!isTaxiRoute && (
-        <footer className="bg-white dark:bg-neutral-900 border-t border-neutral-200 dark:border-neutral-800 py-8 transition-colors">
-          <div className="max-w-7xl mx-auto px-4 text-center">
-            <p className="text-sm text-neutral-500">© 2026 OmniServe Super App. All rights reserved.</p>
-          </div>
-        </footer>
-      )}
 
       {/* Cart Drawer / Side Panel */}
       <AnimatePresence>

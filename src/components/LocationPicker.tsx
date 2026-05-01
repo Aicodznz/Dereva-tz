@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { Search, MapPin, X, Navigation, Loader2, Star, ArrowRight, Package } from 'lucide-react';
+import { Search, MapPin, X, Navigation, Loader2, Star, ArrowRight, Package, Clock, RotateCw, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { motion, AnimatePresence } from 'motion/react';
@@ -127,6 +127,26 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
   const [selectedVendor, setSelectedVendor] = useState<any>(null);
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [mapType, setMapType] = useState<'standard' | 'satellite'>('standard');
+  const [isMapExpanded, setIsMapExpanded] = useState(false);
+  const [recentPlaces, setRecentPlaces] = useState<{ address: string; lat: number; lng: number }[]>([]);
+
+  // Load recent places from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('recent_places');
+    if (saved) {
+      try {
+        setRecentPlaces(JSON.parse(saved));
+      } catch (e) {
+        console.error('Failed to parse recent places', e);
+      }
+    }
+  }, []);
+
+  const saveRecentPlace = (place: { address: string; lat: number; lng: number }) => {
+    const updated = [place, ...recentPlaces.filter(p => p.address !== place.address)].slice(0, 5);
+    setRecentPlaces(updated);
+    localStorage.setItem('recent_places', JSON.stringify(updated));
+  };
 
   // Debounced search for suggestions
   useEffect(() => {
@@ -240,11 +260,13 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
   };
 
   const handleConfirm = () => {
-    onSelect({
+    const selectedData = {
       address: address || `Location (${position.lat.toFixed(4)}, ${position.lng.toFixed(4)})`,
       lat: position.lat,
       lng: position.lng
-    });
+    };
+    saveRecentPlace(selectedData);
+    onSelect(selectedData);
     onClose();
   };
 
@@ -272,8 +294,12 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
 
           <div className="flex-1 overflow-y-auto no-scrollbar flex flex-col">
             {/* Search & Input */}
-            {!isMapViewOnly && (
-              <div className="p-4 space-y-3 bg-white sticky top-0 z-20">
+            {!isMapViewOnly && !isMapExpanded && (
+              <motion.div 
+                initial={{ opacity: 1, height: 'auto' }}
+                animate={{ opacity: isMapExpanded ? 0 : 1, height: isMapExpanded ? 0 : 'auto' }}
+                className="p-4 space-y-3 bg-white sticky top-0 z-20 overflow-hidden"
+              >
                 <div className="relative group">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 group-focus-within:text-orange-600 transition-colors" />
                   <Input 
@@ -344,11 +370,35 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                   {isLocating ? <Loader2 className="w-5 h-5 animate-spin text-orange-600" /> : <Navigation className="w-5 h-5 text-orange-600 animate-pulse" />}
                   Tumia Mahali Nilipo Sasa
                 </Button>
-              </div>
+
+                {/* Recent Places Section */}
+                {recentPlaces.length > 0 && address.length < 3 && suggestions.length === 0 && (
+                  <div className="space-y-2 pt-2">
+                    <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest px-1 flex items-center gap-2">
+                       <Clock size={10} /> Hivi Karibuni
+                    </p>
+                    <div className="flex flex-col gap-2">
+                      {recentPlaces.slice(0, 3).map((place, i) => (
+                        <button
+                          key={i}
+                          onClick={() => {
+                            setPosition(new L.LatLng(place.lat, place.lng));
+                            setAddress(place.address);
+                          }}
+                          className="w-full text-left p-3 rounded-xl bg-neutral-50 hover:bg-neutral-100 flex items-center gap-3 transition-colors border border-neutral-100/50"
+                        >
+                           <MapPin className="w-4 h-4 text-neutral-300" />
+                           <p className="text-xs font-bold text-neutral-600 truncate">{place.address}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </motion.div>
             )}
 
             {/* Map Area */}
-            <div className="relative h-[450px] shrink-0 bg-neutral-100 mx-4 rounded-3xl overflow-hidden border-2 border-neutral-50 shadow-inner">
+            <div className={`relative ${isMapExpanded ? 'flex-1 h-full mx-0 rounded-none' : 'h-[450px] mx-4 rounded-3xl'} shrink-0 bg-neutral-100 overflow-hidden border-2 border-neutral-50 shadow-inner transition-all duration-500 z-10`}>
               {/* Map Type Toggle */}
               <div className="absolute top-4 left-4 z-[1000] flex bg-white/90 backdrop-blur-md rounded-xl p-1 shadow-lg border border-white/50">
                 <button 
@@ -362,6 +412,16 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                   className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${mapType === 'satellite' ? 'bg-neutral-900 text-white shadow-md' : 'text-neutral-500 hover:bg-neutral-100'}`}
                 >
                   Satellite
+                </button>
+              </div>
+
+              {/* Expansion Toggle */}
+              <div className="absolute top-4 right-4 z-[1000]">
+                <button 
+                  onClick={() => setIsMapExpanded(!isMapExpanded)}
+                  className="w-10 h-10 bg-white/90 backdrop-blur-md rounded-xl flex items-center justify-center text-neutral-900 shadow-lg border border-white/50 hover:bg-orange-600 hover:text-white transition-all"
+                >
+                   {isMapExpanded ? <RotateCw className="w-5 h-5" /> : <Layers className="w-5 h-5" />}
                 </button>
               </div>
 
@@ -531,7 +591,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
               </AnimatePresence>
             </div>
 
-            <div className="p-4 space-y-6">
+            <div className={`p-4 space-y-6 ${isMapExpanded ? 'hidden' : ''}`}>
               {!isMapViewOnly && (
                 <div className="flex items-start gap-4 p-4 bg-neutral-50 rounded-3xl border border-neutral-100 group hover:border-orange-100 transition-colors">
                   <div className="w-10 h-10 rounded-2xl bg-orange-100 flex items-center justify-center shrink-0">
@@ -582,7 +642,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
           </div>
 
           {/* Footer - Sticky at bottom */}
-          {!isMapViewOnly && (
+          {!isMapViewOnly && !isMapExpanded && (
             <div className="p-6 bg-white border-t border-neutral-100 shrink-0">
               <Button 
                 className="w-full h-16 bg-blue-600 hover:bg-neutral-900 text-white rounded-[2rem] text-xl font-black italic uppercase tracking-tighter shadow-2xl shadow-blue-600/30 gap-3 transition-all transform active:scale-[0.96]"

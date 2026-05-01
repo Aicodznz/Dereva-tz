@@ -1748,12 +1748,12 @@ export default function VendorDashboard() {
                 {/* Main Stats */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   {[
-                    { label: "Gross Sales", value: `TZS ${(orders.reduce((s,o) => s + o.totalAmount, 0)).toLocaleString()}`, icon: Banknote, trend: "+12.5%", positive: true, sub: "Total revenue generated" },
-                    { label: "Processing", value: orders.filter(o => o.status !== 'completed' && o.status !== 'cancelled').length.toString(), icon: Clock, trend: "+3 new", positive: true, sub: "Orders being packed/shipped" },
-                    { label: "Available Items", value: products.length.toString(), icon: Box, trend: "Stable", positive: true, sub: "Unique products listed" },
-                    { label: "Low Stock", value: products.filter(p => p.stock < 10).length.toString(), icon: AlertCircle, trend: "Caution", positive: false, sub: "Products needing restock" },
+                    { label: "Gross Sales", value: `TZS ${(orders.reduce((s,o) => s + o.totalAmount, 0)).toLocaleString()}`, icon: Banknote, trend: "+12.5%", positive: true, sub: "Total revenue generated", data: chartData.map(d => ({ value: d.sales })) },
+                    { label: "Processing", value: orders.filter(o => o.status !== 'completed' && o.status !== 'cancelled').length.toString(), icon: Clock, trend: "+3 new", positive: true, sub: "Orders being packed/shipped", data: chartData.map(d => ({ value: d.orders })) },
+                    { label: "Available Items", value: products.length.toString(), icon: Box, trend: "Stable", positive: true, sub: "Unique products listed", data: [{value: 4}, {value: 6}, {value: 5}, {value: 8}, {value: 7}, {value: 10}] },
+                    { label: "Low Stock", value: products.filter(p => p.stock < 10).length.toString(), icon: AlertCircle, trend: "Caution", positive: false, sub: "Products needing restock", data: [{value: 8}, {value: 5}, {value: 6}, {value: 4}, {value: 2}, {value: 3}] },
                   ].map((stat, i) => (
-                    <Card key={`stat-card-${stat.label}-${i}`} className="bg-white dark:bg-neutral-900/40 border-neutral-200 dark:border-neutral-800 backdrop-blur-sm overflow-hidden group hover:border-orange-600/50 transition-all cursor-default shadow-sm">
+                    <Card key={`stat-card-${stat.label}-${i}`} className="bg-white dark:bg-neutral-900/40 border-neutral-200 dark:border-neutral-800 backdrop-blur-sm overflow-hidden group hover:border-orange-600/50 transition-all cursor-default shadow-sm relative">
                       <CardContent className="p-8">
                         <div className="flex items-center justify-between mb-6">
                           <div className="p-3.5 rounded-2xl bg-neutral-100 dark:bg-neutral-800 text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-all transform group-hover:rotate-6">
@@ -1767,7 +1767,22 @@ export default function VendorDashboard() {
                         </div>
                         <h3 className="text-3xl font-black text-neutral-900 dark:text-white tracking-tighter mb-1">{stat.value}</h3>
                         <p className="text-[10px] font-black text-neutral-500 uppercase tracking-widest mb-1">{stat.label}</p>
-                        <p className="text-[10px] text-neutral-600 font-medium">{stat.sub}</p>
+                        <p className="text-[10px] text-neutral-600 font-medium mb-6">{stat.sub}</p>
+                        
+                        {/* Sparkline */}
+                        <div className="h-10 w-full opacity-50 group-hover:opacity-100 transition-opacity">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={stat.data}>
+                              <Line 
+                                type="monotone" 
+                                dataKey="value" 
+                                stroke={stat.positive ? "#10b981" : "#ef4444"} 
+                                strokeWidth={2} 
+                                dot={false} 
+                              />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
                       </CardContent>
                     </Card>
                   ))}

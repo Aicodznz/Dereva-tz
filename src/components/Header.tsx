@@ -17,6 +17,12 @@ export default function Header() {
   const routerLocation = useLocation();
   const [showLangMenu, setShowLangMenu] = React.useState(false);
 
+  const isTaxiRoute = routerLocation.pathname === '/taxi';
+  const isDashboardRoute = routerLocation.pathname === '/dashboard' || routerLocation.pathname === '/';
+  const isRiderDashboard = profile?.role === 'rider' && isDashboardRoute;
+  const isPartnerRoute = routerLocation.pathname === '/parcel-partner' || (isDashboardRoute && profile?.role === 'rider' && profile?.driverType === 'delivery');
+  const isFullscreen = isTaxiRoute || isPartnerRoute || isRiderDashboard;
+
   const languages = [
     { code: 'en', label: 'English', short: 'En' },
     { code: 'sw', label: 'Kiswahili', short: 'Sw' },
@@ -28,7 +34,7 @@ export default function Header() {
 
   return (
     <div className="sticky top-0 z-[150] bg-background/80 backdrop-blur-md border-b border-border shadow-sm">
-      <div className="max-w-7xl mx-auto px-2 md:px-4 h-18 flex items-center justify-between gap-2 md:gap-4">
+      <div className={`${isFullscreen ? 'w-full px-4 md:px-6' : 'max-w-7xl mx-auto px-2 md:px-4'} h-18 flex items-center justify-between gap-2 md:gap-4`}>
         
         {/* Left: Logo & Location */}
         <div className="flex items-center gap-2 md:gap-6 min-w-0 flex-shrink">
@@ -40,36 +46,14 @@ export default function Header() {
           </Link>
 
           {isDashboard && (
-            <button 
-              onClick={onLocationClick}
-              className="flex items-center gap-1 min-w-0 max-w-[100px] md:max-w-[200px] group"
-            >
-              <div className="p-1 rounded-lg bg-orange-600/10 text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-all">
-                <MapPin className="w-3 h-3" />
-              </div>
-              <div className="flex items-center gap-0.5 min-w-0 overflow-hidden">
-                <span className="text-[10px] font-bold text-neutral-900 dark:text-white truncate">
-                  {currentAddress}
-                </span>
-                <ChevronDown className="w-2.5 h-2.5 text-neutral-400 shrink-0" />
-              </div>
-            </button>
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-600/10 dark:bg-orange-600/20 rounded-full border border-orange-600/20 shadow-sm transition-all">
+              <MapPin className="w-3.5 h-3.5 text-orange-600" />
+              <span className="text-xs font-black text-orange-600 uppercase tracking-widest leading-none">Papo Hapo</span>
+            </div>
           )}
         </div>
 
-        {/* Center: Search (Visible on desktop only in main row) */}
-        {isDashboard && (
-          <div className="flex-1 max-w-md relative group hidden md:block">
-            <Search className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 group-focus-within:text-orange-600 transition-colors`} />
-            <input 
-              type="text"
-              placeholder={t('search_placeholder')}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className={`w-full h-10 ${isRTL ? 'pr-10 pl-4' : 'pl-10 pr-4'} bg-neutral-100 dark:bg-neutral-800 border-none rounded-2xl text-sm focus:ring-2 focus:ring-orange-500/20 transition-all font-medium`}
-            />
-          </div>
-        )}
+        {/* Search Bar Removed as per user request */}
 
         {/* Right: Actions */}
         <div className="flex items-center gap-1 md:gap-2 shrink-0">
@@ -151,21 +135,7 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Mobile Search Row */}
-      {isDashboard && (
-        <div className="px-3 pb-3 md:hidden">
-          <div className="relative group">
-            <Search className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 group-focus-within:text-orange-600 transition-colors`} />
-            <input 
-              type="text"
-              placeholder={t('search_placeholder')}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className={`w-full h-11 ${isRTL ? 'pr-10 pl-4' : 'pl-10 pr-4'} bg-neutral-100 dark:bg-neutral-800 border boder-border rounded-[18px] text-sm focus:ring-2 focus:ring-orange-500/20 transition-all font-medium`}
-            />
-          </div>
-        </div>
-      )}
+      {/* Mobile Search Row Removed as per user request */}
     </div>
   );
 }

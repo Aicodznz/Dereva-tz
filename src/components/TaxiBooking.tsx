@@ -144,6 +144,8 @@ export default function TaxiBooking() {
   const navigate = useNavigate();
 
   const [step, setStep] = useState<BookingStep>('home');
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [isMapFullscreen, setIsMapFullscreen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [settingMode, setSettingMode] = useState<'pickup' | 'destination'>('pickup');
   const [selectedRide, setSelectedRide] = useState<RideOption | null>(null);
@@ -206,24 +208,37 @@ export default function TaxiBooking() {
   const { drivers } = useNearbyDrivers();
 
   const getDriverIcon = (type: string) => {
-    let iconStr = '🚗';
-    let ringColor = '#7F77DD';
+    let ringColor = '#ef4444'; // Red Papo Hapo
+    let markerHtml = '';
+
     if (type === 'bike') {
-      iconStr = '🏍️';
-      ringColor = '#1D9E75';
-    }
-    if (type === 'bajaj') {
-      iconStr = '🛺';
-      ringColor = '#D85A30';
+      markerHtml = `
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="5" cy="18" r="3"/><circle cx="19" cy="18" r="3"/>
+          <path d="M12 18V9c0-2 2-2 2-2"/><path d="M8 18l3-9h4l3 9"/><path d="M12 13h4"/>
+        </svg>
+      `;
+    } else if (type === 'bajaj') {
+      markerHtml = `
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 11l2-4h14l2 4"/><path d="M3 11h18v7H3z"/><circle cx="8" cy="18" r="1.5"/><circle cx="16" cy="18" r="1.5"/>
+        </svg>
+      `;
+    } else {
+      markerHtml = `
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="1" y="10" width="22" height="8" rx="2"/><path d="M7 10l3-6h4l3 6"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>
+        </svg>
+      `;
     }
 
     return L.divIcon({
       className: 'driver-marker-icon',
       html: `
         <div class="relative flex items-center justify-center">
-          <div class="absolute w-12 h-12 bg-white/10 rounded-full animate-ping"></div>
-          <div class="w-10 h-10 bg-[#111118] border-2 border-[#1e1e2e] rounded-2xl flex items-center justify-center text-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] transition-all" style="border-color: ${ringColor}">
-            ${iconStr}
+          <div class="absolute w-12 h-12 bg-red-500/20 rounded-full animate-ping"></div>
+          <div class="w-10 h-10 bg-red-600 border-2 border-white rounded-2xl flex items-center justify-center shadow-lg shadow-red-500/40 transition-all">
+            ${markerHtml}
           </div>
         </div>
       `,
@@ -234,16 +249,16 @@ export default function TaxiBooking() {
 
   const StartPin = React.useMemo(() => L.divIcon({
       className: 'custom-div-icon',
-      html: `<div class="bg-[#1D9E75] text-white w-6 h-6 rounded-full border-2 border-white shadow-lg flex items-center justify-center font-bold">A</div>`,
-      iconSize: [24, 24],
-      iconAnchor: [12, 12]
+      html: `<div class="bg-emerald-500 text-white w-7 h-7 rounded-full border-[3px] border-white shadow-xl flex items-center justify-center font-black text-[10px]">A</div>`,
+      iconSize: [28, 28],
+      iconAnchor: [14, 14]
   }), []);
 
   const EndPin = React.useMemo(() => L.divIcon({
     className: 'custom-div-icon',
-    html: `<div class="bg-[#D85A30] text-white w-6 h-6 rounded-full border-2 border-white shadow-lg flex items-center justify-center font-bold">B</div>`,
-    iconSize: [24, 24],
-    iconAnchor: [12, 12]
+    html: `<div class="bg-red-500 text-white w-7 h-7 rounded-full border-[3px] border-white shadow-xl flex items-center justify-center font-black text-[10px]">B</div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14]
   }), []);
 
   const geocodeAddress = (query: string) => {
@@ -488,200 +503,263 @@ export default function TaxiBooking() {
       </div>
 
       <div className="flex-1 flex flex-col relative z-10 h-full"> 
-        {step === 'home' && (
-          <div 
-            className="flex-1 flex flex-col px-6 pt-12 pb-24 space-y-8 overflow-y-auto no-scrollbar"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-black italic tracking-tighter text-white">TEKSI-PAPA 🚕</h1>
-                <p className="text-[10px] font-bold text-[#6b6b8a] uppercase tracking-widest mt-1">Usafiri wa haraka na uhakika</p>
+        <AnimatePresence mode="wait">
+          {step === 'home' && (
+            <motion.div 
+              key="home"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="flex-1 flex flex-col px-6 pt-12 pb-24 space-y-8 overflow-y-auto no-scrollbar"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-3xl font-black italic tracking-tighter text-white">TEKSI-PAPA 🚕</h1>
+                  <p className="text-[10px] font-bold text-[#6b6b8a] uppercase tracking-widest mt-1">Usafiri wa haraka na uhakika</p>
+                </div>
+                <button 
+                  onClick={() => navigate('/taxi/history')}
+                  className="w-12 h-12 rounded-2xl bg-[#111118] border border-[#1e1e2e] flex items-center justify-center shadow-lg active:scale-95 transition-all text-white"
+                >
+                  <Clock size={20} />
+                </button>
               </div>
-              <button 
-                onClick={() => navigate('/taxi/history')}
-                className="w-12 h-12 rounded-2xl bg-[#111118] border border-[#1e1e2e] flex items-center justify-center shadow-lg active:scale-95 transition-all text-white"
+
+              <div className="bg-[#111118] border border-[#1e1e2e] rounded-[40px] p-8 shadow-2xl space-y-6">
+                 <div className="space-y-4">
+                    <div className="bg-[#0a0a0f] rounded-2xl border border-[#1e1e2e] p-5 flex items-center gap-4 cursor-pointer active:scale-[0.98] transition-transform" onClick={() => { console.log("Manual pickup click"); setStep('map'); }}>
+                      <div className="w-10 h-10 rounded-xl bg-[#1D9E75]/10 flex items-center justify-center text-[#1D9E75]"><MapPin className="w-5 h-5" /></div>
+                      <div className="flex-1 overflow-hidden">
+                         <p className="text-[9px] font-black text-[#6b6b8a] uppercase tracking-wider mb-1">Unatokea</p>
+                         <p className="text-sm font-bold text-[#f0eeff] truncate">{pickup}</p>
+                      </div>
+                    </div>
+                    <div className="bg-[#0a0a0f] rounded-2xl border border-[#1e1e2e] p-5 flex items-center gap-4 cursor-pointer active:scale-[0.98] transition-transform" onClick={() => { console.log("Manual dest click"); setStep('map'); }}>
+                      <div className="w-10 h-10 rounded-xl bg-[#7F77DD]/10 flex items-center justify-center text-[#7F77DD]"><Search className="w-5 h-5" /></div>
+                      <div className="flex-1 overflow-hidden">
+                         <p className="text-[9px] font-black text-[#6b6b8a] uppercase tracking-wider mb-1">Unakwenda wapi?</p>
+                         <p className={`text-sm font-bold truncate ${destination ? 'text-[#f0eeff]' : 'text-[#6b6b8a]'}`}>{destination || "Andika hapa unapoenda"}</p>
+                      </div>
+                    </div>
+                 </div>
+                 <button onClick={() => { console.log("Order now click"); setStep('map'); }} className="w-full h-14 bg-white text-[#0a0a0f] rounded-[50px] font-black tracking-[0.2em] text-xs shadow-2xl shadow-white/5 active:scale-95 transition-all">AGIZA USAFIRI SASA</button>
+              </div>
+            </motion.div>
+          )}
+
+          {step === 'map' && (
+            <motion.div 
+              key="map"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex-1 flex flex-col relative bg-[#0a0a0f] overflow-hidden"
+            >
+              <div className="absolute top-6 left-6 right-6 z-[60] flex items-center justify-between">
+                 <button onClick={() => setStep('home')} className="w-12 h-12 bg-[#111118]/90 backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform"><ArrowLeft className="w-6 h-6" /></button>
+                 <div className="flex gap-3">
+                   <button 
+                     onClick={() => setIsMapFullscreen(!isMapFullscreen)} 
+                     className={`w-12 h-12 ${isMapFullscreen ? 'bg-red-500 text-white' : 'bg-[#111118]/90 text-white'} backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-all`}
+                     title={isMapFullscreen ? "Onyesha Maelezo" : "Ramani Full"}
+                   >
+                      {isMapFullscreen ? <RotateCw className="w-6 h-6" /> : <Layers className="w-6 h-6" />}
+                   </button>
+                   <button onClick={() => navigate('/taxi/history')} className="w-12 h-12 bg-[#111118]/90 backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform"><Clock className="w-6 h-6" /></button>
+                 </div>
+              </div>
+
+              <div className="flex-1 relative z-0">
+                 <style>{`.leaflet-container { height: 100% !important; background: #0a0a0f !important; } .custom-div-icon { background: none; border: none; }`}</style>
+                 <MapContainer center={pickupPos} zoom={15} className="h-full w-full grayscale contrast-[1.1] brightness-[0.9]" zoomControl={false}>
+                   <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                   <MapEvents onMapClick={handleMapClick} />
+                   <MapControl position={settingMode === 'pickup' ? pickupPos : destPos} step={step} />
+                   <Marker position={pickupPos} icon={StartPin} />
+                   <Marker position={destPos} icon={EndPin} />
+                   
+                   {/* Assigned Driver Marker */}
+                   {activeRide?.driverLocation && (
+                     <Marker 
+                       key={`active-driver-${activeRide.driverId || 'presence'}`}
+                       position={[activeRide.driverLocation.lat, activeRide.driverLocation.lng]} 
+                       icon={getDriverIcon(activeRide.vehicleType)}
+                     />
+                   )}
+
+                   {/* Nearby Drivers - Show all initially, or filtered if ride selected */}
+                   {drivers
+                     .filter(d => (!selectedRide || d.vehicleType === selectedRide.vehicleType) && d.id !== activeRide?.driverId)
+                     .map(driver => (
+                     <Marker 
+                       key={driver.id} 
+                       position={[driver.lat, driver.lng]} 
+                       icon={getDriverIcon(driver.vehicleType)}
+                     />
+                   ))}
+
+                   {routeCoords.length > 1 && <Polyline positions={routeCoords} color="#7F77DD" weight={4} opacity={0.6} dashArray="8, 12" />}
+                 </MapContainer>
+              </div>
+
+              <motion.div 
+                initial={{ y: 300 }}
+                animate={{ y: isMapFullscreen ? 800 : (isMinimized ? 520 : 0) }}
+                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                className="relative z-[60] bg-[#111118] rounded-t-[40px] border-t border-[#1e1e2e] p-5 pb-10 space-y-4 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]"
               >
-                <Clock size={20} />
-              </button>
-            </div>
-
-            <div className="bg-[#111118] border border-[#1e1e2e] rounded-[40px] p-8 shadow-2xl space-y-6">
-               <div className="space-y-4">
-                  <div className="bg-[#0a0a0f] rounded-2xl border border-[#1e1e2e] p-5 flex items-center gap-4 cursor-pointer active:scale-[0.98] transition-transform" onClick={() => { console.log("Manual pickup click"); setStep('map'); }}>
-                    <div className="w-10 h-10 rounded-xl bg-[#1D9E75]/10 flex items-center justify-center text-[#1D9E75]"><MapPin className="w-5 h-5" /></div>
-                    <div className="flex-1 overflow-hidden">
-                       <p className="text-[9px] font-black text-[#6b6b8a] uppercase tracking-wider mb-1">Unatokea</p>
-                       <p className="text-sm font-bold text-[#f0eeff] truncate">{pickup}</p>
-                    </div>
-                  </div>
-                  <div className="bg-[#0a0a0f] rounded-2xl border border-[#1e1e2e] p-5 flex items-center gap-4 cursor-pointer active:scale-[0.98] transition-transform" onClick={() => { console.log("Manual dest click"); setStep('map'); }}>
-                    <div className="w-10 h-10 rounded-xl bg-[#7F77DD]/10 flex items-center justify-center text-[#7F77DD]"><Search className="w-5 h-5" /></div>
-                    <div className="flex-1 overflow-hidden">
-                       <p className="text-[9px] font-black text-[#6b6b8a] uppercase tracking-wider mb-1">Unakwenda wapi?</p>
-                       <p className={`text-sm font-bold truncate ${destination ? 'text-[#f0eeff]' : 'text-[#6b6b8a]'}`}>{destination || "Andika hapa unapoenda"}</p>
-                    </div>
-                  </div>
-               </div>
-               <button onClick={() => { console.log("Order now click"); setStep('map'); }} className="w-full h-14 bg-white text-[#0a0a0f] rounded-[50px] font-black tracking-[0.2em] text-xs shadow-2xl shadow-white/5 active:scale-95 transition-all">AGIZA USAFIRI SASA</button>
-            </div>
-          </div>
-        )}
-
-        {step === 'map' && (
-          <div 
-            className="flex-1 flex flex-col relative bg-[#0a0a0f] overflow-hidden"
-          >
-            <div className="absolute top-6 left-6 right-6 z-[60] flex items-center justify-between">
-               <button onClick={() => setStep('home')} className="w-12 h-12 bg-[#111118]/90 backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform"><ArrowLeft className="w-6 h-6" /></button>
-               <button onClick={() => navigate('/taxi/history')} className="w-12 h-12 bg-[#111118]/90 backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform"><Clock className="w-6 h-6" /></button>
-            </div>
-
-            <div className="flex-1 relative z-0">
-               <style>{`.leaflet-container { height: 100% !important; background: #0a0a0f !important; } .custom-div-icon { background: none; border: none; }`}</style>
-               <MapContainer center={pickupPos} zoom={15} className="h-full w-full grayscale contrast-[1.1] brightness-[0.9]" zoomControl={false}>
-                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                 <MapEvents onMapClick={handleMapClick} />
-                 <MapControl position={settingMode === 'pickup' ? pickupPos : destPos} step={step} />
-                 <Marker position={pickupPos} icon={StartPin} />
-                 <Marker position={destPos} icon={EndPin} />
+                 <div 
+                   className="w-16 h-4 mx-auto mb-2 flex items-center justify-center cursor-pointer group"
+                   onClick={() => setIsMinimized(!isMinimized)}
+                 >
+                    <div className="w-12 h-1.5 bg-neutral-800 rounded-full group-hover:bg-neutral-600 transition-colors" />
+                 </div>
                  
-                 {/* Assigned Driver Marker */}
-                 {activeRide?.driverLocation && (
-                   <Marker 
-                     key={`active-driver-${activeRide.driverId || 'presence'}`}
-                     position={[activeRide.driverLocation.lat, activeRide.driverLocation.lng]} 
-                     icon={getDriverIcon(activeRide.vehicleType)}
-                   />
+                 {!isMinimized && (
+                   <motion.div
+                     initial={{ opacity: 0 }}
+                     animate={{ opacity: 1 }}
+                     className="space-y-4"
+                   >
+                     <div className="bg-[#0a0a0f] border border-[#1e1e2e] rounded-[28px] p-5 relative">
+                        <div className="space-y-6">
+                            <div className="flex items-center gap-4">
+                              <div className={`w-3 h-3 rounded-full ${settingMode === 'pickup' ? 'bg-emerald-500 ring-4 ring-emerald-500/20' : 'bg-neutral-700'}`} />
+                              <div className="flex-1">
+                                 <input 
+                                   type="text" 
+                                   value={pickup} 
+                                   onChange={(e) => { setPickup(e.target.value); geocodeAddress(e.target.value); }} 
+                                   onFocus={() => setSettingMode('pickup')}
+                                   className="w-full bg-transparent text-sm font-bold text-[#f0eeff] border-none outline-none p-0" 
+                                 />
+                              </div>
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); handleCurrentLocation(); }}
+                                className="p-2 hover:bg-white/5 rounded-full transition-colors text-emerald-500"
+                                title="Eneo langu"
+                              >
+                                 <Navigation2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <div className={`w-3 h-3 rounded-full ${settingMode === 'destination' ? 'bg-red-500 ring-4 ring-red-500/20' : 'bg-neutral-700'}`} />
+                              <div className="flex-1">
+                                  <input 
+                                    type="text" 
+                                    value={destination} 
+                                    onChange={(e) => { setDestination(e.target.value); geocodeAddress(e.target.value); }} 
+                                    onFocus={() => setSettingMode('destination')}
+                                    className="w-full bg-transparent text-sm font-bold text-[#f0eeff] border-none outline-none p-0" 
+                                    placeholder="Unakwenda wapi?" 
+                                  />
+                              </div>
+                            </div>
+                        </div>
+
+                        {suggestions.length > 0 && (
+                          <div className="absolute left-0 right-0 top-full mt-2 z-[100] bg-[#111118] border border-[#1e1e2e] rounded-3xl shadow-2xl overflow-hidden">
+                            {suggestions.map((s, i) => (
+                              <button key={i} onClick={() => selectSuggestion(s)} className="w-full text-left p-4 hover:bg-[#1e1e2e] flex items-center gap-3 border-b border-[#1e1e2e] last:border-0">
+                                <MapPin className="w-4 h-4 text-[#7F77DD]" />
+                                <p className="text-xs font-bold text-[#f0eeff] truncate">{s.display_name}</p>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                     </div>
+
+                     <div className="flex gap-3 overflow-x-auto no-scrollbar py-2">
+                        {rideOptions.map((ride) => (
+                          <button key={ride.id} onClick={() => setSelectedRide(ride)} className={`shrink-0 w-[120px] p-4 rounded-2xl border transition-all flex flex-col items-center ${selectedRide?.id === ride.id ? 'bg-red-500/10 border-red-500' : 'bg-[#111118] border-[#1e1e2e] opacity-70'}`}>
+                            <div className="text-3xl mb-2">{ride.image}</div>
+                            <h4 className="text-[9px] font-black uppercase text-[#6b6b8a]">{ride.name}</h4>
+                            <h3 className="text-[11px] font-black text-[#f0eeff]">TZS {ride.price.toLocaleString()}</h3>
+                          </button>
+                        ))}
+                     </div>
+
+                     <button onClick={() => { console.log("Confirm button click"); confirmBooking(); }} disabled={isCreatingRide} className="w-full h-14 bg-white text-[#0a0a0f] rounded-[50px] font-black uppercase text-[10px] tracking-[0.2em] flex items-center justify-between px-10 disabled:opacity-50">
+                        <span>{destination ? (selectedRide ? 'THIBITISHA USAFIRI' : 'CHAGUA USAFIRI') : 'WEKA UNAPOKWENDA'}</span>
+                        <ArrowRight className="w-5 h-5" />
+                     </button>
+                   </motion.div>
                  )}
 
-                 {/* Nearby Drivers - Show all initially, or filtered if ride selected */}
-                 {drivers
-                   .filter(d => (!selectedRide || d.vehicleType === selectedRide.vehicleType) && d.id !== activeRide?.driverId)
-                   .map(driver => (
-                   <Marker 
-                     key={driver.id} 
-                     position={[driver.lat, driver.lng]} 
-                     icon={getDriverIcon(driver.vehicleType)}
-                   />
-                 ))}
-
-                 {routeCoords.length > 1 && <Polyline positions={routeCoords} color="#7F77DD" weight={4} opacity={0.6} dashArray="8, 12" />}
-               </MapContainer>
-            </div>
-
-            <motion.div 
-              drag="y"
-              dragConstraints={{ top: 0, bottom: 350 }}
-              dragElastic={0.05}
-              dragMomentum={false}
-              className="relative z-[60] bg-[#111118] rounded-t-[40px] border-t border-[#1e1e2e] p-5 pb-10 space-y-4 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] touch-none"
-            >
-               <div className="w-12 h-1.5 bg-neutral-800 rounded-full mx-auto mb-2 opacity-50" />
-               <div className="bg-[#0a0a0f] border border-[#1e1e2e] rounded-[28px] p-5 relative">
-                  <div className="space-y-6">
-                      <div className="flex items-center gap-4">
-                        <div className={`w-2.5 h-2.5 rounded-full ${settingMode === 'pickup' ? 'bg-[#1D9E75] ring-4 ring-[#1D9E75]/20' : 'bg-[#6b6b8a]'}`} />
-                        <div className="flex-1">
-                           <input 
-                             type="text" 
-                             value={pickup} 
-                             onChange={(e) => { setPickup(e.target.value); geocodeAddress(e.target.value); }} 
-                             onFocus={() => setSettingMode('pickup')}
-                             className="w-full bg-transparent text-sm font-bold text-[#f0eeff] border-none outline-none p-0" 
-                           />
-                        </div>
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); handleCurrentLocation(); }}
-                          className="p-2 hover:bg-white/5 rounded-full transition-colors text-[#1D9E75]"
-                          title="Eneo langu"
-                        >
-                           <Navigation2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className={`w-2.5 h-2.5 rounded-full ${settingMode === 'destination' ? 'bg-[#D85A30] ring-4 ring-[#D85A30]/20' : 'bg-[#6b6b8a]'}`} />
-                        <div className="flex-1">
-                            <input 
-                              type="text" 
-                              value={destination} 
-                              onChange={(e) => { setDestination(e.target.value); geocodeAddress(e.target.value); }} 
-                              onFocus={() => setSettingMode('destination')}
-                              className="w-full bg-transparent text-sm font-bold text-[#f0eeff] border-none outline-none p-0" 
-                              placeholder="Unakwenda wapi?" 
-                            />
-                        </div>
-                      </div>
-                  </div>
-
-                  {suggestions.length > 0 && (
-                    <div className="absolute left-0 right-0 top-full mt-2 z-[100] bg-[#111118] border border-[#1e1e2e] rounded-3xl shadow-2xl overflow-hidden">
-                      {suggestions.map((s, i) => (
-                        <button key={i} onClick={() => selectSuggestion(s)} className="w-full text-left p-4 hover:bg-[#1e1e2e] flex items-center gap-3 border-b border-[#1e1e2e] last:border-0">
-                          <MapPin className="w-4 h-4 text-[#7F77DD]" />
-                          <p className="text-xs font-bold text-[#f0eeff] truncate">{s.display_name}</p>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-               </div>
-
-               <div className="flex gap-3 overflow-x-auto no-scrollbar py-2">
-                  {rideOptions.map((ride) => (
-                    <button key={ride.id} onClick={() => setSelectedRide(ride)} className={`shrink-0 w-[120px] p-4 rounded-2xl border transition-all flex flex-col items-center ${selectedRide?.id === ride.id ? 'bg-[#7F77DD]/20 border-[#7F77DD]' : 'bg-[#111118] border-[#1e1e2e] opacity-70'}`}>
-                      <div className="text-3xl mb-2">{ride.image}</div>
-                      <h4 className="text-[9px] font-black uppercase text-[#6b6b8a]">{ride.name}</h4>
-                      <h3 className="text-[11px] font-black text-[#f0eeff]">TZS {ride.price.toLocaleString()}</h3>
-                    </button>
-                  ))}
-               </div>
-
-               <button onClick={() => { console.log("Confirm button click"); confirmBooking(); }} disabled={isCreatingRide} className="w-full h-14 bg-white text-[#0a0a0f] rounded-[50px] font-black uppercase text-[10px] tracking-[0.2em] flex items-center justify-between px-10 disabled:opacity-50">
-                  <span>{destination ? (selectedRide ? 'THIBITISHA USAFIRI' : 'CHAGUA USAFIRI') : 'WEKA UNAPOKWENDA'}</span>
-                  <ArrowRight className="w-5 h-5" />
-               </button>
+                 {isMinimized && (
+                   <div className="py-2 flex items-center justify-center">
+                     <p className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.3em]">Bofya hapa kuendelea</p>
+                   </div>
+                 )}
+              </motion.div>
             </motion.div>
-          </div>
-        )}
+          )}
 
-        {step === 'searching' && (
-          <SearchingScreen 
-            ride={activeRide as any} 
-            onCancel={() => { console.log("Cancel from searching"); cancelRide(); setStep('map'); setRideId(null); }} 
-            onTimeout={handleTimeout}
-          />
-        )}
+          {step === 'searching' && (
+            <motion.div
+              key="searching"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="flex-1"
+            >
+              <SearchingScreen 
+                ride={activeRide as any} 
+                onCancel={() => { console.log("Cancel from searching"); cancelRide(); setStep('map'); setRideId(null); }} 
+                onTimeout={handleTimeout}
+              />
+            </motion.div>
+          )}
 
-        {step === 'found' && (
-          <DriverFoundScreen onNext={() => setStep('arriving')} />
-        )}
+          {step === 'found' && (
+            <motion.div
+              key="found"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="flex-1"
+            >
+              <DriverFoundScreen onNext={() => setStep('arriving')} />
+            </motion.div>
+          )}
+          
+          {/* ... other steps ... */}
+          {step === 'arriving' && activeRide && (
+             <motion.div key="arriving" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex-1">
+                <DriverArrivedScreen 
+                  ride={activeRide as any} 
+                  onCall={() => window.open(`tel:${activeRide.driverInfo?.phone}`)} 
+                  onMessage={() => setIsChatOpen(true)}
+                  onImComing={() => toast.success("Dereva amejulishwa unakuja!")}
+                />
+             </motion.div>
+          )}
 
-        {step === 'arriving' && activeRide && (
-          <DriverArrivedScreen 
-            ride={activeRide as any} 
-            onCall={() => window.open(`tel:${activeRide.driverInfo?.phone}`)} 
-            onMessage={() => setIsChatOpen(true)}
-            onImComing={() => toast.success("Dereva amejulishwa unakuja!")}
-          />
-        )}
+          {step === 'on_trip' && activeRide && (
+            <motion.div key="on_trip" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1">
+              <LiveTripScreen 
+                ride={activeRide as any} 
+                onMessage={() => setIsChatOpen(true)}
+              />
+            </motion.div>
+          )}
 
-        {step === 'on_trip' && activeRide && (
-          <LiveTripScreen 
-            ride={activeRide as any} 
-            onMessage={() => setIsChatOpen(true)}
-          />
-        )}
+          {step === 'completed' && activeRide && (
+            <motion.div key="completed" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="flex-1">
+              <TripCompleteScreen ride={activeRide as any} onPay={handlePayment} />
+            </motion.div>
+          )}
 
-        {step === 'completed' && activeRide && (
-          <TripCompleteScreen ride={activeRide as any} onPay={handlePayment} />
-        )}
-
-        {step === 'rating' && activeRide && (
-          <RatingScreen 
-            ride={activeRide as any} 
-            onSubmit={handleRating} 
-            onSkip={() => navigate('/')} 
-          />
-        )}
+          {step === 'rating' && activeRide && (
+            <motion.div key="rating" initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex-1">
+              <RatingScreen 
+                ride={activeRide as any} 
+                onSubmit={handleRating} 
+                onSkip={() => navigate('/')} 
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
             {step === 'timeout' && (
           <div 

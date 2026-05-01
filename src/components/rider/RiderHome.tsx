@@ -74,6 +74,29 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
   const [showRating, setShowRating] = useState(false);
   const [speed, setSpeed] = useState(0);
   const [isGoingOnline, setIsGoingOnline] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+
+  useEffect(() => {
+    const checkTheme = () => {
+      setTheme(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+    };
+    const observer = new MutationObserver(checkTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    checkTheme();
+    return () => observer.disconnect();
+  }, []);
+  
+  const mapTileUrl = theme === 'dark' 
+    ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+    : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+  
+  // Auto-expand if request comes or ride active
+  useEffect(() => {
+    if (incomingRequest || activeRide) {
+      setIsMinimized(false);
+    }
+  }, [incomingRequest, activeRide]);
 
   useEffect(() => {
     const freshRequests = nearbyRequests.filter(r => !declinedRequests.has(r.id));
@@ -444,93 +467,108 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
   return (
     <div className="relative h-full w-full overflow-hidden bg-[#0a0a0f] text-[#f0eeff]">
       {/* Top Bar Overlays */}
-      <div className="absolute top-4 inset-x-4 z-40 flex flex-col gap-3">
-        <div className="flex justify-between items-center">
-          <button 
-            onClick={() => {
-              const nextVal = !showTopInfo;
-              setShowTopInfo(nextVal);
-              if (onNavVisibilityChange) onNavVisibilityChange(!nextVal);
-            }}
-            className="w-12 h-12 bg-[#111118]/80 backdrop-blur-xl rounded-2xl shadow-lg flex items-center justify-center border border-[#1e1e2e] active:scale-95 transition-transform overflow-hidden"
+      <AnimatePresence>
+        {!isMinimized && (
+          <motion.div 
+            initial={{ y: -100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -100, opacity: 0 }}
+            className="absolute top-4 inset-x-4 z-40 flex flex-col gap-3"
           >
-            {profile?.photoURL ? (
-              <img src={profile.photoURL} alt="Profile" className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full bg-[#7F77DD]/20 flex items-center justify-center text-[#7F77DD] font-black text-sm">
-                {(profile?.displayName || 'D').split(' ').map(n => n[0]).join('')}
-              </div>
-            )}
-          </button>
-
-          <div className="flex flex-col items-center">
-            {isOnline ? (
-              <motion.div 
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="bg-emerald-500/10 text-emerald-500 px-4 py-2 rounded-full border border-emerald-500/20 flex items-center gap-2 shadow-lg backdrop-blur-md"
+            <div className="flex justify-between items-center">
+              <button 
+                onClick={() => {
+                  const nextVal = !showTopInfo;
+                  setShowTopInfo(nextVal);
+                  if (onNavVisibilityChange) onNavVisibilityChange(!nextVal);
+                }}
+                className="w-12 h-12 bg-[#111118]/80 backdrop-blur-xl rounded-2xl shadow-lg flex items-center justify-center border border-[#1e1e2e] active:scale-95 transition-transform overflow-hidden"
               >
-                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_10px_#10b981]" />
-                <span className="text-[10px] font-black uppercase tracking-widest leading-none">ACTIVE & RECEIVING</span>
-              </motion.div>
-            ) : (
-               <div className="bg-neutral-800/80 backdrop-blur-md text-neutral-400 px-4 py-2 rounded-full border border-white/5 flex items-center gap-2">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500 leading-none">OFFLINE</span>
-               </div>
-            )}
-          </div>
+                {profile?.photoURL ? (
+                  <img src={profile.photoURL} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-[#7F77DD]/20 flex items-center justify-center text-[#7F77DD] font-black text-sm">
+                    {(profile?.displayName || 'D').split(' ').map(n => n[0]).join('')}
+                  </div>
+                )}
+              </button>
 
-          <button 
-            onClick={() => toast.info("Huna taarifa mpya")}
-            className="w-12 h-12 bg-[#111118]/80 backdrop-blur-xl rounded-2xl shadow-lg flex items-center justify-center border border-[#1e1e2e] relative"
-          >
-            <Bell className="w-6 h-6 text-neutral-400" />
-            <div className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-red-500 border-2 border-[#111118] rounded-full" />
-          </button>
-        </div>
+              <div className="flex flex-col items-center">
+                {isOnline ? (
+                  <motion.div 
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="bg-emerald-500/10 text-emerald-500 px-4 py-2 rounded-full border border-emerald-500/20 flex items-center gap-2 shadow-lg backdrop-blur-md"
+                  >
+                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_10px_#10b981]" />
+                    <span className="text-[10px] font-black uppercase tracking-widest leading-none">ACTIVE & RECEIVING</span>
+                  </motion.div>
+                ) : (
+                  <div className="bg-neutral-800/80 backdrop-blur-md text-neutral-400 px-4 py-2 rounded-full border border-white/5 flex items-center gap-2">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500 leading-none">OFFLINE</span>
+                  </div>
+                )}
+              </div>
 
-        {/* Info Strip */}
-        <AnimatePresence>
-          {showTopInfo && (
-            <motion.div 
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              onClick={() => {
-                setShowTopInfo(false);
-                if (onNavVisibilityChange) onNavVisibilityChange(true);
-              }}
-              className="flex items-center justify-center gap-4 py-1.5 px-4 bg-[#111118]/60 backdrop-blur-md rounded-xl border border-[#1e1e2e]/50 w-fit mx-auto shadow-2xl cursor-pointer hover:bg-[#111118]/80 transition-colors"
-            >
-               <div className="flex items-center gap-1.5 text-[9px] font-bold text-neutral-400">
-                 <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
-                 <span>{profile?.rating || '4.8'} RATING</span>
-               </div>
-               <div className="w-px h-3 bg-neutral-800" />
-               <div className="flex items-center gap-1.5 text-[9px] font-bold text-neutral-400">
-                 <Wifi className="w-3 h-3 text-emerald-500" />
-                 <span>NETWORK: GOOD</span>
-               </div>
-               <div className="w-px h-3 bg-neutral-800" />
-               <div className="flex items-center gap-1.5 text-[9px] font-bold text-neutral-400">
-                 <Battery className="w-3 h-3 text-emerald-500" />
-                 <span>TRIP MODE ON</span>
-               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+              <button 
+                onClick={() => toast.info("Huna taarifa mpya")}
+                className="w-12 h-12 bg-[#111118]/80 backdrop-blur-xl rounded-2xl shadow-lg flex items-center justify-center border border-[#1e1e2e] relative"
+              >
+                <Bell className="w-6 h-6 text-neutral-400" />
+                <div className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-red-500 border-2 border-[#111118] rounded-full" />
+              </button>
+            </div>
+
+            {/* Info Strip */}
+            <AnimatePresence>
+              {showTopInfo && (
+                <motion.div 
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  onClick={() => {
+                    setShowTopInfo(false);
+                    if (onNavVisibilityChange) onNavVisibilityChange(true);
+                  }}
+                  className="flex items-center justify-center gap-4 py-1.5 px-4 bg-[#111118]/60 backdrop-blur-md rounded-xl border border-[#1e1e2e]/50 w-fit mx-auto shadow-2xl cursor-pointer hover:bg-[#111118]/80 transition-colors"
+                >
+                  <div className="flex items-center gap-1.5 text-[9px] font-bold text-neutral-400">
+                    <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                    <span>{profile?.rating || '4.8'} RATING</span>
+                  </div>
+                  <div className="w-px h-3 bg-neutral-800" />
+                  <div className="flex items-center gap-1.5 text-[9px] font-bold text-neutral-400">
+                    <Wifi className="w-3 h-3 text-emerald-500" />
+                    <span>NETWORK: GOOD</span>
+                  </div>
+                  <div className="w-px h-3 bg-neutral-800" />
+                  <div className="flex items-center gap-1.5 text-[9px] font-bold text-neutral-400">
+                    <Battery className="w-3 h-3 text-emerald-500" />
+                    <span>TRIP MODE ON</span>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Map Layer */}
       <div className="absolute inset-0 z-0 bg-[#0a0a0f]">
+        <div className={`absolute inset-0 transition-opacity duration-1000 ${theme === 'dark' ? 'opacity-100' : 'opacity-0'}`}>
+           <div className="absolute inset-0 bg-[#0a0a0f]" />
+        </div>
         <MapContainer 
           center={position} 
           zoom={15} 
           style={{ height: '100%', width: '100%' }}
           zoomControl={false}
-          className="grayscale contrast-[1.1] brightness-[0.7]"
+          className="transition-all duration-1000"
         >
-          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+          <TileLayer 
+            url={mapTileUrl}
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          />
           
           <Marker 
             position={position}
@@ -544,7 +582,7 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
           <Circle 
             center={position}
             radius={30}
-            pathOptions={{ color: '#7F77DD', fillOpacity: 0.1, weight: 1 }}
+            pathOptions={{ color: theme === 'dark' ? '#10b981' : '#7F77DD', fillOpacity: 0.1, weight: 1 }}
           />
 
           {activeRide && (
@@ -602,7 +640,7 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
       </div>
 
       {/* Floating Buttons */}
-      {!activeRide && !incomingRequest && (
+      {!activeRide && !incomingRequest && !isMinimized && (
         <div className="absolute bottom-1/2 translate-y-[-20%] right-4 z-40 flex flex-col gap-4">
            <motion.button
             onClick={toggleEarnings}
@@ -619,7 +657,7 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
       )}
 
       {/* Earnings Toggle Overlay */}
-      {!activeRide && !incomingRequest && (
+      {!activeRide && !incomingRequest && !isMinimized && (
         <div className="absolute top-32 left-1/2 -translate-x-1/2 z-40">
            <motion.div 
              onClick={toggleEarnings}
@@ -639,8 +677,67 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
         </div>
       )}
 
+      {/* Map Mode Toggle Button - Ultra Modern Hyper-Floating style */}
+      {!activeRide && !incomingRequest && (
+        <div className="absolute bottom-12 right-6 z-[65]">
+          <motion.button 
+            whileHover={{ scale: 1.05, y: -2 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => {
+              const nextVal = !isMinimized;
+              setIsMinimized(nextVal);
+              if (onNavVisibilityChange) onNavVisibilityChange(!nextVal);
+            }}
+            className={`w-18 h-18 rounded-[2.5rem] shadow-[0_25px_60px_rgba(0,0,0,0.4)] flex items-center justify-center transition-all duration-500 backdrop-blur-3xl border-2 ${
+              isMinimized 
+                ? 'bg-emerald-500 border-emerald-300 ring-4 ring-emerald-500/20 text-white shadow-emerald-500/50' 
+                : 'bg-white/90 dark:bg-[#111118]/90 border-white/20 dark:border-white/10 text-neutral-600 dark:text-neutral-400 hover:border-emerald-500/50 hover:text-emerald-500'
+            }`}
+            title={isMinimized ? "Show Dashboard" : "Full Map Mode"}
+          >
+            <AnimatePresence mode="wait">
+              {isMinimized ? (
+                <motion.div 
+                  key="eye"
+                  initial={{ rotate: -90, opacity: 0, scale: 0.5 }}
+                  animate={{ rotate: 0, opacity: 1, scale: 1 }}
+                  exit={{ rotate: 90, opacity: 0, scale: 0.5 }}
+                  transition={{ type: 'spring', damping: 15 }}
+                >
+                  <Eye className="w-9 h-9" />
+                </motion.div>
+              ) : (
+                <motion.div 
+                  key="eye-off"
+                  initial={{ rotate: 90, opacity: 0, scale: 0.5 }}
+                  animate={{ rotate: 0, opacity: 1, scale: 1 }}
+                  exit={{ rotate: -90, opacity: 0, scale: 0.5 }}
+                   transition={{ type: 'spring', damping: 15 }}
+                >
+                  <EyeOff className="w-9 h-9" />
+                </motion.div>
+              )}
+            </AnimatePresence>
+            
+            {/* Glowing ring when minimized */}
+            {isMinimized && (
+              <motion.div 
+                animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0, 0.3] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="absolute inset-0 rounded-[2.5rem] bg-emerald-400 -z-10" 
+              />
+            )}
+          </motion.button>
+        </div>
+      )}
+
       {/* Bottom Sheet Redesign */}
-      <div className="absolute inset-x-0 bottom-0 z-50">
+      <motion.div 
+        initial={{ y: 0 }}
+        animate={{ y: isMinimized ? 1000 : 0 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+        className="absolute inset-x-0 bottom-0 z-50"
+      >
         <AnimatePresence mode="wait">
           {!isOnline && (
              <motion.div 
@@ -797,7 +894,7 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
               />
             )}
           </AnimatePresence>
-      </div>
+      </motion.div>
 
       {/* Chat Overlay */}
       <AnimatePresence>

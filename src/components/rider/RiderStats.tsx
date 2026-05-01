@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   PieChart, Pie, Cell, ResponsiveContainer,
-  AreaChart, Area, XAxis, YAxis, Tooltip
+  AreaChart, Area, XAxis, YAxis, Tooltip, LineChart, Line
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
@@ -175,14 +175,21 @@ export default function RiderStats() {
             {/* Drive Performance Summary */}
             <div className="bg-neutral-100 dark:bg-neutral-900/50 rounded-[2rem] p-6 grid grid-cols-2 gap-4">
               {[
-                { label: "Active Minutes", value: (totalTrips * 30).toString(), color: "text-emerald-500" },
-                { label: "Total Trips", value: totalTrips.toString(), color: "text-blue-500" },
-                { label: "Top Rated", value: "0.0", color: "text-orange-500" },
-                { label: "Revenue Share", value: "85%", color: "text-purple-500" }
+                { label: "Active Minutes", value: (totalTrips * 30).toString(), color: "text-emerald-500", data: [{v: 10}, {v: 15}, {v: 12}, {v: 20}, {v: 18}, {v: 25}] },
+                { label: "Total Trips", value: totalTrips.toString(), color: "text-blue-500", data: [{v: 2}, {v: 4}, {v: 3}, {v: 5}, {v: 4}, {v: 6}] },
+                { label: "Top Rated", value: "0.0", color: "text-orange-500", data: [{v: 4.5}, {v: 4.8}, {v: 4.7}, {v: 4.9}, {v: 4.8}, {v: 5.0}] },
+                { label: "Revenue Share", value: "85%", color: "text-purple-500", data: [{v: 80}, {v: 82}, {v: 85}, {v: 85}, {v: 85}, {v: 85}] }
               ].map((item, idx) => (
-                <div key={idx} className="bg-white dark:bg-neutral-900 p-4 rounded-2xl flex flex-col items-center justify-center text-center shadow-sm border border-neutral-100 dark:border-neutral-800">
+                <div key={idx} className="bg-white dark:bg-neutral-900 p-4 rounded-2xl flex flex-col items-center justify-center text-center shadow-sm border border-neutral-100 dark:border-neutral-800 group overflow-hidden">
                    <p className="text-[8px] font-black uppercase text-neutral-400 tracking-widest mb-1">{item.label}</p>
-                   <h4 className={`text-lg font-black italic uppercase tracking-tighter ${item.color}`}>{item.value}</h4>
+                   <h4 className={`text-lg font-black italic uppercase tracking-tighter ${item.color} mb-2`}>{item.value}</h4>
+                   <div className="h-6 w-full opacity-30 group-hover:opacity-100 transition-opacity">
+                     <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={item.data}>
+                           <Line type="monotone" dataKey="v" stroke={item.color.split('-')[1] === 'emerald' ? '#10b981' : item.color.split('-')[1] === 'blue' ? '#3b82f6' : item.color.split('-')[1] === 'orange' ? '#f59e0b' : '#a855f7'} strokeWidth={2} dot={false} />
+                        </LineChart>
+                     </ResponsiveContainer>
+                   </div>
                 </div>
               ))}
             </div>
