@@ -194,9 +194,9 @@ export default function Notifications() {
       {/* List */}
       <div className="space-y-3">
         <AnimatePresence mode="popLayout">
-          {filteredNotifications.map((notif) => (
+          {filteredNotifications.map((notif, idx) => (
             <motion.div
-              key={notif.id}
+              key={notif.id || `notif-${idx}`}
               layout
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}

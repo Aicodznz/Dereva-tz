@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { motion } from 'motion/react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { Shield, Clock, Navigation2, MapPin, MessageSquare } from 'lucide-react';
 import { Ride } from '../../types/trip.types';
@@ -33,6 +34,8 @@ const MapControl = ({ position, target }: { position: { lat: number, lng: number
       }
     } else if (position) {
       map.flyTo([position.lat, position.lng], 16, { duration: 0.5 });
+    } else if (target) {
+      map.flyTo([target.lat, target.lng], 14, { duration: 0.5 });
     }
   }, [position?.lat, position?.lng, target?.lat, target?.lng, map]);
   return null;
@@ -72,11 +75,12 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage 
     <div 
       className="flex-1 w-full bg-[#0a0a0f] flex flex-col relative z-50"
     >
-      <div className="flex-1 relative z-0 min-h-[300px]">
+      <div className="flex-1 relative z-0">
+        <style>{`.leaflet-container { height: 100% !important; background: #0a0a0f !important; }`}</style>
         <MapContainer 
           center={ride.driverLocation || ride.pickup} 
           zoom={16} 
-          className="h-full w-full grayscale contrast-[1.1] brightness-[0.9]"
+          className="h-full w-full grayscale contrast-[1.2] brightness-[0.8]"
           zoomControl={false}
         >
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />

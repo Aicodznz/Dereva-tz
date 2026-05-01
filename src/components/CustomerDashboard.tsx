@@ -347,7 +347,7 @@ export default function CustomerDashboard() {
             .sort((a, b) => a.distance - b.distance)
             .map((vendor, idx) => (
             <motion.div
-              key={`nearby-vendor-${vendor.id || idx}`}
+              key={`nearby-vendor-${vendor.id || `vendor-${idx}`}`}
               initial={{ opacity: 0, x: 50 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
@@ -479,7 +479,7 @@ export default function CustomerDashboard() {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 md:gap-6">
           {filteredProducts.map((product, idx) => (
             <motion.div
-              key={`product-${product.id || idx}`}
+              key={`product-${product.id || `product-${idx}`}`}
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -549,7 +549,7 @@ export default function CustomerDashboard() {
             .sort((a, b) => a.distance - b.distance)
             .map((vendor, idx) => (
             <motion.div
-              key={`popular-restaurant-${vendor.id || idx}`}
+              key={`popular-restaurant-${vendor.id || `vendor-pop-${idx}`}`}
               initial={{ opacity: 0, scale: 0.95 }}
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}

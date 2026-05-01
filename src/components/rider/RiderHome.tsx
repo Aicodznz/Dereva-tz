@@ -651,8 +651,8 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
               showEarnings ? 'bg-[#7F77DD] border-[#7F77DD] text-white' : 'bg-[#111118] border-[#1e1e2e] text-neutral-500'
             }`}
           >
-            {showEarnings ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-            <span className="text-[7px] font-black mt-0.5 uppercase tracking-tighter">Budget</span>
+            {showEarnings ? <Eye className="w-4 h-4" /> : <TrendingUp className="w-4 h-4" />}
+            <span className="text-[7px] font-black mt-0.5 uppercase tracking-tighter">Mapato</span>
           </motion.button>
           
            <button className="w-12 h-12 bg-[#111118] border border-[#1e1e2e] rounded-2xl shadow-2xl flex items-center justify-center text-neutral-400 active:scale-95 transition-transform">

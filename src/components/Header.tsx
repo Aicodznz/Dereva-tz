@@ -40,9 +40,9 @@ export default function Header() {
         <div className="flex items-center gap-2 md:gap-6 min-w-0 flex-shrink">
           <Link to="/" className="flex items-center gap-2 group shrink-0">
             <div className="w-9 h-9 bg-orange-600 rounded-xl flex items-center justify-center transform group-hover:rotate-12 transition-transform shadow-lg shadow-orange-600/20">
-              <span className="text-white font-black text-xl italic tracking-tighter">O</span>
+              <span className="text-white font-black text-xl italic tracking-tighter">P</span>
             </div>
-            <span className="hidden lg:block font-black text-lg uppercase italic tracking-tighter text-neutral-900 dark:text-white">OmniServe</span>
+            <span className="hidden lg:block font-black text-lg uppercase italic tracking-tighter text-neutral-900 dark:text-white">Papo Hapo</span>
           </Link>
 
           {isDashboard && !isRiderDashboard && (

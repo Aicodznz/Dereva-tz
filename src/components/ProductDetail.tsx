@@ -807,8 +807,8 @@ export default function ProductDetail() {
                           {/* Replies Section */}
                           {review.replies && review.replies.length > 0 && (
                             <div className="mt-4 space-y-3 pl-6 border-l-2 border-neutral-100">
-                              {review.replies.map((reply) => (
-                                <div key={reply.id} className="bg-neutral-50 p-3 rounded-2xl relative group">
+                              {review.replies.map((reply, idx) => (
+                                <div key={reply.id || `reply-${idx}`} className="bg-neutral-50 p-3 rounded-2xl relative group">
                                   <div className="flex items-center gap-2 mb-1">
                                     <img src={reply.userPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${reply.userId}`} alt={reply.userName} className="w-5 h-5 rounded-full" />
                                     <span className="text-xs font-bold text-neutral-900">{reply.userName}</span>

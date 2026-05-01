@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { Phone, MessageSquare, Star, Clock, Navigation2 } from 'lucide-react';
 import { Ride } from '../../types/trip.types';
@@ -94,11 +95,12 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
       </AnimatePresence>
 
       {/* Map Layer */}
-      <div className="flex-1 relative z-0 min-h-[300px]">
+      <div className="flex-1 relative z-0">
+        <style>{`.leaflet-container { height: 100% !important; background: #0a0a0f !important; }`}</style>
         <MapContainer 
           center={ride.pickup} 
           zoom={15} 
-          className="h-full w-full grayscale contrast-[1.1] brightness-[0.9]"
+          className="h-full w-full grayscale contrast-[1.2] brightness-[0.8]"
           zoomControl={false}
         >
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
