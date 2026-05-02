@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -10,6 +10,7 @@ import { useDriverTracking } from '../../hooks/useDriverTracking';
 interface LiveTripScreenProps {
   ride: Ride;
   onMessage?: () => void;
+  isMinimized?: boolean;
 }
 
 const MapControl = ({ position, target }: { position: { lat: number, lng: number } | any, target: { lat: number, lng: number } | any }) => {
@@ -41,16 +42,16 @@ const MapControl = ({ position, target }: { position: { lat: number, lng: number
   return null;
 };
 
-export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage }) => {
+export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage, isMinimized }) => {
   const { distance, eta } = useDriverTracking(ride.driverLocation, ride.destination);
   
   // Progress calculation
   const progress = useMemo(() => {
-    if (!ride.routeCoords || ride.routeCoords.length === 0 || !ride.driverLocation) return 0;
-    // Simple progress based on distance to destination vs total distance
-    // In real app, we'd find closest point on route
-    return 65; // Mocking 65% for visual
-  }, [ride.driverLocation, ride.routeCoords]);
+    if (!ride.distance || distance === null) return 0;
+    const travelled = Math.max(0, ride.distance - distance);
+    const p = Math.round((travelled / ride.distance) * 100);
+    return Math.min(100, Math.max(0, p));
+  }, [distance, ride.distance]);
 
   return (
     <div 
@@ -58,26 +59,49 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage 
     >
       <div className="flex-1 relative z-0">
         {/* Status Pill */}
-        <div className="absolute top-24 left-6 z-[60] pointer-events-auto">
-          <div className="bg-[#1D9E75] text-white px-4 py-2 rounded-2xl flex items-center gap-2 shadow-2xl">
-            <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Safari Inaendelea</span>
-          </div>
-        </div>
+        <AnimatePresence>
+          {!isMinimized && (
+            <motion.div 
+              initial={{ x: -100 }}
+              animate={{ x: 0 }}
+              exit={{ x: -100 }}
+              className="absolute top-24 left-6 z-[60] pointer-events-auto"
+            >
+              <div className="bg-[#1D9E75] text-white px-4 py-2 rounded-2xl flex items-center gap-2 shadow-2xl">
+                <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                <span className="text-[10px] font-black uppercase tracking-[0.2em]">Safari Inaendelea</span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* SOS Button */}
-        <button className="absolute top-24 right-6 w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-red-600 shadow-2xl z-[60] active:scale-90 transition-transform pointer-events-auto">
-           <Shield className="w-6 h-6" />
-        </button>
+        <AnimatePresence>
+          {!isMinimized && (
+            <motion.button 
+              initial={{ x: 100 }}
+              animate={{ x: 0 }}
+              exit={{ x: 100 }}
+              className="absolute top-24 right-6 w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-red-600 shadow-2xl z-[60] active:scale-90 transition-transform pointer-events-auto"
+            >
+               <Shield className="w-6 h-6" />
+            </motion.button>
+          )}
+        </AnimatePresence>
       </div>
 
-      <motion.div 
-        drag="y"
-        dragConstraints={{ top: 0, bottom: 400 }}
-        dragElastic={0.05}
-        dragMomentum={false}
-        className="bg-[#111118] rounded-t-[40px] border-t border-[#1e1e2e] p-8 pb-10 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] z-[60] touch-none pointer-events-auto"
-      >
+      <AnimatePresence>
+        {!isMinimized && (
+          <motion.div 
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
+            drag="y"
+            dragConstraints={{ top: 0, bottom: 400 }}
+            dragElastic={0.05}
+            dragMomentum={false}
+            className="bg-[#111118] rounded-t-[40px] border-t border-[#1e1e2e] p-8 pb-10 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] z-[60] touch-none pointer-events-auto"
+          >
         <div className="w-12 h-1.5 bg-[#1e1e2e] rounded-full mx-auto mb-8 cursor-grab active:cursor-grabbing" />
         
         <div className="flex items-center justify-between mb-8">
@@ -136,6 +160,8 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage 
            </div>
         </div>
       </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

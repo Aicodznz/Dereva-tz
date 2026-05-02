@@ -101,19 +101,25 @@ const BikeSVG = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const MapEvents = ({ onMapClick }: { onMapClick: (e: L.LeafletMouseEvent) => void }) => {
+const MapEvents = ({ onMapClick, onInteraction }: { onMapClick: (e: L.LeafletMouseEvent) => void, onInteraction?: () => void }) => {
   useMapEvents({
     click(e) {
       onMapClick(e);
     },
+    dragstart() {
+      if (onInteraction) onInteraction();
+    },
+    zoomstart() {
+      if (onInteraction) onInteraction();
+    }
   });
   return null;
 };
 
-const MapControl = ({ position, step, targetPos }: { position: [number, number], step: string, targetPos?: [number, number] }) => {
+const MapControl = ({ position, step, targetPos, autoFollow }: { position: [number, number], step: string, targetPos?: [number, number], autoFollow: boolean }) => {
   const map = useMap();
   useEffect(() => {
-    if (position) {
+    if (position && autoFollow) {
       if (['arriving', 'on_trip', 'found'].includes(step) && targetPos) {
         const bounds = L.latLngBounds([position, targetPos]);
         map.fitBounds(bounds, { padding: [100, 100], animate: true, duration: 1.5 });
@@ -123,7 +129,7 @@ const MapControl = ({ position, step, targetPos }: { position: [number, number],
         map.setView(position, 15);
       }
     }
-  }, [position?.[0], position?.[1], step, targetPos?.[0], targetPos?.[1], map]);
+  }, [position?.[0], position?.[1], step, targetPos?.[0], targetPos?.[1], map, autoFollow]);
   return null;
 };
 
@@ -152,6 +158,7 @@ export default function TaxiBooking() {
   const [step, setStep] = useState<BookingStep>('home');
   const [isMinimized, setIsMinimized] = useState(false);
   const [isMapFullscreen, setIsMapFullscreen] = useState(false);
+  const [autoFollow, setAutoFollow] = useState(true);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [settingMode, setSettingMode] = useState<'pickup' | 'destination'>('pickup');
   const [selectedRide, setSelectedRide] = useState<RideOption | null>(null);
@@ -275,6 +282,71 @@ export default function TaxiBooking() {
     }
   }, [activeRide?.driverId, activeRide?.status]);
   useMatchmaking(activeRide as any);
+
+  const [driverRouteCoords, setDriverRouteCoords] = useState<[number, number][]>([]);
+
+  // Simulation: Move driver towards user or destination
+  useEffect(() => {
+    if (!rideId || !activeRide || activeRide.status === 'pending') return;
+
+    const simulateMovement = setInterval(async () => {
+      if (!driverLivePos) return;
+
+      const target = (activeRide.status === 'on_trip') ? activeRide.destination : activeRide.pickup;
+      const currentPos = L.latLng(driverLivePos.lat, driverLivePos.lng);
+      const targetPos = L.latLng(target.lat, target.lng);
+
+      if (currentPos.distanceTo(targetPos) < 20) {
+        // Arrived at destination/pickup
+        if (activeRide.status === 'accepted' || activeRide.status === 'driver_arriving') {
+          await updateDoc(doc(db, 'rides', rideId), { status: 'driver_arrived', updatedAt: serverTimestamp() });
+        }
+        return;
+      }
+
+      // Move 50 meters toward target (simple lerp)
+      const dist = currentPos.distanceTo(targetPos);
+      const ratio = 50 / dist;
+      if (ratio >= 1) {
+        setDriverLivePos({ lat: targetPos.lat, lng: targetPos.lng });
+      } else {
+        const nextLat = currentPos.lat + (targetPos.lat - currentPos.lat) * ratio;
+        const nextLng = currentPos.lng + (targetPos.lng - currentPos.lng) * ratio;
+        const newPos = { lat: nextLat, lng: nextLng };
+        setDriverLivePos(newPos);
+        
+        // Update Firestore
+        await updateDoc(doc(db, 'rides', rideId), { 
+          driverLocation: newPos,
+          updatedAt: serverTimestamp() 
+        });
+      }
+    }, 3000);
+
+    return () => clearInterval(simulateMovement);
+  }, [rideId, activeRide?.status, driverLivePos?.lat]);
+
+  // Driver Route: Fetch route from driver to target
+  useEffect(() => {
+    const fetchDriverRoute = async () => {
+      if (!driverLivePos || !activeRide) return;
+      const target = (activeRide.status === 'on_trip') ? activeRide.destination : activeRide.pickup;
+      
+      try {
+        const response = await fetch(`https://router.project-osrm.org/route/v1/driving/${driverLivePos.lng},${driverLivePos.lat};${target.lng},${target.lat}?overview=full&geometries=geojson`);
+        const data = await response.json();
+        if (data.routes?.[0]) {
+          setDriverRouteCoords(data.routes[0].geometry.coordinates.map((c: any) => [c[1], c[0]]));
+        }
+      } catch (e) {
+        console.error("Driver routing failed", e);
+      }
+    };
+
+    if (driverLivePos && ['accepted', 'driver_arriving', 'on_trip'].includes(activeRide?.status || '')) {
+      fetchDriverRoute();
+    }
+  }, [driverLivePos?.lat, activeRide?.status]);
 
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [searchTimer, setSearchTimer] = useState<any>(null);
@@ -597,26 +669,51 @@ export default function TaxiBooking() {
                   {step !== 'map' && <div className="w-12" />}
                   <div className="flex gap-3">
                     <button 
-                      onClick={() => setIsMapFullscreen(!isMapFullscreen)} 
+                      onClick={() => {
+                        setIsMapFullscreen(!isMapFullscreen);
+                        if (!isMapFullscreen) setAutoFollow(true);
+                      }} 
                       className={`w-12 h-12 ${isMapFullscreen ? 'bg-[#7F77DD] text-white' : 'bg-[#111118]/90 text-white'} backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-all`}
                       title={isMapFullscreen ? "Onesha Maelezo" : "Ramani tupu"}
                     >
                        {isMapFullscreen ? <Layers className="w-6 h-6" /> : <MapPin className="w-6 h-6" />}
                     </button>
+                    {!autoFollow && step !== 'home' && (
+                      <button 
+                        onClick={() => setAutoFollow(true)}
+                        className="w-12 h-12 bg-[#1D9E75] text-white backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-all"
+                      >
+                        <RotateCw size={24} className="animate-spin-slow" />
+                      </button>
+                    )}
                     <button onClick={() => navigate('/taxi/history')} className="w-12 h-12 bg-[#111118]/90 backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform text-white"><Clock className="w-6 h-6" /></button>
                   </div>
                </div>
 
-               <style>{`.leaflet-container { height: 100% !important; width: 100% !important; background: #ffffff !important; } .custom-div-icon { background: none; border: none; }`}</style>
-               <MapContainer center={pickupPos} zoom={15} className="h-full w-full" zoomControl={false}>
+               <style>{`.leaflet-container { height: 100% !important; width: 100% !important; background: #ffffff !important; } .custom-div-icon { background: none; border: none; } .animate-spin-slow { animation: spin 3s linear infinite; } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+               <MapContainer 
+                 center={pickupPos} 
+                 zoom={15} 
+                 className="h-full w-full" 
+                 zoomControl={true} 
+                 touchZoom={true} 
+                 doubleClickZoom={true} 
+                 scrollWheelZoom={true} 
+                 dragging={true}
+               >
                  <TileLayer 
                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                  />
-                 <MapEvents onMapClick={handleMapClick} />
+                 <MapEvents onMapClick={handleMapClick} onInteraction={() => setAutoFollow(false)} />
                  <MapControl 
-                   position={settingMode === 'pickup' ? pickupPos : destPos} 
+                   position={
+                     ['arriving', 'on_trip', 'found'].includes(step) && driverLivePos 
+                       ? [driverLivePos.lat, driverLivePos.lng] 
+                       : (settingMode === 'pickup' ? pickupPos : destPos)
+                   } 
                    step={step} 
+                   autoFollow={autoFollow}
                    targetPos={
                      ['arriving', 'found'].includes(step) ? pickupPos :
                      step === 'on_trip' ? destPos :
@@ -647,6 +744,11 @@ export default function TaxiBooking() {
                  ))}
 
                  {routeCoords.length > 1 && <Polyline positions={routeCoords} color="#7F77DD" weight={4} opacity={0.6} dashArray="8, 12" />}
+                 
+                 {/* Driver Tracking Route */}
+                 {driverRouteCoords.length > 0 && ['accepted', 'driver_arriving', 'on_trip'].includes(activeRide?.status || '') && (
+                   <Polyline positions={driverRouteCoords} color="#1D9E75" weight={6} opacity={0.8} />
+                 )}
                </MapContainer>
             </motion.div>
           )}
@@ -840,15 +942,14 @@ export default function TaxiBooking() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 z-[70] bg-[#0a0a0f]/20 backdrop-blur-[2px] px-4 pointer-events-none"
+              className="absolute inset-0 z-[70] bg-transparent pointer-events-none"
             >
-              <div className="h-full w-full pointer-events-auto">
-                <SearchingScreen 
-                  ride={activeRide as any} 
-                  onCancel={() => { console.log("Cancel from searching"); cancelRide(); setStep('map'); setRideId(null); }} 
-                  onTimeout={handleTimeout}
-                />
-              </div>
+              <SearchingScreen 
+                ride={activeRide as any} 
+                onCancel={() => { console.log("Cancel from searching"); cancelRide(); setStep('map'); setRideId(null); }} 
+                onTimeout={handleTimeout}
+                isMinimized={isMapFullscreen}
+              />
             </motion.div>
           )}
 
@@ -860,28 +961,33 @@ export default function TaxiBooking() {
               exit={{ opacity: 0 }}
               className="absolute inset-0 z-[70] bg-transparent pointer-events-none"
             >
-              <div className="h-full w-full pointer-events-auto">
-                <DriverFoundScreen onNext={() => setStep('arriving')} />
-              </div>
+              <DriverFoundScreen 
+                onNext={() => setStep('found')} 
+                isMinimized={isMapFullscreen}
+              />
             </motion.div>
           )}
 
           {step === 'arriving' && activeRide && (
-             <motion.div key="arriving" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[70] bg-transparent">
+             <motion.div key="arriving" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[70] bg-transparent pointer-events-none">
                 <DriverArrivedScreen 
                   ride={{ ...activeRide, driverLocation: driverLivePos || activeRide.driverLocation } as any} 
                   onCall={() => window.open(`tel:${activeRide.driverInfo?.phone}`)} 
                   onMessage={() => setIsChatOpen(true)}
-                  onImComing={() => toast.success("Dereva amejulishwa unakuja!")}
+                  onImComing={() => {
+                    updateDoc(doc(db, 'rides', rideId!), { status: 'on_trip', updatedAt: serverTimestamp() });
+                  }}
+                  isMinimized={isMapFullscreen}
                 />
              </motion.div>
           )}
 
           {step === 'on_trip' && activeRide && (
-            <motion.div key="on_trip" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[70] bg-transparent">
+            <motion.div key="on_trip" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[70] bg-transparent pointer-events-none">
               <LiveTripScreen 
                 ride={{ ...activeRide, driverLocation: driverLivePos || activeRide.driverLocation, distance: liveDistance || activeRide.distance } as any} 
                 onMessage={() => setIsChatOpen(true)}
+                isMinimized={isMapFullscreen}
               />
             </motion.div>
           )}

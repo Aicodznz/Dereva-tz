@@ -12,6 +12,7 @@ interface DriverArrivedScreenProps {
   onCall: () => void;
   onMessage: () => void;
   onImComing?: () => void;
+  isMinimized?: boolean;
 }
 
 const MapControl = ({ position, target }: { position: { lat: number, lng: number } | any, target: { lat: number, lng: number } | any }) => {
@@ -44,7 +45,7 @@ const MapControl = ({ position, target }: { position: { lat: number, lng: number
   return null;
 };
 
-export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, onCall, onMessage, onImComing }) => {
+export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, onCall, onMessage, onImComing, isMinimized }) => {
   const { distance, eta } = useDriverTracking(ride.driverLocation, ride.pickup);
   
   const isArrived = ride.status === 'driver_arrived';
@@ -55,10 +56,11 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
     >
       {/* Top Notification Banner */}
       <AnimatePresence>
-        {isArrived && (
+        {isArrived && !isMinimized && (
           <motion.div 
             initial={{ y: -100 }}
             animate={{ y: 80 }}
+            exit={{ y: -100 }}
             className="absolute top-0 inset-x-4 z-[70] bg-[#1D9E75] p-4 rounded-2xl shadow-2xl border-2 border-white/20 flex items-center gap-4 animate-bounce pointer-events-auto"
           >
             <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-2xl">🚗</div>
@@ -88,13 +90,18 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
       </div>
 
       {/* Bottom Sheet */}
-      <motion.div 
-        drag="y"
-        dragConstraints={{ top: 0, bottom: 400 }}
-        dragElastic={0.05}
-        dragMomentum={false}
-        className={`bg-[#111118] rounded-t-[40px] border-t border-[#1e1e2e] p-8 pb-12 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] z-[60] transition-colors duration-500 touch-none pointer-events-auto ${isArrived ? 'ring-4 ring-[#1D9E75]/20' : ''}`}
-      >
+      <AnimatePresence>
+        {!isMinimized && (
+          <motion.div 
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
+            drag="y"
+            dragConstraints={{ top: 0, bottom: 400 }}
+            dragElastic={0.05}
+            dragMomentum={false}
+            className={`bg-[#111118] rounded-t-[40px] border-t border-[#1e1e2e] p-8 pb-12 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] z-[60] transition-colors duration-500 touch-none pointer-events-auto ${isArrived ? 'ring-4 ring-[#1D9E75]/20' : ''}`}
+          >
         <div className="w-12 h-1.5 bg-[#1e1e2e] rounded-full mx-auto mb-8 cursor-grab active:cursor-grabbing" />
         
         <div className="flex items-center justify-between mb-8">
@@ -160,6 +167,8 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
           )}
         </div>
       </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Haptic Simulation Effect */}
       {isArrived && (
