@@ -110,17 +110,20 @@ const MapEvents = ({ onMapClick }: { onMapClick: (e: L.LeafletMouseEvent) => voi
   return null;
 };
 
-const MapControl = ({ position, step }: { position: [number, number], step: string }) => {
+const MapControl = ({ position, step, targetPos }: { position: [number, number], step: string, targetPos?: [number, number] }) => {
   const map = useMap();
   useEffect(() => {
     if (position) {
-      if (['arriving', 'on_trip'].includes(step)) {
+      if (['arriving', 'on_trip', 'found'].includes(step) && targetPos) {
+        const bounds = L.latLngBounds([position, targetPos]);
+        map.fitBounds(bounds, { padding: [100, 100], animate: true, duration: 1.5 });
+      } else if (['arriving', 'on_trip'].includes(step)) {
         map.panTo(position, { animate: true, duration: 1.5 });
       } else {
         map.setView(position, 15);
       }
     }
-  }, [position, step, map]);
+  }, [position?.[0], position?.[1], step, targetPos?.[0], targetPos?.[1], map]);
   return null;
 };
 
@@ -205,11 +208,16 @@ export default function TaxiBooking() {
   const { ride: activeRide, cancelRide, deleteRide } = useTripFlow(rideId);
   const [driverLivePos, setDriverLivePos] = useState<{lat: number, lng: number} | null>(null);
   const [liveDistance, setLiveDistance] = useState<number | null>(null);
+  const [isRestoring, setIsRestoring] = useState(true);
 
   // Persistence: Look for active rides on mount
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setIsRestoring(false);
+      return;
+    }
     
+    console.log("[TaxiBooking] Checking for active rides for user:", user.uid);
     const ridesRef = collection(db, 'rides');
     const q = query(
       ridesRef,
@@ -220,37 +228,50 @@ export default function TaxiBooking() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       if (!snapshot.empty) {
         const ride = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as any;
-        console.log("[TaxiBooking] Found persisting active ride:", ride.id);
+        console.log("[TaxiBooking] Found persisting active ride:", ride.id, "status:", ride.status);
         setRideId(ride.id);
+        
+        // Immediate step transition logic if possible
+        if (ride.status === 'on_trip') setStep('on_trip');
+        else if (ride.status === 'driver_arrived') setStep('arriving');
+        else if (ride.status === 'accepted' || ride.status === 'driver_arriving') setStep('found');
+        else if (ride.status === 'pending') setStep('searching');
+        else if (ride.status === 'completed') setStep('rating');
       }
+      setIsRestoring(false);
     });
 
     return () => unsubscribe();
   }, [user]);
 
-  // Live Tracking: Listen to the assigned driver's location
+  // Live Tracking: Synchronize specialized states from the active ride
+  useEffect(() => {
+    if (activeRide?.driverLocation && ['accepted', 'driver_arriving', 'driver_arrived', 'on_trip'].includes(activeRide.status)) {
+       console.log("[TaxiBooking] Syncing driver location from ride doc:", activeRide.driverLocation);
+       setDriverLivePos(activeRide.driverLocation);
+       
+       const target = (activeRide.status === 'on_trip') ? activeRide.destination : activeRide.pickup;
+       const dist = L.latLng(activeRide.driverLocation.lat, activeRide.driverLocation.lng)
+                     .distanceTo(L.latLng(target.lat, target.lng));
+       setLiveDistance(dist / 1000); // km
+    } else if (activeRide?.status === 'completed') {
+       setStep('rating');
+    }
+  }, [activeRide?.driverLocation?.lat, activeRide?.driverLocation?.lng, activeRide?.status]);
+
+  // Optional: Also listen to the independent driver doc for even more frequent or "idle" updates
   useEffect(() => {
     if (activeRide?.driverId && ['accepted', 'driver_arriving', 'driver_arrived', 'on_trip'].includes(activeRide.status)) {
       const unsub = onSnapshot(doc(db, 'drivers', activeRide.driverId), (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
-          // The driver updates 'location' or 'currentPosition'. Let's check both but prioritize 'location' as seen in RiderHome.tsx
           const pos = data.location || data.currentPosition;
-          if (pos) {
+          if (pos && (!driverLivePos || pos.lat !== driverLivePos.lat || pos.lng !== driverLivePos.lng)) {
             setDriverLivePos(pos);
-            
-            // Calculate distance to target
-            const target = (activeRide.status === 'on_trip') ? activeRide.destination : activeRide.pickup;
-            const dist = L.latLng(pos.lat, pos.lng)
-                          .distanceTo(L.latLng(target.lat, target.lng));
-            setLiveDistance(dist / 1000); // km
           }
         }
       });
       return () => unsub();
-    } else {
-      setDriverLivePos(null);
-      setLiveDistance(null);
     }
   }, [activeRide?.driverId, activeRide?.status]);
   useMatchmaking(activeRide as any);
@@ -558,9 +579,77 @@ export default function TaxiBooking() {
         <div className="absolute top-[-10%] right-[-10%] w-[300px] h-[300px] bg-[#7F77DD]/10 blur-[100px] rounded-full" />
       </div>
 
-      <div className="flex-1 flex flex-col relative z-10 h-full"> 
+      <div className="flex-1 flex flex-col relative z-10 h-full overflow-hidden"> 
+        {/* Foundation Map Layer - Visible during the whole journey */}
+        <AnimatePresence mode="popLayout">
+          {(['map', 'searching', 'found', 'arriving', 'on_trip'].includes(step)) && !isRestoring && (
+            <motion.div 
+              key="foundation-map"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-0 h-full w-full"
+            >
+               <div className="absolute top-6 left-6 right-6 z-[60] flex items-center justify-between">
+                  {step === 'map' && (
+                    <button onClick={() => setStep('home')} className="w-12 h-12 bg-[#111118]/90 backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform text-white"><ArrowLeft className="w-6 h-6" /></button>
+                  )}
+                  {step !== 'map' && <div className="w-12" />}
+                  <div className="flex gap-3">
+                    <button 
+                      onClick={() => setIsMapFullscreen(!isMapFullscreen)} 
+                      className={`w-12 h-12 ${isMapFullscreen ? 'bg-red-500 text-white' : 'bg-[#111118]/90 text-white'} backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-all`}
+                    >
+                       {isMapFullscreen ? <RotateCw className="w-6 h-6" /> : <Layers className="w-6 h-6" />}
+                    </button>
+                    <button onClick={() => navigate('/taxi/history')} className="w-12 h-12 bg-[#111118]/90 backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform text-white"><Clock className="w-6 h-6" /></button>
+                  </div>
+               </div>
+
+               <style>{`.leaflet-container { height: 100% !important; width: 100% !important; background: #0a0a0f !important; } .custom-div-icon { background: none; border: none; }`}</style>
+               <MapContainer center={pickupPos} zoom={15} className="h-full w-full grayscale contrast-[1.1] brightness-[0.9]" zoomControl={false}>
+                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                 <MapEvents onMapClick={handleMapClick} />
+                 <MapControl 
+                   position={settingMode === 'pickup' ? pickupPos : destPos} 
+                   step={step} 
+                   targetPos={
+                     ['arriving', 'found'].includes(step) ? pickupPos :
+                     step === 'on_trip' ? destPos :
+                     undefined
+                   }
+                 />
+                 <Marker position={pickupPos} icon={StartPin} />
+                 <Marker position={destPos} icon={EndPin} />
+                 
+                 {/* Assigned Driver Marker */}
+                 {(driverLivePos || activeRide?.driverLocation) && (
+                   <Marker 
+                     key={`active-driver-${activeRide?.driverId || 'presence'}`}
+                     position={[driverLivePos?.lat || activeRide!.driverLocation!.lat, driverLivePos?.lng || activeRide!.driverLocation!.lng]} 
+                     icon={getDriverIcon(activeRide?.vehicleType || 'mini')}
+                   />
+                 )}
+
+                 {/* Nearby Drivers - Only show in map step */}
+                 {step === 'map' && drivers
+                   .filter(d => (!selectedRide || d.vehicleType === selectedRide.vehicleType) && d.id !== activeRide?.driverId)
+                   .map(driver => (
+                   <Marker 
+                     key={driver.id} 
+                     position={[driver.lat, driver.lng]} 
+                     icon={getDriverIcon(driver.vehicleType)}
+                   />
+                 ))}
+
+                 {routeCoords.length > 1 && <Polyline positions={routeCoords} color="#7F77DD" weight={4} opacity={0.6} dashArray="8, 12" />}
+               </MapContainer>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <AnimatePresence mode="wait">
-          {step === 'home' && (
+          {step === 'home' && !isRestoring && (
             <motion.div 
               key="home"
               initial={{ opacity: 0, y: 10 }}
@@ -605,182 +694,132 @@ export default function TaxiBooking() {
 
           {step === 'map' && (
             <motion.div 
-              key="map"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex-1 flex flex-col relative bg-[#0a0a0f] overflow-hidden"
+              key="map-ui"
+              initial={{ y: 300 }}
+              animate={{ y: isMapFullscreen ? 800 : (isMinimized ? 520 : 0) }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="absolute bottom-0 left-0 right-0 z-[60] bg-[#111118] rounded-t-[40px] border-t border-[#1e1e2e] p-5 pb-10 space-y-4 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]"
             >
-              <div className="absolute top-6 left-6 right-6 z-[60] flex items-center justify-between">
-                 <button onClick={() => setStep('home')} className="w-12 h-12 bg-[#111118]/90 backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform"><ArrowLeft className="w-6 h-6" /></button>
-                 <div className="flex gap-3">
-                   <button 
-                     onClick={() => setIsMapFullscreen(!isMapFullscreen)} 
-                     className={`w-12 h-12 ${isMapFullscreen ? 'bg-red-500 text-white' : 'bg-[#111118]/90 text-white'} backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-all`}
-                     title={isMapFullscreen ? "Onyesha Maelezo" : "Ramani Full"}
-                   >
-                      {isMapFullscreen ? <RotateCw className="w-6 h-6" /> : <Layers className="w-6 h-6" />}
-                   </button>
-                   <button onClick={() => navigate('/taxi/history')} className="w-12 h-12 bg-[#111118]/90 backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform"><Clock className="w-6 h-6" /></button>
-                 </div>
-              </div>
-
-              <div className="flex-1 relative z-0">
-                 <style>{`.leaflet-container { height: 100% !important; background: #0a0a0f !important; } .custom-div-icon { background: none; border: none; }`}</style>
-                 <MapContainer center={pickupPos} zoom={15} className="h-full w-full grayscale contrast-[1.1] brightness-[0.9]" zoomControl={false}>
-                   <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                   <MapEvents onMapClick={handleMapClick} />
-                   <MapControl position={settingMode === 'pickup' ? pickupPos : destPos} step={step} />
-                   <Marker position={pickupPos} icon={StartPin} />
-                   <Marker position={destPos} icon={EndPin} />
-                   
-                   {/* Assigned Driver Marker */}
-                   {activeRide?.driverLocation && (
-                     <Marker 
-                       key={`active-driver-${activeRide.driverId || 'presence'}`}
-                       position={[activeRide.driverLocation.lat, activeRide.driverLocation.lng]} 
-                       icon={getDriverIcon(activeRide.vehicleType)}
-                     />
-                   )}
-
-                   {/* Nearby Drivers - Show all initially, or filtered if ride selected */}
-                   {drivers
-                     .filter(d => (!selectedRide || d.vehicleType === selectedRide.vehicleType) && d.id !== activeRide?.driverId)
-                     .map(driver => (
-                     <Marker 
-                       key={driver.id} 
-                       position={[driver.lat, driver.lng]} 
-                       icon={getDriverIcon(driver.vehicleType)}
-                     />
-                   ))}
-
-                   {routeCoords.length > 1 && <Polyline positions={routeCoords} color="#7F77DD" weight={4} opacity={0.6} dashArray="8, 12" />}
-                 </MapContainer>
-              </div>
-
-              <motion.div 
-                initial={{ y: 300 }}
-                animate={{ y: isMapFullscreen ? 800 : (isMinimized ? 520 : 0) }}
-                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                className="relative z-[60] bg-[#111118] rounded-t-[40px] border-t border-[#1e1e2e] p-5 pb-10 space-y-4 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]"
-              >
-                 <div 
-                   className="w-16 h-4 mx-auto mb-2 flex items-center justify-center cursor-pointer group"
-                   onClick={() => setIsMinimized(!isMinimized)}
+               <div 
+                 className="w-16 h-4 mx-auto mb-2 flex items-center justify-center cursor-pointer group"
+                 onClick={() => setIsMinimized(!isMinimized)}
+               >
+                  <div className="w-12 h-1.5 bg-neutral-800 rounded-full group-hover:bg-neutral-600 transition-colors" />
+               </div>
+               
+               {!isMinimized && (
+                 <motion.div
+                   initial={{ opacity: 0 }}
+                   animate={{ opacity: 1 }}
+                   className="space-y-4"
                  >
-                    <div className="w-12 h-1.5 bg-neutral-800 rounded-full group-hover:bg-neutral-600 transition-colors" />
-                 </div>
-                 
-                 {!isMinimized && (
-                   <motion.div
-                     initial={{ opacity: 0 }}
-                     animate={{ opacity: 1 }}
-                     className="space-y-4"
-                   >
-                     <div className="bg-[#0a0a0f] border border-[#1e1e2e] rounded-[28px] p-5 relative">
-                        <div className="space-y-6">
-                            <div className="flex items-center gap-4">
-                              <div className={`w-3 h-3 rounded-full ${settingMode === 'pickup' ? 'bg-emerald-500 ring-4 ring-emerald-500/20' : 'bg-neutral-700'}`} />
-                              <div className="flex-1">
-                                 <input 
-                                   type="text" 
-                                   value={pickup} 
-                                   onChange={(e) => { setPickup(e.target.value); geocodeAddress(e.target.value); }} 
-                                   onFocus={() => setSettingMode('pickup')}
-                                   className="w-full bg-transparent text-sm font-bold text-[#f0eeff] border-none outline-none p-0" 
-                                 />
-                              </div>
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); handleCurrentLocation(); }}
-                                className="p-2 hover:bg-white/5 rounded-full transition-colors text-emerald-500"
-                                title="Eneo langu"
-                              >
-                                 <Navigation2 className="w-4 h-4" />
-                              </button>
+                   <div className="bg-[#0a0a0f] border border-[#1e1e2e] rounded-[28px] p-5 relative">
+                      <div className="space-y-6">
+                          <div className="flex items-center gap-4">
+                            <div className={`w-3 h-3 rounded-full ${settingMode === 'pickup' ? 'bg-emerald-500 ring-4 ring-emerald-500/20' : 'bg-neutral-700'}`} />
+                            <div className="flex-1">
+                               <input 
+                                 type="text" 
+                                 value={pickup} 
+                                 onChange={(e) => { setPickup(e.target.value); geocodeAddress(e.target.value); }} 
+                                 onFocus={() => setSettingMode('pickup')}
+                                 className="w-full bg-transparent text-sm font-bold text-[#f0eeff] border-none outline-none p-0" 
+                               />
                             </div>
-                            <div className="flex items-center gap-4">
-                              <div className={`w-3 h-3 rounded-full ${settingMode === 'destination' ? 'bg-red-500 ring-4 ring-red-500/20' : 'bg-neutral-700'}`} />
-                              <div className="flex-1">
-                                  <input 
-                                    type="text" 
-                                    value={destination} 
-                                    onChange={(e) => { setDestination(e.target.value); geocodeAddress(e.target.value); }} 
-                                    onFocus={() => setSettingMode('destination')}
-                                    className="w-full bg-transparent text-sm font-bold text-[#f0eeff] border-none outline-none p-0" 
-                                    placeholder="Unakwenda wapi?" 
-                                  />
-                              </div>
-                            </div>
-                        </div>
-
-                        {suggestions.length > 0 && (
-                          <div className="absolute left-0 right-0 top-full mt-2 z-[100] bg-[#111118] border border-[#1e1e2e] rounded-3xl shadow-2xl overflow-hidden">
-                            {suggestions.map((s, i) => (
-                              <button key={i} onClick={() => selectSuggestion(s)} className="w-full text-left p-4 hover:bg-[#1e1e2e] flex items-center gap-3 border-b border-[#1e1e2e] last:border-0">
-                                <MapPin className="w-4 h-4 text-[#7F77DD]" />
-                                <p className="text-xs font-bold text-[#f0eeff] truncate">{s.display_name}</p>
-                              </button>
-                            ))}
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); handleCurrentLocation(); }}
+                              className="p-2 hover:bg-white/5 rounded-full transition-colors text-emerald-500"
+                              title="Eneo langu"
+                            >
+                               <Navigation2 className="w-4 h-4" />
+                            </button>
                           </div>
-                        )}
-                     </div>
+                          <div className="flex items-center gap-4">
+                            <div className={`w-3 h-3 rounded-full ${settingMode === 'destination' ? 'bg-red-500 ring-4 ring-red-500/20' : 'bg-neutral-700'}`} />
+                            <div className="flex-1">
+                                <input 
+                                  type="text" 
+                                  value={destination} 
+                                  onChange={(e) => { setDestination(e.target.value); geocodeAddress(e.target.value); }} 
+                                  onFocus={() => setSettingMode('destination')}
+                                  className="w-full bg-transparent text-sm font-bold text-[#f0eeff] border-none outline-none p-0" 
+                                  placeholder="Unakwenda wapi?" 
+                                />
+                            </div>
+                          </div>
+                      </div>
 
-                     <div className="flex gap-3 overflow-x-auto no-scrollbar py-2">
-                        {rideOptions.map((ride) => (
-                          <button key={ride.id} onClick={() => setSelectedRide(ride)} className={`shrink-0 w-[120px] p-4 rounded-2xl border transition-all flex flex-col items-center ${selectedRide?.id === ride.id ? 'bg-red-500/10 border-red-500' : 'bg-[#111118] border-[#1e1e2e] opacity-70'}`}>
-                            <div className="text-3xl mb-2">{ride.image}</div>
-                            <h4 className="text-[9px] font-black uppercase text-[#6b6b8a]">{ride.name}</h4>
-                            <h3 className="text-[11px] font-black text-[#f0eeff]">TZS {ride.price.toLocaleString()}</h3>
-                          </button>
-                        ))}
-                     </div>
-
-                     <button onClick={() => { console.log("Confirm button click"); confirmBooking(); }} disabled={isCreatingRide} className="w-full h-14 bg-white text-[#0a0a0f] rounded-[50px] font-black uppercase text-[10px] tracking-[0.2em] flex items-center justify-between px-10 disabled:opacity-50">
-                        <span>{destination ? (selectedRide ? 'THIBITISHA USAFIRI' : 'CHAGUA USAFIRI') : 'WEKA UNAPOKWENDA'}</span>
-                        <ArrowRight className="w-5 h-5" />
-                     </button>
-                   </motion.div>
-                 )}
-
-                 {isMinimized && (
-                   <div className="py-2 flex items-center justify-center">
-                     <p className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.3em]">Bofya hapa kuendelea</p>
+                      {suggestions.length > 0 && (
+                        <div className="absolute left-0 right-0 top-full mt-2 z-[100] bg-[#111118] border border-[#1e1e2e] rounded-3xl shadow-2xl overflow-hidden">
+                          {suggestions.map((s, i) => (
+                            <button key={i} onClick={() => selectSuggestion(s)} className="w-full text-left p-4 hover:bg-[#1e1e2e] flex items-center gap-3 border-b border-[#1e1e2e] last:border-0">
+                              <MapPin className="w-4 h-4 text-[#7F77DD]" />
+                              <p className="text-xs font-bold text-[#f0eeff] truncate">{s.display_name}</p>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                    </div>
-                 )}
-              </motion.div>
+
+                   <div className="flex gap-3 overflow-x-auto no-scrollbar py-2">
+                      {rideOptions.map((ride) => (
+                        <button key={ride.id} onClick={() => setSelectedRide(ride)} className={`shrink-0 w-[120px] p-4 rounded-2xl border transition-all flex flex-col items-center ${selectedRide?.id === ride.id ? 'bg-red-500/10 border-red-500' : 'bg-[#111118] border-[#1e1e2e] opacity-70'}`}>
+                          <div className="text-3xl mb-2">{ride.image}</div>
+                          <h4 className="text-[9px] font-black uppercase text-[#6b6b8a]">{ride.name}</h4>
+                          <h3 className="text-[11px] font-black text-[#f0eeff]">TZS {ride.price.toLocaleString()}</h3>
+                        </button>
+                      ))}
+                   </div>
+
+                   <button onClick={() => { console.log("Confirm button click"); confirmBooking(); }} disabled={isCreatingRide} className="w-full h-14 bg-white text-[#0a0a0f] rounded-[50px] font-black uppercase text-[10px] tracking-[0.2em] flex items-center justify-between px-10 disabled:opacity-50">
+                      <span>{destination ? (selectedRide ? 'THIBITISHA USAFIRI' : 'CHAGUA USAFIRI') : 'WEKA UNAPOKWENDA'}</span>
+                      <ArrowRight className="w-5 h-5" />
+                   </button>
+                 </motion.div>
+               )}
+
+               {isMinimized && (
+                 <div className="py-2 flex items-center justify-center">
+                   <p className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.3em]">Bofya hapa kuendelea</p>
+                 </div>
+               )}
             </motion.div>
           )}
 
           {step === 'searching' && (
             <motion.div
               key="searching"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="flex-1"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-[70] bg-[#0a0a0f]/20 backdrop-blur-[2px] px-4 pointer-events-none"
             >
-              <SearchingScreen 
-                ride={activeRide as any} 
-                onCancel={() => { console.log("Cancel from searching"); cancelRide(); setStep('map'); setRideId(null); }} 
-                onTimeout={handleTimeout}
-              />
+              <div className="h-full w-full pointer-events-auto">
+                <SearchingScreen 
+                  ride={activeRide as any} 
+                  onCancel={() => { console.log("Cancel from searching"); cancelRide(); setStep('map'); setRideId(null); }} 
+                  onTimeout={handleTimeout}
+                />
+              </div>
             </motion.div>
           )}
 
           {step === 'found' && (
             <motion.div
               key="found"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="flex-1"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-[70] bg-transparent pointer-events-none"
             >
-              <DriverFoundScreen onNext={() => setStep('arriving')} />
+              <div className="h-full w-full pointer-events-auto">
+                <DriverFoundScreen onNext={() => setStep('arriving')} />
+              </div>
             </motion.div>
           )}
 
           {step === 'arriving' && activeRide && (
-             <motion.div key="arriving" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex-1">
+             <motion.div key="arriving" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[70] bg-transparent">
                 <DriverArrivedScreen 
                   ride={{ ...activeRide, driverLocation: driverLivePos || activeRide.driverLocation } as any} 
                   onCall={() => window.open(`tel:${activeRide.driverInfo?.phone}`)} 
@@ -791,7 +830,7 @@ export default function TaxiBooking() {
           )}
 
           {step === 'on_trip' && activeRide && (
-            <motion.div key="on_trip" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1">
+            <motion.div key="on_trip" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[70] bg-transparent">
               <LiveTripScreen 
                 ride={{ ...activeRide, driverLocation: driverLivePos || activeRide.driverLocation, distance: liveDistance || activeRide.distance } as any} 
                 onMessage={() => setIsChatOpen(true)}

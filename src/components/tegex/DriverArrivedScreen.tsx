@@ -49,39 +49,17 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
   
   const isArrived = ride.status === 'driver_arrived';
 
-  const userPin = useMemo(() => L.divIcon({
-    className: 'custom-div-icon',
-    html: `<div class="relative w-8 h-8 flex items-center justify-center">
-             <div class="absolute inset-0 bg-[#1D9E75]/30 rounded-full animate-ping"></div>
-             <div class="w-4 h-4 bg-[#1D9E75] rounded-full border-2 border-white shadow-xl"></div>
-           </div>`,
-    iconSize: [32, 32],
-    iconAnchor: [16, 16]
-  }), []);
-
-  const driverPin = useMemo(() => L.divIcon({
-    className: 'custom-div-icon',
-    html: `<div class="relative bg-white w-10 h-10 rounded-2xl shadow-2xl flex items-center justify-center border-2 border-[#7F77DD]">
-             <span class="text-xl">🚗</span>
-             <div class="absolute -top-1 -right-1 w-4 h-4 bg-[#7F77DD] rounded-full border-2 border-white flex items-center justify-center text-[10px] font-black text-white">
-               ${ride.driverInfo?.name?.charAt(0) || 'D'}
-             </div>
-           </div>`,
-    iconSize: [40, 40],
-    iconAnchor: [20, 20]
-  }), [ride.driverInfo]);
-
   return (
     <div 
-      className={`flex-1 w-full bg-[#0a0a0f] flex flex-col relative z-50 ${isArrived ? 'animate-haptic' : ''}`}
+      className={`flex-1 w-full bg-transparent flex flex-col relative z-50 pointer-events-none ${isArrived ? 'animate-haptic' : ''}`}
     >
       {/* Top Notification Banner */}
       <AnimatePresence>
         {isArrived && (
           <motion.div 
             initial={{ y: -100 }}
-            animate={{ y: 24 }}
-            className="absolute top-0 inset-x-4 z-[70] bg-[#1D9E75] p-4 rounded-2xl shadow-2xl border-2 border-white/20 flex items-center gap-4 animate-bounce"
+            animate={{ y: 80 }}
+            className="absolute top-0 inset-x-4 z-[70] bg-[#1D9E75] p-4 rounded-2xl shadow-2xl border-2 border-white/20 flex items-center gap-4 animate-bounce pointer-events-auto"
           >
             <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-2xl">🚗</div>
             <div className="flex-1">
@@ -94,36 +72,12 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
         )}
       </AnimatePresence>
 
-      {/* Map Layer */}
+      {/* Info Layers */}
       <div className="flex-1 relative z-0">
-        <style>{`.leaflet-container { height: 100% !important; background: #0a0a0f !important; }`}</style>
-        <MapContainer 
-          center={ride.pickup} 
-          zoom={15} 
-          className="h-full w-full grayscale contrast-[1.2] brightness-[0.8]"
-          zoomControl={false}
-        >
-          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-          <MapControl position={ride.driverLocation} target={ride.pickup} />
-          <Marker position={ride.pickup} icon={userPin} />
-          {ride.driverLocation && (
-            <>
-              <Marker position={ride.driverLocation} icon={driverPin} />
-              <Polyline 
-                positions={[ride.driverLocation, ride.pickup]} 
-                color="#7F77DD" 
-                weight={4} 
-                dashArray="10, 15"
-                opacity={0.6}
-              />
-            </>
-          )}
-        </MapContainer>
-
         {/* Floating ETA Chip */}
         {eta && !isArrived && (
           <div 
-            className="absolute top-8 left-1/2 -translate-x-1/2 bg-[#111118]/90 backdrop-blur-xl border border-[#1e1e2e] rounded-full px-4 py-2 flex items-center gap-2 shadow-2xl z-[60]"
+            className="absolute top-24 left-1/2 -translate-x-1/2 bg-[#111118]/90 backdrop-blur-xl border border-[#1e1e2e] rounded-full px-4 py-2 flex items-center gap-2 shadow-2xl z-[60] pointer-events-auto"
           >
             <Clock className="w-3 h-3 text-[#7F77DD]" />
             <span className="text-[10px] font-black text-[#f0eeff] uppercase tracking-widest whitespace-nowrap">
@@ -139,7 +93,7 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
         dragConstraints={{ top: 0, bottom: 400 }}
         dragElastic={0.05}
         dragMomentum={false}
-        className={`bg-[#111118] rounded-t-[40px] border-t border-[#1e1e2e] p-8 pb-12 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] z-[60] transition-colors duration-500 touch-none ${isArrived ? 'ring-4 ring-[#1D9E75]/20' : ''}`}
+        className={`bg-[#111118] rounded-t-[40px] border-t border-[#1e1e2e] p-8 pb-12 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] z-[60] transition-colors duration-500 touch-none pointer-events-auto ${isArrived ? 'ring-4 ring-[#1D9E75]/20' : ''}`}
       >
         <div className="w-12 h-1.5 bg-[#1e1e2e] rounded-full mx-auto mb-8 cursor-grab active:cursor-grabbing" />
         

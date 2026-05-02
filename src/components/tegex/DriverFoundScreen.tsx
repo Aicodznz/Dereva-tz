@@ -16,7 +16,7 @@ export const DriverFoundScreen: React.FC<DriverFoundScreenProps> = ({ onNext }) 
 
   return (
     <div 
-      className="flex-1 w-full bg-[#0a0a0f] flex flex-col items-center justify-center p-8 overflow-hidden z-[110]"
+      className="flex-1 w-full bg-transparent flex flex-col items-center justify-center p-8 overflow-hidden z-[110]"
     >
       <div className="w-24 h-24 bg-[#1D9E75]/20 rounded-full flex items-center justify-center border-4 border-[#1D9E75] relative shadow-[0_0_50px_rgba(29,158,117,0.3)]">
         <motion.div

@@ -52,57 +52,13 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage 
     return 65; // Mocking 65% for visual
   }, [ride.driverLocation, ride.routeCoords]);
 
-  const carIcon = useMemo(() => L.divIcon({
-    className: 'custom-div-icon',
-    html: `<div class="relative bg-[#1D9E75] w-12 h-12 rounded-2xl shadow-[0_0_30px_rgba(29,158,117,0.4)] flex items-center justify-center border-2 border-white">
-             <span class="text-2xl">🚗</span>
-             <div class="absolute -bottom-1 w-2 h-2 bg-white rounded-full"></div>
-           </div>`,
-    iconSize: [48, 48],
-    iconAnchor: [24, 24]
-  }), []);
-
-  const destPin = useMemo(() => L.divIcon({
-    className: 'custom-div-icon',
-    html: `<div class="w-6 h-6 bg-[#D85A30] rounded-full border-2 border-white shadow-lg flex items-center justify-center">
-             <MapPin className="w-3 h-3 text-white" />
-           </div>`,
-    iconSize: [24, 24],
-    iconAnchor: [12, 12]
-  }), []);
-
   return (
     <div 
-      className="flex-1 w-full bg-[#0a0a0f] flex flex-col relative z-50"
+      className="flex-1 w-full bg-transparent flex flex-col relative z-50 pointer-events-none"
     >
       <div className="flex-1 relative z-0">
-        <style>{`.leaflet-container { height: 100% !important; background: #0a0a0f !important; }`}</style>
-        <MapContainer 
-          center={ride.driverLocation || ride.pickup} 
-          zoom={16} 
-          className="h-full w-full grayscale contrast-[1.2] brightness-[0.8]"
-          zoomControl={false}
-        >
-          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-          <MapControl position={ride.driverLocation} target={ride.destination} />
-          <Marker position={ride.destination} icon={destPin} />
-          {ride.driverLocation && (
-            <>
-              <Marker position={ride.driverLocation} icon={carIcon} />
-              {ride.routeCoords && (
-                 <Polyline 
-                   positions={ride.routeCoords.map(c => [c.lat, c.lng]) as [number, number][]} 
-                   color="#1D9E75" 
-                   weight={6} 
-                   opacity={0.8}
-                 />
-              )}
-            </>
-          )}
-        </MapContainer>
-
         {/* Status Pill */}
-        <div className="absolute top-8 left-6 z-[60]">
+        <div className="absolute top-24 left-6 z-[60] pointer-events-auto">
           <div className="bg-[#1D9E75] text-white px-4 py-2 rounded-2xl flex items-center gap-2 shadow-2xl">
             <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
             <span className="text-[10px] font-black uppercase tracking-[0.2em]">Safari Inaendelea</span>
@@ -110,7 +66,7 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage 
         </div>
 
         {/* SOS Button */}
-        <button className="absolute top-8 right-6 w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-red-600 shadow-2xl z-[60] active:scale-90 transition-transform">
+        <button className="absolute top-24 right-6 w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-red-600 shadow-2xl z-[60] active:scale-90 transition-transform pointer-events-auto">
            <Shield className="w-6 h-6" />
         </button>
       </div>
@@ -120,7 +76,7 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage 
         dragConstraints={{ top: 0, bottom: 400 }}
         dragElastic={0.05}
         dragMomentum={false}
-        className="bg-[#111118] rounded-t-[40px] border-t border-[#1e1e2e] p-8 pb-10 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] z-[60] touch-none"
+        className="bg-[#111118] rounded-t-[40px] border-t border-[#1e1e2e] p-8 pb-10 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] z-[60] touch-none pointer-events-auto"
       >
         <div className="w-12 h-1.5 bg-[#1e1e2e] rounded-full mx-auto mb-8 cursor-grab active:cursor-grabbing" />
         
@@ -161,7 +117,7 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage 
               <div>
                  <p className="text-[8px] font-black text-[#6b6b8a] uppercase tracking-widest">Distance Left</p>
                  <h4 className="text-xs font-black text-[#f0eeff] italic">
-                   {distance ? distance.toFixed(1) : '0.0'} km
+                   {distance ? distance.toFixed(1) : (ride.distance || '0.0')} km
                  </h4>
               </div>
            </div>

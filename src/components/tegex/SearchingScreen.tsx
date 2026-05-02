@@ -43,7 +43,7 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel
 
   return (
     <div 
-      className="flex-1 w-full bg-[#0a0a0f] flex flex-col items-center p-6 pt-20 overflow-hidden relative z-[100]"
+      className="flex-1 w-full bg-transparent flex flex-col items-center p-6 pt-20 overflow-hidden relative z-[100]"
     >
       <div className="relative flex items-center justify-center w-full aspect-square max-w-[300px]">
         {/* Radar Rings */}
