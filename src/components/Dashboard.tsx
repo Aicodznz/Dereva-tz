@@ -2,6 +2,7 @@ import React from 'react';
 import { useAuth } from '../AuthContext';
 import CustomerDashboard from './CustomerDashboard';
 import VendorDashboard from './VendorDashboard';
+import SalonVendorDashboard from './SalonVendorDashboard';
 import RiderDashboard from './RiderDashboard';
 import AdminDashboard from './AdminDashboard';
 import ParcelHome from './parcel/ParcelHome';
@@ -20,6 +21,9 @@ export default function Dashboard() {
     case 'admin':
       return <AdminDashboard />;
     case 'vendor':
+      if (profile.category === 'salon') {
+        return <SalonVendorDashboard />;
+      }
       return <VendorDashboard />;
     case 'rider':
       if (profile.driverType === 'delivery') {

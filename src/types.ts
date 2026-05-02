@@ -21,6 +21,7 @@ export interface UserProfile {
   vehicleYear?: string;
   carryingCapacity?: string;
   rating?: number;
+  category?: VendorCategory;
 }
 
 export type VendorCategory = 'pharmacy' | 'grocery' | 'restaurant' | 'parcel' | 'taxi' | 'car_rental' | 'salon' | 'hotel' | 'ecommerce';

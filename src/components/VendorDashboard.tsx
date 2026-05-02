@@ -746,6 +746,10 @@ export default function VendorDashboard() {
         rating: 0,
         createdAt: serverTimestamp(),
       });
+      // Update user profile category as well
+      await updateDoc(doc(db, 'users', user.uid), {
+        category: formData.category
+      });
     } catch (error) {
       console.error(error);
     }

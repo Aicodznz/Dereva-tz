@@ -690,9 +690,9 @@ export default function TaxiBooking() {
               exit={{ opacity: 0 }}
               className="absolute inset-0 z-0 h-full w-full"
             >
-               <div className="absolute top-6 left-6 right-6 z-[60] flex items-center justify-between">
+                <div className="absolute top-6 left-6 right-6 z-[60] flex items-center justify-between pointer-events-none">
                   {step === 'map' && (
-                    <button onClick={() => setStep('home')} className="w-12 h-12 bg-[#111118]/90 backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform text-white"><ArrowLeft className="w-6 h-6" /></button>
+                    <button onClick={() => setStep('home')} className="w-12 h-12 bg-[#111118]/90 backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform text-white pointer-events-auto"><ArrowLeft className="w-6 h-6" /></button>
                   )}
                   {step !== 'map' && <div className="w-12" />}
                   <div className="flex gap-3">
@@ -701,7 +701,7 @@ export default function TaxiBooking() {
                         setIsMapFullscreen(!isMapFullscreen);
                         if (!isMapFullscreen) setAutoFollow(true);
                       }} 
-                      className={`w-12 h-12 ${isMapFullscreen ? 'bg-[#7F77DD] text-white' : 'bg-[#111118]/90 text-white'} backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-all`}
+                      className={`w-12 h-12 ${isMapFullscreen ? 'bg-[#7F77DD] text-white' : 'bg-[#111118]/90 text-white'} backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-all pointer-events-auto`}
                       title={isMapFullscreen ? "Onesha Maelezo" : "Ramani tupu"}
                     >
                        {isMapFullscreen ? <Layers className="w-6 h-6" /> : <MapPin className="w-6 h-6" />}
@@ -709,12 +709,12 @@ export default function TaxiBooking() {
                     {!autoFollow && step !== 'home' && (
                       <button 
                         onClick={() => setAutoFollow(true)}
-                        className="w-12 h-12 bg-[#1D9E75] text-white backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-all"
+                        className="w-12 h-12 bg-[#1D9E75] text-white backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-all pointer-events-auto"
                       >
                         <RotateCw size={24} className="animate-spin-slow" />
                       </button>
                     )}
-                    <button onClick={() => navigate('/taxi/history')} className="w-12 h-12 bg-[#111118]/90 backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform text-white"><Clock className="w-6 h-6" /></button>
+                    <button onClick={() => navigate('/taxi/history')} className="w-12 h-12 bg-[#111118]/90 backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform text-white pointer-events-auto"><Clock className="w-6 h-6" /></button>
                   </div>
                </div>
 
