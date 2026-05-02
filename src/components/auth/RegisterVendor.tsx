@@ -62,16 +62,19 @@ export default function RegisterVendor() {
       navigate('/');
     } catch (error: any) {
       console.error('Registration error:', error);
-      if (error.code === 'auth/operation-not-allowed') {
+      const errorCode = error.code || '';
+      const errorMessage = error.message || '';
+
+      if (errorCode === 'auth/operation-not-allowed') {
         toast.error(t('auth_disabled_instructions'), { duration: 8000 });
-      } else if (error.code === 'auth/email-already-in-use') {
+      } else if (errorCode === 'auth/email-already-in-use' || errorMessage.includes('email-already-in-use')) {
         toast.error(t('email_already_exists'));
-      } else if (error.code === 'auth/weak-password') {
+      } else if (errorCode === 'auth/weak-password') {
         toast.error(t('weak_password_error'));
-      } else if (error.code === 'auth/invalid-email') {
+      } else if (errorCode === 'auth/invalid-email') {
         toast.error(t('invalid_email_error'));
       } else {
-        toast.error(error.message || t('signup_failed'));
+        toast.error(errorMessage || t('signup_failed'));
       }
     } finally {
       setLoading(false);

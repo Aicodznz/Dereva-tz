@@ -53,6 +53,8 @@ export interface Ride {
   completedAt: string | any | null;
   driverInfo: DriverInfo | null;
   paymentId?: string;
+  paymentStatus?: 'pending' | 'paid';
+  paymentMethod?: 'cash' | 'online';
 }
 
 export interface PaymentRecord {

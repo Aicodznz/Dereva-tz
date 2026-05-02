@@ -719,12 +719,31 @@ export default function AdminDashboard() {
                           </Badge>
                         </td>
                         <td className="px-8 py-6">
-                          <Badge className={`${user.status === 'blocked' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'} border-none font-black uppercase text-[10px]`}>
-                            {user.status || 'Active'}
-                          </Badge>
+                          <div className="flex flex-col gap-1">
+                            <Badge className={`${user.status === 'blocked' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'} border-none font-black uppercase text-[10px]`}>
+                              {user.status || 'Active'}
+                            </Badge>
+                            {user.role === 'driver' && (
+                              <Badge className={`${user.approvalStatus === 'approved' ? 'bg-blue-100 text-blue-600' : 'bg-amber-100 text-amber-600'} border-none font-black uppercase text-[8px]`}>
+                                {user.approvalStatus || 'Pending'}
+                              </Badge>
+                            )}
+                          </div>
                         </td>
                         <td className="px-8 py-6 text-right">
                           <div className="flex justify-end gap-2">
+                             {user.role === 'driver' && user.approvalStatus !== 'approved' && (
+                               <Button 
+                                 onClick={async () => {
+                                   await updateDoc(doc(db, 'users', user.id), { approvalStatus: 'approved', updatedAt: serverTimestamp() });
+                                   toast.success(`${user.displayName} approved successfully!`);
+                                 }}
+                                 size="sm"
+                                 className="rounded-xl bg-orange-600 hover:bg-orange-700 font-black uppercase text-[10px]"
+                               >
+                                 Approve
+                               </Button>
+                             )}
                              {user.phone && (
                                <a href={`https://wa.me/${user.phone.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer">
                                   <Button size="icon" variant="ghost" className="rounded-xl text-green-600 hover:bg-green-50">

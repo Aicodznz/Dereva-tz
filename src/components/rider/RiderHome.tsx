@@ -27,13 +27,91 @@ import { RideStatus, DriverInfo } from '../../types/ride.types';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 
 import IncomingRideCard from '../tegex/IncomingRideCard';
 import DriverTripSheet from '../tegex/DriverTripSheet';
 import PaymentConfirmScreen from '../tegex/PaymentConfirmScreen';
 import RateCustomerScreen from '../tegex/RateCustomerScreen';
 
-// Fix leaflet icon issue
+// Helper components for Map
+function MapController({ position, activeRide }: { position: [number, number], activeRide: any }) {
+  const map = useMap();
+  const hasCentered = React.useRef(false);
+
+  useEffect(() => {
+    if (position && !hasCentered.current) {
+      map.setView(position, 15);
+      hasCentered.current = true;
+    }
+  }, [position]);
+  
+  const handleRecenter = () => {
+    if (position) {
+      map.flyTo(position, 16, { animate: true, duration: 1.5 });
+    }
+  };
+
+  return (
+    <div className="leaflet-top leaflet-right" style={{ marginTop: '160px', marginRight: '16px' }}>
+      <div className="leaflet-control">
+        <button 
+          onClick={handleRecenter}
+          className="w-12 h-12 bg-white dark:bg-[#111118] rounded-2xl shadow-2xl flex items-center justify-center text-orange-600 border border-neutral-200 dark:border-[#1e1e2e] active:scale-90 transition-transform"
+          title="Center Map"
+        >
+          <Navigation2 className="w-6 h-6" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function MapBoundsUpdater({ activeRide, position }: { activeRide: any, position: [number, number] }) {
+  const map = useMap();
+  const lastStatus = React.useRef<string | null>(null);
+  const lastRideId = React.useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!activeRide) {
+      lastStatus.current = null;
+      lastRideId.current = null;
+      return;
+    }
+
+    // Only auto-fit bounds when status changes or it's a new ride
+    if (activeRide.status !== lastStatus.current || activeRide.id !== lastRideId.current) {
+      const bounds = L.latLngBounds([position]);
+      
+      if (activeRide.status === 'on_trip') {
+         bounds.extend([activeRide.destination.lat, activeRide.destination.lng]);
+      } else {
+         bounds.extend([activeRide.pickup.lat, activeRide.pickup.lng]);
+      }
+
+      map.fitBounds(bounds, { padding: [100, 100], maxZoom: 16 });
+      lastStatus.current = activeRide.status;
+      lastRideId.current = activeRide.id;
+    }
+  }, [activeRide?.status, activeRide?.id]);
+
+  return null;
+}
+
+
+
+function DriverMarker({ position, rotation, vType }: { position: [number, number], rotation: number, vType: string }) {
+  return (
+    <Marker 
+      position={position}
+      icon={createDriverMarkerIcon(
+        '', // Initial will be handled by parent if needed
+        true,
+        rotation
+      )}
+    />
+  );
+}
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
@@ -98,6 +176,7 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
   const [isGoingOnline, setIsGoingOnline] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  const [isTripMinimized, setIsTripMinimized] = useState(false);
 
   useEffect(() => {
     const checkTheme = () => {
@@ -115,10 +194,18 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
   
   // Auto-expand if request comes or ride active
   useEffect(() => {
-    if (incomingRequest || activeRide) {
+    if (incomingRequest) {
       setIsMinimized(false);
     }
-  }, [incomingRequest, activeRide]);
+    // If a ride is active, don't auto-expand isMinimized (which controls top/bottom common UI)
+    // but we have a separate toggle for the trip sheet itself
+  }, [incomingRequest]);
+
+  useEffect(() => {
+    if (activeRide) {
+       setIsTripMinimized(false);
+    }
+  }, [activeRide?.id]);
 
   useEffect(() => {
     const freshRequests = nearbyRequests.filter(r => !declinedRequests.has(r.id));
@@ -454,39 +541,54 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
     }
   };
 
-  const MapControl = () => {
-    const map = useMap();
-    
-    useEffect(() => {
-      if (activeRide) {
-        const points: [number, number][] = [position];
+
+
+  // Map centering logic - Auto focus on important points
+  useEffect(() => {
+    if (activeRide) {
+       // When ride is active, map should focus on driver and target (pickup or destination)
+       // This will be handled by MapBoundsUpdater below
+    } else if (position && !activeRide) {
+       // When just online, periodically center on self if moved significantly?
+       // For now let's just do it on first lock
+    }
+  }, [!!activeRide]);
+
+  if (profile?.role === 'rider' && profile?.approvalStatus !== 'approved') {
+    return (
+      <div className="relative h-full w-full flex items-center justify-center bg-[#0a0a0f] p-8 overflow-hidden font-sans">
+        <div className="absolute inset-0 bg-[#7F77DD]/5" />
+        {/* Animated background circles */}
+        <div className="absolute top-1/4 -left-20 w-64 h-64 bg-orange-600/10 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-1/4 -right-20 w-64 h-64 bg-[#7F77DD]/10 rounded-full blur-3xl animate-pulse border border-[#7F77DD]/20" />
         
-        if (activeRide.status === 'accepted' || activeRide.status === 'driver_arriving' || activeRide.status === 'driver_arrived') {
-          points.push([activeRide.pickup.lat, activeRide.pickup.lng]);
-        } else if (activeRide.status === 'on_trip') {
-          points.push([activeRide.destination.lat, activeRide.destination.lng]);
-        }
-
-        if (points.length > 1) {
-          try {
-            const bounds = L.latLngBounds(points);
-            map.fitBounds(bounds, { padding: [100, 100], animate: true, duration: 1.5 });
-          } catch (e) {
-            map.flyTo(position, 17);
-          }
-        } else {
-          map.flyTo(position, 17);
-        }
-      } else if (incomingRequest) {
-        // Focus on pickup location of the request
-        map.flyTo([incomingRequest.pickup.lat, incomingRequest.pickup.lng], 16, { animate: true, duration: 1.5 });
-      } else {
-        map.setView(position, 15);
-      }
-    }, [position, activeRide?.id, activeRide?.status, incomingRequest?.id]);
-
-    return null;
-  };
+        <Card className="relative z-10 w-full max-w-sm rounded-[3rem] border-none bg-[#111118]/80 backdrop-blur-2xl p-10 text-center shadow-2xl border border-[#1e1e2e]">
+          <div className="w-24 h-24 bg-orange-600/20 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 animate-bounce transition-transform duration-1000">
+            <CheckCircle2 className="w-12 h-12 text-orange-600" />
+          </div>
+          <h2 className="text-3xl font-black italic uppercase tracking-tighter mb-4 text-white">Subiri Idhini</h2>
+          <p className="text-neutral-400 font-bold mb-8 text-sm leading-relaxed">
+            Akaunti yako bado inakaguliwa na timu ya <span className="text-orange-600">TzNation</span>. Utapata taarifa punde tu utakapoidhinishwa kuanza kazi.
+          </p>
+          <div className="p-4 bg-orange-600/10 rounded-2xl border border-orange-600/20 mb-8">
+             <p className="text-[10px] font-black uppercase text-orange-600 tracking-widest italic">Hali ya Akaunti: Kwenye Mapitio</p>
+          </div>
+          <Button 
+            className="w-full h-16 rounded-[1.5rem] bg-orange-600 hover:bg-orange-700 text-lg font-black uppercase italic tracking-widest shadow-2xl shadow-orange-600/30 transition-all active:scale-95"
+            onClick={() => window.location.reload()}
+          >
+            ANGALIA TENA <RefreshCw className="ml-2 w-5 h-5" />
+          </Button>
+          <div className="mt-8 pt-8 border-t border-[#1e1e2e]">
+            <p className="text-[10px] font-black uppercase text-neutral-600 tracking-widest leading-none">
+              TzNation Logistics Group
+            </p>
+            <p className="text-[8px] font-bold text-neutral-700 uppercase mt-2">© 2024 Vyote vimehifadhiwa</p>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-[#0a0a0f] text-[#f0eeff]">
@@ -695,7 +797,9 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
             </>
           )}
 
-          <MapControl />
+          <MapController position={position} activeRide={activeRide} />
+          <MapBoundsUpdater activeRide={activeRide} position={position} />
+
         </MapContainer>
       </div>
 
@@ -914,6 +1018,8 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                 onArrive={() => handleUpdateStatus('driver_arrived')}
                 onStart={() => handleUpdateStatus('on_trip')}
                 onComplete={handleComplete}
+                isMinimized={isTripMinimized}
+                onToggleMinimize={() => setIsTripMinimized(!isTripMinimized)}
               />
             )}
 

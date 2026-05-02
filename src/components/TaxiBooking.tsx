@@ -426,7 +426,10 @@ export default function TaxiBooking() {
         setStep('on_trip');
       }
     } else if (currentStatus === 'completed' || currentStatus === 'rated') {
-      if (step !== 'rating' && step !== 'completed') {
+      // If payment is already confirmed by driver, skip the payment screen and go to rating
+      if (activeRide.paymentStatus === 'paid' && step !== 'rating') {
+        setStep('rating');
+      } else if (step !== 'rating' && step !== 'completed') {
         console.log("[TaxiBooking] --> Transitioning to COMPLETED screen");
         setStep('completed');
       }
