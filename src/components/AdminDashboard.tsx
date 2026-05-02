@@ -322,15 +322,33 @@ export default function AdminDashboard() {
       onSnapshot(doc(db, 'config', 'business'), (snap) => {
         if (snap.exists()) setBusinessConfig(prev => ({ ...prev, ...snap.data() }));
       }),
-      onSnapshot(collection(db, 'vendors'), () => fetchData(), errorHandler('vendors')),
-      onSnapshot(collection(db, 'users'), () => fetchData(), errorHandler('users')),
-      onSnapshot(collection(db, 'orders'), () => fetchData(), errorHandler('orders')),
-      onSnapshot(collection(db, 'banners'), () => fetchData(), errorHandler('banners')),
-      onSnapshot(collection(db, 'coupons'), () => fetchData(), errorHandler('coupons')),
-      onSnapshot(collection(db, 'payouts'), (snap) => setPayouts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any))), errorHandler('payouts')),
-      onSnapshot(query(collection(db, 'rides'), where('status', 'in', ['accepted', 'arrived', 'started'])), (snap) => setActiveRides(snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))), errorHandler('rides')),
-      onSnapshot(collection(db, 'drivers'), (snap) => setDriverLocations(snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))), errorHandler('drivers')),
-      onSnapshot(collection(db, 'products'), () => fetchData(), errorHandler('products')),
+      onSnapshot(collection(db, 'vendors'), (snap) => {
+        setVendors(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as VendorProfile)));
+      }, errorHandler('vendors')),
+      onSnapshot(collection(db, 'users'), (snap) => {
+        setAllUsers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserRecord)));
+      }, errorHandler('users')),
+      onSnapshot(query(collection(db, 'orders'), orderBy('createdAt', 'desc')), (snap) => {
+        setAllOrders(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
+      }, errorHandler('orders')),
+      onSnapshot(collection(db, 'banners'), (snap) => {
+        setBanners(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner)));
+      }, errorHandler('banners')),
+      onSnapshot(collection(db, 'coupons'), (snap) => {
+        setCoupons(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Coupon)));
+      }, errorHandler('coupons')),
+      onSnapshot(query(collection(db, 'payouts'), orderBy('createdAt', 'desc')), (snap) => {
+        setPayouts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any)));
+      }, errorHandler('payouts')),
+      onSnapshot(query(collection(db, 'rides'), where('status', 'in', ['accepted', 'arrived', 'started'])), (snap) => {
+        setActiveRides(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      }, errorHandler('rides')),
+      onSnapshot(collection(db, 'drivers'), (snap) => {
+        setDriverLocations(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      }, errorHandler('drivers')),
+      onSnapshot(collection(db, 'products'), (snap) => {
+        setAllProducts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ProductWithVendor)));
+      }, errorHandler('products')),
     ];
 
     return () => {
@@ -835,22 +853,27 @@ export default function AdminDashboard() {
                 <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
                 
                 {/* Active Drivers */}
-                {driverLocations.map((driver) => (
-                  driver.currentPosition && (
+                {driverLocations.map((driver) => {
+                  const pos = driver.location || driver.currentPosition;
+                  const isOnline = driver.networkStatus === 'online' || driver.status === 'online' || driver.isOnline === true;
+                  
+                  if (!pos) return null;
+                  
+                  return (
                     <Marker 
                       key={driver.id} 
-                      position={[driver.currentPosition.lat, driver.currentPosition.lng]} 
+                      position={[pos.lat, pos.lng]} 
                       icon={DRIVER_ICON}
                     >
                        <Popup className="rounded-2xl overflow-hidden">
                           <div className="p-2 space-y-2">
                              <div className="flex items-center gap-2">
                                 <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center font-bold text-orange-600">
-                                   {driver.displayName?.[0]}
+                                   {driver.displayName?.[0] || driver.name?.[0]}
                                 </div>
                                 <div>
-                                   <p className="font-black text-xs uppercase leading-none">{driver.displayName}</p>
-                                   <p className="text-[10px] text-neutral-400 font-bold">{driver.licensePlate || 'No Plate'}</p>
+                                   <p className="font-black text-xs uppercase leading-none">{driver.displayName || driver.name}</p>
+                                   <p className="text-[10px] text-neutral-400 font-bold">{driver.licensePlate || driver.vehicle?.plate || 'No Plate'}</p>
                                 </div>
                              </div>
                              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-neutral-100">
@@ -863,7 +886,7 @@ export default function AdminDashboard() {
                                    <p className="font-black text-xs">{Math.round(driver.speed || 0)} km/h</p>
                                 </div>
                              </div>
-                             {driver.networkStatus === 'online' ? (
+                             {isOnline ? (
                                <Badge className="w-full justify-center bg-green-100 text-green-600 font-black uppercase text-[8px] py-1">Online</Badge>
                              ) : (
                                <Badge className="w-full justify-center bg-red-100 text-red-600 font-black uppercase text-[8px] py-1">Offline</Badge>
@@ -871,8 +894,8 @@ export default function AdminDashboard() {
                           </div>
                        </Popup>
                     </Marker>
-                  )
-                ))}
+                  );
+                })}
 
                 {/* Active Rides/Users */}
                 {activeRides.map((ride) => (
@@ -901,7 +924,7 @@ export default function AdminDashboard() {
                 <Card className="p-4 bg-white/90 backdrop-blur shadow-2xl rounded-[2rem] border-none flex items-center gap-4">
                    <div className="flex flex-col">
                       <span className="text-[10px] font-black uppercase text-neutral-400">Live Traffic</span>
-                      <span className="text-xl font-black uppercase italic leading-none">{driverLocations.filter(d => d.networkStatus === 'online').length} Nodes</span>
+                      <span className="text-xl font-black uppercase italic leading-none">{driverLocations.filter(d => d.networkStatus === 'online' || d.status === 'online' || d.isOnline === true).length} Nodes</span>
                    </div>
                    <div className="w-12 h-12 rounded-2xl bg-orange-600 flex items-center justify-center text-white">
                       <Globe className="animate-spin-slow" />
@@ -1142,8 +1165,13 @@ export default function AdminDashboard() {
                                <div className="w-14 h-14 bg-neutral-100 dark:bg-neutral-800 rounded-2xl flex items-center justify-center text-blue-600 font-black text-xl">
                                   {rider.displayName[0]}
                                </div>
-                               <div>
-                                  <h4 className="font-black text-lg text-neutral-900 dark:text-white group-hover:text-blue-600 transition-colors uppercase italic leading-none">{rider.displayName}</h4>
+                               <div className="flex flex-col">
+                                  <div className="flex items-center gap-2">
+                                     <h4 className="font-black text-lg text-neutral-900 dark:text-white group-hover:text-blue-600 transition-colors uppercase italic leading-none">{rider.displayName}</h4>
+                                     {driverLocations.find(d => d.id === rider.id && (d.networkStatus === 'online' || d.status === 'online' || d.isOnline === true)) && (
+                                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" title="Live Online" />
+                                     )}
+                                  </div>
                                   <p className="text-xs text-neutral-400 mt-1">{rider.email}</p>
                                   <div className="flex items-center gap-2 mt-2">
                                     <Badge className="bg-blue-50 text-blue-600 border-none font-bold uppercase text-[8px]">{rider.driverType}</Badge>
@@ -1997,7 +2025,8 @@ function MapBoundsUpdater({ drivers, rides }: { drivers: any[], rides: any[] }) 
     
     const points: L.LatLngExpression[] = [];
     drivers.forEach(d => {
-      if (d.currentPosition) points.push([d.currentPosition.lat, d.currentPosition.lng]);
+      const pos = d.location || d.currentPosition;
+      if (pos) points.push([pos.lat, pos.lng]);
     });
     rides.forEach(r => {
       if (r.pickup) points.push([r.pickup.lat, r.pickup.lng]);
