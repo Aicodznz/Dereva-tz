@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { MapPin, X } from 'lucide-react';
+import { MapPin, Navigation2, X } from 'lucide-react';
 import { Ride } from '../../types/trip.types';
 
 interface SearchingScreenProps {
@@ -43,94 +43,101 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel
 
   return (
     <div 
-      className="flex-1 w-full bg-transparent flex flex-col items-center p-6 pt-20 overflow-hidden relative z-[100]"
+      className="h-full w-full bg-[#0a0a0f]/95 backdrop-blur-3xl flex flex-col items-center p-6 pt-32 pb-32 overflow-y-auto relative z-[100] pointer-events-auto no-scrollbar"
     >
-      <div className="relative flex items-center justify-center w-full aspect-square max-w-[300px]">
-        {/* Radar Rings */}
-        {[0, 1, 2].map((i) => (
-          <motion.div
-            key={i}
-            initial={{ scale: 0.5, opacity: 0.6 }}
-            animate={{ scale: 2.5, opacity: 0 }}
-            transition={{
-              duration: 2,
-              repeat: Infinity,
-              delay: i * 0.6,
-              ease: "easeOut"
-            }}
-            className="absolute border-2 border-[#7F77DD] rounded-full w-full h-full"
-          />
-        ))}
-        
-        {/* Center Pin */}
-        <div className="relative z-10 w-12 h-12 bg-[#1D9E75] rounded-full border-4 border-white shadow-[0_0_20px_rgba(29,158,117,0.5)] flex items-center justify-center">
-          <MapPin className="w-6 h-6 text-white" />
-        </div>
-      </div>
-
-      <div className="mt-12 text-center space-y-2">
-        <h2 className="text-2xl font-black text-[#f0eeff]">Inatafuta Dereva Karibu Nawe{dots}</h2>
-        <motion.p 
-          key={statusIndex}
-          initial={{ opacity: 0, y: 5 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-[#6b6b8a] text-sm font-medium min-h-[40px] px-8"
-        >
-          {ride ? statuses[statusIndex] : "Inatayarisha utafutaji wa haraka..."}
-        </motion.p>
-      </div>
-
-      {/* Summary Card */}
+      {/* Top Ride Details Card */}
       <motion.div 
-        drag="y"
-        dragConstraints={{ top: 0, bottom: 250 }}
-        dragElastic={0.05}
-        dragMomentum={false}
-        className="absolute bottom-8 left-6 right-6 space-y-6 touch-none"
+        initial={{ y: -30, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        className="w-full bg-[#111118]/90 border border-white/10 rounded-[32px] p-5 shadow-2xl z-20 shrink-0 mb-8"
       >
-        <div className="bg-[#111118] border border-[#1e1e2e] rounded-[32px] p-6 shadow-2xl">
-          <div className="w-10 h-1 bg-[#1e1e2e] rounded-full mx-auto mb-4 cursor-grab active:cursor-grabbing opacity-50" />
-          <div className="space-y-4">
-            <div className="flex items-start gap-4">
-              <div className="w-2.5 h-2.5 rounded-full bg-[#1D9E75] mt-1.5 shrink-0" />
-              <div className="overflow-hidden">
-                <p className="text-[9px] font-black text-[#6b6b8a] uppercase tracking-widest leading-none mb-1">Unatokea</p>
-                <p className="text-xs font-bold text-[#f0eeff] truncate">{ride?.pickup?.address || "Tafadhali subiri..."}</p>
-              </div>
+        <div className="space-y-4">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center shrink-0 border border-emerald-500/30">
+              <MapPin className="w-5 h-5 text-emerald-500" />
             </div>
-            <div className="flex items-start gap-4">
-              <div className="w-2.5 h-2.5 rounded-full bg-[#D85A30] mt-1.5 shrink-0" />
-              <div className="overflow-hidden">
-                <p className="text-[9px] font-black text-[#6b6b8a] uppercase tracking-widest leading-none mb-1">Unakwenda</p>
-                <p className="text-xs font-bold text-[#f0eeff] truncate">{ride?.destination?.address || "Tafadhali subiri..."}</p>
-              </div>
+            <div className="overflow-hidden">
+              <p className="text-[8px] font-black text-neutral-500 uppercase tracking-[0.2em] mb-0.5">UNATOKEA</p>
+              <p className="text-sm font-bold text-white truncate leading-tight">{ride?.pickup?.address || "Eneo lako..."}</p>
             </div>
           </div>
-          
-          <div className="mt-6 pt-6 border-t border-[#1e1e2e] flex items-center justify-between">
+
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center shrink-0 border border-red-500/30">
+              <Navigation2 className="w-5 h-5 text-red-500" />
+            </div>
+            <div className="overflow-hidden">
+              <p className="text-[8px] font-black text-neutral-500 uppercase tracking-[0.2em] mb-0.5">UNAKWENDA</p>
+              <p className="text-sm font-bold text-white truncate leading-tight">{ride?.destination?.address || "Andika..."}</p>
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-white/5 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="text-2xl">
+              <div className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center text-xl border border-white/5">
                 {ride?.vehicleType === 'mini' ? '🚗' : ride?.vehicleType === 'bajaj' ? '🛺' : '🏍️'}
               </div>
-              <div className="text-left">
-                <p className="text-[10px] font-black text-[#6b6b8a] uppercase tracking-widest">{ride?.vehicleType || 'Taxi'}</p>
-                <p className="text-xs font-black text-[#f0eeff]">Usafiri wa Haraka</p>
+              <div>
+                <p className="text-[9px] font-black text-neutral-500 uppercase tracking-widest mb-0.5">{ride?.vehicleType || 'Gari'}</p>
+                <p className="text-xs font-black text-white italic">Usafiri wa Haraka</p>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-[10px] font-black text-[#6b6b8a] uppercase tracking-widest">Gharama</p>
-              <p className="text-lg font-black text-[#7F77DD]">TZS {ride?.fare?.toLocaleString() || "0"}</p>
+              <p className="text-[9px] font-black text-neutral-500 uppercase tracking-widest mb-0.5">GHARAMA</p>
+              <p className="text-lg font-black text-[#7F77DD]">TZS {ride?.fare?.toLocaleString()}</p>
             </div>
           </div>
+        </div>
+      </motion.div>
+
+      {/* Center Radar - Non-flex container to avoid pushing */}
+      <div className="flex flex-col items-center justify-center w-full py-6 shrink-0">
+        <div className="relative flex items-center justify-center w-full aspect-square max-w-[140px]">
+          <div className="absolute inset-0 flex items-center justify-center">
+            {[0, 1, 2].map((i) => (
+              <motion.div
+                key={i}
+                initial={{ scale: 0.5, opacity: 0.8 }}
+                animate={{ scale: 2.2, opacity: 0 }}
+                transition={{ duration: 2.5, repeat: Infinity, delay: i * 0.8 }}
+                className="absolute border border-[#7F77DD]/40 rounded-full w-full h-full"
+              />
+            ))}
+          </div>
+          <div className="relative z-10 w-12 h-12 bg-emerald-500 rounded-full border-4 border-white shadow-2xl flex items-center justify-center">
+            <MapPin className="w-6 h-6 text-white" />
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom Status & Cancel */}
+      <div className="w-full space-y-5 mt-4 shrink-0 pb-10">
+        <div className="text-center">
+          <h2 className="text-xl font-black text-white drop-shadow-xl mb-3 tracking-tight">
+            Inatafuta Dereva{dots}
+          </h2>
+          <AnimatePresence mode="wait">
+            <motion.div 
+              key={statusIndex}
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="px-6 py-2 bg-[#7F77DD]/20 backdrop-blur-xl rounded-full border border-[#7F77DD]/40 inline-block mb-4"
+            >
+              <p className="text-white text-[10px] font-black uppercase tracking-[0.2em] italic">
+                {ride ? statuses[statusIndex] : "Inatayarisha..."}
+              </p>
+            </motion.div>
+          </AnimatePresence>
         </div>
 
         <button 
           onClick={onCancel}
-          className="w-full h-14 bg-[#0a0a0f] border border-[#1e1e2e] text-[#f0eeff] rounded-2xl font-black uppercase text-xs tracking-widest active:scale-95 transition-transform"
+          className="w-full h-16 bg-white text-black rounded-[24px] font-black italic uppercase text-sm tracking-[0.2em] shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3"
         >
-          Ghairi Safari
+          <X className="w-6 h-6 stroke-[3]" />
+          GHAIRI SAFARI
         </button>
-      </motion.div>
+      </div>
     </div>
   );
 };

@@ -6,8 +6,8 @@ import { toast } from 'sonner';
 import firebaseConfig from '../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
+// Using initializeFirestore to enable ignoreUndefinedProperties
 export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true,
   ignoreUndefinedProperties: true,
 }, firebaseConfig.firestoreDatabaseId);
 

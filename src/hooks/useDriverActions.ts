@@ -26,6 +26,14 @@ export function useDriverActions(rideId: string | null) {
           acceptedAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         });
+
+        // Set driver to not receiving new requests
+        const driverRef = doc(db, 'drivers', driverId);
+        transaction.update(driverRef, {
+          receiving: false,
+          status: 'busy',
+          updatedAt: serverTimestamp()
+        });
       });
     } catch (error) {
       console.error("Accept ride transaction failed:", error);
@@ -79,6 +87,13 @@ export function useDriverActions(rideId: string | null) {
         method: 'cash',
         status: 'paid',
         createdAt: serverTimestamp()
+      });
+
+      // Set driver back to receiving requests
+      await updateDoc(doc(db, 'drivers', driverId), {
+        receiving: true,
+        status: 'online',
+        updatedAt: serverTimestamp()
       });
     } catch (error) {
       console.error(error);

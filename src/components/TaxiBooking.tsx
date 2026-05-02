@@ -598,17 +598,21 @@ export default function TaxiBooking() {
                   <div className="flex gap-3">
                     <button 
                       onClick={() => setIsMapFullscreen(!isMapFullscreen)} 
-                      className={`w-12 h-12 ${isMapFullscreen ? 'bg-red-500 text-white' : 'bg-[#111118]/90 text-white'} backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-all`}
+                      className={`w-12 h-12 ${isMapFullscreen ? 'bg-[#7F77DD] text-white' : 'bg-[#111118]/90 text-white'} backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-all`}
+                      title={isMapFullscreen ? "Onesha Maelezo" : "Ramani tupu"}
                     >
-                       {isMapFullscreen ? <RotateCw className="w-6 h-6" /> : <Layers className="w-6 h-6" />}
+                       {isMapFullscreen ? <Layers className="w-6 h-6" /> : <MapPin className="w-6 h-6" />}
                     </button>
                     <button onClick={() => navigate('/taxi/history')} className="w-12 h-12 bg-[#111118]/90 backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform text-white"><Clock className="w-6 h-6" /></button>
                   </div>
                </div>
 
-               <style>{`.leaflet-container { height: 100% !important; width: 100% !important; background: #0a0a0f !important; } .custom-div-icon { background: none; border: none; }`}</style>
-               <MapContainer center={pickupPos} zoom={15} className="h-full w-full grayscale contrast-[1.1] brightness-[0.9]" zoomControl={false}>
-                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+               <style>{`.leaflet-container { height: 100% !important; width: 100% !important; background: #ffffff !important; } .custom-div-icon { background: none; border: none; }`}</style>
+               <MapContainer center={pickupPos} zoom={15} className="h-full w-full" zoomControl={false}>
+                 <TileLayer 
+                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                 />
                  <MapEvents onMapClick={handleMapClick} />
                  <MapControl 
                    position={settingMode === 'pickup' ? pickupPos : destPos} 
@@ -691,96 +695,140 @@ export default function TaxiBooking() {
               </div>
             </motion.div>
           )}
-
           {step === 'map' && (
             <motion.div 
               key="map-ui"
-              initial={{ y: 300 }}
-              animate={{ y: isMapFullscreen ? 800 : (isMinimized ? 520 : 0) }}
+              initial={{ y: "100%" }}
+              animate={{ y: isMapFullscreen ? "calc(100% - 90px)" : (isMinimized ? "calc(100% - 110px)" : 0) }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
               className="absolute bottom-0 left-0 right-0 z-[60] bg-[#111118] rounded-t-[40px] border-t border-[#1e1e2e] p-5 pb-10 space-y-4 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]"
             >
                <div 
-                 className="w-16 h-4 mx-auto mb-2 flex items-center justify-center cursor-pointer group"
-                 onClick={() => setIsMinimized(!isMinimized)}
+                 className="w-full h-10 flex items-center justify-center cursor-pointer group -mt-4 relative"
+                 onClick={() => {
+                   if (isMapFullscreen) {
+                     setIsMapFullscreen(false);
+                     setIsMinimized(false);
+                   } else if (isMinimized) {
+                     setIsMinimized(false);
+                   } else {
+                     setIsMinimized(true);
+                   }
+                 }}
                >
-                  <div className="w-12 h-1.5 bg-neutral-800 rounded-full group-hover:bg-neutral-600 transition-colors" />
+                  <div className={`w-16 h-2 rounded-full transition-all duration-300 shadow-lg ${isMinimized || isMapFullscreen ? 'bg-[#7F77DD] animate-bounce' : 'bg-neutral-800 group-hover:bg-neutral-600'}`} />
                </div>
                
-               {!isMinimized && (
+               {(!isMinimized && !isMapFullscreen) && (
                  <motion.div
-                   initial={{ opacity: 0 }}
-                   animate={{ opacity: 1 }}
-                   className="space-y-4"
+                   initial={{ opacity: 0, y: 10 }}
+                   animate={{ opacity: 1, y: 0 }}
+                   className="space-y-5"
                  >
-                   <div className="bg-[#0a0a0f] border border-[#1e1e2e] rounded-[28px] p-5 relative">
+                   <div className="bg-[#0a0a0f]/60 backdrop-blur-xl border border-white/5 rounded-3xl p-6 relative overflow-hidden">
+                      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-[#7F77DD] opacity-30" />
                       <div className="space-y-6">
                           <div className="flex items-center gap-4">
-                            <div className={`w-3 h-3 rounded-full ${settingMode === 'pickup' ? 'bg-emerald-500 ring-4 ring-emerald-500/20' : 'bg-neutral-700'}`} />
-                            <div className="flex-1">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${settingMode === 'pickup' ? 'bg-emerald-500 text-white shadow-lg' : 'bg-white/5 text-[#6b6b8a]'}`}>
+                              <MapPin className="w-5 h-5" />
+                            </div>
+                            <div className="flex-1 overflow-hidden">
+                               <p className="text-[9px] font-black text-[#6b6b8a] uppercase tracking-widest mb-1">UNATOKEA</p>
                                <input 
                                  type="text" 
                                  value={pickup} 
                                  onChange={(e) => { setPickup(e.target.value); geocodeAddress(e.target.value); }} 
                                  onFocus={() => setSettingMode('pickup')}
-                                 className="w-full bg-transparent text-sm font-bold text-[#f0eeff] border-none outline-none p-0" 
+                                 placeholder="Tafuta eneo lako..."
+                                 className="w-full bg-transparent text-sm font-bold text-white border-none outline-none p-0 placeholder:text-neutral-700 italic" 
                                />
                             </div>
                             <button 
                               onClick={(e) => { e.stopPropagation(); handleCurrentLocation(); }}
-                              className="p-2 hover:bg-white/5 rounded-full transition-colors text-emerald-500"
-                              title="Eneo langu"
+                              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-emerald-500/10 text-emerald-500 active:scale-90 transition-all"
                             >
                                <Navigation2 className="w-4 h-4" />
                             </button>
                           </div>
+
+                          <div className="h-px bg-white/5" />
+
                           <div className="flex items-center gap-4">
-                            <div className={`w-3 h-3 rounded-full ${settingMode === 'destination' ? 'bg-red-500 ring-4 ring-red-500/20' : 'bg-neutral-700'}`} />
-                            <div className="flex-1">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${settingMode === 'destination' ? 'bg-red-500 text-white shadow-lg' : 'bg-white/5 text-[#6b6b8a]'}`}>
+                              <Search className="w-5 h-5" />
+                            </div>
+                            <div className="flex-1 overflow-hidden">
+                                <p className="text-[9px] font-black text-[#6b6b8a] uppercase tracking-widest mb-1">UNAKWENDA WAPI?</p>
                                 <input 
                                   type="text" 
                                   value={destination} 
                                   onChange={(e) => { setDestination(e.target.value); geocodeAddress(e.target.value); }} 
                                   onFocus={() => setSettingMode('destination')}
-                                  className="w-full bg-transparent text-sm font-bold text-[#f0eeff] border-none outline-none p-0" 
-                                  placeholder="Unakwenda wapi?" 
+                                  className="w-full bg-transparent text-sm font-bold text-white border-none outline-none p-0 placeholder:text-neutral-700 italic" 
+                                  placeholder="Andika hapa unapoenda" 
                                 />
                             </div>
                           </div>
                       </div>
 
                       {suggestions.length > 0 && (
-                        <div className="absolute left-0 right-0 top-full mt-2 z-[100] bg-[#111118] border border-[#1e1e2e] rounded-3xl shadow-2xl overflow-hidden">
+                        <div className="absolute left-0 right-0 top-full mt-2 z-[100] bg-[#111118]/95 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl overflow-hidden max-h-[300px] overflow-y-auto">
                           {suggestions.map((s, i) => (
-                            <button key={i} onClick={() => selectSuggestion(s)} className="w-full text-left p-4 hover:bg-[#1e1e2e] flex items-center gap-3 border-b border-[#1e1e2e] last:border-0">
-                              <MapPin className="w-4 h-4 text-[#7F77DD]" />
-                              <p className="text-xs font-bold text-[#f0eeff] truncate">{s.display_name}</p>
+                            <button key={i} onClick={() => selectSuggestion(s)} className="w-full text-left p-4 hover:bg-white/5 flex items-center gap-4 border-b border-white/5 last:border-0 group">
+                              <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-[#7f77dd] group-hover:bg-[#7f77dd]/20 transition-colors">
+                                <MapPin className="w-4 h-4" />
+                              </div>
+                              <div className="flex-1 overflow-hidden">
+                                <p className="text-sm font-bold text-white truncate">{s.display_name}</p>
+                                <p className="text-[10px] text-[#6b6b8a] truncate mt-0.5">Andika hapa kuchagua eneo hili</p>
+                              </div>
                             </button>
                           ))}
                         </div>
                       )}
                    </div>
 
-                   <div className="flex gap-3 overflow-x-auto no-scrollbar py-2">
+                   <div className="flex gap-4 overflow-x-auto no-scrollbar py-2">
                       {rideOptions.map((ride) => (
-                        <button key={ride.id} onClick={() => setSelectedRide(ride)} className={`shrink-0 w-[120px] p-4 rounded-2xl border transition-all flex flex-col items-center ${selectedRide?.id === ride.id ? 'bg-red-500/10 border-red-500' : 'bg-[#111118] border-[#1e1e2e] opacity-70'}`}>
-                          <div className="text-3xl mb-2">{ride.image}</div>
-                          <h4 className="text-[9px] font-black uppercase text-[#6b6b8a]">{ride.name}</h4>
-                          <h3 className="text-[11px] font-black text-[#f0eeff]">TZS {ride.price.toLocaleString()}</h3>
+                        <button 
+                          key={ride.id} 
+                          onClick={() => setSelectedRide(ride)} 
+                          className={`shrink-0 w-32 p-5 rounded-3xl border-2 transition-all duration-300 flex flex-col items-center gap-3 relative overflow-hidden group ${
+                            selectedRide?.id === ride.id 
+                            ? 'bg-[#7F77DD]/10 border-[#7F77DD] shadow-[0_0_20px_rgba(127,119,221,0.2)]' 
+                            : 'bg-[#111118] border-white/5 opacity-60 hover:opacity-100 hover:border-white/10'
+                          }`}
+                        >
+                          {selectedRide?.id === ride.id && (
+                            <motion.div layoutId="active-bg" className="absolute inset-0 bg-[#7F77DD]/10 pointer-events-none" />
+                          )}
+                          <div className={`text-4xl transition-transform duration-300 ${selectedRide?.id === ride.id ? 'scale-110 drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]' : 'group-hover:scale-105'}`}>{ride.image}</div>
+                          <div className="text-center">
+                            <h4 className={`text-[10px] font-black uppercase tracking-wider ${selectedRide?.id === ride.id ? 'text-[#7F77DD]' : 'text-[#6b6b8a]'}`}>{ride.name}</h4>
+                            <h3 className="text-xs font-black text-white italic mt-1">TZS {ride.price.toLocaleString()}</h3>
+                          </div>
                         </button>
                       ))}
                    </div>
 
-                   <button onClick={() => { console.log("Confirm button click"); confirmBooking(); }} disabled={isCreatingRide} className="w-full h-14 bg-white text-[#0a0a0f] rounded-[50px] font-black uppercase text-[10px] tracking-[0.2em] flex items-center justify-between px-10 disabled:opacity-50">
-                      <span>{destination ? (selectedRide ? 'THIBITISHA USAFIRI' : 'CHAGUA USAFIRI') : 'WEKA UNAPOKWENDA'}</span>
-                      <ArrowRight className="w-5 h-5" />
+                   <button 
+                    onClick={() => { console.log("Confirm button click"); confirmBooking(); }} 
+                    disabled={isCreatingRide || !destination} 
+                    className="w-full h-16 bg-white text-[#0a0a0f] rounded-3xl font-black italic uppercase text-xs tracking-[0.2em] flex items-center justify-between px-10 disabled:opacity-30 disabled:grayscale transition-all active:scale-95 shadow-2xl relative overflow-hidden group"
+                   >
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                      <span className="relative z-10">{destination ? (selectedRide ? 'THIBITISHA USAFIRI' : 'CHAGUA USAFIRI') : 'WEKA UNAPOKWENDA'}</span>
+                      <ArrowRight className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />
                    </button>
                  </motion.div>
                )}
 
-               {isMinimized && (
-                 <div className="py-2 flex items-center justify-center">
-                   <p className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.3em]">Bofya hapa kuendelea</p>
+               {(isMinimized || isMapFullscreen) && (
+                 <div className="py-2 flex flex-col items-center justify-center gap-1 opacity-80">
+                   <div className="w-8 h-8 rounded-full bg-[#7F77DD]/20 flex items-center justify-center mb-1">
+                      <ChevronRight className="w-4 h-4 text-[#7F77DD] -rotate-90" />
+                   </div>
+                   <p className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Bofya hapa kuendelea</p>
                  </div>
                )}
             </motion.div>
