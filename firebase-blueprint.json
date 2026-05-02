@@ -14,6 +14,8 @@
         "address": { "type": "string" },
         "status": { "type": "string", "enum": ["pending", "active", "suspended", "offline", "online"] },
         "approvalStatus": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "balance": { "type": "number", "default": 0 },
+        "totalEarnings": { "type": "number", "default": 0 },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["uid", "email", "role"]
@@ -32,6 +34,8 @@
         "location": { "type": "object" },
         "deliveryRadius": { "type": "number" },
         "status": { "type": "string", "enum": ["pending", "active", "suspended"] },
+        "balance": { "type": "number", "default": 0 },
+        "totalSales": { "type": "number", "default": 0 },
         "logoUrl": { "type": "string" },
         "operatingHours": { "type": "string" },
         "rating": { "type": "number" },
@@ -86,9 +90,44 @@
         "vehicleDetails": { "type": "string" },
         "status": { "type": "string", "enum": ["available", "busy", "offline"] },
         "currentPosition": { "type": "object" },
+        "heading": { "type": "number" },
+        "speed": { "type": "number" },
+        "battery": { "type": "number" },
+        "networkStatus": { "type": "string", "enum": ["online", "offline"] },
         "rating": { "type": "number" }
       },
       "required": ["uid", "status"]
+    },
+    "Payout": {
+      "title": "Payout",
+      "description": "Payment withdrawal request for drivers or vendors",
+      "type": "object",
+      "properties": {
+        "amount": { "type": "number" },
+        "fee": { "type": "number" },
+        "netAmount": { "type": "number" },
+        "recipientId": { "type": "string" },
+        "recipientRole": { "type": "string", "enum": ["rider", "vendor"] },
+        "method": { "type": "string", "enum": ["mpesa", "tigopesa", "airtelmoney", "bank"] },
+        "details": { "type": "object" },
+        "status": { "type": "string", "enum": ["pending", "processed", "rejected"] },
+        "processedAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["amount", "recipientId", "status"]
+    },
+    "SystemLog": {
+      "title": "System Log",
+      "description": "Action logs for audit purposes",
+      "type": "object",
+      "properties": {
+        "adminId": { "type": "string" },
+        "action": { "type": "string" },
+        "targetId": { "type": "string" },
+        "details": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["adminId", "action"]
     },
     "Message": {
       "title": "Message",
@@ -293,6 +332,8 @@
     "/rides/{rideId}": { "schema": "Ride", "description": "Taxi rides" },
     "/drivers/{driverId}": { "schema": { "$ref": "#/entities/User" }, "description": "Driver live status and location" },
     "/parcels/{parcelId}": { "schema": "Parcel", "description": "Parcel delivery jobs" },
-    "/partners/{partnerId}": { "schema": "Partner", "description": "Parcel delivery partner profiles" }
+    "/partners/{partnerId}": { "schema": "Partner", "description": "Parcel delivery partner profiles" },
+    "/payouts/{payoutId}": { "schema": "Payout", "description": "Withdrawal requests" },
+    "/logs/{logId}": { "schema": "SystemLog", "description": "Audit logs" }
   }
 }

@@ -171,6 +171,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           description: "Washa 'Email/Password' auth kwenye Firebase Console.",
           duration: 10000
         });
+      } else if (error.code === 'auth/invalid-credential') {
+        // This is handled in the UI component as well, but we log more context here if needed
+        console.warn('Invalid credentials provided');
       }
       throw error;
     }

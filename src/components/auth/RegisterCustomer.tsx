@@ -48,8 +48,15 @@ export default function RegisterCustomer() {
       toast.success(t('account_created_success'));
       navigate('/');
     } catch (error: any) {
+      console.error('Registration error:', error);
       if (error.code === 'auth/operation-not-allowed') {
         toast.error(t('auth_disabled_instructions'), { duration: 8000 });
+      } else if (error.code === 'auth/email-already-in-use') {
+        toast.error(t('email_already_exists'));
+      } else if (error.code === 'auth/weak-password') {
+        toast.error(t('weak_password_error'));
+      } else if (error.code === 'auth/invalid-email') {
+        toast.error(t('invalid_email_error'));
       } else {
         toast.error(error.message || t('signup_failed'));
       }

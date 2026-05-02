@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, orderBy, onSnapshot, getDocs, doc, updateDoc, deleteDoc, addDoc, serverTimestamp, where } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, getDocs, doc, updateDoc, deleteDoc, addDoc, setDoc, getDoc, serverTimestamp, where } from 'firebase/firestore';
 import { VendorProfile, Order, Product } from '../types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,34 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage } from '../LanguageContext';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import { 
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell 
+} from 'recharts';
+
+// Fix Leaflet icons
+// @ts-ignore
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
+
+const DRIVER_ICON = L.icon({
+  iconUrl: 'https://cdn-icons-png.flaticon.com/512/5717/5717387.png',
+  iconSize: [32, 32],
+  iconAnchor: [16, 32],
+});
+
+const USER_ICON = L.icon({
+  iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png',
+  iconSize: [24, 24],
+  iconAnchor: [12, 12],
+});
 
 interface Banner {
   id?: string;
@@ -41,6 +69,26 @@ interface UserRecord {
   vehicleBrand?: string;
   vehicleModel?: string;
   licensePlate?: string;
+  balance?: number;
+  totalEarnings?: number;
+  currentPosition?: { lat: number; lng: number };
+  heading?: number;
+  speed?: number;
+  battery?: number;
+  networkStatus?: 'online' | 'offline';
+  createdAt: any;
+}
+
+interface PayoutRequest {
+  id: string;
+  amount: number;
+  fee: number;
+  netAmount: number;
+  recipientId: string;
+  recipientRole: 'rider' | 'vendor';
+  method: string;
+  status: 'pending' | 'processed' | 'rejected';
+  details?: any;
   createdAt: any;
 }
 
@@ -48,7 +96,7 @@ interface ProductWithVendor extends Product {
   vendorName?: string;
 }
 
-type AdminTab = 'overview' | 'vendors' | 'drivers' | 'products' | 'users' | 'orders' | 'banners' | 'notifications' | 'coupons' | 'settings';
+type AdminTab = 'overview' | 'vendors' | 'drivers' | 'products' | 'users' | 'orders' | 'banners' | 'notifications' | 'coupons' | 'settings' | 'live_map' | 'payouts' | 'analytics';
 
 interface Coupon {
   id?: string;
@@ -107,6 +155,9 @@ export default function AdminDashboard() {
   const [allProducts, setAllProducts] = useState<ProductWithVendor[]>([]);
   const [banners, setBanners] = useState<Banner[]>([]);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [payouts, setPayouts] = useState<PayoutRequest[]>([]);
+  const [activeRides, setActiveRides] = useState<any[]>([]);
+  const [driverLocations, setDriverLocations] = useState<any[]>([]);
   
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -195,6 +246,8 @@ export default function AdminDashboard() {
   // Notification State
   const [notifTitle, setNotifTitle] = useState('');
   const [notifBody, setNotifBody] = useState('');
+  const [notifImage, setNotifImage] = useState('');
+  const [notifTarget, setNotifTarget] = useState<'all' | string>('all');
   const [isSending, setIsSending] = useState(false);
 
   // Stats / Finances (Mongike 3.5% fee estimated)
@@ -213,9 +266,23 @@ export default function AdminDashboard() {
     };
   }, [allOrders, vendors, allUsers]);
 
+  const handleSaveSettings = async () => {
+    try {
+      await setDoc(doc(db, 'config', 'business'), { ...businessConfig, updatedAt: serverTimestamp() });
+      toast.success('Settings saved successfully!');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, 'config/business');
+    }
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
+        const configSnap = await getDoc(doc(db, 'config', 'business'));
+        if (configSnap.exists()) {
+          setBusinessConfig(prev => ({ ...prev, ...configSnap.data() }));
+        }
+
         const vendorsSnap = await getDocs(collection(db, 'vendors'));
         setVendors(vendorsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as VendorProfile)));
 
@@ -231,6 +298,15 @@ export default function AdminDashboard() {
         const couponsSnap = await getDocs(collection(db, 'coupons'));
         setCoupons(couponsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Coupon)));
 
+        const payoutsSnap = await getDocs(query(collection(db, 'payouts'), orderBy('createdAt', 'desc')));
+        setPayouts(payoutsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any)));
+
+        const activeRidesSnap = await getDocs(query(collection(db, 'rides'), where('status', 'in', ['accepted', 'arrived', 'started'])));
+        setActiveRides(activeRidesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+
+        const driverLocsSnap = await getDocs(collection(db, 'drivers'));
+        setDriverLocations(driverLocsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+
         const productsSnap = await getDocs(collection(db, 'products'));
         setAllProducts(productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ProductWithVendor)));
       } catch (error) {
@@ -243,11 +319,17 @@ export default function AdminDashboard() {
     const errorHandler = (path: string) => (error: any) => handleFirestoreError(error, OperationType.GET, path);
 
     const unsubscribes = [
+      onSnapshot(doc(db, 'config', 'business'), (snap) => {
+        if (snap.exists()) setBusinessConfig(prev => ({ ...prev, ...snap.data() }));
+      }),
       onSnapshot(collection(db, 'vendors'), () => fetchData(), errorHandler('vendors')),
       onSnapshot(collection(db, 'users'), () => fetchData(), errorHandler('users')),
       onSnapshot(collection(db, 'orders'), () => fetchData(), errorHandler('orders')),
       onSnapshot(collection(db, 'banners'), () => fetchData(), errorHandler('banners')),
       onSnapshot(collection(db, 'coupons'), () => fetchData(), errorHandler('coupons')),
+      onSnapshot(collection(db, 'payouts'), (snap) => setPayouts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any))), errorHandler('payouts')),
+      onSnapshot(query(collection(db, 'rides'), where('status', 'in', ['accepted', 'arrived', 'started'])), (snap) => setActiveRides(snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))), errorHandler('rides')),
+      onSnapshot(collection(db, 'drivers'), (snap) => setDriverLocations(snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))), errorHandler('drivers')),
       onSnapshot(collection(db, 'products'), () => fetchData(), errorHandler('products')),
     ];
 
@@ -261,7 +343,7 @@ export default function AdminDashboard() {
       await updateDoc(doc(db, 'users', id), { approvalStatus: 'approved' });
       toast.success('Driver approved successfully!');
     } catch (error) {
-      console.error(error);
+      handleFirestoreError(error, OperationType.UPDATE, `users/${id}`);
     }
   };
 
@@ -270,7 +352,7 @@ export default function AdminDashboard() {
       await updateDoc(doc(db, 'users', id), { approvalStatus: 'suspended' });
       toast.error('Driver status updated to suspended.');
     } catch (error) {
-      console.error(error);
+      handleFirestoreError(error, OperationType.UPDATE, `users/${id}`);
     }
   };
 
@@ -279,7 +361,7 @@ export default function AdminDashboard() {
       await updateDoc(doc(db, 'vendors', id), { status: 'active' });
       toast.success('Vendor approved successfully!');
     } catch (error) {
-      console.error(error);
+      handleFirestoreError(error, OperationType.UPDATE, `vendors/${id}`);
     }
   };
 
@@ -288,7 +370,7 @@ export default function AdminDashboard() {
       await updateDoc(doc(db, 'vendors', id), { status: 'suspended' });
       toast.error('Vendor status updated to suspended.');
     } catch (error) {
-      console.error(error);
+      handleFirestoreError(error, OperationType.UPDATE, `vendors/${id}`);
     }
   };
 
@@ -298,17 +380,16 @@ export default function AdminDashboard() {
       await updateDoc(doc(db, 'users', id), { status: newStatus });
       toast.success(`User ${newStatus === 'blocked' ? 'blocked' : 'unblocked'}`);
     } catch (error) {
-      console.error(error);
+      handleFirestoreError(error, OperationType.UPDATE, `users/${id}`);
     }
   };
 
   const handleDeleteUser = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this user forever?')) return;
     try {
       await deleteDoc(doc(db, 'users', id));
       toast.success('User deleted successfully');
     } catch (error) {
-      console.error(error);
+      handleFirestoreError(error, OperationType.DELETE, `users/${id}`);
     }
   };
 
@@ -341,13 +422,20 @@ export default function AdminDashboard() {
     if (!notifTitle || !notifBody) return;
     setIsSending(true);
     try {
-      const usersSnap = await getDocs(collection(db, 'users'));
+      let targetUsers = [];
+      if (notifTarget === 'all') {
+        const usersSnap = await getDocs(collection(db, 'users'));
+        targetUsers = usersSnap.docs.map(d => d.id);
+      } else {
+        targetUsers = [notifTarget];
+      }
       
-      const batchPromises = usersSnap.docs.map(u => 
+      const batchPromises = targetUsers.map(uid => 
         addDoc(collection(db, 'notifications'), {
           title: notifTitle,
           body: notifBody,
-          userId: u.id,
+          imageUrl: notifImage || null,
+          userId: uid,
           type: 'system',
           isRead: false,
           createdAt: serverTimestamp()
@@ -358,7 +446,8 @@ export default function AdminDashboard() {
 
       setNotifTitle('');
       setNotifBody('');
-      toast.success(`Notification sent to ${usersSnap.docs.length} users!`);
+      setNotifImage('');
+      toast.success(`Notification sent to ${targetUsers.length} users!`);
     } catch (error) {
       console.error(error);
     } finally {
@@ -410,6 +499,9 @@ export default function AdminDashboard() {
           { id: 'orders', label: t('admin_sales_feed'), icon: ShoppingBag },
           { id: 'banners', label: t('admin_marketing'), icon: Megaphone },
           { id: 'notifications', label: t('admin_broadcast'), icon: Bell },
+          { id: 'live_map', label: 'Monitor', icon: Globe },
+          { id: 'payouts', label: 'Payouts', icon: Wallet },
+          { id: 'analytics', label: 'Insights', icon: BarChart3 },
           { id: 'settings', label: t('admin_settings'), icon: Settings },
         ].map((tab) => (
           <button
@@ -666,6 +758,243 @@ export default function AdminDashboard() {
             </Card>
           </motion.div>
         )}
+
+        {activeTab === 'analytics' && (
+          <motion.div key="analytics" className="space-y-8 pb-10">
+             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <Card className="p-8 rounded-[2.5rem] border-none shadow-2xl bg-white dark:bg-neutral-900">
+                   <h3 className="text-xl font-black uppercase mb-8">Growth Revenue</h3>
+                   <div className="h-[350px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                         <AreaChart data={allOrders.filter(o => o.paymentStatus === 'paid').slice(-20).map(o => ({
+                            name: new Date(o.createdAt?.seconds * 1000).toLocaleDateString(),
+                            amount: o.totalAmount
+                         }))}>
+                            <defs>
+                               <linearGradient id="colorAmt" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="5%" stopColor="#ea580c" stopOpacity={0.3}/>
+                                  <stop offset="95%" stopColor="#ea580c" stopOpacity={0}/>
+                               </linearGradient>
+                            </defs>
+                            <XAxis dataKey="name" hide />
+                            <YAxis hide />
+                            <Tooltip />
+                            <Area type="monotone" dataKey="amount" stroke="#ea580c" fillOpacity={1} fill="url(#colorAmt)" strokeWidth={4} />
+                         </AreaChart>
+                      </ResponsiveContainer>
+                   </div>
+                </Card>
+
+                <Card className="p-8 rounded-[2.5rem] border-none shadow-2xl bg-white dark:bg-neutral-900">
+                   <h3 className="text-xl font-black uppercase mb-8">Order Volume</h3>
+                   <div className="h-[350px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                         <BarChart data={vendors.slice(0, 5).map(v => ({
+                            name: v.businessName,
+                            orders: allOrders.filter(o => o.vendorId === v.id).length
+                         }))}>
+                            <XAxis dataKey="name" hide />
+                            <YAxis hide />
+                            <Tooltip />
+                            <Bar dataKey="orders" fill="#0d9488" radius={[10, 10, 10, 10]} />
+                         </BarChart>
+                      </ResponsiveContainer>
+                   </div>
+                </Card>
+             </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'live_map' && (
+          <motion.div key="live_map" className="h-[70vh] rounded-[3rem] overflow-hidden shadow-2xl border-4 border-white relative">
+             <MapContainer 
+               center={[-6.7924, 39.2083]} 
+               zoom={12} 
+               className="w-full h-full z-0"
+               scrollWheelZoom
+             >
+                <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
+                
+                {/* Active Drivers */}
+                {driverLocations.map((driver) => (
+                  driver.currentPosition && (
+                    <Marker 
+                      key={driver.id} 
+                      position={[driver.currentPosition.lat, driver.currentPosition.lng]} 
+                      icon={DRIVER_ICON}
+                    >
+                       <Popup className="rounded-2xl overflow-hidden">
+                          <div className="p-2 space-y-2">
+                             <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center font-bold text-orange-600">
+                                   {driver.displayName?.[0]}
+                                </div>
+                                <div>
+                                   <p className="font-black text-xs uppercase leading-none">{driver.displayName}</p>
+                                   <p className="text-[10px] text-neutral-400 font-bold">{driver.licensePlate || 'No Plate'}</p>
+                                </div>
+                             </div>
+                             <div className="grid grid-cols-2 gap-2 pt-2 border-t border-neutral-100">
+                                <div className="p-2 bg-neutral-50 rounded-xl">
+                                   <p className="text-[8px] font-black uppercase text-neutral-400">Battery</p>
+                                   <p className="font-black text-xs">{driver.battery || 0}%</p>
+                                </div>
+                                <div className="p-2 bg-neutral-50 rounded-xl">
+                                   <p className="text-[8px] font-black uppercase text-neutral-400">Speed</p>
+                                   <p className="font-black text-xs">{Math.round(driver.speed || 0)} km/h</p>
+                                </div>
+                             </div>
+                             {driver.networkStatus === 'online' ? (
+                               <Badge className="w-full justify-center bg-green-100 text-green-600 font-black uppercase text-[8px] py-1">Online</Badge>
+                             ) : (
+                               <Badge className="w-full justify-center bg-red-100 text-red-600 font-black uppercase text-[8px] py-1">Offline</Badge>
+                             )}
+                          </div>
+                       </Popup>
+                    </Marker>
+                  )
+                ))}
+
+                {/* Active Rides/Users */}
+                {activeRides.map((ride) => (
+                  ride.pickup && (
+                    <Marker 
+                      key={ride.id} 
+                      position={[ride.pickup.lat, ride.pickup.lng]} 
+                      icon={USER_ICON}
+                    >
+                       <Popup>
+                          <div className="p-1">
+                             <p className="font-black text-xs uppercase tracking-tight">Active Request</p>
+                             <p className="text-[10px] text-orange-600 font-black italic">{ride.status.toUpperCase()}</p>
+                             <p className="text-[9px] mt-2 opacity-60">To: {ride.destinationAddress?.substring(0, 30)}...</p>
+                          </div>
+                       </Popup>
+                    </Marker>
+                  )
+                ))}
+
+                <MapBoundsUpdater drivers={driverLocations} rides={activeRides} />
+             </MapContainer>
+             
+             {/* Floating Controls */}
+             <div className="absolute top-6 right-6 z-[1000] space-y-2">
+                <Card className="p-4 bg-white/90 backdrop-blur shadow-2xl rounded-[2rem] border-none flex items-center gap-4">
+                   <div className="flex flex-col">
+                      <span className="text-[10px] font-black uppercase text-neutral-400">Live Traffic</span>
+                      <span className="text-xl font-black uppercase italic leading-none">{driverLocations.filter(d => d.networkStatus === 'online').length} Nodes</span>
+                   </div>
+                   <div className="w-12 h-12 rounded-2xl bg-orange-600 flex items-center justify-center text-white">
+                      <Globe className="animate-spin-slow" />
+                   </div>
+                </Card>
+             </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'payouts' && (
+           <motion.div key="payouts" className="space-y-8">
+              <div className="flex justify-between items-center">
+                 <h3 className="text-3xl font-black italic uppercase tracking-tighter text-neutral-900 dark:text-white transition-colors">Financial Treasury</h3>
+                 <div className="flex gap-2">
+                    <Button variant="outline" className="rounded-xl border-neutral-200 font-bold uppercase text-xs">Export CSV</Button>
+                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                 <Card className="lg:col-span-2 rounded-[2.5rem] border-none shadow-xl transition-colors bg-white dark:bg-neutral-900 overflow-hidden">
+                    <div className="p-8">
+                       <h4 className="text-xs font-black uppercase tracking-[0.2rem] text-neutral-400 mb-6 underline decoration-orange-600 decoration-4 underline-offset-8">Pending Withdrawals</h4>
+                       <div className="space-y-4">
+                          {payouts.filter(p => p.status === 'pending').map((p) => {
+                             const recipientUser = allUsers.find(u => u.id === p.recipientId);
+                             const recipientVendor = vendors.find(v => v.id === p.recipientId);
+                             const name = recipientUser?.displayName || recipientVendor?.businessName || 'Unknown';
+                             
+                             return (
+                               <div key={p.id} className="p-6 bg-neutral-50 dark:bg-neutral-800 rounded-3xl border border-neutral-100 dark:border-neutral-700 flex items-center justify-between group hover:shadow-xl transition-all">
+                                  <div className="flex items-center gap-4">
+                                     <div className="w-14 h-14 rounded-2xl bg-orange-100 dark:bg-orange-950/30 flex items-center justify-center font-black text-orange-600">
+                                        <Wallet className="w-6 h-6" />
+                                     </div>
+                                     <div>
+                                        <p className="font-black text-lg text-neutral-900 dark:text-white uppercase italic leading-none">{name}</p>
+                                        <div className="flex items-center gap-2 mt-1">
+                                           <Badge className="bg-neutral-200 text-neutral-600 font-bold text-[8px] uppercase">{p.method}</Badge>
+                                           <p className="text-[10px] text-neutral-400 font-bold uppercase">{p.recipientRole}</p>
+                                        </div>
+                                     </div>
+                                  </div>
+                                  <div className="flex items-center gap-6">
+                                     <div className="text-right">
+                                        <p className="text-xl font-black text-neutral-900 dark:text-white">TZS {p.amount.toLocaleString()}</p>
+                                        <p className="text-[10px] font-black text-orange-600 italic uppercase">Fee: -{p.fee.toLocaleString()}</p>
+                                     </div>
+                                     <div className="flex gap-2">
+                                        <Button 
+                                          size="sm" 
+                                          className="bg-green-600 hover:bg-green-700 rounded-xl font-black uppercase text-[10px]"
+                                          onClick={async () => {
+                                             await updateDoc(doc(db, 'payouts', p.id), { status: 'processed', processedAt: serverTimestamp() });
+                                             toast.success('Payout processed successfully!');
+                                          }}
+                                        >
+                                           Complete
+                                        </Button>
+                                        <Button 
+                                          size="sm" 
+                                          variant="ghost" 
+                                          className="text-red-500 hover:bg-red-50 rounded-xl font-black uppercase text-[10px]"
+                                          onClick={async () => {
+                                             await updateDoc(doc(db, 'payouts', p.id), { status: 'rejected', processedAt: serverTimestamp() });
+                                             toast.error('Payout application rejected.');
+                                          }}
+                                        >
+                                           Reject
+                                        </Button>
+                                     </div>
+                                  </div>
+                               </div>
+                             );
+                          })}
+                          {payouts.filter(p => p.status === 'pending').length === 0 && (
+                             <p className="text-center py-10 text-neutral-400 font-bold italic">No pending payouts found.</p>
+                          )}
+                       </div>
+                    </div>
+                 </Card>
+
+                 <div className="space-y-6">
+                    <Card className="p-8 rounded-[2.5rem] border-none shadow-xl bg-teal-600 text-white relative overflow-hidden group">
+                       <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform">
+                          <Coins className="w-24 h-24" />
+                       </div>
+                       <CardHeader className="p-0">
+                          <CardTitle className="text-white/60 text-[10px] font-black uppercase tracking-widest mb-2">Platform Float</CardTitle>
+                          <div className="text-3xl font-black tracking-tighter">TZS {(stats.totalRev * 0.065).toLocaleString()}</div>
+                          <p className="opacity-60 text-[8px] font-bold mt-2 uppercase">Estimated liquid cash in hand</p>
+                       </CardHeader>
+                    </Card>
+
+                    <Card className="p-8 rounded-[2.5rem] border-none shadow-xl bg-white dark:bg-neutral-900 transition-colors">
+                       <h4 className="text-xs font-black uppercase tracking-[0.1rem] mb-6">Recent History</h4>
+                       <div className="space-y-4">
+                          {payouts.filter(p => p.status !== 'pending').slice(0, 5).map(p => (
+                             <div key={p.id} className="flex items-center justify-between opacity-60">
+                                <div>
+                                   <p className="font-bold text-xs uppercase leading-none">{p.id.slice(0, 8)}</p>
+                                   <p className="text-[10px] font-black text-neutral-400 mt-1 uppercase italic">{p.status}</p>
+                                </div>
+                                <p className="font-black text-xs">TZS {p.amount.toLocaleString()}</p>
+                             </div>
+                          ))}
+                       </div>
+                    </Card>
+                 </div>
+              </div>
+           </motion.div>
+        )}
+
 
         {activeTab === 'vendors' && (
           <motion.div key="vendors" className="space-y-8">
@@ -993,8 +1322,25 @@ export default function AdminDashboard() {
                 </CardHeader>
                 <CardContent className="space-y-8 mt-8">
                    <div className="space-y-3">
+                      <label className="text-[10px] font-black uppercase tracking-[0.3rem] text-neutral-500">Target Audience</label>
+                      <select 
+                        className="w-full h-16 px-6 rounded-2xl bg-neutral-800 border-none transition-colors outline-none font-bold text-white"
+                        value={notifTarget}
+                        onChange={(e) => setNotifTarget(e.target.value)}
+                      >
+                        <option value="all">All Users & Drivers</option>
+                        {allUsers.map(u => (
+                          <option key={u.id} value={u.id}>{u.displayName} ({u.role})</option>
+                        ))}
+                      </select>
+                   </div>
+                   <div className="space-y-3">
                       <label className="text-[10px] font-black uppercase tracking-[0.3rem] text-neutral-500">{t('admin_alert_title')}</label>
                       <Input className="bg-neutral-800 border-none h-16 rounded-2xl font-bold text-white placeholder:text-neutral-600" value={notifTitle} onChange={e => setNotifTitle(e.target.value)} placeholder="What's happening?" />
+                   </div>
+                   <div className="space-y-3">
+                      <label className="text-[10px] font-black uppercase tracking-[0.3rem] text-neutral-500">Image URL (Optional)</label>
+                      <Input className="bg-neutral-800 border-none h-16 rounded-2xl font-bold text-white placeholder:text-neutral-600" value={notifImage} onChange={e => setNotifImage(e.target.value)} placeholder="https://..." />
                    </div>
                    <div className="space-y-3">
                       <label className="text-[10px] font-black uppercase tracking-[0.3rem] text-neutral-500">{t('admin_alert_content')}</label>
@@ -1143,7 +1489,7 @@ export default function AdminDashboard() {
                           {isSeeding ? <Loader2 className="w-6 h-6 animate-spin mr-2" /> : <Plus className="w-6 h-6 mr-2" />}
                           Add Demo Stores
                        </Button>
-                       <Button className="h-16 px-12 rounded-2xl bg-orange-600 hover:bg-orange-700 text-lg font-black uppercase tracking-widest shadow-2xl shadow-orange-500/20">
+                       <Button className="h-16 px-12 rounded-2xl bg-orange-600 hover:bg-orange-700 text-lg font-black uppercase tracking-widest shadow-2xl shadow-orange-500/20" onClick={handleSaveSettings}>
                           {t('admin_settings_save_information')}
                        </Button>
                     </div>
@@ -1330,7 +1676,7 @@ export default function AdminDashboard() {
                     </div>
 
                     <div className="flex justify-end pt-4">
-                       <Button className="h-16 px-12 rounded-2xl bg-orange-600 hover:bg-orange-700 text-lg font-black uppercase tracking-widest shadow-2xl shadow-orange-500/20">
+                       <Button onClick={handleSaveSettings} className="h-16 px-12 rounded-2xl bg-orange-600 hover:bg-orange-700 text-lg font-black uppercase tracking-widest shadow-2xl shadow-orange-500/20">
                           {t('admin_settings_save_information')}
                        </Button>
                     </div>
@@ -1502,7 +1848,7 @@ export default function AdminDashboard() {
                    </table>
 
                    <div className="flex justify-end pt-4">
-                      <Button className="h-16 px-12 rounded-2xl bg-orange-600 hover:bg-orange-700 text-lg font-black uppercase tracking-widest shadow-2xl shadow-orange-500/20">
+                      <Button onClick={handleSaveSettings} className="h-16 px-12 rounded-2xl bg-orange-600 hover:bg-orange-700 text-lg font-black uppercase tracking-widest shadow-2xl shadow-orange-500/20">
                          {t('admin_settings_save_information')}
                       </Button>
                    </div>
@@ -1554,7 +1900,7 @@ export default function AdminDashboard() {
 
                    <div className="flex justify-end gap-4">
                       <Button variant="outline" className="h-12 px-8 rounded-xl border-neutral-200 font-black uppercase tracking-widest">Reset</Button>
-                      <Button className="h-12 px-12 rounded-xl bg-orange-600 hover:bg-orange-700 font-black uppercase tracking-widest">Save</Button>
+                      <Button className="h-12 px-12 rounded-xl bg-orange-600 hover:bg-orange-700 font-black uppercase tracking-widest" onClick={handleSaveSettings}>Save</Button>
                    </div>
                 </Card>
 
@@ -1622,4 +1968,27 @@ export default function AdminDashboard() {
       </AnimatePresence>
     </div>
   );
+}
+
+function MapBoundsUpdater({ drivers, rides }: { drivers: any[], rides: any[] }) {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (drivers.length === 0 && rides.length === 0) return;
+    
+    const points: L.LatLngExpression[] = [];
+    drivers.forEach(d => {
+      if (d.currentPosition) points.push([d.currentPosition.lat, d.currentPosition.lng]);
+    });
+    rides.forEach(r => {
+      if (r.pickup) points.push([r.pickup.lat, r.pickup.lng]);
+    });
+
+    if (points.length > 0) {
+      const bounds = L.latLngBounds(points);
+      map.fitBounds(bounds, { padding: [50, 50] });
+    }
+  }, [drivers, rides, map]);
+
+  return null;
 }

@@ -80,12 +80,13 @@ service cloud.firestore {
         ]) && incoming().role == existing().role) ||
         isAdmin()
       );
+      allow delete: if isAdmin();
     }
 
     // Vendors
     match /vendors/{vendorId} {
       allow read: if true;
-      allow create: if isSignedIn() && isValidVendor(incoming());
+      allow create: if isSignedIn() && (isValidVendor(incoming()) || isAdmin());
       allow update: if isSignedIn() && (
         (isOwner(existing().ownerUid) && incoming().ownerUid == existing().ownerUid &&
          incoming().diff(existing()).affectedKeys().hasOnly([
@@ -208,6 +209,23 @@ service cloud.firestore {
     match /messages/{id} {
       allow read: if isSignedIn() && (resource.data.participants.hasAny([request.auth.uid]) || isAdmin());
       allow create: if isSignedIn() && incoming().participants.hasAny([request.auth.uid]);
+    }
+    // Payouts
+    match /payouts/{id} {
+      allow get, list: if isSignedIn() && (resource.data.recipientId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn(); 
+      allow update, delete: if isAdmin();
+    }
+    // Logs
+    match /logs/{id} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn();
+      allow update, delete: if false;
+    }
+    // Config
+    match /config/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
   }
 }
