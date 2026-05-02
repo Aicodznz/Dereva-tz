@@ -25,7 +25,7 @@ export const RatingScreen: React.FC<RatingScreenProps> = ({ ride, onSubmit, onSk
 
   return (
     <div 
-      className="flex-1 w-full bg-[#0a0a0f] flex flex-col p-8 overflow-y-auto no-scrollbar relative z-[60]"
+      className="h-full w-full bg-[#0a0a0f] flex flex-col p-8 overflow-y-auto no-scrollbar relative z-[60]"
     >
       <div className="w-full flex-1 flex flex-col items-center justify-center py-10">
         <div className="relative mb-8">

@@ -641,7 +641,7 @@ export default function TaxiBooking() {
   ];
 
   return (
-    <div className="max-w-md mx-auto bg-green-500/5 w-full flex flex-col relative overflow-hidden font-sans text-[#f0eeff] border-x border-[#1e1e2e] h-[calc(100svh-72px)] min-h-[500px]">
+    <div className="max-w-md mx-auto bg-green-500/5 w-full flex flex-col relative overflow-hidden font-sans text-[#f0eeff] border-x border-[#1e1e2e] h-[100dvh]">
       <div className="absolute inset-0 bg-[#0a0a0f]" />
       
       {/* DEBUG FLAG */}
@@ -993,13 +993,13 @@ export default function TaxiBooking() {
           )}
 
           {step === 'completed' && activeRide && (
-            <motion.div key="completed" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="flex-1">
+            <motion.div key="completed" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[80] bg-[#0a0a0f]">
               <TripCompleteScreen ride={activeRide as any} onPay={handlePayment} />
             </motion.div>
           )}
 
           {step === 'rating' && activeRide && (
-            <motion.div key="rating" initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex-1">
+            <motion.div key="rating" initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[80] bg-[#0a0a0f]">
               <RatingScreen 
                 ride={activeRide as any} 
                 onSubmit={handleRating} 

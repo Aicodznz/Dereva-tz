@@ -38,7 +38,7 @@ export const TripCompleteScreen: React.FC<TripCompleteScreenProps> = ({ ride, on
 
   return (
     <div 
-      className="flex-1 w-full bg-[#0a0a0f] flex flex-col items-center justify-center p-6 overflow-hidden relative z-50"
+      className="h-full w-full bg-[#0a0a0f] flex flex-col items-center justify-center p-6 overflow-hidden relative z-50"
     >
       <div className="relative z-10 w-full max-w-sm flex flex-col items-center">
         <div
