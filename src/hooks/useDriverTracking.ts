@@ -25,18 +25,23 @@ export function useDriverTracking(driverLocation?: LatLng, targetLocation?: LatL
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
     const dist = R * c; // in metres
-    setDistance(dist / 1000); // km
+    const distKm = dist / 1000;
+    setDistance(distKm);
 
-    // Assuming average speed of 30km/h in city
-    const speedKmH = 30;
-    const timeHours = (dist / 1000) / speedKmH;
-    const totalSeconds = Math.round(timeHours * 3600);
+    // Dynamic speed based on distance (slower as it gets closer for realistic arrival)
+    const speedKmH = distKm < 0.5 ? 20 : 35;
+    const timeHours = distKm / speedKmH;
+    let totalSeconds = Math.round(timeHours * 3600);
     
+    // Add a minimum floor for ETA if not yet arrived
+    if (distKm > 0.05 && totalSeconds < 10) totalSeconds = 10;
+    if (distKm <= 0.02) totalSeconds = 0;
+
     setEta({
       minutes: Math.floor(totalSeconds / 60),
       seconds: totalSeconds % 60
     });
-  }, [driverLocation, targetLocation]);
+  }, [driverLocation?.lat, driverLocation?.lng, targetLocation?.lat, targetLocation?.lng]);
 
   return { distance, eta };
 }

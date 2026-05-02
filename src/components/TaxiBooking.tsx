@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -118,16 +118,29 @@ const MapEvents = ({ onMapClick, onInteraction }: { onMapClick: (e: L.LeafletMou
 
 const MapControl = ({ position, step, targetPos, autoFollow }: { position: [number, number], step: string, targetPos?: [number, number], autoFollow: boolean }) => {
   const map = useMap();
+  const lastCenterRef = useRef<[number, number] | null>(null);
+
   useEffect(() => {
-    if (position && autoFollow) {
+    if (!position || !autoFollow) return;
+
+    const currentPos = L.latLng(position[0], position[1]);
+    const lastPos = lastCenterRef.current ? L.latLng(lastCenterRef.current[0], lastCenterRef.current[1]) : null;
+
+    // Only update view if position changed significantly (e.g., more than 15 meters)
+    if (!lastPos || currentPos.distanceTo(lastPos) > 15) {
       if (['arriving', 'on_trip', 'found'].includes(step) && targetPos) {
         const bounds = L.latLngBounds([position, targetPos]);
-        map.fitBounds(bounds, { padding: [100, 100], animate: true, duration: 1.5 });
+        map.fitBounds(bounds, { 
+          padding: [80, 80], 
+          animate: true, 
+          duration: 1.2 
+        });
       } else if (['arriving', 'on_trip'].includes(step)) {
-        map.panTo(position, { animate: true, duration: 1.5 });
+        map.panTo(position, { animate: true, duration: 1.2 });
       } else {
-        map.setView(position, 15);
+        map.setView(position, 15, { animate: true });
       }
+      lastCenterRef.current = position;
     }
   }, [position?.[0], position?.[1], step, targetPos?.[0], targetPos?.[1], map, autoFollow]);
   return null;
@@ -304,15 +317,25 @@ export default function TaxiBooking() {
         return;
       }
 
-      // Move 50 meters toward target (simple lerp)
+      // Move 40 meters toward target (smoother linear movement)
       const dist = currentPos.distanceTo(targetPos);
-      const ratio = 50 / dist;
-      if (ratio >= 1) {
-        setDriverLivePos({ lat: targetPos.lat, lng: targetPos.lng });
+      const moveDistance = 40; // 40 meters per tick
+      
+      if (dist <= moveDistance) {
+        const newPos = { lat: targetPos.lat, lng: targetPos.lng };
+        setDriverLivePos(newPos);
+        
+        // Final update for this leg
+        await updateDoc(doc(db, 'rides', rideId), { 
+          driverLocation: newPos,
+          updatedAt: serverTimestamp() 
+        });
       } else {
+        const ratio = moveDistance / dist;
         const nextLat = currentPos.lat + (targetPos.lat - currentPos.lat) * ratio;
         const nextLng = currentPos.lng + (targetPos.lng - currentPos.lng) * ratio;
         const newPos = { lat: nextLat, lng: nextLng };
+        
         setDriverLivePos(newPos);
         
         // Update Firestore
@@ -321,7 +344,7 @@ export default function TaxiBooking() {
           updatedAt: serverTimestamp() 
         });
       }
-    }, 3000);
+    }, 2000); // More frequent updates for smoothness
 
     return () => clearInterval(simulateMovement);
   }, [rideId, activeRide?.status, driverLivePos?.lat]);
@@ -445,6 +468,11 @@ export default function TaxiBooking() {
   };
 
   const handleMapClick = async (e: L.LeafletMouseEvent) => {
+    // Strictly disable selecting locations if any ride activity is happening
+    if (rideId || activeRide || ['searching', 'found', 'arriving', 'on_trip'].includes(step)) {
+      console.log("Map interaction blocked: Active ride in progress");
+      return;
+    }
     const { lat, lng } = e.latlng;
     const addr = await reverseGeocode(lat, lng);
     
