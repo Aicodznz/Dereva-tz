@@ -43,4 +43,8 @@ export interface Ride {
   rating?: number;
   feedback?: string[];
   rated?: boolean;
+  distance: number;
+  duration: number;
+  paymentStatus?: 'pending' | 'paid';
+  paymentMethod?: 'cash' | 'online';
 }

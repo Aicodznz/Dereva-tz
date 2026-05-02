@@ -12,7 +12,10 @@ import {
 } from 'lucide-react';
 import Chat from './Chat';
 import { db, auth } from '../firebase';
-import { doc, updateDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { 
+  doc, updateDoc, addDoc, collection, serverTimestamp, 
+  query, where, onSnapshot, limit, getDoc 
+} from 'firebase/firestore';
 import { useAuth } from '../AuthContext';
 import { useLanguage } from '../LanguageContext';
 import { Badge } from '@/components/ui/badge';
@@ -200,6 +203,56 @@ export default function TaxiBooking() {
   const { createRide, isLoading: isCreatingRide } = useCreateRide();
   const [rideId, setRideId] = useState<string | null>(null);
   const { ride: activeRide, cancelRide, deleteRide } = useTripFlow(rideId);
+  const [driverLivePos, setDriverLivePos] = useState<{lat: number, lng: number} | null>(null);
+  const [liveDistance, setLiveDistance] = useState<number | null>(null);
+
+  // Persistence: Look for active rides on mount
+  useEffect(() => {
+    if (!user) return;
+    
+    const ridesRef = collection(db, 'rides');
+    const q = query(
+      ridesRef,
+      where('customerId', '==', user.uid),
+      where('status', 'in', ['pending', 'accepted', 'driver_arriving', 'driver_arrived', 'on_trip'])
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (!snapshot.empty) {
+        const ride = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as any;
+        console.log("[TaxiBooking] Found persisting active ride:", ride.id);
+        setRideId(ride.id);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // Live Tracking: Listen to the assigned driver's location
+  useEffect(() => {
+    if (activeRide?.driverId && ['accepted', 'driver_arriving', 'driver_arrived', 'on_trip'].includes(activeRide.status)) {
+      const unsub = onSnapshot(doc(db, 'drivers', activeRide.driverId), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          // The driver updates 'location' or 'currentPosition'. Let's check both but prioritize 'location' as seen in RiderHome.tsx
+          const pos = data.location || data.currentPosition;
+          if (pos) {
+            setDriverLivePos(pos);
+            
+            // Calculate distance to target
+            const target = (activeRide.status === 'on_trip') ? activeRide.destination : activeRide.pickup;
+            const dist = L.latLng(pos.lat, pos.lng)
+                          .distanceTo(L.latLng(target.lat, target.lng));
+            setLiveDistance(dist / 1000); // km
+          }
+        }
+      });
+      return () => unsub();
+    } else {
+      setDriverLivePos(null);
+      setLiveDistance(null);
+    }
+  }, [activeRide?.driverId, activeRide?.status]);
   useMatchmaking(activeRide as any);
 
   const [suggestions, setSuggestions] = useState<any[]>([]);
@@ -725,12 +778,11 @@ export default function TaxiBooking() {
               <DriverFoundScreen onNext={() => setStep('arriving')} />
             </motion.div>
           )}
-          
-          {/* ... other steps ... */}
+
           {step === 'arriving' && activeRide && (
              <motion.div key="arriving" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex-1">
                 <DriverArrivedScreen 
-                  ride={activeRide as any} 
+                  ride={{ ...activeRide, driverLocation: driverLivePos || activeRide.driverLocation } as any} 
                   onCall={() => window.open(`tel:${activeRide.driverInfo?.phone}`)} 
                   onMessage={() => setIsChatOpen(true)}
                   onImComing={() => toast.success("Dereva amejulishwa unakuja!")}
@@ -741,7 +793,7 @@ export default function TaxiBooking() {
           {step === 'on_trip' && activeRide && (
             <motion.div key="on_trip" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1">
               <LiveTripScreen 
-                ride={activeRide as any} 
+                ride={{ ...activeRide, driverLocation: driverLivePos || activeRide.driverLocation, distance: liveDistance || activeRide.distance } as any} 
                 onMessage={() => setIsChatOpen(true)}
               />
             </motion.div>
