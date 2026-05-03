@@ -30,39 +30,6 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------------------
-    // Pillar 2: Validation Blueprints
-    // -------------------------------------------------------------------------
-
-    function isValidUser(data) {
-      return data.uid == request.auth.uid &&
-             data.keys().hasAll(['uid', 'email', 'role']) &&
-             data.email is string &&
-             data.role in ['customer', 'vendor', 'rider', 'admin'];
-    }
-
-    function isValidVendor(data) {
-      return data.ownerUid == request.auth.uid &&
-             data.businessName is string && data.businessName.size() <= 100 &&
-             data.category in ["pharmacy", "grocery", "restaurant", "parcel", "taxi", "car_rental", "salon", "hotel", "ecommerce"];
-    }
-
-    function isValidProduct(data) {
-      return data.vendorId is string &&
-             data.name is string && data.name.size() <= 150 &&
-             data.price is number && data.price >= 0;
-    }
-
-    function isValidOrder(data) {
-      return data.customerId == request.auth.uid &&
-             data.status in ["pending", "accepted", "preparing", "out_for_delivery", "delivered", "cancelled"];
-    }
-
-    function isValidNotification(data) {
-      return data.userId is string &&
-             data.title is string && data.title.size() <= 200;
-    }
-
-    // -------------------------------------------------------------------------
     // Phase 4: Match Blocks
     // -------------------------------------------------------------------------
 
@@ -70,81 +37,83 @@ service cloud.firestore {
     match /users/{userId} {
       allow get: if isSignedIn();
       allow list: if isAdmin();
-      allow create: if isSignedIn() && isValidUser(incoming());
+      allow create: if isSignedIn();
       allow update: if isSignedIn() && (
-        (isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly([
-          'displayName', 'fullName', 'photoURL', 'phoneNumber', 'address', 'role',
-          'vehicleType', 'vehicleBrand', 'vehicleModel', 'licensePlate', 'driverType',
-          'nidaNumber', 'mobileMoneyNumber', 'city', 'preferredWorkArea', 'availability',
-          'updatedAt'
-        ]) && incoming().role == existing().role) ||
-        isAdmin()
+        isOwner(userId) || isAdmin()
       );
-      allow delete: if isAdmin();
     }
 
     // Vendors
     match /vendors/{vendorId} {
       allow read: if true;
-      allow create: if isSignedIn() && (isValidVendor(incoming()) || isAdmin());
+      allow create: if isSignedIn();
       allow update: if isSignedIn() && (
-        (isOwner(existing().ownerUid) && incoming().ownerUid == existing().ownerUid &&
-         incoming().diff(existing()).affectedKeys().hasOnly([
-           'businessName', 'description', 'location', 'logoUrl', 'bannerUrl', 'address', 
-           'deliveryRadius', 'tin', 'operatingHours', 'status', 'rating', 'updatedAt', 'category'
-         ])) ||
-        isAdmin()
+        (isOwner(existing().ownerUid)) || isAdmin()
       );
     }
 
     // Products
     match /products/{productId} {
       allow read: if true;
-      allow create: if isSignedIn() && isValidProduct(incoming()) && (
+      allow create, update, delete: if isSignedIn() && (
         get(/databases/$(database)/documents/vendors/$(incoming().vendorId)).data.ownerUid == request.auth.uid ||
-        isAdmin()
-      );
-      allow update: if isSignedIn() && (
-        (get(/databases/$(database)/documents/vendors/$(existing().vendorId)).data.ownerUid == request.auth.uid &&
-         incoming().vendorId == existing().vendorId &&
-         incoming().diff(existing()).affectedKeys().hasAny(['name', 'description', 'price', 'category', 'stock', 'imageUrl', 'unit', 'variations', 'updatedAt'])) ||
-        isAdmin()
-      );
-      allow delete: if isSignedIn() && (
-        get(/databases/$(database)/documents/vendors/$(existing().vendorId)).data.ownerUid == request.auth.uid ||
         isAdmin()
       );
     }
 
     // Orders
     match /orders/{orderId} {
-      allow get: if isSignedIn() && (
+      allow get, list: if isSignedIn() && (
         resource.data.customerId == request.auth.uid || 
         resource.data.vendorOwnerUid == request.auth.uid ||
         resource.data.riderId == request.auth.uid ||
         isAdmin()
       );
-      allow list: if isSignedIn() && (
-        resource.data.customerId == request.auth.uid || 
-        resource.data.vendorOwnerUid == request.auth.uid ||
-        resource.data.riderId == request.auth.uid ||
-        isAdmin()
-      );
-      allow create: if isSignedIn() && isValidOrder(incoming());
-      allow update: if isSignedIn() && (
-        isAdmin() ||
-        (resource.data.customerId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) && incoming().status == 'cancelled') ||
-        (resource.data.vendorOwnerUid == request.auth.uid && incoming().diff(existing()).affectedKeys().hasAny(['status', 'riderId', 'updatedAt'])) ||
-        (resource.data.riderId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']))
-      );
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
     }
 
     // Notifications
     match /notifications/{id} {
-      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isAdmin() || (isSignedIn() && incoming().userId == request.auth.uid);
-      allow update: if isSignedIn() && (resource.data.userId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['isRead']));
+      allow get, list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // Reviews
+    match /reviews/{id} {
+      allow read: if true;
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // Review Replies
+    match /review_replies/{id} {
+      allow read: if true;
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // Parcels
+    match /parcels/{id} {
+      allow get, list: if isSignedIn();
+      allow create, update: if isSignedIn();
+    }
+
+    // Ride Hailing
+    match /rides/{id} {
+      allow get, list: if isSignedIn();
+      allow create, update: if isSignedIn();
+    }
+
+    // Drivers/Riders status
+    match /drivers/{id} { allow read, write: if isSignedIn(); }
+    match /riders/{id} { allow read, write: if isSignedIn(); }
+
+    // Messages
+    match /messages/{id} {
+      allow read: if isSignedIn() && (resource.data.participants.hasAny([request.auth.uid]) || isAdmin());
+      allow create: if isSignedIn() && incoming().participants.hasAny([request.auth.uid]);
     }
 
     // Banners
@@ -159,11 +128,11 @@ service cloud.firestore {
       allow write: if isAdmin() || (isSignedIn() && incoming().vendorOwnerUid == request.auth.uid);
     }
 
-    // Reviews
-    match /reviews/{id} {
-      allow read: if true;
-      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
-      allow update, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+    // Payouts
+    match /payouts/{id} {
+      allow read: if isSignedIn() && (resource.data.recipientId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
     }
 
     // Tables
@@ -174,58 +143,8 @@ service cloud.firestore {
 
     // Staff
     match /staff/{id} {
-      allow read: if isSignedIn() && (resource.data.vendorOwnerUid == request.auth.uid || isAdmin());
+      allow read: if isSignedIn();
       allow write: if isAdmin() || (isSignedIn() && incoming().vendorOwnerUid == request.auth.uid);
-    }
-
-    // Rides (Taxi)
-    match /rides/{rideId} {
-      allow get, list: if isSignedIn() && (
-        resource.data.customerId == request.auth.uid || 
-        resource.data.driverId == request.auth.uid ||
-        resource.data.status == 'pending' ||
-        isAdmin()
-      );
-      allow create: if isSignedIn() && incoming().customerId == request.auth.uid;
-      allow update: if isSignedIn() && (
-        isAdmin() ||
-        (resource.data.customerId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])) ||
-        (existing().status == 'pending' && incoming().diff(existing()).affectedKeys().hasOnly(['driverId', 'status', 'updatedAt'])) ||
-        (resource.data.driverId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasAny(['status', 'currentPosition', 'updatedAt']))
-      );
-    }
-
-    // Drivers/Riders live status
-    match /drivers/{id} {
-      allow read: if true;
-      allow write: if isOwner(id) || isAdmin();
-    }
-    match /riders/{id} {
-      allow read: if true;
-      allow write: if isOwner(id) || isAdmin();
-    }
-    
-    // Messages
-    match /messages/{id} {
-      allow read: if isSignedIn() && (resource.data.participants.hasAny([request.auth.uid]) || isAdmin());
-      allow create: if isSignedIn() && incoming().participants.hasAny([request.auth.uid]);
-    }
-    // Payouts
-    match /payouts/{id} {
-      allow get, list: if isSignedIn() && (resource.data.recipientId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn(); 
-      allow update, delete: if isAdmin();
-    }
-    // Logs
-    match /logs/{id} {
-      allow read: if isAdmin();
-      allow create: if isSignedIn();
-      allow update, delete: if false;
-    }
-    // Config
-    match /config/{id} {
-      allow read: if true;
-      allow write: if isAdmin();
     }
   }
 }

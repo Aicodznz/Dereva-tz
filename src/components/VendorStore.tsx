@@ -110,21 +110,35 @@ export default function VendorStore() {
         const q = query(
           collection(db, 'reviews'),
           where('targetId', '==', id),
-          where('targetType', '==', 'vendor'),
-          orderBy('createdAt', 'desc')
+          where('targetType', '==', 'vendor')
         );
         const snap = await getDocs(q);
         const reviewsData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Review));
         
+        // Sort client-side to avoid index requirement
+        const sortedReviewsData = reviewsData.sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateB - dateA;
+        });
+
         // Fetch replies for each review
-        const reviewsWithReplies = await Promise.all(reviewsData.map(async (review) => {
+        const reviewsWithReplies = await Promise.all(sortedReviewsData.map(async (review) => {
           const rq = query(
             collection(db, 'review_replies'),
-            where('reviewId', '==', review.id),
-            orderBy('createdAt', 'asc')
+            where('reviewId', '==', review.id)
           );
           const rSnap = await getDocs(rq);
-          return { ...review, replies: rSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ReviewReply)) };
+          const repliesData = rSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ReviewReply));
+          
+          // Sort client-side
+          const sortedReplies = repliesData.sort((a, b) => {
+            const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return dateA - dateB;
+          });
+
+          return { ...review, replies: sortedReplies };
         }));
 
         setReviews(reviewsWithReplies);
@@ -137,8 +151,16 @@ export default function VendorStore() {
     fetchProducts();
     fetchReviews();
 
-    const pUnsub = onSnapshot(query(collection(db, 'products'), where('vendorId', '==', id)), () => fetchProducts());
-    const rUnsub = onSnapshot(query(collection(db, 'reviews'), where('targetId', '==', id), where('targetType', '==', 'vendor')), () => fetchReviews());
+    const pUnsub = onSnapshot(
+      query(collection(db, 'products'), where('vendorId', '==', id)), 
+      () => fetchProducts(),
+      (error) => handleFirestoreError(error, OperationType.LIST, 'products')
+    );
+    const rUnsub = onSnapshot(
+      query(collection(db, 'reviews'), where('targetId', '==', id), where('targetType', '==', 'vendor')), 
+      () => fetchReviews(),
+      (error) => handleFirestoreError(error, OperationType.LIST, 'reviews')
+    );
 
     return () => {
       pUnsub();

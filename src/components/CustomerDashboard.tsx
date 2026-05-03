@@ -532,10 +532,10 @@ export default function CustomerDashboard() {
         </div>
       </section>
 
-      {/* 5. Migahawa Maarufu (Restaurants) - Vertical List for prominence */}
+      {/* 5. Huduma Maarufu (Popular Services) - Vertical List for prominence */}
       <section>
         <div className="flex items-center justify-between mb-6">
-          <h3 className="font-black text-xl text-neutral-900 dark:text-white tracking-tight">{t('popular_restaurants') || 'Migahawa Maarufu'}</h3>
+          <h3 className="font-black text-xl text-neutral-900 dark:text-white tracking-tight">{t('popular_services') || 'Huduma Maarufu'}</h3>
           <button className="text-orange-600 text-sm font-black">{t('view_all') || 'View All'}</button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

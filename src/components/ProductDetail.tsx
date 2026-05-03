@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { storageService } from '../services/storageService';
-import { db, auth } from '../firebase';
+import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, onSnapshot, getDocs, doc, getDoc, addDoc, updateDoc, deleteDoc, orderBy, limit } from 'firebase/firestore';
 import { useAuth } from '../AuthContext';
 import { initiatePayment } from '../services/paymentService';
@@ -142,11 +142,19 @@ export default function ProductDetail() {
         const q = query(
           collection(db, 'reviews'),
           where('targetId', '==', id),
-          where('targetType', '==', 'product'),
-          orderBy('createdAt', 'desc')
+          where('targetType', '==', 'product')
         );
         const snap = await getDocs(q);
-        setReviews(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Review)));
+        const reviewsData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Review));
+        
+        // Sort client-side to avoid index requirement
+        const sortedReviews = reviewsData.sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateB - dateA;
+        });
+        
+        setReviews(sortedReviews);
       } catch (error) {
         console.error(error);
       }
@@ -160,7 +168,11 @@ export default function ProductDetail() {
       where('targetType', '==', 'product')
     );
     
-    const unsub = onSnapshot(q, () => fetchReviews());
+    const unsub = onSnapshot(
+      q, 
+      () => fetchReviews(),
+      (error) => handleFirestoreError(error, OperationType.LIST, 'reviews')
+    );
 
     return () => unsub();
   }, [id]);
@@ -173,11 +185,19 @@ export default function ProductDetail() {
       const reviewsWithReplies = await Promise.all(reviews.map(async (review) => {
         const q = query(
           collection(db, 'review_replies'),
-          where('reviewId', '==', review.id),
-          orderBy('createdAt', 'asc')
+          where('reviewId', '==', review.id)
         );
         const snap = await getDocs(q);
-        return { ...review, replies: snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ReviewReply)) };
+        const repliesData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ReviewReply));
+        
+        // Sort client-side
+        const sortedReplies = repliesData.sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateA - dateB;
+        });
+
+        return { ...review, replies: sortedReplies };
       }));
       setReviews(reviewsWithReplies);
     };

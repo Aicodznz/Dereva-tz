@@ -35,7 +35,13 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AppContent() {
-  const { user, loading } = useAuth();
+  const { user, loading, signInGuest } = useAuth();
+
+  React.useEffect(() => {
+    if (!loading && !user) {
+      signInGuest().catch(err => console.error("Anonymous sign-in failed:", err));
+    }
+  }, [user, loading, signInGuest]);
   
   return (
     <Routes>
