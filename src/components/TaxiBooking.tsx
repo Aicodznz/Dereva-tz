@@ -298,57 +298,6 @@ export default function TaxiBooking() {
 
   const [driverRouteCoords, setDriverRouteCoords] = useState<[number, number][]>([]);
 
-  // Simulation: Move driver towards user or destination
-  useEffect(() => {
-    if (!rideId || !activeRide || activeRide.status === 'pending') return;
-
-    const simulateMovement = setInterval(async () => {
-      if (!driverLivePos) return;
-
-      const target = (activeRide.status === 'on_trip') ? activeRide.destination : activeRide.pickup;
-      const currentPos = L.latLng(driverLivePos.lat, driverLivePos.lng);
-      const targetPos = L.latLng(target.lat, target.lng);
-
-      if (currentPos.distanceTo(targetPos) < 20) {
-        // Arrived at destination/pickup
-        if (activeRide.status === 'accepted' || activeRide.status === 'driver_arriving') {
-          await updateDoc(doc(db, 'rides', rideId), { status: 'driver_arrived', updatedAt: serverTimestamp() });
-        }
-        return;
-      }
-
-      // Move 40 meters toward target (smoother linear movement)
-      const dist = currentPos.distanceTo(targetPos);
-      const moveDistance = 40; // 40 meters per tick
-      
-      if (dist <= moveDistance) {
-        const newPos = { lat: targetPos.lat, lng: targetPos.lng };
-        setDriverLivePos(newPos);
-        
-        // Final update for this leg
-        await updateDoc(doc(db, 'rides', rideId), { 
-          driverLocation: newPos,
-          updatedAt: serverTimestamp() 
-        });
-      } else {
-        const ratio = moveDistance / dist;
-        const nextLat = currentPos.lat + (targetPos.lat - currentPos.lat) * ratio;
-        const nextLng = currentPos.lng + (targetPos.lng - currentPos.lng) * ratio;
-        const newPos = { lat: nextLat, lng: nextLng };
-        
-        setDriverLivePos(newPos);
-        
-        // Update Firestore
-        await updateDoc(doc(db, 'rides', rideId), { 
-          driverLocation: newPos,
-          updatedAt: serverTimestamp() 
-        });
-      }
-    }, 2000); // More frequent updates for smoothness
-
-    return () => clearInterval(simulateMovement);
-  }, [rideId, activeRide?.status, driverLivePos?.lat]);
-
   // Driver Route: Fetch route from driver to target
   useEffect(() => {
     const fetchDriverRoute = async () => {

@@ -43,15 +43,22 @@ const MapControl = ({ position, target }: { position: { lat: number, lng: number
 };
 
 export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage, isMinimized }) => {
-  const { distance, eta } = useDriverTracking(ride.driverLocation, ride.destination);
+  const isArriving = ride.status !== 'on_trip';
+  const targetLocation = isArriving ? ride.pickup : ride.destination;
+  const { distance, eta } = useDriverTracking(ride.driverLocation, targetLocation);
   
   // Progress calculation
   const progress = useMemo(() => {
     if (!ride.distance || distance === null) return 0;
+    if (isArriving) return 0;
     const travelled = Math.max(0, ride.distance - distance);
     const p = Math.round((travelled / ride.distance) * 100);
     return Math.min(100, Math.max(0, p));
-  }, [distance, ride.distance]);
+  }, [distance, ride.distance, isArriving]);
+
+  const statusText = isArriving ? 'Dereva anakuja...' : 'Safari Inaendelea';
+  const targetLabel = isArriving ? 'Eneo la Pickup' : 'Unakokwenda';
+  const distanceLabel = isArriving ? 'Umbali kwa Dereva' : 'Distance Left';
 
   return (
     <div 
@@ -69,7 +76,7 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
             >
               <div className="bg-[#1D9E75] text-white px-4 py-2 rounded-2xl flex items-center gap-2 shadow-2xl">
                 <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                <span className="text-[10px] font-black uppercase tracking-[0.2em]">Safari Inaendelea</span>
+                <span className="text-[10px] font-black uppercase tracking-[0.2em]">{statusText}</span>
               </div>
             </motion.div>
           )}
@@ -106,9 +113,9 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
         
         <div className="flex items-center justify-between mb-8">
            <div className="space-y-1">
-              <p className="text-[10px] font-black text-[#6b6b8a] uppercase tracking-widest">Unakokwenda</p>
+              <p className="text-[10px] font-black text-[#6b6b8a] uppercase tracking-widest">{targetLabel}</p>
               <h3 className="text-sm font-black text-[#f0eeff] italic truncate max-w-[200px]">
-                {ride.destination.address}
+                {targetLocation.address}
               </h3>
            </div>
            <div className="text-right">
@@ -139,7 +146,7 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
                  <Navigation2 className="w-5 h-5 text-[#1D9E75]" />
               </div>
               <div>
-                 <p className="text-[8px] font-black text-[#6b6b8a] uppercase tracking-widest">Distance Left</p>
+                 <p className="text-[8px] font-black text-[#6b6b8a] uppercase tracking-widest">{distanceLabel}</p>
                  <h4 className="text-xs font-black text-[#f0eeff] italic">
                    {distance ? distance.toFixed(1) : (ride.distance || '0.0')} km
                  </h4>

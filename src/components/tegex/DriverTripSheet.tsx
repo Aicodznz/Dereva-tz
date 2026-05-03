@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { motion } from 'motion/react';
-import { Phone, MessageSquare, MapPin, Navigation2, CheckCircle2, ArrowRight, ChevronUp, ChevronDown } from 'lucide-react';
+import { Phone, MessageSquare, MapPin, Navigation2, CheckCircle2, ArrowRight, ChevronUp, ChevronDown, Map as MapIcon } from 'lucide-react';
 import { Ride } from '../../types/ride.types';
+import { useDriverTracking } from '../../hooks/useDriverTracking';
 
 interface DriverTripSheetProps {
   ride: Ride;
@@ -13,9 +14,28 @@ interface DriverTripSheetProps {
 }
 
 export default function DriverTripSheet({ ride, onArrive, onStart, onComplete, isMinimized, onToggleMinimize }: DriverTripSheetProps) {
-  const isArriving = ride.status === 'accepted';
+  const isArriving = ride.status === 'accepted' || ride.status === 'driver_arriving';
   const isArrived = ride.status === 'driver_arrived';
   const isOnTrip = ride.status === 'on_trip';
+
+  const targetLocation = useMemo(() => {
+    if (isOnTrip) return ride.destination;
+    return ride.pickup;
+  }, [isOnTrip, ride.pickup, ride.destination]);
+
+  const { distance, eta } = useDriverTracking(ride.driverLocation, targetLocation);
+
+  const progress = useMemo(() => {
+    if (!ride.distance || distance === null) return 0;
+    // For pickup, we don't have a starting 'total distance' easily available in the ride object
+    // except specifically for the trip portion. 
+    if (isArriving) return 0; 
+    const travelled = Math.max(0, ride.distance - distance);
+    const p = Math.round((travelled / ride.distance) * 100);
+    return Math.min(100, Math.max(0, p));
+  }, [distance, ride.distance, isArriving]);
+
+  const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${targetLocation.lat},${targetLocation.lng}`;
 
   const [waitTimer, setWaitTimer] = React.useState(0);
   
@@ -105,6 +125,9 @@ export default function DriverTripSheet({ ride, onArrive, onStart, onComplete, i
                  </div>
               </div>
               <div className="flex gap-2">
+                 <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer" className="w-12 h-12 rounded-2xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-500 active:scale-90 transition-transform" title="Google Maps">
+                    <MapIcon className="w-5 h-5" />
+                 </a>
                  <a href={`tel:${ride.customerInfo?.phone || '0700000000'}`} className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500 active:scale-90 transition-transform">
                     <Phone className="w-5 h-5" />
                  </a>
@@ -114,17 +137,21 @@ export default function DriverTripSheet({ ride, onArrive, onStart, onComplete, i
               </div>
             </div>
 
-            {isOnTrip && (
+            {(isOnTrip || isArriving) && (
               <div className="space-y-2">
                  <div className="flex justify-between items-center">
-                    <p className="text-[10px] font-black text-neutral-500 uppercase tracking-widest italic">Safarni...</p>
-                    <p className="text-[10px] font-black text-[#7F77DD] italic">{ride.distance?.toFixed(1) || '5.1'} km imebaki</p>
+                    <p className="text-[10px] font-black text-neutral-500 uppercase tracking-widest italic">
+                      {isOnTrip ? 'Safarni...' : 'Njia ya kufuata mteja...'}
+                    </p>
+                    <p className="text-[10px] font-black text-[#7F77DD] italic">
+                      {distance?.toFixed(1) || (ride.distance?.toFixed(1) || '0.0')} km imebaki
+                    </p>
                  </div>
                  <div className="h-2 bg-[#0a0a0f] rounded-full overflow-hidden border border-[#1e1e2e]">
                     <motion.div 
                        className="h-full bg-[#1D9E75]"
                        initial={{ width: '0%' }}
-                       animate={{ width: '62%' }}
+                       animate={{ width: `${progress}%` }}
                     />
                  </div>
               </div>

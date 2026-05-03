@@ -6,12 +6,41 @@ import {
   Navigation2, CreditCard, Star, Calendar, Receipt
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { useAuth } from '../../AuthContext';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { toPng } from 'html-to-image';
+import { getMapBounds } from '../../utils/mapHelpers';
+
+const PickupIcon = L.divIcon({
+  html: `<div class="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center border-2 border-white shadow-lg text-white"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></div>`,
+  className: 'bg-transparent',
+  iconSize: [32, 32],
+  iconAnchor: [16, 32]
+});
+
+const DestinationIcon = L.divIcon({
+  html: `<div class="w-8 h-8 bg-[#D85A30] rounded-full flex items-center justify-center border-2 border-white shadow-lg text-white"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg></div>`,
+  className: 'bg-transparent',
+  iconSize: [32, 32],
+  iconAnchor: [16, 32]
+});
+
+const MapBoundsAdjuster = ({ points }: { points: [number, number][] }) => {
+  const map = useMap();
+  useEffect(() => {
+    const bounds = getMapBounds(points);
+    if (bounds) {
+      map.fitBounds(bounds, { padding: [40, 40] });
+    }
+  }, [points, map]);
+  return null;
+};
 
 interface Ride {
   id: string;
@@ -106,7 +135,15 @@ const TaxiHistory: React.FC = () => {
     
     try {
       toast.loading("Inatengeneza stakabadhi...");
-      const dataUrl = await toPng(receiptRef.current, { cacheBust: true });
+      
+      // Delay to ensure Leaflet tiles and markers are rendered in the hidden container
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      const dataUrl = await toPng(receiptRef.current, { 
+        cacheBust: true,
+        backgroundColor: '#ffffff',
+      });
+      
       const link = document.createElement('a');
       link.download = `taxi-receipt-${selectedRide?.id.slice(0, 8)}.png`;
       link.href = dataUrl;
@@ -255,7 +292,7 @@ const TaxiHistory: React.FC = () => {
                 </div>
 
                 {/* Receipt Preview (What will be downloaded) */}
-                <div className="fixed -left-[9999px] top-0 pointer-events-none opacity-0">
+                <div className="fixed top-0 left-0 pointer-events-none opacity-0 -z-50">
                   <div ref={receiptRef} className="p-10 bg-white text-black w-[400px] font-sans">
                      <div className="text-center mb-8">
                         <h1 className="text-2xl font-black uppercase italic tracking-tighter">PAPO HAPO</h1>
@@ -275,11 +312,48 @@ const TaxiHistory: React.FC = () => {
                            <span className="font-black uppercase">{selectedRide.vehicleType}</span>
                         </div>
                      </div>
-                     <div className="space-y-4 mb-8">
+                      <div className="space-y-4 mb-8">
                         <div>
                            <p className="text-[8px] font-black text-neutral-400 uppercase tracking-widest mb-1 italic">Pickup</p>
                            <p className="text-xs font-bold leading-tight">{selectedRide.pickup?.address || 'Location data missing'}</p>
                         </div>
+                        
+                        {/* Map in Receipt */}
+                        {selectedRide.pickup && selectedRide.destination && (
+                          <div className="h-32 w-full rounded-xl overflow-hidden border border-neutral-100 relative my-2">
+                             <MapContainer 
+                               center={[selectedRide.pickup.lat, selectedRide.pickup.lng]} 
+                               zoom={12} 
+                               zoomControl={false}
+                               dragging={false}
+                               scrollWheelZoom={false}
+                               touchZoom={false}
+                               doubleClickZoom={false}
+                               boxZoom={false}
+                               keyboard={false}
+                               className="h-full w-full"
+                             >
+                               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{y}/{x}.png" />
+                               <Marker position={[selectedRide.pickup.lat, selectedRide.pickup.lng]} icon={PickupIcon} />
+                               <Marker position={[selectedRide.destination.lat, selectedRide.destination.lng]} icon={DestinationIcon} />
+                               <Polyline 
+                                 positions={[
+                                   [selectedRide.pickup.lat, selectedRide.pickup.lng],
+                                   [selectedRide.destination.lat, selectedRide.destination.lng]
+                                 ]}
+                                 color="#1D9E75"
+                                 weight={4}
+                                 opacity={0.8}
+                                 dashArray="5, 10"
+                               />
+                               <MapBoundsAdjuster points={[
+                                 [selectedRide.pickup.lat, selectedRide.pickup.lng],
+                                 [selectedRide.destination.lat, selectedRide.destination.lng]
+                               ]} />
+                             </MapContainer>
+                          </div>
+                        )}
+
                         <div>
                            <p className="text-[8px] font-black text-neutral-400 uppercase tracking-widest mb-1 italic">Dropoff</p>
                            <p className="text-xs font-bold leading-tight">{selectedRide.destination?.address || 'Location data missing'}</p>
@@ -352,6 +426,38 @@ const TaxiHistory: React.FC = () => {
                         <p className="text-xs font-bold text-white leading-relaxed">{selectedRide.pickup?.address || 'Location data missing'}</p>
                       </div>
                     </div>
+
+                    {/* Trip Map */}
+                    {selectedRide.pickup && selectedRide.destination && (
+                      <div className="h-40 w-full rounded-2xl overflow-hidden border border-white/10 relative z-0">
+                         <MapContainer 
+                           center={[selectedRide.pickup.lat, selectedRide.pickup.lng]} 
+                           zoom={13} 
+                           zoomControl={false}
+                           dragging={true}
+                           scrollWheelZoom={false}
+                           className="h-full w-full"
+                         >
+                           <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{y}/{x}{r}.png" />
+                           <Marker position={[selectedRide.pickup.lat, selectedRide.pickup.lng]} icon={PickupIcon} />
+                           <Marker position={[selectedRide.destination.lat, selectedRide.destination.lng]} icon={DestinationIcon} />
+                           <Polyline 
+                             positions={[
+                               [selectedRide.pickup.lat, selectedRide.pickup.lng],
+                               [selectedRide.destination.lat, selectedRide.destination.lng]
+                             ]}
+                             color="#1D9E75"
+                             weight={3}
+                             opacity={0.6}
+                             dashArray="5, 8"
+                           />
+                           <MapBoundsAdjuster points={[
+                             [selectedRide.pickup.lat, selectedRide.pickup.lng],
+                             [selectedRide.destination.lat, selectedRide.destination.lng]
+                           ]} />
+                         </MapContainer>
+                      </div>
+                    )}
 
                     <div className="flex gap-4">
                       <div className="w-10 h-10 bg-neutral-800 rounded-2xl flex items-center justify-center shrink-0 border border-white/5">
