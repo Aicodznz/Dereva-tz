@@ -16,7 +16,6 @@ import LocationPicker from './LocationPicker';
 
 import { useLanguage } from '../LanguageContext';
 import { useCart } from '../CartContext';
-import HowToOrder from './HowToOrder';
 import { useHeader } from '../HeaderContext';
 
 export default function CustomerDashboard() {
@@ -611,11 +610,6 @@ export default function CustomerDashboard() {
             </div>
           )}
         </div>
-      </section>
-
-      {/* 7. How To Order Infographic */}
-      <section className="pt-12">
-        <HowToOrder />
       </section>
     </div>
   );

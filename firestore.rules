@@ -48,7 +48,7 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isSignedIn();
       allow update: if isSignedIn() && (
-        (isOwner(existing().ownerUid)) || isAdmin()
+        isOwner(existing().ownerUid) || isAdmin()
       );
     }
 
@@ -130,7 +130,7 @@ service cloud.firestore {
 
     // Payouts
     match /payouts/{id} {
-      allow read: if isSignedIn() && (resource.data.recipientId == request.auth.uid || isAdmin());
+      allow get, list: if isSignedIn() && (resource.data.recipientId == request.auth.uid || isAdmin());
       allow create: if isSignedIn();
       allow update, delete: if isAdmin();
     }

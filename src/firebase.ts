@@ -9,7 +9,7 @@ const app = initializeApp(firebaseConfig);
 // Using initializeFirestore to enable ignoreUndefinedProperties
 export const db = initializeFirestore(app, {
   ignoreUndefinedProperties: true,
-}, firebaseConfig.firestoreDatabaseId);
+}, (firebaseConfig as any).firestoreDatabaseId);
 
 export const storage = getStorage(app);
 export { signInWithPopup, signOut, signInAnonymously };
