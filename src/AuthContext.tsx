@@ -184,8 +184,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signInGuest = async () => {
     try {
       await signInAnonymously(auth);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Guest sign in error:', error);
+      if (error.code === 'auth/admin-restricted-operation' || error.code === 'auth/operation-not-allowed') {
+        toast.error("Anonymous Authentication haijawezeshwa.", {
+          description: "Washa 'Anonymous' auth kwenye mradi wako wa Firebase kule Console.",
+          duration: 10000
+        });
+      }
       throw error;
     }
   };

@@ -75,7 +75,7 @@ function AutoFitBounds({ vendors }: { vendors: any[] }) {
       const validVendors = vendors.filter(v => v.location && v.location.lat && v.location.lng);
       if (validVendors.length > 0) {
         const bounds = L.latLngBounds(validVendors.map(v => [v.location.lat, v.location.lng]));
-        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 20 });
       }
     }
   }, [vendors, map]);
@@ -163,7 +163,8 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
 
   const fetchSuggestions = async (query: string) => {
     try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`);
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1&email=aicodtznation@gmail.com`);
+      if (!response.ok) throw new Error('Search failed');
       const data = await response.json();
       setSuggestions(data);
     } catch (err) {
@@ -187,13 +188,24 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
   // Reverse geocoding function
   const reverseGeocode = async (lat: number, lng: number) => {
     try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1&email=aicodtznation@gmail.com`);
+      if (!response.ok) throw new Error('Reverse geocoding failed');
       const data = await response.json();
       if (data && data.display_name) {
         setAddress(data.display_name);
+      } else {
+        throw new Error('No display name');
       }
     } catch (err) {
-      console.error('Reverse geocoding failed:', err);
+      console.error('Reverse geocoding failed, trying fallback:', err);
+      try {
+        const bdcResponse = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=sw`);
+        const bdcData = await bdcResponse.json();
+        const bdcAddress = bdcData.locality || bdcData.city || bdcData.principalSubdivision || 'Unknown Location';
+        setAddress(bdcAddress);
+      } catch (bdcErr) {
+        console.error('All geocoding attempts failed:', bdcErr);
+      }
     }
   };
 
@@ -203,7 +215,8 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
     setIsSearching(true);
     setError(null);
     try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&email=aicodtznation@gmail.com`);
+      if (!response.ok) throw new Error('Search failed');
       const data = await response.json();
       if (data && data.length > 0) {
         const newPos = new L.LatLng(parseFloat(data[0].lat), parseFloat(data[0].lon));
@@ -428,6 +441,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
               <MapContainer 
                 center={position} 
                 zoom={14} 
+                maxZoom={22}
                 style={{ height: '100%', width: '100%' }}
                 zoomControl={false}
                 whenReady={() => setTimeout(() => setMapReady(true), 100)}
@@ -437,6 +451,8 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                     ? "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                     : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   }
+                  maxZoom={22}
+                  maxNativeZoom={19}
                   attribution='&copy; ESRI &copy; OpenStreetMap'
                 />
                 {mapReady && (

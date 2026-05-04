@@ -32,7 +32,8 @@ import {
   Utensils,
   ShoppingBag,
   Store,
-  Package
+  Package,
+  Armchair
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -577,6 +578,73 @@ export default function ProductDetail() {
                 <div className="h-12 bg-neutral-100 rounded-xl flex items-center px-4 gap-2">
                   <Calendar className="w-4 h-4 text-orange-600" />
                   <input type="date" className="bg-transparent border-none text-sm w-full focus:ring-0" />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {category === 'bus_ticket' && (
+          <div className="space-y-6 pt-4 border-t border-neutral-100">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-lg">Maelezo ya Safari</h3>
+              <Badge className="bg-green-50 text-green-600 border-none font-black text-[10px] uppercase">Active Trip</Badge>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-100">
+                <p className="text-[10px] font-black text-neutral-400 uppercase mb-1">Boarding Point</p>
+                <p className="text-sm font-bold text-neutral-900 line-clamp-1">{(product as any).boardingPoint || 'Main Office, Ubungo'}</p>
+                <div className="flex items-center gap-1 mt-1 text-orange-600">
+                  <MapPin className="w-3 h-3" />
+                  <span className="text-[10px] font-bold">Open in Maps</span>
+                </div>
+              </div>
+              <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-100">
+                <p className="text-[10px] font-black text-neutral-400 uppercase mb-1">Departure Time</p>
+                <p className="text-sm font-bold text-neutral-900">{(product as any).departureTime || '06:00 AM'}</p>
+                <div className="flex items-center gap-1 mt-1 text-orange-600">
+                  <Clock className="w-3 h-3" />
+                  <span className="text-[10px] font-bold">Local Time</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-black text-neutral-900 uppercase italic">Chagua Kiti (Select Seat)</h4>
+                <p className="text-[10px] font-bold text-neutral-500">{(product as any).availableSeats || '45'} available</p>
+              </div>
+              <div className="grid grid-cols-5 gap-2 h-48 overflow-y-auto p-4 bg-neutral-900 rounded-3xl no-scrollbar border-4 border-neutral-800">
+                {Array.from({ length: 48 }).map((_, i) => {
+                  const isBooked = [3, 7, 12, 14, 22, 23, 30].includes(i);
+                  return (
+                    <button 
+                      key={i}
+                      disabled={isBooked}
+                      className={`aspect-square rounded-lg flex items-center justify-center text-[10px] font-black transition-all ${
+                        isBooked 
+                        ? 'bg-neutral-800 text-neutral-700 cursor-not-allowed' 
+                        : 'bg-neutral-700 text-white hover:bg-orange-600 hover:scale-110 active:scale-95'
+                      }`}
+                    >
+                      <Armchair className="w-4 h-4" />
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex justify-center gap-4">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded-full bg-neutral-700" />
+                  <span className="text-[10px] font-bold text-neutral-400 uppercase">Available</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded-full bg-neutral-800" />
+                  <span className="text-[10px] font-bold text-neutral-400 uppercase">Booked</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded-full bg-orange-600" />
+                  <span className="text-[10px] font-bold text-neutral-400 uppercase">Selected</span>
                 </div>
               </div>
             </div>

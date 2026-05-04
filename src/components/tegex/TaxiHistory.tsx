@@ -326,6 +326,7 @@ const TaxiHistory: React.FC = () => {
                              <MapContainer 
                                center={[selectedRide.pickup.lat, selectedRide.pickup.lng]} 
                                zoom={12} 
+                               maxZoom={22}
                                zoomControl={false}
                                dragging={false}
                                scrollWheelZoom={false}
@@ -335,7 +336,11 @@ const TaxiHistory: React.FC = () => {
                                keyboard={false}
                                className="h-full w-full"
                              >
-                               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{y}/{x}.png" />
+                               <TileLayer 
+                                 url="https://{s}.tile.openstreetmap.org/{z}/{y}/{x}.png" 
+                                 maxZoom={22}
+                                 maxNativeZoom={19}
+                               />
                                <Marker position={[selectedRide.pickup.lat, selectedRide.pickup.lng]} icon={PickupIcon} />
                                <Marker position={[selectedRide.destination.lat, selectedRide.destination.lng]} icon={DestinationIcon} />
                                <Polyline 
@@ -435,12 +440,17 @@ const TaxiHistory: React.FC = () => {
                          <MapContainer 
                            center={[selectedRide.pickup.lat, selectedRide.pickup.lng]} 
                            zoom={13} 
+                           maxZoom={22}
                            zoomControl={false}
                            dragging={true}
                            scrollWheelZoom={false}
                            className="h-full w-full"
                          >
-                           <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{y}/{x}{r}.png" />
+                           <TileLayer 
+                             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{y}/{x}{r}.png" 
+                             maxZoom={22}
+                             maxNativeZoom={19}
+                           />
                            <Marker position={[selectedRide.pickup.lat, selectedRide.pickup.lng]} icon={PickupIcon} />
                            <Marker position={[selectedRide.destination.lat, selectedRide.destination.lng]} icon={DestinationIcon} />
                            <Polyline 

@@ -102,7 +102,8 @@ export default function CustomerDashboard() {
         async (pos) => {
           const { latitude, longitude } = pos.coords;
           try {
-            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`);
+            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1&email=aicodtznation@gmail.com`);
+            if (!response.ok) throw new Error('Nominatim failed');
             const data = await response.json();
             if (data && data.display_name) {
               setLocation({
@@ -111,11 +112,24 @@ export default function CustomerDashboard() {
                 lng: longitude
               });
             } else {
-              setLocation(prev => ({ ...prev, lat: latitude, lng: longitude }));
+              throw new Error('No address data');
             }
           } catch (err) {
-            console.error('Auto reverse geocoding failed:', err);
-            setLocation(prev => ({ ...prev, lat: latitude, lng: longitude }));
+            console.error('Auto reverse geocoding failed, trying fallback:', err);
+            try {
+              const bdcResponse = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=sw`);
+              if (!bdcResponse.ok) throw new Error('BDC failed');
+              const bdcData = await bdcResponse.json();
+              const bdcAddress = bdcData.locality || bdcData.city || bdcData.principalSubdivision || 'Current Location';
+              setLocation({
+                address: bdcAddress,
+                lat: latitude,
+                lng: longitude
+              });
+            } catch (bdcErr) {
+              console.error('Final geocoding fallback failed:', bdcErr);
+              setLocation(prev => ({ ...prev, lat: latitude, lng: longitude }));
+            }
           }
         },
         (err) => {

@@ -89,7 +89,7 @@ function MapBoundsUpdater({ activeRide, position }: { activeRide: any, position:
          bounds.extend([activeRide.pickup.lat, activeRide.pickup.lng]);
       }
 
-      map.fitBounds(bounds, { padding: [100, 100], maxZoom: 16 });
+      map.fitBounds(bounds, { padding: [100, 100], maxZoom: 20 });
       lastStatus.current = activeRide.status;
       lastRideId.current = activeRide.id;
     }
@@ -688,12 +688,15 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
         <MapContainer 
           center={position} 
           zoom={15} 
+          maxZoom={22}
           style={{ height: '100%', width: '100%' }}
           zoomControl={false}
           className="transition-all duration-1000"
         >
           <TileLayer 
             url={mapTileUrl}
+            maxZoom={22}
+            maxNativeZoom={19}
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
           />
           

@@ -3,15 +3,11 @@ service cloud.firestore {
   match /databases/{database}/documents {
     
     // -------------------------------------------------------------------------
-    // Phase 3: Primitives & Global Helpers
+    // Primitives & Global Helpers
     // -------------------------------------------------------------------------
 
     function isSignedIn() { return request.auth != null; }
     
-    function isValidId(id) { 
-      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); 
-    }
-
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email == "aicodtznation@gmail.com" ||
@@ -24,13 +20,8 @@ service cloud.firestore {
     
     function isOwner(uid) { return isSignedIn() && request.auth.uid == uid; }
 
-    // Default Deny
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
     // -------------------------------------------------------------------------
-    // Phase 4: Match Blocks
+    // Match Blocks
     // -------------------------------------------------------------------------
 
     // Users
@@ -38,18 +29,14 @@ service cloud.firestore {
       allow get: if isSignedIn();
       allow list: if isAdmin();
       allow create: if isSignedIn();
-      allow update: if isSignedIn() && (
-        isOwner(userId) || isAdmin()
-      );
+      allow update: if isSignedIn() && (isOwner(userId) || isAdmin());
     }
 
     // Vendors
     match /vendors/{vendorId} {
       allow read: if true;
       allow create: if isSignedIn();
-      allow update: if isSignedIn() && (
-        isOwner(existing().ownerUid) || isAdmin()
-      );
+      allow update: if isSignedIn() && (isOwner(existing().ownerUid) || isAdmin());
     }
 
     // Products
@@ -69,8 +56,7 @@ service cloud.firestore {
         resource.data.riderId == request.auth.uid ||
         isAdmin()
       );
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
+      allow create, update: if isSignedIn();
     }
 
     // Notifications
@@ -80,30 +66,28 @@ service cloud.firestore {
       allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
-    // Reviews
+    // Reviews (PUBLIC READ)
     match /reviews/{id} {
-      allow read: if true;
+      allow read, get, list: if true;
       allow create: if isSignedIn() && incoming().userId == request.auth.uid;
       allow update, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
     }
 
-    // Review Replies
+    // Review Replies (PUBLIC READ)
     match /review_replies/{id} {
-      allow read: if true;
+      allow read, get, list: if true;
       allow create: if isSignedIn() && incoming().userId == request.auth.uid;
       allow update, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
     }
 
     // Parcels
     match /parcels/{id} {
-      allow get, list: if isSignedIn();
-      allow create, update: if isSignedIn();
+      allow get, list, create, update: if isSignedIn();
     }
 
     // Ride Hailing
     match /rides/{id} {
-      allow get, list: if isSignedIn();
-      allow create, update: if isSignedIn();
+      allow get, list, create, update: if isSignedIn();
     }
 
     // Drivers/Riders status
@@ -124,7 +108,7 @@ service cloud.firestore {
 
     // Coupons
     match /coupons/{id} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow write: if isAdmin() || (isSignedIn() && incoming().vendorOwnerUid == request.auth.uid);
     }
 
@@ -138,7 +122,7 @@ service cloud.firestore {
     // Tables
     match /tables/{id} {
       allow read: if true;
-      allow write: if isAdmin() || (isSignedIn() && incoming().vendorOwnerUid == request.auth.uid);
+      allow write: if isAdmin() || (isSignedIn() && (incoming().vendorOwnerUid == request.auth.uid || incoming().vendorId == request.auth.uid));
     }
 
     // Staff

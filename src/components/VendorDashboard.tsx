@@ -187,19 +187,19 @@ export default function VendorDashboard() {
       case 'bus_ticket':
         return {
           type: 'transit',
-          ordersLabel: cat === 'bus_ticket' ? 'Ticket Bookings' : 'Shipments & Trips',
-          ordersDescription: cat === 'bus_ticket' ? 'Manage bus ticket reservations and passengers.' : 'Manage deliveries, taxi rides, and fleet activity.',
-          ordersIcon: cat === 'bus_ticket' ? Bus : Package,
-          inventoryLabel: cat === 'bus_ticket' ? 'Routes & Schedules' : 'Fleet / Rates',
-          inventoryIcon: cat === 'bus_ticket' ? Ticket : Truck,
-          locationLabel: cat === 'bus_ticket' ? 'Stations' : 'Service Zones',
-          locationLabelSingular: cat === 'bus_ticket' ? 'Station' : 'Zone',
-          posLabel: cat === 'bus_ticket' ? 'Booking Counter' : 'Dispatch',
-          posIcon: MapPin,
-          fulfillmentAction: cat === 'bus_ticket' ? 'Booking' : 'Dispatching',
-          readyLabel: 'Confirmed',
-          pickingLabel: 'In Progress',
-          awaitingLabel: 'Queue'
+          ordersLabel: 'Tiketi & Abiria',
+          ordersDescription: 'Manage bus ticket reservations and passenger lists.',
+          ordersIcon: Bus,
+          inventoryLabel: 'Ratiwa & Njia',
+          inventoryIcon: Calendar,
+          locationLabel: 'Vituo vya Mabasi',
+          locationLabelSingular: 'Bus Station',
+          posLabel: 'Counter ya Kukata Tiketi',
+          posIcon: Ticket,
+          fulfillmentAction: 'Booking',
+          readyLabel: 'Safari Imeanza',
+          pickingLabel: 'Boarding In-Progress',
+          awaitingLabel: 'Zinasubiri'
         };
       default: // grocery, ecommerce, etc.
         return {
@@ -2091,11 +2091,18 @@ export default function VendorDashboard() {
                           </div>
                         </div>
                         <div className="px-1 mt-auto">
-                          <h4 className="font-black text-sm text-white truncate mb-1 italic uppercase tracking-tight">{product.name}</h4>
+                          <h4 className="font-black text-sm text-white truncate mb-1 italic uppercase tracking-tight">
+                            {vendorProfile?.category === 'bus_ticket' ? `${(product as any).origin} → ${(product as any).destination}` : product.name}
+                          </h4>
                           <div className="flex items-center justify-between">
                             <p className="text-orange-500 font-black text-xs">TZS {product.price.toLocaleString()}</p>
-                            <span className="text-[9px] text-neutral-600 font-black uppercase tracking-widest bg-neutral-950 px-2 py-0.5 rounded-lg border border-neutral-800">{product.stock} left</span>
+                            <span className="text-[9px] text-neutral-600 font-black uppercase tracking-widest bg-neutral-950 px-2 py-0.5 rounded-lg border border-neutral-800">
+                              {vendorProfile?.category === 'bus_ticket' ? `${product.stock} Seats` : `${product.stock} left`}
+                            </span>
                           </div>
+                          {vendorProfile?.category === 'bus_ticket' && (
+                             <p className="text-[8px] text-neutral-500 font-bold uppercase mt-1">Bus: {product.name}</p>
+                          )}
                         </div>
                       </motion.button>
                     ))}
@@ -3497,58 +3504,67 @@ export default function VendorDashboard() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-neutral-800/50">
-                      {filteredInventory.map((product, idx) => (
-                        <tr key={`inventory-row-${product.id || idx}`} className="hover:bg-neutral-800/20 transition-all group">
-                          <td className="px-8 py-6">
-                            <div className="flex items-center gap-4">
-                              <div className="w-16 h-16 rounded-[1.5rem] bg-neutral-900 overflow-hidden relative border border-neutral-800 group-hover:border-orange-600/50 transition-all">
-                                 {product.imageUrl ? (
-                                   <img src={product.imageUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                                 ) : (
-                                   <Package className="w-full h-full p-4 opacity-10" />
-                                 )}
-                              </div>
-                              <div>
-                                 <p className="font-black text-white text-md uppercase tracking-tight italic">{product.name}</p>
-                                 <p className="text-[10px] text-neutral-600 font-bold uppercase tracking-wider">SKU: {product.id?.slice(0, 8).toUpperCase()}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-8 py-6">
-                             <span className="px-4 py-1.5 bg-neutral-900 border border-neutral-800 rounded-full text-[10px] font-black text-neutral-400 uppercase tracking-widest">{product.category}</span>
-                          </td>
-                          <td className="px-8 py-6 text-center">
-                             <p className="font-black text-orange-500">TZS {product.price.toLocaleString()}</p>
-                          </td>
-                          <td className="px-8 py-6">
-                             <div className="flex flex-col items-center gap-2">
-                                <div className="w-24 h-1.5 bg-neutral-950 rounded-full overflow-hidden border border-neutral-800">
-                                   <div 
-                                     className={`h-full rounded-full transition-all duration-1000 ${
-                                       product.stock < 10 ? 'bg-red-500' : product.stock < 50 ? 'bg-yellow-500' : 'bg-green-500'
-                                     }`}
-                                     style={{ width: `${Math.min(100, (product.stock / 200) * 100)}%` }}
-                                   ></div>
+                      {filteredInventory.map((product, idx) => {
+                        const isBus = vendorProfile?.category === 'bus_ticket';
+                        return (
+                          <tr key={`inventory-row-${product.id || idx}`} className="hover:bg-neutral-800/20 transition-all group">
+                            <td className="px-8 py-6">
+                              <div className="flex items-center gap-4">
+                                <div className="w-16 h-16 rounded-[1.5rem] bg-neutral-900 overflow-hidden relative border border-neutral-800 group-hover:border-orange-600/50 transition-all">
+                                   {product.imageUrl ? (
+                                     <img src={product.imageUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                   ) : (
+                                     <div className="w-full h-full flex items-center justify-center bg-neutral-950">
+                                       <Bus className="w-8 h-8 text-neutral-800" />
+                                     </div>
+                                   )}
                                 </div>
-                                <span className={`text-[10px] font-black uppercase tracking-widest ${
-                                  product.stock < 10 ? 'text-red-500' : 'text-neutral-500'
-                                }`}>
-                                   {product.stock} units
-                                </span>
-                             </div>
-                          </td>
-                          <td className="px-8 py-6 text-right">
-                             <div className="flex items-center justify-end gap-2">
-                                <Button variant="ghost" size="icon" className="h-10 w-10 bg-neutral-900 rounded-xl text-neutral-400 hover:text-white" onClick={() => handleEditProduct(product)}>
-                                   <Edit2 className="w-4 h-4" />
-                                </Button>
-                                <Button variant="ghost" size="icon" className="h-10 w-10 bg-neutral-950/50 rounded-xl text-neutral-600 hover:text-red-500 hover:bg-neutral-900" onClick={() => handleDeleteProduct(product.id!)}>
-                                   <Trash2 className="w-4 h-4" />
-                                </Button>
-                             </div>
-                          </td>
-                        </tr>
-                      ))}
+                                <div>
+                                   <p className="font-black text-white text-md uppercase tracking-tight italic">
+                                     {isBus ? `${(product as any).origin || 'Dar'} → ${(product as any).destination || 'Arusha'}` : product.name}
+                                   </p>
+                                   <p className="text-[10px] text-neutral-600 font-bold uppercase tracking-wider">
+                                     {isBus ? `Departure: ${(product as any).departureTime || '06:00 AM'}` : `SKU: ${product.id?.slice(0, 8).toUpperCase()}`}
+                                   </p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-8 py-6">
+                               <span className="px-4 py-1.5 bg-neutral-900 border border-neutral-800 rounded-full text-[10px] font-black text-neutral-400 uppercase tracking-widest">{product.category}</span>
+                            </td>
+                            <td className="px-8 py-6 text-center">
+                               <p className="font-black text-orange-500">TZS {product.price.toLocaleString()}</p>
+                            </td>
+                            <td className="px-8 py-6">
+                               <div className="flex flex-col items-center gap-2">
+                                  <div className="w-24 h-1.5 bg-neutral-950 rounded-full overflow-hidden border border-neutral-800">
+                                     <div 
+                                       className={`h-full rounded-full transition-all duration-1000 ${
+                                         product.stock < 10 ? 'bg-red-500' : product.stock < 50 ? 'bg-yellow-500' : 'bg-green-500'
+                                       }`}
+                                       style={{ width: `${Math.min(100, (product.stock / (isBus ? (product as any).totalSeats || 50 : 200)) * 100)}%` }}
+                                     ></div>
+                                  </div>
+                                  <span className={`text-[10px] font-black uppercase tracking-widest ${
+                                    product.stock < 10 ? 'text-red-500' : 'text-neutral-500'
+                                  }`}>
+                                     {product.stock} {isBus ? 'Seats Left' : 'units'}
+                                  </span>
+                               </div>
+                            </td>
+                            <td className="px-8 py-6 text-right">
+                               <div className="flex items-center justify-end gap-2">
+                                  <Button variant="ghost" size="icon" className="h-10 w-10 bg-neutral-900 rounded-xl text-neutral-400 hover:text-white" onClick={() => handleEditProduct(product)}>
+                                     <Edit2 className="w-4 h-4" />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" className="h-10 w-10 bg-neutral-950/50 rounded-xl text-neutral-600 hover:text-red-500 hover:bg-neutral-900" onClick={() => handleDeleteProduct(product.id!)}>
+                                     <Trash2 className="w-4 h-4" />
+                                  </Button>
+                               </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -3713,48 +3729,96 @@ export default function VendorDashboard() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-neutral-500 uppercase">Product Name / Jina la Bidhaa</label>
+                  <label className="text-xs font-bold text-neutral-500 uppercase">
+                    {vendorProfile?.category === 'bus_ticket' ? 'Trip Label / Jina la Safari' : 'Product Name / Jina la Bidhaa'}
+                  </label>
                   <Input 
                     required 
                     className="bg-neutral-800 border-none h-12 rounded-xl"
                     value={newProduct.name}
                     onChange={e => setNewProduct({...newProduct, name: e.target.value})}
-                    placeholder="e.g. Paracetamol 500mg"
+                    placeholder={vendorProfile?.category === 'bus_ticket' ? "Dar to Arusha (Morning)" : "e.g. Paracetamol 500mg"}
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-neutral-500 uppercase">Unit / Kipimo</label>
-                    <Select 
-                      value={newProduct.unit} 
-                      onValueChange={v => setNewProduct({...newProduct, unit: v})}
-                    >
-                      <SelectTrigger className="bg-neutral-800 border-none h-12 rounded-xl">
-                        <SelectValue placeholder="Select unit" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
-                        <SelectItem value="kg">Kilogram (kg)</SelectItem>
-                        <SelectItem value="g">Gram (g)</SelectItem>
-                        <SelectItem value="unit">Unit (pcs)</SelectItem>
-                        <SelectItem value="bunch">Bunch (Fungu)</SelectItem>
-                        <SelectItem value="packet">Packet</SelectItem>
-                        <SelectItem value="liter">Liter (L)</SelectItem>
-                        <SelectItem value="ml">Milliliter (ml)</SelectItem>
-                      </SelectContent>
-                    </Select>
+                {vendorProfile?.category === 'bus_ticket' ? (
+                  <div className="space-y-4 pt-2">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-neutral-500 uppercase">Origin (Kutoka)</label>
+                        <Input 
+                          placeholder="Dar es Salaam"
+                          className="bg-neutral-800 border-none h-12 rounded-xl"
+                          value={(newProduct as any).origin || ''}
+                          onChange={e => setNewProduct({...newProduct, origin: e.target.value} as any)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-neutral-500 uppercase">Destination (Kwenda)</label>
+                        <Input 
+                          placeholder="Arusha"
+                          className="bg-neutral-800 border-none h-12 rounded-xl"
+                          value={(newProduct as any).destination || ''}
+                          onChange={e => setNewProduct({...newProduct, destination: e.target.value} as any)}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-neutral-500 uppercase">Departure Time</label>
+                        <Input 
+                          type="time"
+                          className="bg-neutral-800 border-none h-12 rounded-xl"
+                          value={(newProduct as any).departureTime || ''}
+                          onChange={e => setNewProduct({...newProduct, departureTime: e.target.value} as any)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-neutral-500 uppercase">Total Seats</label>
+                        <Input 
+                          type="number"
+                          placeholder="45"
+                          className="bg-neutral-800 border-none h-12 rounded-xl"
+                          value={(newProduct as any).totalSeats || 45}
+                          onChange={e => setNewProduct({...newProduct, totalSeats: parseInt(e.target.value), stock: parseInt(e.target.value)} as any)}
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-neutral-500 uppercase">Stock / Kiasi Kilichopo</label>
-                    <Input 
-                      type="number"
-                      required 
-                      className="bg-neutral-800 border-none h-12 rounded-xl"
-                      value={newProduct.stock}
-                      onChange={e => setNewProduct({...newProduct, stock: parseInt(e.target.value)})}
-                    />
+                ) : (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-neutral-500 uppercase">Unit / Kipimo</label>
+                      <Select 
+                        value={newProduct.unit} 
+                        onValueChange={v => setNewProduct({...newProduct, unit: v})}
+                      >
+                        <SelectTrigger className="bg-neutral-800 border-none h-12 rounded-xl">
+                          <SelectValue placeholder="Select unit" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
+                          <SelectItem value="kg">Kilogram (kg)</SelectItem>
+                          <SelectItem value="g">Gram (g)</SelectItem>
+                          <SelectItem value="unit">Unit (pcs)</SelectItem>
+                          <SelectItem value="bunch">Bunch (Fungu)</SelectItem>
+                          <SelectItem value="packet">Packet</SelectItem>
+                          <SelectItem value="liter">Liter (L)</SelectItem>
+                          <SelectItem value="ml">Milliliter (ml)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-neutral-500 uppercase">Stock / Kiasi Kilichopo</label>
+                      <Input 
+                        type="number"
+                        required 
+                        className="bg-neutral-800 border-none h-12 rounded-xl"
+                        value={newProduct.stock}
+                        onChange={e => setNewProduct({...newProduct, stock: parseInt(e.target.value)})}
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-neutral-500 uppercase">Category / Aina</label>

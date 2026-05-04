@@ -120,6 +120,7 @@ export default function RegisterVendor() {
               <SelectItem value="pharmacy">Pharmacy</SelectItem>
               <SelectItem value="ecommerce">eCommerce</SelectItem>
               <SelectItem value="salon">Salon</SelectItem>
+              <SelectItem value="bus_ticket">Bus Ticket Booking</SelectItem>
             </SelectContent>
           </Select>
         </div>

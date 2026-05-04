@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage } from '../LanguageContext';
+import BusBooking from './BusBooking';
 
 const serviceMapping: Record<string, { category: VendorCategory, labelKey: string, icon: any, color: string }> = {
   'chakula': { category: 'restaurant', labelKey: 'food', icon: Utensils, color: 'bg-red-500' },
@@ -22,7 +23,6 @@ const serviceMapping: Record<string, { category: VendorCategory, labelKey: strin
   'saluni': { category: 'salon', labelKey: 'salons', icon: Scissors, color: 'bg-pink-500' },
   'hoteli': { category: 'hotel', labelKey: 'hotels', icon: Hotel, color: 'bg-indigo-500' },
   'vifurushi': { category: 'parcel', labelKey: 'parcel', icon: Package, color: 'bg-orange-500' },
-  'teksi': { category: 'taxi', labelKey: 'taxi', icon: Car, color: 'bg-yellow-500' },
   'bus_ticket': { category: 'bus_ticket', labelKey: 'Bus Tickets', icon: Bus, color: 'bg-orange-600' },
 };
 
@@ -131,146 +131,152 @@ export default function ServiceDetail() {
         </div>
       </div>
 
-      {/* Search & Filter */}
-      <div className="flex gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-          <input 
-            type="text"
-            placeholder={t('search_placeholder') || "Search..."}
-            className="w-full h-11 pl-10 pr-4 bg-neutral-100 border-none rounded-xl text-sm focus:ring-2 focus:ring-orange-500"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-        <Button variant="outline" className="h-11 rounded-xl gap-2 border-neutral-200">
-          <Filter className="w-4 h-4" />
-        </Button>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex p-1 bg-neutral-100 rounded-2xl relative">
-        <button
-          onClick={() => setViewMode('products')}
-          className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all relative z-10 ${
-            viewMode === 'products' ? 'text-orange-600' : 'text-neutral-500'
-          }`}
-        >
-          {t('products') || 'Products'}
-        </button>
-        <button
-          onClick={() => setViewMode('vendors')}
-          className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all relative z-10 ${
-            viewMode === 'vendors' ? 'text-orange-600' : 'text-neutral-500'
-          }`}
-        >
-          {t('businesses') || 'Businesses'}
-        </button>
-        <motion.div
-          animate={{ x: viewMode === 'products' ? '0%' : '100%' }}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          className="absolute top-1 left-1 bottom-1 w-[calc(50%-4px)] bg-white rounded-xl shadow-sm border border-neutral-200"
-        />
-      </div>
-
-      {/* Content */}
-      {loading ? (
-        <div className="flex flex-col items-center justify-center py-20 space-y-4">
-          <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-sm text-neutral-500">Loading catalog...</p>
-        </div>
+      {config.category === 'bus_ticket' ? (
+        <BusBooking vendors={vendors} products={matchedProducts} />
       ) : (
-        <div className="space-y-6">
-          <AnimatePresence mode="wait">
-            {viewMode === 'products' ? (
-              <motion.div
-                key="prod-list"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4"
-              >
-                {filteredProducts.map((product) => (
-                  <Link 
-                    key={product.id} 
-                    to={`/product/${product.id}`}
-                    className="block group"
+        <>
+          {/* Search & Filter */}
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+              <input 
+                type="text"
+                placeholder={t('search_placeholder') || "Search..."}
+                className="w-full h-11 pl-10 pr-4 bg-neutral-100 border-none rounded-xl text-sm focus:ring-2 focus:ring-orange-500"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <Button variant="outline" className="h-11 rounded-xl gap-2 border-neutral-200">
+              <Filter className="w-4 h-4" />
+            </Button>
+          </div>
+
+          {/* Tabs */}
+          <div className="flex p-1 bg-neutral-100 rounded-2xl relative">
+            <button
+              onClick={() => setViewMode('products')}
+              className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all relative z-10 ${
+                viewMode === 'products' ? 'text-orange-600' : 'text-neutral-500'
+              }`}
+            >
+              {t('products') || 'Products'}
+            </button>
+            <button
+              onClick={() => setViewMode('vendors')}
+              className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all relative z-10 ${
+                viewMode === 'vendors' ? 'text-orange-600' : 'text-neutral-500'
+              }`}
+            >
+              {t('businesses') || 'Businesses'}
+            </button>
+            <motion.div
+              animate={{ x: viewMode === 'products' ? '0%' : '100%' }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="absolute top-1 left-1 bottom-1 w-[calc(50%-4px)] bg-white rounded-xl shadow-sm border border-neutral-200"
+            />
+          </div>
+
+          {/* Content */}
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-20 space-y-4">
+              <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-sm text-neutral-500">Loading catalog...</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <AnimatePresence mode="wait">
+                {viewMode === 'products' ? (
+                  <motion.div
+                    key="prod-list"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4"
                   >
-                    <Card className="overflow-hidden rounded-3xl border-neutral-100 shadow-sm hover:shadow-lg transition-all h-full">
-                      <div className="h-40 relative overflow-hidden">
-                        <img 
-                          src={product.imageUrl || 'https://picsum.photos/seed/food/400'} 
-                          alt={product.name} 
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
-                          referrerPolicy="no-referrer"
-                        />
+                    {filteredProducts.map((product) => (
+                      <Link 
+                        key={product.id} 
+                        to={`/product/${product.id}`}
+                        className="block group"
+                      >
+                        <Card className="overflow-hidden rounded-3xl border-neutral-100 shadow-sm hover:shadow-lg transition-all h-full">
+                          <div className="h-40 relative overflow-hidden">
+                            <img 
+                              src={product.imageUrl || 'https://picsum.photos/seed/food/400'} 
+                              alt={product.name} 
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                              referrerPolicy="no-referrer"
+                            />
+                          </div>
+                          <CardContent className="p-4">
+                            <h4 className="font-bold text-sm text-neutral-900 truncate group-hover:text-orange-600 transition-colors uppercase italic">{product.name}</h4>
+                            <div className="flex items-center justify-between mt-1">
+                              <p className="text-xs text-orange-600 font-black">
+                                 TZS {product.price.toLocaleString()}
+                              </p>
+                              <p className="text-[8px] text-neutral-400 font-bold uppercase">
+                                {vendors.find(v => v.id === product.vendorId)?.businessName || 'Merchant'}
+                              </p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </Link>
+                    ))}
+                    {filteredProducts.length === 0 && (
+                      <div className="col-span-full py-20 text-center space-y-3">
+                        <p className="text-neutral-400 italic text-sm">No products found for this service.</p>
                       </div>
-                      <CardContent className="p-4">
-                        <h4 className="font-bold text-sm text-neutral-900 truncate group-hover:text-orange-600 transition-colors uppercase italic">{product.name}</h4>
-                        <div className="flex items-center justify-between mt-1">
-                          <p className="text-xs text-orange-600 font-black">
-                             TZS {product.price.toLocaleString()}
-                          </p>
-                          <p className="text-[8px] text-neutral-400 font-bold uppercase">
-                            {vendors.find(v => v.id === product.vendorId)?.businessName || 'Merchant'}
-                          </p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </Link>
-                ))}
-                {filteredProducts.length === 0 && (
-                  <div className="col-span-full py-20 text-center space-y-3">
-                    <p className="text-neutral-400 italic text-sm">No products found for this service.</p>
-                  </div>
-                )}
-              </motion.div>
-            ) : (
-              <motion.div
-                key="vend-list"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="grid grid-cols-1 md:grid-cols-2 gap-4"
-              >
-                {filteredVendors.map((vendor) => (
-                  <Link key={vendor.id} to={`/vendor/${vendor.id}`}>
-                    <Card className="overflow-hidden rounded-3xl border-neutral-100 shadow-sm hover:shadow-md transition-all group">
-                      <div className="flex p-4 gap-4">
-                        <div className="w-24 h-24 rounded-2xl overflow-hidden relative shrink-0">
-                          <img 
-                            src={vendor.logoUrl || 'https://picsum.photos/seed/restaurant/400'} 
-                            alt={vendor.businessName} 
-                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
-                            referrerPolicy="no-referrer"
-                          />
-                        </div>
-                        <div className="flex-1 flex flex-col justify-center py-1">
-                          <h4 className="font-black text-lg text-neutral-900 group-hover:text-orange-600 transition-colors uppercase italic">{vendor.businessName}</h4>
-                          <p className="text-xs text-neutral-500 mt-1 line-clamp-1">{vendor.description}</p>
-                          <div className="flex items-center gap-2 mt-3">
-                            <Badge className="bg-orange-50 text-orange-600 border-none text-[8px] uppercase font-bold">
-                              {vendor.category}
-                            </Badge>
-                            <div className="flex items-center gap-1">
-                              <Star className="w-3 h-3 text-orange-500 fill-current" />
-                              <span className="text-xs font-bold text-neutral-600">{vendor.rating || '4.5'}</span>
+                    )}
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="vend-list"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                  >
+                    {filteredVendors.map((vendor) => (
+                      <Link key={vendor.id} to={`/vendor/${vendor.id}`}>
+                        <Card className="overflow-hidden rounded-3xl border-neutral-100 shadow-sm hover:shadow-md transition-all group">
+                          <div className="flex p-4 gap-4">
+                            <div className="w-24 h-24 rounded-2xl overflow-hidden relative shrink-0">
+                              <img 
+                                src={vendor.logoUrl || 'https://picsum.photos/seed/restaurant/400'} 
+                                alt={vendor.businessName} 
+                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                                referrerPolicy="no-referrer"
+                              />
+                            </div>
+                            <div className="flex-1 flex flex-col justify-center py-1">
+                              <h4 className="font-black text-lg text-neutral-900 group-hover:text-orange-600 transition-colors uppercase italic">{vendor.businessName}</h4>
+                              <p className="text-xs text-neutral-500 mt-1 line-clamp-1">{vendor.description}</p>
+                              <div className="flex items-center gap-2 mt-3">
+                                <Badge className="bg-orange-50 text-orange-600 border-none text-[8px] uppercase font-bold">
+                                  {vendor.category}
+                                </Badge>
+                                <div className="flex items-center gap-1">
+                                  <Star className="w-3 h-3 text-orange-500 fill-current" />
+                                  <span className="text-xs font-bold text-neutral-600">{vendor.rating || '4.5'}</span>
+                                </div>
+                              </div>
                             </div>
                           </div>
-                        </div>
+                        </Card>
+                      </Link>
+                    ))}
+                    {filteredVendors.length === 0 && (
+                      <div className="col-span-full py-20 text-center">
+                        <p className="text-neutral-400 italic text-sm">No businesses found for this service.</p>
                       </div>
-                    </Card>
-                  </Link>
-                ))}
-                {filteredVendors.length === 0 && (
-                  <div className="col-span-full py-20 text-center">
-                    <p className="text-neutral-400 italic text-sm">No businesses found for this service.</p>
-                  </div>
+                    )}
+                  </motion.div>
                 )}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+              </AnimatePresence>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

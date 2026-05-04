@@ -132,6 +132,7 @@ const MapControl = ({ position, step, targetPos, autoFollow }: { position: [numb
         const bounds = L.latLngBounds([position, targetPos]);
         map.fitBounds(bounds, { 
           padding: [80, 80], 
+          maxZoom: 20,
           animate: true, 
           duration: 1.2 
         });
@@ -183,13 +184,21 @@ export default function TaxiBooking() {
 
   const reverseGeocode = async (lat: number, lng: number) => {
     try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`, {
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&email=aicodtznation@gmail.com`, {
         headers: { 'Accept-Language': 'sw,en' }
       });
+      if (!response.ok) throw new Error('Reverse geocoding failed');
       const data = await response.json();
       return formatAddress(data);
     } catch (error) {
-      return "Unknown Area";
+      console.error("Reverse geocoding failed, trying fallback:", error);
+      try {
+        const bdcResponse = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=sw`);
+        const bdcData = await bdcResponse.json();
+        return bdcData.locality || bdcData.city || bdcData.principalSubdivision || "Unknown Area";
+      } catch (bdcErr) {
+        return "Unknown Area";
+      }
     }
   };
 
@@ -388,9 +397,10 @@ export default function TaxiBooking() {
 
     const timer = setTimeout(async () => {
       try {
-        const response = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&addressdetails=1`, {
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&addressdetails=1&email=aicodtznation@gmail.com`, {
           headers: { 'Accept-Language': 'en' }
         });
+        if (!response.ok) throw new Error('Search failed');
         const data = await response.json();
         setSuggestions(data.map((item: any) => ({
           display_name: formatAddress(item),
@@ -671,6 +681,7 @@ export default function TaxiBooking() {
                <MapContainer 
                  center={pickupPos} 
                  zoom={15} 
+                 maxZoom={22}
                  className="h-full w-full" 
                  zoomControl={true} 
                  touchZoom={true} 
@@ -680,6 +691,8 @@ export default function TaxiBooking() {
                >
                  <TileLayer 
                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                   maxZoom={22}
+                   maxNativeZoom={19}
                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                  />
                  <MapEvents onMapClick={handleMapClick} onInteraction={() => setAutoFollow(false)} />

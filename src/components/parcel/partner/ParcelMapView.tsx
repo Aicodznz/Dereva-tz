@@ -87,12 +87,15 @@ const ParcelMapView: React.FC<Props> = ({ destination, isDashed = false, routeCo
       <MapContainer 
         center={[partnerLoc.lat, partnerLoc.lng]} 
         zoom={15} 
+        maxZoom={22}
         zoomControl={false}
         className="w-full h-full"
       >
         <TileLayer
           key={isDark ? 'dark' : 'light'} // Re-render when theme changes
           url={tileLayerUrl}
+          maxZoom={22}
+          maxNativeZoom={19}
           attribution='&copy; OpenStreetMap &copy; CARTO'
         />
         

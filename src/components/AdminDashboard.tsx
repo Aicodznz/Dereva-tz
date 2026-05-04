@@ -847,10 +847,15 @@ export default function AdminDashboard() {
              <MapContainer 
                center={[-6.7924, 39.2083]} 
                zoom={12} 
+               maxZoom={22}
                className="w-full h-full z-0"
                scrollWheelZoom
              >
-                <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
+                <TileLayer 
+                  url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" 
+                  maxZoom={22}
+                  maxNativeZoom={19}
+                />
                 
                 {/* Active Drivers */}
                 {driverLocations.map((driver) => {
