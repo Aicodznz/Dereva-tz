@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
   ChevronLeft, Star, Search, Filter, 
-  Utensils, ShoppingCart, Pill, Package, Car, Scissors, Hotel, ShoppingBag 
+  Utensils, ShoppingCart, Pill, Package, Car, Scissors, Hotel, ShoppingBag, Bus 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage } from '../LanguageContext';
@@ -22,6 +22,8 @@ const serviceMapping: Record<string, { category: VendorCategory, labelKey: strin
   'saluni': { category: 'salon', labelKey: 'salons', icon: Scissors, color: 'bg-pink-500' },
   'hoteli': { category: 'hotel', labelKey: 'hotels', icon: Hotel, color: 'bg-indigo-500' },
   'vifurushi': { category: 'parcel', labelKey: 'parcel', icon: Package, color: 'bg-orange-500' },
+  'teksi': { category: 'taxi', labelKey: 'taxi', icon: Car, color: 'bg-yellow-500' },
+  'bus_ticket': { category: 'bus_ticket', labelKey: 'Bus Tickets', icon: Bus, color: 'bg-orange-600' },
 };
 
 export default function ServiceDetail() {

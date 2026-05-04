@@ -134,21 +134,23 @@ const TaxiHistory: React.FC = () => {
     if (!receiptRef.current) return;
     
     try {
-      toast.loading("Inatengeneza stakabadhi...");
+      const loadingToast = toast.loading("Inatengeneza stakabadhi...");
       
-      // Delay to ensure Leaflet tiles and markers are rendered in the hidden container
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // Ensure all images are loaded and map tiles are rendered
+      // We use a longer delay and multiple frames to be safe
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
       const dataUrl = await toPng(receiptRef.current, { 
         cacheBust: true,
         backgroundColor: '#ffffff',
+        pixelRatio: 2,
       });
       
       const link = document.createElement('a');
-      link.download = `taxi-receipt-${selectedRide?.id.slice(0, 8)}.png`;
+      link.download = `papo-hapo-stakabadhi-${selectedRide?.id.slice(0, 8)}.png`;
       link.href = dataUrl;
       link.click();
-      toast.dismiss();
+      toast.dismiss(loadingToast);
       toast.success("Stakabadhi imepakuliwa!");
     } catch (err) {
       console.error('Failed to download receipt:', err);

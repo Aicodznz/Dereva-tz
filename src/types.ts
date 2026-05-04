@@ -22,9 +22,11 @@ export interface UserProfile {
   carryingCapacity?: string;
   rating?: number;
   category?: VendorCategory;
+  walletBalance?: number;
+  points?: number;
 }
 
-export type VendorCategory = 'pharmacy' | 'grocery' | 'restaurant' | 'parcel' | 'taxi' | 'car_rental' | 'salon' | 'hotel' | 'ecommerce';
+export type VendorCategory = 'pharmacy' | 'grocery' | 'restaurant' | 'parcel' | 'taxi' | 'car_rental' | 'salon' | 'hotel' | 'ecommerce' | 'bus_ticket';
 export type VendorStatus = 'pending' | 'active' | 'suspended';
 
 export interface VendorProfile {

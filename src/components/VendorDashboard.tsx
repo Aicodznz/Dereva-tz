@@ -31,6 +31,8 @@ import {
   BarChart3,
   Store,
   Truck,
+  Bus,
+  Ticket,
   AlertCircle,
   MoreVertical,
   Filter,
@@ -182,20 +184,21 @@ export default function VendorDashboard() {
       case 'taxi':
       case 'car_rental':
       case 'parcel':
+      case 'bus_ticket':
         return {
           type: 'transit',
-          ordersLabel: 'Shipments & Trips',
-          ordersDescription: 'Manage deliveries, taxi rides, and fleet activity.',
-          ordersIcon: Package,
-          inventoryLabel: 'Fleet / Rates',
-          inventoryIcon: Truck,
-          locationLabel: 'Service Zones',
-          locationLabelSingular: 'Zone',
-          posLabel: 'Dispatch',
+          ordersLabel: cat === 'bus_ticket' ? 'Ticket Bookings' : 'Shipments & Trips',
+          ordersDescription: cat === 'bus_ticket' ? 'Manage bus ticket reservations and passengers.' : 'Manage deliveries, taxi rides, and fleet activity.',
+          ordersIcon: cat === 'bus_ticket' ? Bus : Package,
+          inventoryLabel: cat === 'bus_ticket' ? 'Routes & Schedules' : 'Fleet / Rates',
+          inventoryIcon: cat === 'bus_ticket' ? Ticket : Truck,
+          locationLabel: cat === 'bus_ticket' ? 'Stations' : 'Service Zones',
+          locationLabelSingular: cat === 'bus_ticket' ? 'Station' : 'Zone',
+          posLabel: cat === 'bus_ticket' ? 'Booking Counter' : 'Dispatch',
           posIcon: MapPin,
-          fulfillmentAction: 'Dispatching',
-          readyLabel: 'Dispatched',
-          pickingLabel: 'On Route',
+          fulfillmentAction: cat === 'bus_ticket' ? 'Booking' : 'Dispatching',
+          readyLabel: 'Confirmed',
+          pickingLabel: 'In Progress',
           awaitingLabel: 'Queue'
         };
       default: // grocery, ecommerce, etc.
@@ -1193,8 +1196,7 @@ export default function VendorDashboard() {
                       <SelectItem value="ecommerce">Shop / Maduka</SelectItem>
                       <SelectItem value="salon">Salon / Kinyozi</SelectItem>
                       <SelectItem value="hotel">Hotel / Malazi</SelectItem>
-                      <SelectItem value="taxi">Taxi / Teksi</SelectItem>
-                      <SelectItem value="parcel">Delivery / Vifurushi</SelectItem>
+                      <SelectItem value="bus_ticket">Bus Ticket Booking</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

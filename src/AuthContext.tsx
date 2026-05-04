@@ -60,6 +60,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             fullName: currentUser.displayName || (isAdminEmail ? 'Super Admin' : ''),
             photoURL: currentUser.photoURL || '',
             role: isAdminEmail ? 'admin' : 'customer',
+            walletBalance: 0,
+            points: 0,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
           };

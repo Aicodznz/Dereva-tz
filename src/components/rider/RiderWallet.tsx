@@ -5,8 +5,12 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '../../AuthContext';
 
 export default function RiderWallet({ onBack }: { onBack: () => void }) {
+  const { profile } = useAuth();
+  const balance = profile?.walletBalance ?? 0;
+  
   const transactions = [
     { id: 1, type: 'receive', title: 'Ride Earnings', subtitle: 'Trip #8210 - Posta to Kariakoo', amount: '12,500', date: 'Today, 2:45 PM' },
     { id: 2, type: 'send', title: 'Wallet Withdraw', subtitle: 'Moved to M-Pesa (071...234)', amount: '45,000', date: 'Yesterday, 8:20 PM' },
@@ -40,7 +44,7 @@ export default function RiderWallet({ onBack }: { onBack: () => void }) {
           </div>
           <div className="relative z-10 text-center space-y-4">
              <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Available Balance</p>
-             <h2 className="text-5xl font-black italic uppercase tracking-tight">TZS 142,500</h2>
+             <h2 className="text-5xl font-black italic uppercase tracking-tight">TZS {balance.toLocaleString()}</h2>
              
              <div className="flex gap-3 pt-6">
                 <Button className="flex-1 h-14 bg-white text-emerald-600 hover:bg-neutral-100 rounded-2xl font-black uppercase tracking-widest italic text-xs shadow-xl">

@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { 
   Utensils, ShoppingCart, Pill, Package, Car, Scissors, Hotel, Star, 
   Search, Bell, MapPin, ChevronRight, ShoppingBag, Tag, Plus, ShoppingBasket,
-  FileText, Smartphone, Box, Dog
+  FileText, Smartphone, Box, Dog, Bus
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
@@ -129,12 +129,13 @@ export default function CustomerDashboard() {
   const services = [
     { id: 'chakula', label: t('food') || 'Chakula', icon: Utensils, color: 'bg-red-500', sub: 'Food Delivery 🍔' },
     { id: 'sokoni', label: t('grocery') || 'Sokoni', icon: ShoppingCart, color: 'bg-green-500', sub: 'Grocery 🛒' },
+    { id: 'bus_ticket', label: 'Bus Tickets', icon: Bus, color: 'bg-orange-600', sub: 'Bus Booking 🚌' },
     { id: 'teksi', label: t('taxi') || 'Teksi', icon: Car, color: 'bg-yellow-500', sub: 'Taxi 🚕' },
     { id: 'vifurushi', label: t('parcel') || 'Vifurushi', icon: Package, color: 'bg-orange-500', sub: 'Parcel 📦' },
     { id: 'dawa', label: t('pharmacy') || 'Duka la Dawa', icon: Pill, color: 'bg-blue-500', sub: 'Pharmacy 💊' },
     { id: 'maduka', label: t('ecommerce') || 'Maduka', icon: ShoppingBag, color: 'bg-purple-500', sub: 'eCommerce 🛍️' },
     { id: 'saluni', label: t('salons') || 'Saluni', icon: Scissors, color: 'bg-pink-500', sub: 'Salons 💇‍♀️' },
-    { id: 'ramani', label: 'Ramani', icon: MapPin, color: 'bg-orange-600', sub: 'Nearby Stores 📍' },
+    { id: 'ramani', label: 'Ramani', icon: MapPin, color: 'bg-neutral-600', sub: 'Nearby Stores 📍' },
     { id: 'hoteli', label: t('hotels') || 'Hoteli', icon: Hotel, color: 'bg-indigo-500', sub: 'Hotels 🏨' },
   ];
 

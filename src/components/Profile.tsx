@@ -32,6 +32,8 @@ import { useLanguage } from '../LanguageContext';
 import MyOrders from './MyOrders';
 import Chat from './Chat';
 import { storageService } from '../services/storageService';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { db } from '../firebase';
 
 type ProfileView = 'menu' | 'edit' | 'orders' | 'chat' | 'password' | 'language';
 
@@ -40,7 +42,42 @@ export default function Profile() {
   const { t, language, setLanguage } = useLanguage();
   const [view, setView] = useState<ProfileView>('menu');
   const [loading, setLoading] = useState(false);
+  const [orderCount, setOrderCount] = useState({ orders: 0, rides: 0 });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Real-time order count listener
+  React.useEffect(() => {
+    if (!user) return;
+    
+    const ordersQuery = query(
+      collection(db, 'orders'),
+      where('customerId', '==', user.uid)
+    );
+    
+    const unsubOrders = onSnapshot(ordersQuery, (snapshot) => {
+      setOrderCount(prev => ({ ...prev, orders: snapshot.size }));
+    }, (error) => {
+      console.error("Error fetching order count:", error);
+    });
+
+    const ridesQuery = query(
+      collection(db, 'rides'),
+      where('customerId', '==', user.uid)
+    );
+
+    const unsubRides = onSnapshot(ridesQuery, (snapshot) => {
+      setOrderCount(prev => ({ ...prev, rides: snapshot.size }));
+    }, (error) => {
+      console.error("Error fetching rides count:", error);
+    });
+    
+    return () => {
+      unsubOrders();
+      unsubRides();
+    };
+  }, [user]);
+
+  const totalActivityCount = orderCount.orders + orderCount.rides;
   
   const [formData, setFormData] = useState({
     displayName: profile?.displayName || '',
@@ -178,15 +215,17 @@ export default function Profile() {
             <div className="grid grid-cols-3 gap-4 mt-8 pt-6 border-t border-neutral-100 dark:border-neutral-800">
                <div>
                   <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Salio</p>
-                  <p className="text-lg font-black text-neutral-900 dark:text-white italic mt-1">12.5k</p>
+                  <p className="text-lg font-black text-neutral-900 dark:text-white italic mt-1 leading-none">
+                    {profile.walletBalance ? (profile.walletBalance > 1000 ? `${(profile.walletBalance / 1000).toFixed(1)}k` : profile.walletBalance) : '0'}
+                  </p>
                </div>
                <div className="border-x border-neutral-100 dark:border-neutral-800">
                   <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Points</p>
-                  <p className="text-lg font-black text-orange-600 italic mt-1">840</p>
+                  <p className="text-lg font-black text-orange-600 italic mt-1 leading-none">{profile.points || 0}</p>
                </div>
                <div>
                   <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Oda</p>
-                  <p className="text-lg font-black text-neutral-900 dark:text-white italic mt-1">24</p>
+                  <p className="text-lg font-black text-neutral-900 dark:text-white italic mt-1 leading-none">{totalActivityCount}</p>
                </div>
             </div>
           </div>
