@@ -441,7 +441,7 @@ export default function CustomerDashboard() {
         <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-9 gap-4 md:gap-6">
           {services.map((service, idx) => (
             <motion.div
-              key={service.id}
+              key={service.id || idx}
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.05 * idx, type: "spring", bounce: 0.4 }}

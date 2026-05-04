@@ -358,7 +358,7 @@ export default function SalonVendorDashboard() {
                         </thead>
                         <tbody className="divide-y divide-white/5">
                           {appointments.slice(0, 6).map((apt, i) => (
-                            <tr key={i} className="group hover:bg-white/[0.02] transition-colors">
+                            <tr key={`apt-row-${apt.id || i}`} className="group hover:bg-white/[0.02] transition-colors">
                               <td className="px-6 py-4">
                                 <div className="flex items-center gap-3">
                                   <div className="w-8 h-8 rounded-lg bg-orange-600/20 flex items-center justify-center text-orange-500 font-bold text-xs">
@@ -412,7 +412,7 @@ export default function SalonVendorDashboard() {
                     <CardTitle className="text-lg font-black mb-6">Top Stylists</CardTitle>
                     <div className="space-y-4">
                       {staff.slice(0, 4).map((s, i) => (
-                        <div key={i} className="flex items-center justify-between group">
+                        <div key={`top-stylist-${s.id || i}`} className="flex items-center justify-between group">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-xl bg-neutral-800 flex items-center justify-center overflow-hidden border border-white/5">
                               {s.photoUrl ? (
@@ -539,7 +539,7 @@ export default function SalonVendorDashboard() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {services.map((service, i) => (
-                  <Card key={i} className="bg-neutral-900/50 border-white/5 rounded-[32px] overflow-hidden group">
+                  <Card key={`salon-service-${service.id || i}`} className="bg-neutral-900/50 border-white/5 rounded-[32px] overflow-hidden group">
                     <div className="aspect-video relative overflow-hidden">
                       {service.imageUrl ? (
                         <img src={service.imageUrl} alt={service.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
@@ -595,7 +595,7 @@ export default function SalonVendorDashboard() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                   {staff.map((s, i) => (
-                    <Card key={i} className="bg-neutral-900/50 border-white/5 rounded-[32px] p-6 flex flex-col items-center text-center group relative">
+                    <Card key={`staff-card-${s.id || i}`} className="bg-neutral-900/50 border-white/5 rounded-[32px] p-6 flex flex-col items-center text-center group relative">
                       <div className="absolute top-4 right-4">
                         <Badge className={`${s.status === 'active' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-red-500/20 text-red-500'} border-none text-[8px] font-black uppercase tracking-widest`}>
                           {s.status || 'Offline'}

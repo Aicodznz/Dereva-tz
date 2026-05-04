@@ -343,7 +343,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                     >
                       {suggestions.map((suggestion, index) => (
                         <button
-                          key={index}
+                          key={`location-suggest-${suggestion.place_id || index}`}
                           onClick={() => {
                             const newPos = new L.LatLng(parseFloat(suggestion.lat), parseFloat(suggestion.lon));
                             setPosition(newPos);
@@ -393,7 +393,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                     <div className="flex flex-col gap-2">
                       {recentPlaces.slice(0, 3).map((place, i) => (
                         <button
-                          key={i}
+                          key={`recent-place-${place.address}-${i}`}
                           onClick={() => {
                             setPosition(new L.LatLng(place.lat, place.lng));
                             setAddress(place.address);

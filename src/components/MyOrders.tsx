@@ -339,9 +339,9 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
             {t('active_orders')}
           </h2>
           <div className="space-y-4">
-            {activeOrders.map(order => (
+            {activeOrders.map((order, idx) => (
               <Card 
-                key={order.id} 
+                key={`active-order-${order.id}-${idx}`} 
                 className="border-none shadow-sm rounded-3xl overflow-hidden hover:shadow-md transition-shadow cursor-pointer group bg-white dark:bg-neutral-900"
                 onClick={() => setSelectedOrder(order)}
               >
@@ -389,9 +389,9 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
             {t('previous_orders')}
           </h2>
           <div className="space-y-4">
-            {previousOrders.map(order => (
+            {previousOrders.map((order, idx) => (
               <Card 
-                key={order.id} 
+                key={`past-order-${order.id}-${idx}`} 
                 className="border-none shadow-sm rounded-3xl overflow-hidden hover:shadow-md transition-shadow cursor-pointer group opacity-80 hover:opacity-100 bg-white dark:bg-neutral-900 transition-all"
                 onClick={() => setSelectedOrder(order)}
               >

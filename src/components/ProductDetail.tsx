@@ -18,6 +18,7 @@ import {
   Calendar, 
   Clock, 
   Users,
+  MapPin,
   ChevronDown,
   ChevronUp,
   Camera,
@@ -620,7 +621,7 @@ export default function ProductDetail() {
                   const isBooked = [3, 7, 12, 14, 22, 23, 30].includes(i);
                   return (
                     <button 
-                      key={i}
+                      key={`bus-seat-${i}`}
                       disabled={isBooked}
                       className={`aspect-square rounded-lg flex items-center justify-center text-[10px] font-black transition-all ${
                         isBooked 
@@ -830,13 +831,13 @@ export default function ProductDetail() {
               </div>
 
               <div className="grid grid-cols-1 gap-6">
-                {reviews.map((review) => {
+                {reviews.map((review, idx) => {
                   const isLiked = review.likes?.includes(user?.uid || '');
                   const isOwner = review.userId === user?.uid;
                   const isVendorOwner = vendor?.ownerUid === user?.uid;
 
                   return (
-                    <Card key={review.id} className="bg-white border border-neutral-100 rounded-3xl p-6 shadow-sm">
+                    <Card key={review.id || `review-${idx}`} className="bg-white border border-neutral-100 rounded-3xl p-6 shadow-sm">
                       <div className="flex gap-4">
                         <div className="w-12 h-12 rounded-full overflow-hidden shrink-0">
                           <img src={review.userPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${review.userId}`} alt={review.userName} className="w-full h-full object-cover" />

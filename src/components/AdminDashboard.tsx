@@ -858,7 +858,7 @@ export default function AdminDashboard() {
                 />
                 
                 {/* Active Drivers */}
-                {driverLocations.map((driver) => {
+                {driverLocations.map((driver, idx) => {
                   const pos = driver.location || driver.currentPosition;
                   const isOnline = driver.networkStatus === 'online' || driver.status === 'online' || driver.isOnline === true;
                   
@@ -866,7 +866,7 @@ export default function AdminDashboard() {
                   
                   return (
                     <Marker 
-                      key={driver.id} 
+                      key={driver.id || `driver-${idx}`} 
                       position={[pos.lat, pos.lng]} 
                       icon={DRIVER_ICON}
                     >
@@ -903,10 +903,10 @@ export default function AdminDashboard() {
                 })}
 
                 {/* Active Rides/Users */}
-                {activeRides.map((ride) => (
+                {activeRides.map((ride, idx) => (
                   ride.pickup && (
                     <Marker 
-                      key={ride.id} 
+                      key={ride.id || `ride-${idx}`} 
                       position={[ride.pickup.lat, ride.pickup.lng]} 
                       icon={USER_ICON}
                     >
@@ -953,13 +953,13 @@ export default function AdminDashboard() {
                     <div className="p-8">
                        <h4 className="text-xs font-black uppercase tracking-[0.2rem] text-neutral-400 mb-6 underline decoration-orange-600 decoration-4 underline-offset-8">Pending Withdrawals</h4>
                        <div className="space-y-4">
-                          {payouts.filter(p => p.status === 'pending').map((p) => {
+                          {payouts.filter(p => p.status === 'pending').map((p, idx) => {
                              const recipientUser = allUsers.find(u => u.id === p.recipientId);
                              const recipientVendor = vendors.find(v => v.id === p.recipientId);
                              const name = recipientUser?.displayName || recipientVendor?.businessName || 'Unknown';
                              
                              return (
-                               <div key={p.id} className="p-6 bg-neutral-50 dark:bg-neutral-800 rounded-3xl border border-neutral-100 dark:border-neutral-700 flex items-center justify-between group hover:shadow-xl transition-all">
+                               <div key={p.id || `payout-${idx}`} className="p-6 bg-neutral-50 dark:bg-neutral-800 rounded-3xl border border-neutral-100 dark:border-neutral-700 flex items-center justify-between group hover:shadow-xl transition-all">
                                   <div className="flex items-center gap-4">
                                      <div className="w-14 h-14 rounded-2xl bg-orange-100 dark:bg-orange-950/30 flex items-center justify-center font-black text-orange-600">
                                         <Wallet className="w-6 h-6" />
@@ -1026,8 +1026,8 @@ export default function AdminDashboard() {
                     <Card className="p-8 rounded-[2.5rem] border-none shadow-xl bg-white dark:bg-neutral-900 transition-colors">
                        <h4 className="text-xs font-black uppercase tracking-[0.1rem] mb-6">Recent History</h4>
                        <div className="space-y-4">
-                          {payouts.filter(p => p.status !== 'pending').slice(0, 5).map(p => (
-                             <div key={p.id} className="flex items-center justify-between opacity-60">
+                          {payouts.filter(p => p.status !== 'pending').slice(0, 5).map((p, idx) => (
+                             <div key={p.id || `payout-hist-${idx}`} className="flex items-center justify-between opacity-60">
                                 <div>
                                    <p className="font-bold text-xs uppercase leading-none">{p.id.slice(0, 8)}</p>
                                    <p className="text-[10px] font-black text-neutral-400 mt-1 uppercase italic">{p.status}</p>
@@ -1130,9 +1130,9 @@ export default function AdminDashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {allUsers.filter(u => u.role === 'rider' && u.approvalStatus === 'pending').map(rider => (
+                    {allUsers.filter(u => u.role === 'rider' && u.approvalStatus === 'pending').map((rider, idx) => (
                       <div 
-                        key={rider.id}
+                        key={rider.id || `rider-pending-${idx}`}
                         className="flex items-center justify-between p-4 bg-white dark:bg-neutral-900 rounded-3xl shadow-sm border border-transparent hover:border-blue-200 dark:hover:border-blue-800 group"
                       >
                          <div className="flex items-center gap-4">
@@ -1160,9 +1160,9 @@ export default function AdminDashboard() {
               <div className="space-y-6">
                 <h3 className="text-2xl font-black italic uppercase tracking-tighter text-neutral-900 dark:text-white transition-colors">Verified Drivers</h3>
                  <div className="grid grid-cols-1 gap-4">
-                    {allUsers.filter(u => u.role === 'rider' && u.approvalStatus === 'approved').map(rider => (
+                    {allUsers.filter(u => u.role === 'rider' && u.approvalStatus === 'approved').map((rider, idx) => (
                       <Card 
-                        key={rider.id}
+                        key={rider.id || `rider-approved-${idx}`}
                         className="rounded-[2rem] border-none shadow-lg group hover:shadow-2xl transition-all border-2 border-transparent hover:border-blue-500/20 bg-white dark:bg-neutral-900 transition-colors"
                       >
                          <CardContent className="p-6 flex items-center justify-between">
@@ -1224,8 +1224,8 @@ export default function AdminDashboard() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-neutral-100">
-                         {allOrders.map(order => (
-                           <tr key={order.id}>
+                         {allOrders.map((order, idx) => (
+                           <tr key={order.id || `order-row-${idx}`}>
                               <td className="px-8 py-6">
                                  <span className="font-black text-neutral-900">#{order.id?.slice(-8).toUpperCase()}</span>
                                  <p className="text-[10px] text-neutral-400">{order.createdAt ? new Date(order.createdAt).toLocaleString() : 'Just now'}</p>
@@ -1314,8 +1314,8 @@ export default function AdminDashboard() {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {banners.map((banner) => banner.img && (
-                <Card key={banner.id} className="overflow-hidden group rounded-[2.5rem] border-none shadow-xl">
+              {banners.map((banner, idx) => banner.img && (
+                <Card key={banner.id || `banner-${idx}`} className="overflow-hidden group rounded-[2.5rem] border-none shadow-xl">
                   <div className="h-48 relative">
                     <img src={banner.img} alt={banner.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     <div className="absolute inset-0 bg-black/40 flex flex-col justify-end p-8 text-white">
@@ -1381,8 +1381,8 @@ export default function AdminDashboard() {
                         onChange={(e) => setNotifTarget(e.target.value)}
                       >
                         <option value="all">All Users & Drivers</option>
-                        {allUsers.map(u => (
-                          <option key={u.id} value={u.id}>{u.displayName} ({u.role})</option>
+                        {allUsers.filter(u => u.role === 'admin' || u.role === 'customer').map((u, idx) => (
+                          <option key={u.id || `notif-user-${idx}`} value={u.id}>{u.displayName} ({u.role})</option>
                         ))}
                       </select>
                    </div>

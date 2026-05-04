@@ -130,5 +130,11 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow write: if isAdmin() || (isSignedIn() && incoming().vendorOwnerUid == request.auth.uid);
     }
+
+    // Branches
+    match /branches/{id} {
+      allow read: if true;
+      allow write: if isAdmin() || (isSignedIn() && (incoming().vendorId != null && get(/databases/$(database)/documents/vendors/$(incoming().vendorId)).data.ownerUid == request.auth.uid));
+    }
   }
 }

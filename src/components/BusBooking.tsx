@@ -31,7 +31,6 @@ export default function BusBooking({ vendors, products }: BusBookingProps) {
   const [results, setResults] = useState<Product[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
 
-  // Extract unique origins and destinations from products
   const origins = Array.from(new Set(products
     .filter(p => p.vendorCategory === 'bus_ticket' && (p as any).origin)
     .map(p => (p as any).origin as string)
@@ -111,7 +110,7 @@ export default function BusBooking({ vendors, products }: BusBookingProps) {
                     onChange={(e) => setSearch({ ...search, origin: e.target.value })}
                   />
                   <datalist id="origins">
-                    {origins.map(o => <option key={o} value={o} />)}
+                    {origins.map((o, i) => <option key={`origin-opt-${o}-${i}`} value={o} />)}
                   </datalist>
                 </div>
               </div>
@@ -134,7 +133,7 @@ export default function BusBooking({ vendors, products }: BusBookingProps) {
                   onChange={(e) => setSearch({ ...search, destination: e.target.value })}
                 />
                 <datalist id="destinations">
-                  {destinations.map(d => <option key={d} value={d} />)}
+                  {destinations.map((d, i) => <option key={`dest-opt-${d}-${i}`} value={d} />)}
                 </datalist>
               </div>
 
@@ -186,7 +185,7 @@ export default function BusBooking({ vendors, products }: BusBookingProps) {
               const vendor = getVendor(trip.vendorId);
               return (
                 <motion.div
-                  key={trip.id}
+                  key={`trip-${trip.id}-${idx}`}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.05 }}
@@ -333,7 +332,7 @@ export default function BusBooking({ vendors, products }: BusBookingProps) {
               { from: 'Arusha', to: 'Nairobi', price: '45,000' },
             ].map((route, i) => (
               <motion.div 
-                key={i} 
+                key={`route-card-${route.from}-${route.to}-${i}`} 
                 whileHover={{ scale: 1.05 }}
                 className="bg-white p-6 rounded-[2rem] border-2 border-neutral-100 shadow-xl shadow-neutral-900/5 cursor-pointer relative overflow-hidden group"
                 onClick={() => {

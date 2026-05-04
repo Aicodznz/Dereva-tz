@@ -866,7 +866,7 @@ export default function TaxiBooking() {
                       {suggestions.length > 0 && (
                         <div className="absolute left-0 right-0 top-full mt-2 z-[100] bg-[#111118]/95 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl overflow-hidden max-h-[300px] overflow-y-auto">
                           {suggestions.map((s, i) => (
-                            <button key={i} onClick={() => selectSuggestion(s)} className="w-full text-left p-4 hover:bg-white/5 flex items-center gap-4 border-b border-white/5 last:border-0 group">
+                            <button key={`suggest-${s.display_name}-${i}`} onClick={() => selectSuggestion(s)} className="w-full text-left p-4 hover:bg-white/5 flex items-center gap-4 border-b border-white/5 last:border-0 group">
                               <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-[#7f77dd] group-hover:bg-[#7f77dd]/20 transition-colors">
                                 <MapPin className="w-4 h-4" />
                               </div>

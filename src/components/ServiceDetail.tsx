@@ -194,9 +194,9 @@ export default function ServiceDetail() {
                     exit={{ opacity: 0, y: -10 }}
                     className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4"
                   >
-                    {filteredProducts.map((product) => (
+                    {filteredProducts.map((product, idx) => (
                       <Link 
-                        key={product.id} 
+                        key={`svc-prod-${product.id}-${idx}`} 
                         to={`/product/${product.id}`}
                         className="block group"
                       >
@@ -237,8 +237,8 @@ export default function ServiceDetail() {
                     exit={{ opacity: 0, y: -10 }}
                     className="grid grid-cols-1 md:grid-cols-2 gap-4"
                   >
-                    {filteredVendors.map((vendor) => (
-                      <Link key={vendor.id} to={`/vendor/${vendor.id}`}>
+                    {filteredVendors.map((vendor, idx) => (
+                      <Link key={`svc-vend-${vendor.id}-${idx}`} to={`/vendor/${vendor.id}`}>
                         <Card className="overflow-hidden rounded-3xl border-neutral-100 shadow-sm hover:shadow-md transition-all group">
                           <div className="flex p-4 gap-4">
                             <div className="w-24 h-24 rounded-2xl overflow-hidden relative shrink-0">

@@ -25,6 +25,7 @@ import {
   Bell, 
   Settings, 
   LogOut, 
+  Star,
   ChevronRight, 
   Clock, 
   DollarSign,
@@ -75,6 +76,8 @@ import {
   Hotel,
   ChefHat,
   Monitor,
+  ClipboardList,
+  BadgeCheck,
   Printer as PrinterIcon,
   Volume2,
   VolumeX,
@@ -103,7 +106,7 @@ import {
 } from 'recharts';
 import { format } from 'date-fns';
 
-type TabType = 'overview' | 'orders' | 'products' | 'pos' | 'inventory_stats' | 'customers' | 'coupons' | 'staff' | 'settings' | 'tables' | 'market_pulse' | 'freshness' | 'messages';
+type TabType = 'overview' | 'orders' | 'products' | 'pos' | 'inventory_stats' | 'customers' | 'coupons' | 'staff' | 'settings' | 'tables' | 'market_pulse' | 'freshness' | 'messages' | 'branches';
 
 const chartData = [
   { name: 'Mon', sales: 4000, orders: 24 },
@@ -479,6 +482,10 @@ export default function VendorDashboard() {
       baseTabs.push({ id: 'tables', label: 'Dining Tables', icon: Store });
     }
 
+    if (vendorProfile?.category === 'bus_ticket') {
+      baseTabs.push({ id: 'branches', label: 'Matawi / Offices', icon: MapPin });
+    }
+
     const additionalTabs = [];
     if (vendorProfile?.category === 'grocery') {
       additionalTabs.push({ id: 'market_pulse', label: 'Market Pulse', icon: Zap });
@@ -496,7 +503,7 @@ export default function VendorDashboard() {
     ];
   }, [orders.length, t, vendorContext, vendorProfile?.category]);
 
-  const categories = Array.from(new Set(['all', ...products.map(p => p.category)]));
+  const categories = Array.from(new Set(['all', ...products.map(p => p.category).filter(Boolean)]));
   const filteredProducts = products.filter(p => 
     (selectedCategory === 'all' || p.category === selectedCategory)
   );
@@ -538,8 +545,11 @@ export default function VendorDashboard() {
   const [isKdsView, setIsKdsView] = useState(false);
   const [isOssView, setIsOssView] = useState(false);
   const [staff, setStaff] = useState<any[]>([]);
+  const [branches, setBranches] = useState<any[]>([]);
   const [isAddStaffOpen, setIsAddStaffOpen] = useState(false);
-  const [newStaff, setNewStaff] = useState({ name: '', role: 'waiter', phone: '' });
+  const [isAddBranchOpen, setIsAddBranchOpen] = useState(false);
+  const [newStaff, setNewStaff] = useState({ name: '', role: 'waiter', phone: '', branchId: '' });
+  const [newBranch, setNewBranch] = useState({ name: '', address: '', phone: '', type: 'office' });
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const prevOrdersCount = React.useRef(orders.length);
@@ -571,6 +581,48 @@ export default function VendorDashboard() {
     return () => unsub();
   }, [vendorProfile?.id]);
 
+  useEffect(() => {
+    if (!vendorProfile?.id) return;
+    
+    const fetchBranches = async () => {
+      const q = query(collection(db, 'branches'), where('vendorId', '==', vendorProfile.id));
+      const snap = await getDocs(q);
+      setBranches(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    };
+
+    fetchBranches();
+    const unsub = onSnapshot(query(collection(db, 'branches'), where('vendorId', '==', vendorProfile.id)), () => fetchBranches());
+    return () => unsub();
+  }, [vendorProfile?.id]);
+
+  const handleAddBranch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!vendorProfile?.id) return;
+    try {
+      await addDoc(collection(db, 'branches'), {
+        ...newBranch,
+        vendorId: vendorProfile.id,
+        createdAt: serverTimestamp()
+      });
+      setIsAddBranchOpen(false);
+      setNewBranch({ name: '', address: '', phone: '', type: 'office' });
+      toast.success('Branch / Office added successfully');
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to add branch');
+    }
+  };
+
+  const deleteBranch = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'branches', id));
+      toast.success('Branch removed');
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to delete branch');
+    }
+  };
+
   const handleAddStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!vendorProfile?.id) return;
@@ -578,10 +630,11 @@ export default function VendorDashboard() {
       await addDoc(collection(db, 'staff'), {
         ...newStaff,
         vendorId: vendorProfile.id,
+        vendorOwnerUid: user?.uid,
         createdAt: serverTimestamp()
       });
       setIsAddStaffOpen(false);
-      setNewStaff({ name: '', role: 'waiter', phone: '' });
+      setNewStaff({ name: '', role: 'waiter', phone: '', branchId: '' });
       toast.success('Staff member added successfully');
     } catch (error) {
       console.error(error);
@@ -1331,15 +1384,23 @@ export default function VendorDashboard() {
              >
                 <div className="flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">Order ID</span>
-                    <p className="font-bold text-sm text-neutral-900 dark:text-white transition-colors">#{order.id?.slice(-6).toUpperCase()}</p>
+                    <span className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">
+                      {vendorProfile?.category === 'bus_ticket' ? 'Ticket ID' : 'Order ID'}
+                    </span>
+                    <p className="font-bold text-sm text-neutral-900 dark:text-white transition-colors">
+                      {vendorProfile?.category === 'bus_ticket' ? `TKT-${order.id?.slice(-4).toUpperCase()}` : `#${order.id?.slice(-6).toUpperCase()}`}
+                    </p>
                   </div>
                   <div className="flex gap-2">
                     {order.orderType === 'walk_in' && (
-                      <Badge className="bg-orange-600 text-white border-none text-[8px] font-black uppercase">Soko/In-Store</Badge>
+                      <Badge className="bg-orange-600 text-white border-none text-[8px] font-black uppercase">
+                        {vendorProfile?.category === 'bus_ticket' ? 'Counter' : 'Soko/In-Store'}
+                      </Badge>
                     )}
                     {order.orderType === 'delivery' && (
-                      <Badge className="bg-blue-600 text-white border-none text-[8px] font-black uppercase">Delivery</Badge>
+                      <Badge className="bg-blue-600 text-white border-none text-[8px] font-black uppercase">
+                        {vendorProfile?.category === 'bus_ticket' ? 'Booking' : 'Delivery'}
+                      </Badge>
                     )}
                   </div>
                 </div>
@@ -1348,8 +1409,12 @@ export default function VendorDashboard() {
                    {order.items.map((item: any, idx: number) => (
                      <div key={`kds-item-${order.id}-${idx}`} className="flex justify-between items-start">
                         <div className="flex gap-2 items-center">
-                          <span className="w-5 h-5 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-[10px] font-black text-neutral-900 dark:text-white transition-colors">{item.quantity}x</span>
-                          <span className="text-xs font-bold text-neutral-600 dark:text-neutral-300 transition-colors">{item.name}</span>
+                          <span className="w-5 h-5 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-[10px] font-black text-neutral-900 dark:text-white transition-colors">
+                            {item.quantity}
+                          </span>
+                          <span className="text-xs font-bold text-neutral-600 dark:text-neutral-300 transition-colors">
+                            {vendorProfile?.category === 'bus_ticket' ? `${item.name} Ticket` : item.name}
+                          </span>
                         </div>
                      </div>
                    ))}
@@ -1367,7 +1432,7 @@ export default function VendorDashboard() {
                           className="bg-orange-600 hover:bg-orange-700 h-8 rounded-lg text-[10px] font-black uppercase"
                           onClick={() => updateOrderStatus(order.id!, 'preparing')}
                         >
-                          Accept Order
+                          {vendorProfile?.category === 'bus_ticket' ? 'Verify Ticket' : 'Accept Order'}
                         </Button>
                       )}
                       {order.status === 'preparing' && (
@@ -1376,7 +1441,7 @@ export default function VendorDashboard() {
                           className="bg-green-600 hover:bg-green-700 h-8 rounded-lg text-[10px] font-black uppercase"
                           onClick={() => updateOrderStatus(order.id!, 'prepared')}
                         >
-                          Mark Ready
+                          {vendorProfile?.category === 'bus_ticket' ? 'Ready Board' : 'Mark Ready'}
                         </Button>
                       )}
                        {order.status === 'prepared' && (
@@ -1385,7 +1450,7 @@ export default function VendorDashboard() {
                           className="bg-blue-600 hover:bg-blue-700 h-8 rounded-lg text-[10px] font-black uppercase"
                           onClick={() => updateOrderStatus(order.id!, 'completed')}
                         >
-                          Finish
+                          {vendorProfile?.category === 'bus_ticket' ? 'Departed' : 'Finish'}
                         </Button>
                       )}
                       <Button
@@ -1452,18 +1517,18 @@ export default function VendorDashboard() {
              size="sm"
              onClick={() => setIsKdsView(true)}
              className="rounded-xl h-10 px-4 font-bold text-[10px] uppercase tracking-widest text-neutral-500 hover:text-white"
-             title="Kitchen Display System"
+             title={vendorProfile?.category === 'bus_ticket' ? "Manifest View" : "Kitchen Display System"}
            >
-              <ChefHat className="w-4 h-4" />
+              {vendorProfile?.category === 'bus_ticket' ? <ClipboardList className="w-4 h-4" /> : <ChefHat className="w-4 h-4" />}
            </Button>
            <Button
              variant="ghost"
              size="sm"
              onClick={() => setIsOssView(true)}
              className="rounded-xl h-10 px-4 font-bold text-[10px] uppercase tracking-widest text-neutral-500 hover:text-white"
-             title="Order Status Screen"
+             title={vendorProfile?.category === 'bus_ticket' ? "Passenger Display" : "Order Status Screen"}
            >
-              <Monitor className="w-4 h-4" />
+              {vendorProfile?.category === 'bus_ticket' ? <Users className="w-4 h-4" /> : <Monitor className="w-4 h-4" />}
            </Button>
            <div className="w-px h-6 bg-neutral-800 mx-1" />
            <Button 
@@ -1496,9 +1561,15 @@ export default function VendorDashboard() {
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-950/50 transition-colors">
-                  <th className="px-8 py-5 text-[10px] font-black text-neutral-500 uppercase tracking-widest">Order Details</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-neutral-500 uppercase tracking-widest">Mode</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-neutral-500 uppercase tracking-widest">Items</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-neutral-500 uppercase tracking-widest">
+                    {vendorProfile?.category === 'bus_ticket' ? 'Tiketi / Abiria' : 'Order Details'}
+                  </th>
+                  <th className="px-8 py-5 text-[10px] font-black text-neutral-500 uppercase tracking-widest">
+                    {vendorProfile?.category === 'bus_ticket' ? 'Trip Info' : 'Mode'}
+                  </th>
+                  <th className="px-8 py-5 text-[10px] font-black text-neutral-500 uppercase tracking-widest">
+                    {vendorProfile?.category === 'bus_ticket' ? 'Seats' : 'Items'}
+                  </th>
                   <th className="px-8 py-5 text-[10px] font-black text-neutral-500 uppercase tracking-widest">Amount</th>
                   <th className="px-8 py-5 text-[10px] font-black text-neutral-500 uppercase tracking-widest text-right">Status</th>
                   <th className="px-8 py-5 text-[10px] font-black text-neutral-500 uppercase tracking-widest text-right">Actions</th>
@@ -1506,29 +1577,43 @@ export default function VendorDashboard() {
               </thead>
               <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800 transition-colors">
                 {orders.map((order, idx) => (
-                  <tr key={`orders-table-row-${order.id || idx}`} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/30 transition-colors group">
+                  <tr key={`orders-table-row-${order.id}-${idx}`} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/30 transition-colors group">
                     <td className="px-8 py-6">
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-2xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-all">
-                          <Receipt className="w-6 h-6" />
+                          {vendorProfile?.category === 'bus_ticket' ? <Ticket className="w-6 h-6" /> : <Receipt className="w-6 h-6" />}
                         </div>
                         <div>
-                          <p className="font-bold text-neutral-900 dark:text-white text-lg transition-colors">#{order.id?.slice(-6).toUpperCase()}</p>
-                          <p className="text-[10px] text-neutral-500 font-bold uppercase">{order.customerName}</p>
+                          <p className="font-bold text-neutral-900 dark:text-white text-lg transition-colors">
+                            {vendorProfile?.category === 'bus_ticket' ? `TKT-${order.id?.slice(-4).toUpperCase()}` : `#${order.id?.slice(-6).toUpperCase()}`}
+                          </p>
+                          <p className="text-[10px] text-neutral-500 font-bold uppercase">
+                            {vendorProfile?.category === 'bus_ticket' ? `Passenger: ${order.customerName}` : order.customerName}
+                          </p>
                         </div>
                       </div>
                     </td>
                     <td className="px-8 py-6">
                       <div className="flex flex-col gap-1">
                         <Badge variant="outline" className={`border-none ${order.orderSource === 'pos' ? 'bg-orange-600/10 text-orange-600' : 'bg-blue-600/10 text-blue-600'} text-[10px] font-black px-2.5 py-1 uppercase`}>
-                          {order.orderSource === 'pos' ? 'In-Store POS' : 'Online App'}
+                           {vendorProfile?.category === 'bus_ticket' 
+                             ? (order.orderSource === 'pos' ? 'Counter' : 'Online') 
+                             : (order.orderSource === 'pos' ? 'In-Store POS' : 'Online App')}
                         </Badge>
-                        <span className="text-[9px] text-neutral-500 font-bold uppercase tracking-widest ml-1">{order.orderType}</span>
+                        <span className="text-[9px] text-neutral-500 font-bold uppercase tracking-widest ml-1">
+                          {vendorProfile?.category === 'bus_ticket' ? 'Bus Ticket' : order.orderType}
+                        </span>
                       </div>
                     </td>
                     <td className="px-8 py-6">
-                      <p className="text-sm font-bold text-neutral-500 dark:text-neutral-400 transition-colors">{order.items.length} Items</p>
-                      <p className="text-[10px] text-neutral-600">{order.items[0]?.name}...</p>
+                      <p className="text-sm font-bold text-neutral-500 dark:text-neutral-400 transition-colors">
+                        {vendorProfile?.category === 'bus_ticket' ? `${order.items.length} Seats` : `${order.items.length} Items`}
+                      </p>
+                      <p className="text-[10px] text-neutral-600 truncate max-w-[150px]">
+                        {vendorProfile?.category === 'bus_ticket' 
+                          ? `${order.items[0]?.name || 'Unknown trip'}` 
+                          : `${order.items[0]?.name}...`}
+                      </p>
                     </td>
                     <td className="px-8 py-6">
                       <p className="font-black text-neutral-900 dark:text-white text-lg transition-colors">TZS {order.totalAmount.toLocaleString()}</p>
@@ -2130,9 +2215,9 @@ export default function VendorDashboard() {
                     <div className="space-y-4">
                       <div className="grid grid-cols-3 gap-3 bg-neutral-900/50 p-2 rounded-2xl border border-white/5">
                         {[
-                          { id: 'walk_in', label: vendorContext.type === 'restaurant' ? 'Dine In' : 'Soko (In-Store)', icon: Store },
-                          { id: 'pickup', label: 'Pickup', icon: ShoppingBag },
-                          { id: 'delivery', label: 'Delivery', icon: Truck },
+                          { id: 'walk_in', label: vendorProfile?.category === 'bus_ticket' ? 'Standard' : (vendorContext.type === 'restaurant' ? 'Dine In' : 'Soko (In-Store)'), icon: vendorProfile?.category === 'bus_ticket' ? Bus : Store },
+                          { id: 'pickup', label: vendorProfile?.category === 'bus_ticket' ? 'V.I.P' : 'Pickup', icon: vendorProfile?.category === 'bus_ticket' ? Star : ShoppingBag },
+                          { id: 'delivery', label: vendorProfile?.category === 'bus_ticket' ? 'Booking' : 'Delivery', icon: vendorProfile?.category === 'bus_ticket' ? Ticket : Truck },
                         ].map((type, idx) => (
                           <button
                             key={`ot-${type.id}-${idx}`}
@@ -2873,8 +2958,14 @@ export default function VendorDashboard() {
               >
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                   <div>
-                    <h2 className="text-4xl font-black italic uppercase tracking-tighter">Team & Personnel</h2>
-                    <p className="text-neutral-500 font-medium italic">Manage roles for chefs, waiters, and managers</p>
+                    <h2 className="text-4xl font-black italic uppercase tracking-tighter">
+                      {vendorProfile?.category === 'bus_ticket' ? 'Staff & Agents' : 'Team & Personnel'}
+                    </h2>
+                    <p className="text-neutral-500 font-medium italic">
+                      {vendorProfile?.category === 'bus_ticket' 
+                        ? 'Dhibiti madereva, makondakta na mawakala wa tiketi' 
+                        : 'Manage roles for chefs, waiters, and managers'}
+                    </p>
                   </div>
                   <Button 
                     onClick={() => setIsAddStaffOpen(true)}
@@ -2899,7 +2990,11 @@ export default function VendorDashboard() {
 
                       <div className="flex flex-col items-center text-center space-y-4 mb-8">
                          <div className="w-20 h-20 rounded-[2rem] bg-orange-600/10 flex items-center justify-center border-2 border-dashed border-orange-600/20 group-hover:bg-orange-600/20 transition-all">
-                            <ChefHat className="w-10 h-10 text-orange-600" />
+                            {vendorProfile?.category === 'bus_ticket' ? (
+                              <BadgeCheck className="w-10 h-10 text-orange-600" />
+                            ) : (
+                              <ChefHat className="w-10 h-10 text-orange-600" />
+                            )}
                          </div>
                          <div>
                             <h3 className="text-2xl font-black text-white italic tracking-tighter uppercase">{member.name}</h3>
@@ -2931,6 +3026,90 @@ export default function VendorDashboard() {
                        <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter mb-2">Build Your Power Team</h3>
                        <p className="text-neutral-500 text-sm max-w-xs mx-auto mb-8">Scale your operations by assigning dedicated roles to your employees.</p>
                        <Button onClick={() => setIsAddStaffOpen(true)} className="bg-white text-black hover:bg-neutral-200 h-14 rounded-2xl px-10 font-black uppercase tracking-widest text-xs shadow-xl">Get Started</Button>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+ 
+             {activeTab === 'branches' && (
+              <motion.div 
+                key="branches"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="space-y-8"
+              >
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                  <div>
+                    <h2 className="text-4xl font-black italic uppercase tracking-tighter">
+                      {vendorProfile?.category === 'bus_ticket' ? 'Vituo & Matawi' : 'Locations & Branches'}
+                    </h2>
+                    <p className="text-neutral-500 font-medium italic">
+                      {vendorProfile?.category === 'bus_ticket' 
+                        ? 'Simamia vituo vya kuuzia tiketi na matawi yako ya mikoani' 
+                        : 'Manage multiple physical locations for your business'}
+                    </p>
+                  </div>
+                  <Button 
+                    onClick={() => setIsAddBranchOpen(true)}
+                    className="bg-orange-600 hover:bg-orange-700 rounded-2xl h-14 px-8 font-black uppercase tracking-widest text-xs shadow-xl shadow-orange-900/30 text-white"
+                  >
+                    <Plus className="w-5 h-5 mr-2" /> 
+                    {vendorProfile?.category === 'bus_ticket' ? 'Ongeza Kituo Kipya' : 'Add New Branch'}
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {branches.map((branch) => (
+                    <motion.div 
+                      key={`branch-card-${branch.id}`}
+                      whileHover={{ y: -5 }}
+                      className="bg-neutral-900/40 border border-neutral-800 rounded-[3rem] p-8 flex flex-col justify-between group relative overflow-hidden"
+                    >
+                      <div className="absolute top-0 right-0 p-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white" onClick={() => deleteBranch(branch.id!)}>
+                            <Trash2 className="w-4 h-4" />
+                         </Button>
+                      </div>
+
+                      <div className="mb-8">
+                         <div className="w-20 h-20 rounded-[2.5rem] bg-orange-600/10 flex items-center justify-center border-2 border-dashed border-orange-600/20 group-hover:bg-orange-600/20 transition-all mb-6">
+                            <MapPin className="w-10 h-10 text-orange-600" />
+                         </div>
+                         <h3 className="text-2xl font-black text-white italic tracking-tighter uppercase">{branch.name}</h3>
+                         <p className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] mt-1">{branch.type || 'Office'}</p>
+                      </div>
+
+                      <div className="space-y-4 bg-neutral-950/50 p-6 rounded-3xl border border-white/5">
+                         <div className="flex flex-col space-y-1">
+                            <span className="text-[9px] font-black text-neutral-600 uppercase tracking-widest">Address</span>
+                            <span className="text-xs font-bold text-neutral-300">{branch.address}</span>
+                         </div>
+                         <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest pt-3 border-t border-white/5">
+                            <span className="text-neutral-600">Contact</span>
+                            <span className="text-neutral-300">{branch.phone || 'N/A'}</span>
+                         </div>
+                         <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest pt-3 border-t border-white/5">
+                            <span className="text-neutral-600">Status</span>
+                            <span className="text-green-500">Active</span>
+                         </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                  
+                  {branches.length === 0 && (
+                    <div className="col-span-full py-40 text-center bg-neutral-900/10 rounded-[4rem] border border-dashed border-neutral-800">
+                       <div className="w-24 h-24 bg-neutral-800 rounded-[2.5rem] flex items-center justify-center mx-auto mb-6">
+                          <MapPin className="w-10 h-10 text-neutral-600" />
+                       </div>
+                       <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter mb-2">Multi-Branch Operations</h3>
+                       <p className="text-neutral-500 text-sm max-w-sm mx-auto mb-8">
+                         {vendorProfile?.category === 'bus_ticket' 
+                           ? 'Ongeza na dhibiti vituo vyako vyote vya kuuzia tiketi hapa ili kurahisisha ufuatiliaji wa mauzo'
+                           : 'Scale your business by adding more locations and tracking their performance individually.'}
+                       </p>
+                       <Button onClick={() => setIsAddBranchOpen(true)} className="bg-white text-black hover:bg-neutral-200 h-14 rounded-2xl px-10 font-black uppercase tracking-widest text-xs shadow-xl">Add Branch</Button>
                     </div>
                   )}
                 </div>
@@ -3507,7 +3686,7 @@ export default function VendorDashboard() {
                       {filteredInventory.map((product, idx) => {
                         const isBus = vendorProfile?.category === 'bus_ticket';
                         return (
-                          <tr key={`inventory-row-${product.id || idx}`} className="hover:bg-neutral-800/20 transition-all group">
+                          <tr key={`inventory-row-${product.id}-${idx}`} className="hover:bg-neutral-800/20 transition-all group">
                             <td className="px-8 py-6">
                               <div className="flex items-center gap-4">
                                 <div className="w-16 h-16 rounded-[1.5rem] bg-neutral-900 overflow-hidden relative border border-neutral-800 group-hover:border-orange-600/50 transition-all">
@@ -3754,6 +3933,17 @@ export default function VendorDashboard() {
                         />
                       </div>
                       <div className="space-y-2">
+                        <label className="text-xs font-bold text-neutral-500 uppercase">Boarding point (Eneo la Kupanda)</label>
+                        <Input 
+                          placeholder="Kibo Complex, Tegeta"
+                          className="bg-neutral-800 border-none h-12 rounded-xl"
+                          value={(newProduct as any).boardingPoint || ''}
+                          onChange={e => setNewProduct({...newProduct, boardingPoint: e.target.value} as any)}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
                         <label className="text-xs font-bold text-neutral-500 uppercase">Destination (Kwenda)</label>
                         <Input 
                           placeholder="Arusha"
@@ -3762,10 +3952,20 @@ export default function VendorDashboard() {
                           onChange={e => setNewProduct({...newProduct, destination: e.target.value} as any)}
                         />
                       </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-neutral-500 uppercase">Total Seats (Idadi ya Viti)</label>
+                        <Input 
+                          type="number"
+                          placeholder="45"
+                          className="bg-neutral-800 border-none h-12 rounded-xl"
+                          value={(newProduct as any).totalSeats || 45}
+                          onChange={e => setNewProduct({...newProduct, totalSeats: parseInt(e.target.value), stock: parseInt(e.target.value)} as any)}
+                        />
+                      </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <label className="text-xs font-bold text-neutral-500 uppercase">Departure Time</label>
+                        <label className="text-xs font-bold text-neutral-500 uppercase">Departure Time (Muda wa Kuondoka)</label>
                         <Input 
                           type="time"
                           className="bg-neutral-800 border-none h-12 rounded-xl"
@@ -3774,13 +3974,12 @@ export default function VendorDashboard() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-xs font-bold text-neutral-500 uppercase">Total Seats</label>
+                        <label className="text-xs font-bold text-neutral-500 uppercase">Arrival Time (Muda wa Kufika)</label>
                         <Input 
-                          type="number"
-                          placeholder="45"
+                          type="time"
                           className="bg-neutral-800 border-none h-12 rounded-xl"
-                          value={(newProduct as any).totalSeats || 45}
-                          onChange={e => setNewProduct({...newProduct, totalSeats: parseInt(e.target.value), stock: parseInt(e.target.value)} as any)}
+                          value={(newProduct as any).arrivalTime || ''}
+                          onChange={e => setNewProduct({...newProduct, arrivalTime: e.target.value} as any)}
                         />
                       </div>
                     </div>
@@ -4051,7 +4250,7 @@ export default function VendorDashboard() {
               <div className="flex justify-between items-center mb-8">
                 <h3 className="text-2xl font-black italic uppercase tracking-tighter flex items-center gap-3">
                   <UserPlus className="w-6 h-6 text-orange-600" />
-                  New Team Member
+                  {vendorProfile?.category === 'bus_ticket' ? 'Staff Mpya / Agent' : 'New Team Member'}
                 </h3>
                 <button onClick={() => setIsAddStaffOpen(false)} className="text-neutral-500 hover:text-white transition-colors">
                   <X className="w-6 h-6" />
@@ -4076,10 +4275,22 @@ export default function VendorDashboard() {
                         <SelectValue />
                      </SelectTrigger>
                      <SelectContent className="bg-neutral-900 border-neutral-800 text-white shadow-2xl rounded-2xl">
-                        <SelectItem value="chef">Chef / Mpishi</SelectItem>
-                        <SelectItem value="waiter">Waiter / WaitRESS</SelectItem>
-                        <SelectItem value="cashier">Cashier / Mhasibu</SelectItem>
-                        <SelectItem value="manager">Manager / Meneja</SelectItem>
+                        {vendorProfile?.category === 'bus_ticket' ? (
+                          <>
+                            <SelectItem value="driver">Driver / Dereva</SelectItem>
+                            <SelectItem value="conductor">Conductor / Kondakta</SelectItem>
+                            <SelectItem value="agent">Booking Agent / Wakala</SelectItem>
+                            <SelectItem value="manager">Manager / Meneja</SelectItem>
+                            <SelectItem value="loader">Loader / Mpakuaji</SelectItem>
+                          </>
+                        ) : (
+                          <>
+                            <SelectItem value="chef">Chef / Mpishi</SelectItem>
+                            <SelectItem value="waiter">Waiter / WaitRESS</SelectItem>
+                            <SelectItem value="cashier">Cashier / Mhasibu</SelectItem>
+                            <SelectItem value="manager">Manager / Meneja</SelectItem>
+                          </>
+                        )}
                      </SelectContent>
                   </Select>
                 </div>
@@ -4092,11 +4303,108 @@ export default function VendorDashboard() {
                     onChange={e => setNewStaff({...newStaff, phone: e.target.value})}
                   />
                 </div>
+                {branches.length > 0 && (
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Branch / Kituo</label>
+                    <Select value={newStaff.branchId} onValueChange={val => setNewStaff({...newStaff, branchId: val})}>
+                      <SelectTrigger className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl font-bold text-white">
+                        <SelectValue placeholder="Select Branch (Optional)" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-neutral-900 border-neutral-800 text-white shadow-2xl rounded-2xl">
+                        {branches.map(b => (
+                          <SelectItem key={`staff-branch-${b.id}`} value={b.id || ''}>{b.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <Button 
                   type="submit"
                   className="w-full bg-orange-600 hover:bg-orange-700 h-16 rounded-2xl font-black uppercase tracking-widest text-xs mt-4 shadow-xl shadow-orange-950/40"
                 >
-                  Onboard Member
+                  {vendorProfile?.category === 'bus_ticket' ? 'Onboard Staff / Sajili' : 'Onboard Member'}
+                </Button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isAddBranchOpen && (
+          <div className="fixed inset-0 z-[140] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsAddBranchOpen(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 30 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 30 }}
+              className="relative w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-[3rem] overflow-hidden shadow-2xl p-8"
+            >
+              <div className="flex justify-between items-center mb-8">
+                <h3 className="text-2xl font-black italic uppercase tracking-tighter flex items-center gap-3">
+                  <MapPin className="w-6 h-6 text-orange-600" />
+                  {vendorProfile?.category === 'bus_ticket' ? 'Kituo Kipya / Tawi' : 'New Branch / Location'}
+                </h3>
+                <button onClick={() => setIsAddBranchOpen(false)} className="text-neutral-500 hover:text-white transition-colors">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <form onSubmit={handleAddBranch} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Branch Name / Jina la Tawi</label>
+                  <Input 
+                    required
+                    placeholder="e.g. Arusha Main Office" 
+                    className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl font-bold text-white italic"
+                    value={newBranch.name}
+                    onChange={e => setNewBranch({...newBranch, name: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Physical Address / Mahali</label>
+                  <Input 
+                    required
+                    placeholder="e.g. Mkunguni Street, Tanga" 
+                    className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl font-bold text-white italic"
+                    value={newBranch.address}
+                    onChange={e => setNewBranch({...newBranch, address: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Contact Phone / Simu</label>
+                  <Input 
+                    placeholder="+255..." 
+                    className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl font-bold text-white italic"
+                    value={newBranch.phone}
+                    onChange={e => setNewBranch({...newBranch, phone: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Type / Aina</label>
+                  <Select value={newBranch.type} onValueChange={val => setNewBranch({...newBranch, type: val})}>
+                     <SelectTrigger className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl font-bold text-white">
+                        <SelectValue />
+                     </SelectTrigger>
+                     <SelectContent className="bg-neutral-900 border-neutral-800 text-white shadow-2xl rounded-2xl">
+                        <SelectItem value="office">Main Office / Ofisi Kuu</SelectItem>
+                        <SelectItem value="station">Bus Station / Standi</SelectItem>
+                        <SelectItem value="branch">Branch / Tawi</SelectItem>
+                        <SelectItem value="agent_point">Agent Point / Kwa Wakala</SelectItem>
+                     </SelectContent>
+                  </Select>
+                </div>
+                <Button 
+                  type="submit"
+                  className="w-full bg-orange-600 hover:bg-orange-700 h-16 rounded-2xl font-black uppercase tracking-widest text-xs mt-4 shadow-xl shadow-orange-950/40"
+                >
+                  {vendorProfile?.category === 'bus_ticket' ? 'Sajili Kituo / Tawi' : 'Create Branch'}
                 </Button>
               </form>
             </motion.div>
@@ -4474,9 +4782,9 @@ export default function VendorDashboard() {
                           {[
                             '#ea580c', '#3b82f6', '#22c55e', '#ef4444', '#a855f7', 
                             '#ec4899', '#06b6d4', '#000000', '#71717a'
-                          ].map((color) => (
+                          ].map((color, iIdx) => (
                             <button
-                              key={`stand-color-${color}`}
+                              key={`stand-color-${color}-${iIdx}`}
                               onClick={() => setPrintDetails({...printDetails, accentColor: color})}
                               className={`w-7 h-7 rounded-full border-2 transition-all flex items-center justify-center ${
                                 printDetails.accentColor === color ? 'border-white scale-110 shadow-lg' : 'border-transparent'
@@ -4495,9 +4803,9 @@ export default function VendorDashboard() {
                           {[
                             '#1A1A1A', '#000000', '#ffffff', '#ea580c', '#3b82f6', 
                             '#22c55e', '#ef4444', '#71717a'
-                          ].map((color) => (
+                          ].map((color, hIdx) => (
                             <button
-                              key={`stand-header-color-${color}`}
+                              key={`stand-header-color-${color}-${hIdx}`}
                               onClick={() => setPrintDetails({...printDetails, headerBg: color})}
                               className={`w-7 h-7 rounded-full border-2 transition-all flex items-center justify-center ${
                                 printDetails.headerBg === color ? 'border-white scale-110 shadow-lg' : 'border-transparent'

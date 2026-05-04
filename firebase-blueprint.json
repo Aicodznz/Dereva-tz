@@ -210,12 +210,29 @@
       "properties": {
         "vendorId": { "type": "string" },
         "vendorOwnerUid": { "type": "string" },
+        "branchId": { "type": "string", "description": "Specific branch or office assignment" },
         "name": { "type": "string" },
-        "role": { "type": "string", "enum": ["chef", "waiter", "manager", "admin", "attendant"] },
+        "role": { "type": "string", "enum": ["chef", "waiter", "manager", "admin", "attendant", "driver", "conductor", "agent", "loader"] },
         "phone": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["vendorId", "vendorOwnerUid", "name", "role"]
+    },
+    "Branch": {
+      "title": "Business Branch",
+      "description": "Secondary location or office for a vendor",
+      "type": "object",
+      "properties": {
+        "vendorId": { "type": "string" },
+        "name": { "type": "string" },
+        "address": { "type": "string" },
+        "phone": { "type": "string" },
+        "location": { "type": "object" },
+        "managerId": { "type": "string" },
+        "type": { "type": "string", "enum": ["office", "station", "branch", "agent_point"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["vendorId", "name"]
     },
     "Coupon": {
       "title": "Coupon",
@@ -329,6 +346,7 @@
     "/coupons/{couponId}": { "schema": "Coupon", "description": "Discount coupons" },
     "/tables/{tableId}": { "schema": "Table", "description": "Dine-in tables" },
     "/staff/{staffId}": { "schema": "Staff", "description": "Vendor staff members" },
+    "/branches/{branchId}": { "schema": "Branch", "description": "Vendor branch locations" },
     "/rides/{rideId}": { "schema": "Ride", "description": "Taxi rides" },
     "/drivers/{driverId}": { "schema": { "$ref": "#/entities/User" }, "description": "Driver live status and location" },
     "/parcels/{parcelId}": { "schema": "Parcel", "description": "Parcel delivery jobs" },
