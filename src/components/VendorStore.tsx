@@ -292,16 +292,22 @@ export default function VendorStore() {
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 pb-20 transition-colors">
       {/* Header Image */}
-      <div className="h-56 md:h-80 w-full relative overflow-hidden bg-neutral-200">
-        <img 
-          src={vendor.bannerUrl || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80'} 
-          alt={vendor.businessName}
-          className="w-full h-full object-cover"
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80';
-          }}
-          referrerPolicy="no-referrer"
-        />
+      <div className="h-56 md:h-80 w-full relative overflow-hidden bg-neutral-200 dark:bg-neutral-800">
+        {(vendor.bannerUrl || vendor.logoUrl) ? (
+          <img 
+            src={vendor.bannerUrl || vendor.logoUrl || ''} 
+            alt={vendor.businessName}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1200&q=80';
+            }}
+            referrerPolicy="no-referrer"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-orange-500 to-orange-700 flex items-center justify-center">
+            <Store className="w-20 h-20 text-white/20" />
+          </div>
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
         <button 
           onClick={() => navigate(-1)}
@@ -317,13 +323,13 @@ export default function VendorStore() {
           <CardContent className="p-5 md:p-8">
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
               <div className="flex flex-col md:flex-row gap-5 items-center md:items-start text-center md:text-left">
-                <div className="w-24 h-24 md:w-32 md:h-32 rounded-3xl border-4 border-white dark:border-neutral-800 shadow-xl overflow-hidden bg-white shrink-0 -mt-12 md:-mt-16">
+                <div className="w-24 h-24 md:w-32 md:h-32 rounded-3xl border-4 border-white dark:border-neutral-800 shadow-xl overflow-hidden bg-white dark:bg-neutral-800 shrink-0 -mt-12 md:-mt-16 relative">
                   <img 
-                    src={vendor.logoUrl || `https://api.dicebear.com/7.x/identicon/svg?seed=${vendor.businessName}`} 
+                    src={vendor.logoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${vendor.businessName}`} 
                     alt={vendor.businessName}
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/identicon/svg?seed=${vendor.businessName}`;
+                      (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${vendor.businessName}`;
                     }}
                     referrerPolicy="no-referrer"
                   />
