@@ -65,6 +65,7 @@ export interface Product {
   medicationType?: 'otc' | 'prescription';
   variations?: { name: string; price?: number }[];
   addOns?: { name: string; price: number }[];
+  branchId?: string;
 }
 
 export type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'prepared' | 'out_for_delivery' | 'delivered' | 'cancelled' | 'completed';
@@ -79,6 +80,7 @@ export interface Order {
   totalAmount: number;
   subtotal?: number;
   taxAmount?: number;
+  branchId?: string;
   status: OrderStatus;
   type: VendorCategory;
   orderSource?: 'online' | 'pos';

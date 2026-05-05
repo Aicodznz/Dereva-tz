@@ -22,11 +22,21 @@ interface BusBookingProps {
 
 export default function BusBooking({ vendors, products }: BusBookingProps) {
   const navigate = useNavigate();
+  const [branches, setBranches] = useState<any[]>([]);
   const [search, setSearch] = useState({
     origin: '',
     destination: '',
     date: format(new Date(), 'yyyy-MM-dd')
   });
+
+  useEffect(() => {
+    // Fetch all branches to correlate with trips
+    const branchesRef = collection(db, 'branches');
+    const unsub = onSnapshot(branchesRef, (snapshot) => {
+      setBranches(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsub();
+  }, []);
   const [isSearching, setIsSearching] = useState(false);
   const [results, setResults] = useState<Product[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
@@ -227,7 +237,12 @@ export default function BusBooking({ vendors, products }: BusBookingProps) {
                             <div className="flex items-center gap-8 md:gap-12 flex-1">
                               {/* From */}
                               <div className="space-y-1">
-                                <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Ondoka</p>
+                                <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest flex items-center gap-1">
+                                  Ondoka 
+                                  {(trip as any).branchId && branches.find(b => b.id === (trip as any).branchId) && (
+                                    <span className="text-orange-600">({branches.find(b => b.id === (trip as any).branchId)?.name})</span>
+                                  )}
+                                </p>
                                 <h5 className="text-2xl font-black text-neutral-900">{(trip as any).departureTime || '06:00'}</h5>
                                 <p className="text-xs font-bold text-neutral-500 uppercase italic">{(trip as any).origin || 'Dar'}</p>
                               </div>

@@ -73,6 +73,7 @@
         "items": { "type": "array" },
         "totalAmount": { "type": "number" },
         "status": { "type": "string", "enum": ["pending", "accepted", "preparing", "out_for_delivery", "delivered", "cancelled"] },
+        "branchId": { "type": "string", "description": "Branch where mission was booked or sold" },
         "type": { "type": "string" },
         "prescriptionUrl": { "type": "string" },
         "deliveryAddress": { "type": "string" },

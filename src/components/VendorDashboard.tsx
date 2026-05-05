@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { 
+  Globe,
   LayoutDashboard, 
   Package, 
   ShoppingCart, 
@@ -280,7 +281,9 @@ export default function VendorDashboard() {
   };
 
   const [isProcessingSale, setIsProcessingSale] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
+  const [isLogoUploading, setIsLogoUploading] = useState(false);
+  const [isProductUploading, setIsProductUploading] = useState(false);
+  const [isBannerUploading, setIsBannerUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -318,6 +321,12 @@ export default function VendorDashboard() {
   const [updatedProfile, setUpdatedProfile] = useState<Partial<VendorProfile>>({});
   const [inventorySearch, setInventorySearch] = useState('');
   const [stockLevelFilter, setStockLevelFilter] = useState('all');
+  const [branchFilter, setBranchFilter] = useState<string | null>(null);
+
+  const filteredOrders = useMemo(() => {
+    if (!branchFilter) return orders;
+    return orders.filter(o => o.branchId === branchFilter);
+  }, [orders, branchFilter]);
 
   // QR Builder State
   const [isQrBuilderOpen, setIsQrBuilderOpen] = useState(false);
@@ -831,20 +840,22 @@ export default function VendorDashboard() {
       return;
     }
 
-    setIsUploading(true);
+    if (isProductUpload) setIsProductUploading(true);
+    else setIsBannerUploading(true); // Fallback to banner if not product (though usually handled elsewhere)
+    
     setUploadProgress(0);
     
     try {
       const uploadPromises = validFiles.map(async (file, index) => {
         let path = '';
         if (isProductUpload) {
-          path = storageService.getProductPath(vendorProfile.id, newProduct.id || 'new', file.name);
+          path = storageService.getProductPath(vendorProfile.id, editingProduct?.id || 'new', file.name);
         } else {
-          // This case is handled by specific handleLogoUpload / handleBannerUpload now
-          // but kept here for generic image array if needed
           path = `${vendorProfile.id}/misc/${Date.now()}_${file.name}`;
         }
-        return await storageService.uploadFile(isProductUpload ? 'products' : 'vendors', path, file);
+        return await storageService.uploadFile(isProductUpload ? 'products' : 'vendors', path, file, (progress) => {
+          if (isProductUpload) setUploadProgress(progress);
+        });
       });
 
       const urls = await Promise.all(uploadPromises);
@@ -855,12 +866,15 @@ export default function VendorDashboard() {
           imageUrls: [...(prev.imageUrls || []), ...urls],
           imageUrl: prev.imageUrl || urls[0]
         }));
+        toast.success(`${urls.length} picha zimepakiwa!`);
       }
       return urls;
     } catch (error: any) {
+      console.error("Upload error:", error);
       toast.error(error.message || 'Kuna tatizo lilitokea wakati wa kupakia.');
     } finally {
-      setIsUploading(false);
+      if (isProductUpload) setIsProductUploading(false);
+      else setIsBannerUploading(false);
       setUploadProgress(0);
     }
   };
@@ -868,7 +882,7 @@ export default function VendorDashboard() {
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && vendorProfile?.id) {
-      setIsUploading(true);
+      setIsLogoUploading(true);
       try {
         const path = storageService.getVendorPath(vendorProfile.id, 'logo', file.name);
         const url = await storageService.uploadFile('vendors', path, file);
@@ -877,7 +891,7 @@ export default function VendorDashboard() {
       } catch (error: any) {
         toast.error("Imeshindwa kupakia logo: " + error.message);
       } finally {
-        setIsUploading(false);
+        setIsLogoUploading(false);
       }
     }
   };
@@ -885,7 +899,7 @@ export default function VendorDashboard() {
   const handleBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && vendorProfile?.id) {
-      setIsUploading(true);
+      setIsBannerUploading(true);
       try {
         const path = storageService.getVendorPath(vendorProfile.id, 'banner', file.name);
         const url = await storageService.uploadFile('vendors', path, file);
@@ -894,7 +908,7 @@ export default function VendorDashboard() {
       } catch (error: any) {
         toast.error("Imeshindwa kupakia banner: " + error.message);
       } finally {
-        setIsUploading(false);
+        setIsBannerUploading(false);
       }
     }
   };
@@ -951,6 +965,7 @@ export default function VendorDashboard() {
         addOns: [],
         imageUrl: '',
         imageUrls: [],
+        branchId: '',
       });
     } catch (error) {
       console.error(error);
@@ -1006,6 +1021,7 @@ export default function VendorDashboard() {
       addOns: product.addOns || [],
       imageUrl: product.imageUrl || '',
       imageUrls: product.imageUrls || (product.imageUrl ? [product.imageUrl] : []),
+      branchId: (product as any).branchId || '',
     });
     setIsAddProductOpen(true);
   };
@@ -1125,6 +1141,7 @@ export default function VendorDashboard() {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         deliveryAddress: orderType === 'delivery' ? (posCustomer?.address || 'POS Delivery') : 'In-Store POS',
+        branchId: branchFilter || null,
       };
 
       const orderRef = await addDoc(collection(db, 'orders'), orderData);
@@ -1492,8 +1509,10 @@ export default function VendorDashboard() {
 
   const ordersTab = (
     <motion.div 
+      key="orders"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
       className="space-y-8"
     >
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -1502,6 +1521,20 @@ export default function VendorDashboard() {
           <p className="text-neutral-500 font-medium">{vendorContext.ordersDescription}</p>
         </div>
         <div className="flex items-center gap-2 p-1 bg-neutral-900 rounded-2xl border border-neutral-800">
+           {branches.length > 0 && (
+             <Select value={branchFilter || 'all'} onValueChange={val => setBranchFilter(val === 'all' ? null : val)}>
+               <SelectTrigger className="h-10 bg-transparent border-none text-[10px] font-black uppercase tracking-widest text-neutral-400 w-32 md:w-40">
+                 <SelectValue placeholder="Matawi Yote" />
+               </SelectTrigger>
+               <SelectContent className="bg-neutral-950 border-neutral-800 text-white">
+                 <SelectItem value="all">Matawi Yote</SelectItem>
+                 {branches.map(b => (
+                   <SelectItem key={`ord-filter-br-${b.id}`} value={b.id || ''}>{b.name}</SelectItem>
+                 ))}
+               </SelectContent>
+             </Select>
+           )}
+           {branches.length > 0 && <div className="w-px h-6 bg-neutral-800 mx-1" />}
            <Button
              variant="ghost"
              size="sm"
@@ -1571,12 +1604,15 @@ export default function VendorDashboard() {
                     {vendorProfile?.category === 'bus_ticket' ? 'Seats' : 'Items'}
                   </th>
                   <th className="px-8 py-5 text-[10px] font-black text-neutral-500 uppercase tracking-widest">Amount</th>
+                  {branches.length > 0 && (
+                    <th className="px-8 py-5 text-[10px] font-black text-neutral-500 uppercase tracking-widest">Tawi / Branch</th>
+                  )}
                   <th className="px-8 py-5 text-[10px] font-black text-neutral-500 uppercase tracking-widest text-right">Status</th>
                   <th className="px-8 py-5 text-[10px] font-black text-neutral-500 uppercase tracking-widest text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800 transition-colors">
-                {orders.map((order, idx) => (
+                {filteredOrders.map((order, idx) => (
                   <tr key={`orders-table-row-${order.id}-${idx}`} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/30 transition-colors group">
                     <td className="px-8 py-6">
                       <div className="flex items-center gap-4">
@@ -1619,6 +1655,26 @@ export default function VendorDashboard() {
                       <p className="font-black text-neutral-900 dark:text-white text-lg transition-colors">TZS {order.totalAmount.toLocaleString()}</p>
                       <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">{order.paymentMethod}</p>
                     </td>
+                    {branches.length > 0 && (
+                      <td className="px-8 py-6">
+                         {order.branchId ? (
+                           <div className="flex flex-col gap-0.5">
+                             <div className="flex items-center gap-1.5">
+                               <MapPin className="w-3 h-3 text-orange-600" />
+                               <span className="text-[11px] font-black text-neutral-900 dark:text-white uppercase tracking-tighter transition-colors">
+                                 {branches.find(b => b.id === order.branchId)?.name || 'Unknown'}
+                               </span>
+                             </div>
+                             <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-widest pl-4">Branch Sale</span>
+                           </div>
+                         ) : (
+                           <div className="flex items-center gap-1.5 opacity-50">
+                              <Globe className="w-3 h-3 text-neutral-400" />
+                              <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Main / Online</span>
+                           </div>
+                         )}
+                      </td>
+                    )}
                     <td className="px-8 py-6 text-right">
                       <Badge className={`${getStatusColor(order.status)} border rounded-lg px-4 py-1.5 text-[10px] font-black uppercase tracking-widest`}>
                         {order.status}
@@ -2113,6 +2169,22 @@ export default function VendorDashboard() {
                       <p className="text-neutral-500 font-medium">{vendorContext.type === 'service' ? 'Quick session check-in' : 'Quick checkout and service'}</p>
                     </div>
                     <div className="flex items-center gap-3">
+                       {branches.length > 0 && (
+                         <Select value={branchFilter || 'all'} onValueChange={val => setBranchFilter(val === 'all' ? null : val)}>
+                            <SelectTrigger className="bg-neutral-950 border-neutral-800 h-11 rounded-xl font-black uppercase text-[10px] tracking-widest text-orange-600 w-44">
+                               <div className="flex items-center gap-2">
+                                  <MapPin className="w-3 h-3" />
+                                  <SelectValue placeholder="Branch" />
+                               </div>
+                            </SelectTrigger>
+                            <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
+                               <SelectItem value="all">HQ / All Branches</SelectItem>
+                               {branches.map(b => (
+                                 <SelectItem key={`pos-br-filter-${b.id}`} value={b.id || ''}>{b.name}</SelectItem>
+                               ))}
+                            </SelectContent>
+                         </Select>
+                       )}
                        <Button 
                          variant="outline" 
                          size="sm" 
@@ -2508,68 +2580,6 @@ export default function VendorDashboard() {
                 </div>
               </motion.div>
             )}
-
-            {/* Add Customer Modal */}
-            <AnimatePresence>
-               {isAddCustomerModalOpen && (
-                 <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-                    <motion.div 
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      onClick={() => setIsAddCustomerModalOpen(false)}
-                      className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-                    />
-                    <motion.div 
-                      initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                      className="relative w-full max-w-sm bg-neutral-900 border border-neutral-800 rounded-[2rem] overflow-hidden shadow-2xl p-6"
-                    >
-                      <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-xl font-bold flex items-center gap-2">
-                          <UserPlus className="w-5 h-5 text-orange-600" />
-                          Add Customer
-                        </h3>
-                 <button onClick={() => setIsAddCustomerModalOpen(false)} className="text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors">
-                          <X className="w-5 h-5" />
-                        </button>
-                      </div>
-                      
-                      <div className="space-y-4">
-                        <div className="space-y-2">
-                          <label className="text-xs font-bold text-neutral-500 uppercase">Customer Name</label>
-                          <Input 
-                            placeholder="Full Name" 
-                            className="bg-neutral-800 border-none h-11 rounded-xl"
-                            value={newCustomer.name}
-                            onChange={e => setNewCustomer({...newCustomer, name: e.target.value})}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-bold text-neutral-500 uppercase">Phone Number</label>
-                          <Input 
-                            placeholder="+255..." 
-                            className="bg-neutral-800 border-none h-11 rounded-xl"
-                             value={newCustomer.phone}
-                            onChange={e => setNewCustomer({...newCustomer, phone: e.target.value})}
-                          />
-                        </div>
-                        <Button 
-                          onClick={() => {
-                            setPosCustomer(newCustomer);
-                            setIsAddCustomerModalOpen(false);
-                            toast.success(`Customer ${newCustomer.name} added!`);
-                          }}
-                          className="w-full bg-orange-600 hover:bg-orange-700 h-11 rounded-xl font-bold mt-4"
-                        >
-                          Confirm Customer
-                        </Button>
-                      </div>
-                    </motion.div>
-                 </div>
-               )}
-            </AnimatePresence>
 
             {activeTab === 'coupons' && (
               <motion.div 
@@ -2998,9 +3008,17 @@ export default function VendorDashboard() {
                          </div>
                          <div>
                             <h3 className="text-2xl font-black text-white italic tracking-tighter uppercase">{member.name}</h3>
-                            <div className="flex items-center justify-center gap-2 mt-1">
-                               <ShieldCheck className="w-3 h-3 text-orange-600" />
-                               <span className="text-[9px] font-black text-neutral-500 uppercase tracking-[0.2em]">{member.role}</span>
+                            <div className="flex flex-col items-center justify-center gap-1 mt-1">
+                               <div className="flex items-center gap-2">
+                                  <ShieldCheck className="w-3 h-3 text-orange-600" />
+                                  <span className="text-[9px] font-black text-neutral-500 uppercase tracking-[0.2em]">{member.role}</span>
+                               </div>
+                               {member.branchId && branches.find(b => b.id === member.branchId) && (
+                                  <div className="flex items-center gap-2 bg-white/5 px-3 py-1 rounded-full border border-white/5">
+                                     <MapPin className="w-2 h-2 text-neutral-600 shadow-sm shadow-orange-600/20" />
+                                     <span className="text-[8px] font-black text-neutral-400 capitalize">{branches.find(b => b.id === member.branchId)?.name}</span>
+                                  </div>
+                               )}
                             </div>
                          </div>
                       </div>
@@ -3480,23 +3498,50 @@ export default function VendorDashboard() {
                       <div className="space-y-6">
                         <div className="space-y-3 text-center">
                           <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">Logo / Picha ya Duka</label>
-                          <div className="relative group mx-auto w-32 h-32">
-                            <div className="w-full h-full rounded-[2.5rem] bg-neutral-50 dark:bg-neutral-950 border-2 border-dashed border-neutral-200 dark:border-neutral-800 overflow-hidden flex items-center justify-center transition-colors">
-                              {updatedProfile.logoUrl ? (
-                                <img src={updatedProfile.logoUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                          <div className="relative group mx-auto w-40 h-40">
+                            <div 
+                              onClick={() => logoInputRef.current?.click()}
+                              className="w-full h-full rounded-[3rem] bg-neutral-50 dark:bg-neutral-950 border-4 border-dashed border-neutral-200 dark:border-neutral-800 overflow-hidden flex flex-col items-center justify-center transition-all group-hover:border-orange-600/50 group-hover:bg-orange-600/5 cursor-pointer relative"
+                            >
+                              {(updatedProfile.logoUrl || vendorProfile?.logoUrl) ? (
+                                <img 
+                                  src={updatedProfile.logoUrl || vendorProfile?.logoUrl || ''} 
+                                  className={`w-full h-full object-cover transition-all group-hover:scale-110 ${isLogoUploading ? 'opacity-30 grayscale' : ''}`} 
+                                  referrerPolicy="no-referrer" 
+                                />
                               ) : (
-                                <Store className="w-10 h-10 text-neutral-400 dark:text-neutral-700" />
+                                <div className="flex flex-col items-center gap-2">
+                                  <Store className="w-12 h-12 text-neutral-300 dark:text-neutral-700 group-hover:text-orange-600 transition-colors" />
+                                  <span className="text-[9px] font-black text-neutral-400 uppercase tracking-tighter">Bofya kupakia</span>
+                                </div>
+                              )}
+                              
+                              {isLogoUploading && (
+                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px]">
+                                  <Loader2 className="w-8 h-8 text-orange-600 animate-spin mb-2" />
+                                  <span className="text-[10px] font-black text-white uppercase tracking-widest">Inapakia...</span>
+                                </div>
+                              )}
+
+                              {!isLogoUploading && (
+                                <div className="absolute inset-0 bg-orange-600/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                   <div className="flex flex-col items-center gap-2 p-4 text-center">
+                                      <Camera className="w-8 h-8 text-white" />
+                                      <span className="text-[10px] font-black text-white uppercase tracking-widest leading-tight">Badili Logo</span>
+                                   </div>
+                                </div>
                               )}
                             </div>
+
                             <Button
                               type="button" 
                               variant="ghost" 
                               size="icon"
-                              className="absolute -bottom-2 -right-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl h-10 w-10 shadow-lg"
+                              className="absolute -bottom-2 -right-2 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl h-12 w-12 shadow-xl shadow-orange-950/40 z-10 border-4 border-white dark:border-neutral-900"
                               onClick={() => logoInputRef.current?.click()}
-                              disabled={isUploading}
+                              disabled={isLogoUploading}
                             >
-                              {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
+                              {isLogoUploading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Plus className="w-6 h-6" />}
                             </Button>
                             <input 
                               type="file" 
@@ -3511,10 +3556,36 @@ export default function VendorDashboard() {
                         <div className="space-y-3">
                           <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1 text-center block">Banner Image / Picha ya Juu</label>
                           <div className="relative group aspect-video rounded-3xl bg-neutral-50 dark:bg-neutral-950 border-2 border-dashed border-neutral-200 dark:border-neutral-800 overflow-hidden flex items-center justify-center transition-colors">
-                            {updatedProfile.bannerUrl ? (
-                              <img src={updatedProfile.bannerUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                            {(updatedProfile.bannerUrl || vendorProfile?.bannerUrl) ? (
+                              <img 
+                                src={updatedProfile.bannerUrl || vendorProfile?.bannerUrl || ''} 
+                                className={`w-full h-full object-cover ${isBannerUploading ? 'opacity-30 grayscale' : ''}`} 
+                                referrerPolicy="no-referrer" 
+                              />
                             ) : (
-                              <Camera className="w-8 h-8 text-neutral-400 dark:text-neutral-700" />
+                              <div className="flex flex-col items-center gap-2">
+                                <Camera className="w-8 h-8 text-neutral-400 dark:text-neutral-700" />
+                                <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Weka Banner</span>
+                              </div>
+                            )}
+
+                            {isBannerUploading && (
+                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px]">
+                                  <Loader2 className="w-8 h-8 text-orange-600 animate-spin mb-2" />
+                                  <span className="text-[10px] font-black text-white uppercase tracking-widest">Inapakia...</span>
+                                </div>
+                            )}
+                            
+                            {!isBannerUploading && (
+                               <div 
+                                 onClick={() => bannerInputRef.current?.click()}
+                                 className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                               >
+                                  <div className="flex flex-col items-center gap-2 p-4 text-center">
+                                     <Camera className="w-6 h-6 text-white" />
+                                     <span className="text-[10px] font-black text-white uppercase tracking-widest leading-tight">Badili Banner</span>
+                                  </div>
+                               </div>
                             )}
                             <Button
                               type="button" 
@@ -3522,9 +3593,9 @@ export default function VendorDashboard() {
                               size="icon"
                               className="absolute bottom-3 right-3 bg-black/10 dark:bg-white/10 backdrop-blur-md hover:bg-black/20 dark:hover:bg-white/20 text-white rounded-xl h-10 w-10 shadow-lg"
                               onClick={() => bannerInputRef.current?.click()}
-                              disabled={isUploading}
+                              disabled={isBannerUploading}
                             >
-                              {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
+                              {isBannerUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
                             </Button>
                             <input 
                               type="file" 
@@ -3702,9 +3773,17 @@ export default function VendorDashboard() {
                                    <p className="font-black text-white text-md uppercase tracking-tight italic">
                                      {isBus ? `${(product as any).origin || 'Dar'} → ${(product as any).destination || 'Arusha'}` : product.name}
                                    </p>
-                                   <p className="text-[10px] text-neutral-600 font-bold uppercase tracking-wider">
-                                     {isBus ? `Departure: ${(product as any).departureTime || '06:00 AM'}` : `SKU: ${product.id?.slice(0, 8).toUpperCase()}`}
-                                   </p>
+                                   <div className="flex flex-col gap-1">
+                                      <p className="text-[10px] text-neutral-600 font-bold uppercase tracking-wider">
+                                        {isBus ? `Departure: ${(product as any).departureTime || '06:00 AM'}` : `SKU: ${product.id?.slice(0, 8).toUpperCase()}`}
+                                      </p>
+                                      {isBus && (product as any).branchId && branches.find(b => b.id === (product as any).branchId) && (
+                                         <p className="text-[9px] text-orange-600/70 font-black uppercase tracking-tight flex items-center gap-1">
+                                           <MapPin className="w-2 h-2" />
+                                           {branches.find(b => b.id === (product as any).branchId)?.name}
+                                         </p>
+                                      )}
+                                   </div>
                                 </div>
                               </div>
                             </td>
@@ -3752,6 +3831,68 @@ export default function VendorDashboard() {
           </AnimatePresence>
         </div>
       </main>
+
+      {/* Add Customer Modal */}
+      <AnimatePresence>
+         {isAddCustomerModalOpen && (
+           <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsAddCustomerModalOpen(false)}
+                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              />
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                className="relative w-full max-w-sm bg-neutral-900 border border-neutral-800 rounded-[2rem] overflow-hidden shadow-2xl p-6"
+              >
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-bold flex items-center gap-2">
+                    <UserPlus className="w-5 h-5 text-orange-600" />
+                    Add Customer
+                  </h3>
+                  <button onClick={() => setIsAddCustomerModalOpen(false)} className="text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-neutral-500 uppercase">Customer Name</label>
+                    <Input 
+                      placeholder="Full Name" 
+                      className="bg-neutral-800 border-none h-11 rounded-xl"
+                      value={newCustomer.name}
+                      onChange={e => setNewCustomer({...newCustomer, name: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-neutral-500 uppercase">Phone Number</label>
+                    <Input 
+                      placeholder="+255..." 
+                      className="bg-neutral-800 border-none h-11 rounded-xl"
+                      value={newCustomer.phone}
+                      onChange={e => setNewCustomer({...newCustomer, phone: e.target.value})}
+                    />
+                  </div>
+                  <Button 
+                    onClick={() => {
+                      setPosCustomer(newCustomer);
+                      setIsAddCustomerModalOpen(false);
+                      toast.success(`Customer ${newCustomer.name} added!`);
+                    }}
+                    className="w-full bg-orange-600 hover:bg-orange-700 h-11 rounded-xl font-bold mt-4"
+                  >
+                    Confirm Customer
+                  </Button>
+                </div>
+              </motion.div>
+           </div>
+         )}
+      </AnimatePresence>
 
       {/* Add Product Modal */}
       <AnimatePresence>
@@ -3830,7 +3971,7 @@ export default function VendorDashboard() {
                       ))}
                     </AnimatePresence>
 
-                    {isUploading && (
+                    {isProductUploading && (
                       <div className="aspect-square rounded-2xl bg-neutral-800 border border-orange-600/50 flex flex-col items-center justify-center p-2 relative">
                         <div className="relative w-10 h-10 mb-1">
                           <svg className="w-full h-full" viewBox="0 0 36 36">
@@ -3983,6 +4124,24 @@ export default function VendorDashboard() {
                         />
                       </div>
                     </div>
+                    {branches.length > 0 && (
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-neutral-500 uppercase">Managing Branch / Kituo Kinachosimamia</label>
+                        <Select 
+                          value={(newProduct as any).branchId || ''} 
+                          onValueChange={val => setNewProduct({...newProduct, branchId: val} as any)}
+                        >
+                          <SelectTrigger className="bg-neutral-800 border-none h-12 rounded-xl">
+                            <SelectValue placeholder="Select Branch (Optional)" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
+                            {branches.map(b => (
+                              <SelectItem key={`prod-branch-${b.id}`} value={b.id || ''}>{b.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-4">
@@ -4218,7 +4377,7 @@ export default function VendorDashboard() {
                   )}
                   <Button 
                     type="submit" 
-                    disabled={isUploading}
+                    disabled={isProductUploading}
                     className="flex-1 h-14 bg-orange-600 hover:bg-orange-700 text-lg font-bold rounded-2xl shadow-lg shadow-orange-900/20"
                   >
                     {editingProduct ? 'Update Product' : 'Save Product'}

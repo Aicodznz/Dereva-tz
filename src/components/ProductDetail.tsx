@@ -404,6 +404,7 @@ export default function ProductDetail() {
         customerId: user?.uid,
         customerName: profile?.displayName || user?.displayName || 'Mteja',
         customerPhone: buyerPhone,
+        branchId: product?.branchId || null,
         items: [{
           productId: product.id,
           name: product.name,
