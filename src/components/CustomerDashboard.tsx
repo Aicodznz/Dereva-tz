@@ -309,7 +309,15 @@ export default function CustomerDashboard() {
             whileHover={{ y: -8 }}
             className="min-w-[92%] md:min-w-[45%] lg:min-w-[35%] h-52 md:h-72 rounded-[2.5rem] overflow-hidden relative snap-center shadow-2xl shadow-neutral-900/10 group cursor-pointer border border-white/20"
           >
-            <img src={banner.img} alt={banner.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 ease-out" referrerPolicy="no-referrer" />
+            <img 
+              src={banner.img} 
+              alt={banner.title} 
+              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 ease-out" 
+              referrerPolicy="no-referrer"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1200&q=80';
+              }}
+            />
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent flex flex-col justify-end p-8 md:p-10 text-white">
               <motion.h3 
                 initial={{ y: 20, opacity: 0 }}

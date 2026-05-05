@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { 
   ChevronLeft, Star, MapPin, Clock, Phone, Info, 
   ShoppingBag, Plus, Camera, X, MessageSquare,
-  ThumbsUp, Share2, Trash2, Reply, ShoppingBasket
+  ThumbsUp, Share2, Trash2, Reply, ShoppingBasket, Store
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
@@ -100,7 +100,7 @@ export default function VendorStore() {
         setProducts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
         setLoading(false);
       } catch (error) {
-        console.error('Error fetching products:', error);
+        handleFirestoreError(error, OperationType.LIST, 'products');
         setLoading(false);
       }
     };
@@ -143,7 +143,7 @@ export default function VendorStore() {
 
         setReviews(reviewsWithReplies);
       } catch (error) {
-        console.error('Error fetching reviews:', error);
+        handleFirestoreError(error, OperationType.LIST, 'reviews');
       }
     };
 
@@ -293,11 +293,21 @@ export default function VendorStore() {
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 pb-20 transition-colors">
       {/* Header Image */}
       <div className="h-56 md:h-80 w-full relative overflow-hidden bg-neutral-200 dark:bg-neutral-800">
-        {(vendor.bannerUrl || vendor.logoUrl) ? (
+        {vendor.bannerUrl ? (
           <img 
-            src={vendor.bannerUrl || vendor.logoUrl || ''} 
+            src={vendor.bannerUrl} 
             alt={vendor.businessName}
             className="w-full h-full object-cover"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1200&q=80';
+            }}
+            referrerPolicy="no-referrer"
+          />
+        ) : vendor.logoUrl ? (
+          <img 
+            src={vendor.logoUrl} 
+            alt={vendor.businessName}
+            className="w-full h-full object-cover opacity-20 blur-sm scale-110"
             onError={(e) => {
               (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1200&q=80';
             }}
@@ -311,7 +321,7 @@ export default function VendorStore() {
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
         <button 
           onClick={() => navigate(-1)}
-          className="absolute top-4 left-4 w-9 h-9 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-white/40 transition-all z-30"
+          className="absolute top-4 left-4 w-9 h-9 bg-black/20 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-black/40 transition-all z-30"
         >
           <ChevronLeft className="w-5 h-5" />
         </button>
@@ -324,15 +334,22 @@ export default function VendorStore() {
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
               <div className="flex flex-col md:flex-row gap-5 items-center md:items-start text-center md:text-left">
                 <div className="w-24 h-24 md:w-32 md:h-32 rounded-3xl border-4 border-white dark:border-neutral-800 shadow-xl overflow-hidden bg-white dark:bg-neutral-800 shrink-0 -mt-12 md:-mt-16 relative">
-                  <img 
-                    src={vendor.logoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${vendor.businessName}`} 
-                    alt={vendor.businessName}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${vendor.businessName}`;
-                    }}
-                    referrerPolicy="no-referrer"
-                  />
+                  {vendor.logoUrl ? (
+                    <img 
+                      src={vendor.logoUrl} 
+                      alt={vendor.businessName}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${vendor.businessName || 'vendor'}`;
+                      }}
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-neutral-50 dark:bg-neutral-950 flex flex-col items-center justify-center">
+                      <Store className="w-10 h-10 text-neutral-300 dark:text-neutral-800" />
+                      <span className="text-[10px] font-black text-neutral-200 dark:text-neutral-800 uppercase tracking-tighter">No Logo</span>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-3 flex-1 min-w-0">
                   <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 pt-1">
@@ -503,7 +520,14 @@ export default function VendorStore() {
                           <Card key={review.id} className="bg-white border border-neutral-100 rounded-3xl p-6 shadow-sm">
                             <div className="flex gap-4">
                               <div className="w-12 h-12 rounded-full overflow-hidden shrink-0">
-                                <img src={review.userPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${review.userId}`} alt={review.userName} className="w-full h-full object-cover" />
+                                <img 
+                                  src={review.userPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${review.userId}`} 
+                                  alt={review.userName} 
+                                  className="w-full h-full object-cover" 
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${review.userName || 'user'}`;
+                                  }}
+                                />
                               </div>
                               <div className="flex-1 space-y-2">
                                 <div className="flex items-center justify-between">
@@ -562,7 +586,14 @@ export default function VendorStore() {
                                     {review.replies.map((reply) => (
                                       <div key={reply.id} className="bg-neutral-50 p-3 rounded-2xl relative group">
                                         <div className="flex items-center gap-2 mb-1">
-                                          <img src={reply.userPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${reply.userId}`} alt={reply.userName} className="w-5 h-5 rounded-full" />
+                                          <img 
+                                            src={reply.userPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${reply.userId}`} 
+                                            alt={reply.userName} 
+                                            className="w-5 h-5 rounded-full" 
+                                            onError={(e) => {
+                                              (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${reply.userName || 'user'}`;
+                                            }}
+                                          />
                                           <span className="text-xs font-bold text-neutral-900">{reply.userName}</span>
                                           {reply.userId === vendor.ownerUid && (
                                             <Badge className="bg-orange-100 text-orange-600 border-none text-[8px] px-1.5 py-0">Muuzaji</Badge>

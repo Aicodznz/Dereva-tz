@@ -67,16 +67,16 @@ service cloud.firestore {
     }
 
     // Reviews (PUBLIC READ)
-    match /reviews/{id} {
-      allow read, get, list: if true;
-      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
     }
 
     // Review Replies (PUBLIC READ)
-    match /review_replies/{id} {
-      allow read, get, list: if true;
-      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+    match /review_replies/{replyId} {
+      allow read: if true;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
     }
 

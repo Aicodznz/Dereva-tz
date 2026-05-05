@@ -5,6 +5,5 @@
   "authDomain": "hapotesti.firebaseapp.com",
   "databaseURL": "https://hapotesti-default-rtdb.firebaseio.com",
   "storageBucket": "hapotesti.firebasestorage.app",
-  "messagingSenderId": "48479004705",
-  "measurementId": ""
+  "messagingSenderId": "48479004705"
 }

@@ -905,7 +905,14 @@ export default function VendorDashboard() {
         const path = storageService.getVendorPath(vendorProfile.id, 'logo', file.name);
         const url = await storageService.uploadFile('vendors', path, file);
         setUpdatedProfile(prev => ({ ...prev, logoUrl: url }));
-        toast.success("Logo imepakiwa!");
+        
+        // Immediately update Firestore
+        await updateDoc(doc(db, 'vendors', vendorProfile.id), {
+          logoUrl: url,
+          updatedAt: serverTimestamp()
+        });
+        
+        toast.success("Logo imepakiwa na kuhifadhiwa!");
       } catch (error: any) {
         toast.error("Imeshindwa kupakia logo: " + error.message);
       } finally {
@@ -922,7 +929,14 @@ export default function VendorDashboard() {
         const path = storageService.getVendorPath(vendorProfile.id, 'banner', file.name);
         const url = await storageService.uploadFile('vendors', path, file);
         setUpdatedProfile(prev => ({ ...prev, bannerUrl: url }));
-        toast.success("Banner imepakiwa!");
+        
+        // Immediately update Firestore
+        await updateDoc(doc(db, 'vendors', vendorProfile.id), {
+          bannerUrl: url,
+          updatedAt: serverTimestamp()
+        });
+        
+        toast.success("Banner imepakiwa na kuhifadhiwa!");
       } catch (error: any) {
         toast.error("Imeshindwa kupakia banner: " + error.message);
       } finally {
