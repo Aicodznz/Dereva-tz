@@ -290,7 +290,14 @@ export default function SalonVendorDashboard() {
               </div>
               <div className="w-10 h-10 rounded-xl bg-neutral-800 border border-white/5 flex items-center justify-center overflow-hidden">
                 {vendorProfile?.logoUrl ? (
-                  <img src={vendorProfile.logoUrl} alt="Logo" className="w-full h-full object-cover" />
+                  <img 
+                    src={vendorProfile.logoUrl} 
+                    alt="Logo" 
+                    className="w-full h-full object-cover" 
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${vendorProfile?.businessName || 'vendor'}`;
+                    }}
+                  />
                 ) : (
                   <Store size={20} className="text-neutral-500" />
                 )}
@@ -542,7 +549,14 @@ export default function SalonVendorDashboard() {
                   <Card key={`salon-service-${service.id || i}`} className="bg-neutral-900/50 border-white/5 rounded-[32px] overflow-hidden group">
                     <div className="aspect-video relative overflow-hidden">
                       {service.imageUrl ? (
-                        <img src={service.imageUrl} alt={service.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                        <img 
+                          src={service.imageUrl} 
+                          alt={service.name} 
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80';
+                          }}
+                        />
                       ) : (
                         <div className="w-full h-full bg-neutral-800 flex items-center justify-center">
                           <Scissors className="text-neutral-600" size={40} />
@@ -604,7 +618,14 @@ export default function SalonVendorDashboard() {
                       <div className="w-24 h-24 rounded-[32px] bg-neutral-800 p-1 mb-6 relative group-hover:scale-105 transition-transform">
                         <div className="w-full h-full rounded-[28px] overflow-hidden">
                            {s.photoUrl ? (
-                            <img src={s.photoUrl} alt={s.name} className="w-full h-full object-cover" />
+                            <img 
+                              src={s.photoUrl} 
+                              alt={s.name} 
+                              className="w-full h-full object-cover" 
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${s.name || 'stylist'}`;
+                              }}
+                            />
                           ) : (
                             <div className="w-full h-full bg-neutral-700 flex items-center justify-center">
                               <UserCheck size={32} className="text-neutral-500" />

@@ -2071,7 +2071,18 @@ export default function VendorDashboard() {
                         <div key={`low-stock-${item.id}-${idx}`} className="flex items-center justify-between bg-neutral-950/50 p-4 rounded-2xl border border-white/5">
                           <div className="flex items-center gap-3">
                              <div className="w-10 h-10 rounded-xl bg-neutral-800 overflow-hidden">
-                                {item.imageUrl ? <img src={item.imageUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : <Package className="w-full h-full p-2.5 opacity-10" />}
+                                {item.imageUrl ? (
+                                  <img 
+                                    src={item.imageUrl} 
+                                    className="w-full h-full object-cover" 
+                                    referrerPolicy="no-referrer" 
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80';
+                                    }}
+                                  />
+                                ) : (
+                                  <Package className="w-full h-full p-2.5 opacity-10" />
+                                )}
                              </div>
                              <div>
                                 <p className="font-bold text-sm text-white">{item.name}</p>
@@ -2253,6 +2264,9 @@ export default function VendorDashboard() {
                               alt={product.name} 
                               className="w-full h-full object-cover group-hover:scale-110 transition-all duration-700" 
                               referrerPolicy="no-referrer"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80';
+                              }}
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-neutral-600">
@@ -2370,7 +2384,14 @@ export default function VendorDashboard() {
                         <div className="flex gap-4">
                           <div className="w-14 h-14 rounded-2xl bg-neutral-900 border border-neutral-800 overflow-hidden relative">
                              {item.product.imageUrl ? (
-                               <img src={item.product.imageUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                               <img 
+                                src={item.product.imageUrl} 
+                                className="w-full h-full object-cover" 
+                                referrerPolicy="no-referrer" 
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80';
+                                }}
+                              />
                              ) : (
                                <Package className="w-full h-full p-4 opacity-10" />
                              )}
@@ -2815,7 +2836,18 @@ export default function VendorDashboard() {
                              <div className="flex items-center gap-4">
                                 <div className="text-[10px] font-black text-neutral-700 w-4">0{idx + 1}</div>
                                 <div className="w-14 h-14 rounded-2xl bg-neutral-950 border border-neutral-800 p-1 overflow-hidden relative">
-                                   {item.imageUrl ? <img src={item.imageUrl} className="w-full h-full object-cover rounded-xl" referrerPolicy="no-referrer" /> : <Package className="w-full h-full p-3 opacity-10" />}
+                                   {item.imageUrl ? (
+                                    <img 
+                                      src={item.imageUrl} 
+                                      className="w-full h-full object-cover rounded-xl" 
+                                      referrerPolicy="no-referrer" 
+                                      onError={(e) => {
+                                        (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80';
+                                      }}
+                                    />
+                                  ) : (
+                                    <Package className="w-full h-full p-3 opacity-10" />
+                                  )}
                                 </div>
                                 <div className="max-w-[120px]">
                                    <p className="font-bold text-sm text-white italic truncate">{item.name}</p>
@@ -3194,7 +3226,13 @@ export default function VendorDashboard() {
                                 <div className="flex items-center gap-5">
                                   <div className="w-16 h-16 rounded-2xl bg-neutral-800 overflow-hidden relative">
                                     {product.imageUrl ? (
-                                      <img src={product.imageUrl} className="w-full h-full object-cover" />
+                                      <img 
+                                  src={product.imageUrl} 
+                                  className="w-full h-full object-cover" 
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80';
+                                  }}
+                                />
                                     ) : (
                                       <Package className="w-full h-full p-4 opacity-10" />
                                     )}
@@ -3334,7 +3372,13 @@ export default function VendorDashboard() {
                        <div className="flex items-center gap-6">
                          <div className="w-16 h-16 rounded-[1.25rem] bg-neutral-800 overflow-hidden">
                            {product.imageUrl ? (
-                             <img src={product.imageUrl} className="w-full h-full object-cover" />
+                             <img 
+                              src={product.imageUrl} 
+                              className="w-full h-full object-cover" 
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80';
+                              }}
+                            />
                            ) : (
                              <Package className="w-full h-full p-4 opacity-10" />
                            )}
@@ -3526,6 +3570,9 @@ export default function VendorDashboard() {
                                   src={updatedProfile.logoUrl || vendorProfile?.logoUrl || ''} 
                                   className={`w-full h-full object-cover transition-all group-hover:scale-110 ${isLogoUploading ? 'opacity-30 grayscale' : ''}`} 
                                   referrerPolicy="no-referrer" 
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${vendorProfile?.businessName || 'vendor'}`;
+                                  }}
                                 />
                               ) : (
                                 <div className="flex flex-col items-center gap-2">
@@ -3579,6 +3626,9 @@ export default function VendorDashboard() {
                                 src={updatedProfile.bannerUrl || vendorProfile?.bannerUrl || ''} 
                                 className={`w-full h-full object-cover ${isBannerUploading ? 'opacity-30 grayscale' : ''}`} 
                                 referrerPolicy="no-referrer" 
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=800&q=80';
+                                }}
                               />
                             ) : (
                               <div className="flex flex-col items-center gap-2">
@@ -3780,7 +3830,14 @@ export default function VendorDashboard() {
                               <div className="flex items-center gap-4">
                                 <div className="w-16 h-16 rounded-[1.5rem] bg-neutral-900 overflow-hidden relative border border-neutral-800 group-hover:border-orange-600/50 transition-all">
                                    {product.imageUrl ? (
-                                     <img src={product.imageUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                     <img 
+                                      src={product.imageUrl} 
+                                      className="w-full h-full object-cover" 
+                                      referrerPolicy="no-referrer" 
+                                      onError={(e) => {
+                                        (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80';
+                                      }}
+                                    />
                                    ) : (
                                      <div className="w-full h-full flex items-center justify-center bg-neutral-950">
                                        <Bus className="w-8 h-8 text-neutral-800" />
@@ -3965,6 +4022,9 @@ export default function VendorDashboard() {
                             alt={`Preview ${idx}`} 
                             className="w-full h-full object-cover" 
                             referrerPolicy="no-referrer"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80';
+                            }}
                           />
                           <button
                             type="button"
@@ -5073,7 +5133,15 @@ export default function VendorDashboard() {
                           
                           {vendorProfile?.logoUrl && printDetails.showLogo && (
                             <div className="w-12 h-12 mb-1.5 rounded-xl border border-white/10 overflow-hidden relative z-10 bg-white p-1">
-                              <img src={vendorProfile.logoUrl} alt="Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                              <img 
+                                src={vendorProfile.logoUrl} 
+                                alt="Logo" 
+                                className="w-full h-full object-contain" 
+                                referrerPolicy="no-referrer" 
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${vendorProfile.businessName}`;
+                                }}
+                              />
                             </div>
                           )}
                           <h2 

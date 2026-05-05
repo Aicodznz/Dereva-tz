@@ -380,6 +380,9 @@ export default function CustomerDashboard() {
                     alt={vendor.businessName} 
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                     referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=400&q=80';
+                    }}
                   />
                   <div className="absolute top-4 left-4">
                     <div className="w-14 h-14 rounded-2xl bg-white dark:bg-neutral-800 p-1 shadow-2xl border border-neutral-100 dark:border-neutral-700">
@@ -387,6 +390,9 @@ export default function CustomerDashboard() {
                         src={vendor.logoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${vendor.businessName}`} 
                         alt="Logo" 
                         className="w-full h-full object-contain rounded-xl"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${vendor.businessName}`;
+                        }}
                       />
                     </div>
                   </div>
@@ -575,10 +581,13 @@ export default function CustomerDashboard() {
                   <div className="flex p-5 gap-5">
                     <div className="w-32 h-32 rounded-3xl overflow-hidden relative shrink-0 shadow-inner">
                       <img 
-                        src={vendor.logoUrl || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=400&q=80'} 
+                        src={vendor.logoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${vendor.businessName || 'vendor'}`} 
                         alt={vendor.businessName} 
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
                         referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${vendor.businessName || 'vendor'}`;
+                        }}
                       />
                       <div className="absolute top-2 right-2 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md px-2 py-1 rounded-xl flex items-center gap-1 shadow-sm">
                         <Star className="w-3 h-3 text-orange-500 fill-current" />

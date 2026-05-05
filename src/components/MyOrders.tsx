@@ -208,6 +208,9 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
                       src={selectedOrder.status === 'out_for_delivery' ? "https://cdn-icons-png.flaticon.com/512/2972/2972185.png" : "https://cdn-icons-png.flaticon.com/512/3063/3063822.png"} 
                       alt="Status" 
                       className="w-32 h-32 mx-auto mb-4 opacity-80"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'https://cdn-icons-png.flaticon.com/512/3063/3063822.png';
+                      }}
                     />
                     <h3 className="text-xl font-bold text-neutral-800 dark:text-neutral-200">
                       {selectedOrder.status === 'preparing' ? 'The chef is preparing your food.' : 
@@ -258,7 +261,14 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
                   {selectedOrder.items.map((item, idx) => (
                     <div key={`order-item-${selectedOrder.id}-${idx}`} className="flex gap-4">
                       <div className="w-16 h-16 bg-neutral-100 dark:bg-neutral-800 rounded-2xl overflow-hidden relative shrink-0">
-                        <img src={item.imageUrl || "https://picsum.photos/seed/food/200"} alt={item.name} className="w-full h-full object-cover" />
+                        <img 
+                          src={item.imageUrl || "https://picsum.photos/seed/food/200"} 
+                          alt={item.name} 
+                          className="w-full h-full object-cover" 
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=200&q=80';
+                          }}
+                        />
                         <div className="absolute top-0 left-0 bg-neutral-900 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-br-lg">
                           {item.quantity}
                         </div>
