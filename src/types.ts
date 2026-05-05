@@ -45,6 +45,8 @@ export interface VendorProfile {
   phoneNumber?: string;
   operatingHours: string;
   rating: number;
+  deliveryFees?: Record<string, number>;
+  orderInstructions?: string;
   createdAt: any;
 }
 

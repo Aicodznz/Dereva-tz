@@ -379,6 +379,24 @@ export default function VendorDashboard() {
   const [qrCodeInstance, setQrCodeInstance] = useState<QRCodeStyling | null>(null);
 
   useEffect(() => {
+    if (vendorProfile && Object.keys(updatedProfile).length === 0) {
+      setUpdatedProfile({
+        businessName: vendorProfile.businessName || '',
+        description: vendorProfile.description || '',
+        address: vendorProfile.address || '',
+        phoneNumber: vendorProfile.phoneNumber || '',
+        operatingHours: vendorProfile.operatingHours || '',
+        logoUrl: vendorProfile.logoUrl || '',
+        bannerUrl: vendorProfile.bannerUrl || '',
+        location: vendorProfile.location,
+        deliveryFees: vendorProfile.deliveryFees || {},
+        category: vendorProfile.category,
+        orderInstructions: vendorProfile.orderInstructions || ''
+      });
+    }
+  }, [vendorProfile]);
+
+  useEffect(() => {
     if (typeof window !== 'undefined') {
       const options = {
         ...qrOptions,
@@ -3421,7 +3439,7 @@ export default function VendorDashboard() {
                         <div className="space-y-2">
                           <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Description / Maelezo</label>
                           <textarea 
-                            value={updatedProfile.description}
+                            value={updatedProfile.description || ''}
                             onChange={e => setUpdatedProfile({...updatedProfile, description: e.target.value})}
                             className="w-full bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4 text-sm font-medium text-neutral-900 dark:text-white min-h-[120px] focus:ring-2 focus:ring-orange-600 focus:outline-none transition-all"
                             placeholder="Brief details about your store..."
@@ -3440,7 +3458,7 @@ export default function VendorDashboard() {
                             <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Address / Sehemu Ilipo</label>
                             <div className="flex gap-2">
                               <Input 
-                                value={updatedProfile.address}
+                                value={updatedProfile.address || ''}
                                 onChange={e => setUpdatedProfile({...updatedProfile, address: e.target.value})}
                                 className="bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 h-14 rounded-2xl font-bold flex-1 text-neutral-900 dark:text-white transition-colors"
                                 placeholder="e.g. Kariakoo, Dar es Salaam"
@@ -3464,7 +3482,7 @@ export default function VendorDashboard() {
                           <div className="space-y-2">
                             <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Phone / Namba ya Simu</label>
                             <Input 
-                              value={updatedProfile.phoneNumber}
+                              value={updatedProfile.phoneNumber || ''}
                               onChange={e => setUpdatedProfile({...updatedProfile, phoneNumber: e.target.value})}
                               className="bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 h-14 rounded-2xl font-bold text-neutral-900 dark:text-white transition-colors"
                               placeholder="+255..."
@@ -3480,7 +3498,7 @@ export default function VendorDashboard() {
                           <h3 className="font-black text-xl text-neutral-900 dark:text-white transition-colors">Opening Hours</h3>
                   </div>
                   <Input 
-                    value={updatedProfile.operatingHours}
+                    value={updatedProfile.operatingHours || ''}
                     onChange={e => setUpdatedProfile({...updatedProfile, operatingHours: e.target.value})}
                     className="bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 h-14 rounded-2xl font-bold text-neutral-900 dark:text-white transition-colors"
                     placeholder="e.g. 7:00 AM - 9:00 PM"
