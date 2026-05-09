@@ -25,7 +25,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const isPartnerRoute = location.pathname === '/parcel-partner' || (isDashboardRoute && profile?.role === 'rider' && profile?.driverType === 'delivery');
   const isFullscreen = isTaxiRoute || isPartnerRoute || isRiderDashboard;
   const hideBottomNav = isFullscreen || profile?.role === 'rider' || location.pathname.startsWith('/vendor/');
-  const isFullWidthPage = location.pathname.startsWith('/vendor/') || isFullscreen;
+  const isFullWidthPage = location.pathname.startsWith('/vendor/') || location.pathname.startsWith('/service/') || isFullscreen;
 
   return (
     <div className={`${isFullscreen ? 'h-screen w-full overflow-hidden' : 'min-h-screen overflow-x-hidden'} bg-neutral-50 dark:bg-neutral-950 flex flex-col font-sans selection:bg-orange-100 dark:selection:bg-orange-900/30 selection:text-orange-900 ${isRTL ? 'font-arabic' : ''}`}>

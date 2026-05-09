@@ -136,9 +136,9 @@ export default function ServiceDetail() {
   );
 
   return (
-    <div className="pb-20 space-y-6">
+    <div className="pb-20 space-y-4 px-1 sm:px-4">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md pt-4 pb-2 -mx-4 px-4 border-b border-neutral-100 flex items-center justify-between">
+      <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md pt-4 pb-2 -mx-1 px-2 mb-4 border-b border-neutral-100 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button 
             onClick={() => navigate(-1)}
@@ -254,7 +254,7 @@ export default function ServiceDetail() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
-                    className="grid grid-cols-3 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-6 md:gap-8"
+                    className="grid grid-cols-3 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 sm:gap-6 md:gap-8"
                   >
                     {filteredVendors
                       .map(vendor => {
@@ -274,8 +274,8 @@ export default function ServiceDetail() {
                         whileHover={{ y: -5 }}
                       >
                         <Link to={`/vendor/${vendor.id}`} className="group block h-full">
-                          <div className="relative h-full bg-white dark:bg-neutral-900 rounded-2xl sm:rounded-[2.5rem] border border-neutral-200/60 dark:border-white/5 shadow-sm sm:shadow-[0_20px_50px_rgba(0,0,0,0.06)] group-hover:shadow-[0_20px_40px_rgba(234,88,12,0.1)] transition-all duration-500 overflow-hidden group/card border-b-2 sm:border-b-4 border-b-neutral-100 active:scale-[0.98]">
-                            <div className="h-20 sm:h-40 md:h-48 relative overflow-hidden">
+                          <div className="relative h-full bg-white dark:bg-neutral-900 rounded-xl sm:rounded-[2.5rem] border border-neutral-200/60 dark:border-white/5 shadow-sm sm:shadow-[0_20px_50px_rgba(0,0,0,0.06)] group-hover:shadow-[0_20px_40px_rgba(234,88,12,0.1)] transition-all duration-500 overflow-hidden group/card border-b-2 sm:border-b-4 border-b-neutral-100 active:scale-[0.98]">
+                            <div className="h-16 sm:h-40 md:h-48 relative overflow-hidden">
                               <img 
                                 src={vendor.bannerUrl || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=600&q=80'} 
                                 alt={vendor.businessName} 
@@ -285,7 +285,7 @@ export default function ServiceDetail() {
                                   (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=600&q=80';
                                 }}
                               />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
                               
                               {/* Category Badge - Hidden on small mobile */}
                               <div className="absolute top-2 right-2 sm:top-5 sm:right-5 hidden sm:block">
@@ -295,8 +295,8 @@ export default function ServiceDetail() {
                               </div>
 
                               {/* Logo Overlap - Simpler on small mobile */}
-                              <div className="absolute -bottom-3 left-2 sm:-bottom-6 sm:left-6">
-                                <div className="w-8 h-8 sm:w-20 sm:h-20 rounded-lg sm:rounded-3xl bg-white dark:bg-neutral-800 p-0.5 sm:p-1.5 shadow-lg border border-white dark:border-neutral-800">
+                              <div className="absolute -bottom-3 left-1.5 sm:-bottom-6 sm:left-6">
+                                <div className="w-7 h-7 sm:w-20 sm:h-20 rounded-lg sm:rounded-3xl bg-white dark:bg-neutral-800 p-0.5 sm:p-1.5 shadow-lg border border-white dark:border-neutral-800">
                                   <img 
                                     key={vendor.logoUrl || `dicebear-${vendor.businessName}`}
                                     src={vendor.logoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(vendor.businessName || 'vendor')}`} 
@@ -311,17 +311,17 @@ export default function ServiceDetail() {
                               </div>
                             </div>
 
-                            <div className="pt-4 p-2 sm:pt-10 sm:p-8 space-y-1 sm:space-y-4">
+                            <div className="pt-2 p-1 sm:pt-10 sm:p-8 space-y-0.5 sm:space-y-4">
                               <div>
-                                <h4 className="font-black text-[10px] sm:text-2xl text-neutral-900 dark:text-white group-hover:text-orange-600 transition-colors uppercase italic tracking-tighter leading-none truncate mb-1 sm:mb-2">{vendor.businessName}</h4>
-                                <div className="flex items-center gap-1 sm:gap-3">
-                                  <div className="flex items-center gap-0.5 sm:gap-1.5 bg-orange-50 dark:bg-orange-950/30 px-1 sm:px-2.5 py-0.5 rounded-md">
-                                    <Star className="w-2 sm:w-3.5 h-2 sm:h-3.5 text-orange-600 fill-current" />
-                                    <span className="text-[8px] sm:text-[11px] font-black text-orange-600">{vendor.rating || '4.8'}</span>
+                                <h4 className="font-black text-[9px] min-[400px]:text-[12px] sm:text-2xl text-neutral-900 dark:text-white group-hover:text-orange-600 transition-colors uppercase italic tracking-tighter leading-none truncate mb-0.5 sm:mb-2">{vendor.businessName}</h4>
+                                <div className="flex items-center gap-0.5 sm:gap-3">
+                                  <div className="flex items-center gap-0.5 sm:gap-1.5 bg-orange-50 dark:bg-orange-950/30 px-0.5 sm:px-2.5 py-0.5 rounded-md">
+                                    <Star className="w-1.5 sm:w-3.5 h-1.5 sm:h-3.5 text-orange-600 fill-current" />
+                                    <span className="text-[7px] sm:text-[11px] font-black text-orange-600">{vendor.rating || '4.8'}</span>
                                   </div>
-                                  <div className="flex items-center gap-0.5 sm:gap-1.5 bg-green-50 dark:bg-green-950/30 px-1 sm:px-2.5 py-0.5 rounded-md">
-                                    <MapPin className="w-2 sm:w-3.5 h-2 sm:h-3.5 text-green-600" />
-                                    <span className="text-[8px] sm:text-[11px] font-black text-green-600 uppercase tracking-tighter">
+                                  <div className="flex items-center gap-0.5 sm:gap-1.5 bg-green-50 dark:bg-green-950/30 px-0.5 sm:px-2.5 py-0.5 rounded-md">
+                                    <MapPin className="w-1.5 sm:w-3.5 h-1.5 sm:h-3.5 text-green-600" />
+                                    <span className="text-[7px] sm:text-[11px] font-black text-green-600 uppercase tracking-tighter">
                                       {vendor.distance < 0.5 
                                         ? `${(vendor.distance * 1000).toFixed(0)}m` 
                                         : `${vendor.distance.toFixed(1)}km`}
@@ -331,10 +331,10 @@ export default function ServiceDetail() {
                               </div>
                               
                               <div className="pt-1 border-t border-neutral-100 dark:border-white/5 flex items-center justify-between">
-                                <p className="text-[7px] sm:text-[10px] text-neutral-400 font-bold uppercase tracking-widest hidden min-[400px]:block">{t('open_now') || 'Open Now'}</p>
-                                <div className="flex items-center gap-1 text-orange-600 group-hover:translate-x-1 transition-transform">
-                                  <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest">{t('visit') || 'Visit'}</span>
-                                  <ChevronRight className="w-2 sm:w-4 h-2 sm:h-4" />
+                                <p className="text-[7px] sm:text-[10px] text-neutral-400 font-bold uppercase tracking-widest hidden md:block">{t('open_now') || 'Open Now'}</p>
+                                <div className="flex items-center gap-0.5 sm:gap-2 text-orange-600 group-hover:translate-x-1 transition-transform">
+                                  <span className="text-[7px] sm:text-[10px] font-black uppercase tracking-widest leading-none">{t('visit') || 'Visit'}</span>
+                                  <ChevronRight className="w-1.5 sm:w-4 h-1.5 sm:h-4 text-orange-600" />
                                 </div>
                               </div>
                             </div>
