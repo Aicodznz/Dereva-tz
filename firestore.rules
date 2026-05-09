@@ -24,6 +24,15 @@ service cloud.firestore {
     // Match Blocks
     // -------------------------------------------------------------------------
 
+    // Global Safety Net
+    match /{document=**} { allow read, write: if false; }
+
+    // Config
+    match /config/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // Users
     match /users/{userId} {
       allow get: if isSignedIn();

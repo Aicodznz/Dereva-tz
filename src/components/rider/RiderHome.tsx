@@ -7,7 +7,7 @@ import {
   ParkingCircle, Car, Settings, Phone, Gauge, Eye, EyeOff,
   Navigation2, MessageSquare, MapPin, Star, X as CloseX,
   Clock, TrendingUp, Info, Wifi, Battery, Map as MapIcon,
-  CheckCircle2, ArrowRight, RefreshCw, DollarSign, Package
+  CheckCircle2, ArrowRight, RefreshCw, DollarSign, Package, Home
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Chat from '../Chat';
@@ -618,6 +618,14 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                   </div>
                 )}
               </button>
+
+              <div className="h-8 w-px bg-neutral-200 dark:bg-white/10 mx-1"></div>
+
+              <Link to="/">
+                <button className="w-10 h-10 bg-neutral-100 dark:bg-white/5 rounded-full flex items-center justify-center relative shrink-0">
+                  <Home className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />
+                </button>
+              </Link>
 
               <div className="flex-1 flex flex-col items-center px-2">
                 {isOnline ? (

@@ -39,10 +39,14 @@ export default function Header() {
         {/* Left: Logo & Location */}
         <div className="flex items-center gap-2 md:gap-6 min-w-0 flex-shrink">
           <Link to="/" className="flex items-center gap-2 group shrink-0">
-            <div className="w-9 h-9 bg-orange-600 rounded-xl flex items-center justify-center transform group-hover:rotate-12 transition-transform shadow-lg shadow-orange-600/20">
-              <span className="text-white font-black text-xl italic tracking-tighter">P</span>
+            <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-700 rounded-2xl flex items-center justify-center transform group-hover:rotate-12 group-hover:scale-110 transition-all shadow-[0_10px_20px_rgba(234,88,12,0.3)] relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <span className="text-white font-black text-2xl italic tracking-tighter relative z-10 px-0.5">P</span>
             </div>
-            <span className="hidden lg:block font-black text-lg uppercase italic tracking-tighter text-neutral-900 dark:text-white">Papo Hapo</span>
+            <div className="hidden lg:flex flex-col leading-none">
+              <span className="font-black text-lg uppercase italic tracking-tighter text-neutral-900 dark:text-white">Papo Hapo</span>
+              <span className="text-[8px] font-black uppercase tracking-widest text-orange-600 block text-right mt-0.5">Express</span>
+            </div>
           </Link>
 
           {isDashboard && !isRiderDashboard && (
@@ -113,13 +117,32 @@ export default function Header() {
             <Link to="/profile" className="flex items-center gap-2 group">
               <div className="w-9 h-9 rounded-xl overflow-hidden border-2 border-orange-600/20 group-hover:border-orange-600 transition-all shadow-sm shrink-0">
                 <img 
+                  key={profile?.photoURL || user?.uid}
                   src={profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid}`} 
                   alt="Avatar" 
                   className="w-full h-full object-cover"
                   referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid}`;
+                  }}
                 />
               </div>
             </Link>
+          )}
+
+          {/* Cart for Mobile (fallback when bottom nav is hidden) */}
+          {routerLocation.pathname.startsWith('/vendor/') && (
+            <button 
+              onClick={() => setIsCartOpen(true)}
+              className="md:hidden w-10 h-10 flex items-center justify-center rounded-xl bg-orange-600 text-white shadow-lg active:scale-90 relative"
+            >
+              <ShoppingCart className="w-5 h-5 text-white" />
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-white text-orange-600 text-[8px] font-black flex items-center justify-center rounded-full border border-orange-600">
+                  {cartCount}
+                </span>
+              )}
+            </button>
           )}
 
           {/* Logout (Visible for all logged in users on mobile/desktop) */}

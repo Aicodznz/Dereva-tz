@@ -10,7 +10,8 @@ import { Button } from '@/components/ui/button';
 import { 
   ChevronLeft, Star, MapPin, Clock, Phone, Info, 
   ShoppingBag, Plus, Camera, X, MessageSquare,
-  ThumbsUp, Share2, Trash2, Reply, ShoppingBasket, Store
+  ThumbsUp, Share2, Trash2, Reply, ShoppingBasket, Store,
+  Instagram, Facebook, MessageCircle, ShieldCheck, Undo2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
@@ -290,11 +291,15 @@ export default function VendorStore() {
   if (!vendor) return null;
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 pb-20 transition-colors">
+    <div className="min-h-screen bg-white dark:bg-neutral-950 pb-32 transition-colors duration-500">
       {/* Header Image */}
-      <div className="h-56 md:h-80 w-full relative overflow-hidden bg-neutral-200 dark:bg-neutral-800">
+      <div className="h-72 md:h-[32rem] w-full relative overflow-hidden bg-orange-50 dark:bg-neutral-900 border-b border-neutral-100 dark:border-neutral-800">
         {vendor.bannerUrl ? (
-          <img 
+          <motion.img 
+            initial={{ scale: 1.2, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 1.5, ease: "easeOut" }}
+            key={vendor.bannerUrl}
             src={vendor.bannerUrl} 
             alt={vendor.businessName}
             className="w-full h-full object-cover"
@@ -303,95 +308,121 @@ export default function VendorStore() {
             }}
             referrerPolicy="no-referrer"
           />
-        ) : vendor.logoUrl ? (
-          <img 
-            src={vendor.logoUrl} 
-            alt={vendor.businessName}
-            className="w-full h-full object-cover opacity-20 blur-sm scale-110"
-            onError={(e) => {
-              (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1200&q=80';
-            }}
-            referrerPolicy="no-referrer"
-          />
         ) : (
-          <div className="w-full h-full bg-gradient-to-br from-orange-500 to-orange-700 flex items-center justify-center">
-            <Store className="w-20 h-20 text-white/20" />
+          <div className="w-full h-full bg-gradient-to-br from-orange-400 via-orange-600 to-orange-950 flex items-center justify-center relative overflow-hidden">
+            <motion.div 
+              animate={{ 
+                rotate: [0, 360],
+                scale: [1, 1.4, 1]
+              }}
+              transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
+              className="absolute w-[800px] h-[800px] border-[80px] border-white/5 rounded-full blur-3xl"
+            />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-from)_0%,_transparent_70%)] from-white/10" />
+            <Store className="w-32 h-32 text-white/10 relative z-10" />
           </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-white dark:from-neutral-950 via-transparent to-black/20" />
+        
         <button 
           onClick={() => navigate(-1)}
-          className="absolute top-4 left-4 w-9 h-9 bg-black/20 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-black/40 transition-all z-30"
+          className="absolute top-6 left-6 w-12 h-12 bg-white/20 backdrop-blur-2xl border border-white/30 rounded-2xl flex items-center justify-center text-white hover:bg-white/40 transition-all z-30 shadow-2xl active:scale-95 group"
         >
-          <ChevronLeft className="w-5 h-5" />
+          <ChevronLeft className="w-6 h-6 group-hover:-translate-x-1 transition-transform" />
         </button>
       </div>
 
       {/* Vendor Profile Section */}
-      <div className="max-w-5xl mx-auto px-3 sm:px-6 -mt-12 relative z-10">
-        <Card className="bg-white dark:bg-neutral-900 border-none shadow-2xl shadow-neutral-900/10 rounded-[2rem] overflow-hidden">
-          <CardContent className="p-5 md:p-8">
-            <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
-              <div className="flex flex-col md:flex-row gap-5 items-center md:items-start text-center md:text-left">
-                <div className="w-24 h-24 md:w-32 md:h-32 rounded-3xl border-4 border-white dark:border-neutral-800 shadow-xl overflow-hidden bg-white dark:bg-neutral-800 shrink-0 -mt-12 md:-mt-16 relative">
-                  {vendor.logoUrl ? (
-                    <img 
-                      src={vendor.logoUrl} 
-                      alt={vendor.businessName}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${vendor.businessName || 'vendor'}`;
-                      }}
-                      referrerPolicy="no-referrer"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-neutral-50 dark:bg-neutral-950 flex flex-col items-center justify-center">
-                      <Store className="w-10 h-10 text-neutral-300 dark:text-neutral-800" />
-                      <span className="text-[10px] font-black text-neutral-200 dark:text-neutral-800 uppercase tracking-tighter">No Logo</span>
-                    </div>
-                  )}
-                </div>
-                <div className="space-y-3 flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 pt-1">
-                    <h1 className="text-2xl md:text-3xl font-black text-neutral-900 dark:text-white tracking-tight">{vendor.businessName}</h1>
-                    <Badge variant="secondary" className="bg-orange-100 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400 border-none px-2 py-0.5 text-[10px] uppercase font-black">
-                      {vendor.category}
-                    </Badge>
+      <div className="max-w-6xl mx-auto px-0 md:px-6 -mt-32 md:-mt-48 relative z-20">
+        <div className="bg-white/70 dark:bg-neutral-900/40 backdrop-blur-[40px] border-x-0 md:border border-white/80 dark:border-white/5 shadow-[0_40px_80px_rgba(0,0,0,0.12)] rounded-none md:rounded-[3.5rem] overflow-hidden">
+          <div className="p-6 md:p-12">
+            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-10">
+              <div className="flex flex-col md:flex-row gap-8 items-center md:items-end text-center md:text-left">
+                <motion.div 
+                  initial={{ y: 40, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  whileHover={{ scale: 1.02 }}
+                  className="w-36 h-36 md:w-52 md:h-52 rounded-[3rem] p-2 bg-gradient-to-tr from-orange-400 via-orange-600 to-rose-600 shadow-[0_20px_50px_rgba(234,88,12,0.4)] shrink-0 -mt-24 md:-mt-36 relative group"
+                >
+                  <div className="w-full h-full rounded-[2.8rem] overflow-hidden bg-white dark:bg-neutral-900 border-[6px] border-white dark:border-neutral-950 relative">
+                    {vendor.logoUrl ? (
+                      <img 
+                        key={vendor.logoUrl}
+                        src={vendor.logoUrl} 
+                        alt={vendor.businessName}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(vendor.businessName || 'vendor')}`;
+                        }}
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-neutral-50 dark:bg-neutral-950 flex flex-col items-center justify-center">
+                        <Store className="w-14 h-14 text-orange-100 dark:text-neutral-800" />
+                        <span className="text-[10px] font-black text-orange-100 dark:text-neutral-800 uppercase tracking-[0.3em] mt-2 italic shadow-sm">No Logo</span>
+                      </div>
+                    )}
                   </div>
-                  
-                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 text-[11px] md:text-xs text-neutral-500 font-bold uppercase tracking-wider">
-                    <div className="flex items-center gap-1">
-                      <Star className="w-3.5 h-3.5 text-orange-500 fill-current" />
-                      <span className="text-neutral-900 dark:text-white">{vendor.rating || '4.5'}</span>
-                      <span className="text-neutral-400">({reviews.length})</span>
-                    </div>
-                    <div className="w-1 h-1 rounded-full bg-neutral-300" />
-                    <div className="flex items-center gap-1">
-                      <MapPin className="w-3.5 h-3.5 text-orange-600" />
-                      <span className="truncate">{vendor.address}</span>
+                </motion.div>
+
+                <div className="space-y-5 flex-1 min-w-0">
+                  <div className="space-y-2">
+                    <motion.div 
+                      initial={{ x: -20, opacity: 0 }}
+                      animate={{ x: 0, opacity: 1 }}
+                      transition={{ delay: 0.2 }}
+                      className="flex flex-wrap items-center justify-center md:justify-start gap-4"
+                    >
+                      <h1 className="text-4xl md:text-6xl font-[900] text-neutral-900 dark:text-white tracking-tighter uppercase italic leading-[0.9]">
+                        {vendor.businessName}
+                      </h1>
+                      <div className="bg-orange-600 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.25em] shadow-xl shadow-orange-600/30 flex items-center gap-2">
+                        {vendor.category}
+                      </div>
+                    </motion.div>
+                    
+                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-5 text-[11px] font-black uppercase tracking-[0.25em] text-neutral-500/80">
+                      <div className="flex items-center gap-2 bg-white/50 dark:bg-white/5 px-4 py-2 rounded-2xl border border-neutral-100 dark:border-white/5 shadow-sm">
+                        <Star className="w-4 h-4 text-orange-500 fill-current" />
+                        <span className="text-neutral-900 dark:text-white">{vendor.rating || '4.5'}</span>
+                        <span className="text-neutral-400 font-bold">({reviews.length})</span>
+                      </div>
+                      <div className="flex items-center gap-2 bg-white/50 dark:bg-white/5 px-4 py-2 rounded-2xl border border-neutral-100 dark:border-white/5 shadow-sm">
+                        <MapPin className="w-4 h-4 text-orange-600" />
+                        <span className="max-w-[250px] truncate">{vendor.address}</span>
+                      </div>
                     </div>
                   </div>
 
-                  <p className="text-xs md:text-sm text-neutral-500 line-clamp-2 md:line-clamp-none max-w-xl mx-auto md:mx-0">
+                  <p className="text-base md:text-lg text-neutral-500 font-medium leading-relaxed max-w-2xl mx-auto md:mx-0">
                     {vendor.description || 'Sisi ni wataalamu wa kutoa huduma bora na bidhaa za hali ya juu kwa wateja wetu. Karibu ujionee tofauti.'}
                   </p>
                 </div>
               </div>
 
-              <div className="flex gap-2 w-full md:w-auto">
-                <Button variant="outline" className="flex-1 md:flex-none rounded-xl h-11 border-neutral-200 dark:border-neutral-800 font-black text-[10px] uppercase tracking-widest gap-2">
-                  <Share2 className="w-3.5 h-3.5" /> {t('share') || 'Share'}
+              <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
+                <Button 
+                  variant="outline" 
+                  className="flex-1 md:flex-none rounded-3xl h-16 px-10 border-neutral-200 dark:border-white/10 font-black text-[11px] uppercase tracking-[0.25em] gap-3 hover:bg-neutral-50 dark:hover:bg-white/5 transition-all active:scale-95 shadow-sm"
+                >
+                  <Share2 className="w-5 h-5" /> {t('share') || 'Share'}
                 </Button>
                 <Link to={vendor?.ownerUid ? `/chat?to=${vendor.ownerUid}` : '#'} className="flex-1 md:flex-none">
-                  <Button disabled={!vendor?.ownerUid} className="w-full bg-orange-600 hover:bg-orange-700 text-white rounded-xl h-11 px-6 font-black text-[10px] uppercase tracking-widest gap-2 shadow-lg shadow-orange-600/20">
-                    <MessageSquare className="w-3.5 h-3.5" /> {t('chat') || 'Chat'}
+                  <Button 
+                    disabled={!vendor?.ownerUid} 
+                    className="w-full bg-orange-600 hover:bg-orange-700 text-white rounded-3xl h-16 px-12 font-black text-[11px] uppercase tracking-[0.25em] gap-4 shadow-[0_20px_40px_-5px_rgba(234,88,12,0.4)] hover:shadow-orange-600/60 transition-all active:scale-95 group relative overflow-hidden"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                    <MessageSquare className="w-5 h-5 group-hover:rotate-12 transition-transform" /> {t('chat') || 'Anza Chat'}
                   </Button>
                 </Link>
               </div>
             </div>
 
+
+
             {/* Tabs */}
-            <div className="flex gap-6 md:gap-8 border-b border-neutral-100 dark:border-neutral-800 mt-8 md:mt-12 overflow-x-auto no-scrollbar">
+            <div className="flex gap-10 border-b border-neutral-100 dark:border-white/5 mt-12 md:mt-20 overflow-x-auto no-scrollbar relative">
               {[
                 { id: 'products', label: t('products') || 'Bidhaa', icon: ShoppingBag },
                 { id: 'reviews', label: t('reviews') || 'Maoni', icon: Star },
@@ -400,16 +431,17 @@ export default function VendorStore() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`pb-4 text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all relative shrink-0 ${
-                    activeTab === tab.id ? 'text-orange-600' : 'text-neutral-400 hover:text-neutral-600'
+                  className={`pb-5 text-[11px] font-black uppercase tracking-[0.3em] flex items-center gap-3 transition-all relative shrink-0 ${
+                    activeTab === tab.id ? 'text-orange-600' : 'text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200'
                   }`}
                 >
-                  <tab.icon className="w-3.5 h-3.5" />
+                  <tab.icon className={`w-4.5 h-4.5 ${activeTab === tab.id ? 'animate-bounce' : ''}`} />
                   {tab.label}
                   {activeTab === tab.id && (
                     <motion.div 
                       layoutId="activeTabVendor"
-                      className="absolute bottom-0 left-0 right-0 h-1 bg-orange-600 rounded-full" 
+                      className="absolute bottom-0 left-0 right-0 h-1.5 bg-orange-600 rounded-full shadow-[0_0_20px_rgba(234,88,12,0.6)]" 
+                      transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
                     />
                   )}
                 </button>
@@ -417,230 +449,289 @@ export default function VendorStore() {
             </div>
 
             {/* Tab Content */}
-            <div className="mt-8">
+            <div className="mt-12">
               <AnimatePresence mode="wait">
                 {activeTab === 'products' && (
                   <motion.div
                     key="products"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-6"
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -30 }}
+                    className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-10"
                   >
                     {products.map((product, idx) => (
                       <motion.div
                         key={product.id}
-                        initial={{ opacity: 0, y: 20 }}
+                        initial={{ opacity: 0, y: 30 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.05 * idx }}
+                        transition={{ delay: 0.1 * idx, ease: "easeOut" }}
                       >
                         <Link 
                           to={`/product/${product.id}`}
-                          className="group"
+                          className="group block h-full"
                         >
-                          <Card className="overflow-hidden rounded-[2rem] md:rounded-[2.5rem] bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 shadow-lg shadow-neutral-900/5 hover:shadow-orange-900/10 transition-all h-full group/card border-2 hover:border-orange-500/10">
-                            <div className="aspect-square relative overflow-hidden bg-neutral-100 dark:bg-neutral-800">
+                          <div className="relative h-full bg-white dark:bg-neutral-900 rounded-none sm:rounded-[2rem] md:rounded-[3.5rem] border-x-0 sm:border border-neutral-100 dark:border-white/5 shadow-[0_15px_40px_rgba(0,0,0,0.04)] hover:shadow-[0_30px_60px_rgba(234,88,12,0.18)] transition-all duration-700 overflow-hidden group/card">
+                            <div className="aspect-[3/4] relative overflow-hidden bg-neutral-50 dark:bg-neutral-800 m-0 sm:m-3 rounded-none sm:rounded-[2.8rem]">
                               <img 
                                 src={product.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80'} 
                                 alt={product.name} 
-                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" 
                                 onError={(e) => {
                                   (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80';
                                 }}
                                 referrerPolicy="no-referrer"
                               />
+                              
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                              
+                              <div className="absolute top-4 left-4">
+                                <Badge className="bg-white/90 dark:bg-black/80 backdrop-blur-md text-neutral-900 dark:text-white border-none px-3 py-1 text-[9px] font-black uppercase tracking-[0.2em] rounded-full">
+                                  {product.category || 'Standard'}
+                                </Badge>
+                              </div>
+
                               <motion.button 
-                                whileHover={{ scale: 1.1 }}
+                                whileHover={{ scale: 1.1, rotate: 90 }}
                                 whileTap={{ scale: 0.9 }}
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
                                   addItem(product);
+                                  toast.success(`${product.name} imeongezwa!`, {
+                                    icon: '🛒',
+                                    className: 'font-black uppercase text-[10px] tracking-widest'
+                                  });
                                 }}
-                                className="absolute bottom-3 right-3 md:bottom-4 md:right-4 w-10 h-10 md:w-12 md:h-12 bg-white rounded-xl md:rounded-2xl shadow-xl flex items-center justify-center text-orange-600 hover:bg-orange-600 hover:text-white transition-all transform overflow-hidden group/btn"
+                                className="absolute bottom-5 right-5 w-14 h-14 bg-orange-600 text-white rounded-2xl shadow-2xl flex items-center justify-center hover:bg-orange-700 transition-all transform z-10"
                               >
-                                <div className="absolute inset-0 bg-orange-600 -translate-x-full group-hover/btn:translate-x-0 transition-transform" />
-                                <ShoppingBasket className="w-5 h-5 md:w-6 md:h-6 relative z-10" />
+                                <Plus className="w-7 h-7" />
                               </motion.button>
                             </div>
-                            <CardContent className="p-3 md:p-5">
-                              <h4 className="font-black text-xs md:text-sm text-neutral-900 truncate group-hover/card:text-orange-600 transition-colors uppercase tracking-tight">{product.name}</h4>
-                              <div className="flex items-center justify-between mt-1 md:mt-2">
-                                <p className="text-[10px] md:text-xs text-orange-600 font-black">
-                                  TZS {product.price.toLocaleString()}
-                                </p>
-                                <span className="text-[9px] md:text-[10px] text-neutral-400 font-bold uppercase tracking-tighter">Qty: 1</span>
+                            
+                            <div className="p-8 pt-4 space-y-4">
+                              <div className="space-y-1.5">
+                                <h4 className="font-[900] text-lg md:text-xl text-neutral-900 dark:text-white group-hover/card:text-orange-600 transition-colors uppercase italic tracking-tighter leading-none">{product.name}</h4>
+                                <p className="text-[11px] text-neutral-400 font-bold uppercase tracking-[0.2em] line-clamp-1 italic">{product.description || 'Verified Quality'}</p>
                               </div>
-                            </CardContent>
-                          </Card>
+
+                              <div className="flex items-center justify-between pt-4 border-t border-neutral-100 dark:border-white/5">
+                                <div className="space-y-1">
+                                  {product.discountPrice ? (
+                                    <div className="flex flex-col">
+                                      <span className="text-[11px] text-neutral-400 line-through font-bold">TZS {product.price.toLocaleString()}</span>
+                                      <span className="text-xl font-[900] text-orange-600 italic tracking-tighter">
+                                        TZS {product.discountPrice.toLocaleString()}
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <p className="text-xl font-[900] text-orange-600 italic tracking-tighter">
+                                      TZS {product.price.toLocaleString()}
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="bg-orange-50 dark:bg-orange-900/10 px-3 py-1 rounded-full text-[9px] font-black text-orange-600 uppercase tracking-widest">
+                                  In Stock
+                                </div>
+                              </div>
+                            </div>
+                          </div>
                         </Link>
                       </motion.div>
                     ))}
+
                     {products.length === 0 && (
                       <motion.div 
-                        initial={{ opacity: 0, scale: 0.9 }}
+                        initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="col-span-full py-20 text-center bg-neutral-50 rounded-[2.5rem] border-2 border-dashed border-neutral-200"
+                        className="col-span-full py-32 text-center bg-neutral-50 dark:bg-neutral-900/30 rounded-[4rem] border-2 border-dashed border-neutral-100 dark:border-white/5 relative overflow-hidden"
                       >
-                        <ShoppingBag className="w-12 h-12 text-neutral-300 mx-auto mb-4" />
-                        <p className="text-neutral-500 font-medium font-bold uppercase tracking-widest text-xs">Hakuna bidhaa zilizopatikana.</p>
+                        <motion.div 
+                          animate={{ y: [0, -10, 0] }}
+                          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                        >
+                          <ShoppingBasket className="w-20 h-20 text-orange-100 dark:text-neutral-800 mx-auto mb-8 stroke-[1px]" />
+                        </motion.div>
+                        <h3 className="text-2xl font-black text-neutral-900 dark:text-white uppercase italic tracking-tighter mb-2">Hakuna Bidhaa</h3>
+                        <p className="text-neutral-400 font-bold uppercase tracking-[0.2em] text-[10px]">Tutasasisha hivi punde, Karibu tena.</p>
                       </motion.div>
                     )}
                   </motion.div>
                 )}
 
+
                 {activeTab === 'reviews' && (
                   <motion.div
                     key="reviews"
-                    initial={{ opacity: 0, y: 10 }}
+                    initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="space-y-8"
+                    exit={{ opacity: 0, y: -30 }}
+                    className="space-y-12"
                   >
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-6">
                       <div>
-                        <h3 className="text-2xl font-black text-neutral-900">Maoni ya Wateja</h3>
-                        <p className="text-neutral-500 text-sm mt-1">Wateja wanasemaje kuhusu duka hili.</p>
+                        <h3 className="text-3xl md:text-5xl font-[900] text-neutral-900 dark:text-white uppercase italic tracking-tighter">Maoni ya Wateja</h3>
+                        <p className="text-neutral-500 font-bold uppercase tracking-[0.2em] text-[10px] mt-2">Wateja {reviews.length} wametoa maoni yao hapa.</p>
                       </div>
                       <Button 
                         onClick={() => setIsReviewModalOpen(true)}
-                        className="bg-neutral-900 hover:bg-neutral-800 text-white rounded-2xl h-12 px-6 font-bold gap-2"
+                        className="w-full md:w-auto bg-neutral-900 dark:bg-white text-white dark:text-neutral-950 hover:bg-neutral-800 dark:hover:bg-neutral-200 rounded-2xl h-14 px-8 font-black uppercase tracking-[0.2em] text-[10px] gap-2 shadow-2xl transition-all active:scale-95"
                       >
                         <Plus className="w-4 h-4" /> Andika Maoni
                       </Button>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-12">
                       {reviews.map((review) => {
                         const isLiked = review.likes?.includes(user?.uid || '');
                         const isOwner = review.userId === user?.uid;
-                        const isVendorOwner = vendor.ownerUid === user?.uid;
 
                         return (
-                          <Card key={review.id} className="bg-white border border-neutral-100 rounded-3xl p-6 shadow-sm">
-                            <div className="flex gap-4">
-                              <div className="w-12 h-12 rounded-full overflow-hidden shrink-0">
-                                <img 
-                                  src={review.userPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${review.userId}`} 
-                                  alt={review.userName} 
-                                  className="w-full h-full object-cover" 
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${review.userName || 'user'}`;
-                                  }}
-                                />
-                              </div>
-                              <div className="flex-1 space-y-2">
-                                <div className="flex items-center justify-between">
-                                  <h4 className="font-bold text-neutral-900">{review.userName}</h4>
-                                  <div className="flex items-center gap-1">
-                                    {[...Array(5)].map((_, i) => (
-                                      <Star key={`review-star-${review.id}-${i}`} className={`w-3 h-3 ${i < review.rating ? 'text-orange-500 fill-current' : 'text-neutral-300'}`} />
-                                    ))}
+                          <motion.div
+                            key={review.id}
+                            initial={{ opacity: 0, y: 20 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            viewport={{ once: true }}
+                          >
+                            <div className="bg-white/50 dark:bg-white/5 backdrop-blur-xl border border-neutral-100 dark:border-white/5 rounded-[2.5rem] p-8 shadow-xl hover:shadow-[0_20px_50px_rgba(0,0,0,0.05)] transition-all relative group">
+                              <div className="flex gap-4">
+                                <div className="w-14 h-14 rounded-2xl p-1 bg-gradient-to-br from-orange-400 to-orange-600 shadow-lg shrink-0">
+                                  <div className="w-full h-full rounded-xl overflow-hidden bg-white dark:bg-neutral-800 border-2 border-white dark:border-neutral-950">
+                                    <img 
+                                      src={review.userPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${review.userId}`} 
+                                      alt={review.userName} 
+                                      className="w-full h-full object-cover" 
+                                      onError={(e) => {
+                                        (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${review.userName || 'user'}`;
+                                      }}
+                                    />
                                   </div>
                                 </div>
-                                <p className="text-sm text-neutral-600 leading-relaxed">{review.comment}</p>
-                                
-                                {review.images && review.images.length > 0 && (
-                                  <div className="flex gap-2 mt-4 overflow-x-auto pb-2 no-scrollbar">
-                                    {review.images.map((img, idx) => img && (
-                                      <div key={`review-img-${review.id}-${idx}`} className="w-20 h-20 rounded-xl overflow-hidden shrink-0 border border-neutral-200">
-                                        <img src={img} alt="Review" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                <div className="flex-1 space-y-3">
+                                  <div className="flex items-center justify-between">
+                                    <div className="space-y-0.5">
+                                      <h4 className="font-black text-sm text-neutral-900 dark:text-white uppercase tracking-tighter italic">{review.userName}</h4>
+                                      <div className="flex items-center gap-0.5">
+                                        {[...Array(5)].map((_, i) => (
+                                          <Star key={`review-star-${review.id}-${i}`} className={`w-2.5 h-2.5 ${i < review.rating ? 'text-orange-500 fill-current' : 'text-neutral-300'}`} />
+                                        ))}
                                       </div>
-                                    ))}
+                                    </div>
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-neutral-400 italic">
+                                      {review.createdAt?.toDate().toLocaleDateString() || 'Today'}
+                                    </span>
                                   </div>
-                                )}
 
-                                <div className="flex items-center gap-4 pt-2">
-                                  <button 
-                                    onClick={() => handleLikeReview(review.id, !!isLiked)}
-                                    className={`flex items-center gap-1.5 text-xs font-bold transition-colors ${isLiked ? 'text-orange-600' : 'text-neutral-400 hover:text-orange-600'}`}
-                                  >
-                                    <ThumbsUp className={`w-3.5 h-3.5 ${isLiked ? 'fill-current' : ''}`} /> 
-                                    {review.likes?.length || 0} Likes
-                                  </button>
+                                  <div className="bg-neutral-50 dark:bg-white/5 p-5 rounded-2xl border border-neutral-100 dark:border-white/5 italic font-medium text-neutral-600 dark:text-neutral-400 text-sm leading-relaxed">
+                                    "{review.comment}"
+                                  </div>
                                   
-                                  <button 
-                                    onClick={() => setReplyingTo(replyingTo === review.id ? null : review.id)}
-                                    className="flex items-center gap-1.5 text-xs text-neutral-400 font-bold hover:text-orange-600 transition-colors"
-                                  >
-                                    <Reply className="w-3.5 h-3.5" /> Reply
-                                  </button>
-
-                                  {isOwner && (
-                                    <button 
-                                      onClick={() => handleDeleteReview(review.id)}
-                                      className="flex items-center gap-1.5 text-xs text-red-400 font-bold hover:text-red-600 transition-colors"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" /> Delete
-                                    </button>
+                                  {review.images && review.images.length > 0 && (
+                                    <div className="flex gap-3 mt-4 overflow-x-auto pb-4 no-scrollbar">
+                                      {review.images.map((img, idx) => img && (
+                                        <div key={`review-img-${review.id}-${idx}`} className="w-24 h-24 rounded-2xl overflow-hidden shrink-0 border-2 border-white dark:border-neutral-800 shadow-md">
+                                          <img src={img} alt="Review" className="w-full h-full object-cover hover:scale-110 transition-transform duration-500" referrerPolicy="no-referrer" />
+                                        </div>
+                                      ))}
+                                    </div>
                                   )}
 
-                                  <span className="text-[10px] text-neutral-300 font-medium ml-auto">
-                                    {review.createdAt?.toDate().toLocaleDateString()}
-                                  </span>
-                                </div>
+                                  <div className="flex items-center gap-6 pt-4">
+                                    <button 
+                                      onClick={() => handleLikeReview(review.id, !!isLiked)}
+                                      className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:scale-110 active:scale-95 ${isLiked ? 'text-orange-600' : 'text-neutral-400 hover:text-orange-600'}`}
+                                    >
+                                      <ThumbsUp className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} /> 
+                                      {review.likes?.length || 0}
+                                    </button>
+                                    
+                                    <button 
+                                      onClick={() => setReplyingTo(replyingTo === review.id ? null : review.id)}
+                                      className="flex items-center gap-2 text-[10px] text-neutral-400 font-black uppercase tracking-[0.2em] hover:text-orange-600 transition-all hover:scale-110 active:scale-95"
+                                    >
+                                      <MessageSquare className="w-4 h-4" /> Jibu
+                                    </button>
 
-                                {/* Replies Section */}
-                                {review.replies && review.replies.length > 0 && (
-                                  <div className="mt-4 space-y-3 pl-6 border-l-2 border-neutral-100">
-                                    {review.replies.map((reply) => (
-                                      <div key={reply.id} className="bg-neutral-50 p-3 rounded-2xl relative group">
-                                        <div className="flex items-center gap-2 mb-1">
-                                          <img 
-                                            src={reply.userPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${reply.userId}`} 
-                                            alt={reply.userName} 
-                                            className="w-5 h-5 rounded-full" 
-                                            onError={(e) => {
-                                              (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${reply.userName || 'user'}`;
-                                            }}
-                                          />
-                                          <span className="text-xs font-bold text-neutral-900">{reply.userName}</span>
-                                          {reply.userId === vendor.ownerUid && (
-                                            <Badge className="bg-orange-100 text-orange-600 border-none text-[8px] px-1.5 py-0">Muuzaji</Badge>
+                                    {isOwner && (
+                                      <button 
+                                        onClick={() => handleDeleteReview(review.id)}
+                                        className="flex items-center gap-2 text-[10px] text-rose-400 font-black uppercase tracking-[0.2em] hover:text-rose-600 transition-all hover:scale-110 active:scale-95 ml-auto md:ml-0"
+                                      >
+                                        <Trash2 className="w-4 h-4" /> Futa
+                                      </button>
+                                    )}
+                                  </div>
+
+                                  {/* Replies Section */}
+                                  {review.replies && review.replies.length > 0 && (
+                                    <div className="mt-6 space-y-4 pl-4 border-l-4 border-orange-100 dark:border-white/5">
+                                      {review.replies.map((reply) => (
+                                        <div key={reply.id} className="bg-white/80 dark:bg-white/5 p-4 rounded-2xl relative group/reply shadow-sm border border-neutral-100 dark:border-white/5">
+                                          <div className="flex items-center gap-3 mb-2">
+                                            <div className="w-6 h-6 rounded-lg overflow-hidden border border-neutral-100 dark:border-white/10 shrink-0">
+                                              <img 
+                                                src={reply.userPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${reply.userId}`} 
+                                                alt={reply.userName} 
+                                                className="w-full h-full object-cover" 
+                                                onError={(e) => {
+                                                  (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${reply.userName || 'user'}`;
+                                                }}
+                                              />
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                              <span className="text-[10px] font-black text-neutral-900 dark:text-white uppercase tracking-tighter italic">{reply.userName}</span>
+                                              {reply.userId === vendor.ownerUid && (
+                                                <Badge className="bg-orange-600 text-white border-none text-[8px] px-2 py-0.5 font-black uppercase tracking-widest italic">Manager</Badge>
+                                              )}
+                                            </div>
+                                          </div>
+                                          <p className="text-xs text-neutral-500 font-medium italic">"{reply.text}"</p>
+                                          {reply.userId === user?.uid && (
+                                            <button 
+                                              onClick={() => handleDeleteReply(review.id, reply.id)}
+                                              className="absolute top-3 right-3 text-rose-400 opacity-0 group-hover/reply:opacity-100 transition-opacity hover:scale-110"
+                                            >
+                                              <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
                                           )}
                                         </div>
-                                        <p className="text-xs text-neutral-600">{reply.text}</p>
-                                        {reply.userId === user?.uid && (
-                                          <button 
-                                            onClick={() => handleDeleteReply(review.id, reply.id)}
-                                            className="absolute top-2 right-2 text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                                          >
-                                            <Trash2 className="w-3 h-3" />
-                                          </button>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
+                                      ))}
+                                    </div>
+                                  )}
 
-                                {/* Reply Input */}
-                                {replyingTo === review.id && (
-                                  <div className="mt-4 flex gap-2">
-                                    <input 
-                                      type="text"
-                                      value={replyText}
-                                      onChange={(e) => setReplyText(e.target.value)}
-                                      placeholder="Andika jibu lako..."
-                                      className="flex-1 bg-neutral-50 border-none rounded-xl px-4 py-2 text-xs focus:ring-1 focus:ring-orange-500"
-                                      autoFocus
-                                    />
-                                    <Button 
-                                      onClick={() => handleReplyReview(review.id)}
-                                      className="h-8 px-4 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold"
+                                  {/* Reply Input */}
+                                  {replyingTo === review.id && (
+                                    <motion.div 
+                                      initial={{ opacity: 0, y: -10 }}
+                                      animate={{ opacity: 1, y: 0 }}
+                                      className="mt-6 flex gap-3"
                                     >
-                                      Tuma
-                                    </Button>
-                                  </div>
-                                )}
+                                      <input 
+                                        type="text"
+                                        value={replyText}
+                                        onChange={(e) => setReplyText(e.target.value)}
+                                        placeholder="Andika jibu hapa..."
+                                        className="flex-1 bg-white dark:bg-neutral-900 border border-neutral-100 dark:border-white/5 rounded-2xl px-6 py-3 text-xs font-medium focus:ring-2 focus:ring-orange-500 transition-all outline-none"
+                                        autoFocus
+                                      />
+                                      <Button 
+                                        onClick={() => handleReplyReview(review.id)}
+                                        className="h-12 px-6 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest"
+                                      >
+                                        Tuma
+                                      </Button>
+                                    </motion.div>
+                                  )}
+                                </div>
                               </div>
                             </div>
-                          </Card>
+                          </motion.div>
                         );
                       })}
                       {reviews.length === 0 && (
-                        <div className="col-span-full py-20 text-center bg-neutral-50 rounded-[2rem] border-2 border-dashed border-neutral-200">
-                          <Star className="w-12 h-12 text-neutral-300 mx-auto mb-4" />
-                          <p className="text-neutral-500 font-medium">Hakuna maoni bado. Kuwa wa kwanza kutoa maoni!</p>
+                        <div className="col-span-full py-32 text-center bg-neutral-50 dark:bg-neutral-900/40 rounded-[4rem] border-2 border-dashed border-neutral-100 dark:border-white/5">
+                          <Star className="w-20 h-20 text-orange-100 dark:text-neutral-800 mx-auto mb-8 stroke-[1px]" />
+                          <h3 className="text-2xl font-black text-neutral-900 dark:text-white uppercase italic tracking-tighter mb-2">Hakuna Maoni</h3>
+                          <p className="text-neutral-400 font-bold uppercase tracking-[0.2em] text-[10px]">Kuwa wa kwanza kusema chochote!</p>
                         </div>
                       )}
                     </div>
@@ -650,40 +741,115 @@ export default function VendorStore() {
                 {activeTab === 'info' && (
                   <motion.div
                     key="info"
-                    initial={{ opacity: 0, y: 10 }}
+                    initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="max-w-2xl space-y-8"
+                    exit={{ opacity: 0, y: -30 }}
+                    className="max-w-4xl space-y-16"
                   >
-                    <div className="space-y-4">
-                      <h3 className="text-xl font-bold text-neutral-900">Kuhusu Sisi</h3>
-                      <p className="text-neutral-600 leading-relaxed">
-                        {vendor.description || 'Sisi ni wataalamu wa kutoa huduma bora na bidhaa za hali ya juu kwa wateja wetu. Karibu ujionee tofauti.'}
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                      <div className="p-6 bg-neutral-50 rounded-3xl space-y-3">
-                        <div className="w-10 h-10 bg-orange-100 text-orange-600 rounded-xl flex items-center justify-center">
-                          <MapPin className="w-5 h-5" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
+                      <div className="space-y-6">
+                        <h3 className="text-3xl md:text-5xl font-[900] text-neutral-900 dark:text-white uppercase italic tracking-tighter">Kuhusu Sisi</h3>
+                        <div className="prose dark:prose-invert">
+                          <p className="text-lg md:text-xl text-neutral-500 font-medium leading-relaxed italic">
+                            {vendor.description || 'Sisi ni wataalamu wa kutoa huduma bora na bidhaa za hali ya juu kwa wateja wetu. Karibu ujionee tofauti na ubora wa dhati.'}
+                          </p>
                         </div>
-                        <h4 className="font-bold text-neutral-900">Mahali</h4>
-                        <p className="text-sm text-neutral-500">{vendor.address}</p>
+                        
+                        <div className="space-y-4 pt-6">
+                          <h4 className="text-[11px] font-black uppercase tracking-[0.3em] text-neutral-400">Our Features</h4>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {[
+                              { label: 'Express Delivery', icon: Clock },
+                              { label: 'Quality Verified', icon: ShieldCheck },
+                              { label: '24/7 Support', icon: Phone },
+                              { label: 'Easy Returns', icon: Undo2 }
+                            ].map((feature, i) => (
+                              <div key={i} className="flex items-center gap-4 p-4 bg-white/50 dark:bg-white/5 border border-neutral-100 dark:border-white/5 rounded-3xl group hover:bg-orange-50 dark:hover:bg-orange-950/20 transition-all shadow-sm">
+                                <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/20 text-orange-600 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                                  <feature.icon className="w-5 h-5 pointer-events-none" />
+                                </div>
+                                <span className="text-[12px] font-black uppercase tracking-widest text-neutral-900 dark:text-white italic">{feature.label}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       </div>
-                      <div className="p-6 bg-neutral-50 rounded-3xl space-y-3">
-                        <div className="w-10 h-10 bg-green-100 text-green-600 rounded-xl flex items-center justify-center">
-                          <Phone className="w-5 h-5" />
+
+                      <div className="space-y-8">
+                        <div className="bg-neutral-50 dark:bg-white/5 rounded-[3rem] p-10 space-y-8 border border-neutral-100 dark:border-white/5 relative overflow-hidden group">
+                           <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-full -mr-16 -mt-16 blur-2xl group-hover:scale-150 transition-transform duration-1000" />
+                           <h4 className="text-[11px] font-black uppercase tracking-[0.3em] text-neutral-400">Contacts & Socials</h4>
+                           
+                           <div className="space-y-6">
+                             <div className="flex gap-6 items-start">
+                               <div className="w-14 h-14 bg-white dark:bg-neutral-900 rounded-[1.2rem] flex items-center justify-center shadow-xl shrink-0 group-hover:rotate-12 transition-transform">
+                                 <MapPin className="w-6 h-6 text-orange-600" />
+                               </div>
+                               <div className="space-y-1">
+                                 <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400 italic">Location</p>
+                                 <p className="text-sm font-[900] text-neutral-900 dark:text-white uppercase italic tracking-tighter leading-tight">{vendor.address}</p>
+                               </div>
+                             </div>
+
+                             <div className="flex gap-6 items-start">
+                               <div className="w-14 h-14 bg-white dark:bg-neutral-900 rounded-[1.2rem] flex items-center justify-center shadow-xl shrink-0 group-hover:rotate-12 transition-transform">
+                                 <Phone className="w-6 h-6 text-green-500" />
+                               </div>
+                               <div className="space-y-1">
+                                 <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400 italic">Phone Number</p>
+                                 <p className="text-sm font-[900] text-neutral-900 dark:text-white uppercase italic tracking-tighter leading-tight">{vendor.phoneNumber || 'Huijawekwa'}</p>
+                               </div>
+                             </div>
+                           </div>
+
+                           <div className="pt-8 border-t border-neutral-200 dark:border-white/10 space-y-4">
+                             {vendor.socialLinks && (Object.values(vendor.socialLinks).some(v => v)) ? (
+                               <div className="flex flex-wrap gap-4">
+                                  {vendor.socialLinks.whatsapp && (
+                                    <a 
+                                      href={`https://wa.me/${vendor.socialLinks.whatsapp.replace(/\D/g, '')}`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="w-14 h-14 bg-green-500 text-white rounded-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg hover:shadow-green-500/40"
+                                    >
+                                      <MessageCircle className="w-7 h-7" />
+                                    </a>
+                                  )}
+                                  {vendor.socialLinks.instagram && (
+                                    <a 
+                                      href={`https://instagram.com/${vendor.socialLinks.instagram.replace('@', '')}`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="w-14 h-14 bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-600 text-white rounded-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg"
+                                    >
+                                      <Instagram className="w-7 h-7" />
+                                    </a>
+                                  )}
+                                  {vendor.socialLinks.facebook && (
+                                    <a 
+                                      href={vendor.socialLinks.facebook.startsWith('http') ? vendor.socialLinks.facebook : `https://facebook.com/${vendor.socialLinks.facebook}`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="w-14 h-14 bg-blue-600 text-white rounded-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg hover:shadow-blue-600/40"
+                                    >
+                                      <Facebook className="w-7 h-7" />
+                                    </a>
+                                  )}
+                               </div>
+                             ) : (
+                               <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400 italic">Hakuna mitandao iliyounganishwa.</p>
+                             )}
+                           </div>
                         </div>
-                        <h4 className="font-bold text-neutral-900">Mawasiliano</h4>
-                        <p className="text-sm text-neutral-500">0712 345 678</p>
                       </div>
                     </div>
                   </motion.div>
                 )}
+
               </AnimatePresence>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
 
       {/* Review Modal */}

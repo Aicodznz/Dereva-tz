@@ -6,8 +6,10 @@ import { toast } from 'sonner';
 import firebaseConfig from '../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
+// Using initializeFirestore with experimental connectivity for stability
 export const db = initializeFirestore(app, {
   ignoreUndefinedProperties: true,
+  experimentalAutoDetectLongPolling: true,
 }, (firebaseConfig as any).firestoreDatabaseId);
 
 export const storage = getStorage(app);
@@ -73,7 +75,12 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   }
 
   console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  
+  // Only throw for modification operations as per integration instructions
+  const isModifying = [OperationType.CREATE, OperationType.UPDATE, OperationType.DELETE, OperationType.WRITE].includes(operationType);
+  if (isModifying) {
+    throw new Error(JSON.stringify(errInfo));
+  }
 }
 
 async function testConnection() {

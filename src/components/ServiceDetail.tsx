@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
-  ChevronLeft, Star, Search, Filter, 
+  ChevronLeft, Star, Search, Filter, MapPin, ChevronRight,
   Utensils, ShoppingCart, Pill, Package, Car, Scissors, Hotel, ShoppingBag, Bus 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -24,6 +24,7 @@ const serviceMapping: Record<string, { category: VendorCategory, labelKey: strin
   'hoteli': { category: 'hotel', labelKey: 'hotels', icon: Hotel, color: 'bg-indigo-500' },
   'vifurushi': { category: 'parcel', labelKey: 'parcel', icon: Package, color: 'bg-orange-500' },
   'bus_ticket': { category: 'bus_ticket', labelKey: 'Bus Tickets', icon: Bus, color: 'bg-orange-600' },
+  'all-stores': { category: 'all' as any, labelKey: 'all_stores', icon: ShoppingBag, color: 'bg-orange-600' },
 };
 
 export default function ServiceDetail() {
@@ -32,9 +33,29 @@ export default function ServiceDetail() {
   const { t } = useLanguage();
   const [vendors, setVendors] = useState<VendorProfile[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [viewMode, setViewMode] = useState<'products' | 'vendors'>('products');
+  const [viewMode, setViewMode] = useState<'products' | 'vendors'>(id === 'all-stores' ? 'vendors' : 'products');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [location] = useState(() => {
+    const saved = localStorage.getItem('omniserve_user_location');
+    return saved ? JSON.parse(saved) : {
+      address: '',
+      lat: -6.7924,
+      lng: 39.2083
+    };
+  });
+
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371; // Earth radius in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
 
   const config = id ? serviceMapping[id] : null;
 
@@ -49,11 +70,13 @@ export default function ServiceDetail() {
       
       try {
         const vendorsRef = collection(db, 'vendors');
-        const vQuery = query(
-          vendorsRef, 
-          where('category', '==', config.category),
-          where('status', '==', 'active')
-        );
+        const vQuery = (config.category as any) === 'all' 
+          ? query(vendorsRef, where('status', '==', 'active'))
+          : query(
+              vendorsRef, 
+              where('category', '==', config.category),
+              where('status', '==', 'active')
+            );
         const vendorsSnap = await getDocs(vQuery);
         setVendors(vendorsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as VendorProfile)));
 
@@ -68,8 +91,13 @@ export default function ServiceDetail() {
     };
 
     fetchData();
+    
+    const catStr = config.category as string;
+    const vQuery = catStr === 'all'
+      ? query(collection(db, 'vendors'), where('status', '==', 'active'))
+      : query(collection(db, 'vendors'), where('category', '==', config.category), where('status', '==', 'active'));
 
-    const vUnsub = onSnapshot(query(collection(db, 'vendors'), where('category', '==', config.category), where('status', '==', 'active')), (snapshot) => {
+    const vUnsub = onSnapshot(vQuery, (snapshot) => {
       setVendors(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VendorProfile)));
     });
 
@@ -93,6 +121,7 @@ export default function ServiceDetail() {
   }
 
   const matchedProducts = products.filter(p => 
+    (config.category as any) === 'all' ||
     p.vendorCategory === config.category || 
     vendors.some(v => v.id === p.vendorId)
   );
@@ -122,7 +151,10 @@ export default function ServiceDetail() {
               {t(config.labelKey) || config.labelKey}
             </h1>
             <p className="text-[10px] uppercase font-bold text-neutral-400 tracking-widest">
-              {vendors.length} Businesses • {matchedProducts.length} Items
+              {id === 'all-stores' 
+                ? `Explore our complete collection of ${vendors.length} Stores`
+                : `${vendors.length} Businesses • ${matchedProducts.length} Items`
+              }
             </p>
           </div>
         </div>
@@ -147,21 +179,9 @@ export default function ServiceDetail() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            <Button variant="outline" className="h-11 rounded-xl gap-2 border-neutral-200">
-              <Filter className="w-4 h-4" />
-            </Button>
           </div>
 
-          {/* Tabs */}
           <div className="flex p-1 bg-neutral-100 rounded-2xl relative">
-            <button
-              onClick={() => setViewMode('products')}
-              className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all relative z-10 ${
-                viewMode === 'products' ? 'text-orange-600' : 'text-neutral-500'
-              }`}
-            >
-              {t('products') || 'Products'}
-            </button>
             <button
               onClick={() => setViewMode('vendors')}
               className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all relative z-10 ${
@@ -171,9 +191,8 @@ export default function ServiceDetail() {
               {t('businesses') || 'Businesses'}
             </button>
             <motion.div
-              animate={{ x: viewMode === 'products' ? '0%' : '100%' }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="absolute top-1 left-1 bottom-1 w-[calc(50%-4px)] bg-white rounded-xl shadow-sm border border-neutral-200"
+              animate={{ x: '0%' }}
+              className="absolute top-1 left-1 bottom-1 w-[calc(100%-8px)] bg-white rounded-xl shadow-sm border border-neutral-200"
             />
           </div>
 
@@ -235,36 +254,93 @@ export default function ServiceDetail() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
-                    className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                    className="grid grid-cols-3 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-6 md:gap-8"
                   >
-                    {filteredVendors.map((vendor, idx) => (
-                      <Link key={`svc-vend-${vendor.id}-${idx}`} to={`/vendor/${vendor.id}`}>
-                        <Card className="overflow-hidden rounded-3xl border-neutral-100 shadow-sm hover:shadow-md transition-all group">
-                          <div className="flex p-4 gap-4">
-                            <div className="w-24 h-24 rounded-2xl overflow-hidden relative shrink-0">
+                    {filteredVendors
+                      .map(vendor => {
+                        const distance = vendor.location 
+                          ? calculateDistance(location.lat, location.lng, vendor.location.lat, vendor.location.lng)
+                          : 9999;
+                        return { ...vendor, distance };
+                      })
+                      .sort((a, b) => a.distance - b.distance)
+                      .map((vendor, idx) => (
+                      <motion.div
+                        key={`svc-vend-${vendor.id}-${idx}`}
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ delay: 0.05 * idx }}
+                        whileHover={{ y: -5 }}
+                      >
+                        <Link to={`/vendor/${vendor.id}`} className="group block h-full">
+                          <div className="relative h-full bg-white dark:bg-neutral-900 rounded-2xl sm:rounded-[2.5rem] border border-neutral-200/60 dark:border-white/5 shadow-sm sm:shadow-[0_20px_50px_rgba(0,0,0,0.06)] group-hover:shadow-[0_20px_40px_rgba(234,88,12,0.1)] transition-all duration-500 overflow-hidden group/card border-b-2 sm:border-b-4 border-b-neutral-100 active:scale-[0.98]">
+                            <div className="h-20 sm:h-40 md:h-48 relative overflow-hidden">
                               <img 
-                                src={vendor.logoUrl || 'https://picsum.photos/seed/restaurant/400'} 
+                                src={vendor.bannerUrl || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=600&q=80'} 
                                 alt={vendor.businessName} 
-                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 ease-out"
                                 referrerPolicy="no-referrer"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=600&q=80';
+                                }}
                               />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+                              
+                              {/* Category Badge - Hidden on small mobile */}
+                              <div className="absolute top-2 right-2 sm:top-5 sm:right-5 hidden sm:block">
+                                 <Badge className="bg-orange-600 text-white font-black px-2 py-0.5 sm:px-4 sm:py-1.5 rounded-full text-[7px] sm:text-[9px] uppercase border-none shadow-xl shadow-orange-600/30 tracking-widest">
+                                    {vendor.category}
+                                 </Badge>
+                              </div>
+
+                              {/* Logo Overlap - Simpler on small mobile */}
+                              <div className="absolute -bottom-3 left-2 sm:-bottom-6 sm:left-6">
+                                <div className="w-8 h-8 sm:w-20 sm:h-20 rounded-lg sm:rounded-3xl bg-white dark:bg-neutral-800 p-0.5 sm:p-1.5 shadow-lg border border-white dark:border-neutral-800">
+                                  <img 
+                                    key={vendor.logoUrl || `dicebear-${vendor.businessName}`}
+                                    src={vendor.logoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(vendor.businessName || 'vendor')}`} 
+                                    alt="Logo" 
+                                    className="w-full h-full object-contain rounded-md sm:rounded-2xl"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(vendor.businessName || 'vendor')}`;
+                                    }}
+                                    referrerPolicy="no-referrer"
+                                  />
+                                </div>
+                              </div>
                             </div>
-                            <div className="flex-1 flex flex-col justify-center py-1">
-                              <h4 className="font-black text-lg text-neutral-900 group-hover:text-orange-600 transition-colors uppercase italic">{vendor.businessName}</h4>
-                              <p className="text-xs text-neutral-500 mt-1 line-clamp-1">{vendor.description}</p>
-                              <div className="flex items-center gap-2 mt-3">
-                                <Badge className="bg-orange-50 text-orange-600 border-none text-[8px] uppercase font-bold">
-                                  {vendor.category}
-                                </Badge>
-                                <div className="flex items-center gap-1">
-                                  <Star className="w-3 h-3 text-orange-500 fill-current" />
-                                  <span className="text-xs font-bold text-neutral-600">{vendor.rating || '4.5'}</span>
+
+                            <div className="pt-4 p-2 sm:pt-10 sm:p-8 space-y-1 sm:space-y-4">
+                              <div>
+                                <h4 className="font-black text-[10px] sm:text-2xl text-neutral-900 dark:text-white group-hover:text-orange-600 transition-colors uppercase italic tracking-tighter leading-none truncate mb-1 sm:mb-2">{vendor.businessName}</h4>
+                                <div className="flex items-center gap-1 sm:gap-3">
+                                  <div className="flex items-center gap-0.5 sm:gap-1.5 bg-orange-50 dark:bg-orange-950/30 px-1 sm:px-2.5 py-0.5 rounded-md">
+                                    <Star className="w-2 sm:w-3.5 h-2 sm:h-3.5 text-orange-600 fill-current" />
+                                    <span className="text-[8px] sm:text-[11px] font-black text-orange-600">{vendor.rating || '4.8'}</span>
+                                  </div>
+                                  <div className="flex items-center gap-0.5 sm:gap-1.5 bg-green-50 dark:bg-green-950/30 px-1 sm:px-2.5 py-0.5 rounded-md">
+                                    <MapPin className="w-2 sm:w-3.5 h-2 sm:h-3.5 text-green-600" />
+                                    <span className="text-[8px] sm:text-[11px] font-black text-green-600 uppercase tracking-tighter">
+                                      {vendor.distance < 0.5 
+                                        ? `${(vendor.distance * 1000).toFixed(0)}m` 
+                                        : `${vendor.distance.toFixed(1)}km`}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              <div className="pt-1 border-t border-neutral-100 dark:border-white/5 flex items-center justify-between">
+                                <p className="text-[7px] sm:text-[10px] text-neutral-400 font-bold uppercase tracking-widest hidden min-[400px]:block">{t('open_now') || 'Open Now'}</p>
+                                <div className="flex items-center gap-1 text-orange-600 group-hover:translate-x-1 transition-transform">
+                                  <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest">{t('visit') || 'Visit'}</span>
+                                  <ChevronRight className="w-2 sm:w-4 h-2 sm:h-4" />
                                 </div>
                               </div>
                             </div>
                           </div>
-                        </Card>
-                      </Link>
+                        </Link>
+                      </motion.div>
                     ))}
                     {filteredVendors.length === 0 && (
                       <div className="col-span-full py-20 text-center">

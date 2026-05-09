@@ -45,6 +45,11 @@ export interface VendorProfile {
   phoneNumber?: string;
   operatingHours: string;
   rating: number;
+  socialLinks?: {
+    whatsapp?: string;
+    instagram?: string;
+    facebook?: string;
+  };
   deliveryFees?: Record<string, number>;
   orderInstructions?: string;
   createdAt: any;
@@ -56,6 +61,7 @@ export interface Product {
   name: string;
   description: string;
   price: number;
+  discountPrice?: number;
   category: string;
   stock: number;
   status?: 'active' | 'out_of_stock' | 'discontinued';
@@ -120,11 +126,22 @@ export interface Coupon {
   id: string;
   vendorId: string;
   code: string;
+  description?: string;
   discountType: 'percentage' | 'fixed';
   discountValue: number;
   minOrderAmount?: number;
+  productId?: string;
   expiryDate: any;
   status: 'active' | 'expired' | 'disabled';
   usageLimit?: number;
   usageCount: number;
+  createdAt?: any;
+  createdBy: 'admin' | 'vendor';
+}
+
+export interface FAQ {
+  id: string;
+  question: string;
+  answer: string;
+  createdAt: any;
 }

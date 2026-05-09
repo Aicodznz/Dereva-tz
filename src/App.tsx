@@ -34,6 +34,15 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   return user ? <>{children}</> : <Navigate to="/login" />;
 }
 
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { user, profile, loading } = useAuth();
+  if (loading) return <div className="flex items-center justify-center h-screen">Loading...</div>;
+  if (!user || profile?.role !== 'admin') {
+    return <Navigate to="/" />;
+  }
+  return <>{children}</>;
+}
+
 function AppContent() {
   const { user, loading } = useAuth();
   
@@ -67,7 +76,7 @@ function AppContent() {
             <Route path="/chat" element={<PrivateRoute><Chat /></PrivateRoute>} />
             <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
             <Route path="/role-selection" element={<PrivateRoute><RoleSelection /></PrivateRoute>} />
-            <Route path="/admin" element={<PrivateRoute><AdminDashboard /></PrivateRoute>} />
+            <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
           </Routes>
         </Layout>
       } />

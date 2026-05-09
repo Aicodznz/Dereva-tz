@@ -343,24 +343,26 @@ export default function CustomerDashboard() {
       <section>
         <div className="flex items-center justify-between mb-8 px-2">
           <div className="flex flex-col">
-            <h3 className="font-black text-2xl text-neutral-900 tracking-tight font-display italic uppercase tracking-tighter">
-               {t('nearby_stores') || 'Nearby Stores'}
+            <h3 className="font-black text-3xl text-neutral-900 tracking-tighter font-display italic uppercase">
+               {t('nearby_stores') || 'Nearby Stores'} 
+               <span className="text-orange-600 ml-2">📍</span>
             </h3>
             <div className="flex items-center gap-2 mt-1">
-              <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-              <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-[0.1em]">Stores available around your location</p>
+              <div className="w-1.5 h-1.5 rounded-full bg-orange-600 animate-pulse" />
+              <p className="text-[10px] text-neutral-500 font-black uppercase tracking-[0.2em]">{t('discover_best') || 'Discover the best around you'}</p>
             </div>
           </div>
           <button 
-            onClick={() => setIsLocationPickerOpen(true)}
-            className="w-10 h-10 bg-neutral-100 dark:bg-neutral-800 rounded-2xl flex items-center justify-center text-neutral-900 dark:text-white hover:bg-orange-600 hover:text-white transition-all shadow-sm"
+            onClick={() => navigate('/service/all-stores')}
+            className="group flex items-center gap-2 bg-neutral-100 dark:bg-neutral-800 px-5 py-2.5 rounded-2xl text-neutral-900 dark:text-white hover:bg-orange-600 hover:text-white transition-all shadow-sm active:scale-95"
           >
-             <ChevronRight className="w-6 h-6" />
+             <span className="text-[10px] font-black uppercase tracking-widest hidden sm:block">{t('view_all_stores') || 'View All Stores'}</span>
+             <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
           </button>
         </div>
-        <div className="flex gap-4 overflow-x-auto pb-6 no-scrollbar -mx-3 px-3">
+        <div className="flex gap-6 overflow-x-auto pb-10 no-scrollbar -mx-3 px-3">
           {vendors
-            .filter(v => ['food', 'grocery', 'pharmacy', 'ecommerce', 'salons', 'hotels'].includes(v.category))
+            .filter(v => v.status === 'active')
             .map(vendor => {
               const distance = vendor.location 
                 ? calculateDistance(location.lat, location.lng, vendor.location.lat, vendor.location.lng)
@@ -371,73 +373,82 @@ export default function CustomerDashboard() {
             .map((vendor, idx) => (
             <motion.div
               key={`nearby-vendor-${vendor.id || `vendor-${idx}`}`}
-              initial={{ opacity: 0, x: 50 }}
-              whileInView={{ opacity: 1, x: 0 }}
+              initial={{ opacity: 0, x: 50, scale: 0.95 }}
+              whileInView={{ opacity: 1, x: 0, scale: 1 }}
               viewport={{ once: true }}
-              transition={{ delay: 0.1 * idx }}
-              className="min-w-[260px] group cursor-pointer"
-              onClick={() => {
-                setSelectedVendorId(vendor.id);
-                setIsLocationPickerOpen(true);
-              }}
+              transition={{ delay: 0.05 * idx, type: "spring", stiffness: 100 }}
+              whileHover={{ y: -10 }}
+              className="min-w-[280px] md:min-w-[320px] group cursor-pointer"
+              onClick={() => navigate(`/vendor/${vendor.id}`)}
             >
-              <Card className="overflow-hidden rounded-[2rem] border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-lg shadow-neutral-900/5 group-hover:shadow-orange-900/10 transition-all border-2 group-hover:border-orange-500/10">
-                <div className="h-36 relative">
+              <div className="relative h-full bg-white dark:bg-neutral-900 rounded-[2.5rem] border border-neutral-200/60 dark:border-white/5 shadow-[0_20px_50px_rgba(0,0,0,0.06)] group-hover:shadow-[0_40px_80px_rgba(234,88,12,0.15)] transition-all duration-500 overflow-hidden group/card border-b-4 border-b-neutral-100 active:scale-[0.98]">
+                <div className="h-40 md:h-48 relative overflow-hidden">
                   <img 
-                    src={vendor.bannerUrl || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=400&q=80'} 
+                    src={vendor.bannerUrl || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=600&q=80'} 
                     alt={vendor.businessName} 
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 ease-out"
                     referrerPolicy="no-referrer"
                     onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=400&q=80';
+                      (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=600&q=80';
                     }}
                   />
-                  <div className="absolute top-4 left-4">
-                    <div className="w-14 h-14 rounded-2xl bg-white dark:bg-neutral-800 p-1 shadow-2xl border border-neutral-100 dark:border-neutral-700">
-                      <img 
-                        src={vendor.logoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${vendor.businessName}`} 
-                        alt="Logo" 
-                        className="w-full h-full object-contain rounded-xl"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${vendor.businessName}`;
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <div className="absolute top-4 right-4">
-                     <Badge className="bg-white/90 backdrop-blur-sm text-orange-600 font-black px-3 py-1 rounded-xl text-[9px] uppercase border-none shadow-sm">
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+                  
+                  {/* Category Badge */}
+                  <div className="absolute top-5 right-5">
+                     <Badge className="bg-orange-600 text-white font-black px-4 py-1.5 rounded-full text-[9px] uppercase border-none shadow-xl shadow-orange-600/30 tracking-widest">
                         {vendor.category}
                      </Badge>
                   </div>
-                </div>
-                <CardContent className="p-3 md:p-5">
-                  <h4 className="font-black text-base md:text-lg text-neutral-900 dark:text-white group-hover:text-orange-600 transition-colors uppercase tracking-tight truncate">{vendor.businessName}</h4>
-                  <div className="flex items-center gap-2 md:gap-3 mt-2 md:mt-3">
-                    <div className="flex items-center gap-1 text-orange-500">
-                      <Star className="w-3 md:w-3.5 h-3 md:h-3.5 fill-current" />
-                      <span className="text-[10px] md:text-[11px] font-black">{vendor.rating || '4.8'}</span>
-                    </div>
-                    <div className="h-1 w-1 rounded-full bg-neutral-300" />
-                    <div className="flex items-center gap-1">
-                      <MapPin className="w-2.5 md:w-3 h-2.5 md:h-3 text-neutral-400" />
-                      <span className="text-[9px] md:text-[11px] text-neutral-400 font-bold uppercase tracking-tighter">
-                        {vendor.distance < 0.5 
-                          ? `${t('very_close')} (${(vendor.distance * 1000).toFixed(0)}m)` 
-                          : vendor.distance < 1.5 
-                          ? `${t('close')} (${vendor.distance.toFixed(1)}km)` 
-                          : vendor.distance < 4 
-                          ? `${t('far_bit')} (${vendor.distance.toFixed(1)}km)` 
-                          : vendor.distance < 8 
-                          ? `${t('far')} (${vendor.distance.toFixed(1)}km)` 
-                          : `${t('extremely_far')} (${vendor.distance.toFixed(1)}km)`}
-                      </span>
+
+                  {/* Logo Overlap */}
+                  <div className="absolute -bottom-6 left-6">
+                    <div className="w-16 h-16 md:w-20 md:h-20 rounded-3xl bg-white dark:bg-neutral-800 p-1.5 shadow-[0_15px_35px_rgba(0,0,0,0.2)] border-2 border-white dark:border-neutral-800">
+                      <img 
+                        key={vendor.logoUrl || `dicebear-${vendor.businessName}`}
+                        src={vendor.logoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(vendor.businessName || 'vendor')}`} 
+                        alt="Logo" 
+                        className="w-full h-full object-contain rounded-2xl"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(vendor.businessName || 'vendor')}`;
+                        }}
+                        referrerPolicy="no-referrer"
+                      />
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+
+                <div className="pt-10 p-6 md:p-8 space-y-4">
+                  <div>
+                    <h4 className="font-black text-xl md:text-2xl text-neutral-900 dark:text-white group-hover:text-orange-600 transition-colors uppercase italic tracking-tighter leading-none truncate mb-2">{vendor.businessName}</h4>
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1.5 bg-orange-50 dark:bg-orange-950/30 px-2.5 py-1 rounded-lg">
+                        <Star className="w-3.5 h-3.5 text-orange-600 fill-current" />
+                        <span className="text-[11px] font-black text-orange-600">{vendor.rating || '4.8'}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 bg-green-50 dark:bg-green-950/30 px-2.5 py-1 rounded-lg">
+                        <MapPin className="w-3.5 h-3.5 text-green-600" />
+                        <span className="text-[11px] font-black text-green-600 uppercase tracking-tighter">
+                          {vendor.distance < 0.5 
+                            ? `${(vendor.distance * 1000).toFixed(0)}m` 
+                            : `${vendor.distance.toFixed(1)}km`}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="pt-2 border-t border-neutral-100 dark:border-white/5 flex items-center justify-between">
+                    <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest">{t('open_now') || 'Open Now'}</p>
+                    <div className="flex items-center gap-2 text-orange-600 group-hover:translate-x-2 transition-transform">
+                      <span className="text-[10px] font-black uppercase tracking-widest">{t('visit') || 'Visit'}</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </div>
+                  </div>
+                </div>
+              </div>
             </motion.div>
           ))}
-          {vendors.filter(v => ['food', 'grocery', 'pharmacy', 'ecommerce', 'salons', 'hotels'].includes(v.category)).length === 0 && (
+          {vendors.filter(v => v.status === 'active').length === 0 && (
             <div className="w-full py-12 text-center bg-neutral-50 dark:bg-neutral-900/50 rounded-[2.5rem] border border-dashed border-neutral-200 dark:border-neutral-800 mx-4">
               <p className="text-neutral-400 text-sm italic">Hakuna maduka yaliyopatikana karibu nawe.</p>
             </div>
@@ -589,12 +600,13 @@ export default function CustomerDashboard() {
                   <div className="flex p-5 gap-5">
                     <div className="w-32 h-32 rounded-3xl overflow-hidden relative shrink-0 shadow-inner">
                       <img 
-                        src={vendor.logoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${vendor.businessName || 'vendor'}`} 
+                        key={vendor.logoUrl || `dicebear-${vendor.businessName}`}
+                        src={vendor.logoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(vendor.businessName || 'vendor')}`} 
                         alt={vendor.businessName} 
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
                         referrerPolicy="no-referrer"
                         onError={(e) => {
-                          (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${vendor.businessName || 'vendor'}`;
+                          (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(vendor.businessName || 'vendor')}`;
                         }}
                       />
                       <div className="absolute top-2 right-2 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md px-2 py-1 rounded-xl flex items-center gap-1 shadow-sm">

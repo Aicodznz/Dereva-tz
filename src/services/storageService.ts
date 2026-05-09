@@ -33,15 +33,17 @@ export const storageService = {
           (error) => {
             clearTimeout(timeout);
             console.error(`Error uploading to ${bucket}:`, error);
-            // Fallback for development if storage is not configured
-            if (error.code === 'storage/unauthorized' || error.code === 'storage/project-not-found' || error.code === 'storage/bucket-not-found' || error.code === 'storage/retry-limit-exceeded') {
-              console.warn("Firebase Storage fallback applied due to error:", error.code);
-              setTimeout(() => {
-                resolve(`https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=800&filename=${file.name}`);
-              }, 1000);
-            } else {
-              reject(error);
+            
+            let descriptiveError: any = error;
+            if (error.code === 'storage/retry-limit-exceeded') {
+              descriptiveError = new Error("Inashindwa kuunganishwa na Picha Storage. Hakikisha 'Storage' imewekwa (Enabled) kwenye Firebase Console.");
+            } else if (error.code === 'storage/unauthorized') {
+              descriptiveError = new Error("Huna ruhusa ya kupakia picha. Angalia 'Storage Rules' kwenye Firebase Console.");
+            } else if (error.code === 'storage/project-not-found') {
+              descriptiveError = new Error("Mradi wa Firebase haujapatikana. Angalia config yako.");
             }
+            
+            reject(descriptiveError);
           }, 
           async () => {
             clearTimeout(timeout);

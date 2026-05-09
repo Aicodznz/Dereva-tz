@@ -18,6 +18,7 @@ import {
   Globe,
   LayoutDashboard, 
   Package, 
+  Home,
   ShoppingCart, 
   Users, 
   TrendingUp, 
@@ -756,7 +757,12 @@ export default function VendorDashboard() {
     fetchProducts();
     fetchSections();
 
-    const errorHandler = (path: string) => (error: any) => handleFirestoreError(error, OperationType.GET, path);
+    const errorHandler = (path: string) => (error: any) => {
+      console.error(`Snapshot error for ${path}:`, error);
+      const msg = error instanceof Error ? error.message : String(error);
+      if (msg.includes('permission-denied')) return;
+      toast.error(`Error loading ${path}`);
+    };
 
     const unsubs = [
       onSnapshot(query(collection(db, 'orders'), where('vendorId', '==', vendorProfile.id)), () => fetchOrders(), errorHandler('orders')),
@@ -797,7 +803,12 @@ export default function VendorDashboard() {
         logoUrl: vendorProfile.logoUrl || '',
         bannerUrl: vendorProfile.bannerUrl || '',
         operatingHours: vendorProfile.operatingHours || '',
-        location: vendorProfile.location || { lat: -6.7924, lng: 39.2083 }
+        location: vendorProfile.location || { lat: -6.7924, lng: 39.2083 },
+        socialLinks: vendorProfile.socialLinks || {
+          whatsapp: '',
+          instagram: '',
+          facebook: ''
+        }
       });
     }
   }, [vendorProfile]);
@@ -914,7 +925,11 @@ export default function VendorDashboard() {
         
         toast.success("Logo imepakiwa na kuhifadhiwa!");
       } catch (error: any) {
-        toast.error("Imeshindwa kupakia logo: " + error.message);
+        console.error("Logo upload error:", error);
+        toast.error("Imeshindwa kupakia logo: " + error.message, {
+          description: "Hakikisha 'Storage' imewekwa (Enabled) kwenye Firebase Console na Mradi ni sahihi.",
+          duration: 6000
+        });
       } finally {
         setIsLogoUploading(false);
       }
@@ -938,7 +953,11 @@ export default function VendorDashboard() {
         
         toast.success("Banner imepakiwa na kuhifadhiwa!");
       } catch (error: any) {
-        toast.error("Imeshindwa kupakia banner: " + error.message);
+        console.error("Banner upload error:", error);
+        toast.error("Imeshindwa kupakia banner: " + error.message, {
+          description: "Hakikisha 'Storage' imewekwa (Enabled) kwenye Firebase Console na Mradi ni sahihi.",
+          duration: 6000
+        });
       } finally {
         setIsBannerUploading(false);
       }
@@ -1838,6 +1857,13 @@ export default function VendorDashboard() {
           </div>
 
           <div className="flex items-center gap-4">
+            <Link to="/">
+              <Button variant="ghost" className="rounded-xl font-bold gap-2 text-neutral-500 hover:text-orange-600 transition-colors">
+                <Home className="w-5 h-5" />
+                <span className="hidden lg:inline text-xs uppercase tracking-widest">Home</span>
+              </Button>
+            </Link>
+            <div className="h-8 w-px bg-neutral-200 dark:bg-neutral-800 mx-2 hidden md:block"></div>
             <Button 
               onClick={() => setIsAddProductOpen(true)}
               className="bg-orange-600 hover:bg-orange-700 gap-2 h-10 rounded-xl px-4 font-bold hidden md:flex"
@@ -3571,122 +3597,190 @@ export default function VendorDashboard() {
                         <h3 className="font-black text-xl text-neutral-900 dark:text-white transition-colors">Branding</h3>
                       </div>
 
-                      <div className="space-y-6">
-                        <div className="space-y-3 text-center">
-                          <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">Logo / Picha ya Duka</label>
-                          <div className="relative group mx-auto w-40 h-40">
-                            <div 
-                              onClick={() => logoInputRef.current?.click()}
-                              className="w-full h-full rounded-[3rem] bg-neutral-50 dark:bg-neutral-950 border-4 border-dashed border-neutral-200 dark:border-neutral-800 overflow-hidden flex flex-col items-center justify-center transition-all group-hover:border-orange-600/50 group-hover:bg-orange-600/5 cursor-pointer relative"
-                            >
-                              {(updatedProfile.logoUrl || vendorProfile?.logoUrl) ? (
+                      <div className="space-y-8">
+                        <div className="space-y-4">
+                          <div className="space-y-3 text-center">
+                            <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">Logo / Picha ya Duka</label>
+                            <div className="relative group mx-auto w-40 h-40">
+                              <div 
+                                onClick={() => logoInputRef.current?.click()}
+                                className="w-full h-full rounded-[3rem] bg-neutral-50 dark:bg-neutral-950 border-4 border-dashed border-neutral-200 dark:border-neutral-800 overflow-hidden flex flex-col items-center justify-center transition-all group-hover:border-orange-600/50 group-hover:bg-orange-600/5 cursor-pointer relative"
+                              >
+                                {(updatedProfile.logoUrl || vendorProfile?.logoUrl) ? (
+                                  <img 
+                                    key={updatedProfile.logoUrl || vendorProfile?.logoUrl}
+                                    src={updatedProfile.logoUrl || vendorProfile?.logoUrl || ''} 
+                                    className={`w-full h-full object-cover transition-all group-hover:scale-110 ${isLogoUploading ? 'opacity-30 grayscale' : ''}`} 
+                                    referrerPolicy="no-referrer" 
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(vendorProfile?.businessName || 'vendor')}`;
+                                    }}
+                                  />
+                                ) : (
+                                  <div className="flex flex-col items-center gap-2">
+                                    <Store className="w-12 h-12 text-neutral-300 dark:text-neutral-700 group-hover:text-orange-600 transition-colors" />
+                                    <span className="text-[9px] font-black text-neutral-400 uppercase tracking-tighter">Bofya kupakia</span>
+                                  </div>
+                                )}
+                                
+                                {isLogoUploading && (
+                                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px]">
+                                    <Loader2 className="w-8 h-8 text-orange-600 animate-spin mb-2" />
+                                    <span className="text-[10px] font-black text-white uppercase tracking-widest">Inapakia...</span>
+                                  </div>
+                                )}
+
+                                {!isLogoUploading && (
+                                  <div className="absolute inset-0 bg-orange-600/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                     <div className="flex flex-col items-center gap-2 p-4 text-center">
+                                        <Camera className="w-8 h-8 text-white" />
+                                        <span className="text-[10px] font-black text-white uppercase tracking-widest leading-tight">Badili Logo</span>
+                                     </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              <Button
+                                type="button" 
+                                variant="ghost" 
+                                size="icon"
+                                className="absolute -bottom-2 -right-2 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl h-12 w-12 shadow-xl shadow-orange-950/40 z-10 border-4 border-white dark:border-neutral-900"
+                                onClick={() => logoInputRef.current?.click()}
+                                disabled={isLogoUploading}
+                              >
+                                {isLogoUploading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Plus className="w-6 h-6" />}
+                              </Button>
+                              <input 
+                                type="file" 
+                                ref={logoInputRef} 
+                                className="hidden" 
+                                accept="image/*" 
+                                onChange={handleLogoUpload} 
+                              />
+                            </div>
+                            
+                            <div className="pt-2 px-4">
+                              <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-2 block text-left">Au weka Link ya Logo (URL)</label>
+                              <Input 
+                                value={updatedProfile.logoUrl || vendorProfile?.logoUrl || ''}
+                                onChange={e => setUpdatedProfile({...updatedProfile, logoUrl: e.target.value})}
+                                className="bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 h-10 rounded-xl text-xs"
+                                placeholder="https://mfano.com/picha.jpg"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-3">
+                            <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1 text-center block">Banner Image / Picha ya Juu</label>
+                            <div className="relative group aspect-video rounded-3xl bg-neutral-50 dark:bg-neutral-950 border-2 border-dashed border-neutral-200 dark:border-neutral-800 overflow-hidden flex items-center justify-center transition-colors">
+                              {(updatedProfile.bannerUrl || vendorProfile?.bannerUrl) ? (
                                 <img 
-                                  src={updatedProfile.logoUrl || vendorProfile?.logoUrl || ''} 
-                                  className={`w-full h-full object-cover transition-all group-hover:scale-110 ${isLogoUploading ? 'opacity-30 grayscale' : ''}`} 
+                                  src={updatedProfile.bannerUrl || vendorProfile?.bannerUrl || ''} 
+                                  className={`w-full h-full object-cover ${isBannerUploading ? 'opacity-30 grayscale' : ''}`} 
                                   referrerPolicy="no-referrer" 
                                   onError={(e) => {
-                                    (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${vendorProfile?.businessName || 'vendor'}`;
+                                    (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=800&q=80';
                                   }}
                                 />
                               ) : (
                                 <div className="flex flex-col items-center gap-2">
-                                  <Store className="w-12 h-12 text-neutral-300 dark:text-neutral-700 group-hover:text-orange-600 transition-colors" />
-                                  <span className="text-[9px] font-black text-neutral-400 uppercase tracking-tighter">Bofya kupakia</span>
+                                  <Camera className="w-8 h-8 text-neutral-400 dark:text-neutral-700" />
+                                  <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Weka Banner</span>
                                 </div>
+                              )}
+
+                              {isBannerUploading && (
+                                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px]">
+                                    <Loader2 className="w-8 h-8 text-orange-600 animate-spin mb-2" />
+                                    <span className="text-[10px] font-black text-white uppercase tracking-widest">Inapakia...</span>
+                                  </div>
                               )}
                               
-                              {isLogoUploading && (
-                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px]">
-                                  <Loader2 className="w-8 h-8 text-orange-600 animate-spin mb-2" />
-                                  <span className="text-[10px] font-black text-white uppercase tracking-widest">Inapakia...</span>
-                                </div>
+                              {!isBannerUploading && (
+                                 <div 
+                                   onClick={() => bannerInputRef.current?.click()}
+                                   className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                                 >
+                                    <div className="flex flex-col items-center gap-2 p-4 text-center">
+                                       <Camera className="w-6 h-6 text-white" />
+                                       <span className="text-[10px] font-black text-white uppercase tracking-widest leading-tight">Badili Banner</span>
+                                    </div>
+                                 </div>
                               )}
-
-                              {!isLogoUploading && (
-                                <div className="absolute inset-0 bg-orange-600/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                   <div className="flex flex-col items-center gap-2 p-4 text-center">
-                                      <Camera className="w-8 h-8 text-white" />
-                                      <span className="text-[10px] font-black text-white uppercase tracking-widest leading-tight">Badili Logo</span>
-                                   </div>
-                                </div>
-                              )}
+                              <Button
+                                type="button" 
+                                variant="ghost" 
+                                size="icon"
+                                className="absolute bottom-3 right-3 bg-black/10 dark:bg-white/10 backdrop-blur-md hover:bg-black/20 dark:hover:bg-white/20 text-white rounded-xl h-10 w-10 shadow-lg"
+                                onClick={() => bannerInputRef.current?.click()}
+                                disabled={isBannerUploading}
+                              >
+                                {isBannerUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
+                              </Button>
+                              <input 
+                                type="file" 
+                                ref={bannerInputRef} 
+                                className="hidden" 
+                                accept="image/*" 
+                                onChange={handleBannerUpload} 
+                              />
                             </div>
-
-                            <Button
-                              type="button" 
-                              variant="ghost" 
-                              size="icon"
-                              className="absolute -bottom-2 -right-2 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl h-12 w-12 shadow-xl shadow-orange-950/40 z-10 border-4 border-white dark:border-neutral-900"
-                              onClick={() => logoInputRef.current?.click()}
-                              disabled={isLogoUploading}
-                            >
-                              {isLogoUploading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Plus className="w-6 h-6" />}
-                            </Button>
-                            <input 
-                              type="file" 
-                              ref={logoInputRef} 
-                              className="hidden" 
-                              accept="image/*" 
-                              onChange={handleLogoUpload} 
-                            />
+                            
+                            <div className="px-1 pt-1">
+                              <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-2 block">Au weka Link ya Banner (URL)</label>
+                              <Input 
+                                value={updatedProfile.bannerUrl || vendorProfile?.bannerUrl || ''}
+                                onChange={e => setUpdatedProfile({...updatedProfile, bannerUrl: e.target.value})}
+                                className="bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 h-10 rounded-xl text-xs"
+                                placeholder="https://mfano.com/banner.jpg"
+                              />
+                            </div>
                           </div>
                         </div>
+                      </div>
+                    </Card>
 
-                        <div className="space-y-3">
-                          <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1 text-center block">Banner Image / Picha ya Juu</label>
-                          <div className="relative group aspect-video rounded-3xl bg-neutral-50 dark:bg-neutral-950 border-2 border-dashed border-neutral-200 dark:border-neutral-800 overflow-hidden flex items-center justify-center transition-colors">
-                            {(updatedProfile.bannerUrl || vendorProfile?.bannerUrl) ? (
-                              <img 
-                                src={updatedProfile.bannerUrl || vendorProfile?.bannerUrl || ''} 
-                                className={`w-full h-full object-cover ${isBannerUploading ? 'opacity-30 grayscale' : ''}`} 
-                                referrerPolicy="no-referrer" 
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=800&q=80';
-                                }}
-                              />
-                            ) : (
-                              <div className="flex flex-col items-center gap-2">
-                                <Camera className="w-8 h-8 text-neutral-400 dark:text-neutral-700" />
-                                <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Weka Banner</span>
-                              </div>
-                            )}
-
-                            {isBannerUploading && (
-                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px]">
-                                  <Loader2 className="w-8 h-8 text-orange-600 animate-spin mb-2" />
-                                  <span className="text-[10px] font-black text-white uppercase tracking-widest">Inapakia...</span>
-                                </div>
-                            )}
-                            
-                            {!isBannerUploading && (
-                               <div 
-                                 onClick={() => bannerInputRef.current?.click()}
-                                 className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                               >
-                                  <div className="flex flex-col items-center gap-2 p-4 text-center">
-                                     <Camera className="w-6 h-6 text-white" />
-                                     <span className="text-[10px] font-black text-white uppercase tracking-widest leading-tight">Badili Banner</span>
-                                  </div>
-                               </div>
-                            )}
-                            <Button
-                              type="button" 
-                              variant="ghost" 
-                              size="icon"
-                              className="absolute bottom-3 right-3 bg-black/10 dark:bg-white/10 backdrop-blur-md hover:bg-black/20 dark:hover:bg-white/20 text-white rounded-xl h-10 w-10 shadow-lg"
-                              onClick={() => bannerInputRef.current?.click()}
-                              disabled={isBannerUploading}
-                            >
-                              {isBannerUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
-                            </Button>
-                            <input 
-                              type="file" 
-                              ref={bannerInputRef} 
-                              className="hidden" 
-                              accept="image/*" 
-                              onChange={handleBannerUpload} 
-                            />
-                          </div>
+                    <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 rounded-[2.5rem] overflow-hidden p-8 space-y-6 transition-colors">
+                      <div className="flex items-center gap-4 text-orange-600">
+                        <Smartphone className="w-6 h-6" />
+                        <h3 className="font-black text-xl text-neutral-900 dark:text-white transition-colors">Social Links</h3>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                           <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">WhatsApp Number</label>
+                           <Input 
+                            value={updatedProfile.socialLinks?.whatsapp || ''}
+                            onChange={e => setUpdatedProfile({
+                              ...updatedProfile, 
+                              socialLinks: { ...updatedProfile.socialLinks, whatsapp: e.target.value }
+                            })}
+                            className="bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 h-14 rounded-2xl text-sm font-medium"
+                            placeholder="e.g. 255712345678"
+                           />
+                        </div>
+                        <div className="space-y-2">
+                           <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Instagram (@Username)</label>
+                           <Input 
+                            value={updatedProfile.socialLinks?.instagram || ''}
+                            onChange={e => setUpdatedProfile({
+                              ...updatedProfile, 
+                              socialLinks: { ...updatedProfile.socialLinks, instagram: e.target.value }
+                            })}
+                            className="bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 h-14 rounded-2xl text-sm font-medium"
+                            placeholder="username pekee"
+                           />
+                        </div>
+                        <div className="space-y-2">
+                           <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Facebook Page / Profile</label>
+                           <Input 
+                            value={updatedProfile.socialLinks?.facebook || ''}
+                            onChange={e => setUpdatedProfile({
+                              ...updatedProfile, 
+                              socialLinks: { ...updatedProfile.socialLinks, facebook: e.target.value }
+                            })}
+                            className="bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 h-14 rounded-2xl text-sm font-medium"
+                            placeholder="Link au jina la Page"
+                           />
                         </div>
                       </div>
                     </Card>
@@ -4281,16 +4375,28 @@ export default function VendorDashboard() {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-neutral-500 uppercase">Base Price / Bei ya Msingi (TZS)</label>
-                  <Input 
-                    type="number"
-                    required 
-                    className="bg-neutral-800 border-none h-12 rounded-xl"
-                    value={newProduct.price}
-                    onChange={e => setNewProduct({...newProduct, price: parseFloat(e.target.value)})}
-                    placeholder="e.g. 1500"
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-neutral-500 uppercase">Base Price / Bei ya Msingi (TZS)</label>
+                    <Input 
+                      type="number"
+                      required 
+                      className="bg-neutral-800 border-none h-12 rounded-xl"
+                      value={newProduct.price}
+                      onChange={e => setNewProduct({...newProduct, price: parseFloat(e.target.value)})}
+                      placeholder="e.g. 1500"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-orange-500 uppercase">Discount Price / Bei ya Punguzo (TZS)</label>
+                    <Input 
+                      type="number"
+                      className="bg-neutral-800 border-none h-12 rounded-xl text-orange-500"
+                      value={newProduct.discountPrice || ''}
+                      onChange={e => setNewProduct({...newProduct, discountPrice: e.target.value ? parseFloat(e.target.value) : undefined})}
+                      placeholder="Punguzo (Optional)"
+                    />
+                  </div>
                 </div>
 
                 {/* Dynamic Fields based on Vendor Category */}

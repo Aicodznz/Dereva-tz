@@ -7,9 +7,16 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { 
   Check, X, ShieldAlert, Store, UserCheck, Image as ImageIcon, 
-  Bell, Plus, Trash2, Send, LayoutDashboard, Megaphone,
+  Bell, Plus, Trash2, Send, LayoutDashboard, Megaphone, Home,
   Users, ShoppingBag, DollarSign, MessageCircle, AlertTriangle,
   ExternalLink, Search, Ban, History, BarChart3, Settings, Info, CreditCard,
   Package, Undo2, Bike, Trophy, Wallet, MessageSquare, Globe, Clock, Coins, Loader2
@@ -316,7 +323,15 @@ export default function AdminDashboard() {
 
     fetchData();
 
-    const errorHandler = (path: string) => (error: any) => handleFirestoreError(error, OperationType.GET, path);
+    const errorHandler = (path: string) => (error: any) => {
+      console.error(`Snapshot error for ${path}:`, error);
+      const msg = error instanceof Error ? error.message : String(error);
+      if (msg.includes('permission-denied')) {
+        // Silent fail for non-critical admin listeners if user is still loading admin status
+        return;
+      }
+      toast.error(`Error loading ${path}`);
+    };
 
     const unsubscribes = [
       onSnapshot(doc(db, 'config', 'business'), (snap) => {
@@ -496,6 +511,12 @@ export default function AdminDashboard() {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <Link to="/">
+            <Button variant="ghost" className="rounded-2xl font-bold gap-2">
+              <Home className="w-4 h-4" />
+              <span>Papo Hapo Home</span>
+            </Button>
+          </Link>
           <Link to="/profile">
             <Button variant="outline" className="rounded-2xl border-neutral-200 font-bold">Switch Profile</Button>
           </Link>
@@ -1091,7 +1112,16 @@ export default function AdminDashboard() {
                       >
                          <CardContent className="p-6 flex items-center justify-between">
                             <div className="flex items-center gap-4">
-                               <img src={v.logoUrl || `https://api.dicebear.com/7.x/identicon/svg?seed=${v.businessName}`} alt="" className="w-16 h-16 rounded-2xl object-cover group-hover:scale-105 transition-transform" />
+                               <img 
+                                  key={v.logoUrl || `dicebear-${v.businessName}`}
+                                  src={v.logoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(v.businessName || 'vendor')}`} 
+                                  alt="" 
+                                  className="w-16 h-16 rounded-2xl object-cover group-hover:scale-105 transition-transform" 
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(v.businessName || 'vendor')}`;
+                                  }}
+                                  referrerPolicy="no-referrer"
+                                />
                                <div>
                                   <h4 className="font-black text-lg text-neutral-900 dark:text-white group-hover:text-orange-600 transition-colors uppercase italic leading-none">{v.businessName}</h4>
                                   <p className="text-xs text-neutral-400 mt-1">{v.address}</p>
@@ -1334,12 +1364,108 @@ export default function AdminDashboard() {
 
         {activeTab === 'coupons' && (
           <motion.div key="coupons" className="space-y-6">
-             <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-black italic uppercase tracking-tighter">{t('admin_manage_coupons')}</h2>
-                <Button onClick={() => setIsAddCouponOpen(true)} className="bg-orange-600 hover:bg-orange-700 rounded-2xl gap-2">
-                   <Plus className="w-4 h-4" /> {t('admin_add_coupon')}
-                </Button>
-             </div>
+              <div className="flex items-center justify-between">
+                 <h2 className="text-2xl font-black italic uppercase tracking-tighter">{t('admin_manage_coupons')}</h2>
+                 <Button onClick={() => setIsAddCouponOpen(true)} className="bg-orange-600 hover:bg-orange-700 rounded-2xl gap-2">
+                    <Plus className="w-4 h-4" /> {t('admin_add_coupon')}
+                 </Button>
+              </div>
+
+              {isAddCouponOpen && (
+                <Card className="border-orange-200 bg-orange-50/10 rounded-[2rem] p-6 mb-8">
+                  <CardHeader>
+                    <CardTitle className="text-xl font-black italic uppercase tracking-tighter">New Coupon Campaign</CardTitle>
+                    <CardDescription>Create a discount for specific vendor, product, or platform-wide.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <form onSubmit={handleAddCoupon} className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold uppercase text-neutral-500">Coupon Code</label>
+                          <Input 
+                            required 
+                            placeholder="e.g. KARIBU20" 
+                            value={newCoupon.code} 
+                            onChange={e => setNewCoupon({...newCoupon, code: e.target.value.toUpperCase()})}
+                            className="bg-white border-neutral-200 h-12 rounded-xl font-bold italic"
+                          />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold uppercase text-neutral-500">Discount Type</label>
+                          <Select 
+                            value={newCoupon.discountType} 
+                            onValueChange={(val: any) => setNewCoupon({...newCoupon, discountType: val})}
+                          >
+                            <SelectTrigger className="bg-white border-neutral-200 h-12 rounded-xl font-bold">
+                              <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white border-neutral-200">
+                              <SelectItem value="percentage">Percentage (%)</SelectItem>
+                              <SelectItem value="fixed">Fixed Amount (TZS)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold uppercase text-neutral-500">Value</label>
+                          <Input 
+                            type="number" 
+                            required 
+                            placeholder="Value" 
+                            value={newCoupon.discountValue || ''} 
+                            onChange={e => setNewCoupon({...newCoupon, discountValue: Number(e.target.value)})}
+                            className="bg-white border-neutral-200 h-12 rounded-xl font-bold"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold uppercase text-neutral-500">Vendor Scope (Optional)</label>
+                          <Select 
+                            value={newCoupon.vendorId || 'all'} 
+                            onValueChange={(val: any) => setNewCoupon({...newCoupon, vendorId: val === 'all' ? null : val, productId: null})}
+                          >
+                            <SelectTrigger className="bg-white border-neutral-200 h-12 rounded-xl font-bold">
+                              <SelectValue placeholder="System Wide" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white border-neutral-200 h-[200px]">
+                              <SelectItem value="all">Platform Wide (All Vendors)</SelectItem>
+                              {vendors.map(v => (
+                                <SelectItem key={v.id} value={v.id!}>{v.businessName}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {newCoupon.vendorId && (
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold uppercase text-neutral-500">Product Scope (Optional)</label>
+                            <Select 
+                              value={newCoupon.productId || 'all'} 
+                              onValueChange={(val: any) => setNewCoupon({...newCoupon, productId: val === 'all' ? null : val})}
+                            >
+                              <SelectTrigger className="bg-white border-neutral-200 h-12 rounded-xl font-bold">
+                                <SelectValue placeholder="All Vendor Products" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-white border-neutral-200 h-[200px]">
+                                <SelectItem value="all">All products from {vendors.find(v => v.id === newCoupon.vendorId)?.businessName}</SelectItem>
+                                {allProducts.filter(p => p.vendorId === newCoupon.vendorId).map(p => (
+                                  <SelectItem key={p.id} value={p.id!}>{p.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex justify-end gap-3 pt-4 border-t border-neutral-100">
+                        <Button type="button" variant="ghost" className="rounded-xl px-8 h-12 font-bold" onClick={() => setIsAddCouponOpen(false)}>Cancel</Button>
+                        <Button type="submit" className="bg-orange-600 hover:bg-orange-700 rounded-xl px-12 h-12 font-black uppercase tracking-widest text-xs shadow-xl shadow-orange-100">Activate Coupon</Button>
+                      </div>
+                    </form>
+                  </CardContent>
+                </Card>
+              )}
              {/* ... reuse existing coupon mapping ... */}
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {coupons.map(coupon => (

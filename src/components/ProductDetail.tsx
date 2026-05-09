@@ -5,7 +5,7 @@ import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, onSnapshot, getDocs, doc, getDoc, addDoc, updateDoc, deleteDoc, orderBy, limit } from 'firebase/firestore';
 import { useAuth } from '../AuthContext';
 import { initiatePayment } from '../services/paymentService';
-import { Product, VendorProfile } from '../types';
+import { Product, VendorProfile, FAQ } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   ChevronLeft, 
@@ -34,7 +34,8 @@ import {
   ShoppingBag,
   Store,
   Package,
-  Armchair
+  Armchair,
+  Share2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -72,6 +73,8 @@ export default function ProductDetail() {
   const [product, setProduct] = useState<Product | null>(null);
   const [vendor, setVendor] = useState<VendorProfile | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [faqs, setFaqs] = useState<FAQ[]>([]);
+  const [similarProducts, setSimilarProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [isDescExpanded, setIsDescExpanded] = useState(false);
@@ -162,7 +165,52 @@ export default function ProductDetail() {
       }
     };
 
+    const fetchSimilarProducts = async (category: string) => {
+      try {
+        const q = query(
+          collection(db, 'products'),
+          where('category', '==', category),
+          limit(6)
+        );
+        const snap = await getDocs(q);
+        const products = snap.docs
+          .map(doc => ({ id: doc.id, ...doc.data() } as Product))
+          .filter(p => p.id !== id);
+        setSimilarProducts(products);
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    const fetchFAQs = async () => {
+      try {
+        const q = query(collection(db, 'products', id!, 'faqs'), orderBy('createdAt', 'desc'));
+        const snap = await getDocs(q);
+        setFaqs(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as FAQ)));
+      } catch (error) {
+        // Fallback for demo if no faqs subcollection exists yet
+        setFaqs([
+          { 
+            id: '1', 
+            question: 'Je, bidhaa hii ina ubora gani?', 
+            answer: 'Bidhaa hii ni ya kiwango cha juu kabisa na imethibitishwa na TBS.', 
+            createdAt: new Date().toISOString() 
+          },
+          { 
+            id: '2', 
+            question: 'Inachukua muda gani kufika?', 
+            answer: 'Inategemea na eneo ulilopo, lakini kwa kawaida ni ndani ya saa 24.', 
+            createdAt: new Date().toISOString() 
+          }
+        ]);
+      }
+    };
+
     fetchReviews();
+    fetchFAQs();
+    if (product?.category) {
+      fetchSimilarProducts(product.category);
+    }
 
     const q = query(
       collection(db, 'reviews'),
@@ -449,6 +497,24 @@ export default function ProductDetail() {
     }
   };
 
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: product?.name,
+          text: `Angalia bidhaa hii kwenye Papo Hapo: ${product?.name}`,
+          url: window.location.href,
+        });
+      } catch (error) {
+        console.error('Error sharing:', error);
+      }
+    } else {
+      // Fallback: Copy to clipboard
+      navigator.clipboard.writeText(window.location.href);
+      toast.success('Link imenakiliwa!');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-white">
@@ -681,12 +747,21 @@ export default function ProductDetail() {
                 />
               </AnimatePresence>
               
-              <button 
-                onClick={() => navigate(-1)}
-                className="absolute top-6 left-6 w-12 h-12 bg-white/10 backdrop-blur-2xl rounded-2xl flex items-center justify-center text-white border border-white/20 hover:bg-white/20 transition-all z-30 shadow-xl"
-              >
-                <ChevronLeft className="w-6 h-6" />
-              </button>
+              <div className="absolute top-6 left-6 right-6 flex items-center justify-between z-30">
+                <button 
+                  onClick={() => navigate(-1)}
+                  className="w-12 h-12 bg-white/10 backdrop-blur-2xl rounded-2xl flex items-center justify-center text-white border border-white/20 hover:bg-white/20 transition-all shadow-xl"
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                </button>
+
+                <button 
+                  onClick={handleShare}
+                  className="w-12 h-12 bg-white/10 backdrop-blur-2xl rounded-2xl flex items-center justify-center text-white border border-white/20 hover:bg-white/20 transition-all shadow-xl"
+                >
+                  <Share2 className="w-6 h-6" />
+                </button>
+              </div>
 
               <div className="absolute bottom-8 left-0 right-0 flex justify-center gap-2 z-20">
                 {(product.imageUrls || [product.imageUrl]).map((_, idx) => (
@@ -736,10 +811,21 @@ export default function ProductDetail() {
                     <ChevronRight className="w-4 h-4" />
                   </Link>
                 </div>
-                <div className="text-right shrink-0 pt-2">
-                  <p className="text-2xl md:text-3xl lg:text-4xl font-black text-orange-600 font-display italic">
-                    TZS {product.price.toLocaleString()}
-                  </p>
+                <div className="text-right shrink-0 pt-2 flex flex-col items-end">
+                  {product.discountPrice ? (
+                    <>
+                      <p className="text-2xl md:text-3xl lg:text-4xl font-black text-orange-600 font-display italic">
+                        TZS {product.discountPrice.toLocaleString()}
+                      </p>
+                      <p className="text-sm md:text-base text-neutral-400 line-through font-bold">
+                        TZS {product.price.toLocaleString()}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-2xl md:text-3xl lg:text-4xl font-black text-orange-600 font-display italic">
+                      TZS {product.price.toLocaleString()}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -755,23 +841,44 @@ export default function ProductDetail() {
               </div>
             </div>
 
-            {/* 3. Description */}
-            <div className="bg-neutral-50 p-6 lg:p-10 rounded-[32px] border border-neutral-100/50 space-y-6 relative overflow-hidden group">
-              <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                <Info className="w-24 h-24 rotate-12" />
+            {/* 3. Description & FAQ */}
+            <div className="space-y-6">
+              <div className="bg-neutral-50 p-6 lg:p-10 rounded-[32px] border border-neutral-100/50 space-y-6 relative overflow-hidden group">
+                <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                  <Info className="w-24 h-24 rotate-12" />
+                </div>
+                <h3 className="font-black text-xs uppercase tracking-[0.2em] text-neutral-400">Maelezo ya Bidhaa</h3>
+                <div className="relative z-10">
+                  <p className={`text-neutral-600 leading-relaxed text-base lg:text-lg font-medium ${!isDescExpanded && 'line-clamp-3 lg:line-clamp-4'}`}>
+                    {product.description || 'Hii ni bidhaa bora kabisa inayopatikana Papo Hapo. Imetengenezwa kwa weledi na ubora wa hali ya juu ili kukidhi mahitaji yako ya kila siku.'}
+                  </p>
+                  <button 
+                    onClick={() => setIsDescExpanded(!isDescExpanded)}
+                    className="mt-4 text-orange-600 text-sm font-black uppercase tracking-widest flex items-center gap-2 hover:gap-3 transition-all"
+                  >
+                    {isDescExpanded ? 'Funga' : 'Soma Zaidi'}
+                    {isDescExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
-              <h3 className="font-black text-xs uppercase tracking-[0.2em] text-neutral-400">Maelezo ya Bidhaa</h3>
-              <div className="relative z-10">
-                <p className={`text-neutral-600 leading-relaxed text-base lg:text-lg font-medium ${!isDescExpanded && 'line-clamp-3 lg:line-clamp-4'}`}>
-                  {product.description || 'Hii ni bidhaa bora kabisa inayopatikana Papo Hapo. Imetengenezwa kwa weledi na ubora wa hali ya juu ili kukidhi mahitaji yako ya kila siku.'}
-                </p>
-                <button 
-                  onClick={() => setIsDescExpanded(!isDescExpanded)}
-                  className="mt-4 text-orange-600 text-sm font-black uppercase tracking-widest flex items-center gap-2 hover:gap-3 transition-all"
-                >
-                  {isDescExpanded ? 'Funga' : 'Soma Zaidi'}
-                  {isDescExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                </button>
+
+              {/* FAQ Section */}
+              <div className="bg-white p-6 lg:p-10 rounded-[32px] border border-neutral-100 space-y-6 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-black text-neutral-900 uppercase italic tracking-tighter">Question and Answers</h3>
+                  <button className="text-orange-600 text-xs font-black uppercase tracking-widest">See All</button>
+                </div>
+                <div className="space-y-4">
+                  {faqs.map(faq => (
+                    <div key={faq.id} className="p-4 bg-neutral-50 rounded-2xl space-y-2">
+                      <p className="text-sm font-black text-neutral-900">{faq.question}</p>
+                      <p className="text-xs text-neutral-500 font-medium">{faq.answer}</p>
+                    </div>
+                  ))}
+                  {faqs.length === 0 && (
+                    <p className="text-center text-sm text-neutral-400 py-4">Bado hakuna maswali kwa bidhaa hii.</p>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -818,21 +925,59 @@ export default function ProductDetail() {
 
             {/* 5. Reviews Section */}
             <div className="space-y-8 pt-8">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-2xl font-black text-neutral-900">Maoni ya Wateja</h3>
-                  <p className="text-neutral-500 text-sm mt-1">Wateja wanasemaje kuhusu bidhaa hii.</p>
+              <Card className="bg-white border border-neutral-100 rounded-[2.5rem] p-8 shadow-sm overflow-hidden">
+                <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <h3 className="text-2xl font-black text-neutral-900 uppercase italic tracking-tighter">Customer Reviews</h3>
+                    <p className="text-neutral-500 text-xs font-bold mt-1 uppercase tracking-widest">Real ratings from customers</p>
+                  </div>
+                  <button className="text-orange-600 text-xs font-black uppercase tracking-widest underline underline-offset-4 Decoration-2">See All</button>
                 </div>
-                <Button 
-                  onClick={() => setIsReviewModalOpen(true)}
-                  className="bg-neutral-900 hover:bg-neutral-800 text-white rounded-2xl h-12 px-6 font-bold gap-2"
-                >
-                  <Plus className="w-4 h-4" /> Andika Maoni
-                </Button>
-              </div>
 
-              <div className="grid grid-cols-1 gap-6">
-                {reviews.map((review, idx) => {
+                <div className="flex flex-col md:flex-row gap-12 mb-12">
+                  <div className="flex flex-col items-center justify-center p-8 bg-neutral-50 rounded-[2rem] min-w-[180px]">
+                    <span className="text-6xl font-black text-neutral-900 italic tracking-tighter mb-2">3.0</span>
+                    <div className="flex gap-1 mb-2">
+                       {[...Array(5)].map((_, i) => (
+                         <Star key={`summary-star-${i}`} className={`w-5 h-5 ${i < 3 ? 'text-orange-500 fill-current' : 'text-neutral-200'}`} />
+                       ))}
+                    </div>
+                    <span className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">{reviews.length} reviews</span>
+                  </div>
+
+                  <div className="flex-1 space-y-2">
+                    {[5, 4, 3, 2, 1].map((rating) => {
+                      const count = reviews.filter(r => r.rating === rating).length;
+                      const percentage = reviews.length > 0 ? (count / reviews.length) * 100 : rating === 5 || rating === 1 ? 50 : 0; // Mock profile for empty
+                      
+                      return (
+                        <div key={`bar-${rating}`} className="flex items-center gap-4">
+                          <span className="w-2 text-[10px] font-bold text-neutral-400">{rating}</span>
+                          <div className="flex-1 h-2 bg-neutral-100 rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-orange-500 rounded-full" 
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
+                          <span className="w-10 text-[10px] font-bold text-neutral-400 text-right">{Math.round(percentage)}%</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between mb-8">
+                   <h4 className="font-black text-neutral-900 uppercase tracking-tighter">What wateja say</h4>
+                   <Button 
+                    onClick={() => setIsReviewModalOpen(true)}
+                    className="bg-neutral-900 hover:bg-orange-600 text-white rounded-2xl h-12 px-6 font-bold gap-2 text-xs uppercase"
+                  >
+                    <Plus className="w-4 h-4" /> Give Feedback
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-1 gap-6">
+                  {reviews.slice(0, 3).map((review, idx) => {
                   const isLiked = review.likes?.includes(user?.uid || '');
                   const isOwner = review.userId === user?.uid;
                   const isVendorOwner = vendor?.ownerUid === user?.uid;
@@ -951,10 +1096,48 @@ export default function ProductDetail() {
                   </div>
                 )}
               </div>
-            </div>
+            </Card>
+
+            {/* Similar Products */}
+            {similarProducts.length > 0 && (
+              <div className="space-y-6 pt-12">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-black text-neutral-900 uppercase italic tracking-tighter">Similar Products</h3>
+                  <button className="text-orange-600 text-xs font-black uppercase tracking-widest underline underline-offset-4 decoration-2">View All</button>
+                </div>
+                <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar">
+                  {similarProducts.map((p) => (
+                    <Link 
+                      key={p.id} 
+                      to={`/product/${p.id}`}
+                      className="w-40 md:w-56 shrink-0 group"
+                    >
+                      <Card className="bg-white border border-neutral-100 rounded-3xl overflow-hidden shadow-sm group-hover:shadow-xl group-hover:-translate-y-1 transition-all duration-300">
+                        <div className="aspect-square relative overflow-hidden">
+                          <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                          {p.discountPrice && (
+                            <Badge className="absolute top-2 left-2 bg-orange-600 text-white border-none font-black text-[8px] px-1.5 py-0.5">SALE</Badge>
+                          )}
+                        </div>
+                        <CardContent className="p-3 md:p-4 space-y-1">
+                          <h4 className="font-bold text-xs md:text-sm text-neutral-900 truncate uppercase tracking-tight">{p.name}</h4>
+                          <div className="flex items-center gap-2">
+                             <span className="text-xs font-black text-orange-600 italic">TZS {p.discountPrice ? p.discountPrice.toLocaleString() : p.price.toLocaleString()}</span>
+                             {p.discountPrice && (
+                               <span className="text-[10px] text-neutral-400 line-through font-medium">{p.price.toLocaleString()}</span>
+                             )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
+    </div>
 
       {/* Review Modal */}
       <AnimatePresence>

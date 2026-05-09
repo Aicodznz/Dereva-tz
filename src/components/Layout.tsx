@@ -24,7 +24,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const isRiderDashboard = profile?.role === 'rider' && isDashboardRoute;
   const isPartnerRoute = location.pathname === '/parcel-partner' || (isDashboardRoute && profile?.role === 'rider' && profile?.driverType === 'delivery');
   const isFullscreen = isTaxiRoute || isPartnerRoute || isRiderDashboard;
-  const hideBottomNav = isFullscreen || profile?.role === 'rider';
+  const hideBottomNav = isFullscreen || profile?.role === 'rider' || location.pathname.startsWith('/vendor/');
+  const isFullWidthPage = location.pathname.startsWith('/vendor/') || isFullscreen;
 
   return (
     <div className={`${isFullscreen ? 'h-screen w-full overflow-hidden' : 'min-h-screen overflow-x-hidden'} bg-neutral-50 dark:bg-neutral-950 flex flex-col font-sans selection:bg-orange-100 dark:selection:bg-orange-900/30 selection:text-orange-900 ${isRTL ? 'font-arabic' : ''}`}>
@@ -35,7 +36,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       <Header />
 
-      <main className={`flex-1 ${isFullscreen ? 'fixed inset-0 z-0' : 'max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 md:py-10 pb-32 relative z-10'}`}>
+      <main className={`flex-1 ${isFullscreen ? 'fixed inset-0 z-0' : `max-w-7xl mx-auto w-full ${isFullWidthPage ? 'px-0' : 'px-4'} md:px-6 lg:px-8 py-6 md:py-10 pb-32 relative z-10`}`}>
         {children}
       </main>
 
