@@ -11,7 +11,7 @@ import {
   ArrowRight, RefreshCw, RotateCw
 } from 'lucide-react';
 import Chat from './Chat';
-import { db, auth } from '../firebase';
+import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { 
   doc, updateDoc, addDoc, collection, serverTimestamp, 
   query, where, onSnapshot, limit, getDoc 
@@ -268,6 +268,9 @@ export default function TaxiBooking() {
         else if (ride.status === 'completed') setStep('rating');
       }
       setIsRestoring(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'rides');
+      setIsRestoring(false);
     });
 
     return () => unsubscribe();
@@ -299,6 +302,8 @@ export default function TaxiBooking() {
             setDriverLivePos(pos);
           }
         }
+      }, (error) => {
+        handleFirestoreError(error, OperationType.GET, `drivers/${activeRide.driverId}`);
       });
       return () => unsub();
     }

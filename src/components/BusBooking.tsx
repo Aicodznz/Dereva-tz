@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../firebase';
+import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import { VendorProfile, Product } from '../types';
 import { Card, CardContent } from '@/components/ui/card';
@@ -34,6 +34,8 @@ export default function BusBooking({ vendors, products }: BusBookingProps) {
     const branchesRef = collection(db, 'branches');
     const unsub = onSnapshot(branchesRef, (snapshot) => {
       setBranches(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'branches');
     });
     return () => unsub();
   }, []);

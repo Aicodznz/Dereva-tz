@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { db } from '../firebase';
-import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType } from '../firebase';
+import { collection, query, where, onSnapshot, getDocs, limit } from 'firebase/firestore';
 import { VendorProfile, Product, VendorCategory } from '../types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -99,10 +99,14 @@ export default function ServiceDetail() {
 
     const vUnsub = onSnapshot(vQuery, (snapshot) => {
       setVendors(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VendorProfile)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'vendors');
     });
 
     const pUnsub = onSnapshot(collection(db, 'products'), (snapshot) => {
       setProducts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'products');
     });
 
     return () => {
@@ -277,7 +281,7 @@ export default function ServiceDetail() {
                       >
                         <Link to={`/vendor/${vendor.id}`} className="group block h-full">
                           <div className="relative h-full bg-white dark:bg-neutral-900 rounded-xl sm:rounded-[2.5rem] border border-neutral-100 dark:border-white/5 shadow-sm sm:shadow-[0_20px_50px_rgba(0,0,0,0.06)] group-hover:shadow-[0_20px_40px_rgba(234,88,12,0.1)] transition-all duration-500 overflow-hidden group/card border-b-2 sm:border-b-4 border-b-neutral-100 active:scale-[0.98]">
-                            <div className="h-14 sm:h-40 md:h-48 relative overflow-hidden">
+                            <div className="h-20 sm:h-40 md:h-48 relative overflow-hidden">
                               <img 
                                 src={vendor.bannerUrl || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=600&q=80'} 
                                 alt={vendor.businessName} 
@@ -296,14 +300,14 @@ export default function ServiceDetail() {
                                  </Badge>
                               </div>
 
-                              {/* Logo Overlap - Very small on mobile */}
-                              <div className="absolute -bottom-2 left-1 sm:-bottom-6 sm:left-6">
-                                <div className="w-5 h-5 sm:w-20 sm:h-20 rounded-md sm:rounded-3xl bg-white dark:bg-neutral-800 p-0.5 sm:p-1.5 shadow-md border border-white dark:border-neutral-800">
+                              {/* Logo Overlap - Much bigger on mobile */}
+                              <div className="absolute -bottom-2 left-1.5 sm:-bottom-6 sm:left-6">
+                                <div className="w-8 h-8 sm:w-20 sm:h-20 rounded-lg sm:rounded-3xl bg-white dark:bg-neutral-800 p-1 sm:p-1.5 shadow-md border border-white dark:border-neutral-800">
                                   <img 
                                     key={vendor.logoUrl || `dicebear-${vendor.businessName}`}
                                     src={vendor.logoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(vendor.businessName || 'vendor')}`} 
                                     alt="Logo" 
-                                    className="w-full h-full object-contain rounded-sm sm:rounded-2xl"
+                                    className="w-full h-full object-contain rounded-md sm:rounded-2xl"
                                     onError={(e) => {
                                       (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(vendor.businessName || 'vendor')}`;
                                     }}
@@ -313,17 +317,17 @@ export default function ServiceDetail() {
                               </div>
                             </div>
 
-                            <div className="pt-2.5 p-1 sm:pt-10 sm:p-8 space-y-0.5 sm:space-y-4">
+                            <div className="pt-3 p-1.5 sm:pt-10 sm:p-8 space-y-1 sm:space-y-4">
                               <div>
-                                <h4 className="font-black text-[8px] min-[400px]:text-[10px] sm:text-2xl text-neutral-900 dark:text-white group-hover:text-orange-600 transition-colors uppercase italic tracking-tighter leading-none truncate mb-0.5 sm:mb-2">{vendor.businessName}</h4>
-                                <div className="flex items-center gap-0.5 sm:gap-3">
-                                  <div className="flex items-center gap-0.5 sm:gap-1.5 bg-orange-50 dark:bg-orange-950/30 px-0.5 sm:px-2 py-0.5 rounded-sm">
-                                    <Star className="w-1.5 sm:w-3.5 h-1.5 sm:h-3.5 text-orange-600 fill-current" />
-                                    <span className="text-[6px] sm:text-[11px] font-black text-orange-600">{vendor.rating || '4.8'}</span>
+                                <h4 className="font-black text-[10px] min-[400px]:text-[12px] sm:text-2xl text-neutral-900 dark:text-white group-hover:text-orange-600 transition-colors uppercase italic tracking-tighter leading-none truncate mb-1 sm:mb-2">{vendor.businessName}</h4>
+                                <div className="flex items-center gap-1 sm:gap-3">
+                                  <div className="flex items-center gap-0.5 sm:gap-1.5 bg-orange-50 dark:bg-orange-950/30 px-1 sm:px-2 py-0.5 rounded-sm">
+                                    <Star className="w-2 sm:w-3.5 h-2 sm:h-3.5 text-orange-600 fill-current" />
+                                    <span className="text-[8px] sm:text-[11px] font-black text-orange-600">{vendor.rating || '4.8'}</span>
                                   </div>
-                                  <div className="flex items-center gap-0.5 sm:gap-1.5 bg-green-50 dark:bg-green-950/30 px-0.5 sm:px-2 py-0.5 rounded-sm">
-                                    <MapPin className="w-1.5 sm:w-3.5 h-1.5 sm:h-3.5 text-green-600" />
-                                    <span className="text-[6px] sm:text-[11px] font-black text-green-600 uppercase tracking-tighter">
+                                  <div className="flex items-center gap-0.5 sm:gap-1.5 bg-green-50 dark:bg-green-950/30 px-1 sm:px-2 py-0.5 rounded-sm">
+                                    <MapPin className="w-2 sm:w-3.5 h-2 sm:h-3.5 text-green-600" />
+                                    <span className="text-[8px] sm:text-[11px] font-black text-green-600 uppercase tracking-tighter">
                                       {vendor.distance < 0.5 
                                         ? `${(vendor.distance * 1000).toFixed(0)}m` 
                                         : `${vendor.distance.toFixed(1)}km`}
@@ -332,11 +336,11 @@ export default function ServiceDetail() {
                                 </div>
                               </div>
                               
-                              <div className="pt-1 border-t border-neutral-100 dark:border-white/5 flex items-center justify-between">
-                                <p className="text-[6px] sm:text-[10px] text-neutral-400 font-bold uppercase tracking-widest hidden md:block">{t('open_now') || 'Open Now'}</p>
-                                <div className="flex items-center gap-0.5 sm:gap-2 text-orange-600 group-hover:translate-x-1 transition-transform ml-auto">
-                                  <span className="text-[6px] sm:text-[10px] font-black uppercase tracking-widest leading-none">{t('visit') || 'Visit'}</span>
-                                  <ChevronRight className="w-1.5 sm:w-4 h-1.5 sm:h-4 text-orange-600" />
+                              <div className="pt-1.5 border-t border-neutral-100 dark:border-white/5 flex items-center justify-between">
+                                <p className="text-[8px] sm:text-[10px] text-neutral-400 font-bold uppercase tracking-widest hidden md:block">{t('open_now') || 'Open Now'}</p>
+                                <div className="flex items-center gap-1 sm:gap-2 text-orange-600 group-hover:translate-x-1 transition-transform ml-auto">
+                                  <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest leading-none">{t('visit') || 'Visit'}</span>
+                                  <ChevronRight className="w-2 sm:w-4 h-2 sm:h-4 text-orange-600" />
                                 </div>
                               </div>
                             </div>
