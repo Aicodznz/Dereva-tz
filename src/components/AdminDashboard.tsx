@@ -1831,8 +1831,8 @@ export default function AdminDashboard() {
                           <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">{t('admin_settings_vendor_max_cash')} ({businessConfig.currencySymbol})</Label>
                           <Input 
                             type="number"
-                            value={businessConfig.maxCashInHand}
-                            onChange={(e) => setBusinessConfig({...businessConfig, maxCashInHand: Number(e.target.value)})}
+                            value={isNaN(businessConfig.maxCashInHand) ? '' : businessConfig.maxCashInHand}
+                            onChange={(e) => setBusinessConfig({...businessConfig, maxCashInHand: e.target.value ? Number(e.target.value) : 0})}
                             className="h-14 rounded-2xl border-none bg-neutral-100 font-black text-lg px-6"
                           />
                        </div>
@@ -1840,8 +1840,8 @@ export default function AdminDashboard() {
                           <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">{t('admin_settings_vendor_min_pay')} ({businessConfig.currencySymbol})</Label>
                           <Input 
                             type="number"
-                            value={businessConfig.minPayAmount}
-                            onChange={(e) => setBusinessConfig({...businessConfig, minPayAmount: Number(e.target.value)})}
+                            value={isNaN(businessConfig.minPayAmount) ? '' : businessConfig.minPayAmount}
+                            onChange={(e) => setBusinessConfig({...businessConfig, minPayAmount: e.target.value ? Number(e.target.value) : 0})}
                             className="h-14 rounded-2xl border-none bg-neutral-100 font-black text-lg px-6"
                           />
                        </div>
@@ -1889,8 +1889,8 @@ export default function AdminDashboard() {
                           <Label className="text-xs font-black uppercase tracking-widest text-neutral-500">{t('admin_settings_time_interval')} (Min)</Label>
                           <Input 
                             type="number"
-                            value={businessConfig.scheduledTimeInterval}
-                            onChange={(e) => setBusinessConfig({...businessConfig, scheduledTimeInterval: Number(e.target.value)})}
+                            value={isNaN(businessConfig.scheduledTimeInterval) ? '' : businessConfig.scheduledTimeInterval}
+                            onChange={(e) => setBusinessConfig({...businessConfig, scheduledTimeInterval: e.target.value ? Number(e.target.value) : 0})}
                             className="h-12 w-32 rounded-xl border-none bg-white font-black text-center"
                           />
                        </div>
@@ -1916,8 +1916,8 @@ export default function AdminDashboard() {
                            <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Free Delivery Over ({businessConfig.currencySymbol})</Label>
                            <Input 
                              type="number"
-                             value={businessConfig.freeDeliveryOver}
-                             onChange={(e) => setBusinessConfig({...businessConfig, freeDeliveryOver: Number(e.target.value)})}
+                             value={isNaN(businessConfig.freeDeliveryOver) ? '' : businessConfig.freeDeliveryOver}
+                             onChange={(e) => setBusinessConfig({...businessConfig, freeDeliveryOver: e.target.value ? Number(e.target.value) : 0})}
                              className="h-12 w-32 rounded-xl border-none bg-neutral-100 font-black text-center"
                            />
                         </div>

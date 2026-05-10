@@ -4168,7 +4168,7 @@ export default function VendorDashboard() {
                             />
                             <path
                               className="text-orange-600 transition-all duration-300"
-                              strokeDasharray={`${uploadProgress}, 100`}
+                              strokeDasharray={`${isNaN(uploadProgress) ? 0 : uploadProgress}, 100`}
                               stroke="currentColor"
                               strokeWidth="3"
                               strokeLinecap="round"
@@ -4283,7 +4283,7 @@ export default function VendorDashboard() {
                           placeholder="45"
                           className="bg-neutral-800 border-none h-12 rounded-xl"
                           value={(newProduct as any).totalSeats || 45}
-                          onChange={e => setNewProduct({...newProduct, totalSeats: parseInt(e.target.value), stock: parseInt(e.target.value)} as any)}
+                          onChange={e => setNewProduct({...newProduct, totalSeats: e.target.value ? parseInt(e.target.value) : 45, stock: e.target.value ? parseInt(e.target.value) : 45} as any)}
                         />
                       </div>
                     </div>
@@ -4900,8 +4900,8 @@ export default function VendorDashboard() {
                     required
                     placeholder={vendorProfile?.category === 'restaurant' ? 'e.g. 4' : 'e.g. 50'} 
                     className="bg-neutral-800 border-none h-11 rounded-xl"
-                    value={newSection.capacity}
-                    onChange={e => setNewSection({...newSection, capacity: parseInt(e.target.value)})}
+                    value={isNaN(newSection.capacity) ? '' : newSection.capacity}
+                    onChange={e => setNewSection({...newSection, capacity: e.target.value ? parseInt(e.target.value) : 0})}
                   />
                 </div>
                 <Button 
