@@ -7,7 +7,7 @@ import {
   ShieldCheck, Tag, Receipt, Home, ShoppingCart, 
   MessageSquare, X, Minus, Trash2, Plus, ChevronRight
 } from 'lucide-react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { motion, AnimatePresence, useScroll, useMotionValueEvent } from 'motion/react';
 import Header from './Header';
@@ -17,6 +17,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const { profile, logout, signIn, user } = useAuth();
   const { cartCount, cartItems, totalAmount, removeItem, addItem, clearCart, isCartOpen, setIsCartOpen } = useCart();
   const location = useLocation();
+  const navigate = useNavigate();
   const { isRTL, t } = useLanguage();
 
   const [isNavVisible, setIsNavVisible] = useState(true);
@@ -64,7 +65,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[110] w-auto pointer-events-auto"
               >
                 <Link 
-                  to="/cart"
+                  to="/checkout"
                   className="flex items-center gap-3 bg-orange-600 text-white px-4 py-2.5 rounded-full shadow-[0_10px_25px_rgba(234,88,12,0.4)] border border-white/20 active:scale-95 transition-transform"
                 >
                   <div className="flex -space-x-3">
@@ -303,7 +304,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   <h2 className="text-2xl font-black text-neutral-900 dark:text-white flex items-center gap-2">
                     Kikapu <span className="bg-orange-100 text-orange-600 px-3 py-1 rounded-full text-sm">{cartCount}</span>
                   </h2>
-                  <p className="text-xs text-neutral-400 font-bold uppercase tracking-widest mt-1">Hakikisha oda yako kabla ya kuagiza</p>
+                  <Link 
+                    to="/checkout" 
+                    onClick={() => setIsCartOpen(false)}
+                    className="text-xs text-neutral-400 font-bold uppercase tracking-widest mt-1 hover:text-orange-600 transition-colors flex items-center gap-1 group"
+                  >
+                    Hakikisha oda yako kabla ya kuagiza
+                    <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                  </Link>
                 </div>
                   <button 
                     onClick={() => setIsCartOpen(false)}
@@ -398,12 +406,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     <Button 
                       className="w-full h-16 bg-orange-600 hover:bg-orange-700 text-white rounded-[2rem] font-black text-lg uppercase tracking-widest shadow-[0_15px_30px_rgba(234,88,12,0.3)] transition-all transform active:scale-95"
                       onClick={() => {
-                        toast.success('Agizo lako limepokelewa! 🚀', {
-                          description: 'Tunashughulikia oda yako sasa hivi.',
-                          icon: '✅'
-                        });
-                        clearCart();
                         setIsCartOpen(false);
+                        navigate('/checkout');
                       }}
                     >
                       Lipia Sasa

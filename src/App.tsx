@@ -13,6 +13,7 @@ import Notifications from './components/Notifications';
 import VendorStore from './components/VendorStore';
 import ServiceDetail from './components/ServiceDetail';
 import TableSession from './components/TableSession';
+import Checkout from './components/Checkout';
 import { Toaster } from '@/components/ui/sonner';
 
 import Login from './components/auth/Login';
@@ -71,6 +72,7 @@ function AppContent() {
             <Route path="/parcel/history" element={<PrivateRoute><ParcelHistory /></PrivateRoute>} />
             <Route path="/parcel-partner" element={<PrivateRoute><ParcelPartnerController /></PrivateRoute>} />
             <Route path="/parcel-request/:category" element={<PrivateRoute><ParcelRequestFlow /></PrivateRoute>} />
+            <Route path="/checkout" element={<PrivateRoute><Checkout /></PrivateRoute>} />
             <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
             <Route path="/my-orders" element={<PrivateRoute><MyOrders /></PrivateRoute>} />
             <Route path="/chat" element={<PrivateRoute><Chat /></PrivateRoute>} />
