@@ -401,8 +401,8 @@ export default function CustomerDashboard() {
                      </Badge>
                   </div>
 
-                  {/* Logo Overlap */}
-                  <div className="absolute -bottom-6 left-6">
+                  {/* Logo Overlap - Positioned higher */}
+                  <div className="absolute -bottom-1 left-6">
                     <div className="w-16 h-16 md:w-20 md:h-20 rounded-3xl bg-white dark:bg-neutral-800 p-1.5 shadow-[0_15px_35px_rgba(0,0,0,0.2)] border-2 border-white dark:border-neutral-800">
                       <img 
                         key={vendor.logoUrl || `dicebear-${vendor.businessName}`}
