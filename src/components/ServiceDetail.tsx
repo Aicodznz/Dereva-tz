@@ -259,8 +259,7 @@ export default function ServiceDetail() {
                     key="vend-list"
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="grid grid-cols-3 sm:grid-cols-2 lg:grid-cols-3 gap-1 sm:gap-6 md:gap-8"
+                    exit={{ opacity: 0, y: -10 }                    className="grid grid-cols-3 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 sm:gap-6 md:gap-8"
                   >
                     {filteredVendors
                       .map(vendor => {
@@ -299,9 +298,9 @@ export default function ServiceDetail() {
                                     {vendor.category}
                                  </Badge>
                               </div>
-
-                              {/* Logo Overlap - Much bigger on mobile */}
-                              <div className="absolute -bottom-2 left-1.5 sm:-bottom-6 sm:left-6">
+ 
+                              {/* Logo Overlap - Positioned higher on mobile */}
+                              <div className="absolute -bottom-1 left-1.5 sm:-bottom-6 sm:left-6">
                                 <div className="w-8 h-8 sm:w-20 sm:h-20 rounded-lg sm:rounded-3xl bg-white dark:bg-neutral-800 p-1 sm:p-1.5 shadow-md border border-white dark:border-neutral-800">
                                   <img 
                                     key={vendor.logoUrl || `dicebear-${vendor.businessName}`}

@@ -324,19 +324,13 @@ export default function AdminDashboard() {
     fetchData();
 
     const errorHandler = (path: string) => (error: any) => {
-      console.error(`Snapshot error for ${path}:`, error);
-      const msg = error instanceof Error ? error.message : String(error);
-      if (msg.includes('permission-denied')) {
-        // Silent fail for non-critical admin listeners if user is still loading admin status
-        return;
-      }
-      toast.error(`Error loading ${path}`);
+      handleFirestoreError(error, OperationType.GET, path);
     };
 
     const unsubscribes = [
       onSnapshot(doc(db, 'config', 'business'), (snap) => {
         if (snap.exists()) setBusinessConfig(prev => ({ ...prev, ...snap.data() }));
-      }),
+      }, errorHandler('config/business')),
       onSnapshot(collection(db, 'vendors'), (snap) => {
         setVendors(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as VendorProfile)));
       }, errorHandler('vendors')),

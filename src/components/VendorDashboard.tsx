@@ -758,10 +758,7 @@ export default function VendorDashboard() {
     fetchSections();
 
     const errorHandler = (path: string) => (error: any) => {
-      console.error(`Snapshot error for ${path}:`, error);
-      const msg = error instanceof Error ? error.message : String(error);
-      if (msg.includes('permission-denied')) return;
-      toast.error(`Error loading ${path}`);
+      handleFirestoreError(error, OperationType.GET, path);
     };
 
     const unsubs = [
