@@ -181,20 +181,22 @@ export default function ServiceDetail() {
             </div>
           </div>
 
-          <div className="flex p-1 bg-neutral-100 rounded-2xl relative">
-            <button
-              onClick={() => setViewMode('vendors')}
-              className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all relative z-10 ${
-                viewMode === 'vendors' ? 'text-orange-600' : 'text-neutral-500'
-              }`}
-            >
-              {t('businesses') || 'Businesses'}
-            </button>
-            <motion.div
-              animate={{ x: '0%' }}
-              className="absolute top-1 left-1 bottom-1 w-[calc(100%-8px)] bg-white rounded-xl shadow-sm border border-neutral-200"
-            />
-          </div>
+          {id !== 'all-stores' && (
+            <div className="flex p-1 bg-neutral-100 rounded-2xl relative">
+              <button
+                onClick={() => setViewMode('vendors')}
+                className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all relative z-10 ${
+                  viewMode === 'vendors' ? 'text-orange-600' : 'text-neutral-500'
+                }`}
+              >
+                {t('businesses') || 'Businesses'}
+              </button>
+              <motion.div
+                animate={{ x: '0%' }}
+                className="absolute top-1 left-1 bottom-1 w-[calc(100%-8px)] bg-white rounded-xl shadow-sm border border-neutral-200"
+              />
+            </div>
+          )}
 
           {/* Content */}
           {loading ? (
@@ -254,7 +256,7 @@ export default function ServiceDetail() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
-                    className="grid grid-cols-3 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 sm:gap-6 md:gap-8"
+                    className="grid grid-cols-3 sm:grid-cols-2 lg:grid-cols-3 gap-1 sm:gap-6 md:gap-8"
                   >
                     {filteredVendors
                       .map(vendor => {
@@ -274,8 +276,8 @@ export default function ServiceDetail() {
                         whileHover={{ y: -5 }}
                       >
                         <Link to={`/vendor/${vendor.id}`} className="group block h-full">
-                          <div className="relative h-full bg-white dark:bg-neutral-900 rounded-xl sm:rounded-[2.5rem] border border-neutral-200/60 dark:border-white/5 shadow-sm sm:shadow-[0_20px_50px_rgba(0,0,0,0.06)] group-hover:shadow-[0_20px_40px_rgba(234,88,12,0.1)] transition-all duration-500 overflow-hidden group/card border-b-2 sm:border-b-4 border-b-neutral-100 active:scale-[0.98]">
-                            <div className="h-16 sm:h-40 md:h-48 relative overflow-hidden">
+                          <div className="relative h-full bg-white dark:bg-neutral-900 rounded-xl sm:rounded-[2.5rem] border border-neutral-100 dark:border-white/5 shadow-sm sm:shadow-[0_20px_50px_rgba(0,0,0,0.06)] group-hover:shadow-[0_20px_40px_rgba(234,88,12,0.1)] transition-all duration-500 overflow-hidden group/card border-b-2 sm:border-b-4 border-b-neutral-100 active:scale-[0.98]">
+                            <div className="h-14 sm:h-40 md:h-48 relative overflow-hidden">
                               <img 
                                 src={vendor.bannerUrl || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=600&q=80'} 
                                 alt={vendor.businessName} 
@@ -287,21 +289,21 @@ export default function ServiceDetail() {
                               />
                               <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
                               
-                              {/* Category Badge - Hidden on small mobile */}
+                              {/* Category Badge - Hidden on mobile */}
                               <div className="absolute top-2 right-2 sm:top-5 sm:right-5 hidden sm:block">
-                                 <Badge className="bg-orange-600 text-white font-black px-2 py-0.5 sm:px-4 sm:py-1.5 rounded-full text-[7px] sm:text-[9px] uppercase border-none shadow-xl shadow-orange-600/30 tracking-widest">
+                                 <Badge className="bg-orange-600 text-white font-black px-4 py-1.5 rounded-full text-[9px] uppercase border-none shadow-xl shadow-orange-600/30 tracking-widest">
                                     {vendor.category}
                                  </Badge>
                               </div>
 
-                              {/* Logo Overlap - Simpler on small mobile */}
-                              <div className="absolute -bottom-3 left-1.5 sm:-bottom-6 sm:left-6">
-                                <div className="w-7 h-7 sm:w-20 sm:h-20 rounded-lg sm:rounded-3xl bg-white dark:bg-neutral-800 p-0.5 sm:p-1.5 shadow-lg border border-white dark:border-neutral-800">
+                              {/* Logo Overlap - Very small on mobile */}
+                              <div className="absolute -bottom-2 left-1 sm:-bottom-6 sm:left-6">
+                                <div className="w-5 h-5 sm:w-20 sm:h-20 rounded-md sm:rounded-3xl bg-white dark:bg-neutral-800 p-0.5 sm:p-1.5 shadow-md border border-white dark:border-neutral-800">
                                   <img 
                                     key={vendor.logoUrl || `dicebear-${vendor.businessName}`}
                                     src={vendor.logoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(vendor.businessName || 'vendor')}`} 
                                     alt="Logo" 
-                                    className="w-full h-full object-contain rounded-md sm:rounded-2xl"
+                                    className="w-full h-full object-contain rounded-sm sm:rounded-2xl"
                                     onError={(e) => {
                                       (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(vendor.businessName || 'vendor')}`;
                                     }}
@@ -311,17 +313,17 @@ export default function ServiceDetail() {
                               </div>
                             </div>
 
-                            <div className="pt-2 p-1 sm:pt-10 sm:p-8 space-y-0.5 sm:space-y-4">
+                            <div className="pt-2.5 p-1 sm:pt-10 sm:p-8 space-y-0.5 sm:space-y-4">
                               <div>
-                                <h4 className="font-black text-[9px] min-[400px]:text-[12px] sm:text-2xl text-neutral-900 dark:text-white group-hover:text-orange-600 transition-colors uppercase italic tracking-tighter leading-none truncate mb-0.5 sm:mb-2">{vendor.businessName}</h4>
+                                <h4 className="font-black text-[8px] min-[400px]:text-[10px] sm:text-2xl text-neutral-900 dark:text-white group-hover:text-orange-600 transition-colors uppercase italic tracking-tighter leading-none truncate mb-0.5 sm:mb-2">{vendor.businessName}</h4>
                                 <div className="flex items-center gap-0.5 sm:gap-3">
-                                  <div className="flex items-center gap-0.5 sm:gap-1.5 bg-orange-50 dark:bg-orange-950/30 px-0.5 sm:px-2.5 py-0.5 rounded-md">
+                                  <div className="flex items-center gap-0.5 sm:gap-1.5 bg-orange-50 dark:bg-orange-950/30 px-0.5 sm:px-2 py-0.5 rounded-sm">
                                     <Star className="w-1.5 sm:w-3.5 h-1.5 sm:h-3.5 text-orange-600 fill-current" />
-                                    <span className="text-[7px] sm:text-[11px] font-black text-orange-600">{vendor.rating || '4.8'}</span>
+                                    <span className="text-[6px] sm:text-[11px] font-black text-orange-600">{vendor.rating || '4.8'}</span>
                                   </div>
-                                  <div className="flex items-center gap-0.5 sm:gap-1.5 bg-green-50 dark:bg-green-950/30 px-0.5 sm:px-2.5 py-0.5 rounded-md">
+                                  <div className="flex items-center gap-0.5 sm:gap-1.5 bg-green-50 dark:bg-green-950/30 px-0.5 sm:px-2 py-0.5 rounded-sm">
                                     <MapPin className="w-1.5 sm:w-3.5 h-1.5 sm:h-3.5 text-green-600" />
-                                    <span className="text-[7px] sm:text-[11px] font-black text-green-600 uppercase tracking-tighter">
+                                    <span className="text-[6px] sm:text-[11px] font-black text-green-600 uppercase tracking-tighter">
                                       {vendor.distance < 0.5 
                                         ? `${(vendor.distance * 1000).toFixed(0)}m` 
                                         : `${vendor.distance.toFixed(1)}km`}
@@ -331,9 +333,9 @@ export default function ServiceDetail() {
                               </div>
                               
                               <div className="pt-1 border-t border-neutral-100 dark:border-white/5 flex items-center justify-between">
-                                <p className="text-[7px] sm:text-[10px] text-neutral-400 font-bold uppercase tracking-widest hidden md:block">{t('open_now') || 'Open Now'}</p>
-                                <div className="flex items-center gap-0.5 sm:gap-2 text-orange-600 group-hover:translate-x-1 transition-transform">
-                                  <span className="text-[7px] sm:text-[10px] font-black uppercase tracking-widest leading-none">{t('visit') || 'Visit'}</span>
+                                <p className="text-[6px] sm:text-[10px] text-neutral-400 font-bold uppercase tracking-widest hidden md:block">{t('open_now') || 'Open Now'}</p>
+                                <div className="flex items-center gap-0.5 sm:gap-2 text-orange-600 group-hover:translate-x-1 transition-transform ml-auto">
+                                  <span className="text-[6px] sm:text-[10px] font-black uppercase tracking-widest leading-none">{t('visit') || 'Visit'}</span>
                                   <ChevronRight className="w-1.5 sm:w-4 h-1.5 sm:h-4 text-orange-600" />
                                 </div>
                               </div>
