@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, onSnapshot, getDocs, limit, orderBy } from 'firebase/firestore';
 import { VendorProfile, Product } from '../types';
@@ -42,6 +42,61 @@ export default function CustomerDashboard() {
   });
 
   const { setLocation: setHeaderLocation, setOnLocationClick, searchQuery: contextSearchQuery } = useHeader();
+
+  const storeScrollRef = useRef<HTMLDivElement>(null);
+  const bannerScrollRef = useRef<HTMLDivElement>(null);
+
+  // Auto-slide for Nearby Stores
+  useEffect(() => {
+    if (vendors.length === 0) return;
+
+    const interval = setInterval(() => {
+      if (storeScrollRef.current) {
+        const container = storeScrollRef.current;
+        const scrollWidth = container.scrollWidth;
+        const clientWidth = container.clientWidth;
+        const maxScroll = scrollWidth - clientWidth;
+        
+        if (container.scrollLeft >= maxScroll - 20) {
+          container.scrollTo({ left: 0, behavior: 'smooth' });
+        } else {
+          const card = container.firstElementChild as HTMLElement;
+          const style = window.getComputedStyle(container);
+          const gap = parseInt(style.columnGap || style.gap || '0');
+          const scrollAmount = card ? card.offsetWidth + gap : 300;
+          container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+        }
+      }
+    }, 4500);
+
+    return () => clearInterval(interval);
+  }, [vendors.length]);
+
+  // Auto-slide for Banners
+  useEffect(() => {
+    if (banners.length === 0) return;
+
+    const interval = setInterval(() => {
+      if (bannerScrollRef.current) {
+        const container = bannerScrollRef.current;
+        const scrollWidth = container.scrollWidth;
+        const clientWidth = container.clientWidth;
+        const maxScroll = scrollWidth - clientWidth;
+        
+        if (container.scrollLeft >= maxScroll - 20) {
+          container.scrollTo({ left: 0, behavior: 'smooth' });
+        } else {
+          const card = container.firstElementChild as HTMLElement;
+          const style = window.getComputedStyle(container);
+          const gap = parseInt(style.columnGap || style.gap || '0');
+          const scrollAmount = card ? card.offsetWidth + gap : 300;
+          container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+        }
+      }
+    }, 5500);
+
+    return () => clearInterval(interval);
+  }, [banners.length]);
 
   // Auto-prompt location for new users/guests
   useEffect(() => {
@@ -299,7 +354,10 @@ export default function CustomerDashboard() {
       )}
 
       {/* 1. Promotional Carousel (Banners) */}
-      <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar snap-x py-2 px-1">
+      <div 
+        ref={bannerScrollRef}
+        className="flex gap-4 overflow-x-auto pb-4 no-scrollbar snap-x py-2 px-1"
+      >
         {banners.map((banner, idx) => banner.img && (
           <motion.div 
             key={`promo-banner-${banner.id || idx}`} 
@@ -360,7 +418,10 @@ export default function CustomerDashboard() {
              <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
           </button>
         </div>
-        <div className="flex gap-4 sm:gap-6 overflow-x-auto pb-10 no-scrollbar -mx-3 px-3 snap-x snap-mandatory">
+        <div 
+          ref={storeScrollRef}
+          className="flex gap-4 sm:gap-6 overflow-x-auto pb-10 no-scrollbar -mx-3 px-3 snap-x snap-mandatory"
+        >
           {vendors
             .filter(v => v.status === 'active')
             .map(vendor => {
