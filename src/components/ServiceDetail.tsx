@@ -259,7 +259,8 @@ export default function ServiceDetail() {
                     key="vend-list"
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }                    className="grid grid-cols-3 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 sm:gap-6 md:gap-8"
+                    exit={{ opacity: 0, y: -10 }}
+                    className="grid grid-cols-3 sm:grid-cols-2 lg:grid-cols-3 gap-1 sm:gap-6 md:gap-8"
                   >
                     {filteredVendors
                       .map(vendor => {
@@ -298,25 +299,25 @@ export default function ServiceDetail() {
                                     {vendor.category}
                                  </Badge>
                               </div>
- 
-                              {/* Logo Overlap - Positioned higher on mobile */}
-                              <div className="absolute -bottom-1 left-1.5 sm:-bottom-6 sm:left-6">
-                                <div className="w-8 h-8 sm:w-20 sm:h-20 rounded-lg sm:rounded-3xl bg-white dark:bg-neutral-800 p-1 sm:p-1.5 shadow-md border border-white dark:border-neutral-800">
-                                  <img 
-                                    key={vendor.logoUrl || `dicebear-${vendor.businessName}`}
-                                    src={vendor.logoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(vendor.businessName || 'vendor')}`} 
-                                    alt="Logo" 
-                                    className="w-full h-full object-contain rounded-md sm:rounded-2xl"
-                                    onError={(e) => {
-                                      (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(vendor.businessName || 'vendor')}`;
-                                    }}
-                                    referrerPolicy="no-referrer"
-                                  />
-                                </div>
+                            </div>
+
+                            {/* Logo Overlap - Moved out of overflow-hidden div with better positioning */}
+                            <div className="absolute top-[3.5rem] sm:top-[7.5rem] left-1.5 sm:left-6 z-10">
+                              <div className="w-8 h-8 sm:w-20 sm:h-20 rounded-lg sm:rounded-3xl bg-white dark:bg-neutral-800 p-1 sm:p-1.5 shadow-md border border-white dark:border-neutral-800">
+                                <img 
+                                  key={vendor.logoUrl || `dicebear-${vendor.businessName}`}
+                                  src={vendor.logoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(vendor.businessName || 'vendor')}`} 
+                                  alt="Logo" 
+                                  className="w-full h-full object-contain rounded-md sm:rounded-2xl"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(vendor.businessName || 'vendor')}`;
+                                  }}
+                                  referrerPolicy="no-referrer"
+                                />
                               </div>
                             </div>
 
-                            <div className="pt-3 p-1.5 sm:pt-10 sm:p-8 space-y-1 sm:space-y-4">
+                            <div className="pt-6 sm:pt-14 p-1.5 sm:pt-10 sm:p-8 space-y-1 sm:space-y-4">
                               <div>
                                 <h4 className="font-black text-[10px] min-[400px]:text-[12px] sm:text-2xl text-neutral-900 dark:text-white group-hover:text-orange-600 transition-colors uppercase italic tracking-tighter leading-none truncate mb-1 sm:mb-2">{vendor.businessName}</h4>
                                 <div className="flex items-center gap-1 sm:gap-3">

@@ -360,7 +360,7 @@ export default function CustomerDashboard() {
              <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
           </button>
         </div>
-        <div className="flex gap-6 overflow-x-auto pb-10 no-scrollbar -mx-3 px-3">
+        <div className="flex gap-4 sm:gap-6 overflow-x-auto pb-10 no-scrollbar -mx-3 px-3 snap-x snap-mandatory">
           {vendors
             .filter(v => v.status === 'active')
             .map(vendor => {
@@ -378,11 +378,11 @@ export default function CustomerDashboard() {
               viewport={{ once: true }}
               transition={{ delay: 0.05 * idx, type: "spring", stiffness: 100 }}
               whileHover={{ y: -10 }}
-              className="min-w-[280px] md:min-w-[320px] group cursor-pointer"
+              className="min-w-[46%] sm:min-w-[280px] md:min-w-[320px] group cursor-pointer snap-start"
               onClick={() => navigate(`/vendor/${vendor.id}`)}
             >
-              <div className="relative h-full bg-white dark:bg-neutral-900 rounded-[2.5rem] border border-neutral-200/60 dark:border-white/5 shadow-[0_20px_50px_rgba(0,0,0,0.06)] group-hover:shadow-[0_40px_80px_rgba(234,88,12,0.15)] transition-all duration-500 overflow-hidden group/card border-b-4 border-b-neutral-100 active:scale-[0.98]">
-                <div className="h-40 md:h-48 relative overflow-hidden">
+              <div className="relative h-full bg-white dark:bg-neutral-900 rounded-[1.5rem] sm:rounded-[2.5rem] border border-neutral-200/60 dark:border-white/5 shadow-[0_10px_30px_rgba(0,0,0,0.06)] sm:shadow-[0_20px_50px_rgba(0,0,0,0.06)] group-hover:shadow-[0_40px_80px_rgba(234,88,12,0.15)] transition-all duration-500 overflow-hidden group/card border-b-2 sm:border-b-4 border-b-neutral-100 active:scale-[0.98]">
+                <div className="h-20 sm:h-40 md:h-48 relative overflow-hidden">
                   <img 
                     src={vendor.bannerUrl || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=600&q=80'} 
                     alt={vendor.businessName} 
@@ -395,40 +395,40 @@ export default function CustomerDashboard() {
                   <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
                   
                   {/* Category Badge */}
-                  <div className="absolute top-5 right-5">
-                     <Badge className="bg-orange-600 text-white font-black px-4 py-1.5 rounded-full text-[9px] uppercase border-none shadow-xl shadow-orange-600/30 tracking-widest">
+                  <div className="absolute top-2 sm:top-5 right-2 sm:right-5">
+                     <Badge className="bg-orange-600 text-white font-black px-2 sm:px-4 py-0.5 sm:py-1.5 rounded-full text-[7px] sm:text-[9px] uppercase border-none shadow-xl shadow-orange-600/30 tracking-widest">
                         {vendor.category}
                      </Badge>
                   </div>
+                </div>
 
-                  {/* Logo Overlap - Positioned higher */}
-                  <div className="absolute -bottom-1 left-6">
-                    <div className="w-16 h-16 md:w-20 md:h-20 rounded-3xl bg-white dark:bg-neutral-800 p-1.5 shadow-[0_15px_35px_rgba(0,0,0,0.2)] border-2 border-white dark:border-neutral-800">
-                      <img 
-                        key={vendor.logoUrl || `dicebear-${vendor.businessName}`}
-                        src={vendor.logoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(vendor.businessName || 'vendor')}`} 
-                        alt="Logo" 
-                        className="w-full h-full object-contain rounded-2xl"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(vendor.businessName || 'vendor')}`;
-                        }}
-                        referrerPolicy="no-referrer"
-                      />
-                    </div>
+                {/* Logo Overlap - Moved out of overflow-hidden div with better positioning */}
+                <div className="absolute top-[4rem] sm:top-[7.5rem] left-3 sm:left-6 z-20">
+                  <div className="w-10 h-10 sm:w-20 md:w-20 rounded-xl sm:rounded-3xl bg-white dark:bg-neutral-800 p-1 sm:p-1.5 shadow-[0_15px_35px_rgba(0,0,0,0.2)] border-2 border-white dark:border-neutral-800">
+                    <img 
+                      key={vendor.logoUrl || `dicebear-${vendor.businessName}`}
+                      src={vendor.logoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(vendor.businessName || 'vendor')}`} 
+                      alt="Logo" 
+                      className="w-full h-full object-contain rounded-lg sm:rounded-2xl"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(vendor.businessName || 'vendor')}`;
+                      }}
+                      referrerPolicy="no-referrer"
+                    />
                   </div>
                 </div>
 
-                <div className="pt-10 p-6 md:p-8 space-y-4">
+                <div className="pt-6 sm:pt-14 p-3 sm:p-8 space-y-2 sm:space-y-4">
                   <div>
-                    <h4 className="font-black text-xl md:text-2xl text-neutral-900 dark:text-white group-hover:text-orange-600 transition-colors uppercase italic tracking-tighter leading-none truncate mb-2">{vendor.businessName}</h4>
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-1.5 bg-orange-50 dark:bg-orange-950/30 px-2.5 py-1 rounded-lg">
-                        <Star className="w-3.5 h-3.5 text-orange-600 fill-current" />
-                        <span className="text-[11px] font-black text-orange-600">{vendor.rating || '4.8'}</span>
+                    <h4 className="font-black text-xs sm:text-2xl text-neutral-900 dark:text-white group-hover:text-orange-600 transition-colors uppercase italic tracking-tighter leading-none truncate mb-1 sm:mb-2">{vendor.businessName}</h4>
+                    <div className="flex items-center gap-1.5 sm:gap-3">
+                      <div className="flex items-center gap-0.5 sm:gap-1.5 bg-orange-50 dark:bg-orange-950/30 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-md sm:rounded-lg">
+                        <Star className="w-2.5 sm:w-3.5 h-2.5 sm:h-3.5 text-orange-600 fill-current" />
+                        <span className="text-[9px] sm:text-[11px] font-black text-orange-600">{vendor.rating || '4.8'}</span>
                       </div>
-                      <div className="flex items-center gap-1.5 bg-green-50 dark:bg-green-950/30 px-2.5 py-1 rounded-lg">
-                        <MapPin className="w-3.5 h-3.5 text-green-600" />
-                        <span className="text-[11px] font-black text-green-600 uppercase tracking-tighter">
+                      <div className="flex items-center gap-0.5 sm:gap-1.5 bg-green-50 dark:bg-green-950/30 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-md sm:rounded-lg">
+                        <MapPin className="w-2.5 sm:w-3.5 h-2.5 sm:h-3.5 text-green-600" />
+                        <span className="text-[9px] sm:text-[11px] font-black text-green-600 uppercase tracking-tighter">
                           {vendor.distance < 0.5 
                             ? `${(vendor.distance * 1000).toFixed(0)}m` 
                             : `${vendor.distance.toFixed(1)}km`}
@@ -437,11 +437,11 @@ export default function CustomerDashboard() {
                     </div>
                   </div>
                   
-                  <div className="pt-2 border-t border-neutral-100 dark:border-white/5 flex items-center justify-between">
-                    <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest">{t('open_now') || 'Open Now'}</p>
-                    <div className="flex items-center gap-2 text-orange-600 group-hover:translate-x-2 transition-transform">
-                      <span className="text-[10px] font-black uppercase tracking-widest">{t('visit') || 'Visit'}</span>
-                      <ChevronRight className="w-4 h-4" />
+                  <div className="pt-1.5 sm:pt-2 border-t border-neutral-100 dark:border-white/5 flex items-center justify-between">
+                    <p className="text-[8px] sm:text-[10px] text-neutral-400 font-bold uppercase tracking-widest hidden min-[400px]:block">{t('open_now') || 'Open Now'}</p>
+                    <div className="flex items-center gap-1 sm:gap-2 text-orange-600 group-hover:translate-x-2 transition-transform ml-auto">
+                      <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest">{t('visit') || 'Visit'}</span>
+                      <ChevronRight className="w-3 sm:w-4 h-3 sm:h-4" />
                     </div>
                   </div>
                 </div>
