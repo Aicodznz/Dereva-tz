@@ -1,15 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../AuthContext';
 import { useCart } from '../CartContext';
 import { Button } from '@/components/ui/button';
 import { 
   LogOut, User, LayoutDashboard, ShoppingBag, Truck, 
   ShieldCheck, Tag, Receipt, Home, ShoppingCart, 
-  MessageSquare, X, Minus, Trash2, Plus 
+  MessageSquare, X, Minus, Trash2, Plus, ChevronRight
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useScroll, useMotionValueEvent } from 'motion/react';
 import Header from './Header';
 import { useLanguage } from '../LanguageContext';
 
@@ -18,6 +18,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const { cartCount, cartItems, totalAmount, removeItem, addItem, clearCart, isCartOpen, setIsCartOpen } = useCart();
   const location = useLocation();
   const { isRTL, t } = useLanguage();
+
+  const [isNavVisible, setIsNavVisible] = useState(true);
+  const { scrollY } = useScroll();
+
+  useMotionValueEvent(scrollY, "change", (latest) => {
+    const previous = scrollY.getPrevious() || 0;
+    if (latest > previous && latest > 100) {
+      setIsNavVisible(false);
+    } else {
+      setIsNavVisible(true);
+    }
+  });
 
   const isTaxiRoute = location.pathname === '/taxi';
   const isDashboardRoute = location.pathname === '/dashboard' || location.pathname === '/';
@@ -41,7 +53,45 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </main>
 
       {!hideBottomNav && (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-[100] h-24 pointer-events-none flex flex-col justify-end">
+        <>
+          {/* Floating Cart Pill when scrolling down */}
+          <AnimatePresence>
+            {!isNavVisible && cartItems.length > 0 && (
+              <motion.div
+                initial={{ y: 100, opacity: 0, scale: 0.8 }}
+                animate={{ y: 0, opacity: 1, scale: 1 }}
+                exit={{ y: 100, opacity: 0, scale: 0.8 }}
+                className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[110] w-auto pointer-events-auto"
+              >
+                <Link 
+                  to="/cart"
+                  className="flex items-center gap-3 bg-orange-600 text-white px-4 py-2.5 rounded-full shadow-[0_10px_25px_rgba(234,88,12,0.4)] border border-white/20 active:scale-95 transition-transform"
+                >
+                  <div className="flex -space-x-3">
+                    {cartItems.slice(0, 3).map((item, i) => (
+                      <div key={i} className="w-8 h-8 rounded-full border-2 border-orange-600 bg-white overflow-hidden ring-2 ring-orange-600/20">
+                        <img src={item.imageUrl} alt="" className="w-full h-full object-cover" />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2 pr-1">
+                    <span className="font-black text-sm tracking-tight">{cartItems.reduce((sum, item) => sum + item.quantity, 0)} {t('items') || 'items'}</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </div>
+                </Link>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <motion.div 
+            initial={false}
+            animate={{ 
+              y: isNavVisible ? 0 : 120,
+              opacity: isNavVisible ? 1 : 0
+            }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="md:hidden fixed bottom-0 left-0 right-0 z-[100] h-24 pointer-events-none flex flex-col justify-end"
+          >
           <div className="relative w-full h-18 pointer-events-auto">
             {/* Background SVG for the curved cutout */}
             <div className="absolute inset-x-0 bottom-0 top-0">
@@ -223,8 +273,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </motion.div>
             </motion.div>
           </div>
-        </div>
-      )}
+        </motion.div>
+      </>
+    )}
 
 
       {/* Cart Drawer / Side Panel */}
