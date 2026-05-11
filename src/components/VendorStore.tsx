@@ -376,14 +376,14 @@ export default function VendorStore() {
               </motion.div>
 
               <div className="flex-1 min-w-0 flex flex-col items-start text-left gap-1 md:gap-2 pt-1 md:pt-2">
-                <div className="flex items-center gap-2 md:gap-3">
-                  <div className="flex -space-x-0.5">
+                <div className="flex flex-wrap items-center gap-2 md:gap-3">
+                  <div className="flex -space-x-0.5 shrink-0">
                     <div className="w-5 h-5 md:w-6 md:h-6 bg-orange-600 rounded-md flex items-center justify-center text-white font-black text-[10px] md:text-xs">P</div>
                     <div className="w-5 h-5 md:w-6 md:h-6 bg-blue-600 rounded-md flex items-center justify-center text-white">
                       <Plus className="w-2.5 h-2.5 md:w-3 md:h-3 stroke-[4px]" />
                     </div>
                   </div>
-                  <h1 className="text-xl md:text-4xl font-black text-neutral-900 dark:text-white uppercase tracking-tighter truncate">
+                  <h1 className="text-xl md:text-4xl font-black text-neutral-900 dark:text-white uppercase tracking-tighter leading-tight break-words max-w-[180px] md:max-w-none">
                     {vendor.businessName}
                   </h1>
                 </div>
@@ -416,7 +416,7 @@ export default function VendorStore() {
               >
                 <span className="text-[8px] md:text-[10px] font-bold text-neutral-400 uppercase tracking-widest group-hover:text-orange-600 transition-colors">Chat</span>
                 <div className="flex items-center gap-1.5 md:gap-2 text-xs md:text-base font-black text-neutral-900 dark:text-white">
-                   <MessageSquare className="w-4 h-4 text-orange-600" /> Chati Sasa
+                   <MessageSquare className="w-4 h-4 text-orange-600" /> Chati
                 </div>
               </Link>
 
@@ -435,9 +435,9 @@ export default function VendorStore() {
                 }}
                 className="flex flex-col items-center justify-center gap-2 hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors py-2 rounded-2xl group"
               >
-                <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest group-hover:text-orange-600 transition-colors">Share</span>
-                <div className="flex items-center gap-1 text-sm md:text-base font-black text-neutral-900 dark:text-white">
-                  <Share2 className="w-4 h-4 text-orange-600" /> Shea Duka
+                <span className="text-[8px] md:text-[10px] font-bold text-neutral-400 uppercase tracking-widest group-hover:text-orange-600 transition-colors">Share</span>
+                <div className="flex items-center gap-1.5 md:gap-2 text-xs md:text-base font-black text-neutral-900 dark:text-white">
+                  <Share2 className="w-4 h-4 text-orange-600" /> Shea
                 </div>
               </button>
             </div>
