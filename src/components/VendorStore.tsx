@@ -336,30 +336,28 @@ export default function VendorStore() {
       <div className="max-w-5xl mx-auto px-4 -mt-24 md:-mt-32 relative z-20">
         <div className="relative">
           {/* Top Choice Badge */}
-          <div className="absolute -top-10 left-6 z-10">
-            <div className="bg-orange-50 dark:bg-orange-950/20 text-orange-600 px-5 py-2 rounded-t-3xl border-x border-t border-orange-100 dark:border-orange-900/40 flex items-center gap-2 shadow-sm">
-              <Star className="w-3.5 h-3.5 fill-current" />
-              <span className="text-[10px] font-black uppercase tracking-widest leading-none">Top Choice</span>
+          <div className="absolute -top-10 left-4 md:left-6 z-10">
+            <div className="bg-[#FFF1E6] dark:bg-orange-950/20 text-[#A0522D] px-5 py-2 rounded-t-2xl border-x border-t border-orange-100 dark:border-orange-900/40 flex items-center gap-2 shadow-sm">
+              <Star className="w-3 h-3 md:w-3.5 md:h-3.5 fill-current" />
+              <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest leading-none">Top Choice</span>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-neutral-900 shadow-2xl shadow-black/5 rounded-[2.5rem] overflow-hidden border border-neutral-100 dark:border-white/5 p-8 md:p-12">
-            {/* Rating - Moved to Top Right corner of the internal padding area */}
-            <div className="absolute top-8 right-8 md:top-12 md:right-12">
-              <div className="flex flex-col items-end gap-1">
-                <div className="flex items-center gap-1.5 grayscale opacity-60">
-                   <Star className="w-5 h-5 text-yellow-400 fill-current" />
-                   <span className="text-xl font-black text-neutral-900 dark:text-white">{vendor.rating || '4.5'}</span>
-                   <span className="text-neutral-400 font-bold">({reviews.length})</span>
-                </div>
+          <div className="bg-white dark:bg-neutral-900 shadow-2xl shadow-black/5 rounded-[2.5rem] overflow-hidden border border-neutral-100 dark:border-white/5 p-6 md:p-12">
+            {/* Rating - Top Right */}
+            <div className="absolute top-6 right-6 md:top-12 md:right-12">
+              <div className="flex items-center gap-1.5 opacity-80">
+                 <Star className="w-4 h-4 md:w-6 md:h-6 text-yellow-400 fill-current" />
+                 <span className="text-base md:text-2xl font-black text-neutral-900 dark:text-white">{vendor.rating || '4.5'}</span>
+                 <span className="text-neutral-400 font-bold text-xs md:text-base">({reviews.length})</span>
               </div>
             </div>
 
-            <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
-              {/* Logo - Positioned relative to Top Choice area */}
+            <div className="flex flex-row items-center md:items-start gap-4 md:gap-8">
+              {/* Logo */}
               <motion.div 
                 whileHover={{ scale: 1.05 }}
-                className="w-24 h-24 md:w-32 md:h-32 rounded-3xl overflow-hidden bg-white dark:bg-neutral-800 shadow-xl shadow-black/5 shrink-0 border-4 border-white dark:border-neutral-950 -mt-2"
+                className="w-20 h-20 md:w-32 md:h-32 rounded-2xl md:rounded-3xl overflow-hidden bg-white dark:bg-neutral-800 shadow-xl shadow-black/5 shrink-0 border-2 md:border-4 border-white dark:border-neutral-950"
               >
                 {vendor.logoUrl ? (
                   <img 
@@ -377,47 +375,47 @@ export default function VendorStore() {
                 )}
               </motion.div>
 
-              <div className="flex-1 min-w-0 flex flex-col items-center md:items-start text-center md:text-left gap-2 pt-2">
-                <div className="flex items-center gap-3">
-                  <div className="flex -space-x-1">
-                    <div className="w-6 h-6 bg-orange-600 rounded-md flex items-center justify-center text-white font-black text-xs">P</div>
-                    <div className="w-6 h-6 bg-blue-600 rounded-md flex items-center justify-center text-white">
-                      <Plus className="w-3 h-3 stroke-[4px]" />
+              <div className="flex-1 min-w-0 flex flex-col items-start text-left gap-1 md:gap-2 pt-1 md:pt-2">
+                <div className="flex items-center gap-2 md:gap-3">
+                  <div className="flex -space-x-0.5">
+                    <div className="w-5 h-5 md:w-6 md:h-6 bg-orange-600 rounded-md flex items-center justify-center text-white font-black text-[10px] md:text-xs">P</div>
+                    <div className="w-5 h-5 md:w-6 md:h-6 bg-blue-600 rounded-md flex items-center justify-center text-white">
+                      <Plus className="w-2.5 h-2.5 md:w-3 md:h-3 stroke-[4px]" />
                     </div>
                   </div>
-                  <h1 className="text-2xl md:text-4xl font-black text-neutral-900 dark:text-white uppercase tracking-tighter">
+                  <h1 className="text-xl md:text-4xl font-black text-neutral-900 dark:text-white uppercase tracking-tighter truncate">
                     {vendor.businessName}
                   </h1>
                 </div>
                 
-                <p className="text-neutral-500 font-bold uppercase tracking-[0.1em] text-xs max-w-sm">
+                <p className="text-neutral-500 font-bold uppercase tracking-[0.1em] text-[10px] md:text-xs">
                   {vendor.category === 'restaurant' ? 'Desserts, Bakery, Beverages, Coffee' : vendor.description?.split('.').slice(0, 1).join('.') || 'Quality Products & Services'}
                 </p>
               </div>
             </div>
 
-            {/* Action Bar (Replaced Stats) */}
-            <div className="mt-12 pt-8 border-t border-neutral-100 dark:border-white/5 grid grid-cols-3">
+            {/* Action Bar */}
+            <div className="mt-8 md:mt-12 pt-6 md:pt-8 border-t border-neutral-100 dark:border-white/5 grid grid-cols-3">
               <button 
                 onClick={() => {
                   const el = document.getElementById('store-content');
                   el?.scrollIntoView({ behavior: 'smooth' });
                   setActiveTab('products');
                 }}
-                className="flex flex-col items-center justify-center gap-2 border-r border-neutral-100 dark:border-white/5 hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors py-2 rounded-2xl group"
+                className="flex flex-col items-center justify-center gap-1.5 border-r border-neutral-100 dark:border-white/5 hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors py-2 rounded-2xl group"
               >
-                <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest group-hover:text-orange-600 transition-colors">Products</span>
-                <div className="flex items-center gap-1 text-sm md:text-base font-black text-neutral-900 dark:text-white">
+                <span className="text-[8px] md:text-[10px] font-bold text-neutral-400 uppercase tracking-widest group-hover:text-orange-600 transition-colors">Products</span>
+                <div className="flex items-center gap-1.5 md:gap-2 text-xs md:text-base font-black text-neutral-900 dark:text-white">
                   <ShoppingBag className="w-4 h-4 text-orange-600" /> Bidhaa
                 </div>
               </button>
               
               <Link 
                 to={vendor?.ownerUid ? `/chat?to=${vendor.ownerUid}` : '#'}
-                className="flex flex-col items-center justify-center gap-2 border-r border-neutral-100 dark:border-white/5 hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors py-2 rounded-2xl group px-2"
+                className="flex flex-col items-center justify-center gap-1.5 border-r border-neutral-100 dark:border-white/5 hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors py-2 rounded-2xl group px-2"
               >
-                <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest group-hover:text-orange-600 transition-colors">Chat</span>
-                <div className="flex items-center gap-1 text-sm md:text-base font-black text-neutral-900 dark:text-white">
+                <span className="text-[8px] md:text-[10px] font-bold text-neutral-400 uppercase tracking-widest group-hover:text-orange-600 transition-colors">Chat</span>
+                <div className="flex items-center gap-1.5 md:gap-2 text-xs md:text-base font-black text-neutral-900 dark:text-white">
                    <MessageSquare className="w-4 h-4 text-orange-600" /> Chati Sasa
                 </div>
               </Link>
