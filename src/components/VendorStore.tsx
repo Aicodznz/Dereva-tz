@@ -449,7 +449,7 @@ export default function VendorStore() {
               {[
                 { id: 'products', label: t('products') || 'Bidhaa', icon: ShoppingBag },
                 { id: 'reviews', label: t('reviews') || 'Maoni', icon: Star },
-                { id: 'info', label: t('info') || 'Kuhusu', icon: Info },
+                { id: 'info', label: 'Maelezo ya Ziada', icon: Info },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -771,7 +771,7 @@ export default function VendorStore() {
                   >
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
                       <div className="space-y-6">
-                        <h3 className="text-3xl md:text-5xl font-[900] text-neutral-900 dark:text-white uppercase italic tracking-tighter">Kuhusu Sisi</h3>
+                        <h3 className="text-3xl md:text-5xl font-[900] text-neutral-900 dark:text-white uppercase italic tracking-tighter">Maelezo ya Ziada</h3>
                         <div className="prose dark:prose-invert">
                           <p className="text-lg md:text-xl text-neutral-500 font-medium leading-relaxed italic">
                             {vendor.description || 'Sisi ni wataalamu wa kutoa huduma bora na bidhaa za hali ya juu kwa wateja wetu. Karibu ujionee tofauti na ubora wa dhati.'}
