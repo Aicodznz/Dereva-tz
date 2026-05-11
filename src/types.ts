@@ -45,6 +45,7 @@ export interface VendorProfile {
   phoneNumber?: string;
   operatingHours: string;
   rating: number;
+  distance?: string;
   socialLinks?: {
     whatsapp?: string;
     instagram?: string;

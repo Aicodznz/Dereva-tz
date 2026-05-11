@@ -335,12 +335,19 @@ export default function VendorStore() {
       {/* Vendor Profile Section */}
       <div className="max-w-5xl mx-auto px-4 -mt-24 md:-mt-32 relative z-20">
         <div className="relative">
-          {/* Top Choice Badge */}
-          <div className="absolute -top-5 md:-top-10 left-4 md:left-6 z-10">
-            <div className="bg-[#FFF1E6] dark:bg-orange-950/20 text-[#A0522D] px-6 py-2.5 rounded-t-[2.5rem] border-x border-t border-orange-100 dark:border-orange-900/40 flex items-center gap-2 shadow-sm transform-gpu">
-              <Star className="w-3 h-3 md:w-3.5 md:h-3.5 fill-current" />
-              <span className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.15em] leading-none">Top Choice</span>
-            </div>
+          {/* Distance Badge */}
+          <div className="absolute -top-7 md:-top-10 left-4 md:left-6 z-10 transition-all active:scale-95">
+            <a 
+              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(vendor.address || vendor.businessName)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-[#E6F6EF] dark:bg-green-950/30 text-[#00A756] px-5 py-2.5 rounded-full border border-green-100/50 dark:border-green-900/40 flex items-center gap-2.5 shadow-sm hover:shadow-md transition-all group cursor-pointer"
+            >
+              <MapPin className="w-5 h-5 md:w-6 md:h-6 group-hover:scale-110 transition-transform" />
+              <span className="text-[13px] md:text-[16px] font-black uppercase tracking-tight leading-none">
+                {vendor.distance || '6.9'}KM
+              </span>
+            </a>
           </div>
 
           <div className="bg-white dark:bg-neutral-900 shadow-2xl shadow-black/5 rounded-[2.5rem] overflow-hidden border border-neutral-100 dark:border-white/5 p-4 sm:p-6 md:p-12">
