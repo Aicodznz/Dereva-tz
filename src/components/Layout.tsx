@@ -49,7 +49,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       <Header />
 
-      <main className={`flex-1 ${isFullscreen ? 'fixed inset-0 z-0' : `max-w-7xl mx-auto w-full ${isFullWidthPage ? 'px-0' : 'px-4'} md:px-6 lg:px-8 py-6 md:py-10 pb-32 relative z-10`}`}>
+      <main className={`flex-1 ${isFullscreen ? 'fixed inset-0 z-0' : `max-w-7xl mx-auto w-full ${isFullWidthPage ? 'px-0 pt-0' : 'px-4 py-6 md:py-10'} md:px-6 lg:px-8 pb-32 relative z-10`}`}>
         {children}
       </main>
 
