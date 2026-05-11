@@ -336,8 +336,8 @@ export default function VendorStore() {
       <div className="max-w-5xl mx-auto px-4 -mt-24 md:-mt-32 relative z-20">
         <div className="relative">
           {/* Top Choice Badge */}
-          <div className="absolute -top-10 left-4 md:left-6 z-10">
-            <div className="bg-[#FFF1E6] dark:bg-orange-950/20 text-[#A0522D] px-5 py-2 rounded-t-2xl border-x border-t border-orange-100 dark:border-orange-900/40 flex items-center gap-2 shadow-sm">
+          <div className="absolute -top-7 md:-top-10 left-4 md:left-6 z-10">
+            <div className="bg-[#FFF1E6] dark:bg-orange-950/20 text-[#A0522D] px-5 py-2 rounded-t-2xl border-x border-t border-orange-100 dark:border-orange-900/40 flex items-center gap-2 shadow-sm transform-gpu">
               <Star className="w-3 h-3 md:w-3.5 md:h-3.5 fill-current" />
               <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest leading-none">Top Choice</span>
             </div>
@@ -353,11 +353,11 @@ export default function VendorStore() {
               </div>
             </div>
 
-            <div className="flex flex-row items-center md:items-start gap-4 md:gap-8">
+            <div className="flex flex-row items-center md:items-start gap-3 md:gap-8">
               {/* Logo */}
               <motion.div 
                 whileHover={{ scale: 1.05 }}
-                className="w-20 h-20 md:w-32 md:h-32 rounded-2xl md:rounded-3xl overflow-hidden bg-white dark:bg-neutral-800 shadow-xl shadow-black/5 shrink-0 border-2 md:border-4 border-white dark:border-neutral-950"
+                className="w-16 h-16 sm:w-20 sm:h-20 md:w-32 md:h-32 rounded-2xl md:rounded-3xl overflow-hidden bg-white dark:bg-neutral-800 shadow-xl shadow-black/5 shrink-0 border-2 md:border-4 border-white dark:border-neutral-950"
               >
                 {vendor.logoUrl ? (
                   <img 
@@ -370,25 +370,25 @@ export default function VendorStore() {
                   />
                 ) : (
                   <div className="w-full h-full flex flex-col items-center justify-center">
-                    <Store className="w-10 h-10 text-neutral-300" />
+                    <Store className="w-8 h-8 md:w-10 md:h-10 text-neutral-300" />
                   </div>
                 )}
               </motion.div>
 
               <div className="flex-1 min-w-0 flex flex-col items-start text-left gap-1 md:gap-2 pt-1 md:pt-2">
-                <div className="flex flex-wrap items-center gap-2 md:gap-3">
+                <div className="flex flex-wrap items-center gap-1.5 md:gap-3">
                   <div className="flex -space-x-0.5 shrink-0">
                     <div className="w-5 h-5 md:w-6 md:h-6 bg-orange-600 rounded-md flex items-center justify-center text-white font-black text-[10px] md:text-xs">P</div>
                     <div className="w-5 h-5 md:w-6 md:h-6 bg-blue-600 rounded-md flex items-center justify-center text-white">
                       <Plus className="w-2.5 h-2.5 md:w-3 md:h-3 stroke-[4px]" />
                     </div>
                   </div>
-                  <h1 className="text-xl md:text-4xl font-black text-neutral-900 dark:text-white uppercase tracking-tighter leading-tight break-words max-w-[180px] md:max-w-none">
+                  <h1 className="text-lg md:text-4xl font-black text-neutral-900 dark:text-white uppercase tracking-tighter leading-tight break-words max-w-[140px] xs:max-w-[180px] md:max-w-none">
                     {vendor.businessName}
                   </h1>
                 </div>
                 
-                <p className="text-neutral-500 font-bold uppercase tracking-[0.1em] text-[10px] md:text-xs">
+                <p className="text-neutral-500 font-bold uppercase tracking-[0.1em] text-[9px] md:text-xs">
                   {vendor.category === 'restaurant' ? 'Desserts, Bakery, Beverages, Coffee' : vendor.description?.split('.').slice(0, 1).join('.') || 'Quality Products & Services'}
                 </p>
               </div>
