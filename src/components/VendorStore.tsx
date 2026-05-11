@@ -343,78 +343,105 @@ export default function VendorStore() {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-neutral-900 shadow-2xl shadow-black/5 rounded-[2.5rem] overflow-hidden border border-neutral-100 dark:border-white/5">
-            <div className="p-8 md:p-12">
-              <div className="flex flex-col md:flex-row items-center md:items-start justify-between gap-8">
-                <div className="flex flex-col md:flex-row items-center md:items-start gap-8 flex-1 min-w-0">
-                  {/* Logo */}
-                  <motion.div 
-                    whileHover={{ scale: 1.05 }}
-                    className="w-24 h-24 md:w-32 md:h-32 rounded-3xl overflow-hidden bg-neutral-100 dark:bg-neutral-800 shadow-xl shadow-black/5 shrink-0 border-4 border-white dark:border-neutral-950"
-                  >
-                    {vendor.logoUrl ? (
-                      <img 
-                        src={vendor.logoUrl} 
-                        alt={vendor.businessName}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(vendor.businessName || 'vendor')}`;
-                        }}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center">
-                        <Store className="w-10 h-10 text-neutral-300" />
-                      </div>
-                    )}
-                  </motion.div>
+          <div className="bg-white dark:bg-neutral-900 shadow-2xl shadow-black/5 rounded-[2.5rem] overflow-hidden border border-neutral-100 dark:border-white/5 p-8 md:p-12">
+            {/* Rating - Moved to Top Right corner of the internal padding area */}
+            <div className="absolute top-8 right-8 md:top-12 md:right-12">
+              <div className="flex flex-col items-end gap-1">
+                <div className="flex items-center gap-1.5 grayscale opacity-60">
+                   <Star className="w-5 h-5 text-yellow-400 fill-current" />
+                   <span className="text-xl font-black text-neutral-900 dark:text-white">{vendor.rating || '4.5'}</span>
+                   <span className="text-neutral-400 font-bold">({reviews.length})</span>
+                </div>
+              </div>
+            </div>
 
-                  <div className="flex-1 min-w-0 flex flex-col items-center md:items-start text-center md:text-left gap-2">
-                    <div className="flex items-center gap-3">
-                      <div className="flex -space-x-1">
-                        <div className="w-6 h-6 bg-yellow-400 rounded-md flex items-center justify-center text-white font-black text-xs">H</div>
-                        <div className="w-6 h-6 bg-blue-600 rounded-md flex items-center justify-center text-white">
-                          <Plus className="w-3 h-3 stroke-[4px]" />
-                        </div>
-                      </div>
-                      <h1 className="text-3xl md:text-4xl font-black text-neutral-900 dark:text-white uppercase tracking-tighter">
-                        {vendor.businessName}
-                      </h1>
+            <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
+              {/* Logo - Positioned relative to Top Choice area */}
+              <motion.div 
+                whileHover={{ scale: 1.05 }}
+                className="w-24 h-24 md:w-32 md:h-32 rounded-3xl overflow-hidden bg-white dark:bg-neutral-800 shadow-xl shadow-black/5 shrink-0 border-4 border-white dark:border-neutral-950 -mt-2"
+              >
+                {vendor.logoUrl ? (
+                  <img 
+                    src={vendor.logoUrl} 
+                    alt={vendor.businessName}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(vendor.businessName || 'vendor')}`;
+                    }}
+                  />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center">
+                    <Store className="w-10 h-10 text-neutral-300" />
+                  </div>
+                )}
+              </motion.div>
+
+              <div className="flex-1 min-w-0 flex flex-col items-center md:items-start text-center md:text-left gap-2 pt-2">
+                <div className="flex items-center gap-3">
+                  <div className="flex -space-x-1">
+                    <div className="w-6 h-6 bg-orange-600 rounded-md flex items-center justify-center text-white font-black text-xs">P</div>
+                    <div className="w-6 h-6 bg-blue-600 rounded-md flex items-center justify-center text-white">
+                      <Plus className="w-3 h-3 stroke-[4px]" />
                     </div>
-                    
-                    <p className="text-neutral-500 font-bold uppercase tracking-[0.1em] text-xs">
-                      {vendor.category === 'restaurant' ? 'Desserts, Bakery, Beverages, Coffee' : vendor.description?.split('.').slice(0, 1).join('.') || 'Quality Products & Services'}
-                    </p>
                   </div>
+                  <h1 className="text-2xl md:text-4xl font-black text-neutral-900 dark:text-white uppercase tracking-tighter">
+                    {vendor.businessName}
+                  </h1>
                 </div>
-
-                <div className="flex flex-col items-center md:items-end gap-1 shrink-0">
-                  <div className="flex items-center gap-1.5">
-                    <Star className="w-6 h-6 text-yellow-400 fill-current" />
-                    <span className="text-2xl font-black text-neutral-900 dark:text-white">{vendor.rating || '4.5'}</span>
-                    <span className="text-neutral-400 font-bold">({reviews.length})</span>
-                  </div>
-                </div>
+                
+                <p className="text-neutral-500 font-bold uppercase tracking-[0.1em] text-xs max-w-sm">
+                  {vendor.category === 'restaurant' ? 'Desserts, Bakery, Beverages, Coffee' : vendor.description?.split('.').slice(0, 1).join('.') || 'Quality Products & Services'}
+                </p>
               </div>
+            </div>
 
-              {/* Stats Bar */}
-              <div className="mt-12 pt-8 border-t border-neutral-100 dark:border-white/5 grid grid-cols-3">
-                <div className="flex flex-col items-center justify-center gap-2 border-r border-neutral-100 dark:border-white/5">
-                  <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Min. Order</span>
-                  <div className="flex items-center gap-1 text-sm md:text-base font-black text-neutral-900 dark:text-white">
-                    <span className="italic">TZS</span> 15,000
-                  </div>
+            {/* Action Bar (Replaced Stats) */}
+            <div className="mt-12 pt-8 border-t border-neutral-100 dark:border-white/5 grid grid-cols-3">
+              <button 
+                onClick={() => {
+                  const el = document.getElementById('store-content');
+                  el?.scrollIntoView({ behavior: 'smooth' });
+                  setActiveTab('products');
+                }}
+                className="flex flex-col items-center justify-center gap-2 border-r border-neutral-100 dark:border-white/5 hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors py-2 rounded-2xl group"
+              >
+                <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest group-hover:text-orange-600 transition-colors">Products</span>
+                <div className="flex items-center gap-1 text-sm md:text-base font-black text-neutral-900 dark:text-white">
+                  <ShoppingBag className="w-4 h-4 text-orange-600" /> Bidhaa
                 </div>
-                <div className="flex flex-col items-center justify-center gap-2 border-r border-neutral-100 dark:border-white/5 px-2">
-                  <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Delivery Time</span>
-                  <p className="text-sm md:text-base font-black text-neutral-900 dark:text-white">20 - 35 minutes</p>
+              </button>
+              
+              <Link 
+                to={vendor?.ownerUid ? `/chat?to=${vendor.ownerUid}` : '#'}
+                className="flex flex-col items-center justify-center gap-2 border-r border-neutral-100 dark:border-white/5 hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors py-2 rounded-2xl group px-2"
+              >
+                <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest group-hover:text-orange-600 transition-colors">Chat</span>
+                <div className="flex items-center gap-1 text-sm md:text-base font-black text-neutral-900 dark:text-white">
+                   <MessageSquare className="w-4 h-4 text-orange-600" /> Chati Sasa
                 </div>
-                <div className="flex flex-col items-center justify-center gap-2">
-                  <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Delivery Fee</span>
-                  <div className="flex items-center gap-1 text-sm md:text-base font-black text-neutral-900 dark:text-white">
-                    <span className="italic">TZS</span> 1,900
-                  </div>
+              </Link>
+
+              <button 
+                onClick={() => {
+                  if (navigator.share) {
+                    navigator.share({
+                      title: vendor.businessName,
+                      text: vendor.description,
+                      url: window.location.href
+                    }).catch(console.error);
+                  } else {
+                    navigator.clipboard.writeText(window.location.href);
+                    toast.success('Link copied to clipboard!');
+                  }
+                }}
+                className="flex flex-col items-center justify-center gap-2 hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors py-2 rounded-2xl group"
+              >
+                <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest group-hover:text-orange-600 transition-colors">Share</span>
+                <div className="flex items-center gap-1 text-sm md:text-base font-black text-neutral-900 dark:text-white">
+                  <Share2 className="w-4 h-4 text-orange-600" /> Shea Duka
                 </div>
-              </div>
+              </button>
             </div>
           </div>
         </div>
@@ -425,29 +452,11 @@ export default function VendorStore() {
           <p className="text-base md:text-lg text-neutral-500 font-medium leading-relaxed max-w-2xl text-center md:text-left">
             {vendor.description || 'Sisi ni wataalamu wa kutoa huduma bora na bidhaa za hali ya juu kwa wateja wetu. Karibu ujionee tofauti.'}
           </p>
-
-          <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
-            <Button 
-              variant="outline" 
-              className="flex-1 md:flex-none rounded-3xl h-14 px-10 border-neutral-200 dark:border-white/10 font-black text-[11px] uppercase tracking-[0.25em] gap-3 hover:bg-neutral-50 dark:hover:bg-white/5 transition-all active:scale-95 shadow-sm"
-            >
-              <Share2 className="w-5 h-5" /> {t('share') || 'Share'}
-            </Button>
-            <Link to={vendor?.ownerUid ? `/chat?to=${vendor.ownerUid}` : '#'} className="flex-1 md:flex-none">
-              <Button 
-                disabled={!vendor?.ownerUid} 
-                className="w-full bg-orange-600 hover:bg-orange-700 text-white rounded-3xl h-14 px-12 font-black text-[11px] uppercase tracking-[0.25em] gap-4 shadow-[0_20px_40px_-5px_rgba(234,88,12,0.4)] hover:shadow-orange-600/60 transition-all active:scale-95 group relative overflow-hidden"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-                <MessageSquare className="w-5 h-5 group-hover:rotate-12 transition-transform" /> {t('chat') || 'Anza Chat'}
-              </Button>
-            </Link>
-          </div>
         </div>
 
 
 
-      <div className="max-w-6xl mx-auto px-4 md:px-6"> 
+      <div id="store-content" className="max-w-6xl mx-auto px-4 md:px-6"> 
         {/* Tabs */}
         <div className="flex gap-10 border-b border-neutral-100 dark:border-white/5 mt-12 md:mt-20 overflow-x-auto no-scrollbar relative">
               {[
