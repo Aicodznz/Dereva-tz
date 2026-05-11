@@ -336,15 +336,15 @@ export default function VendorStore() {
       <div className="max-w-5xl mx-auto px-4 -mt-24 md:-mt-32 relative z-20">
         <div className="relative">
           {/* Distance Badge */}
-          <div className="absolute -top-7 md:-top-10 left-4 md:left-6 z-10 transition-all active:scale-95">
+          <div className="absolute -top-4 md:-top-10 left-4 md:left-6 z-10 transition-all active:scale-95">
             <a 
               href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(vendor.address || vendor.businessName)}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="bg-[#E6F6EF] dark:bg-green-950/30 text-[#00A756] px-5 py-2.5 rounded-full border border-green-100/50 dark:border-green-900/40 flex items-center gap-2.5 shadow-sm hover:shadow-md transition-all group cursor-pointer"
+              className="bg-[#E6F6EF] dark:bg-green-950/30 text-[#00A756] px-5 py-2 rounded-full border border-green-100/50 dark:border-green-900/40 flex items-center gap-2 shadow-sm hover:shadow-md transition-all group cursor-pointer"
             >
-              <MapPin className="w-5 h-5 md:w-6 md:h-6 group-hover:scale-110 transition-transform" />
-              <span className="text-[13px] md:text-[16px] font-black uppercase tracking-tight leading-none">
+              <MapPin className="w-4 h-4 md:w-6 md:h-6 group-hover:scale-110 transition-transform" />
+              <span className="text-[12px] md:text-[16px] font-black uppercase tracking-tight leading-none">
                 {vendor.distance || '6.9'}KM
               </span>
             </a>
@@ -352,11 +352,11 @@ export default function VendorStore() {
 
           <div className="bg-white dark:bg-neutral-900 shadow-2xl shadow-black/5 rounded-[2.5rem] overflow-hidden border border-neutral-100 dark:border-white/5 p-4 sm:p-6 md:p-12">
             {/* Rating - Top Right */}
-            <div className="absolute top-2.5 right-4 md:top-12 md:right-12">
+            <div className="absolute top-1.5 right-4 md:top-12 md:right-12">
               <div className="flex items-center gap-1 opacity-95">
-                 <Star className="w-3.5 h-3.5 md:w-6 md:h-6 text-yellow-400 fill-current" />
-                 <span className="text-sm md:text-2xl font-black text-neutral-900 dark:text-white">{vendor.rating || '4.5'}</span>
-                 <span className="text-neutral-400 font-bold text-[10px] md:text-base">({reviews.length})</span>
+                 <Star className="w-3 h-3 md:w-6 md:h-6 text-yellow-400 fill-current" />
+                 <span className="text-xs md:text-2xl font-black text-neutral-900 dark:text-white">{vendor.rating || '4.5'}</span>
+                 <span className="text-neutral-400 font-bold text-[9px] md:text-base">({reviews.length})</span>
               </div>
             </div>
 
@@ -383,11 +383,11 @@ export default function VendorStore() {
               </motion.div>
 
               <div className="flex-1 min-w-0 flex flex-col items-start text-left gap-0.5 md:gap-2 pt-1 md:pt-2">
-                <div className="flex flex-wrap items-center gap-1.5 md:gap-3">
+                <div className="flex flex-nowrap items-center gap-1.5 md:gap-3">
                   <div className="flex -space-x-0.5 shrink-0">
-                    <div className="w-5 h-5 md:w-6 md:h-6 bg-orange-600 rounded-md flex items-center justify-center text-white font-black text-[10px] md:text-xs">P</div>
-                    <div className="w-5 h-5 md:w-6 md:h-6 bg-blue-600 rounded-md flex items-center justify-center text-white">
-                      <Plus className="w-2.5 h-2.5 md:w-3 md:h-3 stroke-[4px]" />
+                    <div className="w-4 h-4 md:w-6 md:h-6 bg-orange-600 rounded-md flex items-center justify-center text-white font-black text-[9px] md:text-xs">P</div>
+                    <div className="w-4 h-4 md:w-6 md:h-6 bg-blue-600 rounded-md flex items-center justify-center text-white">
+                      <Plus className="w-2 md:w-3 md:h-3 stroke-[4px]" />
                     </div>
                   </div>
                   <h1 className="text-[17px] md:text-4xl font-black text-neutral-900 dark:text-white uppercase tracking-tighter leading-tight truncate w-full max-w-[120px] xs:max-w-[170px] md:max-w-none">
