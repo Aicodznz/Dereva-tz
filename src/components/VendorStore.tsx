@@ -388,9 +388,7 @@ export default function VendorStore() {
                   </h1>
                 </div>
                                 
-                <p className="text-neutral-500 font-bold uppercase tracking-[0.1em] text-[9px] md:text-xs">
-                  {vendor.category === 'restaurant' ? 'Desserts, Bakery, Beverages, Coffee' : vendor.description?.split('.').slice(0, 1).join('.') || 'Quality Products & Services'}
-                </p>
+                {/* Category/Description line removed per user request */}
               </div>
             </div>
 
@@ -444,15 +442,6 @@ export default function VendorStore() {
           </div>
         </div>
       </div>
-
-      <div className="max-w-6xl mx-auto px-4 md:px-6 mt-12 relative z-20">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-          <p className="text-base md:text-lg text-neutral-500 font-medium leading-relaxed max-w-2xl text-center md:text-left">
-            {vendor.description || 'Sisi ni wataalamu wa kutoa huduma bora na bidhaa za hali ya juu kwa wateja wetu. Karibu ujionee tofauti.'}
-          </p>
-        </div>
-
-
 
       <div id="store-content" className="max-w-6xl mx-auto px-4 md:px-6"> 
         {/* Tabs */}
@@ -883,7 +872,6 @@ export default function VendorStore() {
               </AnimatePresence>
             </div>
           </div>
-        </div>
 
       {/* Review Modal */}
       <AnimatePresence>
