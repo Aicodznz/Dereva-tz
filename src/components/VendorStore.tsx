@@ -333,96 +333,123 @@ export default function VendorStore() {
       </div>
 
       {/* Vendor Profile Section */}
-      <div className="max-w-6xl mx-auto px-0 md:px-6 -mt-32 md:-mt-48 relative z-20">
-        <div className="bg-white/70 dark:bg-neutral-900/40 backdrop-blur-[40px] border-x-0 md:border border-white/80 dark:border-white/5 shadow-[0_40px_80px_rgba(0,0,0,0.12)] rounded-none md:rounded-[3.5rem] overflow-hidden">
-          <div className="p-6 md:p-12">
-            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-10">
-              <div className="flex flex-col md:flex-row gap-8 items-center md:items-end text-center md:text-left">
-                <motion.div 
-                  initial={{ y: 40, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  whileHover={{ scale: 1.02 }}
-                  className="w-36 h-36 md:w-52 md:h-52 rounded-[3rem] p-2 bg-gradient-to-tr from-orange-400 via-orange-600 to-rose-600 shadow-[0_20px_50px_rgba(234,88,12,0.4)] shrink-0 -mt-24 md:-mt-36 relative group"
-                >
-                  <div className="w-full h-full rounded-[2.8rem] overflow-hidden bg-white dark:bg-neutral-900 border-[6px] border-white dark:border-neutral-950 relative">
+      <div className="max-w-5xl mx-auto px-4 -mt-24 md:-mt-32 relative z-20">
+        <div className="relative">
+          {/* Top Choice Badge */}
+          <div className="absolute -top-10 left-6 z-10">
+            <div className="bg-orange-50 dark:bg-orange-950/20 text-orange-600 px-5 py-2 rounded-t-3xl border-x border-t border-orange-100 dark:border-orange-900/40 flex items-center gap-2 shadow-sm">
+              <Star className="w-3.5 h-3.5 fill-current" />
+              <span className="text-[10px] font-black uppercase tracking-widest leading-none">Top Choice</span>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-neutral-900 shadow-2xl shadow-black/5 rounded-[2.5rem] overflow-hidden border border-neutral-100 dark:border-white/5">
+            <div className="p-8 md:p-12">
+              <div className="flex flex-col md:flex-row items-center md:items-start justify-between gap-8">
+                <div className="flex flex-col md:flex-row items-center md:items-start gap-8 flex-1 min-w-0">
+                  {/* Logo */}
+                  <motion.div 
+                    whileHover={{ scale: 1.05 }}
+                    className="w-24 h-24 md:w-32 md:h-32 rounded-3xl overflow-hidden bg-neutral-100 dark:bg-neutral-800 shadow-xl shadow-black/5 shrink-0 border-4 border-white dark:border-neutral-950"
+                  >
                     {vendor.logoUrl ? (
                       <img 
-                        key={vendor.logoUrl}
                         src={vendor.logoUrl} 
                         alt={vendor.businessName}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                        className="w-full h-full object-cover"
                         onError={(e) => {
                           (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(vendor.businessName || 'vendor')}`;
                         }}
-                        referrerPolicy="no-referrer"
                       />
                     ) : (
-                      <div className="w-full h-full bg-neutral-50 dark:bg-neutral-950 flex flex-col items-center justify-center">
-                        <Store className="w-14 h-14 text-orange-100 dark:text-neutral-800" />
-                        <span className="text-[10px] font-black text-orange-100 dark:text-neutral-800 uppercase tracking-[0.3em] mt-2 italic shadow-sm">No Logo</span>
+                      <div className="w-full h-full flex flex-col items-center justify-center">
+                        <Store className="w-10 h-10 text-neutral-300" />
                       </div>
                     )}
-                  </div>
-                </motion.div>
+                  </motion.div>
 
-                <div className="space-y-5 flex-1 min-w-0">
-                  <div className="space-y-2">
-                    <motion.div 
-                      initial={{ x: -20, opacity: 0 }}
-                      animate={{ x: 0, opacity: 1 }}
-                      transition={{ delay: 0.2 }}
-                      className="flex flex-wrap items-center justify-center md:justify-start gap-4"
-                    >
-                      <h1 className="text-4xl md:text-6xl font-[900] text-neutral-900 dark:text-white tracking-tighter uppercase italic leading-[0.9]">
+                  <div className="flex-1 min-w-0 flex flex-col items-center md:items-start text-center md:text-left gap-2">
+                    <div className="flex items-center gap-3">
+                      <div className="flex -space-x-1">
+                        <div className="w-6 h-6 bg-yellow-400 rounded-md flex items-center justify-center text-white font-black text-xs">H</div>
+                        <div className="w-6 h-6 bg-blue-600 rounded-md flex items-center justify-center text-white">
+                          <Plus className="w-3 h-3 stroke-[4px]" />
+                        </div>
+                      </div>
+                      <h1 className="text-3xl md:text-4xl font-black text-neutral-900 dark:text-white uppercase tracking-tighter">
                         {vendor.businessName}
                       </h1>
-                      <div className="bg-orange-600 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.25em] shadow-xl shadow-orange-600/30 flex items-center gap-2">
-                        {vendor.category}
-                      </div>
-                    </motion.div>
-                    
-                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-5 text-[11px] font-black uppercase tracking-[0.25em] text-neutral-500/80">
-                      <div className="flex items-center gap-2 bg-white/50 dark:bg-white/5 px-4 py-2 rounded-2xl border border-neutral-100 dark:border-white/5 shadow-sm">
-                        <Star className="w-4 h-4 text-orange-500 fill-current" />
-                        <span className="text-neutral-900 dark:text-white">{vendor.rating || '4.5'}</span>
-                        <span className="text-neutral-400 font-bold">({reviews.length})</span>
-                      </div>
-                      <div className="flex items-center gap-2 bg-white/50 dark:bg-white/5 px-4 py-2 rounded-2xl border border-neutral-100 dark:border-white/5 shadow-sm">
-                        <MapPin className="w-4 h-4 text-orange-600" />
-                        <span className="max-w-[250px] truncate">{vendor.address}</span>
-                      </div>
                     </div>
+                    
+                    <p className="text-neutral-500 font-bold uppercase tracking-[0.1em] text-xs">
+                      {vendor.category === 'restaurant' ? 'Desserts, Bakery, Beverages, Coffee' : vendor.description?.split('.').slice(0, 1).join('.') || 'Quality Products & Services'}
+                    </p>
                   </div>
+                </div>
 
-                  <p className="text-base md:text-lg text-neutral-500 font-medium leading-relaxed max-w-2xl mx-auto md:mx-0">
-                    {vendor.description || 'Sisi ni wataalamu wa kutoa huduma bora na bidhaa za hali ya juu kwa wateja wetu. Karibu ujionee tofauti.'}
-                  </p>
+                <div className="flex flex-col items-center md:items-end gap-1 shrink-0">
+                  <div className="flex items-center gap-1.5">
+                    <Star className="w-6 h-6 text-yellow-400 fill-current" />
+                    <span className="text-2xl font-black text-neutral-900 dark:text-white">{vendor.rating || '4.5'}</span>
+                    <span className="text-neutral-400 font-bold">({reviews.length})</span>
+                  </div>
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
-                <Button 
-                  variant="outline" 
-                  className="flex-1 md:flex-none rounded-3xl h-16 px-10 border-neutral-200 dark:border-white/10 font-black text-[11px] uppercase tracking-[0.25em] gap-3 hover:bg-neutral-50 dark:hover:bg-white/5 transition-all active:scale-95 shadow-sm"
-                >
-                  <Share2 className="w-5 h-5" /> {t('share') || 'Share'}
-                </Button>
-                <Link to={vendor?.ownerUid ? `/chat?to=${vendor.ownerUid}` : '#'} className="flex-1 md:flex-none">
-                  <Button 
-                    disabled={!vendor?.ownerUid} 
-                    className="w-full bg-orange-600 hover:bg-orange-700 text-white rounded-3xl h-16 px-12 font-black text-[11px] uppercase tracking-[0.25em] gap-4 shadow-[0_20px_40px_-5px_rgba(234,88,12,0.4)] hover:shadow-orange-600/60 transition-all active:scale-95 group relative overflow-hidden"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-                    <MessageSquare className="w-5 h-5 group-hover:rotate-12 transition-transform" /> {t('chat') || 'Anza Chat'}
-                  </Button>
-                </Link>
+              {/* Stats Bar */}
+              <div className="mt-12 pt-8 border-t border-neutral-100 dark:border-white/5 grid grid-cols-3">
+                <div className="flex flex-col items-center justify-center gap-2 border-r border-neutral-100 dark:border-white/5">
+                  <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Min. Order</span>
+                  <div className="flex items-center gap-1 text-sm md:text-base font-black text-neutral-900 dark:text-white">
+                    <span className="italic">TZS</span> 15,000
+                  </div>
+                </div>
+                <div className="flex flex-col items-center justify-center gap-2 border-r border-neutral-100 dark:border-white/5 px-2">
+                  <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Delivery Time</span>
+                  <p className="text-sm md:text-base font-black text-neutral-900 dark:text-white">20 - 35 minutes</p>
+                </div>
+                <div className="flex flex-col items-center justify-center gap-2">
+                  <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Delivery Fee</span>
+                  <div className="flex items-center gap-1 text-sm md:text-base font-black text-neutral-900 dark:text-white">
+                    <span className="italic">TZS</span> 1,900
+                  </div>
+                </div>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-6xl mx-auto px-4 md:px-6 mt-12 relative z-20">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+          <p className="text-base md:text-lg text-neutral-500 font-medium leading-relaxed max-w-2xl text-center md:text-left">
+            {vendor.description || 'Sisi ni wataalamu wa kutoa huduma bora na bidhaa za hali ya juu kwa wateja wetu. Karibu ujionee tofauti.'}
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
+            <Button 
+              variant="outline" 
+              className="flex-1 md:flex-none rounded-3xl h-14 px-10 border-neutral-200 dark:border-white/10 font-black text-[11px] uppercase tracking-[0.25em] gap-3 hover:bg-neutral-50 dark:hover:bg-white/5 transition-all active:scale-95 shadow-sm"
+            >
+              <Share2 className="w-5 h-5" /> {t('share') || 'Share'}
+            </Button>
+            <Link to={vendor?.ownerUid ? `/chat?to=${vendor.ownerUid}` : '#'} className="flex-1 md:flex-none">
+              <Button 
+                disabled={!vendor?.ownerUid} 
+                className="w-full bg-orange-600 hover:bg-orange-700 text-white rounded-3xl h-14 px-12 font-black text-[11px] uppercase tracking-[0.25em] gap-4 shadow-[0_20px_40px_-5px_rgba(234,88,12,0.4)] hover:shadow-orange-600/60 transition-all active:scale-95 group relative overflow-hidden"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                <MessageSquare className="w-5 h-5 group-hover:rotate-12 transition-transform" /> {t('chat') || 'Anza Chat'}
+              </Button>
+            </Link>
+          </div>
+        </div>
 
 
 
-            {/* Tabs */}
-            <div className="flex gap-10 border-b border-neutral-100 dark:border-white/5 mt-12 md:mt-20 overflow-x-auto no-scrollbar relative">
+      <div className="max-w-6xl mx-auto px-4 md:px-6"> 
+        {/* Tabs */}
+        <div className="flex gap-10 border-b border-neutral-100 dark:border-white/5 mt-12 md:mt-20 overflow-x-auto no-scrollbar relative">
               {[
                 { id: 'products', label: t('products') || 'Bidhaa', icon: ShoppingBag },
                 { id: 'reviews', label: t('reviews') || 'Maoni', icon: Star },
@@ -850,7 +877,6 @@ export default function VendorStore() {
             </div>
           </div>
         </div>
-      </div>
 
       {/* Review Modal */}
       <AnimatePresence>
