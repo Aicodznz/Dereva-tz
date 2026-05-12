@@ -104,16 +104,11 @@ export default function VendorStore() {
   useEffect(() => {
     if (!id) return;
 
-    const fetchVendor = async () => {
-      try {
-        const vSnap = await getDoc(doc(db, 'vendors', id));
-        if (vSnap.exists()) {
-          setVendor({ id: vSnap.id, ...vSnap.data() } as VendorProfile);
-        }
-      } catch (error) {
-        console.error('Error fetching vendor:', error);
+    const vUnsub = onSnapshot(doc(db, 'vendors', id), (vDoc) => {
+      if (vDoc.exists()) {
+        setVendor({ id: vDoc.id, ...vDoc.data() } as VendorProfile);
       }
-    };
+    });
 
     const fetchProducts = async () => {
       try {
@@ -169,8 +164,6 @@ export default function VendorStore() {
       }
     };
 
-    fetchVendor();
-    fetchProducts();
     fetchReviews();
 
     const pUnsub = onSnapshot(
@@ -185,6 +178,7 @@ export default function VendorStore() {
     );
 
     return () => {
+      vUnsub();
       pUnsub();
       rUnsub();
     };
@@ -358,14 +352,16 @@ export default function VendorStore() {
 
   const getDisplayRating = () => {
     const vRating = parseFloat(vendor?.rating?.toString() || '0');
+    // If vendor.rating is 0 but we have reviews, calculate the average from reviews
     if (vRating > 0) {
       return vRating.toFixed(1);
     }
     if (reviews && reviews.length > 0) {
       const sum = reviews.reduce((acc, r) => acc + parseFloat(r.rating?.toString() || '0'), 0);
-      return (sum / reviews.length).toFixed(1);
+      const avg = sum / reviews.length;
+      return avg.toFixed(1);
     }
-    return '0';
+    return '0.0';
   };
 
   const formatDate = (date: any) => {
@@ -486,18 +482,16 @@ export default function VendorStore() {
 
           <div className="bg-white dark:bg-neutral-900 shadow-2xl shadow-black/5 rounded-[2.5rem] overflow-hidden border border-neutral-100 dark:border-white/5 p-4 sm:p-6 md:p-12">
             {/* Rating - Top Right */}
-            {parseFloat(getDisplayRating()) > 0 && (
-              <div className="absolute top-1.5 right-4 md:top-12 md:right-12">
-                <div className="flex items-center gap-1 opacity-95">
-                   <span className="text-[10px] md:text-base font-black text-neutral-900 dark:text-white uppercase tracking-tighter">Star</span>
-                   <Star className="w-3 h-3 md:w-6 md:h-6 text-yellow-400 fill-current" />
-                   <span className="text-xs md:text-2xl font-black text-neutral-900 dark:text-white">
-                     {getDisplayRating()}
-                   </span>
-                   <span className="text-neutral-400 font-bold text-[9px] md:text-base">({reviews.length})</span>
-                </div>
+            <div className="absolute top-1.5 right-4 md:top-12 md:right-12">
+              <div className="flex items-center gap-1 opacity-95">
+                 <span className="text-[10px] md:text-base font-black text-neutral-900 dark:text-white uppercase tracking-tighter">Star</span>
+                 <Star className="w-3 h-3 md:w-6 md:h-6 text-yellow-400 fill-current" />
+                 <span className="text-xs md:text-2xl font-black text-neutral-900 dark:text-white">
+                   {getDisplayRating()}
+                 </span>
+                 <span className="text-neutral-400 font-bold text-[9px] md:text-base">({vendor.ratingCount || reviews.length})</span>
               </div>
-            )}
+            </div>
 
             <div className="flex flex-row items-center md:items-start gap-2 md:gap-8">
               {/* Logo */}

@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, onSnapshot, getDocs, limit, orderBy } from 'firebase/firestore';
 import { VendorProfile, Product } from '../types';
+import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -474,12 +475,11 @@ export default function CustomerDashboard() {
                   <div>
                     <h4 className="font-black text-xs sm:text-2xl text-neutral-900 dark:text-white group-hover:text-orange-600 transition-colors uppercase italic tracking-tighter leading-none truncate mb-1 sm:mb-2">{vendor.businessName}</h4>
                     <div className="flex items-center gap-1.5 sm:gap-3">
-                      {(vendor.rating || 0) > 0 && (
-                        <div className="flex items-center gap-0.5 sm:gap-1.5 bg-orange-50 dark:bg-orange-950/30 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-md sm:rounded-lg">
-                          <Star className="w-2.5 sm:w-3.5 h-2.5 sm:h-3.5 text-orange-600 fill-current" />
-                          <span className="text-[9px] sm:text-[11px] font-black text-orange-600">{(vendor.rating || 0).toFixed(1)}</span>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-0.5 sm:gap-1.5 bg-orange-50 dark:bg-orange-950/30 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-md sm:rounded-lg">
+                        <Star className="w-2.5 sm:w-3.5 h-2.5 sm:h-3.5 text-orange-600 fill-current" />
+                        <span className="text-[9px] sm:text-[11px] font-black text-orange-600">{(vendor.rating || 0).toFixed(1)}</span>
+                        <span className="text-[7px] sm:text-[9px] text-orange-400 font-bold ml-0.5">({vendor.ratingCount || 0})</span>
+                      </div>
                       <div className="flex items-center gap-0.5 sm:gap-1.5 bg-green-50 dark:bg-green-950/30 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-md sm:rounded-lg">
                         <MapPin className="w-2.5 sm:w-3.5 h-2.5 sm:h-3.5 text-green-600" />
                         <span className="text-[9px] sm:text-[11px] font-black text-green-600 uppercase tracking-tighter">
@@ -603,11 +603,12 @@ export default function CustomerDashboard() {
                           e.preventDefault();
                           e.stopPropagation();
                           addItem(product);
+                          toast.success(`${product.name} imeongezwa!`);
                         }}
                         className="absolute bottom-4 right-4 w-12 h-12 bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl flex items-center justify-center text-orange-600 hover:bg-orange-600 hover:text-white transition-all transform overflow-hidden group/btn"
                       >
                       <div className="absolute inset-0 bg-orange-600 -translate-x-full group-hover/btn:translate-x-0 transition-transform" />
-                      <ShoppingBasket className="w-6 h-6 relative z-10" />
+                      <Plus className="w-6 h-6 relative z-10" />
                     </motion.button>
                   </div>
                   <CardContent className="p-5">
@@ -677,12 +678,10 @@ export default function CustomerDashboard() {
                           (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(vendor.businessName || 'vendor')}`;
                         }}
                       />
-                      {(vendor.rating || 0) > 0 ? (
-                        <div className="absolute top-2 right-2 sm:top-4 sm:right-4 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md px-2 md:px-3 py-1 rounded-xl flex items-center gap-1.5 shadow-xl">
-                          <Star className="w-3 h-3 text-orange-500 fill-current" />
-                          <span className="text-[10px] md:text-sm font-black">{(vendor.rating || 0).toFixed(1)}</span>
-                        </div>
-                      ) : null}
+                      <div className="absolute top-2 right-2 sm:top-4 sm:right-4 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md px-2 md:px-3 py-1 rounded-xl flex items-center gap-1.5 shadow-xl">
+                        <Star className="w-3 h-3 text-orange-500 fill-current" />
+                        <span className="text-[10px] md:text-sm font-black">{(vendor.rating || 0).toFixed(1)}</span>
+                      </div>
                     </div>
                     <div className="flex-1 flex flex-col justify-center min-w-0 space-y-3">
                        <Badge className="w-fit bg-orange-50 dark:bg-orange-950/30 text-orange-600 border-none text-[8px] sm:text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full">

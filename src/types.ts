@@ -76,6 +76,8 @@ export interface Product {
   variations?: { name: string; price?: number }[];
   addOns?: { name: string; price: number }[];
   branchId?: string;
+  rating?: number;
+  ratingCount?: number;
 }
 
 export type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'prepared' | 'out_for_delivery' | 'delivered' | 'cancelled' | 'completed';

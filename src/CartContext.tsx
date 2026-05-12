@@ -8,7 +8,7 @@ interface CartItem extends Product {
 
 interface CartContextType {
   cartItems: CartItem[];
-  addItem: (product: Product) => void;
+  addItem: (product: Product & { quantity?: number }) => void;
   removeItem: (productId: string) => void;
   clearCart: () => void;
   cartCount: number;
@@ -40,11 +40,12 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('omniserve_cart', JSON.stringify(cartItems));
   }, [cartItems]);
 
-  const addItem = (product: Product) => {
+  const addItem = (product: Product & { quantity?: number }) => {
+    const amountToAdd = product.quantity || 1;
     setCartItems(prevItems => {
       const existingItem = prevItems.find(item => item.id === product.id);
       const isReadded = !!existingItem;
-      const quantity = isReadded ? existingItem.quantity + 1 : 1;
+      const quantity = isReadded ? existingItem.quantity + amountToAdd : amountToAdd;
 
       toast.success(
         <div className="flex items-center gap-3">
@@ -74,10 +75,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (existingItem) {
         return prevItems.map(item =>
-          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+          item.id === product.id ? { ...item, quantity: item.quantity + amountToAdd } : item
         );
       }
-      return [...prevItems, { ...product, quantity: 1 }];
+      return [...prevItems, { ...product, quantity: amountToAdd }];
     });
   };
 

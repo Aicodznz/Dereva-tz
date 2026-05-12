@@ -4,6 +4,7 @@ import { storageService } from '../services/storageService';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, onSnapshot, getDocs, doc, getDoc, addDoc, updateDoc, deleteDoc, orderBy, limit } from 'firebase/firestore';
 import { useAuth } from '../AuthContext';
+import { useCart } from '../CartContext';
 import { initiatePayment } from '../services/paymentService';
 import { Product, VendorProfile, FAQ } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -70,6 +71,7 @@ export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, profile } = useAuth();
+  const { addItem, setIsCartOpen } = useCart();
   const [product, setProduct] = useState<Product | null>(null);
   const [vendor, setVendor] = useState<VendorProfile | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -832,11 +834,11 @@ export default function ProductDetail() {
               <div className="flex items-center gap-6">
                 <div className="flex items-center gap-2 bg-neutral-900 px-4 py-2 rounded-2xl shadow-xl shadow-neutral-900/10">
                   <Star className="w-4 h-4 text-orange-400 fill-current" />
-                  <span className="text-sm font-black text-white">4.8</span>
+                  <span className="text-sm font-black text-white">{(product.rating || vendor?.rating || 0).toFixed(1)}</span>
                 </div>
                 <div className="flex items-center gap-2 text-neutral-500">
                   <Users className="w-4 h-4" />
-                  <span className="text-xs font-bold font-mono tracking-tighter">215+ reviews</span>
+                  <span className="text-xs font-bold font-mono tracking-tighter">{(product.ratingCount || reviews.length || 0)} maoni</span>
                 </div>
               </div>
             </div>
@@ -936,10 +938,10 @@ export default function ProductDetail() {
 
                 <div className="flex flex-col md:flex-row gap-12 mb-12">
                   <div className="flex flex-col items-center justify-center p-8 bg-neutral-50 rounded-[2rem] min-w-[180px]">
-                    <span className="text-6xl font-black text-neutral-900 italic tracking-tighter mb-2">3.0</span>
+                    <span className="text-6xl font-black text-neutral-900 italic tracking-tighter mb-2">{(product.rating || vendor?.rating || 0).toFixed(1)}</span>
                     <div className="flex gap-1 mb-2">
                        {[...Array(5)].map((_, i) => (
-                         <Star key={`summary-star-${i}`} className={`w-5 h-5 ${i < 3 ? 'text-orange-500 fill-current' : 'text-neutral-200'}`} />
+                         <Star key={`summary-star-${i}`} className={`w-5 h-5 ${i < Math.round(product.rating || vendor?.rating || 0) ? 'text-orange-500 fill-current' : 'text-neutral-200'}`} />
                        ))}
                     </div>
                     <span className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">{reviews.length} reviews</span>
@@ -1270,8 +1272,21 @@ export default function ProductDetail() {
           </div>
           
           <Button 
+            onClick={() => {
+              if (product) {
+                addItem({ ...product, quantity });
+                toast.success(`${product.name} imeongezwa kwenye kikapu!`);
+              }
+            }}
+            className="flex-1 h-14 md:h-20 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-950 dark:text-white rounded-[1.75rem] font-black text-lg md:text-xl border border-neutral-200 dark:border-neutral-800 gap-4 mt-1 transition-all duration-300 uppercase italic tracking-tighter font-display"
+          >
+            <ShoppingCart className="w-6 h-6 md:w-8 md:h-8" />
+            <span className="truncate">Weka Kikapuni</span>
+          </Button>
+
+          <Button 
             onClick={handleBuyNow}
-            className="flex-1 h-14 md:h-20 bg-gradient-to-br from-orange-500 via-orange-600 to-orange-700 hover:scale-[1.02] active:scale-[0.98] text-white rounded-[1.75rem] font-black text-lg md:text-2xl shadow-[0_20px_50px_rgba(234,88,12,0.4)] gap-4 transition-all duration-300 uppercase italic tracking-tighter font-display"
+            className="flex-[1.5] h-14 md:h-20 bg-gradient-to-br from-orange-500 via-orange-600 to-orange-700 hover:scale-[1.02] active:scale-[0.98] text-white rounded-[1.75rem] font-black text-lg md:text-2xl shadow-[0_20px_50px_rgba(234,88,12,0.4)] gap-4 transition-all duration-300 uppercase italic tracking-tighter font-display"
           >
             <Smartphone className="w-6 h-6 md:w-8 md:h-8" />
             <span className="truncate">
