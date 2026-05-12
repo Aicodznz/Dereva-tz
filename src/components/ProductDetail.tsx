@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { storageService } from '../services/storageService';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, onSnapshot, getDocs, doc, getDoc, addDoc, updateDoc, deleteDoc, orderBy, limit } from 'firebase/firestore';
 import { useAuth } from '../AuthContext';
 import { useCart } from '../CartContext';
+import { useBusinessConfig } from '../BusinessConfigContext';
 import { initiatePayment } from '../services/paymentService';
 import { Product, VendorProfile, FAQ, Review, ReviewReply } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -47,6 +48,7 @@ import { toast } from 'sonner';
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { config: businessConfig } = useBusinessConfig();
   const { user, profile } = useAuth();
   const { addItem, setIsCartOpen } = useCart();
   const [product, setProduct] = useState<Product | null>(null);
@@ -59,6 +61,33 @@ export default function ProductDetail() {
   const [isDescExpanded, setIsDescExpanded] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [showARView, setShowARView] = useState(false);
+  const arViewerRef = useRef<any>(null);
+
+  const isModelValid = (url: string) => {
+    if (!url) return false;
+    const lowerUrl = url.split('?')[0].toLowerCase();
+    return lowerUrl.endsWith('.glb') || lowerUrl.endsWith('.gltf');
+  };
+
+  useEffect(() => {
+    if (showARView && product) {
+      const viewer = document.getElementById('main-ar-viewer');
+      if (viewer) {
+        const handleError = (e: any) => {
+          console.error('Model viewer error:', e);
+          if (!isModelValid(product?.model3dUrl || '')) {
+            toast.error('Faili uliyoweka siyo ya 3D (AR). Tafadhali tumia faili la .glb badala ya picha.', {
+              duration: 5000
+            });
+          } else {
+            toast.error('Imeshindwa kupakia model ya 3D. Hakikisha internet ni nzuri.');
+          }
+        };
+        viewer.addEventListener('error', handleError);
+        return () => viewer.removeEventListener('error', handleError);
+      }
+    }
+  }, [showARView, product?.model3dUrl]);
 
   // Review Form State
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
@@ -188,9 +217,6 @@ export default function ProductDetail() {
 
     fetchReviews();
     fetchFAQs();
-    if (product?.category) {
-      fetchSimilarProducts(product.category);
-    }
 
     const q = query(
       collection(db, 'reviews'),
@@ -200,12 +226,36 @@ export default function ProductDetail() {
     
     const unsub = onSnapshot(
       q, 
-      () => fetchReviews(),
+      () => {
+        fetchReviews();
+      },
       (error) => handleFirestoreError(error, OperationType.LIST, 'reviews')
     );
 
     return () => unsub();
   }, [id]);
+
+  useEffect(() => {
+    if (product?.category) {
+      const fetchSimilarProducts = async (category: string) => {
+        try {
+          const q = query(
+            collection(db, 'products'),
+            where('category', '==', category),
+            limit(6)
+          );
+          const snap = await getDocs(q);
+          const products = snap.docs
+            .map(doc => ({ id: doc.id, ...doc.data() } as Product))
+            .filter(p => p.id !== id);
+          setSimilarProducts(products);
+        } catch (error) {
+          console.error(error);
+        }
+      };
+      fetchSimilarProducts(product.category);
+    }
+  }, [id, product?.category]);
 
   // Separate effect for fetching replies when reviews change
   useEffect(() => {
@@ -260,6 +310,7 @@ export default function ProductDetail() {
     }
 
     try {
+      if (!product) return;
       const newReviewRef = await addDoc(collection(db, 'reviews'), {
         userId: user.uid,
         userName: profile?.displayName || user.displayName || 'Mteja',
@@ -760,26 +811,29 @@ export default function ProductDetail() {
     <div className="min-h-screen bg-white lg:bg-neutral-50 pb-60 lg:pb-32">
       {/* AR Viewer Overlay */}
       <AnimatePresence>
-        {showARView && product.model3dUrl && (
+        {showARView && product?.model3dUrl && (
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-black flex flex-col"
+            className="fixed inset-0 z-[2000] bg-black flex flex-col"
           >
-            <div className="p-6 flex items-center justify-between z-10 bg-gradient-to-b from-black/80 to-transparent absolute top-0 inset-x-0">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-orange-600 rounded-xl flex items-center justify-center text-white">
-                  <Box className="w-6 h-6" />
+            <div className="p-6 flex items-center justify-between z-[2001] bg-gradient-to-b from-black/90 via-black/40 to-transparent absolute top-0 inset-x-0 h-32">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-orange-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-orange-600/30">
+                  <Box className="w-7 h-7" />
                 </div>
                 <div>
-                  <h3 className="text-white font-bold leading-tight">{product.name}</h3>
-                  <p className="text-orange-500 text-[10px] font-black uppercase tracking-widest">AR Experience</p>
+                  <h3 className="text-white font-black italic text-xl uppercase tracking-tighter leading-none">{product.name}</h3>
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    <p className="text-white/60 text-[10px] font-black uppercase tracking-widest">AR Experience Live</p>
+                  </div>
                 </div>
               </div>
               <button 
                 onClick={() => setShowARView(false)}
-                className="w-12 h-12 bg-white/10 backdrop-blur-xl rounded-2xl flex items-center justify-center text-white border border-white/20"
+                className="w-12 h-12 bg-white/10 hover:bg-white text-white hover:text-black rounded-2xl flex items-center justify-center backdrop-blur-xl transition-all active:scale-90 border border-white/20"
               >
                 <X className="w-6 h-6" />
               </button>
@@ -788,19 +842,57 @@ export default function ProductDetail() {
             <div className="flex-1 relative">
               {/* @ts-ignore */}
               <model-viewer
-                src={product.model3dUrl}
+                id="main-ar-viewer"
+                src={product?.model3dUrl}
                 ar
                 ar-modes="webxr scene-viewer quick-look"
+                ar-placement="floor"
                 camera-controls
-                poster={product.imageUrl}
+                touch-action="pan-y"
+                poster={product?.imageUrl}
                 shadow-intensity="1"
                 autoplay
                 className="w-full h-full"
                 style={{ width: '100%', height: '100%' }}
               >
-                <button slot="ar-button" className="absolute bottom-10 left-1/2 -translate-x-1/2 bg-white text-black px-8 py-4 rounded-full font-black uppercase italic tracking-tighter shadow-2xl flex items-center gap-2 border-4 border-orange-600 animate-bounce">
-                  View in your space
+                <button 
+                  slot="ar-button" 
+                  onClick={() => {
+                    const viewer = document.getElementById('main-ar-viewer') as any;
+                    if (viewer && viewer.canActivateAR) {
+                      viewer.activateAR();
+                    }
+                  }}
+                  className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-white text-black px-8 py-4 rounded-full font-black uppercase italic tracking-tighter shadow-2xl flex items-center gap-3 border-4 border-orange-600 animate-bounce active:scale-95 transition-all z-[2005]"
+                >
+                  <Smartphone className="w-5 h-5 text-orange-600" />
+                  View in Space / TAZAMA AR
                 </button>
+                
+                <div slot="ar-failure" className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center p-8 text-center gap-4 z-[2003]">
+                   <div className="w-20 h-20 bg-red-600/20 rounded-full flex items-center justify-center text-red-500 mb-4">
+                      <Box className="w-10 h-10" />
+                   </div>
+                   <h4 className="text-white font-black italic text-xl uppercase tracking-tighter">AR haipatikani</h4>
+                   <p className="text-white/60 text-sm max-w-xs">
+                     {isModelValid(product?.model3dUrl || '') 
+                       ? "Simu yako huenda haisupport AR au unapaswa kutoa ruhusa ya kamera kwenye browser yako."
+                       : "Bidhaa hii haina faili halali la 3D (GLB). Huwezi kutumia picha ya PNG/JPG kwa AR."
+                     }
+                   </p>
+                   {!isModelValid(product?.model3dUrl || '') && (
+                     <div className="bg-orange-600/10 border border-orange-600/20 p-4 rounded-2xl max-w-xs">
+                        <p className="text-orange-500 text-[10px] font-black uppercase tracking-widest mb-1">Kidokezo (Tip)</p>
+                        <p className="text-white/80 text-xs text-left">Huwezi kutumia picha (PNG/JPG) kwa AR. Bidhaa hii inahitaji faili la 3D (.glb). Unaweza kutumia <b>Luma AI</b>, <b>Meshy.ai</b>, au <b>Polycam</b> kubadilisha picha kuwa GLB.</p>
+                     </div>
+                   )}
+                   <button 
+                     onClick={() => setShowARView(false)}
+                     className="mt-4 px-6 py-2 bg-white/10 hover:bg-white text-white hover:text-black rounded-xl font-bold transition-all"
+                   >
+                     Rudi nyuma
+                   </button>
+                </div>
                 {/* @ts-ignore */}
               </model-viewer>
 
@@ -837,7 +929,7 @@ export default function ProductDetail() {
                 />
               </AnimatePresence>
 
-              {product.model3dUrl && (
+              {product?.model3dUrl && businessConfig?.enableAR && (
                 <button 
                   onClick={() => setShowARView(true)}
                   className="absolute top-24 left-6 px-4 py-2 bg-orange-600/90 backdrop-blur-xl border border-orange-500/20 rounded-2xl flex items-center gap-2 text-white text-xs font-black uppercase tracking-widest shadow-2xl z-30 hover:bg-orange-600 transition-all hover:scale-105 active:scale-95"
@@ -930,14 +1022,16 @@ export default function ProductDetail() {
               </div>
 
               <div className="flex items-center gap-6">
-                <div className="flex items-center gap-2 bg-neutral-900 px-4 py-2 rounded-2xl shadow-xl shadow-neutral-900/10">
-                  <Star className="w-4 h-4 text-orange-400 fill-current" />
-                  <span className="text-sm font-black text-white">{(product.rating || vendor?.rating || 0).toFixed(1)}</span>
-                </div>
-                <div className="flex items-center gap-2 text-neutral-500">
-                  <Users className="w-4 h-4" />
-                  <span className="text-xs font-bold font-mono tracking-tighter">{(product.ratingCount || reviews.length || 0)} maoni</span>
-                </div>
+                  <div className="flex items-center gap-2 bg-neutral-900 px-4 py-2 rounded-2xl shadow-xl shadow-neutral-900/10">
+                    <Star className="w-4 h-4 text-orange-400 fill-current" />
+                    <span className="text-sm font-black text-white">
+                      {(product?.ratingCount || 0) > 0 ? (Number(product?.rating) || 0).toFixed(1) : '0.0'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-neutral-500">
+                    <Users className="w-4 h-4" />
+                    <span className="text-xs font-bold font-mono tracking-tighter">{(product?.ratingCount || 0)} maoni</span>
+                  </div>
               </div>
             </div>
 
@@ -1036,13 +1130,15 @@ export default function ProductDetail() {
 
                 <div className="flex flex-col md:flex-row gap-12 mb-12">
                   <div className="flex flex-col items-center justify-center p-8 bg-neutral-50 rounded-[2rem] min-w-[180px]">
-                    <span className="text-6xl font-black text-neutral-900 italic tracking-tighter mb-2">{(product.rating || vendor?.rating || 0).toFixed(1)}</span>
+                    <span className="text-6xl font-black text-neutral-900 italic tracking-tighter mb-2">
+                       {(product?.ratingCount || 0) > 0 ? (Number(product?.rating) || 0).toFixed(1) : '0.0'}
+                    </span>
                     <div className="flex gap-1 mb-2">
                        {[...Array(5)].map((_, i) => (
-                         <Star key={`summary-star-${i}`} className={`w-5 h-5 ${i < Math.round(product.rating || vendor?.rating || 0) ? 'text-orange-500 fill-current' : 'text-neutral-200'}`} />
+                         <Star key={`summary-star-${i}`} className={`w-5 h-5 ${i < Math.round((product?.ratingCount || 0) > 0 ? (product?.rating || 0) : 0) ? 'text-orange-500 fill-current' : 'text-neutral-200'}`} />
                        ))}
                     </div>
-                    <span className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">{reviews.length} reviews</span>
+                    <span className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">{(product?.ratingCount || 0)} reviews</span>
                   </div>
 
                   <div className="flex-1 space-y-2">

@@ -627,7 +627,7 @@ export default function VendorStore() {
                                 </Badge>
                               </div>
 
-                              {product.model3dUrl && (
+                              {product?.model3dUrl && (
                                 <div className="absolute top-4 right-4 animate-pulse">
                                   <div className="bg-orange-600 text-white p-2 rounded-full shadow-lg shadow-orange-600/40 border border-white/20">
                                     <Box className="w-3.5 h-3.5" />

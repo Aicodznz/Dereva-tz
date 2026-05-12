@@ -63,11 +63,27 @@ async function startServer() {
   // Proxy for Nominatim Geocoding
   app.get("/api/geo/search", async (req, res) => {
     const { q, limit, addressdetails } = req.query;
+    if (!q) return res.status(400).json({ error: "Missing search query" });
+
+    console.log(`[Proxy] Nominatim Search: ${q}`);
+
     try {
       const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q as string)}&format=json&limit=${limit || 5}&addressdetails=${addressdetails || 1}&email=aicodtznation@gmail.com`;
       const response = await fetch(url, {
-        headers: { 'Accept-Language': 'sw,en', 'User-Agent': 'PapoHapoSuperApp/1.0' }
+        headers: { 
+          'Accept-Language': 'sw,en', 
+          'User-Agent': 'PapoHapoSuperApp/1.0',
+          'Accept': 'application/json'
+        }
       });
+      
+      const contentType = response.headers.get("content-type");
+      if (!response.ok || !contentType?.includes("application/json")) {
+        const text = await response.text();
+        console.error("Nominatim search error status:", response.status, "body:", text.substring(0, 500));
+        return res.status(response.status || 502).json({ error: "External service error", detail: text.substring(0, 100) });
+      }
+
       const data = await response.json();
       res.json(data);
     } catch (error) {
@@ -79,11 +95,34 @@ async function startServer() {
   // Proxy for Nominatim Reverse Geocoding
   app.get("/api/geo/reverse", async (req, res) => {
     const { lat, lon, zoom } = req.query;
+    
+    console.log(`[Proxy] Nominatim Reverse: ${lat}, ${lon}`);
+
+    // Basic validation
+    const latitude = parseFloat(lat as string);
+    const longitude = parseFloat(lon as string);
+    
+    if (isNaN(latitude) || isNaN(longitude)) {
+      return res.status(400).json({ error: "Invalid coordinates provided" });
+    }
+
     try {
-      const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&zoom=${zoom || 18}&addressdetails=1&email=aicodtznation@gmail.com`;
+      const url = `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&zoom=${zoom || 18}&addressdetails=1&email=aicodtznation@gmail.com`;
       const response = await fetch(url, {
-        headers: { 'Accept-Language': 'sw,en', 'User-Agent': 'PapoHapoSuperApp/1.0' }
+        headers: { 
+          'Accept-Language': 'sw,en', 
+          'User-Agent': 'PapoHapoSuperApp/1.0',
+          'Accept': 'application/json'
+        }
       });
+      
+      const contentType = response.headers.get("content-type");
+      if (!response.ok || !contentType?.includes("application/json")) {
+        const text = await response.text();
+        console.error("Nominatim reverse error status:", response.status, "body:", text.substring(0, 500));
+        return res.status(response.status || 502).json({ error: "External service error", detail: text.substring(0, 100) });
+      }
+
       const data = await response.json();
       res.json(data);
     } catch (error) {
@@ -95,14 +134,60 @@ async function startServer() {
   // Proxy for OSRM Routing
   app.get("/api/geo/route", async (req, res) => {
     const { coords } = req.query; // format: lng,lat;lng,lat
+    
+    console.log(`[Proxy] OSRM Route: ${coords}`);
+
+    if (!coords || typeof coords !== "string" || !coords.includes(",")) {
+      return res.status(400).json({ error: "Invalid coordinates format. Expected lng,lat;lng,lat" });
+    }
+
     try {
       const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`;
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: { 'Accept': 'application/json' }
+      });
+      
+      const contentType = response.headers.get("content-type");
+      if (!response.ok || !contentType?.includes("application/json")) {
+        const text = await response.text();
+        console.error("OSRM route error status:", response.status, "body:", text.substring(0, 500));
+        return res.status(response.status || 502).json({ error: "Routing service error", detail: text.substring(0, 100) });
+      }
+
       const data = await response.json();
       res.json(data);
     } catch (error) {
       console.error("OSRM route proxy error:", error);
       res.status(500).json({ error: "Failed to fetch routing data" });
+    }
+  });
+
+  // Proxy for BigDataCloud Reverse Geocoding (Fallback)
+  app.get("/api/geo/bdc-reverse", async (req, res) => {
+    const { lat, lon } = req.query;
+    if (!lat || !lon) return res.status(400).json({ error: "Missing coordinates" });
+
+    try {
+      const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=sw`;
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'PapoHapoSuperApp/1.0',
+          'Accept': 'application/json'
+        }
+      });
+      
+      const contentType = response.headers.get("content-type");
+      if (!response.ok || !contentType?.includes("application/json")) {
+        const text = await response.text();
+        console.error("BDC reverse error status:", response.status, "body:", text.substring(0, 500));
+        return res.status(response.status || 502).json({ error: "External service error", detail: text.substring(0, 100) });
+      }
+
+      const data = await response.json();
+      res.json(data);
+    } catch (error) {
+      console.error("BDC reverse proxy error:", error);
+      res.status(500).json({ error: "Failed to fetch BDC location data" });
     }
   });
 

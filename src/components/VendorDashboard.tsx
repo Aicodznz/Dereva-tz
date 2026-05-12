@@ -121,12 +121,14 @@ const chartData = [
 ];
 
 import { useLanguage } from '../LanguageContext';
+import { useBusinessConfig } from '../BusinessConfigContext';
 import LocationPicker from './LocationPicker';
 import Chat from './Chat';
 
 export default function VendorDashboard() {
   const { profile, user } = useAuth();
   const { t } = useLanguage();
+  const { config: businessConfig } = useBusinessConfig();
   const [vendorProfile, setVendorProfile] = useState<VendorProfile | null>(null);
   const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
 
@@ -566,6 +568,8 @@ export default function VendorDashboard() {
     addOns: [],
     imageUrl: '',
     imageUrls: [],
+    rating: 0,
+    ratingCount: 0,
   });
 
   // POS Cart State
@@ -853,6 +857,7 @@ export default function VendorDashboard() {
         ownerUid: user.uid,
         status: 'pending',
         rating: 0,
+        ratingCount: 0,
         createdAt: serverTimestamp(),
       });
       // Update user profile category as well
@@ -874,7 +879,11 @@ export default function VendorDashboard() {
     
     const extension = file.name.split('.').pop()?.toLowerCase();
     if (extension !== 'glb' && extension !== 'gltf') {
-      toast.error('Tafadhali weka file la GLB au GLTF kwa AR.');
+      if (file.type.startsWith('image/')) {
+        toast.error('Hii ni picha (image). AR inahitaji faili la 3D (.glb). Huwezi kutumia picha kwa AR, picha ni ya 2D tu.');
+      } else {
+        toast.error('Tafadhali weka file la GLB au GLTF kwa AR.');
+      }
       return;
     }
 
@@ -4423,7 +4432,7 @@ export default function VendorDashboard() {
                 </div>
 
                 {/* AR & 3D Model Section */}
-                {(vendorProfile?.category === 'restaurant' || vendorProfile?.category === 'ecommerce' || vendorProfile?.category === 'grocery') && (
+                {businessConfig.enableAR && (vendorProfile?.category === 'restaurant' || vendorProfile?.category === 'ecommerce' || vendorProfile?.category === 'grocery') && (
                   <div className="space-y-3 p-4 bg-orange-600/5 rounded-2xl border border-orange-600/10">
                     <div className="flex items-center gap-2 mb-1">
                       <Box className="w-4 h-4 text-orange-600" />
@@ -4436,7 +4445,7 @@ export default function VendorDashboard() {
                           <div className="flex items-center gap-2 shrink-0">
                             <Box className="w-5 h-5 text-green-500" />
                             <span className="text-[10px] text-neutral-300 font-medium truncate max-w-[150px]">
-                              {newProduct.model3dUrl.split('/').pop()?.split('?')[0] || 'Model Linked'}
+                              {newProduct.model3dUrl?.split('/').pop()?.split('?')[0] || 'Model Linked'}
                             </span>
                           </div>
                           <Button 
@@ -4455,8 +4464,25 @@ export default function VendorDashboard() {
                             className="bg-neutral-800 border-none h-11 rounded-xl text-xs"
                             placeholder="Paste 3D Model URL (.glb / .gltf)"
                             value={newProduct.model3dUrl || ''}
-                            onChange={(e) => setNewProduct({...newProduct, model3dUrl: e.target.value})}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val && !val.split('?')[0].toLowerCase().endsWith('.glb') && !val.split('?')[0].toLowerCase().endsWith('.gltf')) {
+                                toast.warning('Warning: URL does not look like a .glb or .gltf model. AR might not work.');
+                              }
+                              setNewProduct({...newProduct, model3dUrl: val});
+                            }}
                           />
+                          <div className="mt-4 p-4 bg-orange-600/5 rounded-2xl border border-orange-600/10">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-6 h-6 bg-orange-600 rounded-lg flex items-center justify-center">
+                                <Box className="w-3.5 h-3.5 text-white" />
+                              </div>
+                              <p className="text-[10px] font-black uppercase tracking-widest text-orange-600">Tip: Image to 3D</p>
+                            </div>
+                            <p className="text-[11px] text-neutral-500 leading-relaxed">
+                              Huwezi kutumia picha (PNG/JPG) moja kwa moja kwa AR. Ili kupunguza gharama, tumia app ya <span className="font-bold text-neutral-800">Polycam</span> (kwenye simu ni bure kuanza) au pakua models za bure kutoka <span className="font-bold text-neutral-800">Sketchfab.com</span>. Luma AI pia ina sehemu ya bure ("Genie"). Hakikisha faili ni <span className="bg-neutral-800 text-white px-1 rounded mx-1">.glb</span>.
+                            </p>
+                          </div>
                           <div className="relative">
                             <input 
                               type="file" 
@@ -4483,6 +4509,9 @@ export default function VendorDashboard() {
                                 </>
                               )}
                             </Button>
+                            <p className="text-[10px] text-orange-600/80 font-bold px-1 mt-2 italic">
+                              ⚠️ Lazima iwe ni faili la .glb. Picha (PNG/JPG) hazikubaliki kwa AR.
+                            </p>
                           </div>
                         </div>
                       )}

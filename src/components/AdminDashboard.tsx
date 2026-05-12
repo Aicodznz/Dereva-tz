@@ -19,7 +19,7 @@ import {
   Bell, Plus, Trash2, Send, LayoutDashboard, Megaphone, Home,
   Users, ShoppingBag, DollarSign, MessageCircle, AlertTriangle,
   ExternalLink, Search, Ban, History, BarChart3, Settings, Info, CreditCard, Star,
-  Package, Undo2, Bike, Trophy, Wallet, MessageSquare, Globe, Clock, Coins, Loader2
+  Package, Undo2, Bike, Trophy, Wallet, MessageSquare, Globe, Clock, Coins, Loader2, Zap
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -130,6 +130,7 @@ export default function AdminDashboard() {
     country: 'Tanzania',
     address: 'Kariakoo, Dar es Salaam',
     maintenanceMode: false,
+    enableAR: true,
     currencySymbol: 'Tsh',
     timeFormat: '24h',
     // Vendor Settings
@@ -1581,6 +1582,28 @@ export default function AdminDashboard() {
                        <Switch 
                          checked={businessConfig.maintenanceMode}
                          onCheckedChange={(val) => setBusinessConfig({...businessConfig, maintenanceMode: val})}
+                       />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* AR Toggle */}
+                <Card className="rounded-[2.5rem] border-none shadow-xl bg-blue-50/50">
+                  <CardContent className="p-8 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-blue-100 flex items-center justify-center text-blue-600">
+                        <Zap className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-black uppercase italic tracking-tight">Enable AR Functionality</h3>
+                        <p className="text-xs text-neutral-500 font-medium">Washa au zima uwezo wa wateja kuona bidhaa katika AR (3D).</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                       <span className="text-xs font-bold uppercase text-neutral-400">{businessConfig.enableAR ? 'Active' : 'Disabled'}</span>
+                       <Switch 
+                         checked={businessConfig.enableAR}
+                         onCheckedChange={(val) => setBusinessConfig({...businessConfig, enableAR: val})}
                        />
                     </div>
                   </CardContent>

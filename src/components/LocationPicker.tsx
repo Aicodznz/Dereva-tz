@@ -189,7 +189,10 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
   const fetchSuggestions = async (query: string) => {
     try {
       const response = await fetch(`/api/geo/search?q=${encodeURIComponent(query)}&limit=5&addressdetails=1`);
-      if (!response.ok) throw new Error('Search failed');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Search failed with status ${response.status}`);
+      }
       const data = await response.json();
       setSuggestions(data);
     } catch (err) {
@@ -214,7 +217,10 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
   const reverseGeocode = async (lat: number, lng: number) => {
     try {
       const response = await fetch(`/api/geo/reverse?lat=${lat}&lon=${lng}&zoom=18`);
-      if (!response.ok) throw new Error('Reverse geocoding failed');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Reverse geocoding failed with status ${response.status}`);
+      }
       const data = await response.json();
       if (data && data.display_name) {
         setAddress(data.display_name);
@@ -224,7 +230,11 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
     } catch (err) {
       console.error('Reverse geocoding failed, trying fallback:', err);
       try {
-        const bdcResponse = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=sw`);
+        const bdcResponse = await fetch(`/api/geo/bdc-reverse?lat=${lat}&lon=${lng}`);
+        if (!bdcResponse.ok) {
+           const errorData = await bdcResponse.json().catch(() => ({}));
+           throw new Error(errorData.error || `BDC failed with status ${bdcResponse.status}`);
+        }
         const bdcData = await bdcResponse.json();
         const bdcAddress = bdcData.locality || bdcData.city || bdcData.principalSubdivision || 'Unknown Location';
         setAddress(bdcAddress);
@@ -241,7 +251,10 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
     setError(null);
     try {
       const response = await fetch(`/api/geo/search?q=${encodeURIComponent(query)}&limit=1`);
-      if (!response.ok) throw new Error('Search failed');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Search failed with status ${response.status}`);
+      }
       const data = await response.json();
       if (data && data.length > 0) {
         const newPos = new L.LatLng(parseFloat(data[0].lat), parseFloat(data[0].lon));
@@ -620,10 +633,10 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                                    <Star className="w-3.5 h-3.5 text-yellow-500 fill-current" />
                                    <span className="text-xs font-black text-neutral-900">
                                      {(() => {
+                                       const vCount = Number(selectedVendor.ratingCount || 0);
                                        const vRating = Number(selectedVendor.rating || 0);
-                                       const vCount = Number(selectedVendor.ratingCount || selectedVendorReviews.length || 0);
-                                       return vRating > 0 ? vRating.toFixed(1) : '0.0';
-                                     })()} ({Number(selectedVendor.ratingCount || selectedVendorReviews.length || 0)})
+                                       return vCount > 0 ? vRating.toFixed(1) : '0.0';
+                                     })()} ({Number(selectedVendor.ratingCount || 0)})
                                    </span>
                                 </div>
                              </div>

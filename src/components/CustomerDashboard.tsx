@@ -191,6 +191,11 @@ export default function CustomerDashboard() {
           if (!currentLoc.address || distMoved > 0.2) {
             try {
               const response = await fetch(`/api/geo/reverse?lat=${latitude}&lon=${longitude}&zoom=18`);
+              if (!response.ok) {
+                console.warn(`Reverse geocoding failed with status ${response.status}`);
+                setLocation(prev => ({ ...prev, lat: latitude, lng: longitude }));
+                return;
+              }
               const data = await response.json();
               if (data && data.display_name) {
                 const newLoc = {
@@ -477,7 +482,9 @@ export default function CustomerDashboard() {
                     <div className="flex items-center gap-1.5 sm:gap-3">
                       <div className="flex items-center gap-0.5 sm:gap-1.5 bg-orange-50 dark:bg-orange-950/30 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-md sm:rounded-lg">
                         <Star className="w-2.5 sm:w-3.5 h-2.5 sm:h-3.5 text-orange-600 fill-current" />
-                        <span className="text-[9px] sm:text-[11px] font-black text-orange-600">{Number(vendor.rating || 0).toFixed(1)}</span>
+                        <span className="text-[9px] sm:text-[11px] font-black text-orange-600">
+                          {Number(vendor.ratingCount || 0) > 0 ? Number(vendor.rating || 0).toFixed(1) : '0.0'}
+                        </span>
                         <span className="text-[7px] sm:text-[9px] text-orange-400 font-bold ml-0.5">({Number(vendor.ratingCount || 0)})</span>
                       </div>
                       <div className="flex items-center gap-0.5 sm:gap-1.5 bg-green-50 dark:bg-green-950/30 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-md sm:rounded-lg">
@@ -597,7 +604,7 @@ export default function CustomerDashboard() {
                       referrerPolicy="no-referrer"
                     />
                     {/* AR Badge */}
-                    {product.model3dUrl && (
+                    {product?.model3dUrl && (
                       <div className="absolute top-4 left-4 z-10 animate-pulse">
                         <div className="bg-orange-600 text-white p-1.5 rounded-full shadow-lg border border-orange-400/40">
                           <Box className="w-3 h-3" />

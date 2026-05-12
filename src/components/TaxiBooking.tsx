@@ -185,13 +185,17 @@ export default function TaxiBooking() {
   const reverseGeocode = async (lat: number, lng: number) => {
     try {
       const response = await fetch(`/api/geo/reverse?lat=${lat}&lon=${lng}`);
-      if (!response.ok) throw new Error('Reverse geocoding failed');
+      if (!response.ok) throw new Error(`Reverse geocoding failed with status ${response.status}`);
       const data = await response.json();
       return formatAddress(data);
     } catch (error) {
       console.error("Reverse geocoding failed, trying fallback:", error);
       try {
-        const bdcResponse = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=sw`);
+        const bdcResponse = await fetch(`/api/geo/bdc-reverse?lat=${lat}&lon=${lng}`);
+        if (!bdcResponse.ok) {
+           const errorData = await bdcResponse.json().catch(() => ({}));
+           throw new Error(errorData.error || `BDC failed with status ${bdcResponse.status}`);
+        }
         const bdcData = await bdcResponse.json();
         return bdcData.locality || bdcData.city || bdcData.principalSubdivision || "Unknown Area";
       } catch (bdcErr) {
@@ -319,6 +323,7 @@ export default function TaxiBooking() {
       try {
         const coords = `${driverLivePos.lng},${driverLivePos.lat};${target.lng},${target.lat}`;
         const response = await fetch(`/api/geo/route?coords=${coords}`);
+        if (!response.ok) throw new Error(`Driver routing failed with status ${response.status}`);
         const data = await response.json();
         if (data.routes?.[0]) {
           setDriverRouteCoords(data.routes[0].geometry.coordinates.map((c: any) => [c[1], c[0]]));
@@ -402,13 +407,15 @@ export default function TaxiBooking() {
     const timer = setTimeout(async () => {
       try {
         const response = await fetch(`/api/geo/search?q=${encodeURIComponent(query)}&limit=5&addressdetails=1`);
-        if (!response.ok) throw new Error('Search failed');
+        if (!response.ok) throw new Error(`Search failed with status ${response.status}`);
         const data = await response.json();
-        setSuggestions(data.map((item: any) => ({
-          display_name: formatAddress(item),
-          lat: parseFloat(item.lat),
-          lon: parseFloat(item.lon)
-        })));
+        if (Array.isArray(data)) {
+          setSuggestions(data.map((item: any) => ({
+            display_name: formatAddress(item),
+            lat: parseFloat(item.lat),
+            lon: parseFloat(item.lon)
+          })));
+        }
       } catch (error) {
         console.error("Geocoding search failed", error);
       }

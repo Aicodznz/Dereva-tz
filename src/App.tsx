@@ -90,20 +90,23 @@ import { LanguageProvider } from './LanguageContext';
 import { CartProvider } from './CartContext';
 import { ThemeProvider } from 'next-themes';
 import { HeaderProvider } from './HeaderContext';
+import { BusinessConfigProvider } from './BusinessConfigContext';
 
 export default function App() {
   return (
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={true}>
       <AuthProvider>
         <LanguageProvider>
-          <HeaderProvider>
-            <CartProvider>
-              <Router>
-                <AppContent />
-                <Toaster />
-              </Router>
-            </CartProvider>
-          </HeaderProvider>
+          <BusinessConfigProvider>
+            <HeaderProvider>
+              <CartProvider>
+                <Router>
+                  <AppContent />
+                  <Toaster />
+                </Router>
+              </CartProvider>
+            </HeaderProvider>
+          </BusinessConfigProvider>
         </LanguageProvider>
       </AuthProvider>
     </ThemeProvider>
