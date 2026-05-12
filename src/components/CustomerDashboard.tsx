@@ -308,7 +308,7 @@ export default function CustomerDashboard() {
   }, [user?.uid]);
 
   return (
-    <div className={`pb-20 space-y-8 md:space-y-12 lg:space-y-20 ${isRTL ? 'text-right' : 'text-left'}`}>
+    <div className={`pb-10 space-y-4 md:space-y-6 lg:space-y-8 ${isRTL ? 'text-right' : 'text-left'}`}>
       <LocationPicker 
         isOpen={isLocationPickerOpen}
         onClose={() => {
@@ -397,17 +397,16 @@ export default function CustomerDashboard() {
         ))}
       </div>
 
-      {/* 2. Duka za Karibu (Nearby Stores) */}
       <section>
-        <div className="flex items-center justify-between mb-8 px-2">
+        <div className="flex items-center justify-between mb-2 md:mb-6 px-2">
           <div className="flex flex-col">
-            <h3 className="font-black text-3xl text-neutral-900 tracking-tighter font-display italic uppercase">
+            <h3 className="text-xl md:text-2xl font-black text-neutral-900 dark:text-white uppercase italic tracking-tighter font-display leading-none">
                {t('nearby_stores') || 'Nearby Stores'} 
                <span className="text-orange-600 ml-2">📍</span>
             </h3>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-1.5 mt-1.5">
               <div className="w-1.5 h-1.5 rounded-full bg-orange-600 animate-pulse" />
-              <p className="text-[10px] text-neutral-500 font-black uppercase tracking-[0.2em]">{t('discover_best') || 'Discover the best around you'}</p>
+              <p className="text-[9px] md:text-sm font-black text-neutral-500/80 uppercase tracking-widest">{t('discover_best') || 'Discover_Best'}</p>
             </div>
           </div>
           <button 
@@ -420,7 +419,7 @@ export default function CustomerDashboard() {
         </div>
         <div 
           ref={storeScrollRef}
-          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 [@media(min-width:1800px)]:grid-cols-5 [@media(min-width:2100px)]:grid-cols-6 gap-6 md:gap-10"
+          className="flex sm:grid overflow-x-auto sm:overflow-visible gap-4 sm:gap-6 md:gap-10 pb-2 sm:pb-0 no-scrollbar -mx-4 px-4 snap-x snap-mandatory sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 [@media(min-width:1800px)]:grid-cols-5 [@media(min-width:2100px)]:grid-cols-6"
         >
           {vendors
             .filter(v => v.status === 'active')
@@ -432,16 +431,16 @@ export default function CustomerDashboard() {
             })
             .sort((a, b) => a.distance - b.distance)
             .map((vendor, idx) => (
-            <motion.div
-              key={`nearby-vendor-${vendor.id || `vendor-${idx}`}`}
-              initial={{ opacity: 0, x: 50, scale: 0.95 }}
-              whileInView={{ opacity: 1, x: 0, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.05 * idx, type: "spring", stiffness: 100 }}
-              whileHover={{ y: -10 }}
-              className="group cursor-pointer snap-start"
-              onClick={() => navigate(`/vendor/${vendor.id}`)}
-            >
+              <motion.div
+                key={`nearby-vendor-${vendor.id || `vendor-${idx}`}`}
+                initial={{ opacity: 0, x: 50, scale: 0.95 }}
+                whileInView={{ opacity: 1, x: 0, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.05 * idx, type: "spring", stiffness: 100 }}
+                whileHover={{ y: -10 }}
+                className="min-w-[46%] sm:min-w-0 group cursor-pointer snap-start"
+                onClick={() => navigate(`/vendor/${vendor.id}`)}
+              >
               <div className="relative h-full bg-white dark:bg-neutral-900 rounded-[1.5rem] sm:rounded-[2.5rem] border border-neutral-200/60 dark:border-white/5 shadow-[0_10px_30px_rgba(0,0,0,0.06)] sm:shadow-[0_20px_50px_rgba(0,0,0,0.06)] group-hover:shadow-[0_40px_80px_rgba(234,88,12,0.15)] transition-all duration-500 overflow-hidden group/card border-b-2 sm:border-b-4 border-b-neutral-100 active:scale-[0.98]">
                 <div className="h-20 sm:h-40 md:h-48 relative overflow-hidden">
                   <img 
@@ -517,14 +516,13 @@ export default function CustomerDashboard() {
         </div>
       </section>
 
-      {/* 3. Main Services Grid (Huduma Nyingine) */}
       <section className="px-2">
-        <div className="flex items-center justify-between mb-8">
-          <h3 className="font-black text-2xl text-neutral-900 tracking-tight font-display italic uppercase tracking-tighter">
+        <div className="flex items-center justify-between mb-3 md:mb-6">
+          <h3 className="text-xl md:text-2xl font-black text-neutral-900 dark:text-white uppercase italic tracking-tighter font-display leading-none">
              {t('explore_services') || 'Explore Services'}
           </h3>
         </div>
-        <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-10 xl:grid-cols-12 2xl:grid-cols-14 [@media(min-width:1800px)]:grid-cols-16 gap-5 md:gap-8 lg:gap-10">
+        <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-10 xl:grid-cols-12 2xl:grid-cols-14 [@media(min-width:1800px)]:grid-cols-16 gap-3 md:gap-8 lg:gap-10">
           {services.map((service, idx) => (
             <motion.div
               key={service.id || idx}
@@ -572,12 +570,15 @@ export default function CustomerDashboard() {
       </section>
 
       {/* 4. Bidhaa Maarufu (Popular Products) */}
-      <section>
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="font-black text-xl text-neutral-900 dark:text-white tracking-tight">{t('popular_products') || 'Bidhaa Maarufu'}</h3>
-          <button className="text-orange-600 text-sm font-black">{t('view_all') || 'View All'}</button>
+      <section className="px-2">
+        <div className="flex items-center justify-between mb-4 md:mb-6">
+          <h3 className="text-xl md:text-2xl font-black text-neutral-900 dark:text-white uppercase italic tracking-tighter font-display leading-none">{t('popular_products') || 'Bidhaa Maarufu'}</h3>
+          <button className="text-orange-600 text-[10px] md:text-xs font-black uppercase tracking-[0.2em] hover:translate-x-1 transition-transform flex items-center gap-1">
+            {t('view_all') || 'View All'}
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 [@media(min-width:1800px)]:grid-cols-10 gap-5 md:gap-8 lg:gap-10">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 [@media(min-width:1800px)]:grid-cols-10 gap-3 md:gap-8 lg:gap-10">
           {filteredProducts.map((product, idx) => (
             <motion.div
               key={`product-${product.id || `product-${idx}`}`}
@@ -634,12 +635,15 @@ export default function CustomerDashboard() {
       </section>
 
       {/* 5. Huduma Maarufu (Popular Services) - Vertical List for prominence */}
-      <section>
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="font-black text-xl text-neutral-900 dark:text-white tracking-tight">{t('popular_services') || 'Huduma Maarufu'}</h3>
-          <button className="text-orange-600 text-sm font-black">{t('view_all') || 'View All'}</button>
+      <section className="px-2">
+        <div className="flex items-center justify-between mb-4 md:mb-6">
+          <h3 className="text-xl md:text-2xl font-black text-neutral-900 dark:text-white uppercase italic tracking-tighter font-display leading-none">{t('popular_services') || 'Huduma Maarufu'}</h3>
+          <button className="text-orange-600 text-[10px] md:text-xs font-black uppercase tracking-[0.2em] hover:translate-x-1 transition-transform flex items-center gap-1">
+            {t('view_all') || 'View All'}
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 [@media(min-width:1800px)]:grid-cols-6 gap-8 lg:gap-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 [@media(min-width:1800px)]:grid-cols-6 gap-6 md:gap-10">
           {filteredVendors
             .map(vendor => {
               const distance = vendor.location 
@@ -657,9 +661,9 @@ export default function CustomerDashboard() {
               transition={{ delay: 0.1 * idx }}
             >
               <Link to={`/vendor/${vendor.id}`}>
-                <Card className="overflow-hidden rounded-[2.5rem] border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xl shadow-neutral-900/5 hover:shadow-orange-900/10 transition-all group border-2 hover:border-orange-500/20">
-                  <div className="flex p-5 gap-5">
-                    <div className="w-32 h-32 rounded-3xl overflow-hidden relative shrink-0 shadow-inner">
+                <Card className="overflow-hidden rounded-[2rem] sm:rounded-[2.5rem] border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xl shadow-neutral-900/5 hover:shadow-orange-900/10 transition-all group border-2 hover:border-orange-500/20">
+                  <div className="flex p-3 sm:p-5 gap-3 sm:gap-5">
+                    <div className="w-20 h-20 sm:w-32 sm:h-32 rounded-2xl sm:rounded-3xl overflow-hidden relative shrink-0 shadow-inner">
                       <img 
                         key={vendor.logoUrl || `dicebear-${vendor.businessName}`}
                         src={vendor.logoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(vendor.businessName || 'vendor')}`} 
@@ -670,22 +674,22 @@ export default function CustomerDashboard() {
                           (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(vendor.businessName || 'vendor')}`;
                         }}
                       />
-                      <div className="absolute top-2 right-2 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md px-2 py-1 rounded-xl flex items-center gap-1 shadow-sm">
-                        <Star className="w-3 h-3 text-orange-500 fill-current" />
-                        <span className="text-[10px] font-black">{vendor.rating || '4.5'}</span>
+                      <div className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md px-1 sm:px-2 py-0.5 sm:py-1 rounded-lg sm:rounded-xl flex items-center gap-1 shadow-sm">
+                        <Star className="w-2 h-2 sm:w-3 h-3 text-orange-500 fill-current" />
+                        <span className="text-[8px] sm:text-[10px] font-black">{vendor.rating || '4.5'}</span>
                       </div>
                     </div>
-                    <div className="flex-1 flex flex-col justify-between py-1">
+                    <div className="flex-1 flex flex-col justify-between py-0.5 sm:py-1 min-w-0">
                       <div>
-                        <h4 className="font-black text-lg text-neutral-900 dark:text-white group-hover:text-orange-600 transition-colors leading-tight">{vendor.businessName}</h4>
-                        <p className="text-xs text-neutral-400 mt-1 line-clamp-2 font-medium">{vendor.description || 'Bidhaa Bora na Huduma Haraka'}</p>
+                        <h4 className="font-black text-sm sm:text-lg text-neutral-900 dark:text-white group-hover:text-orange-600 transition-colors leading-tight truncate">{vendor.businessName}</h4>
+                        <p className="text-[9px] sm:text-xs text-neutral-400 mt-0.5 sm:mt-1 line-clamp-2 font-medium leading-tight">{vendor.description || 'Bidhaa Bora na Huduma Haraka'}</p>
                       </div>
-                      <div className="flex items-center justify-between mt-3">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="secondary" className="text-[9px] bg-orange-50 text-orange-600 border-none px-2.5 py-1 font-black uppercase tracking-tighter">
+                      <div className="flex flex-wrap items-center justify-between mt-2 sm:mt-3 gap-2">
+                        <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+                          <Badge variant="secondary" className="text-[7px] sm:text-[9px] bg-orange-50 text-orange-600 border-none px-1.5 sm:px-2.5 py-0.5 sm:py-1 font-black uppercase tracking-tighter shrink-0">
                             {vendor.category}
                           </Badge>
-                          <span className="text-[10px] text-neutral-400 font-bold uppercase tracking-tighter">
+                          <span className="text-[7px] sm:text-[10px] text-neutral-400 font-bold uppercase tracking-tighter truncate">
                             {vendor.distance < 0.5 
                               ? t('very_close') 
                               : vendor.distance < 1.5 
@@ -699,7 +703,7 @@ export default function CustomerDashboard() {
                         </div>
                         <motion.button 
                           whileTap={{ scale: 0.9 }}
-                          className="bg-neutral-900 text-white text-[10px] font-black px-5 py-2 rounded-full hover:bg-orange-600 transition-colors uppercase tracking-widest"
+                          className="bg-neutral-900 text-white text-[8px] sm:text-[10px] font-black px-3 sm:px-5 py-1.5 sm:py-2 rounded-full hover:bg-orange-600 transition-colors uppercase tracking-widest whitespace-nowrap"
                         >
                           {t('order') || 'Agiza'}
                         </motion.button>
