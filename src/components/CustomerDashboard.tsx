@@ -46,6 +46,27 @@ export default function CustomerDashboard() {
   const storeScrollRef = useRef<HTMLDivElement>(null);
   const bannerScrollRef = useRef<HTMLDivElement>(null);
 
+  // Geolocation
+  useEffect(() => {
+    if ("geolocation" in navigator && !localStorage.getItem('omniserve_user_location')) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const newLoc = {
+            address: t('current_location') || 'Eneo la sasa',
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          };
+          setLocation(newLoc);
+          localStorage.setItem('omniserve_user_location', JSON.stringify(newLoc));
+          setHeaderLocation(newLoc.address);
+        },
+        (error) => {
+          console.error("Geolocation error:", error);
+        }
+      );
+    }
+  }, [t, setHeaderLocation]);
+
   // Auto-slide for Nearby Stores
   useEffect(() => {
     if (vendors.length === 0) return;
@@ -150,48 +171,50 @@ export default function CustomerDashboard() {
     p.category?.toLowerCase().includes(effectiveSearchQuery.toLowerCase())
   );
 
-  // Automatic Location Prompt
+  const locationRef = useRef(location);
+  useEffect(() => {
+    locationRef.current = location;
+  }, [location]);
+
+  // Automatic Location Prompt & Watch
   useEffect(() => {
     if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
+      const watchId = navigator.geolocation.watchPosition(
         async (pos) => {
           const { latitude, longitude } = pos.coords;
-          try {
-            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1&email=aicodtznation@gmail.com`);
-            if (!response.ok) throw new Error('Nominatim failed');
-            const data = await response.json();
-            if (data && data.display_name) {
-              setLocation({
-                address: data.display_name,
-                lat: latitude,
-                lng: longitude
-              });
-            } else {
-              throw new Error('No address data');
-            }
-          } catch (err) {
-            console.error('Auto reverse geocoding failed, trying fallback:', err);
+          const currentLoc = locationRef.current;
+          
+          // Only update reverse geocode if location changed significantly (> 200m)
+          // or if address is not set yet
+          const distMoved = calculateDistance(currentLoc.lat, currentLoc.lng, latitude, longitude);
+          if (!currentLoc.address || distMoved > 0.2) {
             try {
-              const bdcResponse = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=sw`);
-              if (!bdcResponse.ok) throw new Error('BDC failed');
-              const bdcData = await bdcResponse.json();
-              const bdcAddress = bdcData.locality || bdcData.city || bdcData.principalSubdivision || 'Current Location';
-              setLocation({
-                address: bdcAddress,
-                lat: latitude,
-                lng: longitude
-              });
-            } catch (bdcErr) {
-              console.error('Final geocoding fallback failed:', bdcErr);
+              const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1&email=aicodtznation@gmail.com`);
+              const data = await response.json();
+              if (data && data.display_name) {
+                const newLoc = {
+                  address: data.display_name,
+                  lat: latitude,
+                  lng: longitude
+                };
+                setLocation(newLoc);
+                localStorage.setItem('omniserve_user_location', JSON.stringify(newLoc));
+              }
+            } catch (err) {
+              console.error('Reverse geocoding failed:', err);
               setLocation(prev => ({ ...prev, lat: latitude, lng: longitude }));
             }
+          } else if (distMoved > 0.05) {
+            // Update coords for minor moves too, just don't re-geocode address
+            setLocation(prev => ({ ...prev, lat: latitude, lng: longitude }));
           }
         },
         (err) => {
           if (err.code !== 1) console.log('Location access denied or unavailable:', err);
         },
-        { timeout: 10000 }
+        { timeout: 10000, enableHighAccuracy: true }
       );
+      return () => navigator.geolocation.clearWatch(watchId);
     }
   }, []);
 
@@ -214,51 +237,23 @@ export default function CustomerDashboard() {
       setTableSession(JSON.parse(savedSession));
     }
 
-    // Fetch Vendors
-    const fetchVendors = async () => {
-      const path = 'vendors';
+    // Fetch Products & Banners
+    const fetchData = async () => {
       try {
-        const vendorsRef = collection(db, path);
-        const q = query(vendorsRef, where('status', '==', 'active'));
-        const querySnapshot = await getDocs(q);
-        const vendorsList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VendorProfile));
-        setVendors(vendorsList);
+        const productsRef = collection(db, 'products');
+        const pQuery = limit(10);
+        const pSnap = await getDocs(query(productsRef, pQuery));
+        setProducts(pSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
+
+        const bannersRef = collection(db, 'banners');
+        const bSnap = await getDocs(query(bannersRef, where('active', '==', true)));
+        setBanners(bSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any)));
       } catch (error) {
-        handleFirestoreError(error, OperationType.GET, path);
+        console.error("Error fetching initial data:", error);
       }
     };
 
-    // Fetch Products
-    const fetchProducts = async () => {
-      const path = 'products';
-      try {
-        const productsRef = collection(db, path);
-        const q = query(productsRef, limit(10));
-        const querySnapshot = await getDocs(q);
-        const productsList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-        setProducts(productsList);
-      } catch (error) {
-        handleFirestoreError(error, OperationType.GET, path);
-      }
-    };
-
-    // Fetch Banners
-    const fetchBanners = async () => {
-      const path = 'banners';
-      try {
-        const bannersRef = collection(db, path);
-        const q = query(bannersRef, where('active', '==', true));
-        const querySnapshot = await getDocs(q);
-        const bannersList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-        setBanners(bannersList);
-      } catch (error) {
-        handleFirestoreError(error, OperationType.GET, path);
-      }
-    };
-
-    fetchVendors();
-    fetchProducts();
-    fetchBanners();
+    fetchData();
 
     // Setup Realtime subscriptions
     const vendorsPath = 'vendors';
@@ -305,7 +300,7 @@ export default function CustomerDashboard() {
       productsUnsub();
       if (notificationUnsub) notificationUnsub();
     };
-  }, [user?.uid]);
+  }, [user]);
 
   return (
     <div className={`pb-10 space-y-4 md:space-y-6 lg:space-y-8 ${isRTL ? 'text-right' : 'text-left'}`}>
@@ -397,21 +392,18 @@ export default function CustomerDashboard() {
         ))}
       </div>
 
-      <section>
-        <div className="flex items-center justify-between mb-2 md:mb-6 px-2">
-          <div className="flex flex-col">
-            <h3 className="text-xl md:text-2xl font-black text-neutral-900 dark:text-white uppercase italic tracking-tighter font-display leading-none">
+      <section className="mt-8 md:mt-12">
+        <div className="flex items-center justify-between mb-4 md:mb-8 px-2">
+          <div className="flex flex-col gap-1.5">
+            <h3 className="text-lg md:text-2xl font-black text-neutral-900 dark:text-white uppercase italic tracking-tighter font-display leading-none">
                {t('nearby_stores') || 'Nearby Stores'} 
                <span className="text-orange-600 ml-2">📍</span>
             </h3>
-            <div className="flex items-center gap-1.5 mt-1.5">
-              <div className="w-1.5 h-1.5 rounded-full bg-orange-600 animate-pulse" />
-              <p className="text-[9px] md:text-sm font-black text-neutral-500/80 uppercase tracking-widest">{t('discover_best') || 'Discover_Best'}</p>
-            </div>
+            <div className="h-1 w-10 md:w-16 bg-orange-600 rounded-full" />
           </div>
           <button 
             onClick={() => navigate('/service/all-stores')}
-            className="group flex items-center gap-2 bg-neutral-100 dark:bg-neutral-800 px-5 py-2.5 rounded-2xl text-neutral-900 dark:text-white hover:bg-orange-600 hover:text-white transition-all shadow-sm active:scale-95"
+            className="group flex items-center gap-2 bg-neutral-100 dark:bg-neutral-800 px-4 py-2 md:px-5 md:py-2.5 rounded-xl md:rounded-2xl text-neutral-900 dark:text-white hover:bg-orange-600 hover:text-white transition-all shadow-sm active:scale-95"
           >
              <span className="text-[10px] font-black uppercase tracking-widest hidden sm:block">{t('view_all_stores') || 'View All Stores'}</span>
              <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
@@ -438,7 +430,7 @@ export default function CustomerDashboard() {
                 viewport={{ once: true }}
                 transition={{ delay: 0.05 * idx, type: "spring", stiffness: 100 }}
                 whileHover={{ y: -10 }}
-                className="min-w-[46%] sm:min-w-0 group cursor-pointer snap-start"
+                className="min-w-[48%] group cursor-pointer snap-start"
                 onClick={() => navigate(`/vendor/${vendor.id}`)}
               >
               <div className="relative h-full bg-white dark:bg-neutral-900 rounded-[1.5rem] sm:rounded-[2.5rem] border border-neutral-200/60 dark:border-white/5 shadow-[0_10px_30px_rgba(0,0,0,0.06)] sm:shadow-[0_20px_50px_rgba(0,0,0,0.06)] group-hover:shadow-[0_40px_80px_rgba(234,88,12,0.15)] transition-all duration-500 overflow-hidden group/card border-b-2 sm:border-b-4 border-b-neutral-100 active:scale-[0.98]">
@@ -482,14 +474,16 @@ export default function CustomerDashboard() {
                   <div>
                     <h4 className="font-black text-xs sm:text-2xl text-neutral-900 dark:text-white group-hover:text-orange-600 transition-colors uppercase italic tracking-tighter leading-none truncate mb-1 sm:mb-2">{vendor.businessName}</h4>
                     <div className="flex items-center gap-1.5 sm:gap-3">
-                      <div className="flex items-center gap-0.5 sm:gap-1.5 bg-orange-50 dark:bg-orange-950/30 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-md sm:rounded-lg">
-                        <Star className="w-2.5 sm:w-3.5 h-2.5 sm:h-3.5 text-orange-600 fill-current" />
-                        <span className="text-[9px] sm:text-[11px] font-black text-orange-600">{vendor.rating || '4.8'}</span>
-                      </div>
+                      {(vendor.rating || 0) > 0 && (
+                        <div className="flex items-center gap-0.5 sm:gap-1.5 bg-orange-50 dark:bg-orange-950/30 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-md sm:rounded-lg">
+                          <Star className="w-2.5 sm:w-3.5 h-2.5 sm:h-3.5 text-orange-600 fill-current" />
+                          <span className="text-[9px] sm:text-[11px] font-black text-orange-600">{(vendor.rating || 0).toFixed(1)}</span>
+                        </div>
+                      )}
                       <div className="flex items-center gap-0.5 sm:gap-1.5 bg-green-50 dark:bg-green-950/30 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-md sm:rounded-lg">
                         <MapPin className="w-2.5 sm:w-3.5 h-2.5 sm:h-3.5 text-green-600" />
                         <span className="text-[9px] sm:text-[11px] font-black text-green-600 uppercase tracking-tighter">
-                          {vendor.distance < 0.5 
+                          {!vendor.location ? 'N/A' : vendor.distance < 0.5 
                             ? `${(vendor.distance * 1000).toFixed(0)}m` 
                             : `${vendor.distance.toFixed(1)}km`}
                         </span>
@@ -516,11 +510,14 @@ export default function CustomerDashboard() {
         </div>
       </section>
 
-      <section className="px-2">
-        <div className="flex items-center justify-between mb-3 md:mb-6">
-          <h3 className="text-xl md:text-2xl font-black text-neutral-900 dark:text-white uppercase italic tracking-tighter font-display leading-none">
-             {t('explore_services') || 'Explore Services'}
-          </h3>
+      <section className="px-2 mt-8 md:mt-16">
+        <div className="flex items-center justify-between mb-4 md:mb-6">
+          <div className="space-y-1">
+            <h3 className="text-xl md:text-2xl font-black text-neutral-900 dark:text-white uppercase italic tracking-tighter font-display leading-none">
+               {t('explore_services') || 'Explore Services'}
+            </h3>
+            <div className="h-1 w-10 md:w-16 bg-orange-600 rounded-full" />
+          </div>
         </div>
         <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-10 xl:grid-cols-12 2xl:grid-cols-14 [@media(min-width:1800px)]:grid-cols-16 gap-3 md:gap-8 lg:gap-10">
           {services.map((service, idx) => (
@@ -570,7 +567,7 @@ export default function CustomerDashboard() {
       </section>
 
       {/* 4. Bidhaa Maarufu (Popular Products) */}
-      <section className="px-2">
+      <section className="px-2 mt-8 md:mt-12">
         <div className="flex items-center justify-between mb-4 md:mb-6">
           <h3 className="text-xl md:text-2xl font-black text-neutral-900 dark:text-white uppercase italic tracking-tighter font-display leading-none">{t('popular_products') || 'Bidhaa Maarufu'}</h3>
           <button className="text-orange-600 text-[10px] md:text-xs font-black uppercase tracking-[0.2em] hover:translate-x-1 transition-transform flex items-center gap-1">
@@ -634,16 +631,21 @@ export default function CustomerDashboard() {
         </div>
       </section>
 
-      {/* 5. Huduma Maarufu (Popular Services) - Vertical List for prominence */}
-      <section className="px-2">
-        <div className="flex items-center justify-between mb-4 md:mb-6">
-          <h3 className="text-xl md:text-2xl font-black text-neutral-900 dark:text-white uppercase italic tracking-tighter font-display leading-none">{t('popular_services') || 'Huduma Maarufu'}</h3>
-          <button className="text-orange-600 text-[10px] md:text-xs font-black uppercase tracking-[0.2em] hover:translate-x-1 transition-transform flex items-center gap-1">
+      {/* 5. Huduma Maarufu (Popular Services) - Improved Modern Polish */}
+      <section className="px-2 mt-8 md:mt-16">
+        <div className="flex items-center justify-between mb-8 md:mb-12">
+          <div className="space-y-1">
+            <h3 className="text-xl md:text-3xl font-black text-neutral-900 dark:text-white uppercase italic tracking-tighter font-display leading-none">{t('popular_services') || 'Huduma Maarufu'}</h3>
+            <div className="h-1 w-12 md:w-20 bg-orange-600 rounded-full" />
+          </div>
+          <button className="text-orange-600 text-[10px] md:text-xs font-black uppercase tracking-[0.2em] hover:translate-x-2 transition-transform flex items-center gap-2 group">
             {t('view_all') || 'View All'}
-            <ChevronRight className="w-3.5 h-3.5" />
+            <ChevronRight className="w-4 h-4" />
           </button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 [@media(min-width:1800px)]:grid-cols-6 gap-6 md:gap-10">
+        <div 
+          className="flex sm:grid overflow-x-auto sm:overflow-visible gap-4 sm:gap-8 pb-4 sm:pb-0 no-scrollbar -mx-4 px-4 snap-x snap-mandatory sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
+        >
           {filteredVendors
             .map(vendor => {
               const distance = vendor.location 
@@ -655,58 +657,55 @@ export default function CustomerDashboard() {
             .map((vendor, idx) => (
             <motion.div
               key={`popular-restaurant-${vendor.id || `vendor-pop-${idx}`}`}
-              initial={{ opacity: 0, scale: 0.95 }}
-              whileInView={{ opacity: 1, scale: 1 }}
+              initial={{ opacity: 0, y: 50 }}
+              whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: 0.1 * idx }}
+              transition={{ delay: 0.1 * idx, duration: 0.6 }}
+              className="min-w-[85%] sm:min-w-0 snap-start"
             >
               <Link to={`/vendor/${vendor.id}`}>
-                <Card className="overflow-hidden rounded-[2rem] sm:rounded-[2.5rem] border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xl shadow-neutral-900/5 hover:shadow-orange-900/10 transition-all group border-2 hover:border-orange-500/20">
-                  <div className="flex p-3 sm:p-5 gap-3 sm:gap-5">
-                    <div className="w-20 h-20 sm:w-32 sm:h-32 rounded-2xl sm:rounded-3xl overflow-hidden relative shrink-0 shadow-inner">
+                <Card className="overflow-hidden rounded-[2.5rem] md:rounded-[3.5rem] border-neutral-100 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-[0_40px_80px_rgba(0,0,0,0.08)] hover:shadow-orange-600/20 transition-all duration-700 group border-2 hover:border-orange-500/10 h-full">
+                  <div className="flex p-4 sm:p-8 gap-4 sm:gap-8 items-center h-full">
+                    <div className="w-20 h-20 sm:w-40 sm:h-40 rounded-[1.5rem] sm:rounded-[3rem] overflow-hidden relative shrink-0 shadow-xl border-2 sm:border-4 border-white dark:border-neutral-800">
                       <img 
                         key={vendor.logoUrl || `dicebear-${vendor.businessName}`}
                         src={vendor.logoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(vendor.businessName || 'vendor')}`} 
                         alt={vendor.businessName} 
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" 
                         referrerPolicy="no-referrer"
                         onError={(e) => {
                           (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(vendor.businessName || 'vendor')}`;
                         }}
                       />
-                      <div className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md px-1 sm:px-2 py-0.5 sm:py-1 rounded-lg sm:rounded-xl flex items-center gap-1 shadow-sm">
-                        <Star className="w-2 h-2 sm:w-3 h-3 text-orange-500 fill-current" />
-                        <span className="text-[8px] sm:text-[10px] font-black">{vendor.rating || '4.5'}</span>
-                      </div>
-                    </div>
-                    <div className="flex-1 flex flex-col justify-between py-0.5 sm:py-1 min-w-0">
-                      <div>
-                        <h4 className="font-black text-sm sm:text-lg text-neutral-900 dark:text-white group-hover:text-orange-600 transition-colors leading-tight truncate">{vendor.businessName}</h4>
-                        <p className="text-[9px] sm:text-xs text-neutral-400 mt-0.5 sm:mt-1 line-clamp-2 font-medium leading-tight">{vendor.description || 'Bidhaa Bora na Huduma Haraka'}</p>
-                      </div>
-                      <div className="flex flex-wrap items-center justify-between mt-2 sm:mt-3 gap-2">
-                        <div className="flex items-center gap-1 sm:gap-2 min-w-0">
-                          <Badge variant="secondary" className="text-[7px] sm:text-[9px] bg-orange-50 text-orange-600 border-none px-1.5 sm:px-2.5 py-0.5 sm:py-1 font-black uppercase tracking-tighter shrink-0">
-                            {vendor.category}
-                          </Badge>
-                          <span className="text-[7px] sm:text-[10px] text-neutral-400 font-bold uppercase tracking-tighter truncate">
-                            {vendor.distance < 0.5 
-                              ? t('very_close') 
-                              : vendor.distance < 1.5 
-                              ? t('close') 
-                              : vendor.distance < 4 
-                              ? t('far_bit') 
-                              : vendor.distance < 8 
-                              ? t('far') 
-                              : t('extremely_far')}
-                          </span>
+                      {(vendor.rating || 0) > 0 ? (
+                        <div className="absolute top-2 right-2 sm:top-4 sm:right-4 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md px-2 md:px-3 py-1 rounded-xl flex items-center gap-1.5 shadow-xl">
+                          <Star className="w-3 h-3 text-orange-500 fill-current" />
+                          <span className="text-[10px] md:text-sm font-black">{(vendor.rating || 0).toFixed(1)}</span>
                         </div>
-                        <motion.button 
-                          whileTap={{ scale: 0.9 }}
-                          className="bg-neutral-900 text-white text-[8px] sm:text-[10px] font-black px-3 sm:px-5 py-1.5 sm:py-2 rounded-full hover:bg-orange-600 transition-colors uppercase tracking-widest whitespace-nowrap"
+                      ) : null}
+                    </div>
+                    <div className="flex-1 flex flex-col justify-center min-w-0 space-y-3">
+                       <Badge className="w-fit bg-orange-50 dark:bg-orange-950/30 text-orange-600 border-none text-[8px] sm:text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full">
+                        {vendor.category}
+                      </Badge>
+                      <h4 className="font-black text-lg sm:text-3xl text-neutral-900 dark:text-white group-hover:text-orange-600 transition-colors uppercase italic tracking-tighter leading-none truncate">
+                        {vendor.businessName}
+                      </h4>
+                      <p className="text-[10px] sm:text-sm text-neutral-400 font-medium italic truncate">
+                         {vendor.address || 'Eneo Halikujulikana'}
+                      </p>
+                      <div className="flex items-center gap-4 pt-2">
+                        <div className="flex items-center gap-2 text-orange-600">
+                           <MapPin className="w-4 h-4" />
+                           <span className="text-[10px] font-black uppercase tracking-widest">
+                             {!vendor.location ? 'N/A' : vendor.distance < 0.5 ? t('very_close') : vendor.distance.toFixed(1) + 'km'}
+                           </span>
+                        </div>
+                        <motion.div 
+                          className="h-10 w-10 sm:h-12 sm:w-12 bg-neutral-900 group-hover:bg-orange-600 rounded-2xl flex items-center justify-center text-white transition-colors duration-500 ml-auto"
                         >
-                          {t('order') || 'Agiza'}
-                        </motion.button>
+                           <ChevronRight className="w-5 h-5" />
+                        </motion.div>
                       </div>
                     </div>
                   </div>
@@ -714,11 +713,6 @@ export default function CustomerDashboard() {
               </Link>
             </motion.div>
           ))}
-          {vendors.length === 0 && (
-            <div className="py-12 text-center bg-neutral-50 dark:bg-neutral-900/50 rounded-3xl border border-dashed border-neutral-200 dark:border-neutral-800 col-span-full">
-              <p className="text-neutral-400 text-sm italic">{t('no_restaurants_found') || 'Hakuna migahawa iliyopatikana karibu nawe.'}</p>
-            </div>
-          )}
         </div>
       </section>
       <section className="pt-12">

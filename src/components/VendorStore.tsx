@@ -69,6 +69,27 @@ export default function VendorStore() {
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');
   const [tableSession, setTableSession] = useState<any>(null);
+  const [location] = useState(() => {
+    const saved = localStorage.getItem('omniserve_user_location');
+    return saved ? JSON.parse(saved) : { lat: -6.7924, lng: 39.2083 };
+  });
+
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371; // Earth radius in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  const getDistance = () => {
+    if (!vendor?.location) return null;
+    return calculateDistance(location.lat, location.lng, vendor.location.lat, vendor.location.lng);
+  };
 
   useEffect(() => {
     const savedSession = localStorage.getItem('papo_hapo_table_session');
@@ -194,7 +215,7 @@ export default function VendorStore() {
     }
 
     try {
-      await addDoc(collection(db, 'reviews'), {
+      const reviewData = {
         userId: user.uid,
         userName: user.displayName || 'Mteja',
         userPhoto: user.photoURL || '',
@@ -205,7 +226,37 @@ export default function VendorStore() {
         images: reviewImages,
         likes: [],
         createdAt: new Date().toISOString()
-      });
+      };
+      
+      const newReviewRef = await addDoc(collection(db, 'reviews'), reviewData);
+
+      // Update Vendor Rating
+      if (id) {
+        const q = query(
+          collection(db, 'reviews'),
+          where('targetId', '==', id),
+          where('targetType', '==', 'vendor')
+        );
+        const snap = await getDocs(q);
+        const reviewsData = snap.docs.map(doc => doc.data());
+        
+        // Ensure we don't double count if Firestore is instant
+        const alreadyInSnap = snap.docs.some(d => d.id === newReviewRef.id);
+        const allRatings = reviewsData.map(r => Number(r.rating) || 0);
+        
+        if (!alreadyInSnap) {
+          allRatings.push(Number(rating));
+        }
+
+        const newRating = allRatings.length > 0 
+          ? allRatings.reduce((acc, curr) => acc + curr, 0) / allRatings.length 
+          : Number(rating);
+        
+        await updateDoc(doc(db, 'vendors', id), {
+          rating: parseFloat(newRating.toFixed(1)),
+          ratingCount: allRatings.length
+        });
+      }
 
       toast.success('Asante kwa maoni yako!');
       setIsReviewModalOpen(false);
@@ -240,6 +291,31 @@ export default function VendorStore() {
   const handleDeleteReview = async (reviewId: string) => {
     try {
       await deleteDoc(doc(db, 'reviews', reviewId));
+      
+      // Update Vendor Rating after delete
+      if (id) {
+        const q = query(
+          collection(db, 'reviews'),
+          where('targetId', '==', id),
+          where('targetType', '==', 'vendor')
+        );
+        const snap = await getDocs(q);
+        const reviewsData = snap.docs.map(doc => doc.data());
+        
+        if (reviewsData.length > 0) {
+          const newRating = reviewsData.reduce((acc, r) => acc + (r.rating || 0), 0) / reviewsData.length;
+          await updateDoc(doc(db, 'vendors', id), {
+            rating: parseFloat(newRating.toFixed(1)),
+            ratingCount: reviewsData.length
+          });
+        } else {
+          await updateDoc(doc(db, 'vendors', id), {
+            rating: 0,
+            ratingCount: 0
+          });
+        }
+      }
+
       toast.success('Maoni yamefutwa');
     } catch (error) {
       console.error('Delete review error:', error);
@@ -285,11 +361,11 @@ export default function VendorStore() {
     if (vRating > 0) {
       return vRating.toFixed(1);
     }
-    if (reviews.length > 0) {
+    if (reviews && reviews.length > 0) {
       const sum = reviews.reduce((acc, r) => acc + parseFloat(r.rating?.toString() || '0'), 0);
       return (sum / reviews.length).toFixed(1);
     }
-    return '4.5';
+    return '0';
   };
 
   const formatDate = (date: any) => {
@@ -401,23 +477,27 @@ export default function VendorStore() {
             >
               <MapPin className="w-4 h-4 md:w-6 md:h-6 group-hover:scale-110 transition-transform" />
               <span className="text-[12px] md:text-[16px] font-black uppercase tracking-tight leading-none">
-                {vendor.distance || '6.9'}KM
+                {getDistance() === null ? 'N/A' : getDistance()! < 0.5 
+                  ? `${(getDistance()! * 1000).toFixed(0)}M` 
+                  : `${getDistance()!.toFixed(1)}KM`}
               </span>
             </a>
           </div>
 
           <div className="bg-white dark:bg-neutral-900 shadow-2xl shadow-black/5 rounded-[2.5rem] overflow-hidden border border-neutral-100 dark:border-white/5 p-4 sm:p-6 md:p-12">
             {/* Rating - Top Right */}
-            <div className="absolute top-1.5 right-4 md:top-12 md:right-12">
-              <div className="flex items-center gap-1 opacity-95">
-                 <span className="text-[10px] md:text-base font-black text-neutral-900 dark:text-white uppercase tracking-tighter">Star</span>
-                 <Star className="w-3 h-3 md:w-6 md:h-6 text-yellow-400 fill-current" />
-                 <span className="text-xs md:text-2xl font-black text-neutral-900 dark:text-white">
-                   {getDisplayRating()}
-                 </span>
-                 <span className="text-neutral-400 font-bold text-[9px] md:text-base">({reviews.length})</span>
+            {parseFloat(getDisplayRating()) > 0 && (
+              <div className="absolute top-1.5 right-4 md:top-12 md:right-12">
+                <div className="flex items-center gap-1 opacity-95">
+                   <span className="text-[10px] md:text-base font-black text-neutral-900 dark:text-white uppercase tracking-tighter">Star</span>
+                   <Star className="w-3 h-3 md:w-6 md:h-6 text-yellow-400 fill-current" />
+                   <span className="text-xs md:text-2xl font-black text-neutral-900 dark:text-white">
+                     {getDisplayRating()}
+                   </span>
+                   <span className="text-neutral-400 font-bold text-[9px] md:text-base">({reviews.length})</span>
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="flex flex-row items-center md:items-start gap-2 md:gap-8">
               {/* Logo */}
@@ -511,7 +591,7 @@ export default function VendorStore() {
 
       <div id="store-content" className="max-w-6xl mx-auto px-4 md:px-6"> 
         {/* Tabs */}
-        <div className="flex gap-10 border-b border-neutral-100 dark:border-white/5 mt-12 md:mt-20 overflow-x-auto no-scrollbar relative">
+        <div className="flex gap-10 border-b border-neutral-100 dark:border-white/5 mt-6 md:mt-12 overflow-x-auto no-scrollbar relative">
               {[
                 { id: 'products', label: t('products') || 'Bidhaa', icon: ShoppingBag },
               ].map((tab) => (

@@ -18,7 +18,7 @@ import {
   Check, X, ShieldAlert, Store, UserCheck, Image as ImageIcon, 
   Bell, Plus, Trash2, Send, LayoutDashboard, Megaphone, Home,
   Users, ShoppingBag, DollarSign, MessageCircle, AlertTriangle,
-  ExternalLink, Search, Ban, History, BarChart3, Settings, Info, CreditCard,
+  ExternalLink, Search, Ban, History, BarChart3, Settings, Info, CreditCard, Star,
   Package, Undo2, Bike, Trophy, Wallet, MessageSquare, Globe, Clock, Coins, Loader2
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -1119,6 +1119,14 @@ export default function AdminDashboard() {
                                <div>
                                   <h4 className="font-black text-lg text-neutral-900 dark:text-white group-hover:text-orange-600 transition-colors uppercase italic leading-none">{v.businessName}</h4>
                                   <p className="text-xs text-neutral-400 mt-1">{v.address}</p>
+                                  {v.rating > 0 && (
+                                    <div className="flex items-center gap-1.5 mt-2">
+                                       <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
+                                       <span className="text-[10px] font-bold text-neutral-600 dark:text-neutral-400">
+                                          {(v.rating || 0).toFixed(1)} {v.ratingCount ? `(${v.ratingCount})` : ''}
+                                       </span>
+                                    </div>
+                                  )}
                                   <Badge className="mt-2 bg-neutral-100 text-neutral-500 border-none font-bold uppercase text-[8px]">{v.category}</Badge>
                                </div>
                             </div>

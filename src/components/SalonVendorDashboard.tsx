@@ -434,10 +434,12 @@ export default function SalonVendorDashboard() {
                             </div>
                           </div>
                           <div className="text-right">
-                            <div className="flex items-center gap-1">
-                              <Star size={12} className="text-yellow-500 fill-yellow-500" />
-                              <span className="text-sm font-bold">{s.rating || '5.0'}</span>
-                            </div>
+                            {s.rating > 0 && (
+                              <div className="flex items-center gap-1">
+                                <Star size={12} className="text-yellow-500 fill-yellow-500" />
+                                <span className="text-sm font-bold">{(s.rating || 0).toFixed(1)}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       ))}

@@ -321,10 +321,12 @@ export default function ServiceDetail() {
                               <div>
                                 <h4 className="font-black text-[10px] min-[400px]:text-[12px] sm:text-2xl text-neutral-900 dark:text-white group-hover:text-orange-600 transition-colors uppercase italic tracking-tighter leading-none truncate mb-1 sm:mb-2">{vendor.businessName}</h4>
                                 <div className="flex items-center gap-1 sm:gap-3">
-                                  <div className="flex items-center gap-0.5 sm:gap-1.5 bg-orange-50 dark:bg-orange-950/30 px-1 sm:px-2 py-0.5 rounded-sm">
-                                    <Star className="w-2 sm:w-3.5 h-2 sm:h-3.5 text-orange-600 fill-current" />
-                                    <span className="text-[8px] sm:text-[11px] font-black text-orange-600">{vendor.rating || '4.8'}</span>
-                                  </div>
+                                  {(vendor.rating || 0) > 0 && (
+                                    <div className="flex items-center gap-0.5 sm:gap-1.5 bg-orange-50 dark:bg-orange-950/30 px-1 sm:px-2 py-0.5 rounded-sm">
+                                      <Star className="w-2 sm:w-3.5 h-2 sm:h-3.5 text-orange-600 fill-current" />
+                                      <span className="text-[8px] sm:text-[11px] font-black text-orange-600">{(vendor.rating || 0).toFixed(1)}</span>
+                                    </div>
+                                  )}
                                   <div className="flex items-center gap-0.5 sm:gap-1.5 bg-green-50 dark:bg-green-950/30 px-1 sm:px-2 py-0.5 rounded-sm">
                                     <MapPin className="w-2 sm:w-3.5 h-2 sm:h-3.5 text-green-600" />
                                     <span className="text-[8px] sm:text-[11px] font-black text-green-600 uppercase tracking-tighter">
