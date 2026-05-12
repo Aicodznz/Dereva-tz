@@ -190,7 +190,7 @@ export default function CustomerDashboard() {
           const distMoved = calculateDistance(currentLoc.lat, currentLoc.lng, latitude, longitude);
           if (!currentLoc.address || distMoved > 0.2) {
             try {
-              const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1&email=aicodtznation@gmail.com`);
+              const response = await fetch(`/api/geo/reverse?lat=${latitude}&lon=${longitude}&zoom=18`);
               const data = await response.json();
               if (data && data.display_name) {
                 const newLoc = {

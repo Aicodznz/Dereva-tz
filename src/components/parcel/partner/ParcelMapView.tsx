@@ -47,14 +47,16 @@ const ParcelMapView: React.FC<Props> = ({ destination, isDashed = false, routeCo
 
   useEffect(() => {
     if (destination && partnerLoc) {
-      fetch(`https://router.project-osrm.org/route/v1/driving/${partnerLoc.lng},${partnerLoc.lat};${destination.lng},${destination.lat}?overview=full&geometries=geojson`)
+      const coords = `${partnerLoc.lng},${partnerLoc.lat};${destination.lng},${destination.lat}`;
+      fetch(`/api/geo/route?coords=${coords}`)
         .then(res => res.json())
         .then(data => {
           if (data.routes && data.routes[0]) {
             const coords = data.routes[0].geometry.coordinates.map((c: any) => [c[1], c[0]]);
             setRoute(coords);
           }
-        });
+        })
+        .catch(err => console.error("Parcel routing failed", err));
     } else {
       setRoute([]);
     }

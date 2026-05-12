@@ -1345,54 +1345,56 @@ export default function ProductDetail() {
       </AnimatePresence>
 
       {/* 6. Action Bar - Positioned above mobile nav with modern floating card */}
-      <div className="fixed bottom-[115px] md:bottom-12 left-0 right-0 px-4 md:px-0 z-[999]">
-        <motion.div 
-          initial={{ y: 50, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          className="max-w-3xl mx-auto bg-white/80 dark:bg-neutral-900/80 backdrop-blur-3xl border border-white/20 dark:border-neutral-800 p-4 md:p-6 rounded-[2.5rem] shadow-[0_40px_80px_rgba(0,0,0,0.15)] flex gap-4 md:gap-8 items-center"
-        >
-          <div className="flex items-center bg-neutral-100/50 dark:bg-black/20 rounded-[1.75rem] p-1.5 shrink-0 border border-neutral-200/50 dark:border-neutral-800">
-            <motion.button 
-              whileTap={{ scale: 0.8 }}
-              onClick={() => setQuantity(Math.max(1, quantity - 1))}
-              className="w-12 h-12 md:w-16 md:h-16 flex items-center justify-center text-neutral-400 hover:text-orange-600 hover:bg-white dark:hover:bg-neutral-800 rounded-2xl transition-all shadow-sm"
-            >
-              <Minus className="w-5 h-5" />
-            </motion.button>
-            <span className="w-12 md:w-18 text-center font-black text-2xl md:text-3xl text-neutral-900 dark:text-white tabular-nums italic tracking-tighter font-display">{quantity}</span>
-            <motion.button 
-              whileTap={{ scale: 0.8 }}
-              onClick={() => setQuantity(quantity + 1)}
-              className="w-12 h-12 md:w-16 md:h-16 flex items-center justify-center text-neutral-400 hover:text-orange-600 hover:bg-white dark:hover:bg-neutral-800 rounded-2xl transition-all shadow-sm"
-            >
-              <Plus className="w-5 h-5" />
-            </motion.button>
-          </div>
-          
-          <Button 
-            onClick={() => {
-              if (product) {
-                addItem({ ...product, quantity });
-                toast.success(`${product.name} imeongezwa kwenye kikapu!`);
-              }
-            }}
-            className="flex-1 h-14 md:h-20 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-950 dark:text-white rounded-[1.75rem] font-black text-lg md:text-xl border border-neutral-200 dark:border-neutral-800 gap-4 mt-1 transition-all duration-300 uppercase italic tracking-tighter font-display"
+      {!showARView && (
+        <div className="fixed bottom-[115px] md:bottom-12 left-0 right-0 px-4 md:px-0 z-[999]">
+          <motion.div 
+            initial={{ y: 50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="max-w-3xl mx-auto bg-white/80 dark:bg-neutral-900/80 backdrop-blur-3xl border border-white/20 dark:border-neutral-800 p-4 md:p-6 rounded-[2.5rem] shadow-[0_40px_80px_rgba(0,0,0,0.15)] flex gap-4 md:gap-8 items-center"
           >
-            <ShoppingCart className="w-6 h-6 md:w-8 md:h-8" />
-            <span className="truncate">Weka Kikapuni</span>
-          </Button>
+            <div className="flex items-center bg-neutral-100/50 dark:bg-black/20 rounded-[1.75rem] p-1.5 shrink-0 border border-neutral-200/50 dark:border-neutral-800">
+              <motion.button 
+                whileTap={{ scale: 0.8 }}
+                onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                className="w-12 h-12 md:w-16 md:h-16 flex items-center justify-center text-neutral-400 hover:text-orange-600 hover:bg-white dark:hover:bg-neutral-800 rounded-2xl transition-all shadow-sm"
+              >
+                <Minus className="w-5 h-5" />
+              </motion.button>
+              <span className="w-12 md:w-18 text-center font-black text-2xl md:text-3xl text-neutral-900 dark:text-white tabular-nums italic tracking-tighter font-display">{quantity}</span>
+              <motion.button 
+                whileTap={{ scale: 0.8 }}
+                onClick={() => setQuantity(quantity + 1)}
+                className="w-12 h-12 md:w-16 md:h-16 flex items-center justify-center text-neutral-400 hover:text-orange-600 hover:bg-white dark:hover:bg-neutral-800 rounded-2xl transition-all shadow-sm"
+              >
+                <Plus className="w-5 h-5" />
+              </motion.button>
+            </div>
+            
+            <Button 
+              onClick={() => {
+                if (product) {
+                  addItem({ ...product, quantity });
+                  toast.success(`${product.name} imeongezwa kwenye kikapu!`);
+                }
+              }}
+              className="flex-1 h-14 md:h-20 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-950 dark:text-white rounded-[1.75rem] font-black text-lg md:text-xl border border-neutral-200 dark:border-neutral-800 gap-4 mt-1 transition-all duration-300 uppercase italic tracking-tighter font-display"
+            >
+              <ShoppingCart className="w-6 h-6 md:w-8 md:h-8" />
+              <span className="truncate">Weka Kikapuni</span>
+            </Button>
 
-          <Button 
-            onClick={handleBuyNow}
-            className="flex-[1.5] h-14 md:h-20 bg-gradient-to-br from-orange-500 via-orange-600 to-orange-700 hover:scale-[1.02] active:scale-[0.98] text-white rounded-[1.75rem] font-black text-lg md:text-2xl shadow-[0_20px_50px_rgba(234,88,12,0.4)] gap-4 transition-all duration-300 uppercase italic tracking-tighter font-display"
-          >
-            <Smartphone className="w-6 h-6 md:w-8 md:h-8" />
-            <span className="truncate">
-               Agiza Sasa
-            </span>
-          </Button>
-        </motion.div>
-      </div>
+            <Button 
+              onClick={handleBuyNow}
+              className="flex-[1.5] h-14 md:h-20 bg-gradient-to-br from-orange-500 via-orange-600 to-orange-700 hover:scale-[1.02] active:scale-[0.98] text-white rounded-[1.75rem] font-black text-lg md:text-2xl shadow-[0_20px_50px_rgba(234,88,12,0.4)] gap-4 transition-all duration-300 uppercase italic tracking-tighter font-display"
+            >
+              <Smartphone className="w-6 h-6 md:w-8 md:h-8" />
+              <span className="truncate">
+                 Agiza Sasa
+              </span>
+            </Button>
+          </motion.div>
+        </div>
+      )}
 
       {/* Checkout Modal */}
       <AnimatePresence>

@@ -26,7 +26,7 @@ export function useRouting(pickup: [number, number], destination: [number, numbe
         // OSRM expects [lon, lat]
         const pickupStr = `${pickup[1]},${pickup[0]}`;
         const destStr = `${destination[1]},${destination[0]}`;
-        const url = `https://router.project-osrm.org/route/v1/driving/${pickupStr};${destStr}?overview=full&geometries=geojson`;
+        const url = `/api/geo/route?coords=${pickupStr};${destStr}`;
 
         const response = await fetch(url);
         if (!response.ok) throw new Error('OSRM request failed');

@@ -188,7 +188,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
 
   const fetchSuggestions = async (query: string) => {
     try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1&email=aicodtznation@gmail.com`);
+      const response = await fetch(`/api/geo/search?q=${encodeURIComponent(query)}&limit=5&addressdetails=1`);
       if (!response.ok) throw new Error('Search failed');
       const data = await response.json();
       setSuggestions(data);
@@ -213,7 +213,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
   // Reverse geocoding function
   const reverseGeocode = async (lat: number, lng: number) => {
     try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1&email=aicodtznation@gmail.com`);
+      const response = await fetch(`/api/geo/reverse?lat=${lat}&lon=${lng}&zoom=18`);
       if (!response.ok) throw new Error('Reverse geocoding failed');
       const data = await response.json();
       if (data && data.display_name) {
@@ -240,7 +240,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
     setIsSearching(true);
     setError(null);
     try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&email=aicodtznation@gmail.com`);
+      const response = await fetch(`/api/geo/search?q=${encodeURIComponent(query)}&limit=1`);
       if (!response.ok) throw new Error('Search failed');
       const data = await response.json();
       if (data && data.length > 0) {

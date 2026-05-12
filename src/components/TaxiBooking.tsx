@@ -184,9 +184,7 @@ export default function TaxiBooking() {
 
   const reverseGeocode = async (lat: number, lng: number) => {
     try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&email=aicodtznation@gmail.com`, {
-        headers: { 'Accept-Language': 'sw,en' }
-      });
+      const response = await fetch(`/api/geo/reverse?lat=${lat}&lon=${lng}`);
       if (!response.ok) throw new Error('Reverse geocoding failed');
       const data = await response.json();
       return formatAddress(data);
@@ -319,7 +317,8 @@ export default function TaxiBooking() {
       const target = (activeRide.status === 'on_trip') ? activeRide.destination : activeRide.pickup;
       
       try {
-        const response = await fetch(`https://router.project-osrm.org/route/v1/driving/${driverLivePos.lng},${driverLivePos.lat};${target.lng},${target.lat}?overview=full&geometries=geojson`);
+        const coords = `${driverLivePos.lng},${driverLivePos.lat};${target.lng},${target.lat}`;
+        const response = await fetch(`/api/geo/route?coords=${coords}`);
         const data = await response.json();
         if (data.routes?.[0]) {
           setDriverRouteCoords(data.routes[0].geometry.coordinates.map((c: any) => [c[1], c[0]]));
@@ -402,9 +401,7 @@ export default function TaxiBooking() {
 
     const timer = setTimeout(async () => {
       try {
-        const response = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&addressdetails=1&email=aicodtznation@gmail.com`, {
-          headers: { 'Accept-Language': 'en' }
-        });
+        const response = await fetch(`/api/geo/search?q=${encodeURIComponent(query)}&limit=5&addressdetails=1`);
         if (!response.ok) throw new Error('Search failed');
         const data = await response.json();
         setSuggestions(data.map((item: any) => ({

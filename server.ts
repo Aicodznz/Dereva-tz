@@ -60,6 +60,52 @@ async function startServer() {
     }
   });
 
+  // Proxy for Nominatim Geocoding
+  app.get("/api/geo/search", async (req, res) => {
+    const { q, limit, addressdetails } = req.query;
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q as string)}&format=json&limit=${limit || 5}&addressdetails=${addressdetails || 1}&email=aicodtznation@gmail.com`;
+      const response = await fetch(url, {
+        headers: { 'Accept-Language': 'sw,en', 'User-Agent': 'PapoHapoSuperApp/1.0' }
+      });
+      const data = await response.json();
+      res.json(data);
+    } catch (error) {
+      console.error("Nominatim search proxy error:", error);
+      res.status(500).json({ error: "Failed to fetch location data" });
+    }
+  });
+
+  // Proxy for Nominatim Reverse Geocoding
+  app.get("/api/geo/reverse", async (req, res) => {
+    const { lat, lon, zoom } = req.query;
+    try {
+      const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&zoom=${zoom || 18}&addressdetails=1&email=aicodtznation@gmail.com`;
+      const response = await fetch(url, {
+        headers: { 'Accept-Language': 'sw,en', 'User-Agent': 'PapoHapoSuperApp/1.0' }
+      });
+      const data = await response.json();
+      res.json(data);
+    } catch (error) {
+      console.error("Nominatim reverse proxy error:", error);
+      res.status(500).json({ error: "Failed to fetch address data" });
+    }
+  });
+
+  // Proxy for OSRM Routing
+  app.get("/api/geo/route", async (req, res) => {
+    const { coords } = req.query; // format: lng,lat;lng,lat
+    try {
+      const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`;
+      const response = await fetch(url);
+      const data = await response.json();
+      res.json(data);
+    } catch (error) {
+      console.error("OSRM route proxy error:", error);
+      res.status(500).json({ error: "Failed to fetch routing data" });
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
