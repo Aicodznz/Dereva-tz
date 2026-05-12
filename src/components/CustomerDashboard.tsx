@@ -308,7 +308,7 @@ export default function CustomerDashboard() {
   }, [user?.uid]);
 
   return (
-    <div className={`pb-24 space-y-8 md:space-y-16 lg:space-y-24 ${isRTL ? 'text-right' : 'text-left'}`}>
+    <div className={`pb-20 space-y-8 md:space-y-12 lg:space-y-20 ${isRTL ? 'text-right' : 'text-left'}`}>
       <LocationPicker 
         isOpen={isLocationPickerOpen}
         onClose={() => {
@@ -356,7 +356,7 @@ export default function CustomerDashboard() {
       {/* 1. Promotional Carousel (Banners) */}
       <div 
         ref={bannerScrollRef}
-        className="flex gap-4 overflow-x-auto pb-4 no-scrollbar snap-x py-2 px-1"
+        className="flex gap-6 overflow-x-auto pb-6 no-scrollbar snap-x py-4 px-2"
       >
         {banners.map((banner, idx) => banner.img && (
           <motion.div 
@@ -365,7 +365,7 @@ export default function CustomerDashboard() {
             animate={{ opacity: 1, scale: 1, x: 0 }}
             transition={{ delay: 0.1 * idx, ease: [0.22, 1, 0.36, 1] }}
             whileHover={{ y: -8 }}
-            className="min-w-[92%] md:min-w-[45%] lg:min-w-[35%] h-52 md:h-72 rounded-[2.5rem] overflow-hidden relative snap-center shadow-2xl shadow-neutral-900/10 group cursor-pointer border border-white/20"
+            className="min-w-[85%] md:min-w-[40%] lg:min-w-[30%] xl:min-w-[20%] [@media(min-width:1800px)]:min-w-[15%] h-56 md:h-80 rounded-[3rem] overflow-hidden relative snap-center shadow-2xl shadow-neutral-900/10 group cursor-pointer border border-white/20"
           >
             <img 
               src={banner.img} 
@@ -420,7 +420,7 @@ export default function CustomerDashboard() {
         </div>
         <div 
           ref={storeScrollRef}
-          className="flex gap-4 sm:gap-6 overflow-x-auto pb-10 no-scrollbar -mx-3 px-3 snap-x snap-mandatory"
+          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 [@media(min-width:1800px)]:grid-cols-5 [@media(min-width:2100px)]:grid-cols-6 gap-6 md:gap-10"
         >
           {vendors
             .filter(v => v.status === 'active')
@@ -439,7 +439,7 @@ export default function CustomerDashboard() {
               viewport={{ once: true }}
               transition={{ delay: 0.05 * idx, type: "spring", stiffness: 100 }}
               whileHover={{ y: -10 }}
-              className="min-w-[46%] sm:min-w-[280px] md:min-w-[320px] group cursor-pointer snap-start"
+              className="group cursor-pointer snap-start"
               onClick={() => navigate(`/vendor/${vendor.id}`)}
             >
               <div className="relative h-full bg-white dark:bg-neutral-900 rounded-[1.5rem] sm:rounded-[2.5rem] border border-neutral-200/60 dark:border-white/5 shadow-[0_10px_30px_rgba(0,0,0,0.06)] sm:shadow-[0_20px_50px_rgba(0,0,0,0.06)] group-hover:shadow-[0_40px_80px_rgba(234,88,12,0.15)] transition-all duration-500 overflow-hidden group/card border-b-2 sm:border-b-4 border-b-neutral-100 active:scale-[0.98]">
@@ -524,7 +524,7 @@ export default function CustomerDashboard() {
              {t('explore_services') || 'Explore Services'}
           </h3>
         </div>
-        <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-9 gap-4 md:gap-6">
+        <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-10 xl:grid-cols-12 2xl:grid-cols-14 [@media(min-width:1800px)]:grid-cols-16 gap-5 md:gap-8 lg:gap-10">
           {services.map((service, idx) => (
             <motion.div
               key={service.id || idx}
@@ -577,7 +577,7 @@ export default function CustomerDashboard() {
           <h3 className="font-black text-xl text-neutral-900 dark:text-white tracking-tight">{t('popular_products') || 'Bidhaa Maarufu'}</h3>
           <button className="text-orange-600 text-sm font-black">{t('view_all') || 'View All'}</button>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 md:gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 [@media(min-width:1800px)]:grid-cols-10 gap-5 md:gap-8 lg:gap-10">
           {filteredProducts.map((product, idx) => (
             <motion.div
               key={`product-${product.id || `product-${idx}`}`}
@@ -639,7 +639,7 @@ export default function CustomerDashboard() {
           <h3 className="font-black text-xl text-neutral-900 dark:text-white tracking-tight">{t('popular_services') || 'Huduma Maarufu'}</h3>
           <button className="text-orange-600 text-sm font-black">{t('view_all') || 'View All'}</button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 [@media(min-width:1800px)]:grid-cols-6 gap-8 lg:gap-10">
           {filteredVendors
             .map(vendor => {
               const distance = vendor.location 

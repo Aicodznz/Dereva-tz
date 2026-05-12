@@ -34,7 +34,7 @@ export default function Header() {
 
   return (
     <div className="sticky top-0 z-[150] bg-background/80 backdrop-blur-md border-b border-border shadow-sm">
-      <div className={`${isFullscreen ? 'w-full px-4 md:px-6' : 'max-w-7xl mx-auto px-2 md:px-4'} h-18 flex items-center justify-between gap-2 md:gap-4`}>
+      <div className={`${isFullscreen ? 'w-full px-4 md:px-6' : 'max-w-[2400px] mx-auto px-4 md:px-6'} h-16 md:h-20 flex items-center justify-between gap-2 md:gap-4 flex-shrink-0`}>
         
         {/* Left: Logo & Location */}
         <div className="flex items-center gap-2 md:gap-6 min-w-0 flex-shrink">

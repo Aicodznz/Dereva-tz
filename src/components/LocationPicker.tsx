@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
+import { db } from '../firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
 // Fix for default marker icon in Leaflet - using CDN for maximum stability in preview environment
 const DefaultIcon = L.icon({
@@ -125,6 +127,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
   const [error, setError] = useState<string | null>(null);
   const [label, setLabel] = useState<'Home' | 'Work' | 'Other' | null>(null);
   const [selectedVendor, setSelectedVendor] = useState<any>(null);
+  const [selectedVendorReviews, setSelectedVendorReviews] = useState<any[]>([]);
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [mapType, setMapType] = useState<'standard' | 'satellite'>('standard');
   const [isMapExpanded, setIsMapExpanded] = useState(false);
@@ -141,6 +144,28 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
       }
     }
   }, []);
+
+  // Fetch reviews for selected vendor
+  useEffect(() => {
+    if (selectedVendor?.id) {
+      const fetchReviews = async () => {
+        try {
+          const q = query(
+            collection(db, 'reviews'),
+            where('targetId', '==', selectedVendor.id),
+            where('targetType', '==', 'vendor')
+          );
+          const snap = await getDocs(q);
+          setSelectedVendorReviews(snap.docs.map(doc => doc.data()));
+        } catch (error) {
+          console.error('Error fetching reviews for map vendor:', error);
+        }
+      };
+      fetchReviews();
+    } else {
+      setSelectedVendorReviews([]);
+    }
+  }, [selectedVendor?.id]);
 
   const saveRecentPlace = (place: { address: string; lat: number; lng: number }) => {
     const updated = [place, ...recentPlaces.filter(p => p.address !== place.address)].slice(0, 5);
@@ -591,8 +616,19 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                              <div className="flex items-center justify-between gap-2">
                                 <h4 className="font-black text-lg text-neutral-900 truncate uppercase tracking-tight">{selectedVendor.businessName}</h4>
                                 <div className="flex items-center gap-1 shrink-0">
+                                   <span className="text-[9px] font-black text-neutral-900 uppercase">Star</span>
                                    <Star className="w-3.5 h-3.5 text-yellow-500 fill-current" />
-                                   <span className="text-xs font-black text-neutral-900">{selectedVendor.rating || '5.00'} (1)</span>
+                                   <span className="text-xs font-black text-neutral-900">
+                                     {(() => {
+                                       const vRating = parseFloat(selectedVendor.rating?.toString() || '0');
+                                       if (vRating > 0) return vRating.toFixed(1);
+                                       if (selectedVendorReviews.length > 0) {
+                                         const sum = selectedVendorReviews.reduce((acc, r) => acc + parseFloat(r.rating?.toString() || '0'), 0);
+                                         return (sum / selectedVendorReviews.length).toFixed(1);
+                                       }
+                                       return '4.5';
+                                     })()} ({selectedVendorReviews.length})
+                                   </span>
                                 </div>
                              </div>
                              <div className="flex items-center gap-1.5 mt-1 overflow-hidden">

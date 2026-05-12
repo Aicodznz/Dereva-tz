@@ -280,6 +280,32 @@ export default function VendorStore() {
     }
   };
 
+  const getDisplayRating = () => {
+    const vRating = parseFloat(vendor?.rating?.toString() || '0');
+    if (vRating > 0) {
+      return vRating.toFixed(1);
+    }
+    if (reviews.length > 0) {
+      const sum = reviews.reduce((acc, r) => acc + parseFloat(r.rating?.toString() || '0'), 0);
+      return (sum / reviews.length).toFixed(1);
+    }
+    return '4.5';
+  };
+
+  const formatDate = (date: any) => {
+    if (!date) return 'Leo';
+    try {
+      if (typeof date.toDate === 'function') {
+        return date.toDate().toLocaleDateString();
+      }
+      const d = new Date(date);
+      if (isNaN(d.getTime())) return 'Leo';
+      return d.toLocaleDateString();
+    } catch (e) {
+      return 'Leo';
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-background dark:bg-neutral-950 transition-colors">
@@ -330,6 +356,36 @@ export default function VendorStore() {
         >
           <ChevronLeft className="w-6 h-6 group-hover:-translate-x-1 transition-transform" />
         </button>
+
+        {/* Quick Access Top Tabs */}
+        <div className="absolute top-6 right-6 flex items-center gap-2 md:gap-3 z-30">
+          <motion.button 
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => {
+              setActiveTab('reviews');
+              const el = document.getElementById('store-content');
+              el?.scrollIntoView({ behavior: 'smooth' });
+            }}
+            className="h-12 px-5 bg-white/10 backdrop-blur-2xl border border-white/20 rounded-2xl flex items-center gap-2 text-white hover:bg-white/20 transition-all shadow-xl font-black uppercase text-[10px] tracking-widest whitespace-nowrap"
+          >
+            <Star className="w-4 h-4 text-yellow-400 fill-current" />
+            <span className="hidden sm:inline">Maoni</span>
+          </motion.button>
+          <motion.button 
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => {
+              setActiveTab('info');
+              const el = document.getElementById('store-content');
+              el?.scrollIntoView({ behavior: 'smooth' });
+            }}
+            className="h-12 px-5 bg-white/10 backdrop-blur-2xl border border-white/20 rounded-2xl flex items-center gap-2 text-white hover:bg-white/20 transition-all shadow-xl font-black uppercase text-[10px] tracking-widest whitespace-nowrap"
+          >
+            <Info className="w-4 h-4 text-blue-400" />
+            <span className="hidden sm:inline">Habari</span>
+          </motion.button>
+        </div>
       </div>
 
       {/* Vendor Profile Section */}
@@ -354,8 +410,11 @@ export default function VendorStore() {
             {/* Rating - Top Right */}
             <div className="absolute top-1.5 right-4 md:top-12 md:right-12">
               <div className="flex items-center gap-1 opacity-95">
+                 <span className="text-[10px] md:text-base font-black text-neutral-900 dark:text-white uppercase tracking-tighter">Star</span>
                  <Star className="w-3 h-3 md:w-6 md:h-6 text-yellow-400 fill-current" />
-                 <span className="text-xs md:text-2xl font-black text-neutral-900 dark:text-white">{vendor.rating || '4.5'}</span>
+                 <span className="text-xs md:text-2xl font-black text-neutral-900 dark:text-white">
+                   {getDisplayRating()}
+                 </span>
                  <span className="text-neutral-400 font-bold text-[9px] md:text-base">({reviews.length})</span>
               </div>
             </div>
@@ -455,8 +514,6 @@ export default function VendorStore() {
         <div className="flex gap-10 border-b border-neutral-100 dark:border-white/5 mt-12 md:mt-20 overflow-x-auto no-scrollbar relative">
               {[
                 { id: 'products', label: t('products') || 'Bidhaa', icon: ShoppingBag },
-                { id: 'reviews', label: t('reviews') || 'Maoni', icon: Star },
-                { id: 'info', label: 'Maelezo ya Ziada', icon: Info },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -487,7 +544,7 @@ export default function VendorStore() {
                     initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -30 }}
-                    className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-10"
+                    className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-10"
                   >
                     {products.map((product, idx) => (
                       <motion.div
@@ -500,8 +557,8 @@ export default function VendorStore() {
                           to={`/product/${product.id}`}
                           className="group block h-full"
                         >
-                          <div className="relative h-full bg-white dark:bg-neutral-900 rounded-none sm:rounded-[2rem] md:rounded-[3.5rem] border-x-0 sm:border border-neutral-100 dark:border-white/5 shadow-[0_15px_40px_rgba(0,0,0,0.04)] hover:shadow-[0_30px_60px_rgba(234,88,12,0.18)] transition-all duration-700 overflow-hidden group/card">
-                            <div className="aspect-[3/4] relative overflow-hidden bg-neutral-50 dark:bg-neutral-800 m-0 sm:m-3 rounded-none sm:rounded-[2.8rem]">
+                          <div className="relative h-full bg-white dark:bg-neutral-900 rounded-[1.5rem] md:rounded-[3.5rem] border border-neutral-100 dark:border-white/5 shadow-[0_15px_40px_rgba(0,0,0,0.04)] hover:shadow-[0_30px_60px_rgba(234,88,12,0.18)] transition-all duration-700 overflow-hidden group/card">
+                            <div className="aspect-[3/4] relative overflow-hidden bg-neutral-50 dark:bg-neutral-800 m-1.5 md:m-3 rounded-[1.2rem] md:rounded-[2.8rem]">
                               <img 
                                 src={product.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80'} 
                                 alt={product.name} 
@@ -532,34 +589,34 @@ export default function VendorStore() {
                                     className: 'font-black uppercase text-[10px] tracking-widest'
                                   });
                                 }}
-                                className="absolute bottom-5 right-5 w-14 h-14 bg-orange-600 text-white rounded-2xl shadow-2xl flex items-center justify-center hover:bg-orange-700 transition-all transform z-10"
+                                className="absolute bottom-2 right-2 md:bottom-5 md:right-5 w-8 h-8 md:w-14 md:h-14 bg-orange-600 text-white rounded-lg md:rounded-2xl shadow-2xl flex items-center justify-center hover:bg-orange-700 transition-all transform z-10"
                               >
-                                <Plus className="w-7 h-7" />
+                                <Plus className="w-4 h-4 md:w-7 md:h-7" />
                               </motion.button>
                             </div>
                             
-                            <div className="p-8 pt-4 space-y-4">
-                              <div className="space-y-1.5">
-                                <h4 className="font-[900] text-lg md:text-xl text-neutral-900 dark:text-white group-hover/card:text-orange-600 transition-colors uppercase italic tracking-tighter leading-none">{product.name}</h4>
-                                <p className="text-[11px] text-neutral-400 font-bold uppercase tracking-[0.2em] line-clamp-1 italic">{product.description || 'Verified Quality'}</p>
+                            <div className="p-3 md:p-8 pt-2 md:pt-4 space-y-2 md:space-y-4">
+                              <div className="space-y-0.5 md:space-y-1.5">
+                                <h4 className="font-[900] text-sm md:text-xl text-neutral-900 dark:text-white group-hover/card:text-orange-600 transition-colors uppercase italic tracking-tighter leading-none line-clamp-1 md:line-clamp-none">{product.name}</h4>
+                                <p className="text-[9px] md:text-[11px] text-neutral-400 font-bold uppercase tracking-[0.2em] line-clamp-1 italic">{product.description || 'Verified Quality'}</p>
                               </div>
 
-                              <div className="flex items-center justify-between pt-4 border-t border-neutral-100 dark:border-white/5">
-                                <div className="space-y-1">
+                              <div className="flex items-center justify-between pt-2 md:pt-4 border-t border-neutral-100 dark:border-white/5">
+                                <div className="space-y-0.5">
                                   {product.discountPrice ? (
                                     <div className="flex flex-col">
-                                      <span className="text-[11px] text-neutral-400 line-through font-bold">TZS {product.price.toLocaleString()}</span>
-                                      <span className="text-xl font-[900] text-orange-600 italic tracking-tighter">
+                                      <span className="text-[8px] md:text-[11px] text-neutral-400 line-through font-bold">TZS {product.price.toLocaleString()}</span>
+                                      <span className="text-sm md:text-xl font-[900] text-orange-600 italic tracking-tighter">
                                         TZS {product.discountPrice.toLocaleString()}
                                       </span>
                                     </div>
                                   ) : (
-                                    <p className="text-xl font-[900] text-orange-600 italic tracking-tighter">
+                                    <p className="text-sm md:text-xl font-[900] text-orange-600 italic tracking-tighter">
                                       TZS {product.price.toLocaleString()}
                                     </p>
                                   )}
                                 </div>
-                                <div className="bg-orange-50 dark:bg-orange-900/10 px-3 py-1 rounded-full text-[9px] font-black text-orange-600 uppercase tracking-widest">
+                                <div className="hidden xs:block bg-orange-50 dark:bg-orange-900/10 px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[7px] md:text-[9px] font-black text-orange-600 uppercase tracking-widest">
                                   In Stock
                                 </div>
                               </div>
@@ -647,7 +704,7 @@ export default function VendorStore() {
                                       </div>
                                     </div>
                                     <span className="text-[9px] font-black uppercase tracking-widest text-neutral-400 italic">
-                                      {review.createdAt?.toDate().toLocaleDateString() || 'Today'}
+                                      {formatDate(review.createdAt)}
                                     </span>
                                   </div>
 
