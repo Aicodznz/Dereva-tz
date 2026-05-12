@@ -282,7 +282,7 @@ export default function ProductDetail() {
     }
 
     try {
-      await addDoc(collection(db, 'reviews'), {
+      const newReviewRef = await addDoc(collection(db, 'reviews'), {
         userId: user.uid,
         userName: profile?.displayName || user.displayName || 'Mteja',
         userPhoto: profile?.photoURL || user.photoURL || '',
@@ -294,6 +294,60 @@ export default function ProductDetail() {
         likes: [],
         createdAt: new Date().toISOString()
       });
+
+      // Update Product Rating
+      if (id) {
+        const q = query(
+          collection(db, 'reviews'),
+          where('targetId', '==', id),
+          where('targetType', '==', 'product')
+        );
+        const snap = await getDocs(q);
+        const reviewsData = snap.docs.map(doc => doc.data());
+        
+        const alreadyInSnap = snap.docs.some(d => d.id === newReviewRef.id);
+        const allRatings = reviewsData.map(r => Number(r.rating) || 0);
+        
+        if (!alreadyInSnap) {
+          allRatings.push(Number(rating));
+        }
+
+        const newRating = allRatings.length > 0 
+          ? allRatings.reduce((acc, curr) => acc + curr, 0) / allRatings.length 
+          : Number(rating);
+        
+        await updateDoc(doc(db, 'products', id), {
+          rating: parseFloat(newRating.toFixed(1)),
+          ratingCount: allRatings.length
+        });
+
+        // ALSO update vendor rating aggregate
+        if (product.vendorId) {
+          try {
+            const vq = query(
+              collection(db, 'reviews'),
+              where('targetId', '==', product.vendorId),
+              where('targetType', '==', 'vendor')
+            );
+            const vsnap = await getDocs(vq);
+            const vReviews = vsnap.docs.map(doc => doc.data());
+            
+            // For now, let's just make sure we update the count and average correctly
+            // if we want to include product reviews in vendor rating, we'd query all reviews for this vendor's products too.
+            // But let's just update based on direct vendor reviews for now as a baseline.
+            const vRatings = vReviews.map(r => Number(r.rating) || 0);
+            if (vRatings.length > 0) {
+              const vAvg = vRatings.reduce((a, b) => a + b, 0) / vRatings.length;
+              await updateDoc(doc(db, 'vendors', product.vendorId), {
+                rating: parseFloat(vAvg.toFixed(1)),
+                ratingCount: vRatings.length
+              });
+            }
+          } catch (err) {
+            console.error("Error updating vendor aggregate:", err);
+          }
+        }
+      }
       
       toast.success('Asante kwa maoni yako!');
       setIsReviewModalOpen(false);

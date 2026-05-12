@@ -8,10 +8,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
   ChevronLeft, Star, Search, Filter, MapPin, ChevronRight,
-  Utensils, ShoppingCart, Pill, Package, Car, Scissors, Hotel, ShoppingBag, Bus 
+  Utensils, ShoppingCart, Pill, Package, Car, Scissors, Hotel, ShoppingBag, Bus, Plus 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage } from '../LanguageContext';
+import { useCart } from '../CartContext';
+import { toast } from 'sonner';
 import BusBooking from './BusBooking';
 
 const serviceMapping: Record<string, { category: VendorCategory, labelKey: string, icon: any, color: string }> = {
@@ -31,6 +33,7 @@ export default function ServiceDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const { addItem } = useCart();
   const [vendors, setVendors] = useState<VendorProfile[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [viewMode, setViewMode] = useState<'products' | 'vendors'>(id === 'all-stores' ? 'vendors' : 'products');
@@ -225,7 +228,7 @@ export default function ServiceDetail() {
                         to={`/product/${product.id}`}
                         className="block group"
                       >
-                        <Card className="overflow-hidden rounded-3xl border-neutral-100 shadow-sm hover:shadow-lg transition-all h-full">
+                        <Card className="overflow-hidden rounded-3xl border-neutral-100 shadow-sm hover:shadow-lg transition-all h-full relative group/card">
                           <div className="h-40 relative overflow-hidden">
                             <img 
                               src={product.imageUrl || 'https://picsum.photos/seed/food/400'} 
@@ -233,6 +236,17 @@ export default function ServiceDetail() {
                               className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
                               referrerPolicy="no-referrer"
                             />
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                addItem(product);
+                                toast.success(`${product.name} imeongezwa!`);
+                              }}
+                              className="absolute bottom-2 right-2 w-10 h-10 bg-white dark:bg-neutral-800 rounded-xl shadow-xl flex items-center justify-center text-orange-600 hover:bg-orange-600 hover:text-white transition-all transform z-10"
+                            >
+                              <Plus className="w-5 h-5" />
+                            </button>
                           </div>
                           <CardContent className="p-4">
                             <h4 className="font-bold text-sm text-neutral-900 truncate group-hover:text-orange-600 transition-colors uppercase italic">{product.name}</h4>
@@ -323,7 +337,8 @@ export default function ServiceDetail() {
                                 <div className="flex items-center gap-1 sm:gap-3">
                                   <div className="flex items-center gap-0.5 sm:gap-1.5 bg-orange-50 dark:bg-orange-950/30 px-1 sm:px-2 py-0.5 rounded-sm">
                                     <Star className="w-2 sm:w-3.5 h-2 sm:h-3.5 text-orange-600 fill-current" />
-                                    <span className="text-[8px] sm:text-[11px] font-black text-orange-600">{(vendor.rating || 0).toFixed(1)}</span>
+                                    <span className="text-[8px] sm:text-[11px] font-black text-orange-600">{Number(vendor.rating || 0).toFixed(1)}</span>
+                                    <span className="text-[6px] sm:text-[9px] text-orange-400 font-bold ml-0.5">({Number(vendor.ratingCount || 0)})</span>
                                   </div>
                                   <div className="flex items-center gap-0.5 sm:gap-1.5 bg-green-50 dark:bg-green-950/30 px-1 sm:px-2 py-0.5 rounded-sm">
                                     <MapPin className="w-2 sm:w-3.5 h-2 sm:h-3.5 text-green-600" />

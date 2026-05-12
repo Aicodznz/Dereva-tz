@@ -55,9 +55,14 @@ service cloud.firestore {
     // Products
     match /products/{productId} {
       allow read: if true;
-      allow create, update, delete: if isSignedIn() && (
+      allow create, delete: if isSignedIn() && (
         get(/databases/$(database)/documents/vendors/$(incoming().vendorId)).data.ownerUid == request.auth.uid ||
         isAdmin()
+      );
+      allow update: if isSignedIn() && (
+        get(/databases/$(database)/documents/vendors/$(existing().vendorId)).data.ownerUid == request.auth.uid ||
+        isAdmin() ||
+        (incoming().diff(existing()).affectedKeys().hasOnly(['rating', 'ratingCount']))
       );
     }
 

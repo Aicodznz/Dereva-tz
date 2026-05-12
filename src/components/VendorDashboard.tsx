@@ -232,6 +232,7 @@ export default function VendorDashboard() {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [vendorReviews, setVendorReviews] = useState<Review[]>([]);
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const bestSellers = useMemo(() => {
     const itemCounts: Record<string, { name: string; count: number; revenue: number; imageUrl?: string; category: string }> = {};
@@ -753,9 +754,24 @@ export default function VendorDashboard() {
       }
     };
 
+    const fetchReviews = async () => {
+      try {
+        const q = query(
+          collection(db, 'reviews'), 
+          where('targetId', '==', vendorProfile.id),
+          where('targetType', '==', 'vendor')
+        );
+        const snap = await getDocs(q);
+        setVendorReviews(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Review)));
+      } catch (error) {
+        console.error("Error fetching vendor reviews:", error);
+      }
+    };
+
     fetchOrders();
     fetchProducts();
     fetchSections();
+    fetchReviews();
 
     const errorHandler = (path: string) => (error: any) => {
       handleFirestoreError(error, OperationType.GET, path);
@@ -765,6 +781,7 @@ export default function VendorDashboard() {
       onSnapshot(query(collection(db, 'orders'), where('vendorId', '==', vendorProfile.id)), () => fetchOrders(), errorHandler('orders')),
       onSnapshot(query(collection(db, 'products'), where('vendorId', '==', vendorProfile.id)), () => fetchProducts(), errorHandler('products')),
       onSnapshot(query(collection(db, 'tables'), where('vendorId', '==', vendorProfile.id)), () => fetchSections(), errorHandler('tables')),
+      onSnapshot(query(collection(db, 'reviews'), where('targetId', '==', vendorProfile.id), where('targetType', '==', 'vendor')), () => fetchReviews()),
     ];
 
     return () => {
@@ -1953,7 +1970,7 @@ export default function VendorDashboard() {
                     { label: "Gross Sales", value: `TZS ${(orders.reduce((s,o) => s + o.totalAmount, 0)).toLocaleString()}`, icon: Banknote, trend: "+12.5%", positive: true, sub: "Total revenue generated", data: chartData.map(d => ({ value: d.sales })) },
                     { label: "Processing", value: orders.filter(o => o.status !== 'completed' && o.status !== 'cancelled').length.toString(), icon: Clock, trend: "+3 new", positive: true, sub: "Orders being packed/shipped", data: chartData.map(d => ({ value: d.orders })) },
                     { label: "Available Items", value: products.length.toString(), icon: Box, trend: "Stable", positive: true, sub: "Unique products listed", data: [{value: 4}, {value: 6}, {value: 5}, {value: 8}, {value: 7}, {value: 10}] },
-                    { label: "Customer Rating", value: (vendorProfile?.rating || 0).toFixed(1), icon: Star, trend: `${vendorProfile?.ratingCount || 0} reviews`, positive: true, sub: "Average feedback score", data: [{value: 5}, {value: 4}, {value: 5}, {value: 5}, {value: 5}, {value: 5}] },
+                    { label: "Customer Rating", value: (vendorProfile?.rating || 0).toFixed(1), icon: Star, trend: `${vendorProfile?.ratingCount || 0} reviews`, positive: true, sub: "Average feedback score", data: vendorReviews.length > 0 ? vendorReviews.slice(-6).map(r => ({ value: Number(r.rating) || 0 })) : [{value: 5}, {value: 4}, {value: 5}, {value: 5}, {value: 5}, {value: 5}] },
                     { label: "Low Stock", value: products.filter(p => p.stock < 10).length.toString(), icon: AlertCircle, trend: "Caution", positive: false, sub: "Products needing restock", data: [{value: 8}, {value: 5}, {value: 6}, {value: 4}, {value: 2}, {value: 3}] },
                   ].map((stat, i) => (
                     <Card key={`stat-card-${stat.label}-${i}`} className="bg-white dark:bg-neutral-900/40 border-neutral-200 dark:border-neutral-800 backdrop-blur-sm overflow-hidden group hover:border-orange-600/50 transition-all cursor-default shadow-sm relative">

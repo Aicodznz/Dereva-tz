@@ -9,7 +9,7 @@ const app = initializeApp(firebaseConfig);
 // Using initializeFirestore with experimental connectivity for stability
 export const db = initializeFirestore(app, {
   ignoreUndefinedProperties: true,
-  experimentalAutoDetectLongPolling: true,
+  experimentalForceLongPolling: true,
 }, (firebaseConfig as any).firestoreDatabaseId);
 
 export const storage = getStorage(app);

@@ -620,14 +620,10 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                                    <Star className="w-3.5 h-3.5 text-yellow-500 fill-current" />
                                    <span className="text-xs font-black text-neutral-900">
                                      {(() => {
-                                       const vRating = parseFloat(selectedVendor.rating?.toString() || '0');
-                                       if (vRating > 0) return vRating.toFixed(1);
-                                       if (selectedVendorReviews.length > 0) {
-                                         const sum = selectedVendorReviews.reduce((acc, r) => acc + parseFloat(r.rating?.toString() || '0'), 0);
-                                         return (sum / selectedVendorReviews.length).toFixed(1);
-                                       }
-                                       return '4.5';
-                                     })()} ({selectedVendorReviews.length})
+                                       const vRating = Number(selectedVendor.rating || 0);
+                                       const vCount = Number(selectedVendor.ratingCount || selectedVendorReviews.length || 0);
+                                       return vRating > 0 ? vRating.toFixed(1) : '0.0';
+                                     })()} ({Number(selectedVendor.ratingCount || selectedVendorReviews.length || 0)})
                                    </span>
                                 </div>
                              </div>
