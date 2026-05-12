@@ -78,6 +78,7 @@ export interface Product {
   branchId?: string;
   rating?: number;
   ratingCount?: number;
+  model3dUrl?: string;
 }
 
 export type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'prepared' | 'out_for_delivery' | 'delivered' | 'cancelled' | 'completed';
@@ -141,6 +142,30 @@ export interface Coupon {
   usageCount: number;
   createdAt?: any;
   createdBy: 'admin' | 'vendor';
+}
+
+export interface ReviewReply {
+  id: string;
+  userId: string;
+  userName: string;
+  userPhoto: string;
+  text: string;
+  createdAt: any;
+}
+
+export interface Review {
+  id: string;
+  userId: string;
+  userName: string;
+  userPhoto: string;
+  targetId: string;
+  targetType: 'vendor' | 'product';
+  rating: number;
+  comment: string;
+  images: string[];
+  likes?: string[];
+  replies?: ReviewReply[];
+  createdAt: any;
 }
 
 export interface FAQ {

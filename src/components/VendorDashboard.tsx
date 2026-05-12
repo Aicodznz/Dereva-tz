@@ -7,7 +7,7 @@ import { db, auth } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot, getDocs, doc, updateDoc, deleteDoc, addDoc, getDoc, limit, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '../AuthContext';
 import { handleFirestoreError, OperationType } from '../firebase';
-import { VendorProfile, VendorCategory, Product, Order, OrderStatus } from '../types';
+import { VendorProfile, VendorCategory, Product, Order, OrderStatus, Review } from '../types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -285,6 +285,7 @@ export default function VendorDashboard() {
   const [isProcessingSale, setIsProcessingSale] = useState(false);
   const [isLogoUploading, setIsLogoUploading] = useState(false);
   const [isProductUploading, setIsProductUploading] = useState(false);
+  const [isModelUploading, setIsModelUploading] = useState(false);
   const [isBannerUploading, setIsBannerUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -867,6 +868,36 @@ export default function VendorDashboard() {
   const logoInputRef = React.useRef<HTMLInputElement>(null);
   const bannerInputRef = React.useRef<HTMLInputElement>(null);
 
+  const handle3DModelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !vendorProfile?.id) return;
+    
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    if (extension !== 'glb' && extension !== 'gltf') {
+      toast.error('Tafadhali weka file la GLB au GLTF kwa AR.');
+      return;
+    }
+
+    setIsModelUploading(true);
+    setUploadProgress(0);
+    
+    try {
+      const path = storageService.getProductPath(vendorProfile.id, editingProduct?.id || 'new', `model_${Date.now()}.${extension}`);
+      const url = await storageService.uploadFile('products', path, file, (progress) => {
+        setUploadProgress(progress);
+      });
+      
+      setNewProduct(prev => ({ ...prev, model3dUrl: url }));
+      toast.success("Model ya AR imepakiwa!");
+    } catch (error: any) {
+      console.error("3D Model upload error:", error);
+      toast.error("Imeshindwa kupakia model: " + error.message);
+    } finally {
+      setIsModelUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
   const handleFileUpload = async (files: FileList | File[], isProductUpload = true) => {
     if (!files || files.length === 0) return;
     
@@ -1031,6 +1062,7 @@ export default function VendorDashboard() {
         imageUrl: '',
         imageUrls: [],
         branchId: '',
+        model3dUrl: '',
       });
     } catch (error) {
       console.error(error);
@@ -4389,6 +4421,77 @@ export default function VendorDashboard() {
                     placeholder="e.g. mboga, matunda, nyama"
                   />
                 </div>
+
+                {/* AR & 3D Model Section */}
+                {(vendorProfile?.category === 'restaurant' || vendorProfile?.category === 'ecommerce' || vendorProfile?.category === 'grocery') && (
+                  <div className="space-y-3 p-4 bg-orange-600/5 rounded-2xl border border-orange-600/10">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Box className="w-4 h-4 text-orange-600" />
+                      <label className="text-xs font-bold text-orange-600 uppercase">AR & 3D Model (Optional)</label>
+                    </div>
+                    
+                    <div className="flex flex-col gap-3">
+                      {newProduct.model3dUrl ? (
+                        <div className="flex items-center justify-between p-3 bg-neutral-800 rounded-xl border border-neutral-700">
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Box className="w-5 h-5 text-green-500" />
+                            <span className="text-[10px] text-neutral-300 font-medium truncate max-w-[150px]">
+                              {newProduct.model3dUrl.split('/').pop()?.split('?')[0] || 'Model Linked'}
+                            </span>
+                          </div>
+                          <Button 
+                            type="button" 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-8 text-xs text-red-500 hover:text-red-400 p-0 px-2"
+                            onClick={() => setNewProduct({...newProduct, model3dUrl: ''})}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 gap-2">
+                          <Input 
+                            className="bg-neutral-800 border-none h-11 rounded-xl text-xs"
+                            placeholder="Paste 3D Model URL (.glb / .gltf)"
+                            value={newProduct.model3dUrl || ''}
+                            onChange={(e) => setNewProduct({...newProduct, model3dUrl: e.target.value})}
+                          />
+                          <div className="relative">
+                            <input 
+                              type="file" 
+                              id="model3d-upload"
+                              className="hidden" 
+                              accept=".glb,.gltf"
+                              onChange={handle3DModelUpload}
+                            />
+                            <Button 
+                              type="button"
+                              disabled={isModelUploading}
+                              className="w-full bg-neutral-800 hover:bg-neutral-700 border-2 border-dashed border-neutral-700 text-neutral-400 h-11 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
+                              onClick={() => document.getElementById('model3d-upload')?.click()}
+                            >
+                              {isModelUploading ? (
+                                <>
+                                  <div className="w-3 h-3 border-2 border-orange-600 border-t-transparent rounded-full animate-spin" />
+                                  Uploading {Math.round(uploadProgress)}%
+                                </>
+                              ) : (
+                                <>
+                                  <Plus className="w-4 h-4" />
+                                  Upload .GLB for Augmented Reality
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                      <p className="text-[9px] text-neutral-500 italic">
+                        Upload a GLB file to allow customers to view this food in 3D/AR.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">

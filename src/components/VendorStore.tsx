@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { storageService } from '../services/storageService';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, onSnapshot, getDocs, doc, getDoc, addDoc, updateDoc, deleteDoc, orderBy, serverTimestamp } from 'firebase/firestore';
-import { VendorProfile, Product } from '../types';
+import { VendorProfile, Product, Review, ReviewReply } from '../types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,37 +11,13 @@ import {
   ChevronLeft, Star, MapPin, Clock, Phone, Info, 
   ShoppingBag, Plus, Camera, X, MessageSquare,
   ThumbsUp, Share2, Trash2, Reply, ShoppingBasket, Store,
-  Instagram, Facebook, MessageCircle, ShieldCheck, Undo2
+  Instagram, Facebook, MessageCircle, ShieldCheck, Undo2, Box
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { useCart } from '../CartContext';
 import { useLanguage } from '../LanguageContext';
 import { useAuth } from '../AuthContext';
-
-interface ReviewReply {
-  id: string;
-  userId: string;
-  userName: string;
-  userPhoto: string;
-  text: string;
-  createdAt: any;
-}
-
-interface Review {
-  id: string;
-  userId: string;
-  userName: string;
-  userPhoto: string;
-  targetId: string;
-  targetType: 'vendor' | 'product';
-  rating: number;
-  comment: string;
-  images: string[];
-  likes?: string[];
-  replies?: ReviewReply[];
-  createdAt: any;
-}
 
 export default function VendorStore() {
   const { id } = useParams<{ id: string }>();
@@ -650,6 +626,14 @@ export default function VendorStore() {
                                   {product.category || 'Standard'}
                                 </Badge>
                               </div>
+
+                              {product.model3dUrl && (
+                                <div className="absolute top-4 right-4 animate-pulse">
+                                  <div className="bg-orange-600 text-white p-2 rounded-full shadow-lg shadow-orange-600/40 border border-white/20">
+                                    <Box className="w-3.5 h-3.5" />
+                                  </div>
+                                </div>
+                              )}
 
                               <motion.button 
                                 whileHover={{ scale: 1.1, rotate: 90 }}

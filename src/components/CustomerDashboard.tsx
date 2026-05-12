@@ -596,6 +596,14 @@ export default function CustomerDashboard() {
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
                       referrerPolicy="no-referrer"
                     />
+                    {/* AR Badge */}
+                    {product.model3dUrl && (
+                      <div className="absolute top-4 left-4 z-10 animate-pulse">
+                        <div className="bg-orange-600 text-white p-1.5 rounded-full shadow-lg border border-orange-400/40">
+                          <Box className="w-3 h-3" />
+                        </div>
+                      </div>
+                    )}
                       <motion.button 
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}

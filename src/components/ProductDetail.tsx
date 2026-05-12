@@ -6,7 +6,7 @@ import { collection, query, where, onSnapshot, getDocs, doc, getDoc, addDoc, upd
 import { useAuth } from '../AuthContext';
 import { useCart } from '../CartContext';
 import { initiatePayment } from '../services/paymentService';
-import { Product, VendorProfile, FAQ } from '../types';
+import { Product, VendorProfile, FAQ, Review, ReviewReply } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   ChevronLeft, 
@@ -36,36 +36,13 @@ import {
   Store,
   Package,
   Armchair,
-  Share2
+  Share2,
+  Box
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
-
-interface ReviewReply {
-  id: string;
-  userId: string;
-  userName: string;
-  userPhoto: string;
-  text: string;
-  createdAt: any;
-}
-
-interface Review {
-  id: string;
-  userId: string;
-  userName: string;
-  userPhoto: string;
-  targetId: string;
-  targetType: 'vendor' | 'product';
-  rating: number;
-  comment: string;
-  images: string[];
-  likes?: string[];
-  replies?: ReviewReply[];
-  createdAt: any;
-}
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
@@ -81,6 +58,7 @@ export default function ProductDetail() {
   const [quantity, setQuantity] = useState(1);
   const [isDescExpanded, setIsDescExpanded] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [showARView, setShowARView] = useState(false);
 
   // Review Form State
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
@@ -780,6 +758,62 @@ export default function ProductDetail() {
 
   return (
     <div className="min-h-screen bg-white lg:bg-neutral-50 pb-60 lg:pb-32">
+      {/* AR Viewer Overlay */}
+      <AnimatePresence>
+        {showARView && product.model3dUrl && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black flex flex-col"
+          >
+            <div className="p-6 flex items-center justify-between z-10 bg-gradient-to-b from-black/80 to-transparent absolute top-0 inset-x-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-orange-600 rounded-xl flex items-center justify-center text-white">
+                  <Box className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-white font-bold leading-tight">{product.name}</h3>
+                  <p className="text-orange-500 text-[10px] font-black uppercase tracking-widest">AR Experience</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowARView(false)}
+                className="w-12 h-12 bg-white/10 backdrop-blur-xl rounded-2xl flex items-center justify-center text-white border border-white/20"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="flex-1 relative">
+              {/* @ts-ignore */}
+              <model-viewer
+                src={product.model3dUrl}
+                ar
+                ar-modes="webxr scene-viewer quick-look"
+                camera-controls
+                poster={product.imageUrl}
+                shadow-intensity="1"
+                autoplay
+                className="w-full h-full"
+                style={{ width: '100%', height: '100%' }}
+              >
+                <button slot="ar-button" className="absolute bottom-10 left-1/2 -translate-x-1/2 bg-white text-black px-8 py-4 rounded-full font-black uppercase italic tracking-tighter shadow-2xl flex items-center gap-2 border-4 border-orange-600 animate-bounce">
+                  View in your space
+                </button>
+                {/* @ts-ignore */}
+              </model-viewer>
+
+              <div className="absolute bottom-10 inset-x-0 flex flex-col items-center gap-4 pointer-events-none">
+                 <div className="bg-black/40 backdrop-blur-md px-6 py-2 rounded-full border border-white/10">
+                    <p className="text-white/60 text-[10px] font-medium text-center">Use your fingers to rotate and zoom • Bonyeza 'View in your space' kwa AR</p>
+                 </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="max-w-7xl mx-auto lg:px-8 lg:pt-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
           {/* 1. Image Gallery */}
@@ -802,6 +836,16 @@ export default function ProductDetail() {
                   }}
                 />
               </AnimatePresence>
+
+              {product.model3dUrl && (
+                <button 
+                  onClick={() => setShowARView(true)}
+                  className="absolute top-24 left-6 px-4 py-2 bg-orange-600/90 backdrop-blur-xl border border-orange-500/20 rounded-2xl flex items-center gap-2 text-white text-xs font-black uppercase tracking-widest shadow-2xl z-30 hover:bg-orange-600 transition-all hover:scale-105 active:scale-95"
+                >
+                  <Box className="w-4 h-4" />
+                  AR View / Tazama AR
+                </button>
+              )}
               
               <div className="absolute top-6 left-6 right-6 flex items-center justify-between z-30">
                 <button 
