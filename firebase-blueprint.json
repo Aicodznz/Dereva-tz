@@ -331,6 +331,19 @@
         "activeParcelIds": { "type": "array" }
       },
       "required": ["name", "isOnline"]
+    },
+    "BusinessConfig": {
+      "title": "Business Configuration",
+      "description": "Global platform settings",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "maintenanceMode": { "type": "boolean" },
+        "enableAR": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
     }
   },
   "firestore": {
@@ -353,6 +366,7 @@
     "/parcels/{parcelId}": { "schema": "Parcel", "description": "Parcel delivery jobs" },
     "/partners/{partnerId}": { "schema": "Partner", "description": "Parcel delivery partner profiles" },
     "/payouts/{payoutId}": { "schema": "Payout", "description": "Withdrawal requests" },
-    "/logs/{logId}": { "schema": "SystemLog", "description": "Audit logs" }
+    "/logs/{logId}": { "schema": "SystemLog", "description": "Audit logs" },
+    "/config/business": { "schema": "BusinessConfig", "description": "Global platform configuration" }
   }
 }

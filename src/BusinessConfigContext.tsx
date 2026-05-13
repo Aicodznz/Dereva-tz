@@ -42,7 +42,8 @@ export const BusinessConfigProvider: React.FC<{ children: React.ReactNode }> = (
       }
       setLoading(false);
     }, (error) => {
-      console.error("Error fetching business config:", error);
+      // Gracefully handle permission errors (e.g. if rules aren't public yet)
+      console.warn("Business config fetch restricted or failed, using defaults:", error.message);
       setLoading(false);
     });
 
