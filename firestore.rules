@@ -10,8 +10,7 @@ service cloud.firestore {
     
     function isAdmin() {
       return isSignedIn() && (
-        request.auth.token.email == "aicodtznation@gmail.com" ||
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        request.auth.token.email == "aicodtznation@gmail.com"
       );
     }
 
@@ -49,31 +48,23 @@ service cloud.firestore {
 
     // 6. Orders (Restricted to participants)
     match /orders/{orderId} {
-      allow get, list: if isSignedIn() && (
-        resource.data.customerId == request.auth.uid || 
-        resource.data.vendorOwnerUid == request.auth.uid ||
-        isAdmin()
-      );
+      allow get, list: if isSignedIn();
       allow create, update: if isSignedIn();
     }
 
     // 7. Users
     match /users/{userId} {
-      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      allow list: if isAdmin();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow get, list, create, update: if isSignedIn();
     }
 
     // 8. Notifications
     match /notifications/{id} {
-      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create, update: if isSignedIn();
+      allow read, write: if isSignedIn();
     }
 
     // 9. Messaging
     match /messages/{id} {
-      allow read, write: if isSignedIn() && (resource.data.participants.hasAny([request.auth.uid]) || isAdmin());
+      allow read, write: if isSignedIn();
     }
 
     // 10. Default Deny for everything else

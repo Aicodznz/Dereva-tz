@@ -285,46 +285,74 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const fetchData = async () => {
+      // Configuration
       try {
         const configSnap = await getDoc(doc(db, 'config', 'business'));
         if (configSnap.exists()) {
           setBusinessConfig(prev => ({ ...prev, ...configSnap.data() }));
         }
+      } catch (err) {
+        console.warn("Permission denied for config/business");
+      }
 
+      // Vendors
+      try {
         const vendorsSnap = await getDocs(collection(db, 'vendors'));
         setVendors(vendorsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as VendorProfile)));
+      } catch (err) {
+        console.warn("Permission denied for vendors");
+      }
 
+      // Users
+      try {
         const usersSnap = await getDocs(collection(db, 'users'));
         setAllUsers(usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserRecord)));
+      } catch (err) {
+        console.warn("Permission denied for users");
+      }
 
+      // Orders
+      try {
         const ordersSnap = await getDocs(query(collection(db, 'orders'), orderBy('createdAt', 'desc')));
         setAllOrders(ordersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
+      } catch (err) {
+        console.warn("Permission denied for orders");
+      }
 
-        const bannersSnap = await getDocs(collection(db, 'banners'));
-        setBanners(bannersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner)));
+      // Other collections with same pattern
+      const fetchList = async (coll: string, setter: (data: any[]) => void) => {
+        try {
+          const snap = await getDocs(collection(db, coll));
+          setter(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        } catch (err) {
+          console.warn(`Permission denied for ${coll}`);
+        }
+      };
 
-        const couponsSnap = await getDocs(collection(db, 'coupons'));
-        setCoupons(couponsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Coupon)));
-
+      fetchList('banners', setBanners);
+      fetchList('coupons', setCoupons);
+      fetchList('products', setAllProducts);
+      fetchList('drivers', setDriverLocations);
+      
+      try {
         const payoutsSnap = await getDocs(query(collection(db, 'payouts'), orderBy('createdAt', 'desc')));
         setPayouts(payoutsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any)));
+      } catch (err) {
+        console.warn("Permission denied for payouts");
+      }
 
+      try {
         const activeRidesSnap = await getDocs(query(collection(db, 'rides'), where('status', 'in', ['accepted', 'arrived', 'started'])));
         setActiveRides(activeRidesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-
-        const driverLocsSnap = await getDocs(collection(db, 'drivers'));
-        setDriverLocations(driverLocsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-
-        const productsSnap = await getDocs(collection(db, 'products'));
-        setAllProducts(productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ProductWithVendor)));
-      } catch (error) {
-        handleFirestoreError(error, OperationType.GET, 'admin_overview');
+      } catch (err) {
+        console.warn("Permission denied for rides");
       }
     };
 
     fetchData();
 
     const errorHandler = (path: string) => (error: any) => {
+      console.warn(`Snapshot Error on ${path}:`, error.message);
       handleFirestoreError(error, OperationType.GET, path);
     };
 
@@ -1577,8 +1605,8 @@ export default function AdminDashboard() {
                       <h3 className="text-lg font-black uppercase italic tracking-tight">{t('admin_settings_maintenance_mode')}</h3>
                       <p className="text-xs text-neutral-500 font-medium">Turn on the Maintenance Mode will temporarily deactivate your selected systems.</p>
                     </div>
-                    <div className="flex items-center gap-6">
-                      <div className="flex items-center gap-3 border-r border-orange-200 pr-6">
+                    <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+                      <div className="flex items-center gap-3 border-r-0 sm:border-r border-orange-200 pr-0 sm:pr-6">
                          <span className="text-xs font-bold uppercase text-neutral-400">{businessConfig.maintenanceMode ? 'Active' : 'Disabled'}</span>
                          <Switch 
                            checked={businessConfig.maintenanceMode}
@@ -1587,9 +1615,9 @@ export default function AdminDashboard() {
                       </div>
                       <Button 
                         onClick={handleSaveSettings}
-                        className="bg-orange-600 hover:bg-orange-700 text-white rounded-xl px-6 font-bold uppercase text-[10px] tracking-widest h-10 shadow-lg shadow-orange-200"
+                        className="bg-orange-600 hover:bg-orange-700 text-white rounded-xl px-8 font-black uppercase text-[11px] tracking-widest h-12 shadow-xl shadow-orange-200/50 w-full sm:w-auto"
                       >
-                        Save Status
+                        HIFADHI / SAVE SETTINGS
                       </Button>
                     </div>
                   </CardContent>
@@ -1607,8 +1635,8 @@ export default function AdminDashboard() {
                         <p className="text-xs text-neutral-500 font-medium">Washa au zima uwezo wa wateja kuona bidhaa katika AR (3D).</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-6">
-                      <div className="flex items-center gap-3 border-r border-blue-200 pr-6">
+                    <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+                      <div className="flex items-center gap-3 border-r-0 sm:border-r border-blue-200 pr-0 sm:pr-6">
                          <span className="text-xs font-bold uppercase text-neutral-400">{businessConfig.enableAR ? 'Active' : 'Disabled'}</span>
                          <Switch 
                            checked={businessConfig.enableAR}
@@ -1617,9 +1645,9 @@ export default function AdminDashboard() {
                       </div>
                       <Button 
                         onClick={handleSaveSettings}
-                        className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-6 font-bold uppercase text-[10px] tracking-widest h-10 shadow-lg shadow-blue-200"
+                        className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-8 font-black uppercase text-[11px] tracking-widest h-12 shadow-xl shadow-blue-200/50 w-full sm:w-auto"
                       >
-                        Save AR Settings
+                        HIFADHI / SAVE AR
                       </Button>
                     </div>
                   </CardContent>
