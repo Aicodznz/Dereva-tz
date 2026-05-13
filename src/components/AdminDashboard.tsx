@@ -1577,12 +1577,20 @@ export default function AdminDashboard() {
                       <h3 className="text-lg font-black uppercase italic tracking-tight">{t('admin_settings_maintenance_mode')}</h3>
                       <p className="text-xs text-neutral-500 font-medium">Turn on the Maintenance Mode will temporarily deactivate your selected systems.</p>
                     </div>
-                    <div className="flex items-center gap-3">
-                       <span className="text-xs font-bold uppercase text-neutral-400">{businessConfig.maintenanceMode ? 'Active' : 'Disabled'}</span>
-                       <Switch 
-                         checked={businessConfig.maintenanceMode}
-                         onCheckedChange={(val) => setBusinessConfig({...businessConfig, maintenanceMode: val})}
-                       />
+                    <div className="flex items-center gap-6">
+                      <div className="flex items-center gap-3 border-r border-orange-200 pr-6">
+                         <span className="text-xs font-bold uppercase text-neutral-400">{businessConfig.maintenanceMode ? 'Active' : 'Disabled'}</span>
+                         <Switch 
+                           checked={businessConfig.maintenanceMode}
+                           onCheckedChange={(val) => setBusinessConfig({...businessConfig, maintenanceMode: val})}
+                         />
+                      </div>
+                      <Button 
+                        onClick={handleSaveSettings}
+                        className="bg-orange-600 hover:bg-orange-700 text-white rounded-xl px-6 font-bold uppercase text-[10px] tracking-widest h-10 shadow-lg shadow-orange-200"
+                      >
+                        Save Status
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -1599,12 +1607,20 @@ export default function AdminDashboard() {
                         <p className="text-xs text-neutral-500 font-medium">Washa au zima uwezo wa wateja kuona bidhaa katika AR (3D).</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                       <span className="text-xs font-bold uppercase text-neutral-400">{businessConfig.enableAR ? 'Active' : 'Disabled'}</span>
-                       <Switch 
-                         checked={businessConfig.enableAR}
-                         onCheckedChange={(val) => setBusinessConfig({...businessConfig, enableAR: val})}
-                       />
+                    <div className="flex items-center gap-6">
+                      <div className="flex items-center gap-3 border-r border-blue-200 pr-6">
+                         <span className="text-xs font-bold uppercase text-neutral-400">{businessConfig.enableAR ? 'Active' : 'Disabled'}</span>
+                         <Switch 
+                           checked={businessConfig.enableAR}
+                           onCheckedChange={(val) => setBusinessConfig({...businessConfig, enableAR: val})}
+                         />
+                      </div>
+                      <Button 
+                        onClick={handleSaveSettings}
+                        className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-6 font-bold uppercase text-[10px] tracking-widest h-10 shadow-lg shadow-blue-200"
+                      >
+                        Save AR Settings
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
