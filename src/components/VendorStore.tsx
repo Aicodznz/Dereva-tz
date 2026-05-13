@@ -137,7 +137,11 @@ export default function VendorStore() {
         }));
 
         setReviews(reviewsWithReplies);
-      } catch (error) {
+      } catch (error: any) {
+        if (error.message?.includes('permission')) {
+          console.warn("Reviews fetch restricted by rules:", error.message);
+          return;
+        }
         handleFirestoreError(error, OperationType.LIST, 'reviews');
       }
     };
@@ -147,12 +151,18 @@ export default function VendorStore() {
     const pUnsub = onSnapshot(
       query(collection(db, 'products'), where('vendorId', '==', id)), 
       () => fetchProducts(),
-      (error) => handleFirestoreError(error, OperationType.LIST, 'products')
+      (error: any) => {
+        if (error.message?.includes('permission')) return;
+        handleFirestoreError(error, OperationType.LIST, 'products');
+      }
     );
     const rUnsub = onSnapshot(
       query(collection(db, 'reviews'), where('targetId', '==', id), where('targetType', '==', 'vendor')), 
       () => fetchReviews(),
-      (error) => handleFirestoreError(error, OperationType.LIST, 'reviews')
+      (error: any) => {
+        if (error.message?.includes('permission')) return;
+        handleFirestoreError(error, OperationType.LIST, 'reviews');
+      }
     );
 
     return () => {

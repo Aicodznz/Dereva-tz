@@ -786,7 +786,17 @@ export default function VendorDashboard() {
       onSnapshot(query(collection(db, 'orders'), where('vendorId', '==', vendorProfile.id)), () => fetchOrders(), errorHandler('orders')),
       onSnapshot(query(collection(db, 'products'), where('vendorId', '==', vendorProfile.id)), () => fetchProducts(), errorHandler('products')),
       onSnapshot(query(collection(db, 'tables'), where('vendorId', '==', vendorProfile.id)), () => fetchSections(), errorHandler('tables')),
-      onSnapshot(query(collection(db, 'reviews'), where('targetId', '==', vendorProfile.id), where('targetType', '==', 'vendor')), () => fetchReviews()),
+      onSnapshot(
+        query(collection(db, 'reviews'), where('targetId', '==', vendorProfile.id), where('targetType', '==', 'vendor')), 
+        () => fetchReviews(),
+        (error: any) => {
+          if (error.message?.includes('permission')) {
+            console.warn("Vendor reviews restricted by rules");
+            return;
+          }
+          handleFirestoreError(error, OperationType.GET, 'reviews');
+        }
+      ),
     ];
 
     return () => {

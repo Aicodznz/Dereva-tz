@@ -229,7 +229,13 @@ export default function ProductDetail() {
       () => {
         fetchReviews();
       },
-      (error) => handleFirestoreError(error, OperationType.LIST, 'reviews')
+      (error: any) => {
+        if (error.message?.includes('permission')) {
+          console.warn("Reviews live updates restricted by rules");
+          return;
+        }
+        handleFirestoreError(error, OperationType.LIST, 'reviews');
+      }
     );
 
     return () => unsub();
