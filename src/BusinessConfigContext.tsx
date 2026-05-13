@@ -21,7 +21,7 @@ const defaultConfig: BusinessConfig = {
   email: 'admin@mduka.com',
   phone: '+255 700 000 000',
   maintenanceMode: false,
-  enableAR: true,
+  enableAR: false,
 };
 
 const BusinessConfigContext = createContext<BusinessConfigContextType>({

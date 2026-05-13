@@ -929,7 +929,7 @@ export default function ProductDetail() {
                 />
               </AnimatePresence>
 
-              {product?.model3dUrl && businessConfig?.enableAR && (
+              {product?.model3dUrl && businessConfig?.enableAR === true && (
                 <button 
                   onClick={() => setShowARView(true)}
                   className="absolute top-24 left-6 px-4 py-2 bg-orange-600/90 backdrop-blur-xl border border-orange-500/20 rounded-2xl flex items-center gap-2 text-white text-xs font-black uppercase tracking-widest shadow-2xl z-30 hover:bg-orange-600 transition-all hover:scale-105 active:scale-95"

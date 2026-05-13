@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import { useCart } from '../CartContext';
 import { useLanguage } from '../LanguageContext';
 import { useAuth } from '../AuthContext';
+import { useBusinessConfig } from '../BusinessConfigContext';
 
 export default function VendorStore() {
   const { id } = useParams<{ id: string }>();
@@ -25,6 +26,7 @@ export default function VendorStore() {
   const { addItem } = useCart();
   const { t } = useLanguage();
   const { user } = useAuth();
+  const { config: businessConfig } = useBusinessConfig();
   const [searchParams] = useSearchParams();
   const tableNumber = searchParams.get('table');
   const [vendor, setVendor] = useState<VendorProfile | null>(null);
@@ -627,7 +629,7 @@ export default function VendorStore() {
                                 </Badge>
                               </div>
 
-                              {product?.model3dUrl && (
+                              {product?.model3dUrl && businessConfig?.enableAR && (
                                 <div className="absolute top-4 right-4 animate-pulse">
                                   <div className="bg-orange-600 text-white p-2 rounded-full shadow-lg shadow-orange-600/40 border border-white/20">
                                     <Box className="w-3.5 h-3.5" />

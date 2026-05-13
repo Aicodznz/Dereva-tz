@@ -13,6 +13,7 @@ import {
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { useAuth } from '../AuthContext';
+import { useBusinessConfig } from '../BusinessConfigContext';
 import LocationPicker from './LocationPicker';
 
 import { useLanguage } from '../LanguageContext';
@@ -25,6 +26,7 @@ export default function CustomerDashboard() {
   const { profile, user } = useAuth();
   const { t, isRTL } = useLanguage();
   const { addItem } = useCart();
+  const { config: businessConfig } = useBusinessConfig();
   const [vendors, setVendors] = useState<VendorProfile[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [banners, setBanners] = useState<{id: string, title: string, sub: string, img: string}[]>([]);
@@ -604,7 +606,7 @@ export default function CustomerDashboard() {
                       referrerPolicy="no-referrer"
                     />
                     {/* AR Badge */}
-                    {product?.model3dUrl && (
+                    {product?.model3dUrl && businessConfig?.enableAR && (
                       <div className="absolute top-4 left-4 z-10 animate-pulse">
                         <div className="bg-orange-600 text-white p-1.5 rounded-full shadow-lg border border-orange-400/40">
                           <Box className="w-3 h-3" />

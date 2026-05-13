@@ -27,6 +27,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // 1.5 Admins (Self-healing list)
+    match /admins/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // 2. Vendors (Public Read)
     match /vendors/{id} { 
       allow read: if true; 
@@ -39,9 +45,17 @@ service cloud.firestore {
       allow write: if isSignedIn(); 
     }
 
-    // 4. Reviews & Replies (Public Read)
-    match /reviews/{id} { allow read: if true; allow create: if isSignedIn(); }
-    match /review_replies/{id} { allow read: if true; allow create: if isSignedIn(); }
+    // 4. Reviews & Replies (Public Read - Fixed Permission)
+    match /reviews/{id} { 
+      allow read: if true; 
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+    match /review_replies/{id} { 
+      allow read: if true; 
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
 
     // 5. Banners (Public Read)
     match /banners/{id} { allow read: if true; allow write: if isAdmin(); }
