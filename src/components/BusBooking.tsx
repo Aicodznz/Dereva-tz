@@ -34,7 +34,11 @@ export default function BusBooking({ vendors, products }: BusBookingProps) {
     const branchesRef = collection(db, 'branches');
     const unsub = onSnapshot(branchesRef, (snapshot) => {
       setBranches(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => {
+    }, (error: any) => {
+      if (error.message?.includes('permission')) {
+        console.warn("Branches restricted by rules");
+        return;
+      }
       handleFirestoreError(error, OperationType.GET, 'branches');
     });
     return () => unsub();

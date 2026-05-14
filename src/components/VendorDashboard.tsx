@@ -619,13 +619,25 @@ export default function VendorDashboard() {
     if (!vendorProfile?.id) return;
     
     const fetchBranches = async () => {
-      const q = query(collection(db, 'branches'), where('vendorId', '==', vendorProfile.id));
-      const snap = await getDocs(q);
-      setBranches(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      try {
+        const q = query(collection(db, 'branches'), where('vendorId', '==', vendorProfile.id));
+        const snap = await getDocs(q);
+        setBranches(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      } catch (error: any) {
+        if (error.message?.includes('permission')) return;
+        handleFirestoreError(error, OperationType.GET, 'branches_fetch');
+      }
     };
 
     fetchBranches();
-    const unsub = onSnapshot(query(collection(db, 'branches'), where('vendorId', '==', vendorProfile.id)), () => fetchBranches());
+    const unsub = onSnapshot(
+      query(collection(db, 'branches'), where('vendorId', '==', vendorProfile.id)), 
+      () => fetchBranches(),
+      (error: any) => {
+        if (error.message?.includes('permission')) return;
+        handleFirestoreError(error, OperationType.GET, 'branches_sync');
+      }
+    );
     return () => unsub();
   }, [vendorProfile?.id]);
 

@@ -11,7 +11,9 @@ import {
   ChevronLeft, Star, MapPin, Clock, Phone, Info, 
   ShoppingBag, Plus, Camera, X, MessageSquare,
   ThumbsUp, Share2, Trash2, Reply, ShoppingBasket, Store,
-  Instagram, Facebook, MessageCircle, ShieldCheck, Undo2, Box
+  Instagram, Facebook, MessageCircle, ShieldCheck, Undo2, Box,
+  Bed, Wifi, Wind, Monitor, Car, Waves, MapPin as MapPinIcon, Utensils, Beer, Dumbbell, Users,
+  Plane, Shirt, Bell, Umbrella
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
@@ -901,8 +903,126 @@ export default function VendorStore() {
                     initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -30 }}
-                    className="max-w-4xl space-y-16"
+                    className="max-w-4xl space-y-12"
                   >
+                    {/* Hotel Specific Section */}
+                    {vendor.category === 'hotel' && (
+                      <div className="space-y-12 mb-12">
+                        {/* Summary Stats */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div className="p-6 bg-neutral-50 dark:bg-neutral-900 rounded-[2rem] border border-neutral-100 dark:border-neutral-800 space-y-2">
+                            <Bed className="w-5 h-5 text-orange-600" />
+                            <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Total Rooms</p>
+                            <p className="text-xl font-black text-neutral-900 dark:text-white uppercase italic">{vendor.numberOfRooms || 'N/A'}</p>
+                          </div>
+                          <div className="p-6 bg-neutral-50 dark:bg-neutral-900 rounded-[2rem] border border-neutral-100 dark:border-neutral-800 space-y-2">
+                            <Star className="w-5 h-5 text-orange-600" />
+                            <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Category</p>
+                            <p className="text-xl font-black text-neutral-900 dark:text-white uppercase italic">{vendor.hotelCategory || 'Standard'}</p>
+                          </div>
+                          <div className="p-6 bg-neutral-50 dark:bg-neutral-900 rounded-[2rem] border border-neutral-100 dark:border-neutral-800 space-y-2 col-span-2">
+                             <div className="flex justify-between items-end h-full">
+                               <div>
+                                 <div className="flex items-center gap-1.5 mb-1">
+                                   <Clock className="w-4 h-4 text-orange-600" />
+                                   <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Check In/Out</p>
+                                 </div>
+                                 <p className="text-sm font-black text-neutral-900 dark:text-white uppercase italic">{vendor.operatingHours}</p>
+                               </div>
+                               <div className="text-right">
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Available</p>
+                                  <Badge className="bg-green-500 text-white border-none font-black text-[9px] px-3">READY</Badge>
+                               </div>
+                             </div>
+                          </div>
+                        </div>
+
+                        {/* Room Pricing */}
+                        {vendor.roomPricing && (
+                          <div className="space-y-6">
+                             <h4 className="text-xl font-black uppercase italic tracking-tighter text-neutral-900 dark:text-white flex items-center gap-2">
+                               <ShieldCheck className="w-6 h-6 text-orange-600" /> Room Rates & Availability
+                             </h4>
+                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                               {[
+                                 { key: 'single', label: 'Single Room', price: vendor.roomPricing.single },
+                                 { key: 'double', label: 'Double Room', price: vendor.roomPricing.double },
+                                 { key: 'vip', label: 'VIP / Suite', price: vendor.roomPricing.vip }
+                               ].map(item => item.price && (
+                                 <div key={item.key} className="p-8 bg-white dark:bg-neutral-900 rounded-[2.5rem] border border-neutral-100 dark:border-neutral-800 shadow-xl shadow-black/5 flex flex-col justify-between group hover:border-orange-500/20 transition-all">
+                                    <div className="space-y-2">
+                                      <h5 className="text-lg font-black uppercase italic tracking-tighter text-neutral-900 dark:text-white">{item.label}</h5>
+                                      <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Per Night</p>
+                                    </div>
+                                    <div className="mt-8 flex items-baseline gap-2">
+                                      <span className="text-2xl font-black text-orange-600 italic">TZS {item.price.toLocaleString()}</span>
+                                    </div>
+                                    <Button className="mt-6 w-full bg-neutral-900 dark:bg-white text-white dark:text-neutral-950 rounded-2xl h-12 font-black uppercase tracking-widest text-[9px] group-hover:bg-orange-600 group-hover:text-white transition-colors">
+                                      Book Now
+                                    </Button>
+                                 </div>
+                               ))}
+                             </div>
+                          </div>
+                        )}
+
+                        {/* Gallery Section */}
+                        {vendor.galleryPhotos && vendor.galleryPhotos.length > 0 && (
+                          <div className="space-y-6">
+                             <h4 className="text-xl font-black uppercase italic tracking-tighter text-neutral-900 dark:text-white flex items-center gap-2">
+                               <Camera className="w-6 h-6 text-orange-600" /> Hotel Gallery
+                             </h4>
+                             <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar snap-x">
+                                {vendor.galleryPhotos.map((photo, i) => (
+                                  <motion.div 
+                                    key={i} 
+                                    whileHover={{ scale: 1.02 }}
+                                    className="min-w-[280px] h-48 rounded-[2rem] overflow-hidden snap-center shadow-lg border-2 border-white dark:border-neutral-800"
+                                  >
+                                    <img src={photo} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                  </motion.div>
+                                ))}
+                             </div>
+                          </div>
+                        )}
+
+                        {/* Amenities Grid */}
+                        {vendor.amenities && vendor.amenities.length > 0 && (
+                          <div className="space-y-6">
+                            <h4 className="text-xl font-black uppercase italic tracking-tighter text-neutral-900 dark:text-white">Amenities & Features</h4>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                              {vendor.amenities.map(id => {
+                                const amenity = [
+                                  { id: 'wifi', label: 'WiFi', icon: Wifi },
+                                  { id: 'parking', label: 'Parking', icon: Car },
+                                  { id: 'pool', label: 'Swimming Pool', icon: Waves },
+                                  { id: 'restaurant', label: 'Restaurant', icon: Utensils },
+                                  { id: 'bar', label: 'Bar', icon: Beer },
+                                  { id: 'gym', label: 'Gym', icon: Dumbbell },
+                                  { id: 'conference', label: 'Events', icon: Users },
+                                  { id: 'shuttle', label: 'Airport', icon: Plane },
+                                  { id: 'ac', label: 'AC', icon: Wind },
+                                  { id: 'laundry', label: 'Laundry', icon: Shirt },
+                                  { id: 'room_service', label: 'Room Service', icon: Bell },
+                                  { id: 'security', label: 'Security', icon: ShieldCheck },
+                                  { id: 'beach', label: 'Beach', icon: Umbrella },
+                                ].find(a => a.id === id);
+                                
+                                if (!amenity) return null;
+                                
+                                return (
+                                  <div key={id} className="flex items-center gap-3 p-4 bg-neutral-50 dark:bg-neutral-800/50 rounded-2xl border border-neutral-100 dark:border-neutral-800">
+                                    <amenity.icon className="w-4 h-4 text-orange-600" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-neutral-600 dark:text-neutral-400">{amenity.label}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
                       <div className="space-y-6">
                         <h3 className="text-3xl md:text-5xl font-[900] text-neutral-900 dark:text-white uppercase italic tracking-tighter">Maelezo ya Ziada</h3>

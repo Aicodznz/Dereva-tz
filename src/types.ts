@@ -51,10 +51,39 @@ export interface VendorProfile {
     whatsapp?: string;
     instagram?: string;
     facebook?: string;
+    website?: string;
   };
   deliveryFees?: Record<string, number>;
   orderInstructions?: string;
   createdAt: any;
+  
+  // Hotel specific fields
+  hotelCategory?: 'Hotel' | 'Lodge' | 'Guest House' | 'Resort' | 'Apartment' | 'Hostel' | 'Villa';
+  hotelStatus?: 'Available' | 'Fully Booked' | 'Under Maintenance';
+  galleryPhotos?: string[];
+  amenities?: string[];
+  numberOfRooms?: number;
+  roomPricing?: {
+    single?: number;
+    double?: number;
+    vip?: number;
+  };
+  ownerInfo?: {
+    firstName: string;
+    lastName: string;
+    phone: string;
+    whatsapp?: string;
+    email: string;
+    nationalId?: string;
+  };
+  businessDocs?: {
+    tinNumber: string;
+    licenseUrl: string;
+    taxCertUrl?: string;
+    verificationDocs?: string[];
+  };
+  country?: string;
+  city?: string;
 }
 
 export interface Product {

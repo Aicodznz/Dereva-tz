@@ -19,7 +19,8 @@ import {
   Bell, Plus, Trash2, Send, LayoutDashboard, Megaphone, Home,
   Users, ShoppingBag, DollarSign, MessageCircle, AlertTriangle,
   ExternalLink, Search, Ban, History, BarChart3, Settings, Info, CreditCard, Star,
-  Package, Undo2, Bike, Trophy, Wallet, MessageSquare, Globe, Clock, Coins, Loader2, Zap
+  Package, Undo2, Bike, Trophy, Wallet, MessageSquare, Globe, Clock, Coins, Loader2, Zap,
+  Bed, Wifi, Wind, Monitor, Car, Waves, MapPin, Mail, PhoneCall, FileText, User, Camera
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -168,6 +169,7 @@ export default function AdminDashboard() {
   const [driverLocations, setDriverLocations] = useState<any[]>([]);
   
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedVendorForReview, setSelectedVendorForReview] = useState<VendorProfile | null>(null);
   
   // Modals
   const [isAddBannerOpen, setIsAddBannerOpen] = useState(false);
@@ -1099,7 +1101,7 @@ export default function AdminDashboard() {
                     {vendors.filter(v => v.status === 'pending').map((v, idx) => (
                       <div 
                         key={v.id || `pend-${idx}`} 
-                        onClick={() => navigate(`/vendor/${v.id}`)}
+                        onClick={() => setSelectedVendorForReview(v)}
                         className="flex items-center justify-between p-4 bg-white rounded-3xl shadow-sm cursor-pointer hover:bg-neutral-50 transition-colors border border-transparent hover:border-orange-100 group"
                       >
                          <div className="flex items-center gap-4">
@@ -1130,7 +1132,7 @@ export default function AdminDashboard() {
                     {vendors.filter(v => v.status === 'active').map((v, idx) => (
                       <Card 
                         key={v.id || `actv-${idx}`} 
-                        onClick={() => navigate(`/vendor/${v.id}`)}
+                        onClick={() => setSelectedVendorForReview(v)}
                         className="rounded-[2rem] border-none shadow-lg group hover:shadow-2xl transition-all cursor-pointer border-2 border-transparent hover:border-orange-500/20 bg-white dark:bg-neutral-900 transition-colors"
                       >
                          <CardContent className="p-6 flex items-center justify-between">
@@ -2211,6 +2213,252 @@ export default function AdminDashboard() {
               </div>
             )}
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Vendor Review Dialog */}
+      <AnimatePresence>
+        {selectedVendorForReview && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedVendorForReview(null)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-4xl max-h-[90vh] bg-white dark:bg-neutral-950 rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col transition-colors"
+            >
+              <div className="p-8 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between bg-neutral-50 dark:bg-neutral-900/50">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-orange-600 flex items-center justify-center text-white">
+                    <Store className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-black uppercase italic tracking-tighter text-neutral-900 dark:text-white leading-none">
+                      {selectedVendorForReview.businessName}
+                    </h3>
+                    <p className="text-xs font-bold text-neutral-400 uppercase tracking-widest mt-1">
+                      {selectedVendorForReview.category} • {selectedVendorForReview.status}
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setSelectedVendorForReview(null)}
+                  className="p-3 hover:bg-neutral-200 dark:hover:bg-neutral-800 rounded-2xl transition-colors"
+                >
+                  <X className="w-6 h-6 text-neutral-400" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-8 space-y-12">
+                {/* Basic Info & Banner */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-6">
+                    <div className="relative h-48 rounded-[2rem] overflow-hidden group">
+                      <img 
+                        src={selectedVendorForReview.bannerUrl || 'https://picsum.photos/seed/banner/800/400'} 
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                      <div className="absolute bottom-4 left-4 flex items-center gap-3">
+                        <img 
+                          src={selectedVendorForReview.logoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${selectedVendorForReview.businessName}`}
+                          className="w-12 h-12 rounded-xl border-2 border-white shadow-lg object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                        <span className="text-white font-black uppercase italic tracking-tighter">Identity Verified</span>
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      <h4 className="text-[10px] font-black uppercase tracking-[0.2rem] text-neutral-400">Description</h4>
+                      <p className="text-sm font-medium text-neutral-600 dark:text-neutral-400 italic">
+                        {selectedVendorForReview.description || "No description provided."}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-6 bg-neutral-50 dark:bg-neutral-900 rounded-[1.5rem] space-y-2 border border-neutral-100 dark:border-neutral-800">
+                      <PhoneCall className="w-5 h-5 text-orange-600" />
+                      <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Phone</p>
+                      <p className="text-sm font-black text-neutral-900 dark:text-white uppercase italic">{selectedVendorForReview.phoneNumber || "N/A"}</p>
+                    </div>
+                    <div className="p-6 bg-neutral-50 dark:bg-neutral-900 rounded-[1.5rem] space-y-2 border border-neutral-100 dark:border-neutral-800">
+                      <Mail className="w-5 h-5 text-orange-600" />
+                      <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Mail</p>
+                      <p className="text-sm font-black text-neutral-900 dark:text-white truncate">{selectedVendorForReview.ownerUid.slice(0, 8)}...</p>
+                    </div>
+                    <div className="p-6 bg-neutral-50 dark:bg-neutral-900 rounded-[1.5rem] space-y-2 border border-neutral-100 dark:border-neutral-800">
+                      <Clock className="w-5 h-5 text-orange-600" />
+                      <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Hours</p>
+                      <p className="text-sm font-black text-neutral-900 dark:text-white uppercase italic">{selectedVendorForReview.operatingHours || "N/A"}</p>
+                    </div>
+                    <div className="p-6 bg-neutral-50 dark:bg-neutral-900 rounded-[1.5rem] space-y-2 border border-neutral-100 dark:border-neutral-800">
+                      <MapPin className="w-5 h-5 text-orange-600" />
+                      <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Address</p>
+                      <p className="text-xs font-black text-neutral-900 dark:text-white uppercase italic truncate" title={selectedVendorForReview.address}>{selectedVendorForReview.address || "N/A"}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Hotel Specific Information */}
+                {selectedVendorForReview.category === 'hotel' && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="space-y-8 bg-orange-50/30 dark:bg-orange-950/10 p-8 rounded-[2.5rem] border border-orange-100 dark:border-orange-900/30"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-orange-600 flex items-center justify-center text-white">
+                        <Bed className="w-5 h-5" />
+                      </div>
+                      <h4 className="text-xl font-black uppercase italic tracking-tighter text-neutral-900 dark:text-white underline decoration-orange-600 decoration-2 underline-offset-4">Hotel Registration Details</h4>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="p-4 bg-white dark:bg-neutral-900 rounded-2xl shadow-sm space-y-1">
+                        <p className="text-[10px] font-black uppercase text-neutral-400 tracking-widest">Hotel Category</p>
+                        <p className="text-sm font-black uppercase italic text-neutral-900 dark:text-white">{selectedVendorForReview.hotelCategory || 'N/A'}</p>
+                      </div>
+                      <div className="p-4 bg-white dark:bg-neutral-900 rounded-2xl shadow-sm space-y-1">
+                        <p className="text-[10px] font-black uppercase text-neutral-400 tracking-widest">Rooms</p>
+                        <p className="text-sm font-black uppercase italic text-neutral-900 dark:text-white">{selectedVendorForReview.numberOfRooms || 'N/A'}</p>
+                      </div>
+                      <div className="p-4 bg-white dark:bg-neutral-900 rounded-2xl shadow-sm space-y-1">
+                        <p className="text-[10px] font-black uppercase text-neutral-400 tracking-widest">Pricing (VIP/Double/Single)</p>
+                        <p className="text-sm font-black uppercase italic text-neutral-900 dark:text-white">
+                          {selectedVendorForReview.roomPricing?.vip?.toLocaleString() || '-'} / {selectedVendorForReview.roomPricing?.double?.toLocaleString() || '-'} / {selectedVendorForReview.roomPricing?.single?.toLocaleString() || '-'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="space-y-4">
+                        <h5 className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Amenities</h5>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedVendorForReview.amenities?.map((amenity, i) => (
+                            <Badge key={i} className="bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-neutral-700 font-bold uppercase text-[9px] px-3 py-1">
+                              {amenity}
+                            </Badge>
+                          ))}
+                          {(!selectedVendorForReview.amenities || selectedVendorForReview.amenities.length === 0) && <p className="text-xs italic text-neutral-400">No amenities listed.</p>}
+                        </div>
+                      </div>
+                      <div className="space-y-4">
+                        <h5 className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Hotel Gallery</h5>
+                        <div className="flex gap-2 overflow-x-auto pb-2">
+                          {selectedVendorForReview.galleryPhotos?.map((photo, i) => (
+                            <img 
+                              key={i} 
+                              src={photo} 
+                              className="w-20 h-20 rounded-xl object-cover border-2 border-white shadow-md shrink-0" 
+                              referrerPolicy="no-referrer"
+                            />
+                          ))}
+                          {(!selectedVendorForReview.galleryPhotos || selectedVendorForReview.galleryPhotos.length === 0) && <p className="text-xs italic text-neutral-400">No gallery photos.</p>}
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Documents & Verification */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-teal-600 flex items-center justify-center text-white">
+                      <FileText className="w-5 h-5" />
+                    </div>
+                    <h4 className="text-xl font-black uppercase italic tracking-tighter text-neutral-900 dark:text-white">Documents & KYC</h4>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="p-8 bg-neutral-50 dark:bg-neutral-900 rounded-[2rem] border border-neutral-100 dark:border-neutral-800 space-y-4">
+                       <h5 className="text-[10px] font-black uppercase tracking-widest text-neutral-400 flex items-center gap-2">
+                         <User className="w-4 h-4" /> Owner Information
+                       </h5>
+                       {selectedVendorForReview.ownerInfo ? (
+                         <div className="space-y-3">
+                           <p className="text-sm"><span className="text-[10px] font-black uppercase text-neutral-400 block">Name</span> <span className="font-bold text-neutral-900 dark:text-white uppercase">{selectedVendorForReview.ownerInfo.firstName} {selectedVendorForReview.ownerInfo.lastName}</span></p>
+                           <p className="text-sm"><span className="text-[10px] font-black uppercase text-neutral-400 block">ID/Passport</span> <span className="font-bold text-neutral-900 dark:text-white">{selectedVendorForReview.ownerInfo.nationalId || 'N/A'}</span></p>
+                           <p className="text-sm"><span className="text-[10px] font-black uppercase text-neutral-400 block">Email</span> <span className="font-bold text-neutral-900 dark:text-white">{selectedVendorForReview.ownerInfo.email}</span></p>
+                           <p className="text-sm"><span className="text-[10px] font-black uppercase text-neutral-400 block">Phone/WhatsApp</span> <span className="font-bold text-neutral-900 dark:text-white">{selectedVendorForReview.ownerInfo.phone} / {selectedVendorForReview.ownerInfo.whatsapp || '-'}</span></p>
+                         </div>
+                       ) : (
+                         <p className="text-xs italic text-neutral-400">Standard vendor profile - minimal owner info.</p>
+                       )}
+                    </div>
+
+                    <div className="p-8 bg-neutral-50 dark:bg-neutral-900 rounded-[2rem] border border-neutral-100 dark:border-neutral-800 space-y-6">
+                       <h5 className="text-[10px] font-black uppercase tracking-widest text-neutral-400 flex items-center gap-2">
+                         <FileText className="w-4 h-4" /> Business License & Tax
+                       </h5>
+                       <div className="space-y-4">
+                          <div className="flex items-center justify-between p-3 bg-white dark:bg-neutral-800 rounded-xl">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">TIN Number</span>
+                            <span className="font-black text-neutral-900 dark:text-white uppercase italic">{selectedVendorForReview.tin}</span>
+                          </div>
+                          {selectedVendorForReview.businessDocs?.licenseUrl ? (
+                             <a 
+                               href={selectedVendorForReview.businessDocs.licenseUrl} 
+                               target="_blank" 
+                               rel="noreferrer"
+                               className="flex items-center justify-between p-3 bg-white dark:bg-neutral-800 rounded-xl hover:bg-orange-50 transition-colors group"
+                             >
+                                <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Business License</span>
+                                <ExternalLink className="w-4 h-4 text-orange-600 group-hover:scale-110 transition-transform" />
+                             </a>
+                          ) : (
+                            <div className="p-3 bg-neutral-100 dark:bg-neutral-800 rounded-xl opacity-50">
+                               <p className="text-[10px] font-black uppercase text-neutral-400">License Not Uploaded</p>
+                            </div>
+                          )}
+                          {selectedVendorForReview.businessDocs?.taxCertUrl && (
+                             <a 
+                               href={selectedVendorForReview.businessDocs.taxCertUrl} 
+                               target="_blank" 
+                               rel="noreferrer"
+                               className="flex items-center justify-between p-3 bg-white dark:bg-neutral-800 rounded-xl hover:bg-orange-50 transition-colors group"
+                             >
+                                <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Tax Certificate</span>
+                                <ExternalLink className="w-4 h-4 text-orange-600 group-hover:scale-110 transition-transform" />
+                             </a>
+                          )}
+                       </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-8 border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/50 flex gap-4">
+                <Button 
+                  onClick={() => {
+                    handleApprove(selectedVendorForReview.id!);
+                    setSelectedVendorForReview(null);
+                  }}
+                  disabled={selectedVendorForReview.status === 'active'}
+                  className="flex-1 h-14 bg-green-600 hover:bg-green-700 text-white rounded-[1.5rem] font-black uppercase tracking-widest text-xs shadow-xl shadow-green-100"
+                >
+                  Approve Application
+                </Button>
+                <Button 
+                  onClick={() => {
+                    handleReject(selectedVendorForReview.id!);
+                    setSelectedVendorForReview(null);
+                  }}
+                  variant="outline"
+                  className="flex-1 h-14 border-red-200 text-red-500 hover:bg-red-50 rounded-[1.5rem] font-black uppercase tracking-widest text-xs"
+                >
+                  Reject & Suspend
+                </Button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>
