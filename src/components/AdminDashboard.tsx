@@ -2323,10 +2323,6 @@ export default function AdminDashboard() {
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       <div className="p-4 bg-white dark:bg-neutral-900 rounded-2xl shadow-sm space-y-1">
-                        <p className="text-[10px] font-black uppercase text-neutral-400 tracking-widest">Hotel Category</p>
-                        <p className="text-sm font-black uppercase italic text-neutral-900 dark:text-white">{selectedVendorForReview.hotelCategory || 'N/A'}</p>
-                      </div>
-                      <div className="p-4 bg-white dark:bg-neutral-900 rounded-2xl shadow-sm space-y-1">
                         <p className="text-[10px] font-black uppercase text-neutral-400 tracking-widest">Rooms</p>
                         <p className="text-sm font-black uppercase italic text-neutral-900 dark:text-white">{selectedVendorForReview.numberOfRooms || 'N/A'}</p>
                       </div>

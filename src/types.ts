@@ -116,6 +116,7 @@ export interface Product {
   capacity?: number;
   roomAmenities?: string;
   amenities?: string[];
+  isCleaning?: boolean;
 }
 
 export type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'prepared' | 'out_for_delivery' | 'delivered' | 'cancelled' | 'completed';
@@ -149,6 +150,8 @@ export interface Order {
   checkOutDate?: string;
   roomType?: string;
   numberOfNights?: number;
+  guestIdType?: string;
+  guestIdNumber?: string;
 }
 
 export interface RiderProfile {

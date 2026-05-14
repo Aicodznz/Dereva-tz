@@ -39,6 +39,8 @@ import {
   Ticket,
   AlertCircle,
   MoreVertical,
+  MoreHorizontal,
+  Menu,
   Filter,
   Download,
   Calendar,
@@ -56,6 +58,7 @@ import {
   FileText,
   Info,
   Bed,
+  LayoutGrid,
   ShieldCheck,
   Coins,
   Image as ImageIcon,
@@ -136,6 +139,7 @@ export default function VendorDashboard() {
   const { t } = useLanguage();
   const { config: businessConfig } = useBusinessConfig();
   const [vendorProfile, setVendorProfile] = useState<VendorProfile | null>(null);
+  const [activeFulfillmentTab, setActiveFulfillmentTab] = useState(0);
   const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
 
   // Dynamic context based on business category
@@ -250,7 +254,9 @@ export default function VendorDashboard() {
     checkInDate: new Date().toISOString().split('T')[0],
     checkOutDate: '',
     totalAmount: 0,
-    paymentStatus: 'pending'
+    paymentStatus: 'pending',
+    guestIdType: 'Nida',
+    guestIdNumber: ''
   });
 
   const handleManualBooking = async (e: React.FormEvent) => {
@@ -286,12 +292,29 @@ export default function VendorDashboard() {
         checkInDate: new Date().toISOString().split('T')[0],
         checkOutDate: '',
         totalAmount: 0,
-        paymentStatus: 'pending'
+        paymentStatus: 'pending',
+        guestIdType: 'Nida',
+        guestIdNumber: ''
       });
     } catch (error) {
       toast.error('Imeshindwa kusajili booking.', { id: toastId });
     }
   };
+
+  const toggleCleaning = async (productId: string, currentStatus: boolean) => {
+    try {
+      await updateDoc(doc(db, 'products', productId), {
+        isCleaning: !currentStatus,
+        updatedAt: serverTimestamp()
+      });
+      // Update local state
+      setProducts(prev => prev.map(p => p.id === productId ? { ...p, isCleaning: !currentStatus } : p));
+      toast.success(!currentStatus ? 'Chumba kinafanyiwa usafi' : 'Usafi umekamilika');
+    } catch (error) {
+      toast.error('Imeshindwa kubadilisha hali ya usafi');
+    }
+  };
+
   const bestSellers = useMemo(() => {
     const itemCounts: Record<string, { name: string; count: number; revenue: number; imageUrl?: string; category: string }> = {};
     orders.forEach(order => {
@@ -362,7 +385,6 @@ export default function VendorDashboard() {
   });
 
   // POS Enhanced States
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [orderType, setOrderType] = useState<'walk_in' | 'pickup' | 'delivery'>('walk_in');
   const [tableNumber, setTableNumber] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'mobile_money'>('cash');
@@ -594,10 +616,7 @@ export default function VendorDashboard() {
     ];
   }, [orders.length, t, vendorContext, vendorProfile?.category]);
 
-  const categories = Array.from(new Set(['all', ...products.map(p => p.category).filter(Boolean)]));
-  const filteredProducts = products.filter(p => 
-    (selectedCategory === 'all' || p.category === selectedCategory)
-  );
+  const filteredProducts = products;
 
   // Onboarding Form State
   const [formData, setFormData] = useState({
@@ -1316,11 +1335,10 @@ export default function VendorDashboard() {
   const filteredInventory = products.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(inventorySearch.toLowerCase()) || 
                          p.id?.toLowerCase().includes(inventorySearch.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || p.category === selectedCategory;
     const matchesStock = stockLevelFilter === 'all' || 
                         (stockLevelFilter === 'low' && p.stock < 10) || 
                         (stockLevelFilter === 'out' && p.stock === 0);
-    return matchesSearch && matchesCategory && matchesStock;
+    return matchesSearch && matchesStock;
   });
 
   const cartTotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
@@ -1833,11 +1851,38 @@ export default function VendorDashboard() {
       </div>
 
       {isPackingMode ? (
-        <div className="flex gap-8 overflow-x-auto no-scrollbar pb-8 min-h-[600px]">
-           {renderFulfillmentColumn(vendorContext.awaitingLabel, ["pending"], "text-yellow-500")}
-           {renderFulfillmentColumn(vendorContext.pickingLabel, ["preparing", "accepted"], "text-orange-500")}
-           {renderFulfillmentColumn(vendorContext.readyLabel, ["prepared"], "text-purple-500")}
-           {renderFulfillmentColumn("Archive / Sent", ["delivered", "completed"], "text-green-500")}
+        <div className="flex flex-col gap-6">
+           {/* Mobile Fulfillment Tab Switcher */}
+           <div className="lg:hidden flex gap-2 overflow-x-auto no-scrollbar pb-2">
+             {[vendorContext.awaitingLabel, vendorContext.pickingLabel, vendorContext.readyLabel, "Archive"].map((label, i) => (
+               <button
+                 key={`fulfillment-mobile-tab-${i}`}
+                 onClick={() => setActiveFulfillmentTab(i)}
+                 className={`flex-shrink-0 px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${
+                   activeFulfillmentTab === i 
+                     ? 'bg-orange-600 text-white shadow-lg shadow-orange-900/20' 
+                     : 'bg-neutral-100 dark:bg-neutral-900 text-neutral-500'
+                 }`}
+               >
+                 {label}
+               </button>
+             ))}
+           </div>
+
+           <div className="flex gap-4 lg:gap-8 overflow-x-auto no-scrollbar pb-8 min-h-[600px]">
+              <div className={`${activeFulfillmentTab === 0 ? 'block' : 'hidden'} lg:block flex-1 flex-shrink-0 lg:flex-shrink w-full lg:w-auto`}>
+                {renderFulfillmentColumn(vendorContext.awaitingLabel, ["pending"], "text-yellow-500")}
+              </div>
+              <div className={`${activeFulfillmentTab === 1 ? 'block' : 'hidden'} lg:block flex-1 flex-shrink-0 lg:flex-shrink w-full lg:w-auto`}>
+                {renderFulfillmentColumn(vendorContext.pickingLabel, ["preparing", "accepted"], "text-orange-500")}
+              </div>
+              <div className={`${activeFulfillmentTab === 2 ? 'block' : 'hidden'} lg:block flex-1 flex-shrink-0 lg:flex-shrink w-full lg:w-auto`}>
+                {renderFulfillmentColumn(vendorContext.readyLabel, ["prepared"], "text-purple-500")}
+              </div>
+              <div className={`${activeFulfillmentTab === 3 ? 'block' : 'hidden'} lg:block flex-1 flex-shrink-0 lg:flex-shrink w-full lg:w-auto`}>
+                {renderFulfillmentColumn("Archive / Sent", ["delivered", "completed"], "text-green-500")}
+              </div>
+           </div>
         </div>
       ) : (
          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl overflow-hidden shadow-2xl transition-colors">
@@ -1962,29 +2007,39 @@ export default function VendorDashboard() {
   );
 
   return (
-    <div className="flex flex-col lg:flex-row min-h-[calc(100vh-12rem)] -mx-4 sm:-mx-6 lg:-mx-8 -my-8 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-white overflow-hidden rounded-3xl border border-neutral-200 dark:border-neutral-800 shadow-2xl relative transition-colors duration-300">
-      {/* Mobile Menu Toggle */}
-      <div className="lg:hidden flex items-center justify-between p-4 bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 sticky top-0 z-50 transition-colors duration-300">
+    <div className="flex flex-col lg:flex-row min-h-screen bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-white overflow-hidden relative transition-colors duration-300">
+      {/* Mobile Menu Toggle - More modern floating style */}
+      <div className="lg:hidden flex items-center justify-between p-4 px-6 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border-b border-neutral-200 dark:border-neutral-800 sticky top-0 z-50 transition-colors duration-300">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center shadow-lg">
+          <div className="w-9 h-9 bg-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-orange-900/20">
             <Store className="w-5 h-5 text-white" />
           </div>
-          <h2 className="font-bold text-xs truncate max-w-[150px]">{vendorProfile?.businessName}</h2>
+          <div>
+            <h2 className="font-black text-[10px] uppercase tracking-tighter truncate max-w-[150px] leading-none mb-1">{vendorProfile?.businessName}</h2>
+            <p className="text-[8px] text-neutral-500 font-bold uppercase tracking-widest leading-none">Vendor Dashboard</p>
+          </div>
         </div>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="text-neutral-400"
-        >
-          {isMobileMenuOpen ? <X className="w-6 h-6" /> : <MoreVertical className="w-6 h-6" />}
-        </Button>
+        <div className="flex items-center gap-2">
+           <button className="p-2 text-neutral-500 hover:text-orange-600 relative">
+             <Bell className="w-5 h-5" />
+             <span className="absolute top-1 right-1 w-2 h-2 bg-orange-600 rounded-full border-2 border-white dark:border-neutral-900"></span>
+           </button>
+           <Button 
+             variant="ghost" 
+             size="icon" 
+             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+             className="text-neutral-900 dark:text-white rounded-xl"
+           >
+             {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+           </Button>
+        </div>
       </div>
 
       {/* Sidebar - Desktop and Mobile Overlay */}
       <aside className={`
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-        fixed lg:relative inset-y-0 left-0 w-64 bg-neutral-50 dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800 p-6 flex flex-col gap-8 z-40 transition-all duration-300 lg:z-auto
+        fixed lg:relative inset-y-0 left-0 w-72 bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800 p-8 flex flex-col gap-10 z-[100] transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] lg:z-auto
+        ${isMobileMenuOpen ? 'shadow-2xl rounded-r-[3rem]' : 'rounded-none'}
       `}>
         <div className="hidden lg:flex items-center gap-3 px-2">
           <div className="w-10 h-10 bg-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-orange-900/20">
@@ -2042,9 +2097,9 @@ export default function VendorDashboard() {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col overflow-x-hidden overflow-y-auto w-full">
-        {/* Top Bar - Only on Desktop typically, but we adjust for mobile */}
-        <header className="h-20 border-b border-neutral-200 dark:border-neutral-800 px-4 md:px-8 flex items-center justify-between bg-white/80 dark:bg-neutral-900/20 backdrop-blur-xl sticky top-0 z-10 w-full transition-colors duration-300">
+      <main className="flex-1 flex flex-col overflow-x-hidden overflow-y-auto w-full pb-24 lg:pb-0">
+        {/* Top Bar - Only on Desktop typically */}
+        <header className="hidden lg:flex h-20 border-b border-neutral-200 dark:border-neutral-800 px-8 items-center justify-between bg-white/80 dark:bg-neutral-900/20 backdrop-blur-xl sticky top-0 z-10 w-full transition-colors duration-300">
           <div className="hidden sm:flex items-center gap-4 flex-1 max-w-md">
             <div className="relative w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
@@ -2089,7 +2144,7 @@ export default function VendorDashboard() {
         </header>
 
         {/* Tab Content */}
-        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-8 custom-scrollbar">
           <AnimatePresence mode="wait">
             {activeTab === 'overview' && (
               <motion.div 
@@ -2210,6 +2265,75 @@ export default function VendorDashboard() {
                           </div>
                        </CardContent>
                     </Card>
+                  </div>
+                )}
+
+                {/* Hotel Room Status Board (Only for Hotels) */}
+                {vendorProfile?.category === 'hotel' && products.length > 0 && (
+                  <div className="space-y-6 mt-8">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                         <div className="p-2 rounded-xl bg-orange-600/10 text-orange-600">
+                            <LayoutGrid className="w-5 h-5" />
+                         </div>
+                         <h3 className="text-xl font-black italic uppercase tracking-tighter text-neutral-900 dark:text-white">Live Room Status Grid</h3>
+                      </div>
+                      <div className="hidden sm:flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                           <div className="w-3 h-3 rounded-full bg-green-500" />
+                           <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Available</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                           <div className="w-3 h-3 rounded-full bg-orange-500" />
+                           <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Occupied</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
+                      {products.map((room) => {
+                        const isActiveOrder = orders.some(o => 
+                          o.orderType === 'booking' && 
+                          o.roomType === room.name && 
+                          (o.status === 'accepted' || o.status === 'pending')
+                        );
+                        
+                        const isCleaning = room.isCleaning;
+
+                        return (
+                          <motion.div 
+                            key={room.id}
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            onClick={() => !isActiveOrder && toggleCleaning(room.id || '', !!isCleaning)}
+                            className={`aspect-square rounded-[2rem] p-5 flex flex-col justify-between border-2 transition-all relative group cursor-pointer ${
+                              isActiveOrder 
+                                ? 'bg-orange-50 border-orange-200 dark:bg-orange-950/20 dark:border-orange-900/30' 
+                                : isCleaning
+                                  ? 'bg-neutral-100 border-neutral-200 dark:bg-neutral-800 dark:border-neutral-700 opacity-60'
+                                  : 'bg-white border-neutral-100 dark:bg-neutral-900 dark:border-neutral-800'
+                            }`}
+                          >
+                             <div className="flex items-center justify-between">
+                                <span className="text-[9px] font-black uppercase tracking-widest text-neutral-400 group-hover:text-orange-600 transition-colors">#{room.name.slice(0,3)}</span>
+                                <div className={`w-3 h-3 rounded-full ${isActiveOrder ? 'bg-orange-500 shadow-md shadow-orange-500/50' : isCleaning ? 'bg-neutral-400' : 'bg-green-500 shadow-md shadow-green-500/50'}`} />
+                             </div>
+                             <div>
+                                <h4 className="text-sm font-black italic tracking-tighter truncate leading-tight mb-1">{room.name}</h4>
+                                <p className={`text-[8px] font-black uppercase tracking-widest ${isActiveOrder ? 'text-orange-600' : isCleaning ? 'text-neutral-500' : 'text-green-600'}`}>
+                                   {isActiveOrder ? 'Dagaa' : isCleaning ? 'Usafi' : 'Wazi'}
+                                </p>
+                             </div>
+                             
+                             {isActiveOrder && (
+                                <div className="absolute top-1 right-1">
+                                   <div className="bg-orange-600 text-[8px] font-black text-white px-2 py-0.5 rounded-full uppercase">Busy</div>
+                                </div>
+                             )}
+                          </motion.div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
 
@@ -2533,25 +2657,6 @@ export default function VendorDashboard() {
                        </div>
                     </div>
                   </div>
-
-                  {/* Category Selection Carousel */}
-                  <div className="flex gap-3 pb-4 overflow-x-auto no-scrollbar">
-                    {categories.map((cat, idx) => (
-                      <Button
-                        key={`pos-cat-btn-${cat}-${idx}`}
-                        variant={selectedCategory === cat ? 'default' : 'ghost'}
-                        onClick={() => setSelectedCategory(cat)}
-                        className={`rounded-2xl px-6 h-12 border border-neutral-800 whitespace-nowrap font-black text-[10px] uppercase tracking-widest transition-all ${
-                          selectedCategory === cat 
-                            ? 'bg-orange-600 text-white border-orange-600 shadow-xl shadow-orange-900/30 ring-2 ring-orange-600/20' 
-                            : 'bg-neutral-900/40 text-neutral-400 hover:text-white hover:bg-neutral-800'
-                        }`}
-                      >
-                        {cat}
-                      </Button>
-                    ))}
-                  </div>
-
                   <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-6">
                     {filteredProducts.map((product, pIdx) => (
                       <motion.button 
@@ -4315,14 +4420,6 @@ export default function VendorDashboard() {
                         onChange={(e) => setInventorySearch(e.target.value)}
                       />
                    </div>
-                   <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                      <SelectTrigger className="bg-neutral-950 border-neutral-800 h-12 rounded-2xl font-bold">
-                         <SelectValue placeholder="All Categories" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
-                         {categories.map((c, idx) => <SelectItem key={`inventory-cat-${c}-${idx}`} value={c}>{c}</SelectItem>)}
-                      </SelectContent>
-                   </Select>
                    <Select value={stockLevelFilter} onValueChange={setStockLevelFilter}>
                       <SelectTrigger className="bg-neutral-950 border-neutral-800 h-12 rounded-2xl font-bold">
                          <SelectValue placeholder="Stock Level" />
@@ -4340,7 +4437,6 @@ export default function VendorDashboard() {
                     <thead>
                       <tr className="border-b border-neutral-800 bg-neutral-900/50">
                         <th className="px-8 py-6 text-[10px] font-black text-neutral-500 uppercase tracking-widest">Product Information</th>
-                        <th className="px-8 py-6 text-[10px] font-black text-neutral-500 uppercase tracking-widest">Category</th>
                         <th className="px-8 py-6 text-[10px] font-black text-neutral-500 uppercase tracking-widest text-center">Price</th>
                         <th className="px-8 py-6 text-[10px] font-black text-neutral-500 uppercase tracking-widest text-center">Stock Level</th>
                         <th className="px-8 py-6 text-[10px] font-black text-neutral-500 uppercase tracking-widest text-right">Actions</th>
@@ -4387,9 +4483,6 @@ export default function VendorDashboard() {
                                 </div>
                               </div>
                             </td>
-                            <td className="px-8 py-6">
-                               <span className="px-4 py-1.5 bg-neutral-900 border border-neutral-800 rounded-full text-[10px] font-black text-neutral-400 uppercase tracking-widest">{product.category}</span>
-                            </td>
                             <td className="px-8 py-6 text-center">
                                <p className="font-black text-orange-500">TZS {product.price.toLocaleString()}</p>
                             </td>
@@ -4431,6 +4524,36 @@ export default function VendorDashboard() {
           </AnimatePresence>
         </div>
       </main>
+
+      {/* Bottom Navigation for Mobile */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 h-20 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border-t border-neutral-200 dark:border-neutral-800 z-[100] flex items-center justify-around px-2 transition-colors duration-300">
+        {tabs.slice(0, 4).map((item) => (
+          <button
+            key={`mobile-nav-${item.id}`}
+            onClick={() => {
+              setActiveTab(item.id as TabType);
+              setIsMobileMenuOpen(false);
+            }}
+            className={`flex flex-col items-center justify-center gap-1 min-w-[64px] transition-all duration-300 ${
+              activeTab === item.id ? 'text-orange-600 scale-110' : 'text-neutral-500 hover:text-orange-400'
+            }`}
+          >
+            <div className={`p-2 rounded-xl transition-all ${activeTab === item.id ? 'bg-orange-600/10' : ''}`}>
+              <item.icon className="w-6 h-6" />
+            </div>
+            <span className="text-[9px] font-black uppercase tracking-tighter">{item.label.split(' ')[0]}</span>
+          </button>
+        ))}
+        <button
+          onClick={() => setIsMobileMenuOpen(true)}
+          className="flex flex-col items-center justify-center gap-1 min-w-[64px] text-neutral-400 hover:text-white"
+        >
+          <div className="p-2">
+            <MoreHorizontal className="w-6 h-6" />
+          </div>
+          <span className="text-[9px] font-black uppercase tracking-tighter">More</span>
+        </button>
+      </nav>
 
       {/* Add Customer Modal */}
       <AnimatePresence>
@@ -4841,18 +4964,6 @@ export default function VendorDashboard() {
                   </div>
                 )}
 
-                {vendorProfile?.category !== 'hotel' && (
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-neutral-500 uppercase">Category / Aina</label>
-                    <Input 
-                      required 
-                      className="bg-neutral-800 border-none h-12 rounded-xl"
-                      value={newProduct.category}
-                      onChange={e => setNewProduct({...newProduct, category: e.target.value})}
-                      placeholder="e.g. mboga, matunda, nyama"
-                    />
-                  </div>
-                )}
 
                 {/* AR & 3D Model Section */}
                 {businessConfig.enableAR && (vendorProfile?.category === 'restaurant' || vendorProfile?.category === 'ecommerce' || vendorProfile?.category === 'grocery') && (
@@ -6196,6 +6307,36 @@ export default function VendorDashboard() {
                          onChange={e => setManualBooking({...manualBooking, customerPhone: e.target.value})}
                          placeholder="e.g. 0712345678"
                        />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase text-neutral-400 tracking-widest">ID Type</label>
+                          <Select 
+                            value={manualBooking.guestIdType || 'Nida'} 
+                            onValueChange={v => setManualBooking({...manualBooking, guestIdType: v})}
+                          >
+                             <SelectTrigger className="h-14 rounded-2xl bg-neutral-800 border-none font-bold">
+                                <SelectValue />
+                             </SelectTrigger>
+                             <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
+                                <SelectItem value="Nida">NIDA (Tanzania)</SelectItem>
+                                <SelectItem value="Passport">Passport</SelectItem>
+                                <SelectItem value="Driving License">Driving License</SelectItem>
+                                <SelectItem value="Voters ID">Voters ID</SelectItem>
+                             </SelectContent>
+                          </Select>
+                       </div>
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase text-neutral-400 tracking-widest">ID Number / Namba</label>
+                          <Input 
+                            required
+                            className="h-14 rounded-2xl bg-neutral-800 border-none font-bold"
+                            value={manualBooking.guestIdNumber}
+                            onChange={e => setManualBooking({...manualBooking, guestIdNumber: e.target.value})}
+                            placeholder="e.g. 199XXXXXXXXXXXX"
+                          />
+                       </div>
                     </div>
                     
                     <div className="grid grid-cols-2 gap-4">
