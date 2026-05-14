@@ -82,8 +82,11 @@ export const storageService = {
   /**
    * Helper to format vendor branding paths
    */
-  getVendorPath(vendorId: string, type: 'logo' | 'banner', filename: string): string {
+  getVendorPath(vendorId: string, type: 'logo' | 'banner' | 'gallery' | 'document', filename: string): string {
     const ext = filename.split('.').pop();
+    if (type === 'gallery' || type === 'document') {
+      return `${vendorId}/${type}/${Date.now()}_${filename}`;
+    }
     return `${vendorId}/${type}.${ext}`;
   },
 

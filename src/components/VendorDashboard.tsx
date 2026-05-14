@@ -4,7 +4,7 @@ import QRCodeStyling, { DotType, CornerSquareType, CornerDotType } from "qr-code
 import { toPng } from 'html-to-image';
 import { storageService } from '../services/storageService';
 import { db, auth } from '../firebase';
-import { collection, query, where, orderBy, onSnapshot, getDocs, doc, updateDoc, deleteDoc, addDoc, getDoc, limit, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, getDocs, doc, updateDoc, deleteDoc, addDoc, setDoc, getDoc, limit, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '../AuthContext';
 import { handleFirestoreError, OperationType } from '../firebase';
 import { VendorProfile, VendorCategory, Product, Order, OrderStatus, Review } from '../types';
@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { 
   Globe,
@@ -52,6 +53,12 @@ import {
   Camera,
   Trash2,
   X,
+  FileText,
+  Info,
+  Bed,
+  ShieldCheck,
+  Coins,
+  Image as ImageIcon,
   Megaphone,
   UserPlus,
   Save,
@@ -84,7 +91,6 @@ import {
   Volume2,
   VolumeX,
   UserCheck,
-  ShieldCheck,
   UserCog,
   MessageSquare as MessageIcon
 } from 'lucide-react';
@@ -236,6 +242,56 @@ export default function VendorDashboard() {
   const [products, setProducts] = useState<Product[]>([]);
   const [vendorReviews, setVendorReviews] = useState<Review[]>([]);
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
+  const [showManualBooking, setShowManualBooking] = useState(false);
+  const [manualBooking, setManualBooking] = useState<Partial<Order>>({
+    customerName: '',
+    customerPhone: '',
+    roomType: '',
+    checkInDate: new Date().toISOString().split('T')[0],
+    checkOutDate: '',
+    totalAmount: 0,
+    paymentStatus: 'pending'
+  });
+
+  const handleManualBooking = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!vendorProfile?.id) return;
+    
+    const toastId = toast.loading('Nasajili booking...');
+    try {
+      await addDoc(collection(db, 'orders'), {
+        ...manualBooking,
+        vendorId: vendorProfile.id,
+        vendorOwnerUid: user?.uid,
+        customerId: `walk-in-${Date.now()}`,
+        status: 'accepted',
+        type: 'hotel',
+        orderSource: 'reception',
+        orderType: 'booking',
+        items: [{ 
+          name: manualBooking.roomType, 
+          price: manualBooking.totalAmount, 
+          quantity: manualBooking.numberOfNights || 1,
+          productId: 'manual' 
+        }],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      toast.success('Booking imepokelewa!', { id: toastId });
+      setShowManualBooking(false);
+      setManualBooking({
+        customerName: '',
+        customerPhone: '',
+        roomType: '',
+        checkInDate: new Date().toISOString().split('T')[0],
+        checkOutDate: '',
+        totalAmount: 0,
+        paymentStatus: 'pending'
+      });
+    } catch (error) {
+      toast.error('Imeshindwa kusajili booking.', { id: toastId });
+    }
+  };
   const bestSellers = useMemo(() => {
     const itemCounts: Record<string, { name: string; count: number; revenue: number; imageUrl?: string; category: string }> = {};
     orders.forEach(order => {
@@ -396,7 +452,10 @@ export default function VendorDashboard() {
         location: vendorProfile.location,
         deliveryFees: vendorProfile.deliveryFees || {},
         category: vendorProfile.category,
-        orderInstructions: vendorProfile.orderInstructions || ''
+        orderInstructions: vendorProfile.orderInstructions || '',
+        hotelStatus: vendorProfile.hotelStatus || 'Available',
+        numberOfRooms: vendorProfile.numberOfRooms || 0,
+        roomPricing: vendorProfile.roomPricing || { single: 0, double: 0, vip: 0 }
       });
     }
   }, [vendorProfile]);
@@ -542,17 +601,31 @@ export default function VendorDashboard() {
 
   // Onboarding Form State
   const [formData, setFormData] = useState({
-    businessName: '',
-    category: 'restaurant' as VendorCategory,
-    description: '',
-    tin: '',
-    address: '',
-    phoneNumber: '',
+    businessName: profile?.businessName || '',
+    category: (profile?.category as VendorCategory) || 'restaurant',
+    description: profile?.hotelDescription || '',
+    tin: profile?.tinNumber || '',
+    address: profile?.address || '',
+    phoneNumber: profile?.phoneNumber || '',
     logoUrl: '',
     bannerUrl: '',
     deliveryRadius: 5,
     operatingHours: '9:00 AM - 9:00 PM',
+    location: profile?.location || { lat: -6.7924, lng: 39.2083 } // Default Dar es Salaam
   });
+
+  useEffect(() => {
+    if (profile) {
+      setFormData(prev => ({
+        ...prev,
+        businessName: profile.businessName || prev.businessName,
+        category: (profile.category as VendorCategory) || prev.category,
+        address: profile.address || prev.address,
+        phoneNumber: profile.phoneNumber || prev.phoneNumber,
+        location: profile.location || prev.location
+      }));
+    }
+  }, [profile]);
 
   // New Product Form State
   const [newProduct, setNewProduct] = useState<Partial<Product>>({
@@ -706,8 +779,15 @@ export default function VendorDashboard() {
         
         if (!snap.empty) {
           const doc = snap.docs[0];
-          setVendorProfile({ id: doc.id, ...doc.data() } as VendorProfile);
-          setShowOnboarding(false);
+          const data = doc.data() as VendorProfile;
+          setVendorProfile({ id: doc.id, ...data } as VendorProfile);
+          
+          // Auto-skip onboarding if keys fields already exists (from RegisterVendor)
+          if (data.businessName && data.category) {
+            setShowOnboarding(false);
+          } else {
+            setShowOnboarding(true);
+          }
         } else {
           setShowOnboarding(true);
         }
@@ -870,24 +950,34 @@ export default function VendorDashboard() {
     return () => unsub();
   }, [vendorProfile?.id, user?.uid]);
 
+  const [isSubmittingOnboarding, setIsSubmittingOnboarding] = useState(false);
   const handleOnboarding = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user || isSubmittingOnboarding) return;
+    setIsSubmittingOnboarding(true);
+    const toastId = toast.loading('Inasajili biashara yako...');
     try {
-      await addDoc(collection(db, 'vendors'), {
+      await setDoc(doc(db, 'vendors', user.uid), {
         ...formData,
         ownerUid: user.uid,
         status: 'pending',
         rating: 0,
         ratingCount: 0,
         createdAt: serverTimestamp(),
-      });
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      
       // Update user profile category as well
       await updateDoc(doc(db, 'users', user.uid), {
-        category: formData.category
+        category: formData.category,
+        businessName: formData.businessName
       });
+      toast.success('Usajili umekamilika!', { id: toastId });
     } catch (error) {
       console.error(error);
+      toast.error('Imeshindwa kusajili biashara.', { id: toastId });
+    } finally {
+      setIsSubmittingOnboarding(false);
     }
   };
 
@@ -1364,83 +1454,116 @@ export default function VendorDashboard() {
 
   if (showOnboarding) {
     return (
-      <div className="max-w-4xl mx-auto py-12">
+      <div className="max-w-4xl mx-auto py-12 px-4">
         <motion.div 
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-3xl shadow-2xl shadow-orange-100 overflow-hidden border border-neutral-100"
+          className="bg-white dark:bg-neutral-900 rounded-[2.5rem] shadow-2xl shadow-orange-500/10 overflow-hidden border border-neutral-100 dark:border-neutral-800"
         >
-          <div className="bg-orange-600 p-8 text-white">
-            <h1 className="text-3xl font-bold italic uppercase tracking-tighter">Vendor Onboarding</h1>
-            <p className="text-orange-100 mt-2 font-medium">Register your business to start selling on Papo Hapo's retail network.</p>
+          <div className="bg-orange-600 p-10 text-white relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl" />
+            <div className="relative z-10">
+              <h1 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter leading-none">VENDOR ONBOARDING</h1>
+              <p className="text-orange-100 mt-4 font-bold uppercase tracking-widest text-xs">Sajili biashara yako kuanza kuuza kwenye mtandao wa Papo Hapo.</p>
+            </div>
           </div>
-          <div className="p-8">
-            <form onSubmit={handleOnboarding} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-neutral-700">Business Name</label>
-                  <Input required className="h-12 rounded-xl" value={formData.businessName} onChange={e => setFormData({...formData, businessName: e.target.value})} placeholder="e.g. Healthy Meds Pharmacy" />
+          <div className="p-8 md:p-12">
+            <form onSubmit={handleOnboarding} className="space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Jina la Biashara / Business Name</label>
+                  <div className="relative">
+                    <Store className="absolute left-4 top-3.5 w-5 h-5 text-neutral-400" />
+                    <Input required className="h-14 pl-12 rounded-2xl bg-neutral-50 dark:bg-neutral-800 border-none font-bold" value={formData.businessName} onChange={e => setFormData({...formData, businessName: e.target.value})} placeholder="mfano: Mama Ntilie Restaurant" />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-neutral-700">Category</label>
-                  <Select required onValueChange={val => setFormData({...formData, category: val as VendorCategory})}>
-                    <SelectTrigger className="h-12 rounded-xl">
-                      <SelectValue placeholder="Select category" />
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Aina ya Biashara / Category</label>
+                  <Select 
+                    required 
+                    value={formData.category}
+                    onValueChange={val => setFormData({...formData, category: val as VendorCategory})}
+                  >
+                    <SelectTrigger className="h-14 rounded-2xl bg-neutral-50 dark:bg-neutral-800 border-none font-bold">
+                      <SelectValue placeholder="Chagua aina" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="restaurant">Restaurant / Hoteli ya Chakula</SelectItem>
-                      <SelectItem value="grocery">Grocery / Sokoni</SelectItem>
+                      <SelectItem value="restaurant">Restaurant / Chakula</SelectItem>
+                      <SelectItem value="grocery">Grocery / Soko</SelectItem>
                       <SelectItem value="pharmacy">Pharmacy / Duka la Dawa</SelectItem>
-                      <SelectItem value="ecommerce">Shop / Maduka</SelectItem>
-                      <SelectItem value="salon">Salon / Kinyozi</SelectItem>
+                      <SelectItem value="ecommerce">Shop / Maduka ya Bidhaa</SelectItem>
+                      <SelectItem value="salon">Salon / Kinyozi & Urembo</SelectItem>
                       <SelectItem value="hotel">Hotel / Malazi</SelectItem>
-                      <SelectItem value="bus_ticket">Bus Ticket Booking</SelectItem>
+                      <SelectItem value="bus_ticket">Bus Ticket / Tiketi za Mabasi</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-neutral-700">Business Description</label>
-                <Input required className="h-12 rounded-xl" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} placeholder="Describe your business..." />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-neutral-700">TIN Number</label>
-                  <Input required className="h-12 rounded-xl" value={formData.tin} onChange={e => setFormData({...formData, tin: e.target.value})} placeholder="Tax Identification Number" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-neutral-700">Delivery Radius (km)</label>
-                  <Input type="number" className="h-12 rounded-xl" required value={formData.deliveryRadius} onChange={e => setFormData({...formData, deliveryRadius: parseInt(e.target.value)})} />
+              <div className="space-y-3">
+                <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Maelezo Kamili / Business Description</label>
+                <div className="relative">
+                  <Info className="absolute left-4 top-4 w-5 h-5 text-neutral-400" />
+                  <Textarea required className="min-h-[120px] pl-12 rounded-2xl bg-neutral-50 dark:bg-neutral-800 border-none font-medium pt-4" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} placeholder="Elezea kwa ufupi huduma unazotoa na nini kinakufanya uwe bora..." />
                 </div>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-neutral-700">Physical Address</label>
-                <div className="flex gap-2">
-                  <Input 
-                    required 
-                    className="h-12 rounded-xl flex-1" 
-                    value={formData.address} 
-                    onChange={e => setFormData({...formData, address: e.target.value})} 
-                    placeholder="Full business address" 
-                  />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Namba ya Kodi / TIN Number</label>
+                  <div className="relative">
+                    <FileText className="absolute left-4 top-3.5 w-5 h-5 text-neutral-400" />
+                    <Input required className="h-14 pl-12 rounded-2xl bg-neutral-50 dark:bg-neutral-800 border-none font-bold" value={formData.tin} onChange={e => setFormData({...formData, tin: e.target.value})} placeholder="9-digit TIN Number" />
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Umbali wa Delivery / Radius (km)</label>
+                  <div className="relative">
+                    <Truck className="absolute left-4 top-3.5 w-5 h-5 text-neutral-400" />
+                    <Input type="number" className="h-14 pl-12 rounded-2xl bg-neutral-50 dark:bg-neutral-800 border-none font-bold" required value={formData.deliveryRadius} onChange={e => setFormData({...formData, deliveryRadius: parseInt(e.target.value)})} />
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Anwani ya Biashara / Physical Address</label>
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className="relative flex-1">
+                    <MapPin className="absolute left-4 top-3.5 w-5 h-5 text-neutral-400" />
+                    <Input 
+                      required 
+                      className="h-14 pl-12 rounded-2xl bg-neutral-50 dark:bg-neutral-800 border-none font-bold" 
+                      value={formData.address} 
+                      onChange={e => setFormData({...formData, address: e.target.value})} 
+                      placeholder="Mtaa, Eneo, Jengo..." 
+                    />
+                  </div>
                   <Button 
                     type="button"
                     variant="outline"
                     onClick={() => setIsLocationPickerOpen(true)}
-                    className="h-12 px-4 rounded-xl border-orange-200 text-orange-600 font-bold shrink-0 gap-2"
+                    className="h-14 px-8 rounded-2xl border-2 border-orange-600/20 hover:border-orange-600 text-orange-600 font-black uppercase tracking-widest text-[10px] shrink-0 gap-3 transition-all"
                   >
                     <MapPin className="w-5 h-5" />
-                    <span className="hidden sm:inline">Chagua kwenye Ramani</span>
+                    Chagua kwenye Ramani
                   </Button>
                 </div>
-                {(formData as any).location && (
-                  <p className="text-[10px] text-neutral-500 italic">
-                    Location set: {(formData as any).location.lat.toFixed(4)}, {(formData as any).location.lng.toFixed(4)}
-                  </p>
+                {formData.location && (
+                  <div className="flex items-center gap-2 mt-2 ml-1">
+                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    <p className="text-[9px] font-black text-neutral-400 uppercase tracking-widest">
+                      Mahali pa GPS Pamewekwa: {formData.location.lat.toFixed(4)}, {formData.location.lng.toFixed(4)}
+                    </p>
+                  </div>
                 )}
               </div>
-              <Button type="submit" className="w-full h-14 bg-orange-600 hover:bg-orange-700 text-lg font-bold rounded-2xl shadow-lg shadow-orange-200 transition-all hover:scale-[1.02]">
-                Submit Application
+              <Button 
+                type="submit" 
+                disabled={isSubmittingOnboarding}
+                className="w-full h-16 bg-orange-600 hover:bg-orange-700 text-white text-xl font-black uppercase tracking-tighter rounded-[2rem] shadow-2xl shadow-orange-600/30 transition-all hover:scale-[1.01] active:scale-[0.99] gap-4 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSubmittingOnboarding ? (
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                ) : (
+                  <>🚀 Kumaliza Usajili / Submit Application</>
+                )}
               </Button>
             </form>
           </div>
@@ -2026,6 +2149,69 @@ export default function VendorDashboard() {
                     </motion.button>
                   ))}
                 </div>
+
+                {/* Hotel Status Tracker (Only for Hotels) */}
+                {vendorProfile?.category === 'hotel' && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <Card className="rounded-[2rem] border-none shadow-xl shadow-orange-500/10 bg-gradient-to-br from-orange-600 to-orange-700 text-white overflow-hidden relative">
+                       <div className="absolute top-0 right-0 p-8 opacity-10">
+                         <Bed className="w-24 h-24" />
+                       </div>
+                       <CardContent className="p-8 relative z-10">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-orange-200 mb-2">Room Inventory</p>
+                          <div className="flex items-baseline gap-2">
+                             <h3 className="text-4xl font-black italic tracking-tighter">{vendorProfile.numberOfRooms || 0}</h3>
+                             <span className="text-sm font-bold uppercase tracking-widest text-orange-200">Total Units</span>
+                          </div>
+                          <div className="mt-6 flex items-center gap-4">
+                            <div className="flex-1 bg-white/10 rounded-full h-2">
+                               <div className="bg-white rounded-full h-full" style={{ width: '100%' }} />
+                            </div>
+                            <span className="text-[10px] font-black">100% READY</span>
+                          </div>
+                       </CardContent>
+                    </Card>
+
+                    <Card className="rounded-[2rem] border-none shadow-xl shadow-black/5 bg-white dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800">
+                       <CardContent className="p-8">
+                          <div className="flex items-center justify-between mb-4">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Current Status</p>
+                            <Badge className={`${vendorProfile.hotelStatus === 'Available' ? 'bg-green-500' : 'bg-red-500'} text-white border-none font-black text-[8px] px-3`}>
+                              {vendorProfile.hotelStatus || 'AVAILABLE'}
+                            </Badge>
+                          </div>
+                          <h3 className="text-2xl font-black italic uppercase tracking-tighter text-neutral-900 dark:text-white mb-6">
+                            {(vendorProfile.hotelStatus === 'Available' || !vendorProfile.hotelStatus) ? 'Wazi kwa Wageni' : 'Samahani, Tumajaa'}
+                          </h3>
+                          <Button 
+                            variant="outline" 
+                            className="w-full h-12 rounded-2xl border-2 border-neutral-100 dark:border-neutral-800 font-black uppercase tracking-widest text-[9px]"
+                            onClick={() => setActiveTab('settings')}
+                          >
+                             Hamia Kwenye Settings kurekebisha
+                          </Button>
+                       </CardContent>
+                    </Card>
+
+                    <Card className="rounded-[2rem] border-none shadow-xl shadow-black/5 bg-white dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 overflow-hidden group">
+                       <CardContent className="p-8">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-4">Pricing Pulse</p>
+                          <div className="space-y-3">
+                             {[
+                               { label: 'Single', price: vendorProfile.roomPricing?.single },
+                               { label: 'Double', price: vendorProfile.roomPricing?.double },
+                               { label: 'VIP', price: vendorProfile.roomPricing?.vip },
+                             ].map(item => item.price && (
+                               <div key={item.label} className="flex items-center justify-between p-3 bg-neutral-50 dark:bg-neutral-800 rounded-xl">
+                                  <span className="text-[10px] font-bold text-neutral-500 uppercase">{item.label}</span>
+                                  <span className="text-sm font-black text-orange-600 italic">TZS {item.price.toLocaleString()}</span>
+                               </div>
+                             ))}
+                          </div>
+                       </CardContent>
+                    </Card>
+                  </div>
+                )}
 
                 {/* Main Stats */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -3587,6 +3773,150 @@ export default function VendorDashboard() {
                           <h3 className="font-black text-xl text-neutral-900 dark:text-white transition-colors">Basic Information</h3>
                         </div>
                         
+                        {/* Hotel Status Management (Only for Hotels) */}
+                        {vendorProfile?.category === 'hotel' && (
+                          <div className="bg-orange-50/50 dark:bg-orange-950/20 p-8 rounded-3xl border-2 border-dashed border-orange-200 dark:border-orange-900/30 space-y-6">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <h4 className="text-sm font-black uppercase tracking-widest text-orange-600">Hotel Operational Status</h4>
+                                <p className="text-[10px] text-neutral-500 font-medium">Badilisha hali ya upatikanaji wa vyumba.</p>
+                              </div>
+                              <Badge className={`${vendorProfile.hotelStatus === 'Available' ? 'bg-green-500' : 'bg-red-500'} text-white`}>
+                                {vendorProfile.hotelStatus || 'Available'}
+                              </Badge>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                               <div className="space-y-2">
+                                 <label className="text-[10px] font-black uppercase text-neutral-400 tracking-widest">Availability</label>
+                                 <Select 
+                                   value={updatedProfile.hotelStatus || 'Available'} 
+                                   onValueChange={(val) => {
+                                      setUpdatedProfile({ ...updatedProfile, hotelStatus: val });
+                                   }}
+                                 >
+                                   <SelectTrigger className="h-14 rounded-2xl bg-white dark:bg-neutral-900 border-none font-bold">
+                                      <SelectValue />
+                                   </SelectTrigger>
+                                   <SelectContent>
+                                      <SelectItem value="Available">🟢 Available (Upo Wazi)</SelectItem>
+                                      <SelectItem value="Fully Booked">🔴 Fully Booked (Vyumba Vimejaa)</SelectItem>
+                                      <SelectItem value="Maintenance">🟡 Under Maintenance (Maboresho)</SelectItem>
+                                   </SelectContent>
+                                 </Select>
+                               </div>
+
+                                <div className="space-y-2">
+                                  <label className="text-[10px] font-black uppercase text-neutral-400 tracking-widest">Total Rooms</label>
+                                  <Input 
+                                    type="number" 
+                                    className="h-14 rounded-2xl bg-white dark:bg-neutral-900 border-none font-bold text-orange-600"
+                                    value={updatedProfile.numberOfRooms}
+                                    onChange={(e) => setUpdatedProfile({ ...updatedProfile, numberOfRooms: parseInt(e.target.value) || 0 })}
+                                  />
+                               </div>
+                            </div>
+
+                       <div className="space-y-4">
+                               <label className="text-[10px] font-black uppercase text-neutral-400 tracking-widest">Room Pricing Adjustment (TZS)</label>
+                               <div className="grid grid-cols-3 gap-4">
+                                  {[
+                                    { label: 'Single', key: 'single', value: vendorProfile.roomPricing?.single },
+                                    { label: 'Double', key: 'double', value: vendorProfile.roomPricing?.double },
+                                    { label: 'VIP', key: 'vip', value: vendorProfile.roomPricing?.vip },
+                                  ].map(item => (
+                                    <div key={item.key} className="space-y-2">
+                                      <span className="text-[9px] font-bold text-neutral-500 uppercase">{item.label}</span>
+                                      <Input 
+                                        type="number" 
+                                        className="h-12 rounded-xl bg-white dark:bg-neutral-900 border-none font-black"
+                                        value={updatedProfile.roomPricing?.[item.key as keyof typeof updatedProfile.roomPricing] || 0}
+                                        onChange={(e) => {
+                                          const newPricing = { 
+                                            ...(updatedProfile.roomPricing || { single: 0, double: 0, vip: 0 }), 
+                                            [item.key]: parseInt(e.target.value) || 0 
+                                          };
+                                          setUpdatedProfile({ ...updatedProfile, roomPricing: newPricing });
+                                        }}
+                                      />
+                                    </div>
+                                  ))}
+                               </div>
+                            </div>
+
+                            {/* Hotel Gallery Management */}
+                            <div className="space-y-6 pt-6 border-t border-orange-100 dark:border-orange-900/20">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h4 className="text-sm font-black uppercase tracking-widest text-orange-600 flex items-center gap-2">
+                                    <ImageIcon className="w-4 h-4" /> Hotel Photo Gallery
+                                  </h4>
+                                  <p className="text-[10px] text-neutral-500 font-medium">Pakia picha za vyumba na mazingira ya hoteli.</p>
+                                </div>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  className="rounded-xl border-orange-200 text-orange-600 gap-2 font-bold"
+                                  onClick={() => toast.info('Click below to add photos!')}
+                                >
+                                  <Plus className="w-3 h-3" /> Add Photos
+                                </Button>
+                              </div>
+                              
+                              <div className="grid grid-cols-3 md:grid-cols-5 gap-4">
+                                {vendorProfile.galleryPhotos?.map((photo, idx) => (
+                                  <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden group">
+                                    <img src={photo} alt="" className="w-full h-full object-cover transition-transform group-hover:scale-110" />
+                                    <button 
+                                      onClick={async () => {
+                                        const newPhotos = vendorProfile.galleryPhotos?.filter((_, i) => i !== idx);
+                                        await updateDoc(doc(db, 'vendors', vendorProfile.id!), { galleryPhotos: newPhotos });
+                                        toast.success("Picha imeondolewa.");
+                                      }}
+                                      className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                ))}
+                                <button 
+                                  onClick={() => {
+                                    const input = document.createElement('input');
+                                    input.type = 'file';
+                                    input.multiple = true;
+                                    input.accept = 'image/*';
+                                    input.onchange = async (e: any) => {
+                                      const files = e.target.files;
+                                      if (files && files.length > 0 && vendorProfile.id) {
+                                        const toastId = toast.loading('Tunapakia picha...');
+                                        try {
+                                          const uploadPromises = Array.from(files as FileList).map(file => {
+                                            const path = storageService.getVendorPath(vendorProfile.id!, 'gallery', file.name);
+                                            return storageService.uploadFile('vendors', path, file);
+                                          });
+                                          const urls = await Promise.all(uploadPromises);
+                                          const currentPhotos = vendorProfile.galleryPhotos || [];
+                                          await updateDoc(doc(db, 'vendors', vendorProfile.id!), { 
+                                            galleryPhotos: [...currentPhotos, ...urls] 
+                                          });
+                                          toast.success("Picha zimepakiwa!", { id: toastId });
+                                        } catch (err) {
+                                          toast.error("Imeshindwa kupakia picha.", { id: toastId });
+                                        }
+                                      }
+                                    };
+                                    input.click();
+                                  }}
+                                  className="aspect-square rounded-2xl border-4 border-dashed border-neutral-100 dark:border-neutral-800 flex flex-col items-center justify-center gap-2 hover:bg-orange-50 dark:hover:bg-orange-950/20 hover:border-orange-200 transition-all text-neutral-400 hover:text-orange-600"
+                                >
+                                  <Plus className="w-6 h-6" />
+                                  <span className="text-[10px] font-black uppercase">Add Photos</span>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
                         <div className="space-y-2">
                           <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Store Name / Jina la Duka</label>
                           <Input 
@@ -3950,6 +4280,14 @@ export default function VendorDashboard() {
                     <p className="text-neutral-500 font-medium">Manage your {vendorContext.inventoryLabel.toLowerCase()} and availability</p>
                   </div>
                   <div className="flex items-center gap-3">
+                    {vendorProfile?.category === 'hotel' && (
+                      <Button 
+                        onClick={() => setShowManualBooking(true)}
+                        className="bg-neutral-900 border border-neutral-800 rounded-2xl h-12 px-6 font-black uppercase tracking-widest text-[10px] text-orange-600 hover:bg-neutral-800"
+                      >
+                        <Calendar className="w-4 h-4 mr-2" /> Booking ya Reception
+                      </Button>
+                    )}
                     <Button 
                       variant="outline" 
                       className="bg-neutral-900 border-neutral-800 rounded-2xl h-12 px-6 font-black uppercase tracking-widest text-[10px] text-neutral-400 hover:text-white"
@@ -3960,7 +4298,8 @@ export default function VendorDashboard() {
                       onClick={() => setIsAddProductOpen(true)}
                       className="bg-orange-600 hover:bg-orange-700 rounded-2xl h-12 px-6 font-black uppercase tracking-widest text-[10px] shadow-xl shadow-orange-900/30 text-white"
                     >
-                      <Plus className="w-4 h-4 mr-2" /> Add New Item
+                      <Plus className="w-4 h-4 mr-2" /> 
+                      {vendorProfile?.category === 'hotel' ? 'Sajili Chumba' : 'Add New Item'}
                     </Button>
                   </div>
                 </div>
@@ -4174,8 +4513,18 @@ export default function VendorDashboard() {
             >
               <div className="p-6 border-b border-neutral-800 flex items-center justify-between shrink-0">
                 <div>
-                  <h3 className="text-xl font-bold">{editingProduct ? 'Edit Product' : 'Add New Product'}</h3>
-                  <p className="text-xs text-neutral-500 font-medium">{editingProduct ? 'Hariri Bidhaa' : 'Ongeza Bidhaa Mpya'}</p>
+                  <h3 className="text-xl font-bold">
+                    {editingProduct 
+                      ? (vendorProfile?.category === 'hotel' ? 'Edit Room' : 'Edit Product') 
+                      : (vendorProfile?.category === 'hotel' ? 'Add New Room' : 'Add New Product')
+                    }
+                  </h3>
+                  <p className="text-xs text-neutral-500 font-medium">
+                    {editingProduct 
+                      ? 'Hariri Taarifa' 
+                      : (vendorProfile?.category === 'hotel' ? 'Sajili Chumba Kipya' : 'Ongeza Bidhaa Mpya')
+                    }
+                  </p>
                 </div>
                 <button 
                   onClick={() => {
@@ -4314,18 +4663,68 @@ export default function VendorDashboard() {
 
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-neutral-500 uppercase">
-                    {vendorProfile?.category === 'bus_ticket' ? 'Trip Label / Jina la Safari' : 'Product Name / Jina la Bidhaa'}
+                    {vendorProfile?.category === 'hotel' ? 'Room Category / Type (e.g. Executive Double)' : vendorProfile?.category === 'bus_ticket' ? 'Trip Label / Jina la Safari' : 'Product Name / Jina la Bidhaa'}
                   </label>
                   <Input 
                     required 
                     className="bg-neutral-800 border-none h-12 rounded-xl"
                     value={newProduct.name}
                     onChange={e => setNewProduct({...newProduct, name: e.target.value})}
-                    placeholder={vendorProfile?.category === 'bus_ticket' ? "Dar to Arusha (Morning)" : "e.g. Paracetamol 500mg"}
+                    placeholder={vendorProfile?.category === 'hotel' ? "e.g. VIP Ocean View" : vendorProfile?.category === 'bus_ticket' ? "Dar to Arusha (Morning)" : "e.g. Paracetamol 500mg"}
                   />
                 </div>
 
-                {vendorProfile?.category === 'bus_ticket' ? (
+                {vendorProfile?.category === 'hotel' ? (
+                  <div className="space-y-4 pt-2">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-neutral-500 uppercase">Capacity (Adults)</label>
+                        <Input 
+                          type="number"
+                          placeholder="2"
+                          className="bg-neutral-800 border-none h-12 rounded-xl"
+                          value={(newProduct as any).capacity || 2}
+                          onChange={e => setNewProduct({...newProduct, capacity: parseInt(e.target.value)} as any)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-neutral-500 uppercase">Number of Rooms Available</label>
+                        <Input 
+                          type="number"
+                          required
+                          className="bg-neutral-800 border-none h-12 rounded-xl"
+                          value={newProduct.stock}
+                          onChange={e => setNewProduct({...newProduct, stock: parseInt(e.target.value)})}
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-neutral-500 uppercase">Room Amenities / Sifa za Chumba</label>
+                      <Input 
+                        placeholder="e.g. WiFi, AC, TV, Private Balcony"
+                        className="bg-neutral-800 border-none h-12 rounded-xl text-xs"
+                        value={(newProduct as any).roomAmenities || ''}
+                        onChange={e => setNewProduct({...newProduct, roomAmenities: e.target.value} as any)}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-neutral-500 uppercase">Room Price (Per Night)</label>
+                        <Input 
+                          type="number"
+                          required
+                          className="bg-neutral-800 border-none h-12 rounded-xl"
+                          value={newProduct.price}
+                          onChange={e => setNewProduct({...newProduct, price: parseInt(e.target.value)})}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                         <label className="text-xs font-bold text-neutral-500 uppercase">Unit</label>
+                         <Input disabled value="Per Night" className="bg-neutral-800 border-none h-12 rounded-xl opacity-50" />
+                      </div>
+                    </div>
+                  </div>
+                ) : vendorProfile?.category === 'bus_ticket' ? (
                   <div className="space-y-4 pt-2">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
@@ -4442,16 +4841,18 @@ export default function VendorDashboard() {
                   </div>
                 )}
 
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-neutral-500 uppercase">Category / Aina</label>
-                  <Input 
-                    required 
-                    className="bg-neutral-800 border-none h-12 rounded-xl"
-                    value={newProduct.category}
-                    onChange={e => setNewProduct({...newProduct, category: e.target.value})}
-                    placeholder="e.g. mboga, matunda, nyama"
-                  />
-                </div>
+                {vendorProfile?.category !== 'hotel' && (
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-neutral-500 uppercase">Category / Aina</label>
+                    <Input 
+                      required 
+                      className="bg-neutral-800 border-none h-12 rounded-xl"
+                      value={newProduct.category}
+                      onChange={e => setNewProduct({...newProduct, category: e.target.value})}
+                      placeholder="e.g. mboga, matunda, nyama"
+                    />
+                  </div>
+                )}
 
                 {/* AR & 3D Model Section */}
                 {businessConfig.enableAR && (vendorProfile?.category === 'restaurant' || vendorProfile?.category === 'ecommerce' || vendorProfile?.category === 'grocery') && (
@@ -4544,29 +4945,31 @@ export default function VendorDashboard() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-neutral-500 uppercase">Base Price / Bei ya Msingi (TZS)</label>
-                    <Input 
-                      type="number"
-                      required 
-                      className="bg-neutral-800 border-none h-12 rounded-xl"
-                      value={newProduct.price}
-                      onChange={e => setNewProduct({...newProduct, price: parseFloat(e.target.value)})}
-                      placeholder="e.g. 1500"
-                    />
+                {vendorProfile?.category !== 'hotel' && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-neutral-500 uppercase">Base Price / Bei ya Msingi (TZS)</label>
+                      <Input 
+                        type="number"
+                        required 
+                        className="bg-neutral-800 border-none h-12 rounded-xl"
+                        value={newProduct.price}
+                        onChange={e => setNewProduct({...newProduct, price: parseFloat(e.target.value)})}
+                        placeholder="e.g. 1500"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-orange-500 uppercase">Discount Price / Bei ya Punguzo (TZS)</label>
+                      <Input 
+                        type="number"
+                        className="bg-neutral-800 border-none h-12 rounded-xl text-orange-500"
+                        value={newProduct.discountPrice || ''}
+                        onChange={e => setNewProduct({...newProduct, discountPrice: e.target.value ? parseFloat(e.target.value) : undefined})}
+                        placeholder="Punguzo (Optional)"
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-orange-500 uppercase">Discount Price / Bei ya Punguzo (TZS)</label>
-                    <Input 
-                      type="number"
-                      className="bg-neutral-800 border-none h-12 rounded-xl text-orange-500"
-                      value={newProduct.discountPrice || ''}
-                      onChange={e => setNewProduct({...newProduct, discountPrice: e.target.value ? parseFloat(e.target.value) : undefined})}
-                      placeholder="Punguzo (Optional)"
-                    />
-                  </div>
-                </div>
+                )}
 
                 {/* Dynamic Fields based on Vendor Category */}
                 {(vendorProfile?.category === 'pharmacy' || vendorProfile?.category === 'grocery') && (
@@ -5744,6 +6147,121 @@ export default function VendorDashboard() {
           </div>
         )}
       </div>
+
+      {/* Manual Booking Modal (Reception) */}
+      <AnimatePresence>
+        {showManualBooking && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowManualBooking(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-lg bg-neutral-900 border border-neutral-800 rounded-[2.5rem] overflow-hidden shadow-2xl overflow-y-auto max-h-[90vh]"
+            >
+              <div className="p-8 border-b border-neutral-800 flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-black italic uppercase tracking-tighter">Reception Booking</h3>
+                  <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">Sajili Booking ya Walk-in</p>
+                </div>
+                <button onClick={() => setShowManualBooking(false)} className="text-neutral-500 hover:text-white transition-colors">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <form onSubmit={handleManualBooking} className="p-8 space-y-6">
+                 <div className="space-y-4">
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black uppercase text-neutral-400 tracking-widest">Guest Name / Jina la Mgeni</label>
+                       <Input 
+                         required
+                         className="h-14 rounded-2xl bg-neutral-800 border-none font-bold"
+                         value={manualBooking.customerName}
+                         onChange={e => setManualBooking({...manualBooking, customerName: e.target.value})}
+                         placeholder="Full Name"
+                       />
+                    </div>
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black uppercase text-neutral-400 tracking-widest">Guest Phone / Simu</label>
+                       <Input 
+                         required
+                         className="h-14 rounded-2xl bg-neutral-800 border-none font-bold"
+                         value={manualBooking.customerPhone}
+                         onChange={e => setManualBooking({...manualBooking, customerPhone: e.target.value})}
+                         placeholder="e.g. 0712345678"
+                       />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase text-neutral-400 tracking-widest">Room Type</label>
+                          <Select 
+                            value={manualBooking.roomType || ''} 
+                            onValueChange={v => setManualBooking({...manualBooking, roomType: v})}
+                          >
+                             <SelectTrigger className="h-14 rounded-2xl bg-neutral-800 border-none font-bold">
+                                <SelectValue placeholder="Choose Room" />
+                             </SelectTrigger>
+                             <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
+                                {products.map(p => (
+                                  <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
+                                ))}
+                             </SelectContent>
+                          </Select>
+                       </div>
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase text-neutral-400 tracking-widest">Total Price (TZS)</label>
+                          <Input 
+                            type="number"
+                            required
+                            className="h-14 rounded-2xl bg-neutral-800 border-none font-bold text-orange-600"
+                            value={manualBooking.totalAmount}
+                            onChange={e => setManualBooking({...manualBooking, totalAmount: parseInt(e.target.value) || 0})}
+                          />
+                       </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase text-neutral-400 tracking-widest">Check-In</label>
+                          <Input 
+                            type="date"
+                            required
+                            className="h-14 rounded-2xl bg-neutral-800 border-none font-bold"
+                            value={manualBooking.checkInDate}
+                            onChange={e => setManualBooking({...manualBooking, checkInDate: e.target.value})}
+                          />
+                       </div>
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase text-neutral-400 tracking-widest">Check-Out</label>
+                          <Input 
+                            type="date"
+                            required
+                            className="h-14 rounded-2xl bg-neutral-800 border-none font-bold"
+                            value={manualBooking.checkOutDate}
+                            onChange={e => setManualBooking({...manualBooking, checkOutDate: e.target.value})}
+                          />
+                       </div>
+                    </div>
+                 </div>
+
+                 <Button 
+                   type="submit"
+                   className="w-full h-16 rounded-[1.5rem] bg-orange-600 hover:bg-orange-700 text-white font-black uppercase tracking-widest"
+                 >
+                    Confirm Booking
+                 </Button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <style dangerouslySetInnerHTML={{ __html: `
         .custom-scrollbar::-webkit-scrollbar {

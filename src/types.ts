@@ -24,6 +24,10 @@ export interface UserProfile {
   category?: VendorCategory;
   walletBalance?: number;
   points?: number;
+  businessName?: string;
+  tinNumber?: string;
+  hotelDescription?: string;
+  location?: { lat: number; lng: number };
 }
 
 export type VendorCategory = 'pharmacy' | 'grocery' | 'restaurant' | 'parcel' | 'taxi' | 'car_rental' | 'salon' | 'hotel' | 'ecommerce' | 'bus_ticket';
@@ -108,6 +112,10 @@ export interface Product {
   rating?: number;
   ratingCount?: number;
   model3dUrl?: string;
+  // Hotel specific
+  capacity?: number;
+  roomAmenities?: string;
+  amenities?: string[];
 }
 
 export type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'prepared' | 'out_for_delivery' | 'delivered' | 'cancelled' | 'completed';
@@ -125,17 +133,22 @@ export interface Order {
   branchId?: string;
   status: OrderStatus;
   type: VendorCategory;
-  orderSource?: 'online' | 'pos';
-  orderType?: 'walk_in' | 'pickup' | 'delivery';
+  orderSource?: 'online' | 'pos' | 'reception';
+  orderType?: 'walk_in' | 'pickup' | 'delivery' | 'booking';
   tableNumber?: string | null;
   customerName?: string;
   customerPhone?: string;
   prescriptionUrl?: string;
-  deliveryAddress: string;
+  deliveryAddress?: string;
   paymentMethod?: string;
   paymentStatus?: 'pending' | 'paid' | 'failed';
   createdAt: any;
   updatedAt: any;
+  // Hotel specific
+  checkInDate?: string;
+  checkOutDate?: string;
+  roomType?: string;
+  numberOfNights?: number;
 }
 
 export interface RiderProfile {

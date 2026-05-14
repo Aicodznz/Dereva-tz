@@ -144,6 +144,9 @@ export default function RegisterVendor() {
         category: formData.category,
         phoneNumber: (selectedCategory === 'hotel' && formData.ownerPhone) ? formData.ownerPhone : formData.phone,
         status: 'pending',
+        tin: formData.tinNumber,
+        address: formData.fullAddress,
+        description: formData.hotelDescription,
       };
 
       if (selectedCategory === 'hotel') {
@@ -447,36 +450,57 @@ export default function RegisterVendor() {
       subtitle={selectedCategory === 'hotel' ? `Step ${step} of 6` : "Kuwa Muuzaji"}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
-        {selectedCategory !== 'hotel' && (
+        <div className="space-y-2">
+          <label className="text-[10px] font-black uppercase text-neutral-400">Aina ya Biashara / Business Category *</label>
+          <Select required onValueChange={handleCategoryChange}>
+            <SelectTrigger className="h-12 bg-neutral-50 border-none rounded-xl">
+              <SelectValue placeholder="Chagua aina ya biashara" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="hotel">Hotels & Accommodation (Special Form)</SelectItem>
+              <SelectItem value="restaurant">Restaurant / Chakula na Vinywaji</SelectItem>
+              <SelectItem value="grocery">Grocery / Soko na Mahitaji</SelectItem>
+              <SelectItem value="pharmacy">Pharmacy / Dawa na Afya</SelectItem>
+              <SelectItem value="ecommerce">eCommerce / Maduka na Bidhaa</SelectItem>
+              <SelectItem value="salon">Salon / Kinyozi na Urembo</SelectItem>
+              <SelectItem value="bus_ticket">Bus Ticket / Tiketi za Mabasi</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {selectedCategory && selectedCategory !== 'hotel' && (
           <>
+            <div className="bg-orange-50 p-4 rounded-2xl border-l-4 border-orange-500 mb-4">
+              <p className="text-[10px] font-black text-orange-600 uppercase tracking-widest">Usajili wa {selectedCategory.toUpperCase()}</p>
+              <p className="text-[9px] text-neutral-500 mt-1 uppercase font-bold">Jaza taarifa zako za msingi kuanza kuuza.</p>
+            </div>
+
             <div className="relative">
               <User className="absolute left-3 top-3 w-5 h-5 text-neutral-400" />
-              <Input required placeholder="Owner's Full Name" className="pl-10 h-12 bg-neutral-50 border-none rounded-xl" value={formData.ownerName} onChange={e => setFormData({...formData, ownerName: e.target.value})} />
+              <Input required placeholder="Jina la Mmiliki / Owner Full Name" className="pl-10 h-12 bg-neutral-50 border-none rounded-xl" value={formData.ownerName} onChange={e => setFormData({...formData, ownerName: e.target.value})} />
             </div>
 
             <div className="relative">
               <Store className="absolute left-3 top-3 w-5 h-5 text-neutral-400" />
-              <Input required placeholder="Business Name" className="pl-10 h-12 bg-neutral-50 border-none rounded-xl" value={formData.businessName} onChange={e => setFormData({...formData, businessName: e.target.value})} />
+              <Input required placeholder="Jina la Biashara / Business Name" className="pl-10 h-12 bg-neutral-50 border-none rounded-xl" value={formData.businessName} onChange={e => setFormData({...formData, businessName: e.target.value})} />
+            </div>
+
+            <div className="relative">
+              <FileText className="absolute left-3 top-3 w-5 h-5 text-neutral-400" />
+              <Input required placeholder="TIN Number (Namba ya kodi)" className="pl-10 h-12 bg-neutral-50 border-none rounded-xl" value={formData.tinNumber} onChange={e => setFormData({...formData, tinNumber: e.target.value})} />
+            </div>
+
+            <div className="relative">
+              <MapPin className="absolute left-3 top-3 w-5 h-5 text-neutral-400" />
+              <Input required placeholder="Mahali (Mtaa/Eneo) / Physical Address" className="pl-10 h-12 bg-neutral-50 border-none rounded-xl" value={formData.fullAddress} onChange={e => setFormData({...formData, fullAddress: e.target.value})} />
+            </div>
+
+            <div className="relative">
+              <Info className="absolute left-3 top-3 w-5 h-5 text-neutral-400" />
+              <Textarea placeholder="Elezea Huduma Zako / Short Business Description" className="pl-10 min-h-[80px] bg-neutral-50 border-none rounded-xl" value={formData.hotelDescription} onChange={e => setFormData({...formData, hotelDescription: e.target.value})} />
             </div>
           </>
         )}
-
-        <div className="space-y-2">
-          <Select required onValueChange={handleCategoryChange}>
-            <SelectTrigger className="h-12 bg-neutral-50 border-none rounded-xl">
-              <SelectValue placeholder="Business Category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="hotel">Hotels & Accommodation (Special Form)</SelectItem>
-              <SelectItem value="restaurant">Restaurant</SelectItem>
-              <SelectItem value="grocery">Grocery</SelectItem>
-              <SelectItem value="pharmacy">Pharmacy</SelectItem>
-              <SelectItem value="ecommerce">eCommerce</SelectItem>
-              <SelectItem value="salon">Salon</SelectItem>
-              <SelectItem value="bus_ticket">Bus Ticket Booking</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
         
         {selectedCategory === 'hotel' ? renderHotelForm() : (
           <>

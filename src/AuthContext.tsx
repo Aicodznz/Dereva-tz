@@ -11,7 +11,7 @@ interface AuthContextType {
   loading: boolean;
   signIn: () => Promise<void>;
   login: (email: string, pass: string) => Promise<void>;
-  signUp: (email: string, pass: string, role: UserRole, extraData?: any) => Promise<void>;
+  signUp: (email: string, pass: string, role: UserRole, extraData?: any) => Promise<any>;
   logout: () => Promise<void>;
   updateRole: (role: UserRole) => Promise<void>;
   updateProfileData: (data: Partial<UserProfile>) => Promise<void>;
@@ -139,7 +139,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updatedAt: serverTimestamp(),
       };
       
-      const dbFields = ['phoneNumber', 'address', 'approvalStatus', 'status', 'driverType', 'vehicleType', 'vehicleBrand', 'vehicleModel', 'vehicleColor', 'licensePlate', 'vehicleYear', 'carryingCapacity'];
+      const dbFields = ['phoneNumber', 'address', 'approvalStatus', 'status', 'driverType', 'vehicleType', 'vehicleBrand', 'vehicleModel', 'vehicleColor', 'licensePlate', 'vehicleYear', 'carryingCapacity', 'category', 'businessName', 'tinNumber', 'hotelDescription', 'location'];
       if (extraData) {
         Object.keys(extraData).forEach(key => {
           if (dbFields.includes(key)) {
@@ -149,7 +149,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       
       await setDoc(doc(db, 'users', newUser.uid), newProfile);
+      
+      // If vendor, also create a vendor profile
+      if (role === 'vendor' && extraData) {
+        await setDoc(doc(db, 'vendors', newUser.uid), {
+          ...extraData,
+          ownerUid: newUser.uid,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          rating: 0,
+          ratingCount: 0,
+          status: 'pending'
+        });
+      }
+
       setProfile(newProfile);
+      return userCredential;
     } catch (error: any) {
       console.error('Signup error:', error);
       if (error.code === 'auth/configuration-not-found') {
