@@ -32,6 +32,7 @@ import {
   Store,
   Zap
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { db, auth } from '../firebase';
 import { 
   collection, 
@@ -48,6 +49,7 @@ import {
 } from 'firebase/firestore';
 import { useAuth } from '../AuthContext';
 import { VendorProfile, Product, Order } from '../types';
+import { handleFirestoreError, OperationType } from '../firebase';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -77,7 +79,18 @@ const COLORS = ['#ea580c', '#f97316', '#fb923c', '#fdba74'];
 
 export default function SalonVendorDashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { t } = useLanguage();
+
+  const handleSignOut = async () => {
+    try {
+      await auth.signOut();
+      navigate('/login');
+      toast.success('Logged out successfully');
+    } catch (error) {
+      toast.error('Failed to log out');
+    }
+  };
   const [vendorProfile, setVendorProfile] = useState<VendorProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
@@ -85,6 +98,17 @@ export default function SalonVendorDashboard() {
   const [services, setServices] = useState<Product[]>([]);
   const [staff, setStaff] = useState<any[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isMobileMoreOpen, setIsMobileMoreOpen] = useState(false);
+
+  const salonTabs = useMemo(() => [
+    { id: 'overview', label: 'Home', icon: LayoutGrid },
+    { id: 'appointments', label: 'Miadi', icon: Calendar },
+    { id: 'services', label: 'Huduma', icon: Scissors },
+    { id: 'staff', label: 'Team', icon: Users },
+    { id: 'clients', label: 'Wateja', icon: UserPlus },
+    { id: 'analytics', label: 'Data', icon: BarChart3 },
+    { id: 'settings', label: 'Settings', icon: Settings },
+  ], []);
 
   useEffect(() => {
     if (!user) return;
@@ -112,11 +136,13 @@ export default function SalonVendorDashboard() {
     // Fetch Appointments (Orders)
     const qApt = query(
       collection(db, 'orders'),
-      where('vendorId', '==', vendorProfile.id),
+      where('vendorOwnerUid', '==', user?.uid),
       orderBy('createdAt', 'desc')
     );
     const unsubApt = onSnapshot(qApt, (snap) => {
       setAppointments(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'orders_salon');
     });
 
     // Fetch Services (Products)
@@ -126,15 +152,23 @@ export default function SalonVendorDashboard() {
     );
     const unsubSrv = onSnapshot(qSrv, (snap) => {
       setServices(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'products_salon');
     });
 
     // Fetch Staff
     const qStaff = query(
       collection(db, 'staff'),
-      where('vendorId', '==', vendorProfile.id)
+      where('vendorOwnerUid', '==', user?.uid)
     );
     const unsubStaff = onSnapshot(qStaff, (snap) => {
       setStaff(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      if (error.message?.includes('permission')) {
+        console.warn("Staff collection access restricted. Ensure firestore.rules includes 'staff' collection.");
+        return;
+      }
+      handleFirestoreError(error, OperationType.GET, 'staff_salon');
     });
 
     return () => {
@@ -246,7 +280,10 @@ export default function SalonVendorDashboard() {
         </nav>
 
         <div className="pt-4 border-t border-white/5 space-y-2">
-          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-neutral-400 hover:bg-red-500/10 hover:text-red-500 transition-all">
+          <button 
+            onClick={handleSignOut}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-neutral-400 hover:bg-red-500/10 hover:text-red-500 transition-all"
+          >
             <LogOut size={20} />
             {isSidebarOpen && <span className="font-medium">Sign Out</span>}
           </button>
@@ -254,9 +291,9 @@ export default function SalonVendorDashboard() {
       </motion.aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto no-scrollbar relative">
+      <main className="flex-1 overflow-y-auto no-scrollbar relative pb-24 md:pb-8">
         {/* Header */}
-        <header className="sticky top-0 z-40 bg-[#060608]/80 backdrop-blur-xl border-b border-white/5 px-4 md:px-8 py-4 flex items-center justify-between">
+        <header className="sticky top-0 z-40 bg-[#060608]/95 backdrop-blur-xl border-b border-white/5 px-4 md:px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button 
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -264,7 +301,13 @@ export default function SalonVendorDashboard() {
             >
               <Menu size={20} />
             </button>
-            <h2 className="text-xl font-bold capitalize">
+            <div className="flex items-center gap-3 md:hidden">
+              <div className="w-8 h-8 rounded-lg bg-orange-600 flex items-center justify-center">
+                 <Scissors size={18} className="text-white" />
+              </div>
+              <h1 className="text-lg font-black uppercase italic tracking-tighter">Salon</h1>
+            </div>
+            <h2 className="text-xl font-bold capitalize hidden md:block">
               {activeTab === 'overview' ? 'Welcome Back!' : activeTab}
             </h2>
           </div>
@@ -654,17 +697,110 @@ export default function SalonVendorDashboard() {
         </div>
       </main>
 
-      {/* Mobile Menu Overlay */}
+      {/* Mobile More Menu Drawer - Improved as Bottom Sheet for better mobile UX */}
       <AnimatePresence>
-        {!isSidebarOpen && (
-          <button 
-            onClick={() => setIsSidebarOpen(true)}
-            className="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-orange-600 rounded-2xl flex items-center justify-center shadow-2xl z-50 animate-in zoom-in slide-in-from-bottom"
-          >
-            <Menu size={24} />
-          </button>
+        {isMobileMoreOpen && (
+          <>
+            <motion.div 
+               initial={{ opacity: 0 }}
+               animate={{ opacity: 1 }}
+               exit={{ opacity: 0 }}
+               onClick={() => setIsMobileMoreOpen(false)}
+               className="md:hidden fixed inset-0 bg-black/80 backdrop-blur-md z-[200]"
+            />
+            <motion.div 
+               initial={{ y: '100%' }}
+               animate={{ y: 0 }}
+               exit={{ y: '100%' }}
+               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+               className="md:hidden fixed bottom-0 left-0 right-0 max-h-[80vh] bg-[#0a0a0f] z-[201] shadow-2xl p-8 overflow-y-auto flex flex-col rounded-t-[3rem] border-t border-white/10"
+            >
+               <div className="w-12 h-1.5 bg-neutral-800 rounded-full mx-auto mb-8 flex-shrink-0" />
+               <div className="flex items-center justify-between mb-8">
+                  <h2 className="text-2xl font-black uppercase italic tracking-tighter text-orange-500">Zaidi (More)</h2>
+                  <button onClick={() => setIsMobileMoreOpen(false)} className="p-2 bg-neutral-900 rounded-xl">
+                     <XCircle className="w-6 h-6 text-neutral-500" />
+                  </button>
+               </div>
+               <div className="grid grid-cols-2 gap-4">
+                  {salonTabs.slice(4).map((tab) => (
+                     <button
+                        key={tab.id}
+                        onClick={() => {
+                           setActiveTab(tab.id as TabType);
+                           setIsMobileMoreOpen(false);
+                        }}
+                        className={`flex flex-col items-center gap-3 p-6 rounded-3xl transition-all ${
+                          activeTab === tab.id 
+                            ? 'bg-orange-600 text-white' 
+                            : 'bg-neutral-900/50 text-neutral-400 border border-white/5'
+                        }`}
+                     >
+                        <tab.icon className="w-6 h-6" />
+                        <span className="text-[10px] font-black uppercase tracking-widest">{tab.label}</span>
+                     </button>
+                  ))}
+                  <button 
+                    onClick={handleSignOut}
+                    className="flex flex-col items-center gap-3 p-6 rounded-3xl text-red-500 bg-red-500/10 border border-red-500/20 col-span-2 mt-4"
+                  >
+                     <LogOut className="w-6 h-6" />
+                     <span className="text-[10px] font-black uppercase tracking-widest">Sign Out</span>
+                  </button>
+               </div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
+
+      {/* Modern Bottom Navigation */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-[100] h-20 bg-[#0a0a0f]/95 backdrop-blur-xl border-t border-white/5 transition-colors duration-300 shadow-[0_-10px_25px_rgba(0,0,0,0.5)]">
+        <motion.div 
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          className="h-full px-2 flex justify-around items-center max-w-md mx-auto"
+        >
+          {salonTabs.slice(0, 3).map((tab) => (
+            <button
+              key={`mobile-nav-${tab.id}`}
+              onClick={() => setActiveTab(tab.id as TabType)}
+              className={`flex flex-col items-center justify-center gap-1.5 flex-1 transition-all duration-300 ${
+                activeTab === tab.id ? 'text-orange-600' : 'text-neutral-500'
+              }`}
+            >
+              <div className={`p-2 rounded-2xl transition-all ${activeTab === tab.id ? 'bg-orange-600/10' : ''}`}>
+                <tab.icon className="w-5 h-5" />
+              </div>
+              <span className={`text-[10px] font-black uppercase tracking-widest ${activeTab === tab.id ? 'opacity-100' : 'opacity-60'}`}>
+                {tab.label}
+              </span>
+            </button>
+          ))}
+          <button
+            onClick={() => {
+                setActiveTab('staff');
+                setIsMobileMoreOpen(false);
+            }}
+             className={`flex flex-col items-center justify-center gap-1.5 flex-1 transition-all duration-300 ${
+                activeTab === 'staff' ? 'text-orange-600' : 'text-neutral-500'
+              }`}
+          >
+             <div className={`p-2 rounded-2xl transition-all ${activeTab === 'staff' ? 'bg-orange-600/10' : ''}`}>
+              <Users className="w-5 h-5" />
+            </div>
+            <span className={`text-[10px] font-black uppercase tracking-widest ${activeTab === 'staff' ? 'opacity-100' : 'opacity-60'}`}>Team</span>
+          </button>
+          <button
+            onClick={() => setIsMobileMoreOpen(true)}
+            className="flex flex-col items-center justify-center gap-1.5 flex-1 text-neutral-400"
+          >
+            <div className="p-2">
+              <Menu className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-black uppercase tracking-widest opacity-60">More</span>
+          </button>
+        </motion.div>
+      </nav>
     </div>
   );
 }

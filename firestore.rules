@@ -3,111 +3,167 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // -------------------------------------------------------------------------
-    // Primitives & Global Helpers
+    // 1. Global Helpers & Bit-level security
     // -------------------------------------------------------------------------
 
     function isSignedIn() { return request.auth != null; }
-    function isEmailVerified() { return isSignedIn(); } // Simplified for now as requested by user's initial rules
-    
-    function isAdmin() {
+    function isAdmin() { 
       return isSignedIn() && (
-        request.auth.token.email == "aicodtznation@gmail.com"
-      );
+        request.auth.token.email == "aicodtznation@gmail.com" ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      ); 
     }
-
-    function isValidId(id) { return id is string && id.size() <= 128; }
+    
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
+    function isValidId(id) { return id is string && id.size() <= 128; }
+
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
 
     // -------------------------------------------------------------------------
-    // Match Blocks
+    // 2. Collection Specific Rules
     // -------------------------------------------------------------------------
 
-    // 1. Config (Public Read for platform settings)
-    match /config/{document=**} {
+    // Users: Private info isolation (Simplified for this app)
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
+    }
+
+    // Vendors: Public read, owner write
+    match /vendors/{vendorId} {
+      allow read: if true;
+      allow create: if isSignedIn(); // Any signed in user can try to register as vendor
+      allow update: if (isSignedIn() && (existing().ownerUid == request.auth.uid || vendorId == request.auth.uid)) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Products / Services: Public read, vendor owner write
+    match /products/{productId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn();
+      allow write: if isAdmin();
+
+      // Sub-collections should be explicitly allowed
+      match /faqs/{faqId} {
+        allow read: if true;
+        allow write: if isSignedIn();
+      }
+    }
+
+    // Messaging
+    match /messages/{id} {
+      allow create: if isSignedIn();
+      allow read: if isSignedIn() && (resource.data.senderId == request.auth.uid || resource.data.participants.hasAny([request.auth.uid]));
+    }
+
+    // Review Replies (Global collection)
+    match /review_replies/{id} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // Reviews
+    match /reviews/{id} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      
+      match /replies/{replyId} {
+        allow read: if true;
+        allow write: if isSignedIn();
+      }
+    }
+    match /orders/{orderId} {
+      allow create: if isSignedIn();
+      allow read: if isSignedIn() && (
+        resource.data.customerId == request.auth.uid || 
+        resource.data.vendorOwnerUid == request.auth.uid ||
+        resource.data.riderId == request.auth.uid ||
+        isAdmin()
+      );
+      allow update: if isSignedIn() && (
+        resource.data.customerId == request.auth.uid || 
+        resource.data.vendorOwnerUid == request.auth.uid ||
+        resource.data.riderId == request.auth.uid ||
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Staff: Vendor owner restricted
+    match /staff/{staffId} {
+      allow read: if isSignedIn() && (resource.data.vendorOwnerUid == request.auth.uid || isAdmin());
+      allow write: if isSignedIn() && (incoming().vendorOwnerUid == request.auth.uid || incoming().vendorId == request.auth.uid || isAdmin());
+      allow delete: if isSignedIn(); 
+    }
+
+    // Branches
+    match /branches/{branchId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    // Tables
+    match /tables/{tableId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    // Coupons
+    match /coupons/{couponId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    // Rides (Taxi)
+    match /rides/{rideId} {
+      allow create: if isSignedIn();
+      allow read, update: if isSignedIn() && (resource.data.customerId == request.auth.uid || resource.data.driverId == request.auth.uid || isAdmin());
+    }
+
+    // Parcels
+    match /parcels/{parcelId} {
+      allow create: if isSignedIn();
+      allow read, update: if isSignedIn() && (resource.data.sender.uid == request.auth.uid || resource.data.partnerId == request.auth.uid || isAdmin());
+    }
+
+    // Riders / Partners
+    match /riders/{uid} {
+      allow read: if true;
+      allow write: if isOwner(uid) || isAdmin();
+    }
+    match /partners/{uid} {
+      allow read: if true;
+      allow write: if isOwner(uid) || isAdmin();
+    }
+
+    // Notifications
+    match /notifications/{id} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if isAdmin() || (isSignedIn() && incoming().userId == request.auth.uid);
+    }
+
+    // Config & Admin lists
+    match /config/{id} {
       allow read: if true;
       allow write: if isAdmin();
     }
-
-    // 1.5 Admins
     match /admins/{id} {
       allow read: if true;
       allow write: if isAdmin();
     }
-
-    // 2. Vendors (Public Read)
-    match /vendors/{id} { 
-      allow read: if true; 
-      allow create: if isSignedIn();
-      allow update: if isSignedIn() && (request.auth.uid == existing().ownerUid || isAdmin());
-      allow delete: if isAdmin();
-    }
-
-    // 3. Products (Public Read)
-    match /products/{id} { 
-      allow read: if true; 
-      allow write: if isSignedIn(); 
-    }
-
-    // 3.5 Branches (Public Read)
-    match /branches/{id} {
-      allow read: if true;
+    match /payouts/{id} {
+      allow read: if isSignedIn() && (resource.data.recipientId == request.auth.uid || isAdmin());
       allow write: if isSignedIn();
-    }
-
-    // 3.6 Hotel Bookings & Seasons (New)
-    match /hotel_bookings/{id} {
-      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn();
-      allow update, delete: if isAdmin();
-    }
-
-    // 4. Reviews & Replies (Public Read)
-    match /reviews/{id} { 
-      allow read: if true; 
-      allow create: if isSignedIn();
-      allow update, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-    }
-    match /review_replies/{id} { 
-      allow read: if true; 
-      allow create: if isSignedIn();
-      allow update, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-    }
-
-    // 5. Banners (Public Read)
-    match /banners/{id} { allow read: if true; allow write: if isAdmin(); }
-
-    // 6. Orders (Restricted to participants)
-    match /orders/{orderId} {
-      allow read: if isSignedIn() && (resource.data.customerId == request.auth.uid || resource.data.vendorOwnerUid == request.auth.uid || isAdmin());
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-    }
-
-    // 7. Users
-    match /users/{userId} {
-      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      allow list: if isAdmin();
-      allow create: if isSignedIn() && request.auth.uid == userId;
-      allow update: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-    }
-
-    // 8. Notifications
-    match /notifications/{id} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow write: if isSignedIn();
-    }
-
-    // 9. Messaging
-    match /messages/{id} {
-      allow read: if isSignedIn() && (resource.data.fromId == request.auth.uid || resource.data.toId == request.auth.uid);
-      allow create: if isSignedIn();
-    }
-
-    // 10. Default Deny for everything else
-    match /{document=**} {
-      allow read, write: if false;
     }
   }
 }
-

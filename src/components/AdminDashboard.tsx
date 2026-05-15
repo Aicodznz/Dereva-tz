@@ -20,7 +20,8 @@ import {
   Users, ShoppingBag, DollarSign, MessageCircle, AlertTriangle,
   ExternalLink, Search, Ban, History, BarChart3, Settings, Info, CreditCard, Star,
   Package, Undo2, Bike, Trophy, Wallet, MessageSquare, Globe, Clock, Coins, Loader2, Zap,
-  Bed, Wifi, Wind, Monitor, Car, Waves, MapPin, Mail, PhoneCall, FileText, User, Camera
+  Bed, Wifi, Wind, Monitor, Car, Waves, MapPin, Mail, PhoneCall, FileText, User, Camera,
+  Menu, MoreHorizontal, MoreVertical, LayoutGrid
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -123,6 +124,7 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeSettingsTab, setActiveSettingsTab] = useState('business_info');
   const [businessConfig, setBusinessConfig] = useState({
     name: 'M-Duka Platform',
@@ -513,6 +515,21 @@ export default function AdminDashboard() {
     }
   };
 
+  const adminTabs = useMemo(() => [
+    { id: 'overview', label: t('admin_overview'), icon: BarChart3 },
+    { id: 'vendors', label: t('admin_businesses'), icon: Store },
+    { id: 'drivers', label: 'Drivers', icon: Bike },
+    { id: 'products', label: t('admin_products'), icon: ShoppingBag },
+    { id: 'users', label: t('admin_communities'), icon: Users },
+    { id: 'orders', label: t('admin_sales_feed'), icon: ShoppingBag },
+    { id: 'banners', label: t('admin_marketing'), icon: Megaphone },
+    { id: 'notifications', label: t('admin_broadcast'), icon: Bell },
+    { id: 'live_map', label: 'Monitor', icon: Globe },
+    { id: 'payouts', label: 'Payouts', icon: Wallet },
+    { id: 'analytics', label: 'Insights', icon: BarChart3 },
+    { id: 'settings', label: t('admin_settings'), icon: Settings },
+  ], [t]);
+
   const filteredUsers = allUsers.filter(u => 
     u.displayName.toLowerCase().includes(searchQuery.toLowerCase()) || 
     u.email.toLowerCase().includes(searchQuery.toLowerCase())
@@ -525,8 +542,30 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-8 pb-32 max-w-7xl mx-auto px-4">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="flex items-center gap-4">
+      {/* Mobile Top Header */}
+      <div className="md:hidden sticky top-0 z-[110] bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border-b border-neutral-200 dark:border-neutral-800 px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-red-600 text-white rounded-2xl shadow-lg shadow-red-200">
+            <ShieldAlert className="w-5 h-5" />
+          </div>
+          <h1 className="text-xl font-black text-neutral-900 dark:text-white uppercase italic tracking-tighter">Admin</h1>
+        </div>
+        <div className="flex items-center gap-3">
+          <Link to="/" className="w-10 h-10 bg-neutral-100 dark:bg-neutral-800 rounded-xl flex items-center justify-center text-neutral-500">
+            <Home className="w-5 h-5" />
+          </Link>
+          <Link to="/profile" className="w-10 h-10 rounded-xl overflow-hidden border-2 border-orange-600/20 shadow-sm">
+            <img 
+               src={auth.currentUser?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${auth.currentUser?.uid}`} 
+               alt="Admin" 
+               className="w-full h-full object-cover shadow-sm"
+            />
+          </Link>
+        </div>
+      </div>
+
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-4 md:px-0">
+        <div className="hidden md:flex items-center gap-4">
           <div className="p-4 bg-red-600 text-white rounded-[2rem] shadow-lg shadow-red-200">
             <ShieldAlert className="w-10 h-10" />
           </div>
@@ -535,7 +574,7 @@ export default function AdminDashboard() {
             <p className="text-neutral-500 font-medium">Platform-wide management & financial oversight.</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="hidden md:flex items-center gap-3">
           <Link to="/">
             <Button variant="ghost" className="rounded-2xl font-bold gap-2">
               <Home className="w-4 h-4" />
@@ -552,22 +591,9 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Tabs Menu */}
-      <div className="flex flex-wrap gap-2 p-1.5 bg-neutral-100 dark:bg-neutral-800 rounded-[2rem] w-fit transition-colors">
-        {[
-          { id: 'overview', label: t('admin_overview'), icon: BarChart3 },
-          { id: 'vendors', label: t('admin_businesses'), icon: Store },
-          { id: 'drivers', label: 'Drivers', icon: Bike },
-          { id: 'products', label: t('admin_products'), icon: ShoppingBag },
-          { id: 'users', label: t('admin_communities'), icon: Users },
-          { id: 'orders', label: t('admin_sales_feed'), icon: ShoppingBag },
-          { id: 'banners', label: t('admin_marketing'), icon: Megaphone },
-          { id: 'notifications', label: t('admin_broadcast'), icon: Bell },
-          { id: 'live_map', label: 'Monitor', icon: Globe },
-          { id: 'payouts', label: 'Payouts', icon: Wallet },
-          { id: 'analytics', label: 'Insights', icon: BarChart3 },
-          { id: 'settings', label: t('admin_settings'), icon: Settings },
-        ].map((tab) => (
+      {/* Tabs Menu (Desktop) */}
+      <div className="hidden md:flex flex-wrap gap-2 p-1.5 bg-neutral-100 dark:bg-neutral-800 rounded-[2rem] w-fit transition-colors px-4 md:px-1.5">
+        {adminTabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as AdminTab)}
@@ -582,6 +608,20 @@ export default function AdminDashboard() {
           </button>
         ))}
       </div>
+
+      {/* Mobile Stats Summary (Only on Overview) */}
+      {activeTab === 'overview' && (
+        <div className="md:hidden grid grid-cols-2 gap-3 px-4">
+          <div className="bg-neutral-900 p-4 rounded-3xl text-white">
+            <p className="text-[9px] font-black uppercase text-neutral-500 tracking-widest">Gross Volume</p>
+            <p className="text-lg font-black mt-1 tracking-tight">TZS {stats.totalRev.toLocaleString()}</p>
+          </div>
+          <div className="bg-orange-600 p-4 rounded-3xl text-white">
+            <p className="text-[9px] font-black uppercase text-orange-200 tracking-widest">Platform Fees</p>
+            <p className="text-lg font-black mt-1 tracking-tight">TZS {stats.platformFee.toLocaleString()}</p>
+          </div>
+        </div>
+      )}
 
       <AnimatePresence mode="wait">
         {activeTab === 'overview' && (
@@ -2457,6 +2497,81 @@ export default function AdminDashboard() {
           </div>
         )}
       </AnimatePresence>
+      {/* Admin Mobile More Menu Drawer */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <>
+            <motion.div 
+               initial={{ opacity: 0 }}
+               animate={{ opacity: 1 }}
+               exit={{ opacity: 0 }}
+               onClick={() => setIsMobileMenuOpen(false)}
+               className="md:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[200]"
+            />
+            <motion.div 
+               initial={{ x: '100%' }}
+               animate={{ x: 0 }}
+               exit={{ x: '100%' }}
+               className="md:hidden fixed top-0 right-0 h-full w-full max-w-[300px] bg-white dark:bg-neutral-900 z-[201] shadow-2xl flex flex-col p-6 overflow-y-auto"
+            >
+               <div className="flex items-center justify-between mb-8">
+                  <h2 className="text-xl font-black uppercase italic tracking-tighter">More Tabs</h2>
+                  <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 bg-neutral-100 dark:bg-neutral-800 rounded-xl">
+                     <X className="w-5 h-5" />
+                  </button>
+               </div>
+               <div className="flex flex-col gap-2">
+                  {adminTabs.slice(3).map((tab) => (
+                     <button
+                        key={tab.id}
+                        onClick={() => {
+                           setActiveTab(tab.id as AdminTab);
+                           setIsMobileMenuOpen(false);
+                        }}
+                        className={`flex items-center gap-4 px-6 p-4 rounded-2xl text-sm font-black uppercase tracking-tight transition-all ${
+                          activeTab === tab.id 
+                            ? 'bg-neutral-900 dark:bg-white dark:text-neutral-900 text-white' 
+                            : 'text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                        }`}
+                     >
+                        <tab.icon className="w-5 h-5" />
+                        <span>{tab.label}</span>
+                     </button>
+                  ))}
+               </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Admin Bottom Navigation */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-[120] h-20 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl border-t border-neutral-200 dark:border-neutral-800 shadow-[0_-10px_25px_rgba(0,0,0,0.05)] transition-colors duration-300">
+        <div className="h-full px-2 flex justify-around items-center max-w-md mx-auto">
+           {adminTabs.slice(0, 4).map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as AdminTab)}
+                className={`flex flex-col items-center justify-center gap-1.5 flex-1 transition-all ${activeTab === tab.id ? 'text-red-600' : 'text-neutral-400'}`}
+              >
+                 <div className={`p-2 rounded-2xl transition-all ${activeTab === tab.id ? 'bg-red-600/10' : ''}`}>
+                   <tab.icon className="w-5 h-5" />
+                 </div>
+                 <span className={`text-[10px] font-black uppercase tracking-widest ${activeTab === tab.id ? 'opacity-100' : 'opacity-60'}`}>
+                    {tab.label.split(' ')[0]}
+                 </span>
+              </button>
+           ))}
+           <button
+             onClick={() => setIsMobileMenuOpen(true)}
+             className="flex flex-col items-center justify-center gap-1.5 flex-1 text-neutral-400"
+           >
+              <div className="p-2">
+                <LayoutGrid className="w-5 h-5" />
+              </div>
+              <span className="text-[10px] font-black uppercase tracking-widest opacity-60">More</span>
+           </button>
+        </div>
+      </nav>
     </div>
   );
 }

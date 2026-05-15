@@ -58,7 +58,16 @@
         "unit": { "type": "string" },
         "expiryDate": { "type": "string", "format": "date" },
         "medicationType": { "type": "string", "enum": ["otc", "prescription"] },
-        "variations": { "type": "array" }
+        "variations": { "type": "array" },
+        "highlights": { "type": "array" },
+        "story": { "type": "string" },
+        "qualityPromise": {
+          "type": "object",
+          "properties": {
+            "description": { "type": "string" },
+            "certifiedBy": { "type": "string" }
+          }
+        }
       },
       "required": ["vendorId", "name", "price"]
     },

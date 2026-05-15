@@ -37,13 +37,20 @@ import {
   Store,
   Package,
   Armchair,
+  CheckCircle2,
   Share2,
-  Box
+  Box,
+  Layout,
+  Home
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
+
+const formatCurrency = (amount: number) => {
+  return `TZS ${amount.toLocaleString()}`;
+};
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
@@ -54,14 +61,23 @@ export default function ProductDetail() {
   const [product, setProduct] = useState<Product | null>(null);
   const [vendor, setVendor] = useState<VendorProfile | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [faqs, setFaqs] = useState<FAQ[]>([]);
   const [similarProducts, setSimilarProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [isDescExpanded, setIsDescExpanded] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [showARView, setShowARView] = useState(false);
+  const [activeTab, setActiveTab] = useState('Details');
   const arViewerRef = useRef<any>(null);
+
+  const handleAddToCart = () => {
+    if (!product) return;
+    addItem({ ...product, quantity });
+    toast.success('Added to your basket', {
+      description: `${quantity}x ${product.name} has been added.`,
+      icon: <ShoppingBag className="w-5 h-5 text-orange-600" />
+    });
+  };
 
   const isModelValid = (url: string) => {
     if (!url) return false;
@@ -191,32 +207,7 @@ export default function ProductDetail() {
       }
     };
 
-    const fetchFAQs = async () => {
-      try {
-        const q = query(collection(db, 'products', id!, 'faqs'), orderBy('createdAt', 'desc'));
-        const snap = await getDocs(q);
-        setFaqs(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as FAQ)));
-      } catch (error) {
-        // Fallback for demo if no faqs subcollection exists yet
-        setFaqs([
-          { 
-            id: '1', 
-            question: 'Je, bidhaa hii ina ubora gani?', 
-            answer: 'Bidhaa hii ni ya kiwango cha juu kabisa na imethibitishwa na TBS.', 
-            createdAt: new Date().toISOString() 
-          },
-          { 
-            id: '2', 
-            question: 'Inachukua muda gani kufika?', 
-            answer: 'Inategemea na eneo ulilopo, lakini kwa kawaida ni ndani ya saa 24.', 
-            createdAt: new Date().toISOString() 
-          }
-        ]);
-      }
-    };
-
     fetchReviews();
-    fetchFAQs();
 
     const q = query(
       collection(db, 'reviews'),
@@ -501,7 +492,7 @@ export default function ProductDetail() {
     
     // Add variations price
     const selectedVar = product.variations?.find(v => v.name === selectedSize);
-    if (selectedVar) basePrice += selectedVar.price;
+    if (selectedVar && typeof selectedVar.price === 'number') basePrice += selectedVar.price;
     
     // Add addons price
     selectedAddons.forEach(addonName => {
@@ -530,6 +521,7 @@ export default function ProductDetail() {
   };
 
   const processPayment = async () => {
+    if (!product) return;
     if (!buyerPhone.trim()) {
       toast.error('Tafadhali ingia namba yako ya simu');
       return;
@@ -638,12 +630,12 @@ export default function ProductDetail() {
     const category = getCategoryLabel();
 
     return (
-      <div className="space-y-8">
+      <div className="space-y-4">
         {/* Dynamic Variations (Sizes) */}
         {product.variations && product.variations.length > 0 && (
-          <div className="space-y-4">
-            <h3 className="font-bold text-lg">Chagua Ukubwa (Size)</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="space-y-2">
+            <h3 className="font-bold text-sm uppercase tracking-wider text-neutral-400">Chagua Ukubwa (Size)</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {product.variations.map((v, idx) => (
                 <button
                   key={`variation-${v.name}-${idx}`}
@@ -655,8 +647,8 @@ export default function ProductDetail() {
                   }`}
                 >
                   <span className="font-bold text-sm">{v.name}</span>
-                  {v.price > 0 && (
-                    <span className="text-[10px] font-medium">+{v.price.toLocaleString()}</span>
+                  {(v.price ?? 0) > 0 && (
+                    <span className="text-[10px] font-medium">+{(v.price ?? 0).toLocaleString()}</span>
                   )}
                 </button>
               ))}
@@ -666,9 +658,9 @@ export default function ProductDetail() {
 
         {/* Dynamic Add-ons (Vionjo) */}
         {product.addOns && product.addOns.length > 0 && (
-          <div className="space-y-4">
-            <h3 className="font-bold text-lg">Vionjo vya Ziada (Add-ons)</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="space-y-2">
+            <h3 className="font-bold text-sm uppercase tracking-wider text-neutral-400">Vionjo vya Ziada (Add-ons)</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {product.addOns.map((addon, idx) => (
                 <button
                   key={`addon-${addon.name}-${idx}`}
@@ -814,7 +806,7 @@ export default function ProductDetail() {
   };
 
   return (
-    <div className="min-h-screen bg-white lg:bg-neutral-50 pb-60 lg:pb-32">
+    <div className="min-h-screen bg-white lg:bg-neutral-50 pb-12">
       {/* AR Viewer Overlay */}
       <AnimatePresence>
         {showARView && product?.model3dUrl && (
@@ -912,434 +904,423 @@ export default function ProductDetail() {
         )}
       </AnimatePresence>
 
-      <div className="max-w-7xl mx-auto lg:px-8 lg:pt-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-          {/* 1. Image Gallery */}
-          <div className="space-y-6">
-            <div className="relative aspect-[4/5] md:aspect-square lg:h-[650px] w-full bg-neutral-100 lg:rounded-[48px] overflow-hidden shadow-2xl shadow-neutral-200/50 group">
-              <AnimatePresence mode="wait">
-                <motion.img 
-                  key={activeImageIndex}
-                  initial={{ opacity: 0, scale: 1.05 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                  src={(product.imageUrls?.[activeImageIndex] || product.imageUrl) || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80'} 
-                  alt={product.name}
-                  className="w-full h-full object-cover"
-                  referrerPolicy="no-referrer"
-                  onError={(e) => {
-                    const img = e.target as HTMLImageElement;
-                    img.src = 'https://images.unsplash.com/photo-1532634922-8fe0b757fb13?auto=format&fit=crop&w=800&q=80';
-                  }}
-                />
-              </AnimatePresence>
+      <div className="max-w-7xl mx-auto px-4 lg:px-8 pt-4 lg:pt-8">
+        {/* Back & Home Buttons */}
+        <div className="mb-6 flex items-center justify-between">
+          <button 
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 group text-neutral-400 hover:text-neutral-900 transition-colors"
+          >
+            <div className="w-8 h-8 rounded-full bg-neutral-100 flex items-center justify-center group-hover:bg-neutral-900 group-hover:text-white transition-all">
+              <ChevronLeft className="w-4 h-4" />
+            </div>
+            <span className="font-black uppercase text-[10px] tracking-widest">Rudi Nyuma</span>
+          </button>
 
+          <Link 
+            to="/"
+            className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-xl shadow-lg hover:bg-orange-600 transition-all active:scale-95 group"
+          >
+            <Home className="w-4 h-4" />
+            <span className="font-black uppercase text-[10px] tracking-widest">Rudi Nyumbani</span>
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+          {/* Left: Product Images */}
+          <div className="space-y-4">
+            <div className="aspect-square bg-neutral-100 rounded-[2rem] lg:rounded-[2.5rem] overflow-hidden relative group shadow-2xl shadow-neutral-200">
+              <img 
+                src={(product.imageUrls?.[activeImageIndex] || product.imageUrl) || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c'} 
+                alt={product.name}
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+              />
+              
+              {/* Overlay sharing */}
+              <button 
+                onClick={handleShare}
+                className="absolute top-6 right-6 w-12 h-12 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center text-neutral-900 shadow-xl hover:bg-white transition-all active:scale-90"
+              >
+                <Share2 className="w-5 h-5" />
+              </button>
+
+              {/* 3D/AR Trigger */}
               {product?.model3dUrl && businessConfig?.enableAR === true && (
                 <button 
                   onClick={() => setShowARView(true)}
-                  className="absolute top-24 left-6 px-4 py-2 bg-orange-600/90 backdrop-blur-xl border border-orange-500/20 rounded-2xl flex items-center gap-2 text-white text-xs font-black uppercase tracking-widest shadow-2xl z-30 hover:bg-orange-600 transition-all hover:scale-105 active:scale-95"
+                  className="absolute bottom-6 left-6 px-5 py-2.5 bg-orange-600 text-white rounded-2xl flex items-center gap-2 text-xs font-black uppercase tracking-widest shadow-xl shadow-orange-600/30 hover:bg-orange-700 transition-all hover:scale-105 active:scale-95"
                 >
                   <Box className="w-4 h-4" />
-                  AR View / Tazama AR
+                  View in Space
                 </button>
               )}
-              
-              <div className="absolute top-6 left-6 right-6 flex items-center justify-between z-30">
-                <button 
-                  onClick={() => navigate(-1)}
-                  className="w-12 h-12 bg-white/10 backdrop-blur-2xl rounded-2xl flex items-center justify-center text-white border border-white/20 hover:bg-white/20 transition-all shadow-xl"
-                >
-                  <ChevronLeft className="w-6 h-6" />
-                </button>
-
-                <button 
-                  onClick={handleShare}
-                  className="w-12 h-12 bg-white/10 backdrop-blur-2xl rounded-2xl flex items-center justify-center text-white border border-white/20 hover:bg-white/20 transition-all shadow-xl"
-                >
-                  <Share2 className="w-6 h-6" />
-                </button>
-              </div>
-
-              <div className="absolute bottom-8 left-0 right-0 flex justify-center gap-2 z-20">
-                {(product.imageUrls || [product.imageUrl]).map((_, idx) => (
-                  <button 
-                    key={`gallery-dot-${idx}`}
-                    onClick={() => setActiveImageIndex(idx)}
-                    className={`h-2 rounded-full transition-all duration-500 ${
-                      activeImageIndex === idx ? 'w-10 bg-white shadow-[0_0_15px_rgba(255,255,255,0.5)]' : 'w-2 bg-white/40'
-                    }`}
-                  />
-                ))}
-              </div>
             </div>
 
             {/* Thumbnails */}
             {product.imageUrls && product.imageUrls.length > 1 && (
-              <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar px-4 lg:px-0">
-                {product.imageUrls.map((url, idx) => url && (
-                  <button
-                    key={`gallery-thumb-${idx}`}
+              <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-none px-2">
+                {product.imageUrls.map((url, idx) => (
+                  <button 
+                    key={`thumb-${idx}`}
                     onClick={() => setActiveImageIndex(idx)}
-                    className={`w-20 h-20 rounded-2xl overflow-hidden shrink-0 border-2 transition-all ${
-                      activeImageIndex === idx ? 'border-orange-600 scale-105' : 'border-transparent opacity-60'
-                    }`}
+                    className={`w-24 h-24 rounded-3xl overflow-hidden border-2 flex-shrink-0 cursor-pointer transition-all ${activeImageIndex === idx ? 'border-orange-500 ring-8 ring-orange-500/5 scale-105' : 'border-transparent opacity-60 hover:opacity-100'}`}
                   >
-                    <img src={url} alt={`Thumb ${idx}`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    <img src={url} className="w-full h-full object-cover" alt="" />
                   </button>
                 ))}
               </div>
             )}
           </div>
-
-          <div className="px-4 lg:px-0 space-y-8 lg:space-y-10">
-            {/* 2. Core Info */}
-            <div className="space-y-6">
-              <div className="flex justify-between items-start gap-4">
-                <div className="space-y-2 flex-1">
-                  <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] mb-2">
-                    {product.category || 'Premium'}
-                  </Badge>
-                  <h1 className="text-3xl md:text-4xl lg:text-5xl font-black text-neutral-900 leading-tight font-display tracking-tight">
-                    {product.name}
-                  </h1>
-                  <Link to={`/vendor/${vendor?.id}`} className="group inline-flex items-center gap-2 text-sm md:text-base text-neutral-400 font-bold hover:text-orange-600 transition-all">
-                    <span>by</span>
-                    <span className="text-neutral-900 group-hover:text-orange-600 transition-colors underline decoration-neutral-200 underline-offset-4">{vendor?.businessName || 'Papo Hapo Store'}</span>
-                    <ChevronRight className="w-4 h-4" />
-                  </Link>
-                </div>
-                <div className="text-right shrink-0 pt-2 flex flex-col items-end">
-                  {product.discountPrice ? (
-                    <>
-                      <p className="text-2xl md:text-3xl lg:text-4xl font-black text-orange-600 font-display italic">
-                        TZS {product.discountPrice.toLocaleString()}
-                      </p>
-                      <p className="text-sm md:text-base text-neutral-400 line-through font-bold">
-                        TZS {product.price.toLocaleString()}
-                      </p>
-                    </>
-                  ) : (
-                    <p className="text-2xl md:text-3xl lg:text-4xl font-black text-orange-600 font-display italic">
-                      TZS {product.price.toLocaleString()}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-6">
-                  <div className="flex items-center gap-2 bg-neutral-900 px-4 py-2 rounded-2xl shadow-xl shadow-neutral-900/10">
-                    <Star className="w-4 h-4 text-orange-400 fill-current" />
-                    <span className="text-sm font-black text-white">
-                      {(product?.ratingCount || 0) > 0 ? (Number(product?.rating) || 0).toFixed(1) : '0.0'}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-neutral-500">
-                    <Users className="w-4 h-4" />
-                    <span className="text-xs font-bold font-mono tracking-tighter">{(product?.ratingCount || 0)} maoni</span>
-                  </div>
-              </div>
+          {/* Right: Product Content */}
+          <div className="space-y-6 lg:pl-0">
+            {/* Category & Title */}
+            <div className="space-y-1">
+              <span className="text-neutral-400 text-[10px] font-black uppercase tracking-[0.2em]">{product.category || 'Daily Meals'}</span>
+              <h1 className="text-2xl lg:text-4xl font-black text-neutral-900 leading-tight tracking-tight font-display italic uppercase">{product.name}</h1>
+              <p className="text-neutral-500 text-sm lg:text-base leading-relaxed max-w-xl font-medium">
+                {product.description || 'Flavorful and freshly prepared meal made with premium ingredients and handpicked spices — a comforting and satisfying choice for every occasion.'}
+              </p>
             </div>
 
-            {/* 3. Description & FAQ */}
-            <div className="space-y-6">
-              <div className="bg-neutral-50 p-6 lg:p-10 rounded-[32px] border border-neutral-100/50 space-y-6 relative overflow-hidden group">
-                <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                  <Info className="w-24 h-24 rotate-12" />
-                </div>
-                <h3 className="font-black text-xs uppercase tracking-[0.2em] text-neutral-400">Maelezo ya Bidhaa</h3>
-                <div className="relative z-10">
-                  <p className={`text-neutral-600 leading-relaxed text-base lg:text-lg font-medium ${!isDescExpanded && 'line-clamp-3 lg:line-clamp-4'}`}>
-                    {product.description || 'Hii ni bidhaa bora kabisa inayopatikana Papo Hapo. Imetengenezwa kwa weledi na ubora wa hali ya juu ili kukidhi mahitaji yako ya kila siku.'}
-                  </p>
-                  <button 
-                    onClick={() => setIsDescExpanded(!isDescExpanded)}
-                    className="mt-4 text-orange-600 text-sm font-black uppercase tracking-widest flex items-center gap-2 hover:gap-3 transition-all"
-                  >
-                    {isDescExpanded ? 'Funga' : 'Soma Zaidi'}
-                    {isDescExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                  </button>
-                </div>
+            {/* Rating & Veg/Non-Veg Indicator */}
+            <div className="flex items-center gap-4 py-1">
+              <div className="flex items-center gap-1.5 bg-neutral-100 px-3 py-1.5 rounded-xl">
+                <Star className="w-4 h-4 text-orange-500 fill-current" />
+                <span className="font-bold text-neutral-900 text-xs">{(product.ratingCount || 0) > 0 ? (product.rating || 0).toFixed(1) : '0'}</span>
               </div>
-
-              {/* FAQ Section */}
-              <div className="bg-white p-6 lg:p-10 rounded-[32px] border border-neutral-100 space-y-6 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-black text-neutral-900 uppercase italic tracking-tighter">Question and Answers</h3>
-                  <button className="text-orange-600 text-xs font-black uppercase tracking-widest">See All</button>
-                </div>
-                <div className="space-y-4">
-                  {faqs.map(faq => (
-                    <div key={faq.id} className="p-4 bg-neutral-50 rounded-2xl space-y-2">
-                      <p className="text-sm font-black text-neutral-900">{faq.question}</p>
-                      <p className="text-xs text-neutral-500 font-medium">{faq.answer}</p>
-                    </div>
-                  ))}
-                  {faqs.length === 0 && (
-                    <p className="text-center text-sm text-neutral-400 py-4">Bado hakuna maswali kwa bidhaa hii.</p>
-                  )}
+              <div className="flex items-center gap-2">
+                <span className="text-neutral-400 font-bold uppercase text-[10px] tracking-widest underline underline-offset-4 decoration-neutral-100">({(product.ratingCount || 0)} Reviews)</span>
+                <div className="w-px h-4 bg-neutral-200 mx-1" />
+                <div className="w-5 h-5 border border-red-500 rounded-md flex items-center justify-center p-1 shadow-sm">
+                  <div className="w-full h-full bg-red-500 rounded-[1px]" />
                 </div>
               </div>
             </div>
 
-            {/* 4. Adaptive Options */}
-            <div className="bg-white p-6 lg:p-8 rounded-[24px] lg:rounded-[32px] border border-neutral-100 shadow-sm space-y-6">
-              {renderAdaptiveOptions()}
-              
-              <div className="pt-6 border-t border-neutral-100">
-                <h3 className="font-bold text-lg mb-4">Tumia Kuponi (Coupon)</h3>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Megaphone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-                    <input 
-                      type="text"
-                      placeholder="Ingiza msimbo (mfano: KARIBU2024)"
-                      className="w-full h-12 pl-10 pr-4 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:ring-2 focus:ring-orange-600 outline-none transition-all"
-                      value={couponCode}
-                      onChange={e => setCouponCode(e.target.value.toUpperCase())}
-                    />
-                  </div>
-                  <Button 
-                    onClick={handleApplyCoupon}
-                    disabled={isApplyingCoupon || !couponCode.trim()}
-                    className="bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl h-12 px-6 font-bold"
-                  >
-                    {isApplyingCoupon ? '...' : 'Tumia'}
-                  </Button>
-                </div>
-                {appliedCoupon && (
-                  <div className="mt-3 flex items-center justify-between bg-green-50 p-3 rounded-xl border border-green-100">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                      <span className="text-sm font-bold text-green-700">
-                        Punguzo la {appliedCoupon.discountType === 'percentage' ? `${appliedCoupon.discountValue}%` : `TZS ${appliedCoupon.discountValue.toLocaleString()}`} limetumika!
-                      </span>
-                    </div>
-                    <button onClick={() => setAppliedCoupon(null)} className="text-green-700 hover:text-green-900">
-                      <X className="w-4 h-4" />
+            {/* Price section */}
+            <div className="space-y-0.5">
+              <div className="flex items-baseline gap-3">
+                <span className="text-3xl lg:text-4xl font-black text-neutral-900 italic tracking-tighter">
+                  {formatCurrency(calculateDiscountedPrice())}
+                </span>
+                {product.discountPrice && (
+                  <span className="text-lg text-neutral-300 line-through font-bold italic">
+                    {formatCurrency(product.price)}
+                  </span>
+                )}
+              </div>
+              <p className="text-neutral-400 text-[9px] font-black uppercase tracking-widest">( Include all taxes )</p>
+            </div>
+
+            <div className="h-px bg-neutral-100 w-full" />
+
+            {/* Options Selector Section */}
+            <div className="space-y-8">
+              <div className="space-y-4">
+                 <div className="flex items-center justify-between">
+                   <h3 className="text-[10px] font-black text-neutral-900 uppercase tracking-widest">Select Options</h3>
+                   <div className="flex items-center gap-3">
+                     <span className="text-[9px] font-black text-neutral-400 uppercase tracking-widest">Stock: <span className="text-neutral-900">{product.stock || 848} items</span></span>
+                     <span className="text-[9px] font-black text-neutral-400 uppercase tracking-widest">SKU: <span className="text-neutral-900">PPH-{id?.slice(0, 4).toUpperCase()}</span></span>
+                   </div>
+                 </div>
+
+                 {/* Use Adaptive Options based on category */}
+                 <div className="space-y-6">
+                    {renderAdaptiveOptions()}
+                 </div>
+              </div>
+
+              {/* Action and Delivery info */}
+              <div className="flex flex-wrap items-center gap-6 py-2">
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Quantity:</span>
+                  <div className="flex items-center gap-4 bg-neutral-100 p-1.5 rounded-full border border-neutral-200/50 shadow-inner">
+                    <button 
+                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      className="w-8 h-8 rounded-full bg-white shadow-md flex items-center justify-center text-orange-600 disabled:opacity-50"
+                      disabled={quantity <= 1}
+                    >
+                      <Minus size={16} strokeWidth={3} />
+                    </button>
+                    <span className="w-4 text-center font-black text-lg italic tabular-nums text-neutral-900 text-display">{quantity}</span>
+                    <button 
+                      onClick={() => setQuantity(quantity + 1)}
+                      className="w-8 h-8 rounded-full bg-white shadow-md flex items-center justify-center text-orange-600"
+                    >
+                      <Plus size={16} strokeWidth={3} />
                     </button>
                   </div>
-                )}
+                </div>
+
+                <div className="bg-blue-50 text-blue-600 px-4 py-2 rounded-xl flex items-center gap-2 font-black text-[10px] uppercase tracking-widest">
+                  <Clock className="w-3.5 h-3.5" />
+                  Delivery: 55 Mins
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row gap-4 pt-2">
+                <Button 
+                  onClick={handleAddToCart}
+                  className="flex-1 h-16 bg-neutral-900 hover:bg-black text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-black/10 gap-2 transition-all active:scale-[0.98]"
+                >
+                  <ShoppingBag className="w-4 h-4" />
+                  Add to Bucket
+                </Button>
+                <Button 
+                  onClick={() => {
+                      handleAddToCart();
+                      setIsCartOpen(true);
+                  }}
+                  className="flex-1 h-16 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-orange-600/20 gap-2 transition-all active:scale-[0.98]"
+                >
+                  Buy Now <ChevronRight className="w-4 h-4" />
+                </Button>
               </div>
             </div>
-
-            {/* 5. Reviews Section */}
-            <div className="space-y-8 pt-8">
-              <Card className="bg-white border border-neutral-100 rounded-[2.5rem] p-8 shadow-sm overflow-hidden">
-                <div className="flex items-center justify-between mb-8">
-                  <div>
-                    <h3 className="text-2xl font-black text-neutral-900 uppercase italic tracking-tighter">Customer Reviews</h3>
-                    <p className="text-neutral-500 text-xs font-bold mt-1 uppercase tracking-widest">Real ratings from customers</p>
-                  </div>
-                  <button className="text-orange-600 text-xs font-black uppercase tracking-widest underline underline-offset-4 Decoration-2">See All</button>
-                </div>
-
-                <div className="flex flex-col md:flex-row gap-12 mb-12">
-                  <div className="flex flex-col items-center justify-center p-8 bg-neutral-50 rounded-[2rem] min-w-[180px]">
-                    <span className="text-6xl font-black text-neutral-900 italic tracking-tighter mb-2">
-                       {(product?.ratingCount || 0) > 0 ? (Number(product?.rating) || 0).toFixed(1) : '0.0'}
-                    </span>
-                    <div className="flex gap-1 mb-2">
-                       {[...Array(5)].map((_, i) => (
-                         <Star key={`summary-star-${i}`} className={`w-5 h-5 ${i < Math.round((product?.ratingCount || 0) > 0 ? (product?.rating || 0) : 0) ? 'text-orange-500 fill-current' : 'text-neutral-200'}`} />
-                       ))}
-                    </div>
-                    <span className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">{(product?.ratingCount || 0)} reviews</span>
-                  </div>
-
-                  <div className="flex-1 space-y-2">
-                    {[5, 4, 3, 2, 1].map((rating) => {
-                      const count = reviews.filter(r => r.rating === rating).length;
-                      const percentage = reviews.length > 0 ? (count / reviews.length) * 100 : rating === 5 || rating === 1 ? 50 : 0; // Mock profile for empty
-                      
-                      return (
-                        <div key={`bar-${rating}`} className="flex items-center gap-4">
-                          <span className="w-2 text-[10px] font-bold text-neutral-400">{rating}</span>
-                          <div className="flex-1 h-2 bg-neutral-100 rounded-full overflow-hidden">
-                            <div 
-                              className="h-full bg-orange-500 rounded-full" 
-                              style={{ width: `${percentage}%` }}
-                            />
-                          </div>
-                          <span className="w-10 text-[10px] font-bold text-neutral-400 text-right">{Math.round(percentage)}%</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between mb-8">
-                   <h4 className="font-black text-neutral-900 uppercase tracking-tighter">What wateja say</h4>
-                   <Button 
-                    onClick={() => setIsReviewModalOpen(true)}
-                    className="bg-neutral-900 hover:bg-orange-600 text-white rounded-2xl h-12 px-6 font-bold gap-2 text-xs uppercase"
-                  >
-                    <Plus className="w-4 h-4" /> Give Feedback
-                  </Button>
-                </div>
-
-                <div className="grid grid-cols-1 gap-6">
-                  {reviews.slice(0, 3).map((review, idx) => {
-                  const isLiked = review.likes?.includes(user?.uid || '');
-                  const isOwner = review.userId === user?.uid;
-                  const isVendorOwner = vendor?.ownerUid === user?.uid;
-
-                  return (
-                    <Card key={review.id || `review-${idx}`} className="bg-white border border-neutral-100 rounded-3xl p-6 shadow-sm">
-                      <div className="flex gap-4">
-                        <div className="w-12 h-12 rounded-full overflow-hidden shrink-0">
-                          <img src={review.userPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${review.userId}`} alt={review.userName} className="w-full h-full object-cover" />
-                        </div>
-                        <div className="flex-1 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <h4 className="font-bold text-neutral-900">{review.userName}</h4>
-                            <div className="flex items-center gap-1">
-                              {[...Array(5)].map((_, i) => (
-                                <Star key={`review-star-${review.id}-${i}`} className={`w-3 h-3 ${i < review.rating ? 'text-orange-500 fill-current' : 'text-neutral-300'}`} />
-                              ))}
-                            </div>
-                          </div>
-                          <p className="text-sm text-neutral-600 leading-relaxed">{review.comment}</p>
-                          
-                          {review.images && review.images.length > 0 && (
-                            <div className="flex gap-2 mt-4 overflow-x-auto pb-2 no-scrollbar">
-                              {review.images.map((img, idx) => img && (
-                                <div key={`review-img-${review.id}-${idx}`} className="w-20 h-20 rounded-xl overflow-hidden shrink-0 border border-neutral-200">
-                                  <img src={img} alt="Review" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                                </div>
-                              ))}
-                            </div>
-                          )}
-
-                          <div className="flex items-center gap-4 pt-2">
-                            <button 
-                              onClick={() => handleLikeReview(review.id, !!isLiked)}
-                              className={`flex items-center gap-1.5 text-xs font-bold transition-colors ${isLiked ? 'text-orange-600' : 'text-neutral-400 hover:text-orange-600'}`}
-                            >
-                              <ThumbsUp className={`w-3.5 h-3.5 ${isLiked ? 'fill-current' : ''}`} /> 
-                              {review.likes?.length || 0} Likes
-                            </button>
-
-                            <button 
-                              onClick={() => setReplyingTo(replyingTo === review.id ? null : review.id)}
-                              className="flex items-center gap-1.5 text-xs text-neutral-400 font-bold hover:text-orange-600 transition-colors"
-                            >
-                              <Reply className="w-3.5 h-3.5" /> Reply
-                            </button>
-
-                            {isOwner && (
-                              <button 
-                                onClick={() => handleDeleteReview(review.id)}
-                                className="flex items-center gap-1.5 text-xs text-red-400 font-bold hover:text-red-600 transition-colors"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" /> Delete
-                              </button>
-                            )}
-
-                            <span className="text-[10px] text-neutral-300 font-medium ml-auto">
-                              {review.createdAt ? new Date(review.createdAt).toLocaleDateString() : ''}
-                            </span>
-                          </div>
-
-                          {/* Replies Section */}
-                          {review.replies && review.replies.length > 0 && (
-                            <div className="mt-4 space-y-3 pl-6 border-l-2 border-neutral-100">
-                              {review.replies.map((reply, idx) => (
-                                <div key={reply.id || `reply-${idx}`} className="bg-neutral-50 p-3 rounded-2xl relative group">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <img src={reply.userPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${reply.userId}`} alt={reply.userName} className="w-5 h-5 rounded-full" />
-                                    <span className="text-xs font-bold text-neutral-900">{reply.userName}</span>
-                                    {reply.userId === vendor?.ownerUid && (
-                                      <Badge className="bg-orange-100 text-orange-600 border-none text-[8px] px-1.5 py-0">Muuzaji</Badge>
-                                    )}
-                                  </div>
-                                  <p className="text-xs text-neutral-600">{reply.text}</p>
-                                  {reply.userId === user?.uid && (
-                                    <button 
-                                      onClick={() => handleDeleteReply(review.id, reply.id)}
-                                      className="absolute top-2 right-2 text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                                    >
-                                      <Trash2 className="w-3 h-3" />
-                                    </button>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          )}
-
-                          {/* Reply Input */}
-                          {replyingTo === review.id && (
-                            <div className="mt-4 flex gap-2">
-                              <input 
-                                type="text"
-                                value={replyText}
-                                onChange={(e) => setReplyText(e.target.value)}
-                                placeholder="Andika jibu lako..."
-                                className="flex-1 bg-neutral-50 border-none rounded-xl px-4 py-2 text-xs focus:ring-1 focus:ring-orange-500"
-                                autoFocus
-                              />
-                              <Button 
-                                onClick={() => handleReplyReview(review.id)}
-                                className="h-8 px-4 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold"
-                              >
-                                Tuma
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </Card>
-                  );
-                })}
-                {reviews.length === 0 && (
-                  <div className="py-20 text-center bg-neutral-50 rounded-[2rem] border-2 border-dashed border-neutral-200">
-                    <Star className="w-12 h-12 text-neutral-300 mx-auto mb-4" />
-                    <p className="text-neutral-500 font-medium">Hakuna maoni bado. Kuwa wa kwanza kutoa maoni!</p>
-                  </div>
-                )}
-              </div>
-            </Card>
-
-            {/* Similar Products */}
-            {similarProducts.length > 0 && (
-              <div className="space-y-6 pt-12">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-black text-neutral-900 uppercase italic tracking-tighter">Similar Products</h3>
-                  <button className="text-orange-600 text-xs font-black uppercase tracking-widest underline underline-offset-4 decoration-2">View All</button>
-                </div>
-                <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar">
-                  {similarProducts.map((p) => (
-                    <Link 
-                      key={p.id} 
-                      to={`/product/${p.id}`}
-                      className="w-40 md:w-56 shrink-0 group"
-                    >
-                      <Card className="bg-white border border-neutral-100 rounded-3xl overflow-hidden shadow-sm group-hover:shadow-xl group-hover:-translate-y-1 transition-all duration-300">
-                        <div className="aspect-square relative overflow-hidden">
-                          <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                          {p.discountPrice && (
-                            <Badge className="absolute top-2 left-2 bg-orange-600 text-white border-none font-black text-[8px] px-1.5 py-0.5">SALE</Badge>
-                          )}
-                        </div>
-                        <CardContent className="p-3 md:p-4 space-y-1">
-                          <h4 className="font-bold text-xs md:text-sm text-neutral-900 truncate uppercase tracking-tight">{p.name}</h4>
-                          <div className="flex items-center gap-2">
-                             <span className="text-xs font-black text-orange-600 italic">TZS {p.discountPrice ? p.discountPrice.toLocaleString() : p.price.toLocaleString()}</span>
-                             {p.discountPrice && (
-                               <span className="text-[10px] text-neutral-400 line-through font-medium">{p.price.toLocaleString()}</span>
-                             )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </div>
+
+        {/* Info Tabs Section */}
+        <div className="mt-4 lg:mt-6 border-t border-neutral-100 pt-4 lg:pt-6">
+           <div className="flex flex-wrap gap-2 mb-4 p-1.5 bg-neutral-100/50 rounded-2xl w-full lg:w-fit border border-neutral-200/50">
+              {['Details', 'Reviews', 'FAQs', 'Sold By'].map((tab) => (
+                <button 
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`flex-1 lg:flex-none px-4 py-2 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all duration-300 ${activeTab === tab ? 'bg-white text-neutral-900 shadow-sm border border-neutral-200/50' : 'text-neutral-400 hover:text-neutral-600'}`}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    {tab === 'Details' && <Info className="w-4 h-4" />}
+                    {tab === 'Reviews' && <Star className="w-4 h-4" />}
+                    {tab === 'FAQs' && <MessageSquare className="w-4 h-4" />}
+                    {tab === 'Sold By' && <Store className="w-4 h-4" />}
+                    {tab}
+                  </div>
+                </button>
+              ))}
+           </div>
+
+           <div className="space-y-4 max-w-6xl">
+              {activeTab === 'Details' && (
+                <div className="space-y-6">
+                  <div className="space-y-1">
+                    <h2 className="text-2xl lg:text-3xl font-black text-neutral-900 uppercase italic tracking-tighter">Additional Details</h2>
+                    <p className="text-neutral-400 font-black uppercase text-[9px] tracking-widest">Find the additional info of the Product</p>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div className="space-y-3">
+                      <p className="text-base lg:text-lg text-neutral-800 leading-relaxed font-bold italic tracking-tight">
+                        {product.story || (
+                          <>
+                            Our <span className="text-orange-600 font-black underline decoration-orange-200 underline-offset-8">{product.name}</span> is a signature creation from Papo Hapo. Prepared using premium ingredients, authentic spices, and time-honored techniques. Every bite delivers a perfect balance of taste, aroma, and texture.
+                          </>
+                        )}
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-4 bg-white p-5 lg:p-6 rounded-[2rem] border border-neutral-100 shadow-xl shadow-neutral-100">
+                        <h3 className="text-lg font-black text-neutral-900 flex items-center gap-2 italic tracking-tighter uppercase">
+                          ✨ Why You'll Love It:
+                        </h3>
+                        <ul className="space-y-3">
+                          {(product.highlights && product.highlights.length > 0) ? (
+                            product.highlights.map((highlight, idx) => (
+                              <li key={`highlight-${idx}`} className="flex items-center gap-4 text-neutral-600 font-bold group">
+                                <div className="w-8 h-8 shrink-0 rounded-2xl bg-orange-50 flex items-center justify-center text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-colors text-[10px]">{idx + 1}</div>
+                                <span className="text-sm">{highlight}</span>
+                              </li>
+                            ))
+                          ) : (
+                            <>
+                              <li className="flex items-center gap-4 text-neutral-600 font-bold group">
+                                <div className="w-8 h-8 shrink-0 rounded-2xl bg-orange-50 flex items-center justify-center text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-colors text-[10px]">1</div>
+                                <span className="text-sm">Premium quality sourced ingredients</span>
+                              </li>
+                              <li className="flex items-center gap-4 text-neutral-600 font-bold group">
+                                <div className="w-8 h-8 shrink-0 rounded-2xl bg-orange-50 flex items-center justify-center text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-colors text-[10px]">2</div>
+                                <span className="text-sm">Authentic and traditional preparation</span>
+                              </li>
+                              <li className="flex items-center gap-4 text-neutral-600 font-bold group">
+                                <div className="w-8 h-8 shrink-0 rounded-2xl bg-orange-50 flex items-center justify-center text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-colors text-[10px]">3</div>
+                                <span className="text-sm">Fast delivery within 55 minutes</span>
+                              </li>
+                            </>
+                          )}
+                        </ul>
+                      </div>
+
+                      <div className="space-y-4 bg-neutral-900 p-5 lg:p-6 rounded-[2rem] text-white shadow-2xl">
+                        <h3 className="text-lg font-black text-white flex items-center gap-2 italic tracking-tighter uppercase">
+                          📝 Step-by-Step Excellence:
+                        </h3>
+                        <div className="space-y-3">
+                          <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
+                            <p className="text-neutral-400 italic font-medium leading-relaxed text-sm">
+                              {product.qualityPromise?.description || (
+                                `"At Papo Hapo, we follow a strict quality standard. From selecting the freshest eggs to aging our basmati rice, every step is monitored to ensure the biryani you receive is of export quality."`
+                              )}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-3 px-1">
+                            <div className="w-8 h-8 bg-orange-600 rounded-full flex items-center justify-center shrink-0">
+                              <CheckCircle2 className="w-5 h-5 text-white" />
+                            </div>
+                            <span className="font-black uppercase tracking-widest text-[9px] text-neutral-300">
+                              {product.qualityPromise?.certifiedBy || "Quality Certified by Papo Hapo Express"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'Reviews' && (
+                <div className="space-y-10">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-4xl lg:text-5xl font-black text-neutral-900 uppercase italic tracking-tighter">Customer Reviews</h2>
+                      <p className="text-neutral-400 font-black uppercase text-[10px] tracking-widest mt-2">Real feedback from actual buyers</p>
+                    </div>
+                    <Button 
+                      onClick={() => setIsReviewModalOpen(true)}
+                      className="h-14 px-8 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-orange-600/20 gap-3"
+                    >
+                      <Plus className="w-5 h-5" /> Give Feedback
+                    </Button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div className="md:col-span-1 bg-neutral-50 p-10 rounded-[3rem] flex flex-col items-center justify-center text-center space-y-4 border border-neutral-100">
+                      <span className="text-7xl font-black text-neutral-900 italic tracking-tighter">
+                         {(product?.ratingCount || 0) > 0 ? (Number(product?.rating) || 0).toFixed(1) : '0.0'}
+                      </span>
+                      <div className="flex gap-1.5">
+                         {[...Array(5)].map((_, i) => (
+                           <Star key={`summary-star-${i}`} className={`w-6 h-6 ${i < Math.round((product?.ratingCount || 0) > 0 ? (product?.rating || 0) : 0) ? 'text-orange-500 fill-current' : 'text-neutral-200'}`} />
+                         ))}
+                      </div>
+                      <p className="text-neutral-400 font-black uppercase tracking-widest text-xs">Based on {(product?.ratingCount || 0)} verified reviews</p>
+                    </div>
+
+                    <div className="md:col-span-2 space-y-6">
+                       {reviews.map((review, idx) => (
+                         <div key={review.id} className="p-8 bg-white rounded-[2.5rem] border border-neutral-100 shadow-sm hover:shadow-xl transition-all group">
+                             <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-4">
+                                   <div className="w-12 h-12 rounded-full border-2 border-orange-100 p-1">
+                                      <img src={review.userPhoto || `https://ui-avatars.com/api/?name=${review.userName}`} className="w-full h-full rounded-full object-cover" alt="" />
+                                   </div>
+                                   <div>
+                                      <h4 className="font-black text-neutral-900 uppercase italic tracking-tight">{review.userName}</h4>
+                                      <div className="flex gap-0.5">
+                                         {[...Array(5)].map((_, i) => <Star key={i} className={`w-3 h-3 ${i < review.rating ? 'text-orange-500 fill-current' : 'text-neutral-200'}`} />)}
+                                      </div>
+                                   </div>
+                                </div>
+                                <span className="text-[10px] font-black text-neutral-300 uppercase">{new Date(review.createdAt).toLocaleDateString()}</span>
+                             </div>
+                             <p className="text-neutral-600 font-medium leading-relaxed">{review.comment}</p>
+                         </div>
+                       ))}
+                       {reviews.length === 0 && <p className="text-neutral-400 font-medium italic">Bado hakuna reviews kwa bidhaa hii.</p>}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'FAQs' && (
+                <div className="space-y-8">
+                  <h2 className="text-4xl lg:text-5xl font-black text-neutral-900 uppercase italic tracking-tighter">Frequently Asked Questions</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="p-8 bg-neutral-50 rounded-[2.5rem] space-y-3">
+                      <h4 className="font-black text-neutral-900 uppercase italic tracking-tight">Je, muda wa kufika ni upi?</h4>
+                      <p className="text-neutral-500 font-medium leading-relaxed">Kwa kawaida oda hufika ndani ya dakika 55 kwa maeneo ya karibu na dakika 90 kwa maeneo ya mbali.</p>
+                    </div>
+                    <div className="p-8 bg-neutral-50 rounded-[2.5rem] space-y-3">
+                      <h4 className="font-black text-neutral-900 uppercase italic tracking-tight">Ninawezaje kulipia?</h4>
+                      <p className="text-neutral-500 font-medium leading-relaxed">Tunapokea malipo kupitia simu (M-Pesa, Tigo-Pesa, Airtel Money) na kadi za bank.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'Sold By' && (
+                <div className="bg-neutral-900 rounded-[3.5rem] p-10 lg:p-16 text-white overflow-hidden relative">
+                   <div className="absolute top-0 right-0 p-10 opacity-10">
+                      <Store className="w-64 h-64 rotate-12" />
+                   </div>
+                   <div className="relative z-10 space-y-8">
+                      <div className="flex items-center gap-8">
+                        <div className="w-24 h-24 rounded-[2rem] bg-white p-1">
+                           <img src={vendor?.logoUrl || `https://ui-avatars.com/api/?name=${vendor?.businessName}`} className="w-full h-full rounded-[1.75rem] object-cover" alt="" />
+                        </div>
+                        <div className="space-y-2">
+                           <Badge className="bg-orange-600 text-white border-none text-[10px] px-3 py-1 font-black uppercase">Verified Merchant</Badge>
+                           <h2 className="text-3xl lg:text-4xl font-black italic tracking-tighter uppercase">{vendor?.businessName}</h2>
+                           <div className="flex items-center gap-4 text-neutral-400 text-sm font-bold">
+                              <span className="flex items-center gap-2"><MapPin className="w-4 h-4" /> {vendor?.address}</span>
+                              <span className="flex items-center gap-2"><Clock className="w-4 h-4" /> Open 24/7</span>
+                           </div>
+                        </div>
+                      </div>
+                      <p className="text-neutral-400 text-lg leading-relaxed max-w-2xl font-medium">
+                        {vendor?.description || 'Tumebobea katika kutoa huduma bora kabisa kwa wateja wetu. Karibu upate bidhaa zenye viwango vya hali ya juu.'}
+                      </p>
+                      <Button 
+                        onClick={() => navigate(`/vendor/${vendor?.id}`)}
+                        className="h-14 px-10 bg-white text-neutral-900 hover:bg-orange-600 hover:text-white rounded-2xl font-black uppercase tracking-widest transition-all"
+                      >
+                        Visit Store
+                      </Button>
+                   </div>
+                </div>
+              )}
+           </div>
+        </div>
+
+        {/* Similar Products */}
+        {similarProducts.length > 0 && (
+          <div className="space-y-6 pt-12">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-black text-neutral-900 uppercase italic tracking-tighter">Similar Products</h3>
+              <button className="text-orange-600 text-xs font-black uppercase tracking-widest underline underline-offset-4 decoration-2">View All</button>
+            </div>
+            <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar">
+              {similarProducts.map((p) => (
+                <Link 
+                  key={p.id} 
+                  to={`/product/${p.id}`}
+                  className="w-40 md:w-56 shrink-0 group"
+                >
+                  <Card className="bg-white border border-neutral-100 rounded-3xl overflow-hidden shadow-sm group-hover:shadow-xl group-hover:-translate-y-1 transition-all duration-300">
+                    <div className="aspect-square relative overflow-hidden">
+                      <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                      {p.discountPrice && (
+                        <Badge className="absolute top-2 left-2 bg-orange-600 text-white border-none font-black text-[8px] px-1.5 py-0.5">SALE</Badge>
+                      )}
+                    </div>
+                    <CardContent className="p-3 md:p-4 space-y-1">
+                      <h4 className="font-bold text-xs md:text-sm text-neutral-900 truncate uppercase tracking-tight">{p.name}</h4>
+                      <div className="flex items-center gap-2">
+                         <span className="text-xs font-black text-orange-600 italic">TZS {p.discountPrice ? p.discountPrice.toLocaleString() : p.price.toLocaleString()}</span>
+                         {p.discountPrice && (
+                           <span className="text-[10px] text-neutral-400 line-through font-medium">{p.price.toLocaleString()}</span>
+                         )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
-    </div>
 
       {/* Review Modal */}
       <AnimatePresence>
@@ -1445,58 +1426,6 @@ export default function ProductDetail() {
           </div>
         )}
       </AnimatePresence>
-
-      {/* 6. Action Bar - Positioned above mobile nav with modern floating card */}
-      {!showARView && (
-        <div className="fixed bottom-[115px] md:bottom-12 left-0 right-0 px-4 md:px-0 z-[999]">
-          <motion.div 
-            initial={{ y: 50, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            className="max-w-3xl mx-auto bg-white/80 dark:bg-neutral-900/80 backdrop-blur-3xl border border-white/20 dark:border-neutral-800 p-4 md:p-6 rounded-[2.5rem] shadow-[0_40px_80px_rgba(0,0,0,0.15)] flex gap-4 md:gap-8 items-center"
-          >
-            <div className="flex items-center bg-neutral-100/50 dark:bg-black/20 rounded-[1.75rem] p-1.5 shrink-0 border border-neutral-200/50 dark:border-neutral-800">
-              <motion.button 
-                whileTap={{ scale: 0.8 }}
-                onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                className="w-12 h-12 md:w-16 md:h-16 flex items-center justify-center text-neutral-400 hover:text-orange-600 hover:bg-white dark:hover:bg-neutral-800 rounded-2xl transition-all shadow-sm"
-              >
-                <Minus className="w-5 h-5" />
-              </motion.button>
-              <span className="w-12 md:w-18 text-center font-black text-2xl md:text-3xl text-neutral-900 dark:text-white tabular-nums italic tracking-tighter font-display">{quantity}</span>
-              <motion.button 
-                whileTap={{ scale: 0.8 }}
-                onClick={() => setQuantity(quantity + 1)}
-                className="w-12 h-12 md:w-16 md:h-16 flex items-center justify-center text-neutral-400 hover:text-orange-600 hover:bg-white dark:hover:bg-neutral-800 rounded-2xl transition-all shadow-sm"
-              >
-                <Plus className="w-5 h-5" />
-              </motion.button>
-            </div>
-            
-            <Button 
-              onClick={() => {
-                if (product) {
-                  addItem({ ...product, quantity });
-                  toast.success(`${product.name} imeongezwa kwenye kikapu!`);
-                }
-              }}
-              className="flex-1 h-14 md:h-20 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-950 dark:text-white rounded-[1.75rem] font-black text-lg md:text-xl border border-neutral-200 dark:border-neutral-800 gap-4 mt-1 transition-all duration-300 uppercase italic tracking-tighter font-display"
-            >
-              <ShoppingCart className="w-6 h-6 md:w-8 md:h-8" />
-              <span className="truncate">Weka Kikapuni</span>
-            </Button>
-
-            <Button 
-              onClick={handleBuyNow}
-              className="flex-[1.5] h-14 md:h-20 bg-gradient-to-br from-orange-500 via-orange-600 to-orange-700 hover:scale-[1.02] active:scale-[0.98] text-white rounded-[1.75rem] font-black text-lg md:text-2xl shadow-[0_20px_50px_rgba(234,88,12,0.4)] gap-4 transition-all duration-300 uppercase italic tracking-tighter font-display"
-            >
-              <Smartphone className="w-6 h-6 md:w-8 md:h-8" />
-              <span className="truncate">
-                 Agiza Sasa
-              </span>
-            </Button>
-          </motion.div>
-        </div>
-      )}
 
       {/* Checkout Modal */}
       <AnimatePresence>

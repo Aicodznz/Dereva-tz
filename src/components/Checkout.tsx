@@ -7,9 +7,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { db } from '../firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { toast } from 'sonner';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { 
   ChevronLeft, 
   MapPin, 
@@ -17,7 +17,8 @@ import {
   Truck, 
   ShoppingBag,
   Clock,
-  ArrowRight
+  ArrowRight,
+  Home
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -56,10 +57,23 @@ export default function Checkout() {
 
     setIsSubmitting(true);
     try {
+      // Find a vendorId from cart items (assuming single vendor per order for now)
+      const primaryVendorId = cartItems[0]?.vendorId;
+      let vendorOwnerUid = '';
+
+      if (primaryVendorId) {
+        const vSnap = await getDoc(doc(db, 'vendors', primaryVendorId));
+        if (vSnap.exists()) {
+          vendorOwnerUid = vSnap.data().ownerUid;
+        }
+      }
+
       const orderData = {
         customerId: user.uid,
         customerName: profile?.displayName || user.displayName || 'Mteja',
         customerPhone: phoneNumber,
+        vendorId: primaryVendorId || '',
+        vendorOwnerUid: vendorOwnerUid,
         items: cartItems,
         totalAmount: totalAmount,
         status: 'pending',
@@ -107,19 +121,29 @@ export default function Checkout() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-8">
-      <div className="flex items-center gap-4">
-        <button 
-          onClick={() => navigate(-1)}
-          className="w-10 h-10 bg-white dark:bg-neutral-900 rounded-full flex items-center justify-center shadow-sm text-neutral-600"
-        >
-          <ChevronLeft className="w-6 h-6" />
-        </button>
-        <div>
-          <h1 className="text-3xl font-black text-neutral-900 dark:text-white uppercase italic tracking-tighter">
-            HAKIKISHA ODA
-          </h1>
-          <p className="text-neutral-500 text-xs font-bold uppercase tracking-widest">Hatua ya mwisho kabla ya kuagiza</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={() => navigate(-1)}
+            className="w-10 h-10 bg-white dark:bg-neutral-900 rounded-full flex items-center justify-center shadow-sm text-neutral-600"
+          >
+            <ChevronLeft className="w-6 h-6" />
+          </button>
+          <div>
+            <h1 className="text-3xl font-black text-neutral-900 dark:text-white uppercase italic tracking-tighter transition-colors">
+              HAKIKISHA ODA
+            </h1>
+            <p className="text-neutral-500 text-xs font-bold uppercase tracking-widest">Hatua ya mwisho kabla ya kuagiza</p>
+          </div>
         </div>
+
+        <Link 
+          to="/"
+          className="flex items-center gap-2 px-4 py-2 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 rounded-xl hover:bg-neutral-900 hover:text-white transition-all active:scale-95 group shadow-sm"
+        >
+          <Home className="w-4 h-4 text-orange-600" />
+          <span className="font-black uppercase text-[10px] tracking-widest hidden sm:inline">Rudi Nyumbani</span>
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

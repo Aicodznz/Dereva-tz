@@ -10,7 +10,7 @@ const app = initializeApp(firebaseConfig);
 export const db = initializeFirestore(app, {
   ignoreUndefinedProperties: true,
   experimentalForceLongPolling: true,
-}, (firebaseConfig as any).firestoreDatabaseId);
+}, (firebaseConfig as any).firestoreDatabaseId || '(default)');
 
 export const storage = getStorage(app);
 export { signInWithPopup, signOut, signInAnonymously };

@@ -117,6 +117,12 @@ export interface Product {
   roomAmenities?: string;
   amenities?: string[];
   isCleaning?: boolean;
+  highlights?: string[];
+  story?: string;
+  qualityPromise?: {
+    description: string;
+    certifiedBy?: string;
+  };
 }
 
 export type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'prepared' | 'out_for_delivery' | 'delivered' | 'cancelled' | 'completed';

@@ -97,7 +97,7 @@ import {
   UserCog,
   MessageSquare as MessageIcon
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   BarChart, 
@@ -136,7 +136,18 @@ import Chat from './Chat';
 
 export default function VendorDashboard() {
   const { profile, user } = useAuth();
+  const navigate = useNavigate();
   const { t } = useLanguage();
+
+  const handleSignOut = async () => {
+    try {
+      await auth.signOut();
+      navigate('/login');
+      toast.success('Logged out successfully');
+    } catch (error) {
+      toast.error('Failed to log out');
+    }
+  };
   const { config: businessConfig } = useBusinessConfig();
   const [vendorProfile, setVendorProfile] = useState<VendorProfile | null>(null);
   const [activeFulfillmentTab, setActiveFulfillmentTab] = useState(0);
@@ -662,6 +673,9 @@ export default function VendorDashboard() {
     imageUrls: [],
     rating: 0,
     ratingCount: 0,
+    highlights: [],
+    story: '',
+    qualityPromise: { description: '', certifiedBy: '' }
   });
 
   // POS Cart State
@@ -695,14 +709,26 @@ export default function VendorDashboard() {
     if (!vendorProfile?.id) return;
     
     const fetchStaff = async () => {
-      const q = query(collection(db, 'staff'), where('vendorId', '==', vendorProfile.id));
-      const snap = await getDocs(q);
-      setStaff(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      try {
+        const q = query(collection(db, 'staff'), where('vendorOwnerUid', '==', user?.uid));
+        const snap = await getDocs(q);
+        setStaff(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      } catch (error: any) {
+        if (error.message?.includes('permission')) return;
+        handleFirestoreError(error, OperationType.GET, 'staff_fetch');
+      }
     };
 
     fetchStaff();
 
-    const unsub = onSnapshot(query(collection(db, 'staff'), where('vendorId', '==', vendorProfile.id)), () => fetchStaff());
+    const unsub = onSnapshot(
+      query(collection(db, 'staff'), where('vendorOwnerUid', '==', user?.uid)), 
+      () => fetchStaff(),
+      (error: any) => {
+        if (error.message?.includes('permission')) return;
+        handleFirestoreError(error, OperationType.GET, 'staff_sync');
+      }
+    );
 
     return () => unsub();
   }, [vendorProfile?.id]);
@@ -837,7 +863,7 @@ export default function VendorDashboard() {
       try {
         const q = query(
           collection(db, path), 
-          where('vendorId', '==', vendorProfile.id),
+          where('vendorOwnerUid', '==', user.uid),
           orderBy('createdAt', 'desc'),
           limit(10)
         );
@@ -894,7 +920,7 @@ export default function VendorDashboard() {
     };
 
     const unsubs = [
-      onSnapshot(query(collection(db, 'orders'), where('vendorId', '==', vendorProfile.id)), () => fetchOrders(), errorHandler('orders')),
+      onSnapshot(query(collection(db, 'orders'), where('vendorOwnerUid', '==', user.uid)), () => fetchOrders(), errorHandler('orders')),
       onSnapshot(query(collection(db, 'products'), where('vendorId', '==', vendorProfile.id)), () => fetchProducts(), errorHandler('products')),
       onSnapshot(query(collection(db, 'tables'), where('vendorId', '==', vendorProfile.id)), () => fetchSections(), errorHandler('tables')),
       onSnapshot(
@@ -1062,9 +1088,9 @@ export default function VendorDashboard() {
     try {
       const uploadPromises = validFiles.map(async (file, index) => {
         let path = '';
-        if (isProductUpload) {
+        if (isProductUpload && vendorProfile?.id) {
           path = storageService.getProductPath(vendorProfile.id, editingProduct?.id || 'new', file.name);
-        } else {
+        } else if (vendorProfile?.id) {
           path = `${vendorProfile.id}/misc/${Date.now()}_${file.name}`;
         }
         return await storageService.uploadFile(isProductUpload ? 'products' : 'vendors', path, file, (progress) => {
@@ -1203,6 +1229,9 @@ export default function VendorDashboard() {
         imageUrls: [],
         branchId: '',
         model3dUrl: '',
+        highlights: [],
+        story: '',
+        qualityPromise: { description: '', certifiedBy: '' }
       });
     } catch (error) {
       console.error(error);
@@ -1259,6 +1288,9 @@ export default function VendorDashboard() {
       imageUrl: product.imageUrl || '',
       imageUrls: product.imageUrls || (product.imageUrl ? [product.imageUrl] : []),
       branchId: (product as any).branchId || '',
+      highlights: product.highlights || [],
+      story: product.story || '',
+      qualityPromise: product.qualityPromise || { description: '', certifiedBy: '' }
     });
     setIsAddProductOpen(true);
   };
@@ -4525,34 +4557,117 @@ export default function VendorDashboard() {
         </div>
       </main>
 
+      {/* Mobile More Menu Drawer */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <>
+            <motion.div 
+               initial={{ opacity: 0 }}
+               animate={{ opacity: 1 }}
+               exit={{ opacity: 0 }}
+               onClick={() => setIsMobileMenuOpen(false)}
+               className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-md z-[200]"
+            />
+            <motion.div 
+               initial={{ y: '100%' }}
+               animate={{ y: 0 }}
+               exit={{ y: '100%' }}
+               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+               className="lg:hidden fixed bottom-0 left-0 right-0 max-h-[85vh] bg-white dark:bg-neutral-950 z-[201] shadow-2xl p-8 overflow-y-auto flex flex-col rounded-t-[3rem] border-t border-neutral-200 dark:border-neutral-800 transition-colors duration-300"
+            >
+               <div className="w-12 h-1.5 bg-neutral-200 dark:bg-neutral-800 rounded-full mx-auto mb-8 flex-shrink-0" />
+               <div className="flex items-center justify-between mb-8">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-orange-600 flex items-center justify-center text-white shadow-lg shadow-orange-600/20">
+                      <LayoutGrid size={20} />
+                    </div>
+                    <h2 className="text-xl font-black uppercase italic tracking-tighter text-orange-600 dark:text-orange-500">Zaidi / More</h2>
+                  </div>
+                  <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 bg-neutral-100 dark:bg-neutral-800 rounded-xl">
+                     <X size={20} className="text-neutral-500" />
+                  </button>
+               </div>
+               <div className="grid grid-cols-2 gap-4">
+                  {tabs.slice(4).map((item) => (
+                     <button
+                        key={`mobile-more-${item.id}`}
+                        onClick={() => {
+                           setActiveTab(item.id as TabType);
+                           setIsMobileMenuOpen(false);
+                        }}
+                        className={`flex flex-col items-center gap-3 p-6 rounded-3xl transition-all ${
+                          activeTab === item.id 
+                            ? 'bg-orange-600 text-white shadow-lg shadow-orange-600/20' 
+                            : 'bg-neutral-50 dark:bg-neutral-900 text-neutral-500 border border-neutral-100 dark:border-neutral-800'
+                        }`}
+                     >
+                        <item.icon className="w-6 h-6" />
+                        <span className="text-[10px] font-black uppercase tracking-widest">{item.label}</span>
+                     </button>
+                  ))}
+                  <div className="col-span-2 grid grid-cols-1 gap-3 mt-4 pt-6 border-t border-neutral-100 dark:border-neutral-800">
+                    <button 
+                      onClick={() => navigate('/profile')}
+                      className="flex items-center gap-4 px-6 p-5 rounded-2xl text-sm font-black uppercase tracking-tight text-neutral-500 bg-neutral-50 dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 w-full"
+                    >
+                      <User size={20} className="text-neutral-400" />
+                      <span>Account Settings</span>
+                    </button>
+                    <button 
+                      onClick={handleSignOut}
+                      className="flex items-center gap-4 px-6 p-5 rounded-2xl text-sm font-black uppercase tracking-tight text-red-500 bg-red-500/10 border border-red-500/10 w-full"
+                    >
+                      <LogOut size={20} />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+               </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
       {/* Bottom Navigation for Mobile */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 h-20 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border-t border-neutral-200 dark:border-neutral-800 z-[100] flex items-center justify-around px-2 transition-colors duration-300">
-        {tabs.slice(0, 4).map((item) => (
-          <button
-            key={`mobile-nav-${item.id}`}
-            onClick={() => {
-              setActiveTab(item.id as TabType);
-              setIsMobileMenuOpen(false);
-            }}
-            className={`flex flex-col items-center justify-center gap-1 min-w-[64px] transition-all duration-300 ${
-              activeTab === item.id ? 'text-orange-600 scale-110' : 'text-neutral-500 hover:text-orange-400'
-            }`}
-          >
-            <div className={`p-2 rounded-xl transition-all ${activeTab === item.id ? 'bg-orange-600/10' : ''}`}>
-              <item.icon className="w-6 h-6" />
-            </div>
-            <span className="text-[9px] font-black uppercase tracking-tighter">{item.label.split(' ')[0]}</span>
-          </button>
-        ))}
-        <button
-          onClick={() => setIsMobileMenuOpen(true)}
-          className="flex flex-col items-center justify-center gap-1 min-w-[64px] text-neutral-400 hover:text-white"
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-[100] h-20 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl border-t border-neutral-200 dark:border-neutral-800 transition-colors duration-300 shadow-[0_-10px_25px_rgba(0,0,0,0.05)]">
+        <motion.div 
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          className="h-full px-2 flex justify-around items-center max-w-md mx-auto"
         >
-          <div className="p-2">
-            <MoreHorizontal className="w-6 h-6" />
-          </div>
-          <span className="text-[9px] font-black uppercase tracking-tighter">More</span>
-        </button>
+          {[
+            { id: 'overview', label: 'Home', icon: BarChart3 },
+            { id: 'orders', label: 'Orders', icon: ShoppingBag },
+            { id: 'pos', label: 'POS', icon: Plus },
+            { id: 'products', label: 'Store', icon: Store },
+          ].map((item) => (
+            <button
+              key={`mobile-nav-${item.id}`}
+              onClick={() => {
+                setActiveTab(item.id as TabType);
+                setIsMobileMenuOpen(false);
+              }}
+              className={`flex flex-col items-center justify-center gap-1.5 flex-1 transition-all duration-300 ${
+                activeTab === item.id ? 'text-orange-600' : 'text-neutral-500'
+              }`}
+            >
+              <div className={`p-2 rounded-2xl transition-all ${activeTab === item.id ? 'bg-orange-600/10' : ''}`}>
+                <item.icon className="w-5 h-5" />
+              </div>
+              <span className={`text-[10px] font-black uppercase tracking-widest ${activeTab === item.id ? 'opacity-100' : 'opacity-60'}`}>
+                {item.label}
+              </span>
+            </button>
+          ))}
+          <button
+            onClick={() => setIsMobileMenuOpen(true)}
+            className={`flex flex-col items-center justify-center gap-1.5 flex-1 transition-all ${isMobileMenuOpen ? 'text-orange-600' : 'text-neutral-400'}`}
+          >
+            <div className={`p-2 rounded-2xl transition-all ${isMobileMenuOpen ? 'bg-orange-600/10' : ''}`}>
+              <Menu className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-black uppercase tracking-widest opacity-60">More</span>
+          </button>
+        </motion.div>
       </nav>
 
       {/* Add Customer Modal */}
@@ -5242,6 +5357,95 @@ export default function VendorDashboard() {
                     placeholder="Brief details about the product"
                   />
                 </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-neutral-500 uppercase">Long Story / Maelezo Marefu (Story)</label>
+                  <Textarea 
+                    className="bg-neutral-800 border-none min-h-[100px] rounded-xl text-sm"
+                    value={newProduct.story}
+                    onChange={e => setNewProduct({...newProduct, story: e.target.value})}
+                    placeholder="Elezea bidhaa hii kwa undani zaidi (Story)..."
+                  />
+                </div>
+
+                <div className="space-y-4 pt-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-neutral-500 uppercase">Product Highlights / Sababu za kuipenda (Why Love It)</label>
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-7 text-[10px] font-bold text-orange-600 hover:bg-orange-600/10"
+                      onClick={() => setNewProduct({
+                        ...newProduct, 
+                        highlights: [...(newProduct.highlights || []), '']
+                      })}
+                    >
+                      <Plus className="w-3 h-3 mr-1" /> Add Highlight
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    {newProduct.highlights?.map((h, idx) => (
+                      <div key={`highlight-edit-${idx}`} className="flex gap-2 items-center">
+                        <Input 
+                          className="flex-1 bg-neutral-800 border-none h-10 rounded-xl text-sm"
+                          placeholder="e.g. Handmade with love"
+                          value={h}
+                          onChange={e => {
+                            const newHighlights = [...(newProduct.highlights || [])];
+                            newHighlights[idx] = e.target.value;
+                            setNewProduct({...newProduct, highlights: newHighlights});
+                          }}
+                        />
+                        <Button 
+                          type="button" 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-10 w-10 text-red-500 hover:bg-red-500/10 rounded-xl"
+                          onClick={() => {
+                            const newHighlights = newProduct.highlights?.filter((_, i) => i !== idx);
+                            setNewProduct({...newProduct, highlights: newHighlights});
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-4 p-4 border border-neutral-800 rounded-2xl bg-neutral-800/30">
+                  <label className="text-xs font-bold text-neutral-500 uppercase flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-orange-600" />
+                    Quality Promise / Ahadi ya Ubora
+                  </label>
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-neutral-400 uppercase">Short Quality Message</label>
+                      <Textarea 
+                        className="bg-neutral-900 border-none min-h-[80px] rounded-xl text-sm"
+                        value={newProduct.qualityPromise?.description}
+                        onChange={e => setNewProduct({
+                          ...newProduct, 
+                          qualityPromise: { ...(newProduct.qualityPromise || { certifiedBy: '' }), description: e.target.value }
+                        })}
+                        placeholder="e.g. Sisi hufuata miongozo yote ya usalama wa chakula..."
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-neutral-400 uppercase">Certified By / Imethibitishwa Na</label>
+                      <Input 
+                        className="bg-neutral-900 border-none h-11 rounded-xl text-sm"
+                        value={newProduct.qualityPromise?.certifiedBy}
+                        onChange={e => setNewProduct({
+                          ...newProduct, 
+                          qualityPromise: { ...(newProduct.qualityPromise || { description: '' }), certifiedBy: e.target.value }
+                        })}
+                        placeholder="e.g. TBS, TFDA, Papo Hapo Certified"
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex gap-3 pt-2">
                   {editingProduct && (
                     <Button 
