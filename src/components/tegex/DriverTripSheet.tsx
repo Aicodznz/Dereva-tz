@@ -35,7 +35,9 @@ export default function DriverTripSheet({ ride, onArrive, onStart, onComplete, i
     return Math.min(100, Math.max(0, p));
   }, [distance, ride.distance, isArriving]);
 
-  const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${targetLocation.lat},${targetLocation.lng}`;
+  const googleMapsUrl = ride.driverLocation 
+    ? `https://www.google.com/maps/dir/?api=1&origin=${ride.driverLocation.lat},${ride.driverLocation.lng}&destination=${targetLocation.lat},${targetLocation.lng}`
+    : `https://www.google.com/maps/dir/?api=1&destination=${targetLocation.lat},${targetLocation.lng}`;
 
   const [waitTimer, setWaitTimer] = React.useState(0);
   

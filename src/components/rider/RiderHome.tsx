@@ -753,7 +753,7 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                   <div className="p-2 text-center">
                     <p className="font-bold">Eneo la Pickup</p>
                     <a 
-                      href={`https://www.google.com/maps/dir/?api=1&destination=${activeRide.pickup.lat},${activeRide.pickup.lng}`}
+                      href={`https://www.google.com/maps/dir/?api=1&origin=${position[0]},${position[1]}&destination=${activeRide.pickup.lat},${activeRide.pickup.lng}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-xs text-blue-500 underline"
@@ -773,7 +773,7 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                   <div className="p-2 text-center">
                     <p className="font-bold">Eneo la Kushusha</p>
                     <a 
-                      href={`https://www.google.com/maps/dir/?api=1&destination=${activeRide.destination.lat},${activeRide.destination.lng}`}
+                      href={`https://www.google.com/maps/dir/?api=1&origin=${position[0]},${position[1]}&destination=${activeRide.destination.lat},${activeRide.destination.lng}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-xs text-blue-500 underline"

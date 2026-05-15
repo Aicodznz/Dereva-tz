@@ -1226,38 +1226,71 @@ export default function ProductDetail() {
               )}
 
               {activeTab === 'Muuzaji' && (
-                <div className="bg-neutral-900 rounded-[1.5rem] p-6 lg:p-16 text-white overflow-hidden relative">
-                   <div className="absolute top-0 right-0 p-6 lg:p-10 opacity-5">
+                <div className="bg-neutral-900 rounded-[2.5rem] p-6 lg:p-12 text-white overflow-hidden relative shadow-2xl shadow-black/20 group min-h-[300px] flex flex-col justify-end">
+                   {/* Banner Background */}
+                   <div className="absolute inset-0 z-0">
+                      <img 
+                        src={vendor?.bannerUrl || product?.imageUrl || 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?q=80&w=1974&auto=format&fit=crop'} 
+                        className="w-full h-full object-cover opacity-30 group-hover:scale-105 transition-transform duration-1000" 
+                        alt="" 
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-neutral-900 via-neutral-900/60 to-transparent" />
+                   </div>
+
+                   {/* Background Elements */}
+                   <div className="absolute top-0 right-0 p-6 lg:p-10 opacity-20 group-hover:scale-110 transition-transform duration-1000 z-1">
                       <Store className="w-32 h-32 lg:w-64 lg:h-64 rotate-12" />
                    </div>
+                   
                    <div className="relative z-10 space-y-6">
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 lg:gap-8">
-                        <div className="w-16 h-16 lg:w-24 lg:h-24 rounded-[1rem] lg:rounded-[2rem] bg-white p-0.5">
-                           <img src={vendor?.logoUrl || `https://ui-avatars.com/api/?name=${vendor?.businessName}`} className="w-full h-full rounded-[1.75rem] object-cover" alt="" />
+                      <div className="flex flex-col md:flex-row items-center md:items-end gap-6 lg:gap-10">
+                        <div className="w-24 h-24 lg:w-40 lg:h-40 rounded-[2.5rem] bg-white p-1.5 flex items-center justify-center overflow-hidden shadow-2xl relative group-hover:scale-105 transition-transform duration-500 border-4 border-orange-600/20">
+                           {vendor?.logoUrl ? (
+                             <img src={vendor.logoUrl} className="w-full h-full rounded-[2rem] object-cover" alt="" />
+                           ) : (
+                             <div className="w-full h-full rounded-[2rem] bg-neutral-900 flex items-center justify-center text-4xl lg:text-6xl font-black text-white italic select-none">
+                               {vendor?.businessName?.slice(0, 2).toUpperCase() || 'RE'}
+                             </div>
+                           )}
                         </div>
-                        <div className="space-y-1">
-                           <Badge className="bg-orange-600 text-white border-none text-[8px] px-2 py-0.5 font-black uppercase">Verified Merchant</Badge>
-                           <h2 className="text-xl lg:text-4xl font-black italic tracking-tighter uppercase break-words leading-tight">{vendor?.businessName}</h2>
-                           <div className="flex flex-wrap items-center gap-2 lg:gap-4 text-neutral-300 text-[9px] lg:text-sm font-bold">
-                              <span className="flex items-center gap-1.5"><MapPin className="w-3 h-3" /> {vendor?.address?.slice(0, 30)}...</span>
-                              <span className="flex items-center gap-1.5"><Clock className="w-3 h-3" /> Open 24/7</span>
+                        <div className="flex-1 text-center md:text-left space-y-2 lg:space-y-4">
+                           <div className="inline-flex items-center gap-2 px-3 py-1 bg-orange-600 rounded-full border border-orange-500/50 mb-2">
+                              <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                              <span className="text-[8px] font-black uppercase tracking-[0.2em] italic text-white">Duka Lililothibitishwa</span>
+                           </div>
+                           <h2 className="text-3xl lg:text-7xl font-black italic tracking-tighter uppercase leading-tight break-words text-white drop-shadow-lg">
+                              {vendor?.businessName}
+                           </h2>
+                           <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 lg:gap-8 text-white/70 text-[10px] lg:text-xs font-black uppercase tracking-widest pt-2">
+                              <span className="flex items-center gap-2 group/loc cursor-default bg-white/10 px-4 py-2 rounded-full backdrop-blur-md">
+                                <MapPin className="w-4 h-4 text-orange-500 group-hover/loc:scale-120 transition-transform" /> 
+                                {vendor?.address || 'Tanzania'}
+                              </span>
+                              <span className="flex items-center gap-2 group/time cursor-default bg-white/10 px-4 py-2 rounded-full backdrop-blur-md">
+                                <Clock className="w-4 h-4 text-orange-500 group-hover/time:rotate-12 transition-transform" /> 
+                                Fungua 24/7
+                              </span>
                            </div>
                         </div>
                       </div>
-                      <p className="text-neutral-400 text-xs lg:text-lg leading-relaxed max-w-2xl font-medium line-clamp-3">
-                        {vendor?.description || 'Tumebobea katika kutoa huduma bora kabisa kwa wateja wetu. Karibu upate bidhaa zenye viwango vya hali ya juu.'}
-                      </p>
-                      <Button 
-                        onClick={() => navigate(`/vendor/${vendor?.id}`)}
-                        className="h-10 px-6 lg:h-14 lg:px-10 bg-white text-neutral-900 hover:bg-orange-600 hover:text-white rounded-xl lg:rounded-2xl font-black uppercase text-[9px] lg:text-xs tracking-widest transition-all"
-                      >
-                        Visit Store
-                      </Button>
+
+                      <div className="flex flex-col md:flex-row items-center justify-between gap-8 pt-8 border-t border-white/10">
+                        <p className="text-white/60 text-xs lg:text-lg leading-relaxed max-w-2xl font-bold italic text-center md:text-left drop-shadow-sm">
+                          {vendor?.description || 'Tumebobea katika kutoa huduma bora kabisa kwa wateja wetu. Karibu upate bidhaa zenye viwango vya hali ya juu nchini Tanzania.'}
+                        </p>
+                        <Button 
+                          onClick={() => navigate(`/vendor/${vendor?.id}`)}
+                          className="w-full md:w-auto h-16 px-16 bg-white text-neutral-900 hover:bg-orange-600 hover:text-white rounded-2xl font-black uppercase text-sm tracking-widest transition-all shadow-2xl active:scale-95 shrink-0 group/btn"
+                        >
+                           Tembelea Duka
+                           <ChevronRight className="w-5 h-5 group-hover/btn:translate-x-2 transition-transform ml-2" />
+                        </Button>
+                      </div>
                    </div>
                 </div>
               )}
-           </div>
-        </div>
+            </div>
+         </div>
 
         {/* Similar Products */}
         {similarProducts.length > 0 && (

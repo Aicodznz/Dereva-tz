@@ -457,10 +457,15 @@ export default function VendorStore() {
         <div className="relative">
           {/* Distance Badge */}
           <div className="absolute -top-4 md:-top-10 left-4 md:left-6 z-10 transition-all active:scale-95">
-            <a 
-              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(vendor.address || vendor.businessName)}`}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button 
+              onClick={() => {
+                if (vendor?.location) {
+                  const originStr = location ? `&origin=${location.lat},${location.lng}` : '';
+                  window.open(`https://www.google.com/maps/dir/?api=1${originStr}&destination=${vendor.location.lat},${vendor.location.lng}`, '_blank');
+                } else {
+                  window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(vendor?.address || vendor?.businessName || '')}`, '_blank');
+                }
+              }}
               className="bg-[#E6F6EF] dark:bg-green-950/30 text-[#00A756] px-5 py-2 rounded-full border border-green-100/50 dark:border-green-900/40 flex items-center gap-2 shadow-sm hover:shadow-md transition-all group cursor-pointer"
             >
               <MapPin className="w-4 h-4 md:w-6 md:h-6 group-hover:scale-110 transition-transform" />
@@ -469,7 +474,7 @@ export default function VendorStore() {
                   ? `${(getDistance()! * 1000).toFixed(0)}M` 
                   : `${getDistance()!.toFixed(1)}KM`}
               </span>
-            </a>
+            </button>
           </div>
 
           <div className="bg-white dark:bg-neutral-900 shadow-2xl shadow-black/5 rounded-[2.5rem] overflow-hidden border border-neutral-100 dark:border-white/5 p-4 sm:p-6 md:p-12">
