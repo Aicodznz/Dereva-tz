@@ -17,13 +17,43 @@ const DefaultIcon = L.icon({
     iconAnchor: [12, 41]
 });
 
-// Custom Icon for Vendors - Matching Screenshot Style (Blue Circle)
-const VendorIcon = L.divIcon({
-  html: `<div class="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center shadow-[0_4px_15px_rgba(0,0,0,0.3)] border-2 border-white transform transition-transform hover:scale-110 active:scale-95"><div class="text-white"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-shopping-bag"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></div></div>`,
-  className: 'bg-transparent',
-  iconSize: [40, 40],
-  iconAnchor: [20, 20],
-});
+// Custom Icon for Vendors - Dynamic based on category
+const getVendorIcon = (category: string = '') => {
+  const cat = category.toLowerCase();
+  let iconSvg = '';
+  let bgColor = 'bg-blue-600'; // Default blue
+
+  if (cat.includes('chakula') || cat.includes('food') || cat.includes('mgahawa') || cat.includes('restaurant')) {
+    iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-utensils"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>`;
+    bgColor = 'bg-red-500';
+  } else if (cat.includes('soko') || cat.includes('grocery') || cat.includes('market')) {
+    iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-shopping-basket"><path d="m5 11 4-7"/><path d="m19 11-4-7"/><path d="M2 11h20"/><path d="m3.5 11 1.6 7.4a2 2 0 0 0 2 1.6h9.8a2 2 0 0 0 2-1.6l1.7-7.4"/><path d="M4.5 15.5h15"/><path d="M9 11v1.5"/><path d="M15 11v1.5"/></svg>`;
+    bgColor = 'bg-green-600';
+  } else if (cat.includes('bus') || cat.includes('ticket') || cat.includes('basi')) {
+    iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-bus"><rect width="16" height="16" x="4" y="3" rx="2"/><path d="M4 11h16"/><path d="M8 15h.01"/><path d="M16 15h.01"/><path d="M6 19v2"/><path d="M18 19v2"/></svg>`;
+    bgColor = 'bg-orange-600';
+  } else if (cat.includes('dawa') || cat.includes('pharmacy') || cat.includes('medicine')) {
+    iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-pill"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>`;
+    bgColor = 'bg-blue-500';
+  } else if (cat.includes('saluni') || cat.includes('salon') || cat.includes('kinyozi') || cat.includes('hair')) {
+    iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-scissors"><circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/><path d="M14.8 9.2 20 4"/><path d="M8.12 15.88 12 12"/></svg>`;
+    bgColor = 'bg-pink-500';
+  } else if (cat.includes('hotel') || cat.includes('malazi') || cat.includes('accommodation') || cat.includes('hoteli')) {
+    iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-hotel"><path d="M18 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2Z"/><path d="m9 16 .348-.24c1.465-1.013 3.84-1.013 5.304 0L15 16"/><path d="M8 7h.01"/><path d="M16 7h.01"/><path d="M12 7h.01"/><path d="M12 11h.01"/><path d="M16 11h.01"/><path d="M8 11h.01"/><path d="M10 22v-4a2 2 0 1 1 4 0v4"/></svg>`;
+    bgColor = 'bg-indigo-500';
+  } else {
+    // Default eCommerce / Shopping Bag
+    iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-shopping-bag"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>`;
+    bgColor = 'bg-purple-600';
+  }
+
+  return L.divIcon({
+    html: `<div class="w-10 h-10 ${bgColor} rounded-full flex items-center justify-center shadow-[0_4px_15px_rgba(0,0,0,0.3)] border-2 border-white transform transition-transform hover:scale-110 active:scale-95"><div class="text-white">${iconSvg}</div></div>`,
+    className: 'bg-transparent',
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
+  });
+};
 
 const ParcelPinIcon = L.divIcon({
   html: `<div class="relative w-12 h-12 flex items-center justify-center">
@@ -514,7 +544,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                       <Marker 
                         key={v.id} 
                         position={[v.location.lat, v.location.lng]} 
-                        icon={VendorIcon}
+                        icon={getVendorIcon(v.category)}
                         eventHandlers={{
                           click: () => {
                             setSelectedVendor(v);

@@ -195,7 +195,7 @@ export default function CustomerDashboard() {
               const response = await fetch(`/api/geo/reverse?lat=${latitude}&lon=${longitude}&zoom=18`);
               if (!response.ok) {
                 console.warn(`Reverse geocoding failed with status ${response.status}`);
-                setLocation(prev => ({ ...prev, lat: latitude, lng: longitude }));
+                setLocation((prev: any) => ({ ...prev, lat: latitude, lng: longitude }));
                 return;
               }
               const data = await response.json();
@@ -210,11 +210,11 @@ export default function CustomerDashboard() {
               }
             } catch (err) {
               console.error('Reverse geocoding failed:', err);
-              setLocation(prev => ({ ...prev, lat: latitude, lng: longitude }));
+              setLocation((prev: any) => ({ ...prev, lat: latitude, lng: longitude }));
             }
           } else if (distMoved > 0.05) {
             // Update coords for minor moves too, just don't re-geocode address
-            setLocation(prev => ({ ...prev, lat: latitude, lng: longitude }));
+            setLocation((prev: any) => ({ ...prev, lat: latitude, lng: longitude }));
           }
         },
         (err) => {
