@@ -340,14 +340,23 @@ export default function ServiceDetail() {
                                     <span className="text-[8px] sm:text-[11px] font-black text-orange-600">{Number(vendor.rating || 0).toFixed(1)}</span>
                                     <span className="text-[6px] sm:text-[9px] text-orange-400 font-bold ml-0.5">({Number(vendor.ratingCount || 0)})</span>
                                   </div>
-                                  <div className="flex items-center gap-0.5 sm:gap-1.5 bg-green-50 dark:bg-green-950/30 px-1 sm:px-2 py-0.5 rounded-sm">
+                                  <button 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (vendor.location) {
+                                        window.open(`https://www.google.com/maps/dir/?api=1&destination=${vendor.location.lat},${vendor.location.lng}`, '_blank');
+                                      }
+                                    }}
+                                    className="flex items-center gap-0.5 sm:gap-1.5 bg-green-50 dark:bg-green-950/30 px-1 sm:px-2 py-0.5 rounded-sm hover:bg-green-100 transition-colors"
+                                    title="Get directions"
+                                  >
                                     <MapPin className="w-2 sm:w-3.5 h-2 sm:h-3.5 text-green-600" />
                                     <span className="text-[8px] sm:text-[11px] font-black text-green-600 uppercase tracking-tighter">
                                       {vendor.distance < 0.5 
                                         ? `${(vendor.distance * 1000).toFixed(0)}m` 
                                         : `${vendor.distance.toFixed(1)}km`}
                                     </span>
-                                  </div>
+                                  </button>
                                 </div>
                               </div>
                               

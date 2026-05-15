@@ -412,21 +412,13 @@ export default function VendorStore() {
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-white dark:from-neutral-950 via-transparent to-black/20" />
         
-        <div className="absolute top-6 left-6 flex items-center gap-3 z-30">
+        <div className="absolute top-6 left-6 z-30">
           <button 
             onClick={() => navigate(-1)}
             className="w-12 h-12 bg-white/20 backdrop-blur-2xl border border-white/30 rounded-2xl flex items-center justify-center text-white hover:bg-white/40 transition-all shadow-2xl active:scale-95 group"
           >
             <ChevronLeft className="w-6 h-6 group-hover:-translate-x-1 transition-transform" />
           </button>
-          
-          <Link 
-            to="/" 
-            className="h-12 px-6 bg-neutral-900/80 backdrop-blur-2xl border border-white/20 rounded-2xl flex items-center gap-3 text-white hover:bg-neutral-900 transition-all shadow-2xl active:scale-95 group"
-          >
-            <Undo2 className="w-5 h-5 text-orange-600 group-hover:-rotate-45 transition-transform" />
-            <span className="font-black uppercase text-[10px] tracking-widest hidden sm:inline">Rudi Nyumbani</span>
-          </Link>
         </div>
 
         {/* Quick Access Top Tabs */}

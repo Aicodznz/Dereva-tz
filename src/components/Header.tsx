@@ -112,6 +112,26 @@ export default function Header() {
             {theme === 'dark' ? <Moon className="w-4 h-4 text-blue-400" /> : <Sun className="w-4 h-4 text-orange-500" />}
           </button>
 
+          {/* Persistent Cart Icon for Tablet/Desktop */}
+          <button 
+            onClick={() => setIsCartOpen(true)}
+            className="hidden md:flex w-10 h-10 items-center justify-center rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 transition-all relative"
+          >
+            <ShoppingCart className="w-5 h-5" />
+            <AnimatePresence>
+              {cartCount > 0 && (
+                <motion.span 
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  exit={{ scale: 0 }}
+                  className="absolute -top-1 -right-1 w-5 h-5 bg-orange-600 text-white text-[10px] font-black flex items-center justify-center rounded-full border-2 border-white dark:border-neutral-900 shadow-sm"
+                >
+                  {cartCount}
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </button>
+
           {/* User Profile */}
           {user && (
             <Link to="/profile" className="flex items-center gap-2 group">

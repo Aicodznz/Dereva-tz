@@ -159,7 +159,7 @@ export default function CustomerDashboard() {
     setOnLocationClick(() => () => setIsLocationPickerOpen(true));
   }, [location.address, setHeaderLocation, setOnLocationClick]);
 
-  // Use search from context
+    const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const effectiveSearchQuery = contextSearchQuery;
 
   const filteredVendors = vendors.filter(v => 
@@ -227,16 +227,16 @@ export default function CustomerDashboard() {
   }, []);
 
   const services = [
-    { id: 'chakula', label: t('food') || 'Chakula', icon: Utensils, color: 'bg-red-500', sub: 'Food Delivery 🍔' },
-    { id: 'sokoni', label: t('grocery') || 'Sokoni', icon: ShoppingCart, color: 'bg-green-500', sub: 'Grocery 🛒' },
-    { id: 'bus_ticket', label: 'Bus Tickets', icon: Bus, color: 'bg-orange-600', sub: 'Bus Booking 🚌' },
-    { id: 'teksi', label: t('taxi') || 'Teksi', icon: Car, color: 'bg-yellow-500', sub: 'Taxi 🚕' },
-    { id: 'vifurushi', label: t('parcel') || 'Vifurushi', icon: Package, color: 'bg-orange-500', sub: 'Parcel 📦' },
-    { id: 'dawa', label: t('pharmacy') || 'Duka la Dawa', icon: Pill, color: 'bg-blue-500', sub: 'Pharmacy 💊' },
-    { id: 'maduka', label: t('ecommerce') || 'Maduka', icon: ShoppingBag, color: 'bg-purple-500', sub: 'eCommerce 🛍️' },
-    { id: 'saluni', label: t('salons') || 'Saluni', icon: Scissors, color: 'bg-pink-500', sub: 'Salons 💇‍♀️' },
-    { id: 'ramani', label: 'Ramani', icon: MapPin, color: 'bg-neutral-600', sub: 'Nearby Stores 📍' },
-    { id: 'hoteli', label: t('hotels') || 'Hoteli', icon: Hotel, color: 'bg-indigo-500', sub: 'Hotels 🏨' },
+    { id: 'chakula', label: t('food') || 'Chakula', icon: Utensils, color: 'bg-red-500', sub: 'Food Delivery 🍔', category: 'restaurant' },
+    { id: 'sokoni', label: t('grocery') || 'Sokoni', icon: ShoppingCart, color: 'bg-green-500', sub: 'Grocery 🛒', category: 'grocery' },
+    { id: 'bus_ticket', label: 'Bus Tickets', icon: Bus, color: 'bg-orange-600', sub: 'Bus Booking 🚌', category: 'bus_ticket' },
+    { id: 'teksi', label: t('taxi') || 'Teksi', icon: Car, color: 'bg-yellow-500', sub: 'Taxi 🚕', category: 'taxi' },
+    { id: 'vifurushi', label: t('parcel') || 'Vifurushi', icon: Package, color: 'bg-orange-500', sub: 'Parcel 📦', category: 'parcel' },
+    { id: 'dawa', label: t('pharmacy') || 'Duka la Dawa', icon: Pill, color: 'bg-blue-500', sub: 'Pharmacy 💊', category: 'pharmacy' },
+    { id: 'maduka', label: t('ecommerce') || 'Maduka', icon: ShoppingBag, color: 'bg-purple-500', sub: 'eCommerce 🛍️', category: 'ecommerce' },
+    { id: 'saluni', label: t('salons') || 'Saluni', icon: Scissors, color: 'bg-pink-500', sub: 'Salons 💇‍♀️', category: 'salon' },
+    { id: 'ramani', label: 'Ramani', icon: MapPin, color: 'bg-neutral-600', sub: 'Nearby Stores 📍', category: 'all' },
+    { id: 'hoteli', label: t('hotels') || 'Hoteli', icon: Hotel, color: 'bg-indigo-500', sub: 'Hotels 🏨', category: 'hotel' },
   ];
 
   useEffect(() => {
@@ -409,20 +409,38 @@ export default function CustomerDashboard() {
             </h3>
             <div className="h-1 w-10 md:w-16 bg-orange-600 rounded-full" />
           </div>
-          <button 
-            onClick={() => navigate('/service/all-stores')}
-            className="group flex items-center gap-2 bg-neutral-100 dark:bg-neutral-800 px-4 py-2 md:px-5 md:py-2.5 rounded-xl md:rounded-2xl text-neutral-900 dark:text-white hover:bg-orange-600 hover:text-white transition-all shadow-sm active:scale-95"
-          >
-             <span className="text-[10px] font-black uppercase tracking-widest hidden sm:block">{t('view_all_stores') || 'View All Stores'}</span>
-             <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-          </button>
         </div>
+        
+        {/* Category Filters for Nearby Stores */}
+        <div className="flex gap-2 overflow-x-auto pb-4 no-scrollbar px-2">
+          <button
+            onClick={() => setSelectedCategory(null)}
+            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+              selectedCategory === null ? 'bg-orange-600 text-white shadow-lg' : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200'
+            }`}
+          >
+            Yote (All)
+          </button>
+          {services.filter(s => s.id !== 'ramani').map((s) => (
+            <button
+              key={`filter-${s.category}`}
+              onClick={() => setSelectedCategory(s.category === selectedCategory ? null : s.category)}
+              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-2 ${
+                selectedCategory === s.category ? 'bg-orange-600 text-white shadow-lg' : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200'
+              }`}
+            >
+              <s.icon className="w-3 h-3" />
+              {s.label}
+            </button>
+          ))}
+        </div>
+
         <div 
           ref={storeScrollRef}
           className="flex sm:grid overflow-x-auto sm:overflow-visible gap-4 sm:gap-6 md:gap-10 pb-2 sm:pb-0 no-scrollbar -mx-4 px-4 snap-x snap-mandatory sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 [@media(min-width:1800px)]:grid-cols-5 [@media(min-width:2100px)]:grid-cols-6"
         >
           {vendors
-            .filter(v => v.status === 'active')
+            .filter(v => v.status === 'active' && (!selectedCategory || v.category === selectedCategory))
             .map(vendor => {
               const distance = vendor.location 
                 ? calculateDistance(location.lat, location.lng, vendor.location.lat, vendor.location.lng)
@@ -489,14 +507,23 @@ export default function CustomerDashboard() {
                         </span>
                         <span className="text-[7px] sm:text-[9px] text-orange-400 font-bold ml-0.5">({Number(vendor.ratingCount || 0)})</span>
                       </div>
-                      <div className="flex items-center gap-0.5 sm:gap-1.5 bg-green-50 dark:bg-green-950/30 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-md sm:rounded-lg">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (vendor.location) {
+                            window.open(`https://www.google.com/maps/dir/?api=1&destination=${vendor.location.lat},${vendor.location.lng}`, '_blank');
+                          }
+                        }}
+                        className="flex items-center gap-0.5 sm:gap-1.5 bg-green-50 dark:bg-green-950/30 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-md sm:rounded-lg hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors"
+                        title="Get directions"
+                      >
                         <MapPin className="w-2.5 sm:w-3.5 h-2.5 sm:h-3.5 text-green-600" />
                         <span className="text-[9px] sm:text-[11px] font-black text-green-600 uppercase tracking-tighter">
                           {!vendor.location ? 'N/A' : vendor.distance < 0.5 
                             ? `${(vendor.distance * 1000).toFixed(0)}m` 
                             : `${vendor.distance.toFixed(1)}km`}
                         </span>
-                      </div>
+                      </button>
                     </div>
                   </div>
                   
@@ -579,10 +606,6 @@ export default function CustomerDashboard() {
       <section className="px-2 mt-8 md:mt-12">
         <div className="flex items-center justify-between mb-4 md:mb-6">
           <h3 className="text-xl md:text-2xl font-black text-neutral-900 dark:text-white uppercase italic tracking-tighter font-display leading-none">{t('popular_products') || 'Bidhaa Maarufu'}</h3>
-          <button className="text-orange-600 text-[10px] md:text-xs font-black uppercase tracking-[0.2em] hover:translate-x-1 transition-transform flex items-center gap-1">
-            {t('view_all') || 'View All'}
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 [@media(min-width:1800px)]:grid-cols-10 gap-3 md:gap-8 lg:gap-10">
           {filteredProducts.map((product, idx) => (

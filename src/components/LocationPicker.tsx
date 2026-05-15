@@ -150,6 +150,9 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
   const [position, setPosition] = useState<L.LatLng>(
     new L.LatLng(initialLocation?.lat || -6.7924, initialLocation?.lng || 39.2083) // Default to DSM
   );
+  const [userOrigin, setUserOrigin] = useState<L.LatLng | null>(
+    initialLocation ? new L.LatLng(initialLocation.lat, initialLocation.lng) : new L.LatLng(-6.7924, 39.2083)
+  );
   const [address, setAddress] = useState(initialLocation?.address || '');
   const [isLocating, setIsLocating] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
@@ -162,6 +165,33 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
   const [mapType, setMapType] = useState<'standard' | 'satellite'>('standard');
   const [isMapExpanded, setIsMapExpanded] = useState(false);
   const [recentPlaces, setRecentPlaces] = useState<{ address: string; lat: number; lng: number }[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+
+  const categories = [
+    { id: 'all', label: 'Zote', icon: <Layers size={14} /> },
+    { id: 'food', label: 'Chakula', icon: <div dangerouslySetInnerHTML={{ __html: getVendorIcon('food').options.html || '' }} className="scale-50" /> },
+    { id: 'grocery', label: 'Soko', icon: <div dangerouslySetInnerHTML={{ __html: getVendorIcon('grocery').options.html || '' }} className="scale-50" /> },
+    { id: 'bus', label: 'Tiketi', icon: <div dangerouslySetInnerHTML={{ __html: getVendorIcon('bus').options.html || '' }} className="scale-50" /> },
+    { id: 'pharmacy', label: 'Dawa', icon: <div dangerouslySetInnerHTML={{ __html: getVendorIcon('pharmacy').options.html || '' }} className="scale-50" /> },
+    { id: 'ecommerce', label: 'Shopping', icon: <div dangerouslySetInnerHTML={{ __html: getVendorIcon('ecommerce').options.html || '' }} className="scale-50" /> },
+    { id: 'salon', label: 'Saluni', icon: <div dangerouslySetInnerHTML={{ __html: getVendorIcon('salon').options.html || '' }} className="scale-50" /> },
+    { id: 'hotel', label: 'Hoteli', icon: <div dangerouslySetInnerHTML={{ __html: getVendorIcon('hotel').options.html || '' }} className="scale-50" /> },
+  ];
+
+  const filteredVendors = vendors.filter(v => {
+    if (categoryFilter === 'all') return true;
+    const cat = (v.category || '').toLowerCase();
+    
+    if (categoryFilter === 'food') return cat.includes('chakula') || cat.includes('food') || cat.includes('mgahawa') || cat.includes('restaurant');
+    if (categoryFilter === 'grocery') return cat.includes('soko') || cat.includes('grocery') || cat.includes('market');
+    if (categoryFilter === 'bus') return cat.includes('bus') || cat.includes('ticket') || cat.includes('basi');
+    if (categoryFilter === 'pharmacy') return cat.includes('dawa') || cat.includes('pharmacy') || cat.includes('medicine');
+    if (categoryFilter === 'salon') return cat.includes('saluni') || cat.includes('salon') || cat.includes('kinyozi') || cat.includes('hair');
+    if (categoryFilter === 'hotel') return cat.includes('hotel') || cat.includes('malazi') || cat.includes('accommodation') || cat.includes('hoteli');
+    if (categoryFilter === 'ecommerce') return !(['chakula', 'food', 'mgahawa', 'restaurant', 'soko', 'grocery', 'market', 'bus', 'ticket', 'basi', 'dawa', 'pharmacy', 'medicine', 'saluni', 'salon', 'kinyozi', 'hair', 'hotel', 'malazi', 'accommodation', 'hoteli'].some(c => cat.includes(c)));
+    
+    return true;
+  });
 
   // Load recent places from localStorage
   useEffect(() => {
@@ -237,13 +267,14 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
       if (vendor && vendor.location) {
         const newPos = new L.LatLng(vendor.location.lat, vendor.location.lng);
         setPosition(newPos);
+        // We don't set userOrigin here as we want to measure distance from where they are
         setSelectedVendor(vendor);
         setAddress(vendor.address || vendor.businessName);
       }
     }
   }, [isOpen, preSelectedVendorId, vendors]);
 
-  // Reverse geocoding function
+// Reverse geocoding function
   const reverseGeocode = async (lat: number, lng: number) => {
     try {
       const response = await fetch(`/api/geo/reverse?lat=${lat}&lon=${lng}&zoom=18`);
@@ -289,6 +320,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
       if (data && data.length > 0) {
         const newPos = new L.LatLng(parseFloat(data[0].lat), parseFloat(data[0].lon));
         setPosition(newPos);
+        setUserOrigin(newPos);
         setAddress(data[0].display_name);
       } else {
         setError('Mahali hapajapatikana. Jaribu kusechi tena.');
@@ -320,6 +352,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
         (pos) => {
           const newPos = new L.LatLng(pos.coords.latitude, pos.coords.longitude);
           setPosition(newPos);
+          setUserOrigin(newPos);
           reverseGeocode(pos.coords.latitude, pos.coords.longitude);
           setIsLocating(false);
         },
@@ -526,7 +559,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                 {mapReady && (
                   <>
                     <MapController center={position} />
-                    <AutoFitBounds vendors={vendors} />
+                    <AutoFitBounds vendors={filteredVendors} />
                     <InteractionHandler onInteraction={() => {}} />
                     <LocationMarker 
                       position={position} 
@@ -535,12 +568,13 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                       icon={useParcelIcon ? ParcelPinIcon : DefaultIcon}
                       onPositionChange={(pos) => {
                         reverseGeocode(pos.lat, pos.lng);
+                        setUserOrigin(pos);
                         setSelectedVendor(null); // Clear selection when user moves marker
                       }} 
                     />
                     
-                    {/* Vendor Markers */}
-                    {vendors?.map((v) => v.location && (
+                    {/* Filtered Vendor Markers */}
+                    {filteredVendors?.map((v) => v.location && (
                       <Marker 
                         key={v.id} 
                         position={[v.location.lat, v.location.lng]} 
@@ -557,6 +591,32 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                 )}
               </MapContainer>
 
+              {/* Category Filter UI - Horizontal Scroll Overlay */}
+              <div className="absolute bottom-20 left-4 right-4 z-[1000] flex justify-center">
+                <div className="flex bg-white/95 backdrop-blur-md rounded-2xl p-1 gap-1 shadow-xl border border-white/50 overflow-x-auto no-scrollbar max-w-full">
+                  {categories.map((cat) => (
+                    <button
+                      key={cat.id}
+                      onClick={() => setCategoryFilter(cat.id)}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-xl whitespace-nowrap transition-all ${
+                        categoryFilter === cat.id 
+                          ? 'bg-neutral-900 text-white shadow-lg shadow-neutral-900/20' 
+                          : 'text-neutral-500 hover:bg-neutral-100'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 flex items-center justify-center rounded-lg ${categoryFilter === cat.id ? 'bg-white/20' : 'bg-neutral-100'}`}>
+                        {cat.id === 'all' ? <Layers size={12} className={categoryFilter === cat.id ? 'text-white' : 'text-neutral-500'} /> : (
+                          <div className="w-5 h-5 scale-[0.4] flex items-center justify-center">
+                             {cat.icon}
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-[9px] font-black uppercase tracking-widest">{cat.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* No Stores Found Banner */}
               {vendors.length === 0 && (
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[1002] pointer-events-none">
@@ -572,24 +632,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                 </div>
               )}
 
-              {/* Fit to Stores Button UI */}
-              {vendors.length > 0 && (
-                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000]">
-                   <button 
-                      onClick={() => {
-                        const validVendors = vendors.filter(v => v.location);
-                        if (validVendors.length > 0) {
-                           const firstVendor = validVendors[0];
-                           setPosition(new L.LatLng(firstVendor.location.lat, firstVendor.location.lng));
-                        }
-                      }}
-                      className="bg-white/95 backdrop-blur-md px-6 py-3 rounded-2xl shadow-xl border border-white text-[10px] font-black uppercase tracking-widest text-blue-600 flex items-center gap-2 hover:bg-blue-600 hover:text-white transition-all transform active:scale-95"
-                   >
-                      <Star className="w-4 h-4" />
-                      Onyesha Maduka Yote
-                   </button>
-                </div>
-              )}
+              {/* Fit to Stores Button UI - REMOVED */}
               
               {!isMapViewOnly && (
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-full pointer-events-none z-[1000] mb-5">
@@ -659,6 +702,36 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                              <div className="flex items-center justify-between gap-2">
                                 <h4 className="font-black text-lg text-neutral-900 truncate uppercase tracking-tight">{selectedVendor.businessName}</h4>
                                 <div className="flex items-center gap-1 shrink-0">
+                                   <div 
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const url = `https://www.google.com/maps/dir/?api=1&destination=${selectedVendor.location.lat},${selectedVendor.location.lng}`;
+                                        window.open(url, '_blank');
+                                      }}
+                                      className="flex items-center gap-1 bg-green-50 text-green-600 px-2 py-1 rounded-lg border border-green-100 hover:bg-green-600 hover:text-white transition-all mr-1"
+                                   >
+                                      <Navigation className="w-3 h-3" />
+                                      <span className="text-[10px] font-black italic tracking-tighter">
+                                        {(() => {
+                                          const origin = userOrigin || position;
+                                          if (!origin || !selectedVendor.location) return '0.0';
+                                          const lat1 = origin.lat;
+                                          const lon1 = origin.lng;
+                                          const lat2 = selectedVendor.location.lat;
+                                          const lon2 = selectedVendor.location.lng;
+                                          
+                                          const R = 6371; // km
+                                          const dLat = (lat2 - lat1) * Math.PI / 180;
+                                          const dLon = (lon2 - lon1) * Math.PI / 180;
+                                          const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                                            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                                            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+                                          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                                          const d = R * c;
+                                          return d.toFixed(1);
+                                        })()}KM
+                                      </span>
+                                   </div>
                                    <span className="text-[9px] font-black text-neutral-900 uppercase">Star</span>
                                    <Star className="w-3.5 h-3.5 text-yellow-500 fill-current" />
                                    <span className="text-xs font-black text-neutral-900">

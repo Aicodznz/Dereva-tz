@@ -67,7 +67,7 @@ export default function ProductDetail() {
   const [isDescExpanded, setIsDescExpanded] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [showARView, setShowARView] = useState(false);
-  const [activeTab, setActiveTab] = useState('Details');
+  const [activeTab, setActiveTab] = useState('Maelezo');
   const arViewerRef = useRef<any>(null);
 
   const handleAddToCart = () => {
@@ -905,25 +905,15 @@ export default function ProductDetail() {
       </AnimatePresence>
 
       <div className="max-w-7xl mx-auto px-4 lg:px-8 pt-4 lg:pt-8">
-        {/* Back & Home Buttons */}
-        <div className="mb-6 flex items-center justify-between">
+        {/* Back Button */}
+        <div className="mb-4 flex items-center">
           <button 
             onClick={() => navigate(-1)}
-            className="flex items-center gap-2 group text-neutral-400 hover:text-neutral-900 transition-colors"
+            className="flex items-center gap-2 group bg-neutral-100 dark:bg-neutral-800 px-4 py-2 rounded-2xl text-neutral-900 dark:text-white hover:bg-neutral-900 hover:text-white dark:hover:bg-white dark:hover:text-black transition-all active:scale-95 shadow-sm"
           >
-            <div className="w-8 h-8 rounded-full bg-neutral-100 flex items-center justify-center group-hover:bg-neutral-900 group-hover:text-white transition-all">
-              <ChevronLeft className="w-4 h-4" />
-            </div>
-            <span className="font-black uppercase text-[10px] tracking-widest">Rudi Nyuma</span>
+            <ChevronLeft className="w-4 h-4" />
+            <span className="font-black uppercase text-[10px] tracking-widest whitespace-nowrap">Rudi Nyuma</span>
           </button>
-
-          <Link 
-            to="/"
-            className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-xl shadow-lg hover:bg-orange-600 transition-all active:scale-95 group"
-          >
-            <Home className="w-4 h-4" />
-            <span className="font-black uppercase text-[10px] tracking-widest">Rudi Nyumbani</span>
-          </Link>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
@@ -974,11 +964,11 @@ export default function ProductDetail() {
           {/* Right: Product Content */}
           <div className="space-y-6 lg:pl-0">
             {/* Category & Title */}
-            <div className="space-y-1">
-              <span className="text-neutral-400 text-[10px] font-black uppercase tracking-[0.2em]">{product.category || 'Daily Meals'}</span>
-              <h1 className="text-2xl lg:text-4xl font-black text-neutral-900 leading-tight tracking-tight font-display italic uppercase">{product.name}</h1>
-              <p className="text-neutral-500 text-sm lg:text-base leading-relaxed max-w-xl font-medium">
-                {product.description || 'Flavorful and freshly prepared meal made with premium ingredients and handpicked spices — a comforting and satisfying choice for every occasion.'}
+            <div className="space-y-0.5 mt-2 lg:mt-0">
+              <span className="text-neutral-400 text-[8px] lg:text-[10px] font-black uppercase tracking-[0.2em]">{product.category || 'Daily Meals'}</span>
+              <h1 className="text-xl lg:text-4xl font-black text-neutral-900 leading-tight tracking-tight font-display italic uppercase">{product.name}</h1>
+              <p className="text-neutral-500 text-xs lg:text-base leading-relaxed max-w-xl font-medium line-clamp-2 lg:line-clamp-none">
+                {product.description || 'Flavorful and freshly prepared meal made with premium ingredients.'}
               </p>
             </div>
 
@@ -1015,8 +1005,8 @@ export default function ProductDetail() {
             <div className="h-px bg-neutral-100 w-full" />
 
             {/* Options Selector Section */}
-            <div className="space-y-8">
-              <div className="space-y-4">
+            <div className="space-y-6 lg:space-y-8">
+              <div className="space-y-3 lg:space-y-4">
                  <div className="flex items-center justify-between">
                    <h3 className="text-[10px] font-black text-neutral-900 uppercase tracking-widest">Select Options</h3>
                    <div className="flex items-center gap-3">
@@ -1032,249 +1022,234 @@ export default function ProductDetail() {
               </div>
 
               {/* Action and Delivery info */}
-              <div className="flex flex-wrap items-center gap-6 py-2">
-                <div className="flex items-center gap-3">
-                  <span className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Quantity:</span>
-                  <div className="flex items-center gap-4 bg-neutral-100 p-1.5 rounded-full border border-neutral-200/50 shadow-inner">
+              <div className="flex flex-wrap items-center gap-4 lg:gap-6 py-1 lg:py-2">
+                <div className="flex items-center gap-2 lg:gap-3">
+                  <span className="text-[9px] lg:text-[10px] font-black text-neutral-400 uppercase tracking-widest">Quantity:</span>
+                  <div className="flex items-center gap-3 lg:gap-4 bg-neutral-100 p-1 lg:p-1.5 rounded-full border border-neutral-200/50 shadow-inner">
                     <button 
                       onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      className="w-8 h-8 rounded-full bg-white shadow-md flex items-center justify-center text-orange-600 disabled:opacity-50"
+                      className="w-7 h-7 lg:w-8 lg:h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-orange-600 disabled:opacity-50"
                       disabled={quantity <= 1}
                     >
-                      <Minus size={16} strokeWidth={3} />
+                      <Minus size={14} strokeWidth={3} />
                     </button>
-                    <span className="w-4 text-center font-black text-lg italic tabular-nums text-neutral-900 text-display">{quantity}</span>
+                    <span className="w-3 lg:w-4 text-center font-black text-sm lg:text-lg italic tabular-nums text-neutral-900">{quantity}</span>
                     <button 
                       onClick={() => setQuantity(quantity + 1)}
-                      className="w-8 h-8 rounded-full bg-white shadow-md flex items-center justify-center text-orange-600"
+                      className="w-7 h-7 lg:w-8 lg:h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-orange-600"
                     >
-                      <Plus size={16} strokeWidth={3} />
+                      <Plus size={14} strokeWidth={3} />
                     </button>
                   </div>
                 </div>
 
-                <div className="bg-blue-50 text-blue-600 px-4 py-2 rounded-xl flex items-center gap-2 font-black text-[10px] uppercase tracking-widest">
-                  <Clock className="w-3.5 h-3.5" />
+                <div className="bg-blue-50/50 text-blue-600 px-3 py-1.5 lg:px-4 lg:py-2 rounded-lg lg:rounded-xl flex items-center gap-2 font-black text-[8px] lg:text-[10px] uppercase tracking-widest border border-blue-100/50">
+                  <Clock className="w-3 h-3 lg:w-3.5 lg:h-3.5" />
                   Delivery: 55 Mins
                 </div>
               </div>
 
               {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row gap-4 pt-2">
+              <div className="flex flex-row gap-2 lg:gap-4 pt-2">
                 <Button 
                   onClick={handleAddToCart}
-                  className="flex-1 h-16 bg-neutral-900 hover:bg-black text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-black/10 gap-2 transition-all active:scale-[0.98]"
+                  className="flex-1 h-12 lg:h-14 bg-neutral-900 hover:bg-black text-white rounded-xl lg:rounded-2xl font-black uppercase text-[10px] lg:text-xs tracking-tighter lg:tracking-widest shadow-lg shadow-black/5 gap-1.5 lg:gap-2 transition-all active:scale-[0.98]"
                 >
-                  <ShoppingBag className="w-4 h-4" />
-                  Add to Bucket
+                  <ShoppingBag className="w-3.5 h-3.5" />
+                  Weka Kikapuni
                 </Button>
                 <Button 
                   onClick={() => {
                       handleAddToCart();
                       setIsCartOpen(true);
                   }}
-                  className="flex-1 h-16 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-orange-600/20 gap-2 transition-all active:scale-[0.98]"
+                  className="flex-1 h-12 lg:h-14 bg-orange-600 hover:bg-orange-700 text-white rounded-xl lg:rounded-2xl font-black uppercase text-[10px] lg:text-xs tracking-tighter lg:tracking-widest shadow-lg shadow-orange-600/10 gap-1.5 lg:gap-2 transition-all active:scale-[0.98]"
                 >
-                  Buy Now <ChevronRight className="w-4 h-4" />
+                  Agiza Sasa <ChevronRight className="w-3.5 h-3.5" />
                 </Button>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Info Tabs Section */}
-        <div className="mt-4 lg:mt-6 border-t border-neutral-100 pt-4 lg:pt-6">
-           <div className="flex flex-wrap gap-2 mb-4 p-1.5 bg-neutral-100/50 rounded-2xl w-full lg:w-fit border border-neutral-200/50">
-              {['Details', 'Reviews', 'FAQs', 'Sold By'].map((tab) => (
+            {/* Info Tabs Section */}
+        <div className="mt-2 lg:mt-6 border-t border-neutral-100 pt-3 lg:pt-6">
+           <div className="flex flex-wrap gap-1.5 mb-3 p-1.5 bg-neutral-100/50 rounded-2xl w-full lg:w-fit border border-neutral-200/50">
+              {['Maelezo', 'Maoni', 'Maswali', 'Muuzaji'].map((tab) => (
                 <button 
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`flex-1 lg:flex-none px-4 py-2 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all duration-300 ${activeTab === tab ? 'bg-white text-neutral-900 shadow-sm border border-neutral-200/50' : 'text-neutral-400 hover:text-neutral-600'}`}
+                  className={`flex-1 lg:flex-none px-3 py-1.5 rounded-xl font-black uppercase text-[8px] lg:text-[10px] tracking-widest transition-all duration-300 ${activeTab === tab ? 'bg-white text-neutral-900 shadow-sm border border-neutral-200/50' : 'text-neutral-400 hover:text-neutral-600'}`}
                 >
-                  <div className="flex items-center justify-center gap-2">
-                    {tab === 'Details' && <Info className="w-4 h-4" />}
-                    {tab === 'Reviews' && <Star className="w-4 h-4" />}
-                    {tab === 'FAQs' && <MessageSquare className="w-4 h-4" />}
-                    {tab === 'Sold By' && <Store className="w-4 h-4" />}
-                    {tab}
+                  <div className="flex items-center justify-center gap-1.5">
+                    {tab === 'Maelezo' && <Info className="w-3.5 h-3.5" />}
+                    {tab === 'Maoni' && <Star className="w-3.5 h-3.5" />}
+                    {tab === 'Maswali' && <MessageSquare className="w-3.5 h-3.5" />}
+                    {tab === 'Muuzaji' && <Store className="w-3.5 h-3.5" />}
+                    <span>{tab}</span>
                   </div>
                 </button>
               ))}
            </div>
 
            <div className="space-y-4 max-w-6xl">
-              {activeTab === 'Details' && (
-                <div className="space-y-6">
-                  <div className="space-y-1">
-                    <h2 className="text-2xl lg:text-3xl font-black text-neutral-900 uppercase italic tracking-tighter">Additional Details</h2>
-                    <p className="text-neutral-400 font-black uppercase text-[9px] tracking-widest">Find the additional info of the Product</p>
+              {activeTab === 'Maelezo' && (
+                <div className="space-y-4">
+                  <div className="space-y-0.5">
+                    <h2 className="text-xl lg:text-3xl font-black text-neutral-900 uppercase italic tracking-tighter">Maelezo</h2>
+                    <p className="text-neutral-400 font-black uppercase text-[8px] tracking-widest">Taarifa za Bidhaa</p>
                   </div>
 
-                  <div className="space-y-6">
-                    <div className="space-y-3">
-                      <p className="text-base lg:text-lg text-neutral-800 leading-relaxed font-bold italic tracking-tight">
+                  <div className="space-y-4">
+                      <p className="text-sm lg:text-lg text-neutral-800 leading-relaxed font-bold italic tracking-tight underline decoration-orange-200 underline-offset-4 decoration-2">
                         {product.story || (
                           <>
-                            Our <span className="text-orange-600 font-black underline decoration-orange-200 underline-offset-8">{product.name}</span> is a signature creation from Papo Hapo. Prepared using premium ingredients, authentic spices, and time-honored techniques. Every bite delivers a perfect balance of taste, aroma, and texture.
+                            Prepared with premium ingredients and time-honored techniques for the perfect balance of taste.
                           </>
                         )}
                       </p>
-                    </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-4 bg-white p-5 lg:p-6 rounded-[2rem] border border-neutral-100 shadow-xl shadow-neutral-100">
-                        <h3 className="text-lg font-black text-neutral-900 flex items-center gap-2 italic tracking-tighter uppercase">
-                          ✨ Why You'll Love It:
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="bg-white p-4 rounded-[1.5rem] border border-neutral-100 shadow-md">
+                        <h3 className="text-xs font-black text-neutral-900 flex items-center gap-2 italic tracking-tighter uppercase mb-3">
+                          ✨ Kwa Nini Utakupenda:
                         </h3>
-                        <ul className="space-y-3">
+                        <ul className="space-y-2">
                           {(product.highlights && product.highlights.length > 0) ? (
                             product.highlights.map((highlight, idx) => (
-                              <li key={`highlight-${idx}`} className="flex items-center gap-4 text-neutral-600 font-bold group">
-                                <div className="w-8 h-8 shrink-0 rounded-2xl bg-orange-50 flex items-center justify-center text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-colors text-[10px]">{idx + 1}</div>
-                                <span className="text-sm">{highlight}</span>
+                              <li key={`highlight-${idx}`} className="flex items-center gap-3 text-neutral-600 font-bold group">
+                                <div className="w-5 h-5 shrink-0 rounded-lg bg-orange-50 flex items-center justify-center text-orange-600 text-[8px]">{idx + 1}</div>
+                                <span className="text-[11px] leading-tight">{highlight}</span>
                               </li>
                             ))
                           ) : (
                             <>
-                              <li className="flex items-center gap-4 text-neutral-600 font-bold group">
-                                <div className="w-8 h-8 shrink-0 rounded-2xl bg-orange-50 flex items-center justify-center text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-colors text-[10px]">1</div>
-                                <span className="text-sm">Premium quality sourced ingredients</span>
+                              <li className="flex items-center gap-3 text-neutral-600 font-bold group">
+                                <div className="w-5 h-5 shrink-0 rounded-lg bg-orange-50 flex items-center justify-center text-orange-600 text-[8px]">1</div>
+                                <span className="text-[11px]">Viungo vya hali ya juu</span>
                               </li>
-                              <li className="flex items-center gap-4 text-neutral-600 font-bold group">
-                                <div className="w-8 h-8 shrink-0 rounded-2xl bg-orange-50 flex items-center justify-center text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-colors text-[10px]">2</div>
-                                <span className="text-sm">Authentic and traditional preparation</span>
-                              </li>
-                              <li className="flex items-center gap-4 text-neutral-600 font-bold group">
-                                <div className="w-8 h-8 shrink-0 rounded-2xl bg-orange-50 flex items-center justify-center text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-colors text-[10px]">3</div>
-                                <span className="text-sm">Fast delivery within 55 minutes</span>
+                              <li className="flex items-center gap-3 text-neutral-600 font-bold group">
+                                <div className="w-5 h-5 shrink-0 rounded-lg bg-orange-50 flex items-center justify-center text-orange-600 text-[8px]">2</div>
+                                <span className="text-[11px]">Maandalizi ya kiasili</span>
                               </li>
                             </>
                           )}
                         </ul>
                       </div>
 
-                      <div className="space-y-4 bg-neutral-900 p-5 lg:p-6 rounded-[2rem] text-white shadow-2xl">
-                        <h3 className="text-lg font-black text-white flex items-center gap-2 italic tracking-tighter uppercase">
-                          📝 Step-by-Step Excellence:
+                      <div className="bg-neutral-900 p-4 rounded-[1.5rem] text-white shadow-lg">
+                        <h3 className="text-xs font-black text-white flex items-center gap-2 italic tracking-tighter uppercase mb-3">
+                          📝 Ahadi ya Ubora:
                         </h3>
-                        <div className="space-y-3">
-                          <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
-                            <p className="text-neutral-400 italic font-medium leading-relaxed text-sm">
-                              {product.qualityPromise?.description || (
-                                `"At Papo Hapo, we follow a strict quality standard. From selecting the freshest eggs to aging our basmati rice, every step is monitored to ensure the biryani you receive is of export quality."`
-                              )}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-3 px-1">
-                            <div className="w-8 h-8 bg-orange-600 rounded-full flex items-center justify-center shrink-0">
-                              <CheckCircle2 className="w-5 h-5 text-white" />
-                            </div>
-                            <span className="font-black uppercase tracking-widest text-[9px] text-neutral-300">
-                              {product.qualityPromise?.certifiedBy || "Quality Certified by Papo Hapo Express"}
-                            </span>
-                          </div>
+                        <div className="p-3 bg-white/5 rounded-xl border border-white/10 mb-3">
+                          <p className="text-neutral-400 italic font-medium leading-relaxed text-[10px]">
+                            {product.qualityPromise?.description || `"Viwango vikali vya ubora vinavyozingatiwa kila hatua."`}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-orange-600" />
+                          <span className="font-black uppercase tracking-widest text-[7px] text-neutral-300">
+                            {product.qualityPromise?.certifiedBy || "Imethibitishwa"}
+                          </span>
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
               )}
-
-              {activeTab === 'Reviews' && (
-                <div className="space-y-10">
+              {activeTab === 'Maoni' && (
+                <div className="space-y-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h2 className="text-4xl lg:text-5xl font-black text-neutral-900 uppercase italic tracking-tighter">Customer Reviews</h2>
-                      <p className="text-neutral-400 font-black uppercase text-[10px] tracking-widest mt-2">Real feedback from actual buyers</p>
+                      <h2 className="text-xl lg:text-5xl font-black text-neutral-900 uppercase italic tracking-tighter">Maoni</h2>
+                      <p className="text-neutral-400 font-black uppercase text-[8px] tracking-widest mt-1">Maoni yaliyohakikiwa</p>
                     </div>
                     <Button 
                       onClick={() => setIsReviewModalOpen(true)}
-                      className="h-14 px-8 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-orange-600/20 gap-3"
+                      className="h-9 px-4 bg-orange-600 text-white rounded-xl font-black uppercase tracking-widest text-[8px]"
                     >
-                      <Plus className="w-5 h-5" /> Give Feedback
+                      Maoni
                     </Button>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    <div className="md:col-span-1 bg-neutral-50 p-10 rounded-[3rem] flex flex-col items-center justify-center text-center space-y-4 border border-neutral-100">
-                      <span className="text-7xl font-black text-neutral-900 italic tracking-tighter">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="md:col-span-1 bg-neutral-50 p-6 rounded-[2rem] flex flex-col items-center justify-center text-center space-y-3 border border-neutral-100">
+                      <span className="text-5xl font-black text-neutral-900 italic tracking-tighter">
                          {(product?.ratingCount || 0) > 0 ? (Number(product?.rating) || 0).toFixed(1) : '0.0'}
                       </span>
-                      <div className="flex gap-1.5">
+                      <div className="flex gap-1">
                          {[...Array(5)].map((_, i) => (
-                           <Star key={`summary-star-${i}`} className={`w-6 h-6 ${i < Math.round((product?.ratingCount || 0) > 0 ? (product?.rating || 0) : 0) ? 'text-orange-500 fill-current' : 'text-neutral-200'}`} />
+                           <Star key={`summary-star-${i}`} className={`w-4 h-4 ${i < Math.round((product?.ratingCount || 0) > 0 ? (product?.rating || 0) : 0) ? 'text-orange-500 fill-current' : 'text-neutral-200'}`} />
                          ))}
                       </div>
-                      <p className="text-neutral-400 font-black uppercase tracking-widest text-xs">Based on {(product?.ratingCount || 0)} verified reviews</p>
+                      <p className="text-neutral-400 font-black uppercase tracking-widest text-[8px]">{(product?.ratingCount || 0)} feedback</p>
                     </div>
 
-                    <div className="md:col-span-2 space-y-6">
+                    <div className="md:col-span-2 space-y-4">
                        {reviews.map((review, idx) => (
-                         <div key={review.id} className="p-8 bg-white rounded-[2.5rem] border border-neutral-100 shadow-sm hover:shadow-xl transition-all group">
-                             <div className="flex items-center justify-between mb-4">
-                                <div className="flex items-center gap-4">
-                                   <div className="w-12 h-12 rounded-full border-2 border-orange-100 p-1">
+                         <div key={review.id} className="p-5 bg-white rounded-[1.5rem] border border-neutral-100 shadow-sm transition-all group">
+                             <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-3">
+                                   <div className="w-9 h-9 rounded-full border border-orange-100 p-0.5">
                                       <img src={review.userPhoto || `https://ui-avatars.com/api/?name=${review.userName}`} className="w-full h-full rounded-full object-cover" alt="" />
                                    </div>
                                    <div>
-                                      <h4 className="font-black text-neutral-900 uppercase italic tracking-tight">{review.userName}</h4>
+                                      <h4 className="font-black text-neutral-900 uppercase italic tracking-tight text-[11px]">{review.userName}</h4>
                                       <div className="flex gap-0.5">
-                                         {[...Array(5)].map((_, i) => <Star key={i} className={`w-3 h-3 ${i < review.rating ? 'text-orange-500 fill-current' : 'text-neutral-200'}`} />)}
+                                         {[...Array(5)].map((_, i) => <Star key={i} className={`w-2.5 h-2.5 ${i < review.rating ? 'text-orange-500 fill-current' : 'text-neutral-200'}`} />)}
                                       </div>
                                    </div>
                                 </div>
-                                <span className="text-[10px] font-black text-neutral-300 uppercase">{new Date(review.createdAt).toLocaleDateString()}</span>
                              </div>
-                             <p className="text-neutral-600 font-medium leading-relaxed">{review.comment}</p>
+                             <p className="text-neutral-600 font-medium leading-relaxed text-[11px]">{review.comment}</p>
                          </div>
                        ))}
-                       {reviews.length === 0 && <p className="text-neutral-400 font-medium italic">Bado hakuna reviews kwa bidhaa hii.</p>}
+                       {reviews.length === 0 && <p className="text-neutral-400 font-medium italic text-[11px]">Bado hakuna reviews hapa.</p>}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {activeTab === 'Maswali' && (
+                <div className="space-y-4">
+                  <h2 className="text-xl lg:text-5xl font-black text-neutral-900 uppercase italic tracking-tighter">Maswali</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="p-6 bg-neutral-50 rounded-[1.5rem] space-y-2">
+                      <h4 className="font-black text-neutral-900 uppercase italic tracking-tight text-[11px]">Muda wa Kufika</h4>
+                      <p className="text-neutral-500 font-medium leading-relaxed text-[11px]">Dakika 55-90 kulingana na eneo lako.</p>
+                    </div>
+                    <div className="p-6 bg-neutral-50 rounded-[1.5rem] space-y-2">
+                      <h4 className="font-black text-neutral-900 uppercase italic tracking-tight text-[11px]">Njia za Malipo</h4>
+                      <p className="text-neutral-500 font-medium leading-relaxed text-[11px]">M-Pesa, Airtel Money na kadi zinakubaliwa.</p>
                     </div>
                   </div>
                 </div>
               )}
 
-              {activeTab === 'FAQs' && (
-                <div className="space-y-8">
-                  <h2 className="text-4xl lg:text-5xl font-black text-neutral-900 uppercase italic tracking-tighter">Frequently Asked Questions</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="p-8 bg-neutral-50 rounded-[2.5rem] space-y-3">
-                      <h4 className="font-black text-neutral-900 uppercase italic tracking-tight">Je, muda wa kufika ni upi?</h4>
-                      <p className="text-neutral-500 font-medium leading-relaxed">Kwa kawaida oda hufika ndani ya dakika 55 kwa maeneo ya karibu na dakika 90 kwa maeneo ya mbali.</p>
-                    </div>
-                    <div className="p-8 bg-neutral-50 rounded-[2.5rem] space-y-3">
-                      <h4 className="font-black text-neutral-900 uppercase italic tracking-tight">Ninawezaje kulipia?</h4>
-                      <p className="text-neutral-500 font-medium leading-relaxed">Tunapokea malipo kupitia simu (M-Pesa, Tigo-Pesa, Airtel Money) na kadi za bank.</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'Sold By' && (
-                <div className="bg-neutral-900 rounded-[3.5rem] p-10 lg:p-16 text-white overflow-hidden relative">
-                   <div className="absolute top-0 right-0 p-10 opacity-10">
-                      <Store className="w-64 h-64 rotate-12" />
+              {activeTab === 'Muuzaji' && (
+                <div className="bg-neutral-900 rounded-[1.5rem] p-6 lg:p-16 text-white overflow-hidden relative">
+                   <div className="absolute top-0 right-0 p-6 lg:p-10 opacity-5">
+                      <Store className="w-32 h-32 lg:w-64 lg:h-64 rotate-12" />
                    </div>
-                   <div className="relative z-10 space-y-8">
-                      <div className="flex items-center gap-8">
-                        <div className="w-24 h-24 rounded-[2rem] bg-white p-1">
+                   <div className="relative z-10 space-y-6">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 lg:gap-8">
+                        <div className="w-16 h-16 lg:w-24 lg:h-24 rounded-[1rem] lg:rounded-[2rem] bg-white p-0.5">
                            <img src={vendor?.logoUrl || `https://ui-avatars.com/api/?name=${vendor?.businessName}`} className="w-full h-full rounded-[1.75rem] object-cover" alt="" />
                         </div>
-                        <div className="space-y-2">
-                           <Badge className="bg-orange-600 text-white border-none text-[10px] px-3 py-1 font-black uppercase">Verified Merchant</Badge>
-                           <h2 className="text-3xl lg:text-4xl font-black italic tracking-tighter uppercase">{vendor?.businessName}</h2>
-                           <div className="flex items-center gap-4 text-neutral-400 text-sm font-bold">
-                              <span className="flex items-center gap-2"><MapPin className="w-4 h-4" /> {vendor?.address}</span>
-                              <span className="flex items-center gap-2"><Clock className="w-4 h-4" /> Open 24/7</span>
+                        <div className="space-y-1">
+                           <Badge className="bg-orange-600 text-white border-none text-[8px] px-2 py-0.5 font-black uppercase">Verified Merchant</Badge>
+                           <h2 className="text-xl lg:text-4xl font-black italic tracking-tighter uppercase break-words leading-tight">{vendor?.businessName}</h2>
+                           <div className="flex flex-wrap items-center gap-2 lg:gap-4 text-neutral-300 text-[9px] lg:text-sm font-bold">
+                              <span className="flex items-center gap-1.5"><MapPin className="w-3 h-3" /> {vendor?.address?.slice(0, 30)}...</span>
+                              <span className="flex items-center gap-1.5"><Clock className="w-3 h-3" /> Open 24/7</span>
                            </div>
                         </div>
                       </div>
-                      <p className="text-neutral-400 text-lg leading-relaxed max-w-2xl font-medium">
+                      <p className="text-neutral-400 text-xs lg:text-lg leading-relaxed max-w-2xl font-medium line-clamp-3">
                         {vendor?.description || 'Tumebobea katika kutoa huduma bora kabisa kwa wateja wetu. Karibu upate bidhaa zenye viwango vya hali ya juu.'}
                       </p>
                       <Button 
                         onClick={() => navigate(`/vendor/${vendor?.id}`)}
-                        className="h-14 px-10 bg-white text-neutral-900 hover:bg-orange-600 hover:text-white rounded-2xl font-black uppercase tracking-widest transition-all"
+                        className="h-10 px-6 lg:h-14 lg:px-10 bg-white text-neutral-900 hover:bg-orange-600 hover:text-white rounded-xl lg:rounded-2xl font-black uppercase text-[9px] lg:text-xs tracking-widest transition-all"
                       >
                         Visit Store
                       </Button>

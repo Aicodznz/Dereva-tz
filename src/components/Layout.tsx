@@ -38,7 +38,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const isPartnerRoute = location.pathname === '/parcel-partner' || (isDashboardRoute && profile?.role === 'rider' && profile?.driverType === 'delivery');
   const isFullscreen = isTaxiRoute || isPartnerRoute || isRiderDashboard;
   const isVendorOrAdmin = profile?.role === 'vendor' || profile?.role === 'admin';
-  const hideBottomNav = isFullscreen || profile?.role === 'rider' || location.pathname.startsWith('/vendor/') || isVendorOrAdmin;
+  const hideBottomNav = isFullscreen || profile?.role === 'rider' || isVendorOrAdmin;
   const isFullWidthPage = location.pathname.startsWith('/vendor/') || location.pathname.startsWith('/service/') || isFullscreen;
 
   return (
@@ -107,6 +107,26 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               whileTap={{ scale: 0.9 }}
               className="flex-1"
             >
+              <button 
+                onClick={() => setIsCartOpen(true)}
+                className={`flex flex-col items-center gap-1.5 transition-all w-full group relative ${isCartOpen ? 'text-orange-600' : 'text-neutral-400'}`}
+              >
+                <div className="relative">
+                  <ShoppingCart className="w-5 h-5 relative z-10" />
+                  {cartCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-orange-600 text-white text-[8px] font-black flex items-center justify-center rounded-full border-2 border-white dark:border-neutral-900 animate-bounce">
+                      {cartCount}
+                    </span>
+                  )}
+                </div>
+                <span className={`text-[9px] font-black uppercase tracking-tight transition-all ${isCartOpen ? 'text-orange-600' : 'opacity-70'}`}>Kikapu</span>
+              </button>
+            </motion.div>
+
+            <motion.div 
+              whileTap={{ scale: 0.9 }}
+              className="flex-1"
+            >
               <Link 
                 to="/profile" 
                 className={`flex flex-col items-center gap-1.5 transition-all w-full group ${location.pathname === '/profile' ? 'text-orange-600' : 'text-neutral-400'}`}
@@ -118,6 +138,31 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </motion.div>
         </nav>
       )}
+
+      {/* Floating Cart Button (Global fallback) */}
+      <AnimatePresence>
+        {cartCount > 0 && !isCartOpen && (
+          <motion.button
+            initial={{ scale: 0, y: 100 }}
+            animate={{ scale: 1, y: 0 }}
+            exit={{ scale: 0, y: 100 }}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setIsCartOpen(true)}
+            className="fixed bottom-24 right-6 z-[160] w-16 h-16 bg-neutral-900 text-white rounded-2xl flex items-center justify-center shadow-2xl border-2 border-orange-600 group active:scale-95"
+          >
+            <div className="relative">
+              <ShoppingCart className="w-7 h-7 group-hover:rotate-12 transition-transform" />
+              <span className="absolute -top-3 -right-3 w-7 h-7 bg-orange-600 text-white text-xs font-black flex items-center justify-center rounded-full border-4 border-neutral-900 shadow-lg">
+                {cartCount}
+              </span>
+            </div>
+            <div className="absolute -left-32 top-1/2 -translate-y-1/2 bg-neutral-900 border border-white/10 px-4 py-2 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none hidden md:block">
+               <p className="text-[10px] font-black uppercase tracking-widest whitespace-nowrap">Agiza Kilichopo ({cartCount})</p>
+            </div>
+          </motion.button>
+        )}
+      </AnimatePresence>
 
 
       {/* Cart Drawer / Side Panel */}
