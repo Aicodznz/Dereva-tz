@@ -705,7 +705,9 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                                    <div 
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        const url = `https://www.google.com/maps/dir/?api=1&destination=${selectedVendor.location.lat},${selectedVendor.location.lng}`;
+                                        const origin = userOrigin || position;
+                                        const originStr = origin ? `&origin=${origin.lat},${origin.lng}` : '';
+                                        const url = `https://www.google.com/maps/dir/?api=1${originStr}&destination=${selectedVendor.location.lat},${selectedVendor.location.lng}`;
                                         window.open(url, '_blank');
                                       }}
                                       className="flex items-center gap-1 bg-green-50 text-green-600 px-2 py-1 rounded-lg border border-green-100 hover:bg-green-600 hover:text-white transition-all mr-1"

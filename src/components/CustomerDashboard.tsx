@@ -511,7 +511,8 @@ export default function CustomerDashboard() {
                         onClick={(e) => {
                           e.stopPropagation();
                           if (vendor.location) {
-                            window.open(`https://www.google.com/maps/dir/?api=1&destination=${vendor.location.lat},${vendor.location.lng}`, '_blank');
+                            const originStr = location ? `&origin=${location.lat},${location.lng}` : '';
+                            window.open(`https://www.google.com/maps/dir/?api=1${originStr}&destination=${vendor.location.lat},${vendor.location.lng}`, '_blank');
                           }
                         }}
                         className="flex items-center gap-0.5 sm:gap-1.5 bg-green-50 dark:bg-green-950/30 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-md sm:rounded-lg hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors"

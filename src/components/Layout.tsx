@@ -56,87 +56,90 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Bottom Navigation for Mobile */}
       {!hideBottomNav && (
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-[100] h-20 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border-t border-neutral-200 dark:border-neutral-800 transition-colors duration-300">
-          <motion.div 
-            initial={{ y: 20, opacity: 0 }}
+        <div className="md:hidden fixed bottom-6 left-0 right-0 z-[100] px-4 flex justify-center pointer-events-none">
+          <motion.nav 
+            initial={{ y: 100, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className="h-full px-6 flex justify-around items-center max-w-md mx-auto"
+            transition={{ type: 'spring', damping: 20, stiffness: 100 }}
+            className="pointer-events-auto bg-neutral-900/90 dark:bg-black/90 backdrop-blur-2xl border border-white/10 rounded-[2rem] px-2 py-2 flex items-center justify-around w-full max-w-sm shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative overflow-hidden"
           >
-            {/* Left Icons */}
-            <motion.div 
-              whileTap={{ scale: 0.9 }}
-              className="flex-1"
-            >
-              <Link 
-                to="/" 
-                className={`flex flex-col items-center gap-1.5 transition-all w-full relative group ${location.pathname === '/' || location.pathname === '/dashboard' ? 'text-orange-600' : 'text-neutral-400'}`}
-              >
-                <Home className="w-5 h-5 relative z-10" />
-                <span className={`text-[9px] font-black uppercase tracking-tight transition-all ${location.pathname === '/' ? 'text-orange-600' : 'opacity-70'}`}>Nyumbani</span>
-              </Link>
-            </motion.div>
+            {/* Top Shine Effect */}
+            <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
 
-            <motion.div 
-              whileTap={{ scale: 0.9 }}
-              className="flex-1"
+            <Link 
+              to="/" 
+              className={`relative flex flex-col items-center justify-center w-14 h-14 rounded-2xl transition-all duration-300 ${location.pathname === '/' || location.pathname === '/dashboard' ? 'text-orange-500' : 'text-neutral-500 hover:text-neutral-300'}`}
             >
-              <Link 
-                to="/my-orders" 
-                className={`flex flex-col items-center gap-1.5 transition-all w-full group ${location.pathname === '/my-orders' ? 'text-orange-600' : 'text-neutral-400'}`}
-              >
-                <Receipt className="w-5 h-5 relative z-10" />
-                <span className={`text-[9px] font-black uppercase tracking-tight transition-all ${location.pathname === '/my-orders' ? 'text-orange-600' : 'opacity-70'}`}>Oda</span>
-              </Link>
-            </motion.div>
+              {(location.pathname === '/' || location.pathname === '/dashboard') && (
+                <>
+                  <motion.div layoutId="nav-active" className="absolute top-[-8px] w-8 h-[3px] bg-orange-600 rounded-full shadow-[0_0_10px_rgba(234,88,12,0.8)]" />
+                  <div className="absolute inset-0 bg-orange-500/10 blur-xl rounded-full" />
+                </>
+              )}
+              <Home className="w-6 h-6 relative z-10" />
+            </Link>
 
-            <motion.div 
-              whileTap={{ scale: 0.9 }}
-              className="flex-1"
+            <Link 
+              to="/my-orders" 
+              className={`relative flex flex-col items-center justify-center w-14 h-14 rounded-2xl transition-all duration-300 ${location.pathname === '/my-orders' ? 'text-orange-500' : 'text-neutral-500 hover:text-neutral-300'}`}
             >
-              <Link 
-                to="/chat" 
-                className={`flex flex-col items-center gap-1.5 transition-all w-full group ${location.pathname === '/chat' ? 'text-orange-600' : 'text-neutral-400'}`}
-              >
-                <MessageSquare className="w-5 h-5 relative z-10" />
-                <span className={`text-[9px] font-black uppercase tracking-tight transition-all ${location.pathname === '/chat' ? 'text-orange-600' : 'opacity-70'}`}>Chat</span>
-              </Link>
-            </motion.div>
+              {location.pathname === '/my-orders' && (
+                <>
+                  <motion.div layoutId="nav-active" className="absolute top-[-8px] w-8 h-[3px] bg-orange-600 rounded-full shadow-[0_0_10px_rgba(234,88,12,0.8)]" />
+                  <div className="absolute inset-0 bg-orange-500/10 blur-xl rounded-full" />
+                </>
+              )}
+              <Receipt className="w-6 h-6 relative z-10" />
+            </Link>
 
-            <motion.div 
-              whileTap={{ scale: 0.9 }}
-              className="flex-1"
+            <button 
+              onClick={() => setIsCartOpen(true)}
+              className={`relative flex flex-col items-center justify-center w-14 h-14 rounded-2xl group transition-all duration-300 ${isCartOpen ? 'text-orange-500 drop-shadow-[0_0_8px_rgba(234,88,12,0.5)]' : 'text-neutral-500 hover:text-neutral-300'}`}
             >
-              <button 
-                onClick={() => setIsCartOpen(true)}
-                className={`flex flex-col items-center gap-1.5 transition-all w-full group relative ${isCartOpen ? 'text-orange-600' : 'text-neutral-400'}`}
-              >
-                <div className="relative">
-                  <ShoppingCart className="w-5 h-5 relative z-10" />
-                  {cartCount > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-orange-600 text-white text-[8px] font-black flex items-center justify-center rounded-full border-2 border-white dark:border-neutral-900 animate-bounce">
-                      {cartCount}
-                    </span>
-                  )}
-                </div>
-                <span className={`text-[9px] font-black uppercase tracking-tight transition-all ${isCartOpen ? 'text-orange-600' : 'opacity-70'}`}>Kikapu</span>
-              </button>
-            </motion.div>
+              {(isCartOpen || cartCount > 0) && (
+                <div className="absolute inset-0 bg-orange-500/10 blur-xl rounded-full animate-pulse" />
+              )}
+              <div className="relative">
+                <ShoppingCart className="w-6 h-6 relative z-10 group-active:scale-110 transition-transform" />
+                {cartCount > 0 && (
+                  <motion.span 
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="absolute -top-2 -right-2 w-5 h-5 bg-orange-600 text-white text-[9px] font-black flex items-center justify-center rounded-full border-2 border-neutral-900 shadow-lg z-20"
+                  >
+                    {cartCount}
+                  </motion.span>
+                )}
+              </div>
+            </button>
 
-            <motion.div 
-              whileTap={{ scale: 0.9 }}
-              className="flex-1"
+            <Link 
+              to="/chat" 
+              className={`relative flex flex-col items-center justify-center w-14 h-14 rounded-2xl transition-all duration-300 ${location.pathname === '/chat' ? 'text-orange-500' : 'text-neutral-500 hover:text-neutral-300'}`}
             >
-              <Link 
-                to="/profile" 
-                className={`flex flex-col items-center gap-1.5 transition-all w-full group ${location.pathname === '/profile' ? 'text-orange-600' : 'text-neutral-400'}`}
-              >
-                <User className="w-5 h-5 relative z-10" />
-                <span className={`text-[9px] font-black uppercase tracking-tight transition-all ${location.pathname === '/profile' ? 'text-orange-600' : 'opacity-70'}`}>Akaunti</span>
-              </Link>
-            </motion.div>
-          </motion.div>
-        </nav>
+              {location.pathname === '/chat' && (
+                <>
+                  <motion.div layoutId="nav-active" className="absolute top-[-8px] w-8 h-[3px] bg-orange-600 rounded-full shadow-[0_0_10px_rgba(234,88,12,0.8)]" />
+                  <div className="absolute inset-0 bg-orange-500/10 blur-xl rounded-full" />
+                </>
+              )}
+              <MessageSquare className="w-6 h-6 relative z-10" />
+            </Link>
+
+            <Link 
+              to="/profile" 
+              className={`relative flex flex-col items-center justify-center w-14 h-14 rounded-2xl transition-all duration-300 ${location.pathname === '/profile' ? 'text-orange-500' : 'text-neutral-500 hover:text-neutral-300'}`}
+            >
+              {location.pathname === '/profile' && (
+                <>
+                  <motion.div layoutId="nav-active" className="absolute top-[-8px] w-8 h-[3px] bg-orange-600 rounded-full shadow-[0_0_10px_rgba(234,88,12,0.8)]" />
+                  <div className="absolute inset-0 bg-orange-500/10 blur-xl rounded-full" />
+                </>
+              )}
+              <User className="w-6 h-6 relative z-10" />
+            </Link>
+          </motion.nav>
+        </div>
       )}
 
       {/* Floating Cart Button (Global fallback) */}

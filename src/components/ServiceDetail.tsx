@@ -344,7 +344,8 @@ export default function ServiceDetail() {
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       if (vendor.location) {
-                                        window.open(`https://www.google.com/maps/dir/?api=1&destination=${vendor.location.lat},${vendor.location.lng}`, '_blank');
+                                        const originStr = location ? `&origin=${location.lat},${location.lng}` : '';
+                                        window.open(`https://www.google.com/maps/dir/?api=1${originStr}&destination=${vendor.location.lat},${vendor.location.lng}`, '_blank');
                                       }
                                     }}
                                     className="flex items-center gap-0.5 sm:gap-1.5 bg-green-50 dark:bg-green-950/30 px-1 sm:px-2 py-0.5 rounded-sm hover:bg-green-100 transition-colors"
