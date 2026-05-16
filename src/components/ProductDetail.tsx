@@ -7,7 +7,8 @@ import { useAuth } from '../AuthContext';
 import { useCart } from '../CartContext';
 import { useBusinessConfig } from '../BusinessConfigContext';
 import { initiatePayment } from '../services/paymentService';
-import { Product, VendorProfile, FAQ, Review, ReviewReply } from '../types';
+import { Product, VendorProfile, FAQ } from '../types';
+import ReviewSection from './reviews/ReviewSection';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   ChevronLeft, 
@@ -60,7 +61,6 @@ export default function ProductDetail() {
   const { addItem, setIsCartOpen } = useCart();
   const [product, setProduct] = useState<Product | null>(null);
   const [vendor, setVendor] = useState<VendorProfile | null>(null);
-  const [reviews, setReviews] = useState<Review[]>([]);
   const [similarProducts, setSimilarProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
@@ -104,18 +104,6 @@ export default function ProductDetail() {
       }
     }
   }, [showARView, product?.model3dUrl]);
-
-  // Review Form State
-  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
-  const [rating, setRating] = useState(5);
-  const [comment, setComment] = useState('');
-  const [reviewImages, setReviewImages] = useState<string[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
-  
-  // Reply State
-  const [replyingTo, setReplyingTo] = useState<string | null>(null);
-  const [replyText, setReplyText] = useState('');
 
   // Adaptive States
   const [selectedSize, setSelectedSize] = useState('Normal');
@@ -166,70 +154,6 @@ export default function ProductDetail() {
       }
     }
     fetchProduct();
-
-    const fetchReviews = async () => {
-      try {
-        const q = query(
-          collection(db, 'reviews'),
-          where('targetId', '==', id),
-          where('targetType', '==', 'product')
-        );
-        const snap = await getDocs(q);
-        const reviewsData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Review));
-        
-        // Sort client-side to avoid index requirement
-        const sortedReviews = reviewsData.sort((a, b) => {
-          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return dateB - dateA;
-        });
-        
-        setReviews(sortedReviews);
-      } catch (error) {
-        console.error(error);
-      }
-    };
-
-    const fetchSimilarProducts = async (category: string) => {
-      try {
-        const q = query(
-          collection(db, 'products'),
-          where('category', '==', category),
-          limit(6)
-        );
-        const snap = await getDocs(q);
-        const products = snap.docs
-          .map(doc => ({ id: doc.id, ...doc.data() } as Product))
-          .filter(p => p.id !== id);
-        setSimilarProducts(products);
-      } catch (error) {
-        console.error(error);
-      }
-    };
-
-    fetchReviews();
-
-    const q = query(
-      collection(db, 'reviews'),
-      where('targetId', '==', id),
-      where('targetType', '==', 'product')
-    );
-    
-    const unsub = onSnapshot(
-      q, 
-      () => {
-        fetchReviews();
-      },
-      (error: any) => {
-        if (error.message?.includes('permission')) {
-          console.warn("Reviews live updates restricted by rules");
-          return;
-        }
-        handleFirestoreError(error, OperationType.LIST, 'reviews');
-      }
-    );
-
-    return () => unsub();
   }, [id]);
 
   useEffect(() => {
@@ -253,199 +177,6 @@ export default function ProductDetail() {
       fetchSimilarProducts(product.category);
     }
   }, [id, product?.category]);
-
-  // Separate effect for fetching replies when reviews change
-  useEffect(() => {
-    if (reviews.length === 0) return;
-
-    const fetchReplies = async () => {
-      const reviewsWithReplies = await Promise.all(reviews.map(async (review) => {
-        const q = query(
-          collection(db, 'review_replies'),
-          where('reviewId', '==', review.id)
-        );
-        const snap = await getDocs(q);
-        const repliesData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ReviewReply));
-        
-        // Sort client-side
-        const sortedReplies = repliesData.sort((a, b) => {
-          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return dateA - dateB;
-        });
-
-        return { ...review, replies: sortedReplies };
-      }));
-      setReviews(reviewsWithReplies);
-    };
-
-    fetchReplies();
-  }, [reviews.length]);
-
-  const handleFileUpload = async (files: FileList) => {
-    if (!files || !user || files.length === 0) return;
-    setIsUploading(true);
-    const fileArray = Array.from(files);
-    
-    for (const file of fileArray) {
-      try {
-        const path = storageService.getReviewPath(user.uid, file.name);
-        const publicUrl = await storageService.uploadFile('reviews', path, file);
-        setReviewImages(prev => [...prev, publicUrl]);
-      } catch (error) {
-        toast.error('Imeshindwa kupakia picha');
-      }
-    }
-    setIsUploading(false);
-  };
-
-  const handleSubmitReview = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) {
-      toast.error('Tafadhali ingia ili uweze kutoa maoni');
-      return;
-    }
-
-    try {
-      if (!product) return;
-      const newReviewRef = await addDoc(collection(db, 'reviews'), {
-        userId: user.uid,
-        userName: profile?.displayName || user.displayName || 'Mteja',
-        userPhoto: profile?.photoURL || user.photoURL || '',
-        targetId: id,
-        targetType: 'product',
-        rating,
-        comment,
-        images: reviewImages,
-        likes: [],
-        createdAt: new Date().toISOString()
-      });
-
-      // Update Product Rating
-      if (id) {
-        const q = query(
-          collection(db, 'reviews'),
-          where('targetId', '==', id),
-          where('targetType', '==', 'product')
-        );
-        const snap = await getDocs(q);
-        const reviewsData = snap.docs.map(doc => doc.data());
-        
-        const alreadyInSnap = snap.docs.some(d => d.id === newReviewRef.id);
-        const allRatings = reviewsData.map(r => Number(r.rating) || 0);
-        
-        if (!alreadyInSnap) {
-          allRatings.push(Number(rating));
-        }
-
-        const newRating = allRatings.length > 0 
-          ? allRatings.reduce((acc, curr) => acc + curr, 0) / allRatings.length 
-          : Number(rating);
-        
-        await updateDoc(doc(db, 'products', id), {
-          rating: parseFloat(newRating.toFixed(1)),
-          ratingCount: allRatings.length
-        });
-
-        // ALSO update vendor rating aggregate
-        if (product.vendorId) {
-          try {
-            const vq = query(
-              collection(db, 'reviews'),
-              where('targetId', '==', product.vendorId),
-              where('targetType', '==', 'vendor')
-            );
-            const vsnap = await getDocs(vq);
-            const vReviews = vsnap.docs.map(doc => doc.data());
-            
-            // For now, let's just make sure we update the count and average correctly
-            // if we want to include product reviews in vendor rating, we'd query all reviews for this vendor's products too.
-            // But let's just update based on direct vendor reviews for now as a baseline.
-            const vRatings = vReviews.map(r => Number(r.rating) || 0);
-            if (vRatings.length > 0) {
-              const vAvg = vRatings.reduce((a, b) => a + b, 0) / vRatings.length;
-              await updateDoc(doc(db, 'vendors', product.vendorId), {
-                rating: parseFloat(vAvg.toFixed(1)),
-                ratingCount: vRatings.length
-              });
-            }
-          } catch (err) {
-            console.error("Error updating vendor aggregate:", err);
-          }
-        }
-      }
-      
-      toast.success('Asante kwa maoni yako!');
-      setIsReviewModalOpen(false);
-      setComment('');
-      setRating(5);
-      setReviewImages([]);
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const handleLikeReview = async (reviewId: string, isLiked: boolean) => {
-    if (!user) {
-      toast.error('Tafadhali ingia ili uweze kulike');
-      return;
-    }
-
-    try {
-      const review = reviews.find(r => r.id === reviewId);
-      if (!review) return;
-
-      const newLikes = isLiked 
-        ? (review.likes || []).filter(uid => uid !== user.uid)
-        : [...(review.likes || []), user.uid];
-
-      await updateDoc(doc(db, 'reviews', reviewId), { likes: newLikes });
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const handleDeleteReview = async (reviewId: string) => {
-    try {
-      await deleteDoc(doc(db, 'reviews', reviewId));
-      toast.success('Maoni yamefutwa');
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const handleReplyReview = async (reviewId: string) => {
-    if (!user) {
-      toast.error('Tafadhali ingia ili uweze kujibu');
-      return;
-    }
-    if (!replyText.trim()) return;
-
-    try {
-      await addDoc(collection(db, 'review_replies'), {
-        reviewId,
-        userId: user.uid,
-        userName: profile?.displayName || user.displayName || 'User',
-        userPhoto: profile?.photoURL || user.photoURL || '',
-        text: replyText,
-        createdAt: new Date().toISOString()
-      });
-      setReplyText('');
-      setReplyingTo(null);
-      toast.success('Jibu lako limetumwa');
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const handleDeleteReply = async (reviewId: string, replyId: string) => {
-    try {
-      await deleteDoc(doc(db, 'review_replies', replyId));
-      toast.success('Jibu limefutwa');
-    } catch (error) {
-      console.error(error);
-    }
-  };
 
   const handleApplyCoupon = async () => {
     if (!couponCode.trim()) return;
@@ -642,8 +373,8 @@ export default function ProductDetail() {
                   onClick={() => setSelectedSize(v.name)}
                   className={`py-3 px-4 rounded-2xl border-2 transition-all flex flex-col items-center justify-center gap-1 ${
                     selectedSize === v.name 
-                      ? 'border-orange-600 bg-orange-50 text-orange-600' 
-                      : 'border-neutral-100 text-neutral-500'
+                      ? 'border-orange-600 bg-orange-50 dark:bg-orange-600/10 text-orange-600' 
+                      : 'border-neutral-100 dark:border-neutral-800 text-neutral-500 dark:text-neutral-400'
                   }`}
                 >
                   <span className="font-bold text-sm">{v.name}</span>
@@ -667,20 +398,20 @@ export default function ProductDetail() {
                   onClick={() => toggleAddon(addon.name)}
                   className={`p-4 rounded-2xl border-2 text-left transition-all flex items-center justify-between ${
                     selectedAddons.includes(addon.name)
-                      ? 'border-orange-600 bg-orange-50'
-                      : 'border-neutral-100'
+                      ? 'border-orange-600 bg-orange-50 dark:bg-orange-600/10'
+                      : 'border-neutral-100 dark:border-neutral-800'
                   }`}
                 >
                   <div className="flex flex-col">
-                    <span className={`font-bold text-sm ${selectedAddons.includes(addon.name) ? 'text-orange-600' : 'text-neutral-700'}`}>
+                    <span className={`font-bold text-sm ${selectedAddons.includes(addon.name) ? 'text-orange-600' : 'text-neutral-700 dark:text-neutral-200'}`}>
                       {addon.name}
                     </span>
                     {addon.price > 0 && (
-                      <span className="text-[10px] text-neutral-500 font-medium">TZS {addon.price.toLocaleString()}</span>
+                      <span className="text-[10px] text-neutral-500 dark:text-neutral-400 font-medium">TZS {addon.price.toLocaleString()}</span>
                     )}
                   </div>
                   <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                    selectedAddons.includes(addon.name) ? 'border-orange-600 bg-orange-600' : 'border-neutral-300'
+                    selectedAddons.includes(addon.name) ? 'border-orange-600 bg-orange-600' : 'border-neutral-300 dark:border-neutral-700'
                   }`}>
                     {selectedAddons.includes(addon.name) && <Plus className="w-3.5 h-3.5 text-white" />}
                   </div>
@@ -692,16 +423,16 @@ export default function ProductDetail() {
 
         {/* Category Specific Info */}
         {category === 'pharmacy' && (
-          <div className="space-y-6 pt-4 border-t border-neutral-100">
-            <h3 className="font-bold text-lg">Taarifa za Dawa</h3>
-            <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 space-y-3">
+          <div className="space-y-6 pt-4 border-t border-neutral-100 dark:border-neutral-800 transition-colors">
+            <h3 className="font-bold text-lg text-neutral-900 dark:text-white transition-colors">Taarifa za Dawa</h3>
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-800 space-y-3 transition-colors">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-blue-600 font-medium">Aina ya Dawa:</span>
-                <span className="font-bold text-blue-900">{product.medicationType === 'prescription' ? 'Prescription-only' : 'Over-the-counter'}</span>
+                <span className="text-blue-600 dark:text-blue-400 font-medium">Aina ya Dawa:</span>
+                <span className="font-bold text-blue-900 dark:text-blue-100 transition-colors">{product.medicationType === 'prescription' ? 'Prescription-only' : 'Over-the-counter'}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-blue-600 font-medium">Expiry Date:</span>
-                <span className="font-bold text-blue-900">{product.expiryDate || 'N/A'}</span>
+                <span className="text-blue-600 dark:text-blue-400 font-medium">Expiry Date:</span>
+                <span className="font-bold text-blue-900 dark:text-blue-100 transition-colors">{product.expiryDate || 'N/A'}</span>
               </div>
             </div>
             {product.medicationType === 'prescription' && (
@@ -714,21 +445,21 @@ export default function ProductDetail() {
         )}
 
         {category === 'hotel' && (
-          <div className="space-y-6 pt-4 border-t border-neutral-100">
-            <h3 className="font-bold text-lg">Weka Tarehe Zako</h3>
+          <div className="space-y-6 pt-4 border-t border-neutral-100 dark:border-neutral-800 transition-colors">
+            <h3 className="font-bold text-lg text-neutral-900 dark:text-white transition-colors">Weka Tarehe Zako</h3>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-xs font-bold text-neutral-500 uppercase">Check-in</label>
-                <div className="h-12 bg-neutral-100 rounded-xl flex items-center px-4 gap-2">
+                <label className="text-xs font-bold text-neutral-500 uppercase tracking-widest transition-colors">Check-in</label>
+                <div className="h-12 bg-neutral-100 dark:bg-neutral-800 rounded-xl flex items-center px-4 gap-2 transition-colors">
                   <Calendar className="w-4 h-4 text-orange-600" />
-                  <input type="date" className="bg-transparent border-none text-sm w-full focus:ring-0" />
+                  <input type="date" className="bg-transparent border-none text-sm w-full focus:ring-0 text-neutral-900 dark:text-white transition-colors" />
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="text-xs font-bold text-neutral-500 uppercase">Check-out</label>
-                <div className="h-12 bg-neutral-100 rounded-xl flex items-center px-4 gap-2">
+                <label className="text-xs font-bold text-neutral-500 uppercase tracking-widest transition-colors">Check-out</label>
+                <div className="h-12 bg-neutral-100 dark:bg-neutral-800 rounded-xl flex items-center px-4 gap-2 transition-colors">
                   <Calendar className="w-4 h-4 text-orange-600" />
-                  <input type="date" className="bg-transparent border-none text-sm w-full focus:ring-0" />
+                  <input type="date" className="bg-transparent border-none text-sm w-full focus:ring-0 text-neutral-900 dark:text-white transition-colors" />
                 </div>
               </div>
             </div>
@@ -736,24 +467,24 @@ export default function ProductDetail() {
         )}
 
         {category === 'bus_ticket' && (
-          <div className="space-y-6 pt-4 border-t border-neutral-100">
+          <div className="space-y-6 pt-4 border-t border-neutral-100 dark:border-neutral-800 transition-colors">
             <div className="flex items-center justify-between">
-              <h3 className="font-bold text-lg">Maelezo ya Safari</h3>
-              <Badge className="bg-green-50 text-green-600 border-none font-black text-[10px] uppercase">Active Trip</Badge>
+              <h3 className="font-bold text-lg text-neutral-900 dark:text-white transition-colors">Maelezo ya Safari</h3>
+              <Badge className="bg-green-50 dark:bg-green-950/20 text-green-600 dark:text-green-400 border-none font-black text-[10px] uppercase">Active Trip</Badge>
             </div>
             
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-100">
-                <p className="text-[10px] font-black text-neutral-400 uppercase mb-1">Boarding Point</p>
-                <p className="text-sm font-bold text-neutral-900 line-clamp-1">{(product as any).boardingPoint || 'Main Office, Ubungo'}</p>
+              <div className="bg-neutral-50 dark:bg-neutral-900 p-4 rounded-2xl border border-neutral-100 dark:border-neutral-800 transition-colors">
+                <p className="text-[10px] font-black text-neutral-400 dark:text-neutral-500 uppercase mb-1">Boarding Point</p>
+                <p className="text-sm font-bold text-neutral-900 dark:text-white line-clamp-1 transition-colors">{(product as any).boardingPoint || 'Main Office, Ubungo'}</p>
                 <div className="flex items-center gap-1 mt-1 text-orange-600">
                   <MapPin className="w-3 h-3" />
                   <span className="text-[10px] font-bold">Open in Maps</span>
                 </div>
               </div>
-              <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-100">
-                <p className="text-[10px] font-black text-neutral-400 uppercase mb-1">Departure Time</p>
-                <p className="text-sm font-bold text-neutral-900">{(product as any).departureTime || '06:00 AM'}</p>
+              <div className="bg-neutral-50 dark:bg-neutral-900 p-4 rounded-2xl border border-neutral-100 dark:border-neutral-800 transition-colors">
+                <p className="text-[10px] font-black text-neutral-400 dark:text-neutral-500 uppercase mb-1">Departure Time</p>
+                <p className="text-sm font-bold text-neutral-900 dark:text-white transition-colors">{(product as any).departureTime || '06:00 AM'}</p>
                 <div className="flex items-center gap-1 mt-1 text-orange-600">
                   <Clock className="w-3 h-3" />
                   <span className="text-[10px] font-bold">Local Time</span>
@@ -763,10 +494,10 @@ export default function ProductDetail() {
 
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h4 className="text-sm font-black text-neutral-900 uppercase italic">Chagua Kiti (Select Seat)</h4>
-                <p className="text-[10px] font-bold text-neutral-500">{(product as any).availableSeats || '45'} available</p>
+                <h4 className="text-sm font-black text-neutral-900 dark:text-white uppercase italic transition-colors">Chagua Kiti (Select Seat)</h4>
+                <p className="text-[10px] font-bold text-neutral-500 dark:text-neutral-400 transition-colors">{(product as any).availableSeats || '45'} available</p>
               </div>
-              <div className="grid grid-cols-5 gap-2 h-48 overflow-y-auto p-4 bg-neutral-900 rounded-3xl no-scrollbar border-4 border-neutral-800">
+              <div className="grid grid-cols-5 gap-2 h-48 overflow-y-auto p-4 bg-neutral-900 dark:bg-black rounded-3xl no-scrollbar border-4 border-neutral-800 dark:border-neutral-900 transition-colors">
                 {Array.from({ length: 48 }).map((_, i) => {
                   const isBooked = [3, 7, 12, 14, 22, 23, 30].includes(i);
                   return (
@@ -806,7 +537,7 @@ export default function ProductDetail() {
   };
 
   return (
-    <div className="min-h-screen bg-white lg:bg-neutral-50 pb-12">
+    <div className="min-h-screen bg-white dark:bg-neutral-950 lg:bg-neutral-50 lg:dark:bg-neutral-950 pb-12 transition-colors">
       {/* AR Viewer Overlay */}
       <AnimatePresence>
         {showARView && product?.model3dUrl && (
@@ -919,7 +650,7 @@ export default function ProductDetail() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
           {/* Left: Product Images */}
           <div className="space-y-4">
-            <div className="aspect-square bg-neutral-100 rounded-[2rem] lg:rounded-[2.5rem] overflow-hidden relative group shadow-2xl shadow-neutral-200">
+            <div className="aspect-square bg-neutral-100 dark:bg-neutral-900 rounded-[2rem] lg:rounded-[2.5rem] overflow-hidden relative group shadow-2xl shadow-neutral-200 dark:shadow-black/50">
               <img 
                 src={(product.imageUrls?.[activeImageIndex] || product.imageUrl) || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c'} 
                 alt={product.name}
@@ -929,7 +660,7 @@ export default function ProductDetail() {
               {/* Overlay sharing */}
               <button 
                 onClick={handleShare}
-                className="absolute top-6 right-6 w-12 h-12 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center text-neutral-900 shadow-xl hover:bg-white transition-all active:scale-90"
+                className="absolute top-6 right-6 w-12 h-12 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-md rounded-full flex items-center justify-center text-neutral-900 dark:text-white shadow-xl hover:bg-white dark:hover:bg-neutral-800 transition-all active:scale-90"
               >
                 <Share2 className="w-5 h-5" />
               </button>
@@ -965,22 +696,22 @@ export default function ProductDetail() {
           <div className="space-y-6 lg:pl-0">
             {/* Category & Title */}
             <div className="space-y-0.5 mt-2 lg:mt-0">
-              <span className="text-neutral-400 text-[8px] lg:text-[10px] font-black uppercase tracking-[0.2em]">{product.category || 'Daily Meals'}</span>
-              <h1 className="text-xl lg:text-4xl font-black text-neutral-900 leading-tight tracking-tight font-display italic uppercase">{product.name}</h1>
-              <p className="text-neutral-500 text-xs lg:text-base leading-relaxed max-w-xl font-medium line-clamp-2 lg:line-clamp-none">
+              <span className="text-neutral-400 dark:text-neutral-500 text-[8px] lg:text-[10px] font-black uppercase tracking-[0.2em]">{product.category || 'Daily Meals'}</span>
+              <h1 className="text-xl lg:text-4xl font-black text-neutral-900 dark:text-white leading-tight tracking-tight font-display italic uppercase transition-colors">{product.name}</h1>
+              <p className="text-neutral-500 dark:text-neutral-400 text-xs lg:text-base leading-relaxed max-w-xl font-medium line-clamp-2 lg:line-clamp-none transition-colors">
                 {product.description || 'Flavorful and freshly prepared meal made with premium ingredients.'}
               </p>
             </div>
 
             {/* Rating & Veg/Non-Veg Indicator */}
             <div className="flex items-center gap-4 py-1">
-              <div className="flex items-center gap-1.5 bg-neutral-100 px-3 py-1.5 rounded-xl">
+              <div className="flex items-center gap-1.5 bg-neutral-100 dark:bg-neutral-800 px-3 py-1.5 rounded-xl transition-colors">
                 <Star className="w-4 h-4 text-orange-500 fill-current" />
-                <span className="font-bold text-neutral-900 text-xs">{(product.ratingCount || 0) > 0 ? (product.rating || 0).toFixed(1) : '0'}</span>
+                <span className="font-bold text-neutral-900 dark:text-white text-xs">{(product.ratingCount || 0) > 0 ? (product.rating || 0).toFixed(1) : '0'}</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-neutral-400 font-bold uppercase text-[10px] tracking-widest underline underline-offset-4 decoration-neutral-100">({(product.ratingCount || 0)} Reviews)</span>
-                <div className="w-px h-4 bg-neutral-200 mx-1" />
+                <span className="text-neutral-400 dark:text-neutral-500 font-bold uppercase text-[10px] tracking-widest underline underline-offset-4 decoration-neutral-100 dark:decoration-neutral-800">({(product.ratingCount || 0)} Reviews)</span>
+                <div className="w-px h-4 bg-neutral-200 dark:bg-neutral-800 mx-1" />
                 <div className="w-5 h-5 border border-red-500 rounded-md flex items-center justify-center p-1 shadow-sm">
                   <div className="w-full h-full bg-red-500 rounded-[1px]" />
                 </div>
@@ -990,28 +721,28 @@ export default function ProductDetail() {
             {/* Price section */}
             <div className="space-y-0.5">
               <div className="flex items-baseline gap-3">
-                <span className="text-3xl lg:text-4xl font-black text-neutral-900 italic tracking-tighter">
+                <span className="text-3xl lg:text-4xl font-black text-neutral-900 dark:text-white italic tracking-tighter transition-colors">
                   {formatCurrency(calculateDiscountedPrice())}
                 </span>
                 {product.discountPrice && (
-                  <span className="text-lg text-neutral-300 line-through font-bold italic">
+                  <span className="text-lg text-neutral-300 dark:text-neutral-600 line-through font-bold italic transition-colors">
                     {formatCurrency(product.price)}
                   </span>
                 )}
               </div>
-              <p className="text-neutral-400 text-[9px] font-black uppercase tracking-widest">( Include all taxes )</p>
+              <p className="text-neutral-400 dark:text-neutral-500 text-[9px] font-black uppercase tracking-widest transition-colors">( Include all taxes )</p>
             </div>
 
-            <div className="h-px bg-neutral-100 w-full" />
+            <div className="h-px bg-neutral-100 dark:bg-neutral-800 w-full transition-colors" />
 
             {/* Options Selector Section */}
             <div className="space-y-6 lg:space-y-8">
               <div className="space-y-3 lg:space-y-4">
                  <div className="flex items-center justify-between">
-                   <h3 className="text-[10px] font-black text-neutral-900 uppercase tracking-widest">Select Options</h3>
+                   <h3 className="text-[10px] font-black text-neutral-900 dark:text-white uppercase tracking-widest transition-colors">Select Options</h3>
                    <div className="flex items-center gap-3">
-                     <span className="text-[9px] font-black text-neutral-400 uppercase tracking-widest">Stock: <span className="text-neutral-900">{product.stock || 848} items</span></span>
-                     <span className="text-[9px] font-black text-neutral-400 uppercase tracking-widest">SKU: <span className="text-neutral-900">PPH-{id?.slice(0, 4).toUpperCase()}</span></span>
+                     <span className="text-[9px] font-black text-neutral-400 dark:text-neutral-600 uppercase tracking-widest">Stock: <span className="text-neutral-900 dark:text-neutral-300 transition-colors">{product.stock || 848} items</span></span>
+                     <span className="text-[9px] font-black text-neutral-400 dark:text-neutral-600 uppercase tracking-widest">SKU: <span className="text-neutral-900 dark:text-neutral-300 transition-colors">PPH-{id?.slice(0, 4).toUpperCase()}</span></span>
                    </div>
                  </div>
 
@@ -1024,19 +755,19 @@ export default function ProductDetail() {
               {/* Action and Delivery info */}
               <div className="flex flex-wrap items-center gap-4 lg:gap-6 py-1 lg:py-2">
                 <div className="flex items-center gap-2 lg:gap-3">
-                  <span className="text-[9px] lg:text-[10px] font-black text-neutral-400 uppercase tracking-widest">Quantity:</span>
-                  <div className="flex items-center gap-3 lg:gap-4 bg-neutral-100 p-1 lg:p-1.5 rounded-full border border-neutral-200/50 shadow-inner">
+                  <span className="text-[9px] lg:text-[10px] font-black text-neutral-400 dark:text-neutral-600 uppercase tracking-widest transition-colors">Quantity:</span>
+                  <div className="flex items-center gap-3 lg:gap-4 bg-neutral-100 dark:bg-neutral-800 p-1 lg:p-1.5 rounded-full border border-neutral-200/50 dark:border-neutral-700/50 shadow-inner transition-colors">
                     <button 
                       onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      className="w-7 h-7 lg:w-8 lg:h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-orange-600 disabled:opacity-50"
+                      className="w-7 h-7 lg:w-8 lg:h-8 rounded-full bg-white dark:bg-neutral-900 shadow-sm flex items-center justify-center text-orange-600 disabled:opacity-50"
                       disabled={quantity <= 1}
                     >
                       <Minus size={14} strokeWidth={3} />
                     </button>
-                    <span className="w-3 lg:w-4 text-center font-black text-sm lg:text-lg italic tabular-nums text-neutral-900">{quantity}</span>
+                    <span className="w-3 lg:w-4 text-center font-black text-sm lg:text-lg italic tabular-nums text-neutral-900 dark:text-white transition-colors">{quantity}</span>
                     <button 
                       onClick={() => setQuantity(quantity + 1)}
-                      className="w-7 h-7 lg:w-8 lg:h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-orange-600"
+                      className="w-7 h-7 lg:w-8 lg:h-8 rounded-full bg-white dark:bg-neutral-900 shadow-sm flex items-center justify-center text-orange-600"
                     >
                       <Plus size={14} strokeWidth={3} />
                     </button>
@@ -1073,13 +804,13 @@ export default function ProductDetail() {
         </div>
 
             {/* Info Tabs Section */}
-        <div className="mt-2 lg:mt-6 border-t border-neutral-100 pt-3 lg:pt-6">
-           <div className="flex flex-wrap gap-1.5 mb-3 p-1.5 bg-neutral-100/50 rounded-2xl w-full lg:w-fit border border-neutral-200/50">
+        <div className="mt-2 lg:mt-6 border-t border-neutral-100 dark:border-neutral-800 pt-3 lg:pt-6 transition-colors">
+           <div className="flex flex-wrap gap-1.5 mb-3 p-1.5 bg-neutral-100/50 dark:bg-neutral-900/50 rounded-2xl w-full lg:w-fit border border-neutral-200/50 dark:border-neutral-800/50 transition-colors">
               {['Maelezo', 'Maoni', 'Maswali', 'Muuzaji'].map((tab) => (
                 <button 
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`flex-1 lg:flex-none px-3 py-1.5 rounded-xl font-black uppercase text-[8px] lg:text-[10px] tracking-widest transition-all duration-300 ${activeTab === tab ? 'bg-white text-neutral-900 shadow-sm border border-neutral-200/50' : 'text-neutral-400 hover:text-neutral-600'}`}
+                  className={`flex-1 lg:flex-none px-3 py-1.5 rounded-xl font-black uppercase text-[8px] lg:text-[10px] tracking-widest transition-all duration-300 ${activeTab === tab ? 'bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white shadow-sm border border-neutral-200/50 dark:border-neutral-700/50' : 'text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300'}`}
                 >
                   <div className="flex items-center justify-center gap-1.5">
                     {tab === 'Maelezo' && <Info className="w-3.5 h-3.5" />}
@@ -1096,12 +827,12 @@ export default function ProductDetail() {
               {activeTab === 'Maelezo' && (
                 <div className="space-y-4">
                   <div className="space-y-0.5">
-                    <h2 className="text-xl lg:text-3xl font-black text-neutral-900 uppercase italic tracking-tighter">Maelezo</h2>
-                    <p className="text-neutral-400 font-black uppercase text-[8px] tracking-widest">Taarifa za Bidhaa</p>
+                    <h2 className="text-xl lg:text-3xl font-black text-neutral-900 dark:text-white uppercase italic tracking-tighter transition-colors">Maelezo</h2>
+                    <p className="text-neutral-400 dark:text-neutral-500 font-black uppercase text-[8px] tracking-widest">Taarifa za Bidhaa</p>
                   </div>
 
                   <div className="space-y-4">
-                      <p className="text-sm lg:text-lg text-neutral-800 leading-relaxed font-bold italic tracking-tight underline decoration-orange-200 underline-offset-4 decoration-2">
+                      <p className="text-sm lg:text-lg text-neutral-800 dark:text-neutral-100 leading-relaxed font-bold italic tracking-tight underline decoration-orange-200 dark:decoration-orange-900 underline-offset-4 decoration-2">
                         {product.story || (
                           <>
                             Prepared with premium ingredients and time-honored techniques for the perfect balance of taste.
@@ -1110,26 +841,26 @@ export default function ProductDetail() {
                       </p>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div className="bg-white p-4 rounded-[1.5rem] border border-neutral-100 shadow-md">
-                        <h3 className="text-xs font-black text-neutral-900 flex items-center gap-2 italic tracking-tighter uppercase mb-3">
+                      <div className="bg-white dark:bg-neutral-900 p-4 rounded-[1.5rem] border border-neutral-100 dark:border-neutral-800 shadow-md">
+                        <h3 className="text-xs font-black text-neutral-900 dark:text-white flex items-center gap-2 italic tracking-tighter uppercase mb-3">
                           ✨ Kwa Nini Utakupenda:
                         </h3>
                         <ul className="space-y-2">
                           {(product.highlights && product.highlights.length > 0) ? (
                             product.highlights.map((highlight, idx) => (
-                              <li key={`highlight-${idx}`} className="flex items-center gap-3 text-neutral-600 font-bold group">
-                                <div className="w-5 h-5 shrink-0 rounded-lg bg-orange-50 flex items-center justify-center text-orange-600 text-[8px]">{idx + 1}</div>
+                              <li key={`highlight-${idx}`} className="flex items-center gap-3 text-neutral-600 dark:text-neutral-300 font-bold group">
+                                <div className="w-5 h-5 shrink-0 rounded-lg bg-orange-50 dark:bg-orange-600/20 flex items-center justify-center text-orange-600 text-[8px]">{idx + 1}</div>
                                 <span className="text-[11px] leading-tight">{highlight}</span>
                               </li>
                             ))
                           ) : (
                             <>
-                              <li className="flex items-center gap-3 text-neutral-600 font-bold group">
-                                <div className="w-5 h-5 shrink-0 rounded-lg bg-orange-50 flex items-center justify-center text-orange-600 text-[8px]">1</div>
+                              <li className="flex items-center gap-3 text-neutral-600 dark:text-neutral-300 font-bold group">
+                                <div className="w-5 h-5 shrink-0 rounded-lg bg-orange-50 dark:bg-orange-600/20 flex items-center justify-center text-orange-600 text-[8px]">1</div>
                                 <span className="text-[11px]">Viungo vya hali ya juu</span>
                               </li>
-                              <li className="flex items-center gap-3 text-neutral-600 font-bold group">
-                                <div className="w-5 h-5 shrink-0 rounded-lg bg-orange-50 flex items-center justify-center text-orange-600 text-[8px]">2</div>
+                              <li className="flex items-center gap-3 text-neutral-600 dark:text-neutral-300 font-bold group">
+                                <div className="w-5 h-5 shrink-0 rounded-lg bg-orange-50 dark:bg-orange-600/20 flex items-center justify-center text-orange-600 text-[8px]">2</div>
                                 <span className="text-[11px]">Maandalizi ya kiasili</span>
                               </li>
                             </>
@@ -1137,12 +868,12 @@ export default function ProductDetail() {
                         </ul>
                       </div>
 
-                      <div className="bg-neutral-900 p-4 rounded-[1.5rem] text-white shadow-lg">
+                      <div className="bg-neutral-900 dark:bg-black p-4 rounded-[1.5rem] text-white shadow-lg transition-colors">
                         <h3 className="text-xs font-black text-white flex items-center gap-2 italic tracking-tighter uppercase mb-3">
                           📝 Ahadi ya Ubora:
                         </h3>
                         <div className="p-3 bg-white/5 rounded-xl border border-white/10 mb-3">
-                          <p className="text-neutral-400 italic font-medium leading-relaxed text-[10px]">
+                          <p className="text-neutral-400 dark:text-neutral-500 italic font-medium leading-relaxed text-[10px] transition-colors">
                             {product.qualityPromise?.description || `"Viwango vikali vya ubora vinavyozingatiwa kila hatua."`}
                           </p>
                         </div>
@@ -1161,65 +892,31 @@ export default function ProductDetail() {
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h2 className="text-xl lg:text-5xl font-black text-neutral-900 uppercase italic tracking-tighter">Maoni</h2>
-                      <p className="text-neutral-400 font-black uppercase text-[8px] tracking-widest mt-1">Maoni yaliyohakikiwa</p>
-                    </div>
-                    <Button 
-                      onClick={() => setIsReviewModalOpen(true)}
-                      className="h-9 px-4 bg-orange-600 text-white rounded-xl font-black uppercase tracking-widest text-[8px]"
-                    >
-                      Maoni
-                    </Button>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="md:col-span-1 bg-neutral-50 p-6 rounded-[2rem] flex flex-col items-center justify-center text-center space-y-3 border border-neutral-100">
-                      <span className="text-5xl font-black text-neutral-900 italic tracking-tighter">
-                         {(product?.ratingCount || 0) > 0 ? (Number(product?.rating) || 0).toFixed(1) : '0.0'}
-                      </span>
-                      <div className="flex gap-1">
-                         {[...Array(5)].map((_, i) => (
-                           <Star key={`summary-star-${i}`} className={`w-4 h-4 ${i < Math.round((product?.ratingCount || 0) > 0 ? (product?.rating || 0) : 0) ? 'text-orange-500 fill-current' : 'text-neutral-200'}`} />
-                         ))}
-                      </div>
-                      <p className="text-neutral-400 font-black uppercase tracking-widest text-[8px]">{(product?.ratingCount || 0)} feedback</p>
-                    </div>
-
-                    <div className="md:col-span-2 space-y-4">
-                       {reviews.map((review, idx) => (
-                         <div key={review.id} className="p-5 bg-white rounded-[1.5rem] border border-neutral-100 shadow-sm transition-all group">
-                             <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center gap-3">
-                                   <div className="w-9 h-9 rounded-full border border-orange-100 p-0.5">
-                                      <img src={review.userPhoto || `https://ui-avatars.com/api/?name=${review.userName}`} className="w-full h-full rounded-full object-cover" alt="" />
-                                   </div>
-                                   <div>
-                                      <h4 className="font-black text-neutral-900 uppercase italic tracking-tight text-[11px]">{review.userName}</h4>
-                                      <div className="flex gap-0.5">
-                                         {[...Array(5)].map((_, i) => <Star key={i} className={`w-2.5 h-2.5 ${i < review.rating ? 'text-orange-500 fill-current' : 'text-neutral-200'}`} />)}
-                                      </div>
-                                   </div>
-                                </div>
-                             </div>
-                             <p className="text-neutral-600 font-medium leading-relaxed text-[11px]">{review.comment}</p>
-                         </div>
-                       ))}
-                       {reviews.length === 0 && <p className="text-neutral-400 font-medium italic text-[11px]">Bado hakuna reviews hapa.</p>}
+                      <h2 className="text-xl lg:text-5xl font-black text-neutral-900 dark:text-white uppercase italic tracking-tighter transition-colors">Maoni</h2>
+                      <p className="text-neutral-400 font-black uppercase text-[8px] tracking-widest mt-1">Maoni yaliyohakikiwa kwa ununuzi</p>
                     </div>
                   </div>
+
+                  {id && (
+                    <ReviewSection 
+                      targetId={id} 
+                      targetType="product"
+                      isVendor={profile?.role === 'vendor' && vendor?.ownerUid === user?.uid}
+                    />
+                  )}
                 </div>
               )}
               {activeTab === 'Maswali' && (
                 <div className="space-y-4">
-                  <h2 className="text-xl lg:text-5xl font-black text-neutral-900 uppercase italic tracking-tighter">Maswali</h2>
+                  <h2 className="text-xl lg:text-5xl font-black text-neutral-900 dark:text-white uppercase italic tracking-tighter transition-colors">Maswali</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div className="p-6 bg-neutral-50 rounded-[1.5rem] space-y-2">
-                      <h4 className="font-black text-neutral-900 uppercase italic tracking-tight text-[11px]">Muda wa Kufika</h4>
-                      <p className="text-neutral-500 font-medium leading-relaxed text-[11px]">Dakika 55-90 kulingana na eneo lako.</p>
+                    <div className="p-6 bg-neutral-50 dark:bg-neutral-900 rounded-[1.5rem] space-y-2 transition-colors">
+                      <h4 className="font-black text-neutral-900 dark:text-white uppercase italic tracking-tight text-[11px]">Muda wa Kufika</h4>
+                      <p className="text-neutral-500 dark:text-neutral-400 font-medium leading-relaxed text-[11px]">Dakika 55-90 kulingana na eneo lako.</p>
                     </div>
-                    <div className="p-6 bg-neutral-50 rounded-[1.5rem] space-y-2">
-                      <h4 className="font-black text-neutral-900 uppercase italic tracking-tight text-[11px]">Njia za Malipo</h4>
-                      <p className="text-neutral-500 font-medium leading-relaxed text-[11px]">M-Pesa, Airtel Money na kadi zinakubaliwa.</p>
+                    <div className="p-6 bg-neutral-50 dark:bg-neutral-900 rounded-[1.5rem] space-y-2 transition-colors">
+                      <h4 className="font-black text-neutral-900 dark:text-white uppercase italic tracking-tight text-[11px]">Njia za Malipo</h4>
+                      <p className="text-neutral-500 dark:text-neutral-400 font-medium leading-relaxed text-[11px]">M-Pesa, Airtel Money na kadi zinakubaliwa.</p>
                     </div>
                   </div>
                 </div>
@@ -1296,7 +993,7 @@ export default function ProductDetail() {
         {similarProducts.length > 0 && (
           <div className="space-y-6 pt-12">
             <div className="flex items-center justify-between">
-              <h3 className="text-xl font-black text-neutral-900 uppercase italic tracking-tighter">Similar Products</h3>
+              <h3 className="text-xl font-black text-neutral-900 dark:text-white uppercase italic tracking-tighter transition-colors">Similar Products</h3>
               <button className="text-orange-600 text-xs font-black uppercase tracking-widest underline underline-offset-4 decoration-2">View All</button>
             </div>
             <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar">
@@ -1306,7 +1003,7 @@ export default function ProductDetail() {
                   to={`/product/${p.id}`}
                   className="w-40 md:w-56 shrink-0 group"
                 >
-                  <Card className="bg-white border border-neutral-100 rounded-3xl overflow-hidden shadow-sm group-hover:shadow-xl group-hover:-translate-y-1 transition-all duration-300">
+                  <Card className="bg-white dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 rounded-3xl overflow-hidden shadow-sm group-hover:shadow-xl group-hover:-translate-y-1 transition-all duration-300">
                     <div className="aspect-square relative overflow-hidden">
                       <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                       {p.discountPrice && (
@@ -1314,7 +1011,7 @@ export default function ProductDetail() {
                       )}
                     </div>
                     <CardContent className="p-3 md:p-4 space-y-1">
-                      <h4 className="font-bold text-xs md:text-sm text-neutral-900 truncate uppercase tracking-tight">{p.name}</h4>
+                      <h4 className="font-bold text-xs md:text-sm text-neutral-900 dark:text-white truncate uppercase tracking-tight transition-colors">{p.name}</h4>
                       <div className="flex items-center gap-2">
                          <span className="text-xs font-black text-orange-600 italic">TZS {p.discountPrice ? p.discountPrice.toLocaleString() : p.price.toLocaleString()}</span>
                          {p.discountPrice && (
@@ -1329,111 +1026,6 @@ export default function ProductDetail() {
           </div>
         )}
       </div>
-
-      {/* Review Modal */}
-      <AnimatePresence>
-        {isReviewModalOpen && (
-          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsReviewModalOpen(false)}
-              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-lg bg-white rounded-[2.5rem] overflow-hidden shadow-2xl p-8"
-            >
-              <div className="flex items-center justify-between mb-8">
-                <h3 className="text-2xl font-black text-neutral-900">Andika Maoni</h3>
-                <button onClick={() => setIsReviewModalOpen(false)} className="text-neutral-400 hover:text-neutral-900">
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-
-              <form onSubmit={handleSubmitReview} className="space-y-6">
-                <div className="flex flex-col items-center gap-4">
-                  <p className="text-sm font-bold text-neutral-500 uppercase">Gusa nyota kutoa alama</p>
-                  <div className="flex gap-2">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <button
-                        key={star}
-                        type="button"
-                        onClick={() => setRating(star)}
-                        className="transition-transform active:scale-90"
-                      >
-                        <Star className={`w-10 h-10 ${star <= rating ? 'text-orange-500 fill-current' : 'text-neutral-200'}`} />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-neutral-500 uppercase">Maoni Yako</label>
-                  <textarea 
-                    required
-                    value={comment}
-                    onChange={(e) => setComment(e.target.value)}
-                    className="w-full min-h-[120px] p-4 bg-neutral-100 rounded-2xl border-none focus:ring-2 focus:ring-orange-500 text-sm resize-none"
-                    placeholder="Elezea uzoefu wako..."
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-neutral-500 uppercase">Picha za Bidhaa (Optional)</label>
-                  <div className="flex flex-wrap gap-3">
-                    {reviewImages.map((url, idx) => url && (
-                      <div key={`review-preview-${idx}`} className="w-20 h-20 rounded-2xl overflow-hidden relative group">
-                        <img src={url} alt="Preview" className="w-full h-full object-cover" />
-                        <button 
-                          type="button"
-                          onClick={() => setReviewImages(prev => prev.filter((_, i) => i !== idx))}
-                          className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isUploading}
-                      className="w-20 h-20 rounded-2xl bg-neutral-100 border-2 border-dashed border-neutral-200 flex flex-col items-center justify-center text-neutral-400 hover:text-orange-600 hover:border-orange-600 transition-all"
-                    >
-                      {isUploading ? (
-                        <div className="w-5 h-5 border-2 border-orange-600 border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <>
-                          <Camera className="w-6 h-6" />
-                          <span className="text-[8px] font-bold mt-1">Add Photo</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                  <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    className="hidden" 
-                    multiple 
-                    accept="image/*" 
-                    onChange={(e) => e.target.files && handleFileUpload(e.target.files)} 
-                  />
-                </div>
-
-                <Button 
-                  type="submit" 
-                  className="w-full h-14 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl font-bold text-lg shadow-lg shadow-orange-200"
-                >
-                  Tuma Maoni
-                </Button>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
 
       {/* Checkout Modal */}
       <AnimatePresence>
@@ -1450,30 +1042,30 @@ export default function ProductDetail() {
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-md bg-white rounded-[2.5rem] overflow-hidden shadow-2xl p-8"
+              className="relative w-full max-w-md bg-white dark:bg-neutral-900 rounded-[2.5rem] overflow-hidden shadow-2xl p-8"
             >
                <div className="flex items-center justify-between mb-8">
-                <h3 className="text-2xl font-black text-neutral-900">Kamilisha Malipo</h3>
-                <button onClick={() => setIsCheckoutModalOpen(false)} className="text-neutral-400 hover:text-neutral-900">
+                <h3 className="text-2xl font-black text-neutral-900 dark:text-white transition-colors">Kamilisha Malipo</h3>
+                <button onClick={() => setIsCheckoutModalOpen(false)} className="text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">
                   <X className="w-6 h-6" />
                 </button>
               </div>
 
               <div className="space-y-6">
                 {tableSession && (
-                  <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 flex items-center gap-3">
+                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl border border-blue-100 dark:border-blue-800 transition-colors flex items-center gap-3">
                     <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white">
                       <ShoppingBag className="w-5 h-5" />
                     </div>
                     <div>
-                      <p className="text-xs font-bold text-blue-700 uppercase tracking-widest">In-Store Session Active</p>
-                      <p className="text-sm font-black text-blue-900 uppercase italic">Section: {tableSession.tableId}</p>
+                      <p className="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-widest">In-Store Session Active</p>
+                      <p className="text-sm font-black text-blue-900 dark:text-white uppercase italic transition-colors">Section: {tableSession.tableId}</p>
                     </div>
                   </div>
                 )}
 
-                <div className="p-4 bg-orange-50 rounded-2xl border border-orange-100">
-                  <div className="flex justify-between items-center text-sm font-bold text-neutral-500 uppercase tracking-widest">
+                <div className="p-4 bg-orange-50 dark:bg-orange-950/20 rounded-2xl border border-orange-100 dark:border-orange-900 transition-colors">
+                  <div className="flex justify-between items-center text-sm font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-widest transition-colors">
                     <span>Jumla:</span>
                     <span className="text-xl font-black text-orange-600 italic">TZS {calculateDiscountedPrice().toLocaleString()}</span>
                   </div>
@@ -1481,8 +1073,8 @@ export default function ProductDetail() {
 
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Chagua Aina ya Oda</label>
-                    <div className="flex p-1 bg-neutral-100 rounded-2xl">
+                    <label className="text-[10px] font-black text-neutral-400 dark:text-neutral-600 uppercase tracking-widest transition-colors">Chagua Aina ya Oda</label>
+                    <div className="flex p-1 bg-neutral-100 dark:bg-neutral-800 rounded-2xl transition-colors">
                       {[
                         { id: 'delivery', label: 'Delivery' },
                         { id: 'pickup', label: 'Takeaway' },
@@ -1492,7 +1084,7 @@ export default function ProductDetail() {
                           key={type.id}
                           onClick={() => setOrderType(type.id as any)}
                           className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${
-                            orderType === type.id ? 'bg-white text-orange-600 shadow-sm' : 'text-neutral-500'
+                            orderType === type.id ? 'bg-white dark:bg-neutral-700 text-orange-600 shadow-sm' : 'text-neutral-500 dark:text-neutral-400'
                           }`}
                         >
                           {type.label}
@@ -1503,11 +1095,11 @@ export default function ProductDetail() {
 
                   {orderType === 'walk_in' && !tableSession && (
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Namba ya Section / Shelf</label>
+                      <label className="text-[10px] font-black text-neutral-400 dark:text-neutral-600 uppercase tracking-widest transition-colors">Namba ya Section / Shelf</label>
                       <input 
                         type="text"
                         placeholder="Ingiza namba ya eneo"
-                        className="w-full h-14 px-6 bg-neutral-50 border border-neutral-200 rounded-2xl text-lg font-black uppercase italic focus:ring-2 focus:ring-orange-600 outline-none"
+                        className="w-full h-14 px-6 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-2xl text-lg font-black uppercase italic focus:ring-2 focus:ring-orange-600 outline-none text-neutral-900 dark:text-white transition-colors placeholder:text-neutral-300 dark:placeholder:text-neutral-600"
                         value={tableNumber}
                         onChange={(e) => setTableNumber(e.target.value)}
                       />
@@ -1515,13 +1107,13 @@ export default function ProductDetail() {
                   )}
 
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Namba ya Simu (Mobile Money)</label>
+                    <label className="text-[10px] font-black text-neutral-400 dark:text-neutral-600 uppercase tracking-widest transition-colors">Namba ya Simu (Mobile Money)</label>
                     <div className="relative">
-                      <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-300" />
+                      <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-300 dark:text-neutral-600" />
                       <input 
                         type="tel"
                         placeholder="07XXXXXXXX"
-                        className="w-full h-14 pl-12 pr-4 bg-neutral-50 border border-neutral-200 rounded-2xl text-lg font-black italic focus:ring-2 focus:ring-orange-500 outline-none"
+                        className="w-full h-14 pl-12 pr-4 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-2xl text-lg font-black italic focus:ring-2 focus:ring-orange-500 outline-none text-neutral-900 dark:text-white transition-colors placeholder:text-neutral-300 dark:placeholder:text-neutral-600"
                         value={buyerPhone}
                         onChange={(e) => setBuyerPhone(e.target.value)}
                       />

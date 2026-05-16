@@ -136,11 +136,19 @@ export default function SalonVendorDashboard() {
     // Fetch Appointments (Orders)
     const qApt = query(
       collection(db, 'orders'),
-      where('vendorOwnerUid', '==', user?.uid),
-      orderBy('createdAt', 'desc')
+      where('vendorOwnerUid', '==', user?.uid)
     );
     const unsubApt = onSnapshot(qApt, (snap) => {
-      setAppointments(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
+      const docs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
+      
+      // Sort client-side
+      const sorted = docs.sort((a, b) => {
+        const timeA = a.createdAt ? (a.createdAt.toDate?.()?.getTime() || new Date(a.createdAt).getTime()) : 0;
+        const timeB = b.createdAt ? (b.createdAt.toDate?.()?.getTime() || new Date(b.createdAt).getTime()) : 0;
+        return timeB - timeA;
+      });
+      
+      setAppointments(sorted);
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'orders_salon');
     });

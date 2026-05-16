@@ -4,6 +4,7 @@ import { storageService } from '../services/storageService';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, onSnapshot, getDocs, doc, getDoc, addDoc, updateDoc, deleteDoc, orderBy, serverTimestamp } from 'firebase/firestore';
 import { VendorProfile, Product, Review, ReviewReply } from '../types';
+import ReviewSection from './reviews/ReviewSection';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -33,21 +34,8 @@ export default function VendorStore() {
   const tableNumber = searchParams.get('table');
   const [vendor, setVendor] = useState<VendorProfile | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
-  const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'products' | 'reviews' | 'info'>('products');
-
-  // Review Form State
-  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
-  const [rating, setRating] = useState(5);
-  const [comment, setComment] = useState('');
-  const [reviewImages, setReviewImages] = useState<string[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
-
-  // Reply State
-  const [replyingTo, setReplyingTo] = useState<string | null>(null);
-  const [replyText, setReplyText] = useState('');
   const [tableSession, setTableSession] = useState<any>(null);
   const [location] = useState(() => {
     const saved = localStorage.getItem('omniserve_user_location');
@@ -102,54 +90,6 @@ export default function VendorStore() {
       }
     };
 
-    const fetchReviews = async () => {
-      try {
-        const q = query(
-          collection(db, 'reviews'),
-          where('targetId', '==', id),
-          where('targetType', '==', 'vendor')
-        );
-        const snap = await getDocs(q);
-        const reviewsData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Review));
-        
-        // Sort client-side to avoid index requirement
-        const sortedReviewsData = reviewsData.sort((a, b) => {
-          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return dateB - dateA;
-        });
-
-        // Fetch replies for each review
-        const reviewsWithReplies = await Promise.all(sortedReviewsData.map(async (review) => {
-          const rq = query(
-            collection(db, 'review_replies'),
-            where('reviewId', '==', review.id)
-          );
-          const rSnap = await getDocs(rq);
-          const repliesData = rSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ReviewReply));
-          
-          // Sort client-side
-          const sortedReplies = repliesData.sort((a, b) => {
-            const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-            const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-            return dateA - dateB;
-          });
-
-          return { ...review, replies: sortedReplies };
-        }));
-
-        setReviews(reviewsWithReplies);
-      } catch (error: any) {
-        if (error.message?.includes('permission')) {
-          console.warn("Reviews fetch restricted by rules:", error.message);
-          return;
-        }
-        handleFirestoreError(error, OperationType.LIST, 'reviews');
-      }
-    };
-
-    fetchReviews();
-
     const pUnsub = onSnapshot(
       query(collection(db, 'products'), where('vendorId', '==', id)), 
       () => fetchProducts(),
@@ -158,200 +98,16 @@ export default function VendorStore() {
         handleFirestoreError(error, OperationType.LIST, 'products');
       }
     );
-    const rUnsub = onSnapshot(
-      query(collection(db, 'reviews'), where('targetId', '==', id), where('targetType', '==', 'vendor')), 
-      () => fetchReviews(),
-      (error: any) => {
-        if (error.message?.includes('permission')) return;
-        handleFirestoreError(error, OperationType.LIST, 'reviews');
-      }
-    );
 
     return () => {
       vUnsub();
       pUnsub();
-      rUnsub();
     };
   }, [id]);
 
-  const handleFileUpload = async (files: FileList) => {
-    if (!files || files.length === 0 || !user) return;
-    setIsUploading(true);
-    const fileArray = Array.from(files);
-    
-    for (const file of fileArray) {
-      try {
-        const path = storageService.getReviewPath(user.uid, file.name);
-        const publicUrl = await storageService.uploadFile('reviews', path, file);
-        setReviewImages(prev => [...prev, publicUrl]);
-      } catch (error) {
-        toast.error('Imeshindwa kupakia picha');
-      }
-    }
-    setIsUploading(false);
-  };
-
-  const handleSubmitReview = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) {
-      toast.error('Tafadhali ingia ili uweze kutoa maoni');
-      return;
-    }
-
-    try {
-      const reviewData = {
-        userId: user.uid,
-        userName: user.displayName || 'Mteja',
-        userPhoto: user.photoURL || '',
-        targetId: id,
-        targetType: 'vendor',
-        rating,
-        comment,
-        images: reviewImages,
-        likes: [],
-        createdAt: new Date().toISOString()
-      };
-      
-      const newReviewRef = await addDoc(collection(db, 'reviews'), reviewData);
-
-      // Update Vendor Rating
-      if (id) {
-        const q = query(
-          collection(db, 'reviews'),
-          where('targetId', '==', id),
-          where('targetType', '==', 'vendor')
-        );
-        const snap = await getDocs(q);
-        const reviewsData = snap.docs.map(doc => doc.data());
-        
-        // Ensure we don't double count if Firestore is instant
-        const alreadyInSnap = snap.docs.some(d => d.id === newReviewRef.id);
-        const allRatings = reviewsData.map(r => Number(r.rating) || 0);
-        
-        if (!alreadyInSnap) {
-          allRatings.push(Number(rating));
-        }
-
-        const newRating = allRatings.length > 0 
-          ? allRatings.reduce((acc, curr) => acc + curr, 0) / allRatings.length 
-          : Number(rating);
-        
-        await updateDoc(doc(db, 'vendors', id), {
-          rating: parseFloat(newRating.toFixed(1)),
-          ratingCount: allRatings.length
-        });
-      }
-
-      toast.success('Asante kwa maoni yako!');
-      setIsReviewModalOpen(false);
-      setComment('');
-      setRating(5);
-      setReviewImages([]);
-    } catch (error) {
-      console.error('Create review error:', error);
-    }
-  };
-
-  const handleLikeReview = async (reviewId: string, isLiked: boolean) => {
-    if (!user) {
-      toast.error('Tafadhali ingia ili uweze kulike');
-      return;
-    }
-
-    try {
-      const review = reviews.find(r => r.id === reviewId);
-      if (!review) return;
-
-      const newLikes = isLiked 
-        ? (review.likes || []).filter(uid => uid !== user.uid)
-        : [...(review.likes || []), user.uid];
-
-      await updateDoc(doc(db, 'reviews', reviewId), { likes: newLikes });
-    } catch (error) {
-      console.error('Like review error:', error);
-    }
-  };
-
-  const handleDeleteReview = async (reviewId: string) => {
-    try {
-      await deleteDoc(doc(db, 'reviews', reviewId));
-      
-      // Update Vendor Rating after delete
-      if (id) {
-        const q = query(
-          collection(db, 'reviews'),
-          where('targetId', '==', id),
-          where('targetType', '==', 'vendor')
-        );
-        const snap = await getDocs(q);
-        const reviewsData = snap.docs.map(doc => doc.data());
-        
-        if (reviewsData.length > 0) {
-          const newRating = reviewsData.reduce((acc, r) => acc + (r.rating || 0), 0) / reviewsData.length;
-          await updateDoc(doc(db, 'vendors', id), {
-            rating: parseFloat(newRating.toFixed(1)),
-            ratingCount: reviewsData.length
-          });
-        } else {
-          await updateDoc(doc(db, 'vendors', id), {
-            rating: 0,
-            ratingCount: 0
-          });
-        }
-      }
-
-      toast.success('Maoni yamefutwa');
-    } catch (error) {
-      console.error('Delete review error:', error);
-    }
-  };
-
-  const handleReplyReview = async (reviewId: string) => {
-    if (!user) {
-      toast.error('Tafadhali ingia ili uweze kujibu');
-      return;
-    }
-    if (!replyText.trim()) return;
-
-    try {
-      await addDoc(collection(db, 'review_replies'), {
-        reviewId: reviewId,
-        userId: user.uid,
-        userName: user.displayName || 'User',
-        userPhoto: user.photoURL || '',
-        text: replyText,
-        createdAt: new Date().toISOString()
-      });
-
-      setReplyText('');
-      setReplyingTo(null);
-      toast.success('Jibu lako limetumwa');
-    } catch (error) {
-      console.error('Reply review error:', error);
-    }
-  };
-
-  const handleDeleteReply = async (_reviewId: string, replyId: string) => {
-    try {
-      await deleteDoc(doc(db, 'review_replies', replyId));
-      toast.success('Jibu limefutwa');
-    } catch (error) {
-      console.error('Delete reply error:', error);
-    }
-  };
-
   const getDisplayRating = () => {
     const vRating = parseFloat(vendor?.rating?.toString() || '0');
-    // If vendor.rating is 0 but we have reviews, calculate the average from reviews
-    if (vRating > 0) {
-      return vRating.toFixed(1);
-    }
-    if (reviews && reviews.length > 0) {
-      const sum = reviews.reduce((acc, r) => acc + parseFloat(r.rating?.toString() || '0'), 0);
-      const avg = sum / reviews.length;
-      return avg.toFixed(1);
-    }
-    return '0.0';
+    return vRating > 0 ? vRating.toFixed(1) : '0.0';
   };
 
   const formatDate = (date: any) => {
@@ -486,7 +242,7 @@ export default function VendorStore() {
                  <span className="text-xs md:text-2xl font-black text-neutral-900 dark:text-white">
                    {getDisplayRating()}
                  </span>
-                 <span className="text-neutral-400 font-bold text-[9px] md:text-base">({vendor.ratingCount || reviews.length})</span>
+                 <span className="text-neutral-400 font-bold text-[9px] md:text-base">({vendor.ratingCount || 0})</span>
               </div>
             </div>
 
@@ -733,174 +489,13 @@ export default function VendorStore() {
                     exit={{ opacity: 0, y: -30 }}
                     className="space-y-12"
                   >
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                      <div>
-                        <h3 className="text-3xl md:text-5xl font-[900] text-neutral-900 dark:text-white uppercase italic tracking-tighter">Maoni ya Wateja</h3>
-                        <p className="text-neutral-500 font-bold uppercase tracking-[0.2em] text-[10px] mt-2">Wateja {reviews.length} wametoa maoni yao hapa.</p>
-                      </div>
-                      <Button 
-                        onClick={() => setIsReviewModalOpen(true)}
-                        className="w-full md:w-auto bg-neutral-900 dark:bg-white text-white dark:text-neutral-950 hover:bg-neutral-800 dark:hover:bg-neutral-200 rounded-2xl h-14 px-8 font-black uppercase tracking-[0.2em] text-[10px] gap-2 shadow-2xl transition-all active:scale-95"
-                      >
-                        <Plus className="w-4 h-4" /> Andika Maoni
-                      </Button>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-12">
-                      {reviews.map((review) => {
-                        const isLiked = review.likes?.includes(user?.uid || '');
-                        const isOwner = review.userId === user?.uid;
-
-                        return (
-                          <motion.div
-                            key={review.id}
-                            initial={{ opacity: 0, y: 20 }}
-                            whileInView={{ opacity: 1, y: 0 }}
-                            viewport={{ once: true }}
-                          >
-                            <div className="bg-white/50 dark:bg-white/5 backdrop-blur-xl border border-neutral-100 dark:border-white/5 rounded-[2.5rem] p-8 shadow-xl hover:shadow-[0_20px_50px_rgba(0,0,0,0.05)] transition-all relative group">
-                              <div className="flex gap-4">
-                                <div className="w-14 h-14 rounded-2xl p-1 bg-gradient-to-br from-orange-400 to-orange-600 shadow-lg shrink-0">
-                                  <div className="w-full h-full rounded-xl overflow-hidden bg-white dark:bg-neutral-800 border-2 border-white dark:border-neutral-950">
-                                    <img 
-                                      src={review.userPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${review.userId}`} 
-                                      alt={review.userName} 
-                                      className="w-full h-full object-cover" 
-                                      onError={(e) => {
-                                        (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${review.userName || 'user'}`;
-                                      }}
-                                    />
-                                  </div>
-                                </div>
-                                <div className="flex-1 space-y-3">
-                                  <div className="flex items-center justify-between">
-                                    <div className="space-y-0.5">
-                                      <h4 className="font-black text-sm text-neutral-900 dark:text-white uppercase tracking-tighter italic">{review.userName}</h4>
-                                      <div className="flex items-center gap-0.5">
-                                        {[...Array(5)].map((_, i) => (
-                                          <Star key={`review-star-${review.id}-${i}`} className={`w-2.5 h-2.5 ${i < review.rating ? 'text-orange-500 fill-current' : 'text-neutral-300'}`} />
-                                        ))}
-                                      </div>
-                                    </div>
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-neutral-400 italic">
-                                      {formatDate(review.createdAt)}
-                                    </span>
-                                  </div>
-
-                                  <div className="bg-neutral-50 dark:bg-white/5 p-5 rounded-2xl border border-neutral-100 dark:border-white/5 italic font-medium text-neutral-600 dark:text-neutral-400 text-sm leading-relaxed">
-                                    "{review.comment}"
-                                  </div>
-                                  
-                                  {review.images && review.images.length > 0 && (
-                                    <div className="flex gap-3 mt-4 overflow-x-auto pb-4 no-scrollbar">
-                                      {review.images.map((img, idx) => img && (
-                                        <div key={`review-img-${review.id}-${idx}`} className="w-24 h-24 rounded-2xl overflow-hidden shrink-0 border-2 border-white dark:border-neutral-800 shadow-md">
-                                          <img src={img} alt="Review" className="w-full h-full object-cover hover:scale-110 transition-transform duration-500" referrerPolicy="no-referrer" />
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-
-                                  <div className="flex items-center gap-6 pt-4">
-                                    <button 
-                                      onClick={() => handleLikeReview(review.id, !!isLiked)}
-                                      className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:scale-110 active:scale-95 ${isLiked ? 'text-orange-600' : 'text-neutral-400 hover:text-orange-600'}`}
-                                    >
-                                      <ThumbsUp className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} /> 
-                                      {review.likes?.length || 0}
-                                    </button>
-                                    
-                                    <button 
-                                      onClick={() => setReplyingTo(replyingTo === review.id ? null : review.id)}
-                                      className="flex items-center gap-2 text-[10px] text-neutral-400 font-black uppercase tracking-[0.2em] hover:text-orange-600 transition-all hover:scale-110 active:scale-95"
-                                    >
-                                      <MessageSquare className="w-4 h-4" /> Jibu
-                                    </button>
-
-                                    {isOwner && (
-                                      <button 
-                                        onClick={() => handleDeleteReview(review.id)}
-                                        className="flex items-center gap-2 text-[10px] text-rose-400 font-black uppercase tracking-[0.2em] hover:text-rose-600 transition-all hover:scale-110 active:scale-95 ml-auto md:ml-0"
-                                      >
-                                        <Trash2 className="w-4 h-4" /> Futa
-                                      </button>
-                                    )}
-                                  </div>
-
-                                  {/* Replies Section */}
-                                  {review.replies && review.replies.length > 0 && (
-                                    <div className="mt-6 space-y-4 pl-4 border-l-4 border-orange-100 dark:border-white/5">
-                                      {review.replies.map((reply) => (
-                                        <div key={reply.id} className="bg-white/80 dark:bg-white/5 p-4 rounded-2xl relative group/reply shadow-sm border border-neutral-100 dark:border-white/5">
-                                          <div className="flex items-center gap-3 mb-2">
-                                            <div className="w-6 h-6 rounded-lg overflow-hidden border border-neutral-100 dark:border-white/10 shrink-0">
-                                              <img 
-                                                src={reply.userPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${reply.userId}`} 
-                                                alt={reply.userName} 
-                                                className="w-full h-full object-cover" 
-                                                onError={(e) => {
-                                                  (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${reply.userName || 'user'}`;
-                                                }}
-                                              />
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                              <span className="text-[10px] font-black text-neutral-900 dark:text-white uppercase tracking-tighter italic">{reply.userName}</span>
-                                              {reply.userId === vendor.ownerUid && (
-                                                <Badge className="bg-orange-600 text-white border-none text-[8px] px-2 py-0.5 font-black uppercase tracking-widest italic">Manager</Badge>
-                                              )}
-                                            </div>
-                                          </div>
-                                          <p className="text-xs text-neutral-500 font-medium italic">"{reply.text}"</p>
-                                          {reply.userId === user?.uid && (
-                                            <button 
-                                              onClick={() => handleDeleteReply(review.id, reply.id)}
-                                              className="absolute top-3 right-3 text-rose-400 opacity-0 group-hover/reply:opacity-100 transition-opacity hover:scale-110"
-                                            >
-                                              <Trash2 className="w-3.5 h-3.5" />
-                                            </button>
-                                          )}
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-
-                                  {/* Reply Input */}
-                                  {replyingTo === review.id && (
-                                    <motion.div 
-                                      initial={{ opacity: 0, y: -10 }}
-                                      animate={{ opacity: 1, y: 0 }}
-                                      className="mt-6 flex gap-3"
-                                    >
-                                      <input 
-                                        type="text"
-                                        value={replyText}
-                                        onChange={(e) => setReplyText(e.target.value)}
-                                        placeholder="Andika jibu hapa..."
-                                        className="flex-1 bg-white dark:bg-neutral-900 border border-neutral-100 dark:border-white/5 rounded-2xl px-6 py-3 text-xs font-medium focus:ring-2 focus:ring-orange-500 transition-all outline-none"
-                                        autoFocus
-                                      />
-                                      <Button 
-                                        onClick={() => handleReplyReview(review.id)}
-                                        className="h-12 px-6 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest"
-                                      >
-                                        Tuma
-                                      </Button>
-                                    </motion.div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </motion.div>
-                        );
-                      })}
-                      {reviews.length === 0 && (
-                        <div className="col-span-full py-32 text-center bg-neutral-50 dark:bg-neutral-900/40 rounded-[4rem] border-2 border-dashed border-neutral-100 dark:border-white/5">
-                          <Star className="w-20 h-20 text-orange-100 dark:text-neutral-800 mx-auto mb-8 stroke-[1px]" />
-                          <h3 className="text-2xl font-black text-neutral-900 dark:text-white uppercase italic tracking-tighter mb-2">Hakuna Maoni</h3>
-                          <p className="text-neutral-400 font-bold uppercase tracking-[0.2em] text-[10px]">Kuwa wa kwanza kusema chochote!</p>
-                        </div>
-                      )}
-                    </div>
+                    {id && (
+                      <ReviewSection 
+                        targetId={id} 
+                        targetType="vendor"
+                        isVendor={vendor?.ownerUid === user?.uid}
+                      />
+                    )}
                   </motion.div>
                 )}
 
@@ -1133,111 +728,6 @@ export default function VendorStore() {
               </AnimatePresence>
             </div>
           </div>
-
-      {/* Review Modal */}
-      <AnimatePresence>
-        {isReviewModalOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsReviewModalOpen(false)}
-              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-lg bg-white rounded-[2.5rem] overflow-hidden shadow-2xl p-8"
-            >
-              <div className="flex items-center justify-between mb-8">
-                <h3 className="text-2xl font-black text-neutral-900">Andika Maoni</h3>
-                <button onClick={() => setIsReviewModalOpen(false)} className="text-neutral-400 hover:text-neutral-900">
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-
-              <form onSubmit={handleSubmitReview} className="space-y-6">
-                <div className="flex flex-col items-center gap-4">
-                  <p className="text-sm font-bold text-neutral-500 uppercase">Gusa nyota kutoa alama</p>
-                  <div className="flex gap-2">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <button
-                        key={star}
-                        type="button"
-                        onClick={() => setRating(star)}
-                        className="transition-transform active:scale-90"
-                      >
-                        <Star className={`w-10 h-10 ${star <= rating ? 'text-orange-500 fill-current' : 'text-neutral-200'}`} />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-neutral-500 uppercase">Maoni Yako</label>
-                  <textarea 
-                    required
-                    value={comment}
-                    onChange={(e) => setComment(e.target.value)}
-                    className="w-full min-h-[120px] p-4 bg-neutral-100 rounded-2xl border-none focus:ring-2 focus:ring-orange-500 text-sm resize-none"
-                    placeholder="Elezea uzoefu wako..."
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-neutral-500 uppercase">Picha za Bidhaa (Optional)</label>
-                  <div className="flex flex-wrap gap-3">
-                    {reviewImages.map((url, idx) => url && (
-                      <div key={`review-img-${idx}-${url.slice(-20)}`} className="w-20 h-20 rounded-2xl overflow-hidden relative group">
-                        <img src={url} alt="Preview" className="w-full h-full object-cover" />
-                        <button 
-                          type="button"
-                          onClick={() => setReviewImages(prev => prev.filter((_, i) => i !== idx))}
-                          className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isUploading}
-                      className="w-20 h-20 rounded-2xl bg-neutral-100 border-2 border-dashed border-neutral-200 flex flex-col items-center justify-center text-neutral-400 hover:text-orange-600 hover:border-orange-600 transition-all"
-                    >
-                      {isUploading ? (
-                        <div className="w-5 h-5 border-2 border-orange-600 border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <>
-                          <Camera className="w-6 h-6" />
-                          <span className="text-[8px] font-bold mt-1">Add Photo</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                  <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    className="hidden" 
-                    multiple 
-                    accept="image/*" 
-                    onChange={(e) => e.target.files && handleFileUpload(e.target.files)} 
-                  />
-                </div>
-
-                <Button 
-                  type="submit" 
-                  className="w-full h-14 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl font-bold text-lg shadow-lg shadow-orange-200"
-                >
-                  Tuma Maoni
-                </Button>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

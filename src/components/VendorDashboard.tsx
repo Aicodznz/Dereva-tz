@@ -877,11 +877,19 @@ export default function VendorDashboard() {
         const q = query(
           collection(db, path), 
           where('vendorOwnerUid', '==', user.uid),
-          orderBy('createdAt', 'desc'),
-          limit(10)
+          limit(50) // Fetch a reasonable amount to sort client-side
         );
         const snap = await getDocs(q);
-        setOrders(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
+        const docs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
+        
+        // Sort client-side
+        const sorted = docs.sort((a, b) => {
+          const timeA = a.createdAt ? (a.createdAt.toDate?.()?.getTime() || new Date(a.createdAt).getTime()) : 0;
+          const timeB = b.createdAt ? (b.createdAt.toDate?.()?.getTime() || new Date(b.createdAt).getTime()) : 0;
+          return timeB - timeA;
+        });
+        
+        setOrders(sorted);
       } catch (error) {
         handleFirestoreError(error, OperationType.GET, path);
       }

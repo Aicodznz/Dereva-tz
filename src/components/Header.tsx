@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { MapPin, Search, ChevronDown, Sun, Moon, ShoppingCart, MessageSquare, Receipt, LogOut } from 'lucide-react';
 import { useLanguage } from '../LanguageContext';
 import { useTheme } from 'next-themes';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useScroll, useMotionValueEvent } from 'motion/react';
 import { useHeader } from '../HeaderContext';
 import { useCart } from '../CartContext';
 import { useAuth } from '../AuthContext';
@@ -16,6 +16,18 @@ export default function Header() {
   const { profile, logout, user } = useAuth();
   const routerLocation = useLocation();
   const [showLangMenu, setShowLangMenu] = React.useState(false);
+  
+  const { scrollY } = useScroll();
+  const [hidden, setHidden] = useState(false);
+
+  useMotionValueEvent(scrollY, "change", (latest) => {
+    const previous = scrollY.getPrevious() ?? 0;
+    if (latest > previous && latest > 150) {
+      setHidden(true);
+    } else {
+      setHidden(false);
+    }
+  });
 
   const isTaxiRoute = routerLocation.pathname === '/taxi';
   const isDashboardRoute = routerLocation.pathname === '/dashboard' || routerLocation.pathname === '/';
@@ -33,7 +45,15 @@ export default function Header() {
   const isDashboard = routerLocation.pathname === '/' || routerLocation.pathname === '/dashboard';
 
   return (
-    <div className="sticky top-0 z-[150] bg-background/80 backdrop-blur-md border-b border-border shadow-sm">
+    <motion.nav 
+      variants={{
+        visible: { y: 0 },
+        hidden: { y: '-100%' },
+      }}
+      animate={hidden ? 'hidden' : 'visible'}
+      transition={{ duration: 0.35, ease: 'easeInOut' }}
+      className="sticky top-0 z-[150] bg-background/80 backdrop-blur-md border-b border-border shadow-sm"
+    >
       <div className={`${isFullscreen ? 'w-full px-4 md:px-6' : 'max-w-[2400px] mx-auto px-4 md:px-6'} h-16 md:h-20 flex items-center justify-between gap-2 md:gap-4 flex-shrink-0`}>
         
         {/* Left: Logo & Location */}
@@ -179,6 +199,6 @@ export default function Header() {
       </div>
 
       {/* Mobile Search Row Removed as per user request */}
-    </div>
+    </motion.nav>
   );
 }

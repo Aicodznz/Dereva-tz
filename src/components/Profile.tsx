@@ -24,7 +24,8 @@ import {
   ChevronRight,
   ChevronLeft,
   Check,
-  Bell
+  Bell,
+  Star
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -334,11 +335,46 @@ export default function Profile() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-neutral-400 uppercase">{language === 'en' ? 'English' : 'Kiswahili'}</span>
+                    <span className="text-neutral-300">|</span>
+                    <Badge className="bg-orange-600/10 text-orange-600 border-none px-2 py-0.5 text-[8px] font-black uppercase">Points: {profile.points || 0}</Badge>
                     <ChevronRight className="w-5 h-5 text-neutral-300 group-hover:text-teal-600 transition-colors" />
                   </div>
                 </button>
               </div>
             </CardContent>
+          </Card>
+
+          <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-gradient-to-br from-orange-600 to-orange-800 text-white p-8 relative group cursor-pointer hover:scale-[1.02] transition-transform">
+            <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-125 transition-transform duration-700">
+               <Star className="w-32 h-32 rotate-12" />
+            </div>
+            <div className="relative z-10 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                  <Star className="w-5 h-5 text-white fill-white" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black uppercase italic tracking-tighter">Papo Hapo Rewards</h3>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60">Loyalty Program</p>
+                </div>
+              </div>
+              
+              <div className="pt-4 space-y-1">
+                 <p className="text-4xl font-black italic tracking-tighter">{profile.points || 0} <span className="text-sm font-bold uppercase not-italic tracking-widest text-white/60 ml-2">Points</span></p>
+                 <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.min(((profile.points || 0) / 1000) * 100, 100)}%` }}
+                      className="h-full bg-white shadow-[0_0_20px_white]"
+                    />
+                 </div>
+                 <p className="text-[10px] font-black uppercase tracking-widest text-white/60">Pata points nyingine 240 ili upate vocha ya TZS 5,000</p>
+              </div>
+
+              <Button className="w-full h-12 bg-white text-orange-600 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-neutral-100 border-none shadow-xl">
+                 Komboa Zawadi
+              </Button>
+            </div>
           </Card>
 
           <Button 

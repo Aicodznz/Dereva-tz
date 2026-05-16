@@ -19,9 +19,11 @@ import {
   ShoppingBag,
   Printer,
   CreditCard,
-  Loader2
+  Loader2,
+  Navigation
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import OrderTracker from './OrderTracker';
 
 interface MyOrdersProps {
   onBack?: () => void;
@@ -33,6 +35,7 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [trackingOrder, setTrackingOrder] = useState<Order | null>(null);
   const [isPaying, setIsPaying] = useState(false);
 
   const handlePayNow = async (order: Order) => {
@@ -144,6 +147,10 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
       default: return status;
     }
   };
+
+  if (trackingOrder) {
+    return <OrderTracker order={trackingOrder} onBack={() => setTrackingOrder(null)} />;
+  }
 
   if (selectedOrder) {
     return (
@@ -302,6 +309,15 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
                 </div>
 
                 <div className="pt-6 space-y-3 print:hidden">
+                  {['out_for_delivery', 'preparing', 'accepted'].includes(selectedOrder.status) && (
+                    <Button 
+                      onClick={() => setTrackingOrder(selectedOrder)}
+                      className="w-full h-14 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl font-bold gap-2 shadow-lg shadow-orange-600/20"
+                    >
+                      <Navigation className="w-5 h-5" />
+                      Fuatilia Oda Yako
+                    </Button>
+                  )}
                   <Button 
                     onClick={() => window.print()}
                     className="w-full h-14 bg-green-500 hover:bg-green-600 text-white rounded-2xl font-bold gap-2"

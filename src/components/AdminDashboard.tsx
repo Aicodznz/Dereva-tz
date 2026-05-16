@@ -1516,7 +1516,7 @@ export default function AdminDashboard() {
                             type="number" 
                             required 
                             placeholder="Value" 
-                            value={isNaN(newCoupon.discountValue) ? '' : newCoupon.discountValue} 
+                            value={newCoupon.discountValue === undefined || isNaN(newCoupon.discountValue) ? '' : newCoupon.discountValue} 
                             onChange={e => setNewCoupon({...newCoupon, discountValue: e.target.value ? Number(e.target.value) : 0})}
                             className="bg-white border-neutral-200 h-12 rounded-xl font-bold"
                           />

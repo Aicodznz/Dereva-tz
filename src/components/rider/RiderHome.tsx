@@ -221,7 +221,7 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
 
   useEffect(() => {
     const freshRequests = nearbyRequests.filter(r => !declinedRequests.has(r.id));
-    const currentStillValid = incomingRequest ? freshRequests.find(r => r.id === incomingRequest.id) : null;
+    const currentStillValid = incomingRequest && incomingRequest.id ? freshRequests.find(r => r.id === incomingRequest.id) : null;
     
     // Only set incoming request if we are online, not in an active ride, and not already showing one
     if (isOnline && freshRequests.length > 0 && !activeRide && !showPayment && !showRating) {
@@ -335,7 +335,7 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
       return;
     }
     
-    if (assignedRide && !rideId) {
+    if (assignedRide && assignedRide.id && !rideId) {
       console.log("[Rider] Restored assigned ride:", assignedRide.id);
       setRideId(assignedRide.id);
     }

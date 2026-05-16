@@ -423,8 +423,8 @@ export default function CustomerDashboard() {
                 </motion.div>
               </div>
             </motion.div>
-          ))
-        )}
+          )))
+        }
       </div>
 
       <section className="mt-8 md:mt-12">

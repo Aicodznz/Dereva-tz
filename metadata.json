@@ -2,5 +2,5 @@
   "name": "Papo Hapo Super App",
   "description": "A clean, modern multi-service platform providing easy access to food, grocery, taxi, parcel, and more.",
   "requestFramePermissions": ["geolocation", "camera", "xr-spatial-tracking", "xr"],
-  "majorCapabilities": []
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
