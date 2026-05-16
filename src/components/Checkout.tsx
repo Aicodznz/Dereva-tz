@@ -18,7 +18,9 @@ import {
   ShoppingBag,
   Clock,
   ArrowRight,
-  Home
+  Home,
+  Utensils,
+  Smartphone
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
