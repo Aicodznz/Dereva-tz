@@ -147,6 +147,13 @@ export interface Order {
   customerPhone?: string;
   prescriptionUrl?: string;
   deliveryAddress?: string;
+  deliveryFee?: number;
+  riderAssignmentType?: 'app' | 'vendor' | 'platform' | 'self';
+  riderName?: string;
+  riderPhone?: string;
+  prepTime?: string;
+  arrivalTime?: string;
+  notes?: string;
   paymentMethod?: string;
   paymentStatus?: 'pending' | 'paid' | 'failed';
   createdAt: any;

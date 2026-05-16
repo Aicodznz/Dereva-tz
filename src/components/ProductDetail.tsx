@@ -72,9 +72,17 @@ export default function ProductDetail() {
 
   const handleAddToCart = () => {
     if (!product) return;
-    addItem({ ...product, quantity });
-    toast.success('Added to your basket', {
-      description: `${quantity}x ${product.name} has been added.`,
+    addItem({ 
+      ...product, 
+      quantity,
+      variation: selectedSize,
+      addons: selectedAddons,
+      orderType,
+      tableNumber: orderType === 'walk_in' ? tableNumber : null,
+      arrivalTime: orderType === 'walk_in' ? arrivalTime : null
+    });
+    toast.success('Imeongezwa kwenye kikapu', {
+      description: `${quantity}x ${product.name} imewekwa.`,
       icon: <ShoppingBag className="w-5 h-5 text-orange-600" />
     });
   };
@@ -117,6 +125,7 @@ export default function ProductDetail() {
   const [buyerPhone, setBuyerPhone] = useState('');
   const [orderType, setOrderType] = useState<'delivery' | 'walk_in' | 'pickup'>('delivery');
   const [tableNumber, setTableNumber] = useState('');
+  const [arrivalTime, setArrivalTime] = useState('');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [tableSession, setTableSession] = useState<any>(null);
 
@@ -277,6 +286,7 @@ export default function ProductDetail() {
         }],
         orderType: orderType,
         tableNumber: orderType === 'walk_in' ? tableNumber : null,
+        arrivalTime: orderType === 'walk_in' ? arrivalTime : null,
         totalAmount: calculateDiscountedPrice(),
         status: 'pending',
         paymentStatus: 'pending',
@@ -422,6 +432,90 @@ export default function ProductDetail() {
         )}
 
         {/* Category Specific Info */}
+        {category === 'restaurant' && (
+          <div className="space-y-6 pt-4 border-t border-neutral-100 dark:border-neutral-800 transition-colors">
+            <h3 className="font-black text-xs uppercase tracking-widest text-neutral-400">Jinsi ya Kupokea Chakula</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <button 
+                onClick={() => setOrderType('delivery')}
+                className={`flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all gap-2 ${
+                  orderType === 'delivery' 
+                  ? 'border-orange-600 bg-orange-50 dark:bg-orange-600/10 text-orange-600' 
+                  : 'border-neutral-100 dark:border-neutral-800 text-neutral-400'
+                }`}
+              >
+                <Truck className="w-5 h-5" />
+                <span className="font-bold text-xs uppercase tracking-tighter">Delivery</span>
+              </button>
+              <button 
+                onClick={() => setOrderType('walk_in')}
+                className={`flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all gap-2 ${
+                  orderType === 'walk_in' 
+                  ? 'border-orange-600 bg-orange-50 dark:bg-orange-600/10 text-orange-600' 
+                  : 'border-neutral-100 dark:border-neutral-800 text-neutral-400'
+                }`}
+              >
+                <UtensilsCrossed className="w-5 h-5" />
+                <span className="font-bold text-xs uppercase tracking-tighter">Kula Hapa (Dine-in)</span>
+              </button>
+            </div>
+
+            <AnimatePresence>
+              {orderType === 'walk_in' && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="space-y-4 pt-2 overflow-hidden"
+                >
+                  <div className="flex gap-2 p-1 bg-neutral-100 dark:bg-neutral-800 rounded-xl">
+                    <button 
+                      onClick={() => setTableNumber('')}
+                      className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${!tableNumber ? 'bg-white dark:bg-neutral-700 text-orange-600 shadow-sm' : 'text-neutral-500'}`}
+                    >
+                      Agiza Mapema
+                    </button>
+                    <button 
+                      onClick={() => setTableNumber('1')}
+                      className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${tableNumber ? 'bg-white dark:bg-neutral-700 text-orange-600 shadow-sm' : 'text-neutral-500'}`}
+                    >
+                      Nipo Mezani
+                    </button>
+                  </div>
+
+                  {!tableNumber ? (
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Muda wa Kufika (Arrival Time)</label>
+                       <div className="relative">
+                          <Clock className="absolute left-4 top-3.5 w-4 h-4 text-orange-600" />
+                          <Input 
+                            type="time"
+                            className="pl-12 h-12 rounded-xl bg-neutral-100 dark:bg-neutral-800 border-none font-bold"
+                            value={arrivalTime}
+                            onChange={e => setArrivalTime(e.target.value)}
+                          />
+                       </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Namba ya Meza (Table Number)</label>
+                       <div className="relative">
+                          <Hash className="absolute left-4 top-3.5 w-4 h-4 text-orange-600" />
+                          <Input 
+                            placeholder="mfano: B1, 14..."
+                            className="pl-12 h-12 rounded-xl bg-neutral-100 dark:bg-neutral-800 border-none font-bold"
+                            value={tableNumber}
+                            onChange={e => setTableNumber(e.target.value)}
+                          />
+                       </div>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
+
         {category === 'pharmacy' && (
           <div className="space-y-6 pt-4 border-t border-neutral-100 dark:border-neutral-800 transition-colors">
             <h3 className="font-bold text-lg text-neutral-900 dark:text-white transition-colors">Taarifa za Dawa</h3>

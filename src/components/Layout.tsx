@@ -250,18 +250,24 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                           <div className="flex justify-between items-start">
                             <h4 className="font-black text-neutral-900 dark:text-white text-sm uppercase leading-tight line-clamp-1">{item.name}</h4>
                             <button 
-                              onClick={() => removeItem(item.id!)}
+                              onClick={() => removeItem(item.id!, (item as any).variation, (item as any).addons)}
                               className="text-neutral-300 hover:text-red-500 transition-colors p-1"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
+                          {(item as any).variation && (
+                            <p className="text-[10px] text-neutral-400 font-bold uppercase mt-0.5">Size: {(item as any).variation}</p>
+                          )}
+                          {(item as any).addons && (item as any).addons.length > 0 && (
+                            <p className="text-[10px] text-neutral-400 font-bold uppercase line-clamp-1">Addons: {(item as any).addons.join(', ')}</p>
+                          )}
                           <p className="text-xs text-orange-600 font-black mt-1">TZS {item.price.toLocaleString()}</p>
                         </div>
                         <div className="flex items-center justify-between mt-2">
                           <div className="flex items-center bg-neutral-100 dark:bg-neutral-800 rounded-xl p-1 gap-3 transition-colors">
                             <button 
-                              onClick={() => removeItem(item.id!)}
+                              onClick={() => removeItem(item.id!, (item as any).variation, (item as any).addons)}
                               className="w-8 h-8 bg-white dark:bg-neutral-700 rounded-lg flex items-center justify-center text-neutral-900 dark:text-white hover:bg-orange-600 hover:text-white transition-all shadow-sm"
                             >
                               <Minus className="w-4 h-4" />

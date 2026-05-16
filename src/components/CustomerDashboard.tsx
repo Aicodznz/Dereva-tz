@@ -327,8 +327,43 @@ export default function CustomerDashboard() {
     };
   }, [user]);
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    const name = profile?.displayName?.split(' ')[0] || 'Mteja';
+    if (hour < 12) return `HABARI ZA ASUBUHI, ${name.toUpperCase()} ☀️`;
+    if (hour < 16) return `HABARI ZA MCHANA, ${name.toUpperCase()} ☀️`;
+    if (hour < 20) return `HABARI ZA JIONI, ${name.toUpperCase()} 🌅`;
+    return `HABARI ZA USIKU, ${name.toUpperCase()} 🌙`;
+  };
+
   return (
     <div className={`pb-10 space-y-4 md:space-y-6 lg:space-y-8 ${isRTL ? 'text-right' : 'text-left'}`}>
+      <div className="px-1 pt-2">
+         <div className="flex items-center justify-between mb-4 px-2">
+            <div className="flex items-center gap-3">
+               <div className="w-12 h-12 rounded-2xl bg-orange-600/20 border border-orange-600/30 flex items-center justify-center overflow-hidden shrink-0">
+                  {profile?.photoURL ? (
+                    <img src={profile.photoURL} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="text-orange-600 font-black text-lg">{profile?.displayName?.charAt(0) || 'U'}</div>
+                  )}
+               </div>
+               <div>
+                  <h2 className="text-lg font-black italic uppercase leading-none tracking-tighter text-neutral-900 dark:text-white transition-colors">
+                     {getGreeting()}
+                  </h2>
+                  <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mt-1">Karibu OmniServe App</p>
+               </div>
+            </div>
+            <Link to="/notifications" className="relative p-2.5 bg-neutral-100 dark:bg-neutral-800 rounded-2xl text-neutral-600 dark:text-neutral-400 hover:text-orange-600 transition-all">
+               <Bell className="w-5 h-5" />
+               {unreadCount > 0 && (
+                 <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-orange-600 border-2 border-white dark:border-neutral-900 rounded-full" />
+               )}
+            </Link>
+         </div>
+      </div>
+
       <LocationPicker 
         isOpen={isLocationPickerOpen}
         onClose={() => {

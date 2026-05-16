@@ -421,7 +421,10 @@ export default function VendorDashboard() {
   const [isAddSectionOpen, setIsAddSectionOpen] = useState(false);
   const [newSection, setNewSection] = useState({ number: '', capacity: 10 });
   const [selectedSection, setSelectedSection] = useState<any>(null);
-  const [orderToPrint, setOrderToPrint] = useState<Order | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [prepTime, setPrepTime] = useState('');
+  const [assignmentType, setAssignmentType] = useState<'vendor' | 'platform'>('vendor');
+  const [vendorRiderDetails, setVendorRiderDetails] = useState({ name: '', phone: '', fee: 0 });
 
   // Settings State
   const [isSavingSettings, setIsSavingSettings] = useState(false);
@@ -1705,6 +1708,43 @@ export default function VendorDashboard() {
     }
   };
 
+  const handleConfirmOrder = async () => {
+    if (!selectedOrder) return;
+    try {
+      const updateData: any = {
+        status: 'preparing',
+        prepTime: prepTime,
+        updatedAt: serverTimestamp()
+      };
+
+      if (selectedOrder.orderType === 'delivery') {
+        updateData.riderAssignmentType = assignmentType;
+        if (assignmentType === 'vendor') {
+          updateData.riderName = vendorRiderDetails.name;
+          updateData.riderPhone = vendorRiderDetails.phone;
+          updateData.deliveryFee = vendorRiderDetails.fee;
+        }
+      }
+
+      await updateDoc(doc(db, 'orders', selectedOrder.id!), updateData);
+      toast.success('Oda imethibitishwa!');
+      setSelectedOrder(null);
+      setPrepTime('');
+    } catch (error) {
+      console.error(error);
+      toast.error('Imeshindwa kuthibitisha oda.');
+    }
+  };
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    const name = profile?.displayName?.split(' ')[0] || 'Mteja';
+    if (hour < 12) return `HABARI ZA ASUBUHI, ${name.toUpperCase()} ☀️`;
+    if (hour < 16) return `HABARI ZA MCHANA, ${name.toUpperCase()} ☀️`;
+    if (hour < 20) return `HABARI ZA JIONI, ${name.toUpperCase()} 🌅`;
+    return `HABARI ZA USIKU, ${name.toUpperCase()} 🌙`;
+  };
+
   const getStatusColor = (status: OrderStatus) => {
     switch(status) {
       case 'pending': return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20';
@@ -1726,13 +1766,14 @@ export default function VendorDashboard() {
            <h3 className={`font-black uppercase tracking-widest text-[10px] ${color}`}>{title}</h3>
            <Badge variant="outline" className="bg-black/5 dark:bg-white/5 border-none text-neutral-500 font-black">{filteredOrders.length}</Badge>
         </div>
-        <div className="flex-1 overflow-y-auto no-scrollbar space-y-4 pr-2">
+                <div className="flex-1 overflow-y-auto no-scrollbar space-y-4 pr-2">
            {filteredOrders.map((order, idx) => (
              <motion.div 
                layout
                initial={{ opacity: 0, scale: 0.95 }}
                animate={{ opacity: 1, scale: 1 }}
                key={`fulfillment-card-${order.id || idx}`}
+               onClick={() => setSelectedOrder(order)}
                className="bg-card dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 p-5 rounded-2xl space-y-4 hover:border-orange-600/30 transition-all cursor-pointer group"
              >
                 <div className="flex items-center justify-between">
@@ -1976,7 +2017,11 @@ export default function VendorDashboard() {
               </thead>
               <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800 transition-colors">
                 {filteredOrders.map((order, idx) => (
-                  <tr key={`orders-table-row-${order.id}-${idx}`} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/30 transition-colors group">
+                  <tr 
+                    key={`orders-table-row-${order.id}-${idx}`} 
+                    className="hover:bg-neutral-50 dark:hover:bg-neutral-800/30 transition-colors group cursor-pointer"
+                    onClick={() => setSelectedOrder(order)}
+                  >
                     <td className="px-8 py-6">
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-2xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-all">
@@ -2070,6 +2115,171 @@ export default function VendorDashboard() {
           </div>
         </div>
       )}
+      {/* Order Details Modal with Assignment Logic */}
+      <AnimatePresence>
+        {selectedOrder && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedOrder(null)}
+              className="absolute inset-0 bg-neutral-950/90 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+            >
+              <div className="p-8 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between shrink-0 bg-neutral-50/50 dark:bg-neutral-950/50">
+                 <div>
+                    <h3 className="text-xl font-black italic uppercase tracking-tighter flex items-center gap-2">
+                       <ShoppingCart className="w-5 h-5 text-orange-600" />
+                       Oda #{selectedOrder.id?.slice(-6).toUpperCase()}
+                    </h3>
+                    <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">{selectedOrder.customerName} • {selectedOrder.orderType}</p>
+                 </div>
+                 <button onClick={() => setSelectedOrder(null)} className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-xl transition-colors">
+                    <X className="w-6 h-6" />
+                 </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-8 space-y-8 no-scrollbar">
+                 {/* Order Summary */}
+                 <div className="space-y-4">
+                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Bidhaa Zilizoagizwa</label>
+                    <div className="space-y-3">
+                       {selectedOrder.items.map((item: any, i: number) => (
+                         <div key={`modal-item-${i}`} className="flex justify-between items-center p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-950/50 border border-neutral-100 dark:border-neutral-800">
+                            <div className="flex items-center gap-3">
+                               <div className="w-8 h-8 rounded-lg bg-orange-600/10 flex items-center justify-center text-[10px] font-black text-orange-600 italic">
+                                  {item.quantity}x
+                               </div>
+                               <span className="font-bold text-sm">{item.name}</span>
+                            </div>
+                            <span className="font-black text-sm italic">TZS {(item.price * item.quantity).toLocaleString()}</span>
+                         </div>
+                       ))}
+                    </div>
+                    <div className="flex justify-between items-center px-4 pt-2">
+                       <span className="text-sm font-bold text-neutral-500 uppercase">Jumla Kuu</span>
+                       <span className="text-2xl font-black text-orange-600 italic">TZS {selectedOrder.totalAmount.toLocaleString()}</span>
+                    </div>
+                 </div>
+
+                 {/* Order Details Grid */}
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="p-5 rounded-[1.5rem] bg-neutral-50 dark:bg-neutral-950/50 border border-neutral-100 dark:border-neutral-800 space-y-2">
+                       <div className="flex items-center gap-2 text-neutral-400">
+                          <Clock className="w-4 h-4" />
+                          <span className="text-[9px] font-black uppercase tracking-widest">Arrival / Muda</span>
+                       </div>
+                       <p className="font-black italic text-sm">{selectedOrder.arrivalTime || 'ASAP / Papo Hapo'}</p>
+                    </div>
+                    <div className="p-5 rounded-[1.5rem] bg-neutral-50 dark:bg-neutral-950/50 border border-neutral-100 dark:border-neutral-800 space-y-2">
+                       <div className="flex items-center gap-2 text-neutral-400">
+                          <MapPin className="w-4 h-4" />
+                          <span className="text-[9px] font-black uppercase tracking-widest">Table / Location</span>
+                       </div>
+                       <p className="font-black italic text-sm">{selectedOrder.tableNumber || 'N/A'}</p>
+                    </div>
+                 </div>
+
+                 {/* Confirmation Logic - Only if Pending */}
+                 {selectedOrder.status === 'pending' && (
+                   <div className="space-y-6 pt-4 border-t border-neutral-100 dark:border-neutral-800">
+                      <div className="space-y-3">
+                         <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Muda wa Kila (Dakika)</label>
+                         <Input 
+                           type="number"
+                           placeholder="Muda wa Maandalizi..."
+                           className="h-14 rounded-2xl bg-neutral-50 dark:bg-neutral-950 font-bold border-none"
+                           value={prepTime}
+                           onChange={e => setPrepTime(e.target.value)}
+                         />
+                      </div>
+
+                      {selectedOrder.orderType === 'delivery' && (
+                        <div className="space-y-6">
+                           <div className="space-y-3">
+                              <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Chagua Dereva (Rider)</label>
+                              <div className="grid grid-cols-2 gap-3">
+                                 <button 
+                                   onClick={() => setAssignmentType('vendor')}
+                                   className={`p-4 rounded-2xl border transition-all text-left space-y-1 ${assignmentType === 'vendor' ? 'bg-orange-600 border-none text-white shadow-lg' : 'bg-neutral-50 dark:bg-neutral-950 border-neutral-100 dark:border-neutral-800 text-neutral-500'}`}
+                                 >
+                                    <User className="w-5 h-5 mb-1" />
+                                    <p className="text-[9px] font-black uppercase tracking-widest">Mtu wangu</p>
+                                    <p className="text-[8px] opacity-70 font-bold">Dereva wa Vendo</p>
+                                 </button>
+                                 <button 
+                                   onClick={() => setAssignmentType('platform')}
+                                   className={`p-4 rounded-2xl border transition-all text-left space-y-1 ${assignmentType === 'platform' ? 'bg-orange-600 border-none text-white shadow-lg' : 'bg-neutral-50 dark:bg-neutral-950 border-neutral-100 dark:border-neutral-800 text-neutral-500'}`}
+                                 >
+                                    <Zap className="w-5 h-5 mb-1" />
+                                    <p className="text-[9px] font-black uppercase tracking-widest">Papo Hapo App</p>
+                                    <p className="text-[8px] opacity-70 font-bold">Rider wa Karibu</p>
+                                 </button>
+                              </div>
+                           </div>
+
+                           <AnimatePresence>
+                             {assignmentType === 'vendor' && (
+                               <motion.div 
+                                 initial={{ opacity: 0, height: 0 }}
+                                 animate={{ opacity: 1, height: 'auto' }}
+                                 exit={{ opacity: 0, height: 0 }}
+                                 className="grid grid-cols-2 gap-3 pt-2"
+                               >
+                                  <div className="space-y-2">
+                                     <Input 
+                                       placeholder="Jina la Dereva"
+                                       className="h-12 rounded-xl bg-neutral-50 dark:bg-neutral-950 font-bold border-none text-xs"
+                                       value={vendorRiderDetails.name}
+                                       onChange={e => setVendorRiderDetails({...vendorRiderDetails, name: e.target.value})}
+                                     />
+                                  </div>
+                                  <div className="space-y-2">
+                                     <Input 
+                                       placeholder="Namba ya Simu"
+                                       className="h-12 rounded-xl bg-neutral-50 dark:bg-neutral-950 font-bold border-none text-xs"
+                                       value={vendorRiderDetails.phone}
+                                       onChange={e => setVendorRiderDetails({...vendorRiderDetails, phone: e.target.value})}
+                                     />
+                                  </div>
+                                  <div className="space-y-2 col-span-2">
+                                     <Input 
+                                       type="number"
+                                       placeholder="Gharama ya Usafiri (TZS)"
+                                       className="h-12 rounded-xl bg-neutral-50 dark:bg-neutral-950 font-bold border-none text-xs"
+                                       value={vendorRiderDetails.fee || ''}
+                                       onChange={e => setVendorRiderDetails({...vendorRiderDetails, fee: Number(e.target.value)})}
+                                     />
+                                  </div>
+                               </motion.div>
+                             )}
+                           </AnimatePresence>
+                        </div>
+                      )}
+                   </div>
+                 )}
+              </div>
+
+              <div className="p-8 border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-950/50 flex gap-3">
+                 {selectedOrder.status === 'pending' ? (
+                   <>
+                      <Button variant="ghost" className="flex-1 h-14 rounded-2xl font-black uppercase tracking-widest text-[10px] text-red-500 hover:bg-red-500/10" onClick={() => updateOrderStatus(selectedOrder.id!, 'cancelled')}>Kataa Oda</Button>
+                      <Button className="flex-[2] h-14 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-orange-900/20" onClick={handleConfirmOrder}>Thibitisha Oda</Button>
+                   </>
+                 ) : (
+                   <Button variant="outline" className="w-full h-14 border-neutral-200 dark:border-neutral-800 rounded-2xl font-black uppercase tracking-widest text-xs" onClick={() => setSelectedOrder(null)}>Funga Dira</Button>
+                 )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 
@@ -2236,7 +2446,7 @@ export default function VendorDashboard() {
                 {/* Header Info */}
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                   <div>
-                    <h1 className="text-4xl font-black italic uppercase tracking-tighter">Business Overview</h1>
+                    <h1 className="text-4xl font-black italic uppercase tracking-tighter">{getGreeting()}</h1>
                     <p className="text-neutral-500 font-medium">Monitoring your store performance in real-time.</p>
                   </div>
                   <div className="flex items-center gap-3">

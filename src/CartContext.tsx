@@ -8,8 +8,15 @@ interface CartItem extends Product {
 
 interface CartContextType {
   cartItems: CartItem[];
-  addItem: (product: Product & { quantity?: number }) => void;
-  removeItem: (productId: string) => void;
+  addItem: (product: Product & { 
+    quantity?: number, 
+    variation?: string, 
+    addons?: string[],
+    orderType?: string,
+    tableNumber?: string | null,
+    arrivalTime?: string | null
+  }) => void;
+  removeItem: (productId: string, variation?: string, addons?: string[]) => void;
   clearCart: () => void;
   cartCount: number;
   totalAmount: number;
@@ -40,10 +47,14 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('omniserve_cart', JSON.stringify(cartItems));
   }, [cartItems]);
 
-  const addItem = (product: Product & { quantity?: number }) => {
+  const addItem = (product: any) => {
     const amountToAdd = product.quantity || 1;
     setCartItems(prevItems => {
-      const existingItem = prevItems.find(item => item.id === product.id);
+      const existingItem = prevItems.find(item => 
+        item.id === product.id && 
+        (item as any).variation === product.variation && 
+        JSON.stringify((item as any).addons) === JSON.stringify(product.addons)
+      );
       const isReadded = !!existingItem;
       const quantity = isReadded ? existingItem.quantity + amountToAdd : amountToAdd;
 
@@ -75,22 +86,38 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (existingItem) {
         return prevItems.map(item =>
-          item.id === product.id ? { ...item, quantity: item.quantity + amountToAdd } : item
+          item.id === product.id && 
+          (item as any).variation === product.variation && 
+          JSON.stringify((item as any).addons) === JSON.stringify(product.addons)
+            ? { ...item, quantity: item.quantity + amountToAdd } 
+            : item
         );
       }
       return [...prevItems, { ...product, quantity: amountToAdd }];
     });
   };
 
-  const removeItem = (productId: string) => {
+  const removeItem = (productId: string, variation?: string, addons?: string[]) => {
     setCartItems(prevItems => {
-      const existingItem = prevItems.find(item => item.id === productId);
+      const existingItem = prevItems.find(item => 
+        item.id === productId && 
+        (item as any).variation === variation && 
+        JSON.stringify((item as any).addons) === JSON.stringify(addons)
+      );
       if (existingItem && existingItem.quantity > 1) {
         return prevItems.map(item =>
-          item.id === productId ? { ...item, quantity: item.quantity - 1 } : item
+          item.id === productId && 
+          (item as any).variation === variation && 
+          JSON.stringify((item as any).addons) === JSON.stringify(addons)
+            ? { ...item, quantity: item.quantity - 1 } 
+            : item
         );
       }
-      return prevItems.filter(item => item.id !== productId);
+      return prevItems.filter(item => !(
+        item.id === productId && 
+        (item as any).variation === variation && 
+        JSON.stringify((item as any).addons) === JSON.stringify(addons)
+      ));
     });
   };
 

@@ -30,8 +30,14 @@ export default function Checkout() {
 
   const [address, setAddress] = useState(profile?.address || '');
   const [phoneNumber, setPhoneNumber] = useState(profile?.phoneNumber || '');
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mobile_money'>('mobile_money');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mobile_money' | 'online'>('mobile_money');
+  const [orderType, setOrderType] = useState<'delivery' | 'pickup' | 'walk_in'>('delivery');
+  const [tableNumber, setTableNumber] = useState('');
+  const [arrivalTime, setArrivalTime] = useState('');
+  const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const deliveryFee = orderType === 'delivery' ? 2000 : 0; // Default or calculated
 
   const handlePlaceOrder = async () => {
     if (!user) {
@@ -45,8 +51,13 @@ export default function Checkout() {
       return;
     }
 
-    if (!address.trim()) {
+    if (orderType === 'delivery' && !address.trim()) {
       toast.error('Tafadhali weka anwani ya kufika.');
+      return;
+    }
+
+    if (orderType === 'walk_in' && !tableNumber.trim() && !arrivalTime.trim()) {
+      toast.error('Tafadhali weka namba ya meza au muda wa kufika.');
       return;
     }
 
@@ -60,11 +71,18 @@ export default function Checkout() {
       // Find a vendorId from cart items (assuming single vendor per order for now)
       const primaryVendorId = cartItems[0]?.vendorId;
       let vendorOwnerUid = '';
+      let vendorCategory = 'ecommerce';
+      let vendorLocation = null;
+      let vendorName = '';
 
       if (primaryVendorId) {
         const vSnap = await getDoc(doc(db, 'vendors', primaryVendorId));
         if (vSnap.exists()) {
-          vendorOwnerUid = vSnap.data().ownerUid;
+          const vData = vSnap.data();
+          vendorOwnerUid = vData.ownerUid;
+          vendorCategory = vData.category;
+          vendorLocation = vData.location || null;
+          vendorName = vData.businessName || '';
         }
       }
 
@@ -74,18 +92,41 @@ export default function Checkout() {
         customerPhone: phoneNumber,
         vendorId: primaryVendorId || '',
         vendorOwnerUid: vendorOwnerUid,
+        vendorName: vendorName,
+        vendorLocation: vendorLocation,
         items: cartItems,
-        totalAmount: totalAmount,
+        totalAmount: totalAmount + deliveryFee,
+        subtotal: totalAmount,
+        deliveryFee: deliveryFee,
         status: 'pending',
         paymentStatus: 'unpaid',
         paymentMethod: paymentMethod,
-        deliveryAddress: address,
+        orderType: orderType,
+        tableNumber: orderType === 'walk_in' ? tableNumber : null,
+        arrivalTime: (orderType === 'pickup' || orderType === 'walk_in') ? arrivalTime : null,
+        notes: notes,
+        deliveryAddress: orderType === 'delivery' ? address : null,
+        type: vendorCategory,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
 
-      await addDoc(collection(db, 'orders'), orderData);
+      const orderRef = await addDoc(collection(db, 'orders'), orderData);
       
+      if (paymentMethod === 'online' || paymentMethod === 'mobile_money') {
+        const formattedPhone = phoneNumber.startsWith('0') 
+          ? '255' + phoneNumber.substring(1) 
+          : phoneNumber.replace('+', '');
+
+        await initiatePayment({
+          order_id: orderRef.id,
+          amount: Math.round(totalAmount + deliveryFee),
+          buyer_phone: formattedPhone,
+          fee_payer: 'CUSTOMER'
+        });
+        toast.info('Ombi la malipo limetumwa kwenye simu yako!');
+      }
+
       toast.success('Agizo lako limepokelewa! 🚀', {
         description: 'Tunashughulikia oda yako sasa hivi.',
         icon: '✅'
@@ -120,7 +161,7 @@ export default function Checkout() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-8">
+    <div className="max-w-2xl mx-auto space-y-8 p-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button 
@@ -148,25 +189,83 @@ export default function Checkout() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="space-y-6">
-          {/* Address */}
+          {/* Order Type Selection */}
+          <Card className="border-none shadow-sm rounded-3xl bg-white dark:bg-neutral-900 overflow-hidden">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/30 rounded-xl flex items-center justify-center text-orange-600">
+                  <ShoppingBag className="w-5 h-5" />
+                </div>
+                <h3 className="font-black text-neutral-900 dark:text-white uppercase text-sm tracking-widest">Aina ya Oda</h3>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: 'delivery', label: 'Delivery', icon: Truck },
+                  { id: 'pickup', label: 'Pickup', icon: ShoppingBag },
+                  { id: 'walk_in', label: 'Dine-in', icon: Utensils }
+                ].map((type) => (
+                  <button
+                    key={type.id}
+                    onClick={() => setOrderType(type.id as any)}
+                    className={`p-3 rounded-2xl border-2 transition-all flex flex-col items-center gap-1.5 ${orderType === type.id ? 'border-orange-600 bg-orange-50 dark:bg-orange-950/20 text-orange-600' : 'border-neutral-100 dark:border-neutral-800 text-neutral-500'}`}
+                  >
+                    <type.icon className="w-5 h-5" />
+                    <span className="text-[10px] font-black uppercase">{type.label}</span>
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Details based on Order Type */}
           <Card className="border-none shadow-sm rounded-3xl bg-white dark:bg-neutral-900 overflow-hidden">
             <CardContent className="p-6">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/30 rounded-xl flex items-center justify-center text-orange-600">
                   <MapPin className="w-5 h-5" />
                 </div>
-                <h3 className="font-black text-neutral-900 dark:text-white uppercase text-sm tracking-widest">{t('delivery_address') || 'Delivery Address'}</h3>
+                <h3 className="font-black text-neutral-900 dark:text-white uppercase text-sm tracking-widest">Maelezo</h3>
               </div>
               <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Anwani</Label>
-                  <Input 
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="Weka mtaa, jengo au namba ya nyumba"
-                    className="h-14 rounded-2xl border-none bg-neutral-50 dark:bg-neutral-800 font-medium"
-                  />
-                </div>
+                {orderType === 'delivery' && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Anwani ya Kufika</Label>
+                    <Input 
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      placeholder="Weka mtaa, jengo au namba ya nyumba"
+                      className="h-14 rounded-2xl border-none bg-neutral-50 dark:bg-neutral-800 font-medium"
+                    />
+                  </div>
+                )}
+
+                {orderType === 'walk_in' && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Namba ya Meza (Kama upo hapa)</Label>
+                    <Input 
+                      value={tableNumber}
+                      onChange={(e) => setTableNumber(e.target.value)}
+                      placeholder="e.g. Meza Na. 5"
+                      className="h-14 rounded-2xl border-none bg-neutral-50 dark:bg-neutral-800 font-medium"
+                    />
+                  </div>
+                )}
+
+                {(orderType === 'pickup' || orderType === 'walk_in') && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Muda wa Kufika (Optional)</Label>
+                    <div className="relative">
+                      <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                      <input 
+                        type="time"
+                        value={arrivalTime}
+                        onChange={(e) => setArrivalTime(e.target.value)}
+                        className="w-full h-14 pl-12 pr-4 bg-neutral-50 dark:bg-neutral-800 border-none rounded-2xl text-sm font-medium focus:ring-2 focus:ring-orange-600"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <Label className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Namba ya Simu</Label>
                   <Input 
@@ -174,6 +273,16 @@ export default function Checkout() {
                     onChange={(e) => setPhoneNumber(e.target.value)}
                     placeholder="e.g. 0712 345 678"
                     className="h-14 rounded-2xl border-none bg-neutral-50 dark:bg-neutral-800 font-medium"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Ujumbe/Notes (Optional)</Label>
+                  <textarea 
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Agizo maalum (e.g. msiweke pilipili)"
+                    className="w-full h-24 p-4 rounded-2xl border-none bg-neutral-50 dark:bg-neutral-800 font-medium text-sm focus:ring-2 focus:ring-orange-600"
                   />
                 </div>
               </div>
@@ -187,7 +296,7 @@ export default function Checkout() {
                 <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/30 rounded-xl flex items-center justify-center text-orange-600">
                   <CreditCard className="w-5 h-5" />
                 </div>
-                <h3 className="font-black text-neutral-900 dark:text-white uppercase text-sm tracking-widest">Malipo</h3>
+                <h3 className="font-black text-neutral-900 dark:text-white uppercase text-sm tracking-widest">Lipia Oda Yako</h3>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <button 
@@ -195,18 +304,18 @@ export default function Checkout() {
                   className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${paymentMethod === 'mobile_money' ? 'border-orange-600 bg-orange-50 dark:bg-orange-950/20' : 'border-neutral-100 dark:border-neutral-800 hover:border-orange-200'}`}
                 >
                   <div className="w-10 h-10 bg-white dark:bg-neutral-800 rounded-full flex items-center justify-center shadow-sm">
-                    <span className="text-xs font-bold text-orange-600">GSM</span>
+                    <Smartphone className="w-5 h-5 text-orange-600" />
                   </div>
-                  <span className="text-[10px] font-black uppercase">Simu (M-Pesa/Tigo...)</span>
+                  <span className="text-[10px] font-black uppercase text-center">Simu (M-Pesa/Airtel...)</span>
                 </button>
                 <button 
                   onClick={() => setPaymentMethod('cash')}
                   className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${paymentMethod === 'cash' ? 'border-orange-600 bg-orange-50 dark:bg-orange-950/20' : 'border-neutral-100 dark:border-neutral-800 hover:border-orange-200'}`}
                 >
                   <div className="w-10 h-10 bg-white dark:bg-neutral-800 rounded-full flex items-center justify-center shadow-sm">
-                    <span className="text-xs font-bold text-orange-600">$$$</span>
+                    <Home className="w-5 h-5 text-orange-600" />
                   </div>
-                  <span className="text-[10px] font-black uppercase">Lipia Kesho (Cash)</span>
+                  <span className="text-[10px] font-black uppercase text-center">Lipia Ufikapo (Cash)</span>
                 </button>
               </div>
             </CardContent>
@@ -245,19 +354,21 @@ export default function Checkout() {
                   <span>TZS {totalAmount.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-xs text-neutral-400 font-bold uppercase tracking-widest">
-                  <span>Delivery</span>
-                  <span className="text-orange-500 italic">Bure (Mteja Mwaminifu)</span>
+                  <span>{orderType === 'delivery' ? 'Usafiri (Delivery Fee)' : 'Processing Fee'}</span>
+                  <span className={deliveryFee > 0 ? 'text-white' : 'text-orange-500 italic'}>
+                    {deliveryFee > 0 ? `TZS ${deliveryFee.toLocaleString()}` : 'Bure'}
+                  </span>
                 </div>
                 <div className="flex justify-between items-end pt-4">
                   <span className="text-sm font-black uppercase text-neutral-400">Total to Pay</span>
-                  <span className="text-3xl font-black text-orange-500 italic tracking-tighter">TZS {totalAmount.toLocaleString()}</span>
+                  <span className="text-3xl font-black text-orange-500 italic tracking-tighter">TZS {(totalAmount + deliveryFee).toLocaleString()}</span>
                 </div>
               </div>
 
               <Button 
                 onClick={handlePlaceOrder}
                 disabled={isSubmitting}
-                className="w-full h-16 bg-white hover:bg-neutral-100 text-neutral-900 rounded-[2rem] font-black text-lg uppercase tracking-widest shadow-xl mt-8 active:scale-95 transition-all flex items-center justify-center gap-3"
+                className="w-full h-16 bg-white hover:bg-neutral-100 text-neutral-900 rounded-[2rem] font-black text-lg uppercase tracking-widest shadow-xl mt-8 active:scale-95 transition-all flex items-center justify-center gap-3 underline-offset-8"
               >
                 {isSubmitting ? (
                   <motion.div 
@@ -268,7 +379,7 @@ export default function Checkout() {
                   </motion.div>
                 ) : (
                   <>
-                    Agiza Sasa 
+                    Weka Agizo
                     <ArrowRight className="w-5 h-5" />
                   </>
                 )}
@@ -279,7 +390,11 @@ export default function Checkout() {
           <div className="flex items-center gap-3 p-4 bg-orange-50 dark:bg-orange-950/20 rounded-2xl text-orange-600 border border-orange-100 dark:border-orange-900/50">
             <Truck className="w-5 h-5" />
             <p className="text-[10px] font-black uppercase tracking-widest leading-relaxed">
-              Utapokea oda yako ndani ya dakika 30-45.
+              {orderType === 'delivery' 
+                ? 'Utapokea oda yako ndani ya dakika 30-45.' 
+                : orderType === 'pickup' 
+                ? 'Itakuwa tayari kwa ajili ya kuchukua.' 
+                : 'Meza yako itaandaliwa.'}
             </p>
           </div>
         </div>

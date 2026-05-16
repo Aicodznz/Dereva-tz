@@ -25,11 +25,14 @@ import {
   ChevronLeft,
   Check,
   Bell,
-  Star
+  Star,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useLanguage } from '../LanguageContext';
+import { useTheme } from 'next-themes';
 import MyOrders from './MyOrders';
 import Chat from './Chat';
 import { storageService } from '../services/storageService';
@@ -41,6 +44,7 @@ type ProfileView = 'menu' | 'edit' | 'orders' | 'chat' | 'password' | 'language'
 export default function Profile() {
   const { profile, user, logout, updateProfileData, changePassword } = useAuth();
   const { t, language, setLanguage } = useLanguage();
+  const { theme, setTheme } = useTheme();
   const [view, setView] = useState<ProfileView>('menu');
   const [loading, setLoading] = useState(false);
   const [orderCount, setOrderCount] = useState({ orders: 0, rides: 0 });
@@ -287,16 +291,34 @@ export default function Profile() {
 
                 <Link 
                   to="/notifications"
-                  className="w-full p-4 flex items-center justify-between hover:bg-neutral-50 transition-colors group"
+                  className="w-full p-4 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors group"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center text-orange-600">
+                    <div className="w-10 h-10 bg-orange-50 dark:bg-orange-950/20 rounded-xl flex items-center justify-center text-orange-600">
                       <Bell className="w-5 h-5" />
                     </div>
-                    <span className="font-bold text-neutral-700">{t('notifications') || 'Notifications'}</span>
+                    <span className="font-bold text-neutral-700 dark:text-neutral-200">{t('notifications') || 'Notifications'}</span>
                   </div>
                   <ChevronRight className="w-5 h-5 text-neutral-300 group-hover:text-orange-600 transition-colors" />
                 </Link>
+
+                <button 
+                  onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                  className="w-full p-4 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors group"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-neutral-100 dark:bg-neutral-800 rounded-xl flex items-center justify-center text-neutral-600 dark:text-neutral-300">
+                      {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                    </div>
+                    <div className="text-left">
+                       <span className="font-bold text-neutral-700 dark:text-neutral-200 block">Theme</span>
+                       <span className="text-[10px] text-neutral-400 font-bold uppercase">{theme === 'dark' ? 'Dark Mode' : 'Light Mode'}</span>
+                    </div>
+                  </div>
+                  <div className={`w-12 h-6 rounded-full p-1 transition-colors ${theme === 'dark' ? 'bg-orange-600' : 'bg-neutral-200'}`}>
+                     <div className={`w-4 h-4 rounded-full bg-white transition-transform ${theme === 'dark' ? 'translate-x-6' : 'translate-x-0'}`} />
+                  </div>
+                </button>
 
                 <button 
                   className="w-full p-4 flex items-center justify-between hover:bg-neutral-50 transition-colors group"

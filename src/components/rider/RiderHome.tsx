@@ -21,6 +21,7 @@ import { useRideStatus } from '../../hooks/useRideStatus';
 import { useDriverRideListener } from '../../hooks/useDriverRideListener';
 import { useIncomingRequests } from '../../hooks/useIncomingRequests';
 import { useDriverDashboard } from '../../hooks/useDriverDashboard';
+import { useIncomingOrders } from '../../hooks/useIncomingOrders';
 import { useRouting } from '../../hooks/useRouting';
 import { createDriverMarkerIcon } from '../../utils/driverMarker';
 import { calculateBearing, getMapBounds } from '../../utils/mapHelpers';
@@ -31,6 +32,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 
 import IncomingRideCard from '../tegex/IncomingRideCard';
+import IncomingOrderCard from './IncomingOrderCard';
 import DriverTripSheet from '../tegex/DriverTripSheet';
 import PaymentConfirmScreen from '../tegex/PaymentConfirmScreen';
 import RateCustomerScreen from '../tegex/RateCustomerScreen';
@@ -146,10 +148,12 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
   
   const { showEarnings, toggleEarnings, stats } = useDriverDashboard();
   const nearbyRequests = useIncomingRequests(vType, isOnline, position ? { lat: position[0], lng: position[1] } : null, user?.uid);
+  const nearbyOrders = useIncomingOrders(isOnline, position ? { lat: position[0], lng: position[1] } : null);
   const { assignedRide } = useDriverRideListener(user?.uid, isOnline);
   const { acceptRide: firestoreAccept, arrivedAtPickup, startTrip, completeTrip, updateDriverLocation } = useDriverActions(rideId);
 
   const [incomingRequest, setIncomingRequest] = useState<any>(null);
+  const [incomingOrder, setIncomingOrder] = useState<any>(null);
   const [declinedRequests, setDeclinedRequests] = useState<Set<string>>(new Set());
 
   const handleSignOut = async () => {
@@ -232,6 +236,19 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
       if (incomingRequest) setIncomingRequest(null);
     }
   }, [nearbyRequests, activeRide, incomingRequest, isOnline, showPayment, showRating, declinedRequests]);
+
+  useEffect(() => {
+    const freshOrders = nearbyOrders.filter(o => !declinedRequests.has(o.id!));
+    const currentStillValid = incomingOrder && incomingOrder.id ? freshOrders.find(o => o.id === incomingOrder.id) : null;
+    
+    if (isOnline && freshOrders.length > 0 && !activeRide && !incomingRequest && !showPayment && !showRating) {
+      if (!incomingOrder || !currentStillValid) {
+        setIncomingOrder(freshOrders[0]);
+      }
+    } else if (!isOnline || activeRide || incomingRequest || freshOrders.length === 0 || (incomingOrder && !currentStillValid)) {
+      if (incomingOrder) setIncomingOrder(null);
+    }
+  }, [nearbyOrders, activeRide, incomingRequest, incomingOrder, isOnline, showPayment, showRating, declinedRequests]);
 
   // Get current location
   useEffect(() => {
@@ -360,6 +377,26 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
       restoreStatus();
     }
   }, [user?.uid]);
+
+  const handleAcceptOrder = async () => {
+    if (!incomingOrder || !user) return;
+    try {
+      await updateDoc(doc(db, 'orders', incomingOrder.id!), {
+        riderId: user.uid,
+        riderName: profile?.displayName || 'Driver',
+        riderPhone: profile?.phoneNumber || '',
+        status: 'out_for_delivery',
+        updatedAt: serverTimestamp()
+      });
+      toast.success('Oda imekubaliwa! 🛵');
+      setIncomingOrder(null);
+      // For now, simpler than full order tracking in this UI
+      // In a real app we'd set activeOrder and show an OrderTripSheet
+    } catch (error) {
+      console.error(error);
+      toast.error('Imeshindwa kukubali oda.');
+    }
+  };
 
   const toggleStatus = async () => {
     if (isOnline && activeRide) {
@@ -1051,6 +1088,21 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                 onTimeout={() => {
                   setDeclinedRequests(prev => new Set(prev).add(incomingRequest.id));
                   setIncomingRequest(null);
+                }}
+              />
+            )}
+
+            {incomingOrder && (
+              <IncomingOrderCard 
+                order={incomingOrder}
+                onAccept={handleAcceptOrder}
+                onDecline={() => {
+                  setDeclinedRequests(prev => new Set(prev).add(incomingOrder.id!));
+                  setIncomingOrder(null);
+                }}
+                onTimeout={() => {
+                  setDeclinedRequests(prev => new Set(prev).add(incomingOrder.id!));
+                  setIncomingOrder(null);
                 }}
               />
             )}
