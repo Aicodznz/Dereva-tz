@@ -21,11 +21,11 @@ import {
   ExternalLink, Search, Ban, History, BarChart3, Settings, Info, CreditCard, Star,
   Package, Undo2, Bike, Trophy, Wallet, MessageSquare, Globe, Clock, Coins, Loader2, Zap,
   Bed, Wifi, Wind, Monitor, Car, Waves, MapPin, Mail, PhoneCall, FileText, User, Camera,
-  Menu, MoreHorizontal, MoreVertical, LayoutGrid
+  Menu, MoreHorizontal, MoreVertical, LayoutGrid, LogOut
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useScroll, useMotionValueEvent } from 'motion/react';
 import { useLanguage } from '../LanguageContext';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -177,7 +177,19 @@ export default function AdminDashboard() {
   const [isAddBannerOpen, setIsAddBannerOpen] = useState(false);
   const [isAddCouponOpen, setIsAddCouponOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserRecord | null>(null);
-  
+
+  const [isNavVisible, setIsNavVisible] = useState(true);
+  const { scrollY } = useScroll();
+
+  useMotionValueEvent(scrollY, "change", (latest) => {
+    const previous = scrollY.getPrevious() || 0;
+    if (latest > previous && latest > 50) {
+      setIsNavVisible(false);
+    } else {
+      setIsNavVisible(true);
+    }
+  });
+
   const [newCoupon, setNewCoupon] = useState<Partial<Coupon>>({
     code: '',
     discountType: 'percentage',
@@ -284,6 +296,16 @@ export default function AdminDashboard() {
       toast.success('Settings saved successfully!');
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, 'config/business');
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await auth.signOut();
+      navigate('/login');
+      toast.success('Signed out successfully');
+    } catch (error) {
+      toast.error('Failed to sign out');
     }
   };
 
@@ -584,6 +606,14 @@ export default function AdminDashboard() {
           <Link to="/profile">
             <Button variant="outline" className="rounded-2xl border-neutral-200 font-bold">Switch Profile</Button>
           </Link>
+          <Button 
+            variant="ghost" 
+            onClick={handleSignOut}
+            className="rounded-2xl font-bold gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>{t('sign_out')}</span>
+          </Button>
           <div className="bg-neutral-900 dark:bg-neutral-800 border border-neutral-800 dark:border-neutral-700 text-white px-4 py-2 rounded-2xl flex items-center gap-2 transition-colors">
             <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
             <span className="text-xs font-black uppercase tracking-widest">Admin Live</span>
@@ -2538,6 +2568,16 @@ export default function AdminDashboard() {
                         <span>{tab.label}</span>
                      </button>
                   ))}
+                  
+                  <div className="mt-8 pt-8 border-t border-neutral-100 dark:border-neutral-800">
+                    <button
+                        onClick={handleSignOut}
+                        className="flex items-center gap-4 px-6 p-4 rounded-2xl text-sm font-black uppercase tracking-tight text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 w-full transition-all"
+                    >
+                        <LogOut className="w-5 h-5" />
+                        <span>{t('sign_out')}</span>
+                    </button>
+                  </div>
                </div>
             </motion.div>
           </>
@@ -2545,7 +2585,12 @@ export default function AdminDashboard() {
       </AnimatePresence>
 
       {/* Admin Bottom Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-[120] h-20 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl border-t border-neutral-200 dark:border-neutral-800 shadow-[0_-10px_25px_rgba(0,0,0,0.05)] transition-colors duration-300">
+      <motion.nav 
+        initial={{ y: 0 }}
+        animate={{ y: isNavVisible ? 0 : 100 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+        className="md:hidden fixed bottom-0 left-0 right-0 z-[120] h-20 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl border-t border-neutral-200 dark:border-neutral-800 shadow-[0_-10px_25px_rgba(0,0,0,0.05)] transition-colors duration-300"
+      >
         <div className="h-full px-2 flex justify-around items-center max-w-md mx-auto">
            {adminTabs.slice(0, 4).map((tab) => (
               <button
@@ -2571,7 +2616,7 @@ export default function AdminDashboard() {
               <span className="text-[10px] font-black uppercase tracking-widest opacity-60">More</span>
            </button>
         </div>
-      </nav>
+      </motion.nav>
     </div>
   );
 }

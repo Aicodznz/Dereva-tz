@@ -5,10 +5,11 @@ import { VendorProfile, Product } from '../types';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from './ui/Skeleton';
 import { 
   Utensils, ShoppingCart, Pill, Package, Car, Scissors, Hotel, Star, 
   Search, Bell, MapPin, ChevronRight, ShoppingBag, Tag, Plus, ShoppingBasket,
-  FileText, Smartphone, Box, Dog, Bus
+  FileText, Smartphone, Box, Dog, Bus, Sparkles
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
@@ -45,6 +46,8 @@ export default function CustomerDashboard() {
   });
 
   const { setLocation: setHeaderLocation, setOnLocationClick, searchQuery: contextSearchQuery } = useHeader();
+  
+  const [isLoading, setIsLoading] = useState(true);
 
   const storeScrollRef = useRef<HTMLDivElement>(null);
   const bannerScrollRef = useRef<HTMLDivElement>(null);
@@ -247,6 +250,7 @@ export default function CustomerDashboard() {
 
     // Fetch Products & Banners
     const fetchData = async () => {
+      setIsLoading(true);
       try {
         const productsRef = collection(db, 'products');
         const pQuery = limit(10);
@@ -255,9 +259,22 @@ export default function CustomerDashboard() {
 
         const bannersRef = collection(db, 'banners');
         const bSnap = await getDocs(query(bannersRef, where('active', '==', true)));
-        setBanners(bSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any)));
+        const fetchedBanners = bSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+        
+        // If no banners from DB, use default dynamic ones
+        if (fetchedBanners.length === 0) {
+          setBanners([
+            { id: '1', title: 'Food Delivery', sub: 'Agiza chakula sasa upate ofa!', img: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=2070&auto=format&fit=crop' },
+            { id: '2', title: 'Grocery', sub: 'Bidhaa safi kutoka shambani', img: 'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=2026&auto=format&fit=crop' },
+            { id: '3', title: 'Pharmacy', sub: 'Dawa na vifaa vya tiba', img: 'https://images.unsplash.com/photo-1587854692152-cbe660dbbb88?q=80&w=2069&auto=format&fit=crop' }
+          ]);
+        } else {
+          setBanners(fetchedBanners);
+        }
       } catch (error) {
         console.error("Error fetching initial data:", error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -361,43 +378,53 @@ export default function CustomerDashboard() {
         ref={bannerScrollRef}
         className="flex gap-6 overflow-x-auto pb-6 no-scrollbar snap-x py-4 px-2"
       >
-        {banners.map((banner, idx) => banner.img && (
-          <motion.div 
-            key={`promo-banner-${banner.id || idx}`} 
-            initial={{ opacity: 0, scale: 0.9, x: 50 }}
-            animate={{ opacity: 1, scale: 1, x: 0 }}
-            transition={{ delay: 0.1 * idx, ease: [0.22, 1, 0.36, 1] }}
-            whileHover={{ y: -8 }}
-            className="min-w-[85%] md:min-w-[40%] lg:min-w-[30%] xl:min-w-[20%] [@media(min-width:1800px)]:min-w-[15%] h-56 md:h-80 rounded-[3rem] overflow-hidden relative snap-center shadow-2xl shadow-neutral-900/10 group cursor-pointer border border-white/20"
-          >
-            <img 
-              src={banner.img} 
-              alt={banner.title} 
-              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 ease-out" 
-              referrerPolicy="no-referrer"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1200&q=80';
-              }}
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent flex flex-col justify-end p-8 md:p-10 text-white">
-              <motion.h3 
-                initial={{ y: 20, opacity: 0 }}
-                whileInView={{ y: 0, opacity: 1 }}
-                className="text-2xl md:text-3xl font-black tracking-tight font-display mb-1"
-              >
-                {banner.title}
-              </motion.h3>
-              <p className="text-sm opacity-80 font-medium leading-relaxed max-w-[200px]">{banner.sub}</p>
-              <motion.div 
-                whileHover={{ x: 5 }}
-                className="mt-6 flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-orange-500"
-              >
-                <span>{t('order_now') || 'Order Now'}</span>
-                <ChevronRight className="w-4 h-4" />
-              </motion.div>
-            </div>
-          </motion.div>
-        ))}
+        {isLoading ? (
+          Array(3).fill(0).map((_, i) => (
+            <Skeleton key={`banner-skele-${i}`} className="min-w-[85%] md:min-w-[40%] lg:min-w-[30%] h-56 md:h-80 rounded-[3rem]" />
+          ))
+        ) : (
+          banners.map((banner, idx) => banner.img && (
+            <motion.div 
+              key={`promo-banner-${banner.id || idx}`} 
+              initial={{ opacity: 0, scale: 0.9, x: 50 }}
+              animate={{ opacity: 1, scale: 1, x: 0 }}
+              transition={{ delay: 0.1 * idx, ease: [0.22, 1, 0.36, 1] }}
+              whileHover={{ y: -8 }}
+              className="min-w-[85%] md:min-w-[40%] lg:min-w-[30%] xl:min-w-[20%] [@media(min-width:1800px)]:min-w-[15%] h-56 md:h-80 rounded-[3rem] overflow-hidden relative snap-center shadow-2xl shadow-neutral-900/10 group cursor-pointer border border-white/20"
+            >
+              <img 
+                src={banner.img} 
+                alt={banner.title} 
+                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 ease-out" 
+                referrerPolicy="no-referrer"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1200&q=80';
+                }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent flex flex-col justify-end p-8 md:p-10 text-white">
+                <div className="absolute top-6 left-6 flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
+                   <Sparkles className="w-3 h-3 text-orange-400" />
+                   <span className="text-[8px] font-black uppercase tracking-widest">Special Deal</span>
+                </div>
+                <motion.h3 
+                  initial={{ y: 20, opacity: 0 }}
+                  whileInView={{ y: 0, opacity: 1 }}
+                  className="text-2xl md:text-3xl font-black tracking-tight font-display mb-1"
+                >
+                  {banner.title}
+                </motion.h3>
+                <p className="text-sm opacity-80 font-medium leading-relaxed max-w-[200px]">{banner.sub}</p>
+                <motion.div 
+                  whileHover={{ x: 5 }}
+                  className="mt-6 flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-orange-500"
+                >
+                  <span>{t('order_now') || 'Order Now'}</span>
+                  <ChevronRight className="w-4 h-4" />
+                </motion.div>
+              </div>
+            </motion.div>
+          ))
+        )}
       </div>
 
       <section className="mt-8 md:mt-12">
@@ -439,27 +466,39 @@ export default function CustomerDashboard() {
           ref={storeScrollRef}
           className="flex sm:grid overflow-x-auto sm:overflow-visible gap-4 sm:gap-6 md:gap-10 pb-2 sm:pb-0 no-scrollbar -mx-4 px-4 snap-x snap-mandatory sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 [@media(min-width:1800px)]:grid-cols-5 [@media(min-width:2100px)]:grid-cols-6"
         >
-          {vendors
-            .filter(v => v.status === 'active' && (!selectedCategory || v.category === selectedCategory))
-            .map(vendor => {
-              const distance = vendor.location 
-                ? calculateDistance(location.lat, location.lng, vendor.location.lat, vendor.location.lng)
-                : 9999;
-              return { ...vendor, distance };
-            })
-            .sort((a, b) => a.distance - b.distance)
-            .map((vendor, idx) => (
-              <motion.div
-                key={`nearby-vendor-${vendor.id || `vendor-${idx}`}`}
-                initial={{ opacity: 0, x: 50, scale: 0.95 }}
-                whileInView={{ opacity: 1, x: 0, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.05 * idx, type: "spring", stiffness: 100 }}
-                whileHover={{ y: -10 }}
-                className="min-w-[48%] group cursor-pointer snap-start"
-                onClick={() => navigate(`/vendor/${vendor.id}`)}
-              >
-              <div className="relative h-full bg-white dark:bg-neutral-900 rounded-[1.5rem] sm:rounded-[2.5rem] border border-neutral-200/60 dark:border-white/5 shadow-[0_10px_30px_rgba(0,0,0,0.06)] sm:shadow-[0_20px_50px_rgba(0,0,0,0.06)] group-hover:shadow-[0_40px_80px_rgba(234,88,12,0.15)] transition-all duration-500 overflow-hidden group/card border-b-2 sm:border-b-4 border-b-neutral-100 active:scale-[0.98]">
+          {isLoading ? (
+            Array(4).fill(0).map((_, i) => (
+              <div key={`store-skele-${i}`} className="min-w-[85%] sm:min-w-0 space-y-4">
+                <Skeleton className="h-40 sm:h-48 rounded-[2.5rem]" />
+                <div className="p-4 space-y-2">
+                  <Skeleton className="h-6 w-3/4 rounded-lg" />
+                  <Skeleton className="h-4 w-1/2 rounded-lg" />
+                </div>
+              </div>
+            ))
+          ) : (
+            vendors
+              .filter(v => v.status === 'active' && (!selectedCategory || v.category === selectedCategory))
+              .map(vendor => {
+                const distance = vendor.location 
+                  ? calculateDistance(location.lat, location.lng, vendor.location.lat, vendor.location.lng)
+                  : 9999;
+                return { ...vendor, distance };
+              })
+              .sort((a, b) => a.distance - b.distance)
+              .map((vendor, idx) => (
+                <motion.div
+                  key={`nearby-vendor-${vendor.id || `vendor-${idx}`}`}
+                  initial={{ opacity: 0, x: 50, scale: 0.95 }}
+                  whileInView={{ opacity: 1, x: 0, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: 0.05 * idx, type: "spring", stiffness: 100 }}
+                  whileHover={{ y: -10 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="min-w-[85%] sm:min-w-0 group cursor-pointer snap-start"
+                  onClick={() => navigate(`/vendor/${vendor.id}`)}
+                >
+                <div className="relative h-full bg-white dark:bg-neutral-900 rounded-[1.5rem] sm:rounded-[2.5rem] border border-neutral-200/60 dark:border-white/5 shadow-[0_10px_30px_rgba(0,0,0,0.06)] sm:shadow-[0_20px_50px_rgba(0,0,0,0.06)] group-hover:shadow-[0_40px_80px_rgba(234,88,12,0.15)] transition-all duration-500 overflow-hidden group/card border-b-2 sm:border-b-4 border-b-neutral-100 active:scale-[0.98]">
                 <div className="h-20 sm:h-40 md:h-48 relative overflow-hidden">
                   <img 
                     src={vendor.bannerUrl || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=600&q=80'} 
@@ -538,7 +577,7 @@ export default function CustomerDashboard() {
                 </div>
               </div>
             </motion.div>
-          ))}
+          )))}
           {vendors.filter(v => v.status === 'active').length === 0 && (
             <div className="w-full py-12 text-center bg-neutral-50 dark:bg-neutral-900/50 rounded-[2.5rem] border border-dashed border-neutral-200 dark:border-neutral-800 mx-4">
               <p className="text-neutral-400 text-sm italic">Hakuna maduka yaliyopatikana karibu nawe.</p>
@@ -609,19 +648,28 @@ export default function CustomerDashboard() {
           <h3 className="text-xl md:text-2xl font-black text-neutral-900 dark:text-white uppercase italic tracking-tighter font-display leading-none">{t('popular_products') || 'Bidhaa Maarufu'}</h3>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 [@media(min-width:1800px)]:grid-cols-10 gap-3 md:gap-8 lg:gap-10">
-          {filteredProducts.map((product, idx) => (
-            <motion.div
-              key={`product-${product.id || `product-${idx}`}`}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.05 * idx }}
-            >
-              <Link 
-                to={`/product/${product.id}`}
-                className="block group"
+          {isLoading ? (
+            Array(6).fill(0).map((_, i) => (
+              <div key={`prod-skele-${i}`} className="space-y-4">
+                <Skeleton className="h-44 rounded-[2.5rem]" />
+                <Skeleton className="h-4 w-3/4 rounded-lg" />
+              </div>
+            ))
+          ) : (
+            filteredProducts.map((product, idx) => (
+              <motion.div
+                key={`product-${product.id || `product-${idx}`}`}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.05 * idx }}
+                whileHover={{ y: -5 }}
               >
-                <Card className="overflow-hidden rounded-[2.5rem] border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xl shadow-neutral-900/5 hover:shadow-orange-900/10 transition-all h-full group/card border-2 hover:border-orange-500/10">
+                <Link 
+                  to={`/product/${product.id}`}
+                  className="block group"
+                >
+                  <Card className="overflow-hidden rounded-[2.5rem] border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xl shadow-neutral-900/5 hover:shadow-orange-900/10 transition-all h-full group/card border-2 hover:border-orange-500/10 active:scale-95">
                   <div className="h-44 relative overflow-hidden">
                     <img 
                       src={product.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80'} 
@@ -664,7 +712,7 @@ export default function CustomerDashboard() {
                 </Card>
               </Link>
             </motion.div>
-          ))}
+          )))}
           {products.length === 0 && (
             <div className="min-w-full py-8 text-center bg-neutral-50 dark:bg-neutral-900/50 rounded-3xl border border-dashed border-neutral-200 dark:border-neutral-800 col-span-full">
               <p className="text-neutral-400 text-xs italic">{t('no_products_found') || 'Hakuna bidhaa maarufu kwa sasa.'}</p>
@@ -688,23 +736,30 @@ export default function CustomerDashboard() {
         <div 
           className="flex sm:grid overflow-x-auto sm:overflow-visible gap-4 sm:gap-8 pb-4 sm:pb-0 no-scrollbar -mx-4 px-4 snap-x snap-mandatory sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
         >
-          {filteredVendors
-            .map(vendor => {
-              const distance = vendor.location 
-                ? calculateDistance(location.lat, location.lng, vendor.location.lat, vendor.location.lng)
-                : 9999;
-              return { ...vendor, distance };
-            })
-            .sort((a, b) => a.distance - b.distance)
-            .map((vendor, idx) => (
-            <motion.div
-              key={`popular-restaurant-${vendor.id || `vendor-pop-${idx}`}`}
-              initial={{ opacity: 0, y: 50 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1 * idx, duration: 0.6 }}
-              className="min-w-[85%] sm:min-w-0 snap-start"
-            >
+          {isLoading ? (
+            Array(3).fill(0).map((_, i) => (
+              <Skeleton key={`pop-skele-${i}`} className="min-w-[85%] sm:min-w-0 h-40 rounded-[2.5rem]" />
+            ))
+          ) : (
+            filteredVendors
+              .map(vendor => {
+                const distance = vendor.location 
+                  ? calculateDistance(location.lat, location.lng, vendor.location.lat, vendor.location.lng)
+                  : 9999;
+                return { ...vendor, distance };
+              })
+              .sort((a, b) => a.distance - b.distance)
+              .map((vendor, idx) => (
+              <motion.div
+                key={`popular-restaurant-${vendor.id || `vendor-pop-${idx}`}`}
+                initial={{ opacity: 0, y: 50 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.1 * idx, duration: 0.6 }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="min-w-[85%] sm:min-w-0 snap-start"
+              >
               <Link to={`/vendor/${vendor.id}`}>
                 <Card className="overflow-hidden rounded-[2.5rem] md:rounded-[3.5rem] border-neutral-100 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-[0_40px_80px_rgba(0,0,0,0.08)] hover:shadow-orange-600/20 transition-all duration-700 group border-2 hover:border-orange-500/10 h-full">
                   <div className="flex p-4 sm:p-8 gap-4 sm:gap-8 items-center h-full">
@@ -752,7 +807,7 @@ export default function CustomerDashboard() {
                 </Card>
               </Link>
             </motion.div>
-          ))}
+          )))}
         </div>
       </section>
       <section className="pt-12">

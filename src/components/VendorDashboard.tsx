@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
+import { Skeleton } from './ui/Skeleton';
 import { 
   Globe,
   LayoutDashboard, 
@@ -98,7 +99,7 @@ import {
   MessageSquare as MessageIcon
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useScroll, useMotionValueEvent } from 'motion/react';
 import { 
   BarChart, 
   Bar, 
@@ -152,6 +153,18 @@ export default function VendorDashboard() {
   const [vendorProfile, setVendorProfile] = useState<VendorProfile | null>(null);
   const [activeFulfillmentTab, setActiveFulfillmentTab] = useState(0);
   const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
+
+  const [isNavVisible, setIsNavVisible] = useState(true);
+  const { scrollY } = useScroll();
+
+  useMotionValueEvent(scrollY, "change", (latest) => {
+    const previous = scrollY.getPrevious() || 0;
+    if (latest > previous && latest > 50) {
+      setIsNavVisible(false);
+    } else {
+      setIsNavVisible(true);
+    }
+  });
 
   // Dynamic context based on business category
   const vendorContext = useMemo(() => {
@@ -1496,9 +1509,23 @@ export default function VendorDashboard() {
   };
 
   if (loading) return (
-    <div className="flex flex-col items-center justify-center h-96 space-y-4">
-      <div className="w-12 h-12 border-4 border-orange-600 border-t-transparent rounded-full animate-spin"></div>
-      <p className="text-neutral-500 font-medium animate-pulse">Loading your business center...</p>
+    <div className="p-6 md:p-10 space-y-10">
+      <div className="flex items-center justify-between">
+        <div className="space-y-4">
+          <Skeleton className="h-10 w-64 rounded-2xl" />
+          <Skeleton className="h-4 w-48 rounded-lg" />
+        </div>
+        <Skeleton className="h-12 w-12 rounded-full" />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {Array(4).fill(0).map((_, i) => (
+          <Skeleton key={`stat-skele-${i}`} className="h-32 rounded-[2rem]" />
+        ))}
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+        <Skeleton className="h-64 rounded-[2.5rem]" />
+        <Skeleton className="h-64 rounded-[2.5rem]" />
+      </div>
     </div>
   );
 
@@ -2168,10 +2195,22 @@ export default function VendorDashboard() {
                 <p className="text-xs font-bold text-neutral-900 dark:text-white">{profile?.displayName}</p>
                 <p className="text-[10px] text-neutral-500 uppercase tracking-tighter">Owner</p>
               </div>
-              <div className="w-10 h-10 rounded-xl bg-orange-600/20 border border-orange-600/30 flex items-center justify-center text-orange-600 font-bold">
-                {profile?.displayName?.charAt(0)}
+              <div className="w-10 h-10 rounded-xl bg-orange-600/20 border border-orange-600/30 flex items-center justify-center text-orange-600 font-bold overflow-hidden">
+                {profile?.photoURL ? (
+                  <img src={profile.photoURL} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  profile?.displayName?.charAt(0)
+                )}
               </div>
             </div>
+            <div className="h-8 w-px bg-neutral-200 dark:bg-neutral-800 mx-1"></div>
+            <button 
+              onClick={handleSignOut}
+              className="p-2.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-400 hover:text-red-500 transition-all"
+              title="Logout"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
           </div>
         </header>
 
@@ -4628,7 +4667,12 @@ export default function VendorDashboard() {
       </AnimatePresence>
 
       {/* Bottom Navigation for Mobile */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-[100] h-20 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl border-t border-neutral-200 dark:border-neutral-800 transition-colors duration-300 shadow-[0_-10px_25px_rgba(0,0,0,0.05)]">
+      <motion.nav 
+        initial={{ y: 0 }}
+        animate={{ y: isNavVisible ? 0 : 100 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-[100] h-20 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl border-t border-neutral-200 dark:border-neutral-800 transition-colors duration-300 shadow-[0_-10px_25px_rgba(0,0,0,0.05)]"
+      >
         <motion.div 
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -4668,7 +4712,7 @@ export default function VendorDashboard() {
             <span className="text-[10px] font-black uppercase tracking-widest opacity-60">More</span>
           </button>
         </motion.div>
-      </nav>
+      </motion.nav>
 
       {/* Add Customer Modal */}
       <AnimatePresence>

@@ -59,8 +59,17 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <div className="md:hidden fixed bottom-6 left-0 right-0 z-[100] px-4 flex justify-center pointer-events-none">
           <motion.nav 
             initial={{ y: 100, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ type: 'spring', damping: 20, stiffness: 100 }}
+            animate={{ 
+              y: isNavVisible ? 0 : 120, 
+              opacity: isNavVisible ? 1 : 0,
+              scale: isNavVisible ? 1 : 0.9
+            }}
+            transition={{ 
+              type: 'spring', 
+              damping: 25, 
+              stiffness: 200,
+              opacity: { duration: 0.2 }
+            }}
             className="pointer-events-auto bg-neutral-900/90 dark:bg-black/90 backdrop-blur-2xl border border-white/10 rounded-[2rem] px-2 py-2 flex items-center justify-around w-full max-w-sm shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative overflow-hidden"
           >
             {/* Top Shine Effect */}

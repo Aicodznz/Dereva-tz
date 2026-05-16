@@ -2,17 +2,18 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline, Circle } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { Skeleton } from '../ui/Skeleton';
 import { 
   Bell, Power, Navigation, Fuel, Zap, 
   ParkingCircle, Car, Settings, Phone, Gauge, Eye, EyeOff,
   Navigation2, MessageSquare, MapPin, Star, X as CloseX,
   Clock, TrendingUp, Info, Wifi, Battery, Map as MapIcon,
-  CheckCircle2, ArrowRight, RefreshCw, DollarSign, Package, Home
+  CheckCircle2, ArrowRight, RefreshCw, DollarSign, Package, Home, LogOut
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Chat from '../Chat';
 import { motion, AnimatePresence } from 'motion/react';
-import { db } from '../../firebase';
+import { db, auth } from '../../firebase';
 import { doc, updateDoc, getDoc, setDoc, serverTimestamp, collection, query, where, limit, onSnapshot } from 'firebase/firestore';
 import { useAuth } from '../../AuthContext';
 import { useDriverActions } from '../../hooks/useDriverActions';
@@ -129,6 +130,7 @@ interface RiderHomeProps {
 }
 
 export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
+  const navigate = useNavigate();
   const { user, profile } = useAuth();
   const [isOnline, setIsOnline] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -149,6 +151,16 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
 
   const [incomingRequest, setIncomingRequest] = useState<any>(null);
   const [declinedRequests, setDeclinedRequests] = useState<Set<string>>(new Set());
+
+  const handleSignOut = async () => {
+    try {
+      await auth.signOut();
+      navigate('/login');
+      toast.success('Signed out successfully');
+    } catch (error) {
+      toast.error('Failed to sign out');
+    }
+  };
 
   // Dynamic Routing for Driver
   const routingTarget = useMemo<[number, number] | null>(() => {
@@ -627,6 +639,13 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                 </button>
               </Link>
 
+              <button 
+                onClick={handleSignOut}
+                className="w-10 h-10 bg-red-100 dark:bg-red-500/10 rounded-full flex items-center justify-center relative shrink-0 text-red-600"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+
               <div className="flex-1 flex flex-col items-center px-2">
                 {isOnline ? (
                   <motion.div 
@@ -974,26 +993,39 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                      <Power className="w-6 h-6" />
                    </button>
                 </div>
+                 <div className="grid grid-cols-3 gap-2 mb-6">
+                   {stats.todayEarnings !== undefined ? (
+                     <div className="bg-[#1a1a2e] border border-[#7F77DD]/20 p-3 rounded-2xl flex flex-col items-center shadow-lg transition-transform hover:scale-105">
+                        <DollarSign className="w-4 h-4 text-emerald-500 mb-0.5" />
+                        <p className="text-[7px] font-black text-neutral-400 uppercase">Mapato</p>
+                        <p className="text-xs font-black italic text-white flex flex-col items-center leading-tight">
+                          <span className="text-[8px] opacity-70 not-italic">TZS</span>
+                          {showEarnings ? (stats?.todayEarnings ?? 0).toLocaleString() : "••••••"}
+                        </p>
+                     </div>
+                   ) : (
+                     <Skeleton className="h-16 rounded-2xl bg-white/5" />
+                   )}
+                   
+                   {stats.todayTrips !== undefined ? (
+                     <div className="bg-[#1a1a2e] border border-[#7F77DD]/20 p-3 rounded-2xl flex flex-col items-center shadow-lg transition-transform hover:scale-105">
+                        <Navigation2 className="w-4 h-4 text-emerald-500 mb-0.5" />
+                        <p className="text-[7px] font-black text-neutral-400 uppercase">Safari</p>
+                        <p className="text-sm font-black italic text-white">{stats.todayTrips}</p>
+                     </div>
+                   ) : (
+                     <Skeleton className="h-16 rounded-2xl bg-white/5" />
+                   )}
 
-                <div className="grid grid-cols-3 gap-2 mb-6">
-                   <div className="bg-[#1a1a2e] border border-[#7F77DD]/20 p-3 rounded-2xl flex flex-col items-center shadow-lg transition-transform hover:scale-105">
-                      <DollarSign className="w-4 h-4 text-emerald-500 mb-0.5" />
-                      <p className="text-[7px] font-black text-neutral-400 uppercase">Mapato</p>
-                      <p className="text-xs font-black italic text-white flex flex-col items-center leading-tight">
-                        <span className="text-[8px] opacity-70 not-italic">TZS</span>
-                        {showEarnings ? (stats?.todayEarnings ?? 0).toLocaleString() : "••••••"}
-                      </p>
-                   </div>
-                   <div className="bg-[#1a1a2e] border border-[#7F77DD]/20 p-3 rounded-2xl flex flex-col items-center shadow-lg transition-transform hover:scale-105">
-                      <Navigation2 className="w-4 h-4 text-emerald-500 mb-0.5" />
-                      <p className="text-[7px] font-black text-neutral-400 uppercase">Safari</p>
-                      <p className="text-sm font-black italic text-white">{stats.todayTrips}</p>
-                   </div>
-                   <div className="bg-[#1a1a2e] border border-[#7F77DD]/20 p-3 rounded-2xl flex flex-col items-center shadow-lg transition-transform hover:scale-105">
-                      <Clock className="w-4 h-4 text-amber-500 mb-0.5" />
-                      <p className="text-[7px] font-black text-neutral-400 uppercase">Saa</p>
-                      <p className="text-sm font-black italic text-white">{stats.activeHours}h</p>
-                   </div>
+                   {stats.activeHours !== undefined ? (
+                     <div className="bg-[#1a1a2e] border border-[#7F77DD]/20 p-3 rounded-2xl flex flex-col items-center shadow-lg transition-transform hover:scale-105">
+                        <Clock className="w-4 h-4 text-amber-500 mb-0.5" />
+                        <p className="text-[7px] font-black text-neutral-400 uppercase">Saa</p>
+                        <p className="text-sm font-black italic text-white">{stats.activeHours}h</p>
+                     </div>
+                   ) : (
+                     <Skeleton className="h-16 rounded-2xl bg-white/5" />
+                   )}
                 </div>
 
                 <div className="bg-[#7F77DD]/5 border border-[#7F77DD]/10 rounded-2xl p-4 flex items-center gap-4">
