@@ -503,7 +503,7 @@ export default function CustomerDashboard() {
         >
           {isLoading ? (
             Array(4).fill(0).map((_, i) => (
-              <div key={`store-skele-${i}`} className="min-w-[85%] sm:min-w-0 space-y-4">
+              <div key={`store-skele-${i}`} className="min-w-[48%] sm:min-w-0 space-y-4">
                 <Skeleton className="h-40 sm:h-48 rounded-[2.5rem]" />
                 <div className="p-4 space-y-2">
                   <Skeleton className="h-6 w-3/4 rounded-lg" />
@@ -530,7 +530,7 @@ export default function CustomerDashboard() {
                   transition={{ delay: 0.05 * idx, type: "spring", stiffness: 100 }}
                   whileHover={{ y: -10 }}
                   whileTap={{ scale: 0.98 }}
-                  className="min-w-[85%] sm:min-w-0 group cursor-pointer snap-start"
+                  className="min-w-[48%] sm:min-w-0 group cursor-pointer snap-start"
                   onClick={() => navigate(`/vendor/${vendor.id}`)}
                 >
                 <div className="relative h-full bg-white dark:bg-neutral-900 rounded-[1.5rem] sm:rounded-[2.5rem] border border-neutral-200/60 dark:border-white/5 shadow-[0_10px_30px_rgba(0,0,0,0.06)] sm:shadow-[0_20px_50px_rgba(0,0,0,0.06)] group-hover:shadow-[0_40px_80px_rgba(234,88,12,0.15)] transition-all duration-500 overflow-hidden group/card border-b-2 sm:border-b-4 border-b-neutral-100 active:scale-[0.98]">
