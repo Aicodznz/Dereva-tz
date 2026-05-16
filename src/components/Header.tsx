@@ -20,6 +20,16 @@ export default function Header() {
   const { scrollY } = useScroll();
   const [hidden, setHidden] = useState(false);
 
+  const getTimeGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) return { text: 'Habari za asubuhi', emoji: '☀️' };
+    if (hour >= 12 && hour < 18) return { text: 'Habari za mchana', emoji: '🌤️' };
+    if (hour >= 18 && hour < 22) return { text: 'Habari za jioni', emoji: '🌙' };
+    return { text: 'Habari za usiku', emoji: '🌌' };
+  };
+
+  const greeting = getTimeGreeting();
+
   useMotionValueEvent(scrollY, "change", (latest) => {
     const previous = scrollY.getPrevious() ?? 0;
     if (latest > previous && latest > 150) {
@@ -154,20 +164,30 @@ export default function Header() {
 
           {/* User Profile */}
           {user && (
-            <Link to="/profile" className="flex items-center gap-2 group">
-              <div className="w-9 h-9 rounded-xl overflow-hidden border-2 border-orange-600/20 group-hover:border-orange-600 transition-all shadow-sm shrink-0">
-                <img 
-                  key={profile?.photoURL || user?.uid}
-                  src={profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid}`} 
-                  alt="Avatar" 
-                  className="w-full h-full object-cover"
-                  referrerPolicy="no-referrer"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid}`;
-                  }}
-                />
+            <div className="flex items-center gap-3">
+              <div className="hidden lg:flex flex-col items-end leading-tight shrink-0">
+                <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400 dark:text-neutral-500">
+                  {greeting.text} {greeting.emoji}
+                </span>
+                <span className="text-xs font-black text-neutral-900 dark:text-white uppercase italic tracking-tighter truncate max-w-[120px]">
+                  {profile?.displayName?.split(' ')[0] || user.displayName?.split(' ')[0] || 'Mpendwa'}
+                </span>
               </div>
-            </Link>
+              <Link to="/profile" className="flex items-center gap-2 group shrink-0">
+                <div className="w-9 h-9 md:w-10 md:h-10 rounded-xl overflow-hidden border-2 border-orange-600/20 group-hover:border-orange-600 transition-all shadow-sm shrink-0">
+                  <img 
+                    key={profile?.photoURL || user?.uid}
+                    src={profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid}`} 
+                    alt="Avatar" 
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid}`;
+                    }}
+                  />
+                </div>
+              </Link>
+            </div>
           )}
 
           {/* Cart for Mobile (fallback when bottom nav is hidden) */}
