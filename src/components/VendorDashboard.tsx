@@ -79,6 +79,7 @@ import {
   Box,
   Check,
   Link as LinkIcon,
+  Palette,
   Loader2,
   Printer,
   Utensils,
@@ -391,6 +392,7 @@ export default function VendorDashboard() {
   const [isLogoUploading, setIsLogoUploading] = useState(false);
   const [isProductUploading, setIsProductUploading] = useState(false);
   const [isModelUploading, setIsModelUploading] = useState(false);
+  const [isStandBgUploading, setIsStandBgUploading] = useState(false);
   const [isBannerUploading, setIsBannerUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -450,7 +452,9 @@ export default function VendorDashboard() {
     isPrintMode: false,
     showLogo: true,
     accentColor: '#ea580c',
-    headerBg: '#1A1A1A'
+    headerBg: '#1A1A1A',
+    contentBg: '#ffffff',
+    bgImage: ''
   });
   const [qrOptions, setQrOptions] = useState<any>({
     width: 300,
@@ -1172,6 +1176,24 @@ export default function VendorDashboard() {
     }
   };
 
+  const handleStandBgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && vendorProfile?.id) {
+      setIsStandBgUploading(true);
+      try {
+        const path = storageService.getVendorPath(vendorProfile.id, 'stand_bg', file.name);
+        const url = await storageService.uploadFile('vendors', path, file);
+        setPrintDetails(prev => ({ ...prev, bgImage: url }));
+        toast.success("Background image imepakiwa!");
+      } catch (error: any) {
+        console.error("Stand bg upload error:", error);
+        toast.error("Imeshindwa kupakia background: " + error.message);
+      } finally {
+        setIsStandBgUploading(false);
+      }
+    }
+  };
+
   const handleBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && vendorProfile?.id) {
@@ -1232,7 +1254,7 @@ export default function VendorDashboard() {
         await addDoc(collection(db, 'products'), {
           ...productData,
           vendorId: vendorProfile.id,
-          vendorOwnerUid: user.uid,
+          vendorOwnerUid: user?.uid || '',
           vendorCategory: vendorProfile.category,
           createdAt: serverTimestamp(),
         });
@@ -3044,7 +3066,7 @@ export default function VendorDashboard() {
                           className="pt-2"
                         >
                            <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1 block mb-2">Select Table</label>
-                           <Select value={tableNumber} onValueChange={setTableNumber}>
+                           <Select value={tableNumber} onValueChange={(val) => setTableNumber(val || '')}>
                               <SelectTrigger className="bg-neutral-900 border-neutral-800 h-12 rounded-xl font-bold">
                                  <SelectValue placeholder="Choose a table..." />
                               </SelectTrigger>
@@ -4710,7 +4732,7 @@ export default function VendorDashboard() {
                         onChange={(e) => setInventorySearch(e.target.value)}
                       />
                    </div>
-                   <Select value={stockLevelFilter} onValueChange={setStockLevelFilter}>
+                   <Select value={stockLevelFilter} onValueChange={(val) => setStockLevelFilter(val || 'all')}>
                       <SelectTrigger className="bg-neutral-950 border-neutral-800 h-12 rounded-2xl font-bold">
                          <SelectValue placeholder="Stock Level" />
                       </SelectTrigger>
@@ -5777,7 +5799,7 @@ export default function VendorDashboard() {
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Role / Kazi</label>
-                  <Select value={newStaff.role} onValueChange={val => setNewStaff({...newStaff, role: val})}>
+                  <Select value={newStaff.role} onValueChange={val => setNewStaff({...newStaff, role: val || ''})}>
                      <SelectTrigger className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl font-bold text-white">
                         <SelectValue />
                      </SelectTrigger>
@@ -5813,7 +5835,7 @@ export default function VendorDashboard() {
                 {branches.length > 0 && (
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Branch / Kituo</label>
-                    <Select value={newStaff.branchId} onValueChange={val => setNewStaff({...newStaff, branchId: val})}>
+                    <Select value={newStaff.branchId} onValueChange={val => setNewStaff({...newStaff, branchId: val || ''})}>
                       <SelectTrigger className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl font-bold text-white">
                         <SelectValue placeholder="Select Branch (Optional)" />
                       </SelectTrigger>
@@ -5895,7 +5917,7 @@ export default function VendorDashboard() {
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Type / Aina</label>
-                  <Select value={newBranch.type} onValueChange={val => setNewBranch({...newBranch, type: val})}>
+                  <Select value={newBranch.type} onValueChange={val => setNewBranch({...newBranch, type: val || ''})}>
                      <SelectTrigger className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl font-bold text-white">
                         <SelectValue />
                      </SelectTrigger>
@@ -6200,6 +6222,20 @@ export default function VendorDashboard() {
                            {qrOptions.dotsOptions.color === color && <Check className={`w-3 h-3 ${color === '#E2E8F0' ? 'text-black' : 'text-white'}`} />}
                          </button>
                        ))}
+                       <label className="aspect-square rounded-xl border-2 border-dashed border-white/20 hover:border-orange-600/50 transition-all flex items-center justify-center cursor-pointer group">
+                          <Palette className="w-4 h-4 text-neutral-500 group-hover:text-orange-600" />
+                          <input 
+                            type="color" 
+                            className="sr-only" 
+                            value={qrOptions.dotsOptions.color}
+                            onChange={(e) => setQrOptions({ 
+                              ...qrOptions, 
+                              dotsOptions: { ...qrOptions.dotsOptions, color: e.target.value },
+                              cornersSquareOptions: { ...qrOptions.cornersSquareOptions, color: e.target.value },
+                              cornersDotOptions: { ...qrOptions.cornersDotOptions, color: e.target.value }
+                            })}
+                          />
+                       </label>
                     </div>
                   </div>
 
@@ -6223,6 +6259,15 @@ export default function VendorDashboard() {
                            {qrOptions.backgroundOptions.color === color && <Check className={`w-3 h-3 ${color === '#ffffff' || color === '#E2E8F0' ? 'text-black' : 'text-white'}`} />}
                          </button>
                        ))}
+                       <label className="aspect-square rounded-xl border-2 border-dashed border-white/20 hover:border-orange-600/50 transition-all flex items-center justify-center cursor-pointer group">
+                          <Palette className="w-4 h-4 text-neutral-500 group-hover:text-orange-600" />
+                          <input 
+                            type="color" 
+                            className="sr-only" 
+                            value={qrOptions.backgroundOptions.color}
+                            onChange={(e) => setQrOptions({ ...qrOptions, backgroundOptions: { color: e.target.value } })}
+                          />
+                       </label>
                     </div>
                   </div>
 
@@ -6301,6 +6346,83 @@ export default function VendorDashboard() {
                               {printDetails.accentColor === color && <Check className="w-3 h-3 text-white" />}
                             </button>
                           ))}
+                          <label className="w-7 h-7 rounded-full border-2 border-dashed border-white/20 hover:border-orange-600/50 transition-all flex items-center justify-center cursor-pointer group">
+                             <Palette className="w-3.5 h-3.5 text-neutral-500 group-hover:text-orange-600" />
+                             <input 
+                               type="color" 
+                               className="sr-only" 
+                               value={printDetails.accentColor}
+                               onChange={(e) => setPrintDetails({...printDetails, accentColor: e.target.value})}
+                             />
+                           </label>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <span className="text-[8px] font-black text-neutral-600 uppercase tracking-widest px-1 text-center block mb-2">Content Background Color / Rangi ya Ndani</span>
+                        <div className="flex flex-wrap justify-center gap-2 pb-2">
+                          {[
+                            '#ffffff', '#f8fafc', '#f1f5f9', '#fff7ed', '#f0f9ff', 
+                            '#f0fdf4', '#000000', '#1a1a1a'
+                          ].map((color, bgIdx) => (
+                            <button
+                              key={`stand-content-bg-${color}-${bgIdx}`}
+                              onClick={() => setPrintDetails({...printDetails, contentBg: color})}
+                              className={`w-7 h-7 rounded-full border-2 transition-all flex items-center justify-center ${
+                                printDetails.contentBg === color ? 'border-orange-600 scale-110 shadow-lg' : 'border-neutral-800'
+                              }`}
+                              style={{ backgroundColor: color }}
+                            >
+                              {printDetails.contentBg === color && <Check className={`w-3 h-3 ${color === '#ffffff' || color === '#f8fafc' || color === '#f1f5f9' || color === '#fff7ed' ? 'text-black' : 'text-white'}`} />}
+                            </button>
+                          ))}
+                          <label className="w-7 h-7 rounded-full border-2 border-dashed border-white/20 hover:border-orange-600/50 transition-all flex items-center justify-center cursor-pointer group">
+                             <Palette className="w-3.5 h-3.5 text-neutral-500 group-hover:text-orange-600" />
+                             <input 
+                               type="color" 
+                               className="sr-only" 
+                               value={printDetails.contentBg}
+                               onChange={(e) => setPrintDetails({...printDetails, contentBg: e.target.value})}
+                             />
+                           </label>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1 pb-4 border-b border-white/5">
+                        <span className="text-[8px] font-black text-neutral-600 uppercase tracking-widest px-1 text-center block mb-2">Background Image / Picha ya Nyuma</span>
+                        <div className="flex items-center justify-center gap-3">
+                           <label className="flex-1 cursor-pointer">
+                              <div className="h-14 rounded-2xl border-2 border-dashed border-white/10 hover:border-orange-600/30 bg-neutral-900 flex items-center justify-center gap-2 transition-all">
+                                 {isStandBgUploading ? (
+                                   <Loader2 className="w-5 h-5 animate-spin text-orange-600" />
+                                 ) : printDetails.bgImage ? (
+                                   <div className="flex items-center gap-2">
+                                      <ImageIcon className="w-4 h-4 text-green-500" />
+                                      <span className="text-[9px] font-black text-white uppercase">Picha Imewekwa</span>
+                                   </div>
+                                 ) : (
+                                   <div className="flex items-center gap-2">
+                                      <ImageIcon className="w-4 h-4 text-neutral-500" />
+                                      <span className="text-[9px] font-black text-neutral-500 uppercase">Weka Picha</span>
+                                   </div>
+                                 )}
+                              </div>
+                              <input 
+                                type="file" 
+                                className="hidden" 
+                                accept="image/*"
+                                onChange={handleStandBgUpload}
+                                disabled={isStandBgUploading}
+                              />
+                           </label>
+                           {printDetails.bgImage && (
+                             <button 
+                               onClick={() => setPrintDetails({...printDetails, bgImage: ''})}
+                               className="w-14 h-14 rounded-2xl bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500/20 transition-all"
+                             >
+                               <Trash2 className="w-5 h-5" />
+                             </button>
+                           )}
                         </div>
                       </div>
 
@@ -6322,6 +6444,15 @@ export default function VendorDashboard() {
                               {printDetails.headerBg === color && <Check className={`w-3 h-3 ${color === '#ffffff' ? 'text-black' : 'text-white'}`} />}
                             </button>
                           ))}
+                          <label className="w-7 h-7 rounded-full border-2 border-dashed border-white/20 hover:border-orange-600/50 transition-all flex items-center justify-center cursor-pointer group">
+                             <Palette className="w-3.5 h-3.5 text-neutral-500 group-hover:text-orange-600" />
+                             <input 
+                               type="color" 
+                               className="sr-only" 
+                               value={printDetails.headerBg}
+                               onChange={(e) => setPrintDetails({...printDetails, headerBg: e.target.value})}
+                             />
+                           </label>
                         </div>
                       </div>
 
@@ -6431,14 +6562,27 @@ export default function VendorDashboard() {
                         </div>
 
                         {/* Content Section */}
-                        <div className="flex-1 flex flex-col items-center justify-between py-6 px-6 text-center bg-white">
+                <div 
+                  className="flex-1 flex flex-col items-center justify-between py-6 px-6 text-center relative overflow-hidden"
+                  style={{ 
+                    backgroundColor: printDetails.contentBg,
+                    backgroundImage: printDetails.bgImage ? `url(${printDetails.bgImage})` : 'none',
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center'
+                  }}
+                >
+                  {/* Optional overlay for readability if background image exists */}
+                  {printDetails.bgImage && (
+                     <div className="absolute inset-0 bg-white/20 backdrop-blur-[0.5px] pointer-events-none" />
+                  )}
                           
-                          {/* QR Code Section */}
-                          <div className="w-full flex flex-col items-center">
-                            {/* Title above QR */}
-                            <div className="bg-neutral-50 px-5 py-1.5 border border-neutral-100 rounded-full mb-4 shadow-sm">
-                              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-neutral-400">BIDHAA ZA {vendorProfile?.businessName?.toUpperCase() || 'DUKA'}</p>
-                            </div>
+                          <div className="relative z-10 flex-1 flex flex-col items-center justify-between w-full">
+                            {/* QR Code Section */}
+                            <div className="w-full flex flex-col items-center">
+                              {/* Title above QR */}
+                              <div className="bg-neutral-50/80 backdrop-blur-sm px-5 py-1.5 border border-neutral-100 rounded-full mb-4 shadow-sm">
+                                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-neutral-400">BIDHAA ZA {vendorProfile?.businessName?.toUpperCase() || 'DUKA'}</p>
+                              </div>
                             
                             {/* The QR Code itself */}
                             <div 
@@ -6483,11 +6627,26 @@ export default function VendorDashboard() {
                               </div>
 
                               {/* Capacity */}
-                              <div className="flex flex-col items-center p-3 bg-neutral-50 border border-neutral-100 rounded-[1.25rem] shadow-sm">
-                                <span className="text-[7px] font-black uppercase tracking-[0.2em] text-neutral-400 mb-1 leading-none">SEATING</span>
+                              <div 
+                                className="flex flex-col items-center p-3 rounded-[1.25rem] shadow-sm border"
+                                style={{ 
+                                  backgroundColor: printDetails.contentBg === '#000000' || printDetails.contentBg === '#1a1a1a' ? '#262626' : '#f9fafb',
+                                  borderColor: printDetails.contentBg === '#000000' || printDetails.contentBg === '#1a1a1a' ? '#404040' : '#f3f4f6'
+                                }}
+                              >
+                                <span 
+                                  className="text-[7px] font-black uppercase tracking-[0.2em] mb-1 leading-none opacity-60"
+                                  style={{ color: printDetails.contentBg === '#000000' || printDetails.contentBg === '#1a1a1a' ? '#ffffff' : '#A3A3A3' }}
+                                >SEATING</span>
                                 <div className="flex items-center gap-1">
-                                  <Users className="w-2.5 h-2.5 text-neutral-400" />
-                                  <span className="text-lg font-black italic tracking-tighter text-neutral-900 font-mono leading-none">
+                                  <Users 
+                                    className="w-2.5 h-2.5 opacity-60" 
+                                    style={{ color: printDetails.contentBg === '#000000' || printDetails.contentBg === '#1a1a1a' ? '#ffffff' : '#A3A3A3' }}
+                                  />
+                                  <span 
+                                    className="text-lg font-black italic tracking-tighter text-neutral-900 font-mono leading-none"
+                                    style={{ color: printDetails.contentBg === '#000000' || printDetails.contentBg === '#1a1a1a' ? '#ffffff' : '#111827' }}
+                                  >
                                     {selectedSection?.capacity || '04'}
                                   </span>
                                 </div>
@@ -6495,12 +6654,21 @@ export default function VendorDashboard() {
                             </div>
 
                             <div className="space-y-1.5">
-                              <p className="text-[8px] font-black italic text-neutral-400 uppercase tracking-widest max-w-[180px] mx-auto opacity-70">
+                              <p 
+                                className="text-[8px] font-black italic uppercase tracking-widest max-w-[180px] mx-auto opacity-70"
+                                style={{ color: printDetails.contentBg === '#000000' || printDetails.contentBg === '#1a1a1a' ? '#ffffff' : '#A3A3A3' }}
+                              >
                                 {printDetails.footer}
                               </p>
                               
                               {(printDetails.phone || printDetails.address) && (
-                                <div className="flex items-center justify-center gap-3 text-[7.5px] font-bold text-neutral-300 uppercase tracking-widest pt-2 border-t border-neutral-50 grayscale opacity-40">
+                                <div 
+                                  className="flex items-center justify-center gap-3 text-[7.5px] font-bold uppercase tracking-widest pt-2 border-t grayscale opacity-40"
+                                  style={{ 
+                                    borderColor: printDetails.contentBg === '#000000' || printDetails.contentBg === '#1a1a1a' ? '#404040' : '#f3f4f6',
+                                    color: printDetails.contentBg === '#000000' || printDetails.contentBg === '#1a1a1a' ? '#ffffff' : '#737373'
+                                  }}
+                                >
                                    {printDetails.phone && <span>{printDetails.phone}</span>}
                                    {printDetails.address && <span className="max-w-[110px] truncate">{printDetails.address}</span>}
                                 </div>
@@ -6508,9 +6676,10 @@ export default function VendorDashboard() {
                             </div>
                           </div>
                         </div>
-                      </>
-                    )}
-                  </div>
+                      </div>
+                    </>
+                  )}
+                </div>
 
                   {/* Non-Print Preview Mode */}
                   {!printDetails.isPrintMode && (

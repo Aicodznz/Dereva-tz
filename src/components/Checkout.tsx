@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useCart } from '../CartContext';
 import { useAuth } from '../AuthContext';
 import { useLanguage } from '../LanguageContext';
@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { db } from '../firebase';
-import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, getDoc, onSnapshot, query, where } from 'firebase/firestore';
 import { toast } from 'sonner';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
@@ -38,6 +38,43 @@ export default function Checkout() {
   const [arrivalTime, setArrivalTime] = useState('');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [vendorTables, setVendorTables] = useState<any[]>([]);
+  const [occupiedTables, setOccupiedTables] = useState<string[]>([]);
+
+  const initiatePayment = async (data: any) => {
+    console.log("Initiating payment:", data);
+    return { success: true };
+  };
+
+  useEffect(() => {
+    const vendorId = cartItems[0]?.vendorId;
+    if (vendorId) {
+      // Fetch Vendor Tables (Sections)
+      const unsubTables = onSnapshot(collection(db, 'vendors', vendorId, 'sections'), (snap) => {
+        setVendorTables(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      });
+
+      // Fetch Active Orders to find occupied tables
+      const q = query(
+        collection(db, 'orders'),
+        where('vendorId', '==', vendorId),
+        where('status', 'in', ['pending', 'accepted', 'preparing', 'prepared']),
+        where('orderType', '==', 'walk_in')
+      );
+
+      const unsubOrders = onSnapshot(q, (snap) => {
+        const occupied = snap.docs
+          .map(doc => doc.data().tableNumber)
+          .filter(t => !!t);
+        setOccupiedTables(occupied);
+      });
+
+      return () => {
+        unsubTables();
+        unsubOrders();
+      };
+    }
+  }, [cartItems[0]?.vendorId]);
 
   const deliveryFee = orderType === 'delivery' ? 2000 : 0; // Default or calculated
 
@@ -242,14 +279,55 @@ export default function Checkout() {
                 )}
 
                 {orderType === 'walk_in' && (
-                  <div className="space-y-2">
-                    <Label className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Namba ya Meza (Kama upo hapa)</Label>
-                    <Input 
-                      value={tableNumber}
-                      onChange={(e) => setTableNumber(e.target.value)}
-                      placeholder="e.g. Meza Na. 5"
-                      className="h-14 rounded-2xl border-none bg-neutral-50 dark:bg-neutral-800 font-medium"
-                    />
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                       <Label className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Chagua Meza Yako</Label>
+                       <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-1">
+                             <div className="w-2 h-2 rounded-full bg-red-500" />
+                             <span className="text-[8px] font-bold text-neutral-400 uppercase">Imekaliwa</span>
+                          </div>
+                       </div>
+                    </div>
+
+                    {vendorTables.length > 0 ? (
+                      <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                        {vendorTables.map((table) => {
+                          const isOccupied = occupiedTables.includes(table.number);
+                          const isSelected = tableNumber === table.number;
+                          return (
+                            <button
+                              key={table.id}
+                              onClick={() => {
+                                if (isOccupied) {
+                                   toast.error('Meza Imekaliwa', {
+                                     description: 'Tafadhali chagua meza nyingine iliyo wazi.'
+                                   });
+                                   return;
+                                }
+                                setTableNumber(table.number);
+                              }}
+                              className={`h-11 rounded-xl border-2 flex items-center justify-center font-black transition-all relative ${
+                                isSelected 
+                                  ? 'border-orange-600 bg-orange-600 text-white' 
+                                  : isOccupied 
+                                    ? 'border-red-100 bg-red-50 text-red-200 dark:bg-red-950/20 dark:border-red-900/40' 
+                                    : 'border-neutral-100 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400'
+                              }`}
+                            >
+                              <span className="text-xs">{table.number}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <Input 
+                        value={tableNumber}
+                        onChange={(e) => setTableNumber(e.target.value)}
+                        placeholder="e.g. Meza Na. 5"
+                        className="h-14 rounded-2xl border-none bg-neutral-50 dark:bg-neutral-800 font-medium"
+                      />
+                    )}
                   </div>
                 )}
 

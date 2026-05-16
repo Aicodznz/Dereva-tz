@@ -50,6 +50,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 
 const formatCurrency = (amount: number) => {
@@ -131,6 +132,37 @@ export default function ProductDetail() {
   const [arrivalTime, setArrivalTime] = useState('');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [tableSession, setTableSession] = useState<any>(null);
+  const [vendorTables, setVendorTables] = useState<any[]>([]);
+  const [occupiedTables, setOccupiedTables] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (vendor?.id) {
+      // Fetch Vendor Tables (Sections)
+      const unsubTables = onSnapshot(collection(db, 'vendors', vendor.id, 'sections'), (snap) => {
+        setVendorTables(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      });
+
+      // Fetch Active Orders to find occupied tables
+      const q = query(
+        collection(db, 'orders'),
+        where('vendorId', '==', vendor.id),
+        where('status', 'in', ['pending', 'accepted', 'preparing', 'prepared']),
+        where('orderType', '==', 'walk_in')
+      );
+
+      const unsubOrders = onSnapshot(q, (snap) => {
+        const occupied = snap.docs
+          .map(doc => doc.data().tableNumber)
+          .filter(t => !!t);
+        setOccupiedTables(occupied);
+      });
+
+      return () => {
+        unsubTables();
+        unsubOrders();
+      };
+    }
+  }, [vendor?.id]);
 
   useEffect(() => {
     const savedSession = localStorage.getItem('papo_hapo_table_session');
@@ -473,20 +505,27 @@ export default function ProductDetail() {
                 >
                   <div className="flex gap-2 p-1 bg-neutral-100 dark:bg-neutral-800 rounded-xl">
                     <button 
-                      onClick={() => setTableNumber('')}
+                      onClick={() => { setTableNumber(''); setArrivalTime(''); }}
                       className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${!tableNumber ? 'bg-white dark:bg-neutral-700 text-orange-600 shadow-sm' : 'text-neutral-500'}`}
                     >
                       Agiza Mapema
                     </button>
                     <button 
-                      onClick={() => setTableNumber('1')}
+                      onClick={() => {
+                        if (vendorTables.length > 0) {
+                          const firstFree = vendorTables.find(t => !occupiedTables.includes(t.number));
+                          setTableNumber(firstFree?.number || vendorTables[0]?.number || '1');
+                        } else {
+                          setTableNumber('1');
+                        }
+                      }}
                       className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${tableNumber ? 'bg-white dark:bg-neutral-700 text-orange-600 shadow-sm' : 'text-neutral-500'}`}
                     >
                       Nipo Mezani
                     </button>
                   </div>
 
-                  {!tableNumber ? (
+                  {orderType === 'walk_in' && !tableNumber && (
                     <div className="space-y-2">
                        <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Muda wa Kufika (Arrival Time)</label>
                        <div className="relative">
@@ -499,18 +538,68 @@ export default function ProductDetail() {
                           />
                        </div>
                     </div>
-                  ) : (
-                    <div className="space-y-2">
-                       <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Namba ya Meza (Table Number)</label>
-                       <div className="relative">
-                          <Hash className="absolute left-4 top-3.5 w-4 h-4 text-orange-600" />
-                          <Input 
-                            placeholder="mfano: B1, 14..."
-                            className="pl-12 h-12 rounded-xl bg-neutral-100 dark:bg-neutral-800 border-none font-bold"
-                            value={tableNumber}
-                            onChange={e => setTableNumber(e.target.value)}
-                          />
+                  )}
+
+                  {orderType === 'walk_in' && tableNumber && (
+                    <div className="space-y-4 pt-2">
+                       <div className="flex items-center justify-between">
+                          <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Chagua Meza Yako</label>
+                          <div className="flex items-center gap-3">
+                             <div className="flex items-center gap-1">
+                                <div className="w-2 h-2 rounded-full bg-red-500" />
+                                <span className="text-[8px] font-bold text-neutral-400 uppercase">Imekaliwa</span>
+                             </div>
+                             <div className="flex items-center gap-1">
+                                <div className="w-2 h-2 rounded-full bg-neutral-300 dark:bg-neutral-700" />
+                                <span className="text-[8px] font-bold text-neutral-400 uppercase">Wazi</span>
+                             </div>
+                          </div>
                        </div>
+                       
+                       {vendorTables.length > 0 ? (
+                         <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                           {vendorTables.map((table) => {
+                             const isOccupied = occupiedTables.includes(table.number);
+                             const isSelected = tableNumber === table.number;
+                             return (
+                               <button
+                                 key={table.id}
+                                 onClick={() => {
+                                   if (isOccupied) {
+                                      toast.error('Meza Imekaliwa', {
+                                        description: 'Tafadhali chagua meza nyingine iliyo wazi.'
+                                      });
+                                      return;
+                                   }
+                                   setTableNumber(table.number);
+                                 }}
+                                 className={`h-12 rounded-xl border-2 flex flex-col items-center justify-center font-black transition-all relative ${
+                                   isSelected 
+                                     ? 'border-orange-600 bg-orange-600 text-white shadow-lg' 
+                                     : isOccupied 
+                                       ? 'border-red-100 bg-red-50 text-red-200 dark:bg-red-950/20 dark:border-red-900/40' 
+                                       : 'border-neutral-100 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:border-orange-600/30'
+                                 }`}
+                               >
+                                 <span className="text-sm">{table.number}</span>
+                                 {isOccupied && (
+                                   <div className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-neutral-900 animate-pulse" />
+                                 )}
+                               </button>
+                             );
+                           })}
+                         </div>
+                       ) : (
+                          <div className="relative">
+                            <Hash className="absolute left-4 top-3.5 w-4 h-4 text-orange-600" />
+                            <Input 
+                              placeholder="mfano: B1, 14..."
+                              className="pl-12 h-12 rounded-xl bg-neutral-100 dark:bg-neutral-800 border-none font-bold"
+                              value={tableNumber}
+                              onChange={e => setTableNumber(e.target.value)}
+                            />
+                         </div>
+                       )}
                     </div>
                   )}
                 </motion.div>
