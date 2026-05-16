@@ -422,8 +422,9 @@ export default function VendorDashboard() {
   const [newSection, setNewSection] = useState({ number: '', capacity: 10 });
   const [selectedSection, setSelectedSection] = useState<any>(null);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [orderToPrint, setOrderToPrint] = useState<Order | null>(null);
   const [prepTime, setPrepTime] = useState('');
-  const [assignmentType, setAssignmentType] = useState<'vendor' | 'platform'>('vendor');
+  const [assignmentType, setAssignmentType] = useState<'vendor' | 'app'>('vendor');
   const [vendorRiderDetails, setVendorRiderDetails] = useState({ name: '', phone: '', fee: 0 });
 
   // Settings State
@@ -2214,8 +2215,8 @@ export default function VendorDashboard() {
                                     <p className="text-[8px] opacity-70 font-bold">Dereva wa Vendo</p>
                                  </button>
                                  <button 
-                                   onClick={() => setAssignmentType('platform')}
-                                   className={`p-4 rounded-2xl border transition-all text-left space-y-1 ${assignmentType === 'platform' ? 'bg-orange-600 border-none text-white shadow-lg' : 'bg-neutral-50 dark:bg-neutral-950 border-neutral-100 dark:border-neutral-800 text-neutral-500'}`}
+                                   onClick={() => setAssignmentType('app')}
+                                   className={`p-4 rounded-2xl border transition-all text-left space-y-1 ${assignmentType === 'app' ? 'bg-orange-600 border-none text-white shadow-lg' : 'bg-neutral-50 dark:bg-neutral-950 border-neutral-100 dark:border-neutral-800 text-neutral-500'}`}
                                  >
                                     <Zap className="w-5 h-5 mb-1" />
                                     <p className="text-[9px] font-black uppercase tracking-widest">Papo Hapo App</p>
