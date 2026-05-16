@@ -32,7 +32,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Load cart from local storage on mount
   useEffect(() => {
-    const savedCart = localStorage.getItem('omniserve_cart');
+    const savedCart = localStorage.getItem('papohapo_cart');
     if (savedCart) {
       try {
         setCartItems(JSON.parse(savedCart));
@@ -44,7 +44,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Save cart to local storage whenever it changes
   useEffect(() => {
-    localStorage.setItem('omniserve_cart', JSON.stringify(cartItems));
+    localStorage.setItem('papohapo_cart', JSON.stringify(cartItems));
   }, [cartItems]);
 
   const addItem = (product: any) => {
@@ -123,7 +123,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const clearCart = () => {
     setCartItems([]);
-    localStorage.removeItem('omniserve_cart');
+    localStorage.removeItem('papohapo_cart');
   };
 
   const cartCount = cartItems.reduce((total, item) => total + item.quantity, 0);

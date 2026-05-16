@@ -352,7 +352,7 @@ export default function CustomerDashboard() {
                   <h2 className="text-lg font-black italic uppercase leading-none tracking-tighter text-neutral-900 dark:text-white transition-colors">
                      {getGreeting()}
                   </h2>
-                  <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mt-1">Karibu OmniServe App</p>
+                  <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mt-1">Karibu Papo Hapo App</p>
                </div>
             </div>
             <Link to="/notifications" className="relative p-2.5 bg-neutral-100 dark:bg-neutral-800 rounded-2xl text-neutral-600 dark:text-neutral-400 hover:text-orange-600 transition-all">

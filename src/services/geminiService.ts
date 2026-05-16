@@ -11,7 +11,7 @@ export async function getMarketplaceInsights(query: string) {
         tools: [
           { googleSearch: {} }
         ],
-        systemInstruction: "You are a helpful assistant for OmniServe, a super app. Use Google Search to provide accurate information about local services, prices, and trends.",
+        systemInstruction: "You are a helpful assistant for Papo Hapo, a super app. Use Google Search to provide accurate information about local services, prices, and trends.",
       }
     });
     return response.text;
