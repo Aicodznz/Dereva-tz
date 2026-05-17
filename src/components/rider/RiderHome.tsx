@@ -203,28 +203,32 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
           const mapping: Record<string, string> = {
             'turn right': 'Pinda kulia',
             'turn left': 'Pinda kushoto',
-            'arrive': 'Umefika',
-            'depart': 'Anza safari',
+            'arrive': 'Umefika unapoenda',
+            'depart': 'Anza safari yako sasa',
             'continue': 'Endelea moja kwa moja',
-            'roundabout': 'Mzunguko',
+            'roundabout': 'Kwenye mzunguko',
             'slight right': 'Pinda kulia kidogo',
             'slight left': 'Pinda kushoto kidogo',
-            'sharp right': 'Pinda kulia sana',
-            'sharp left': 'Pinda kushoto sana',
+            'sharp right': 'Pinda kulia kabisa',
+            'sharp left': 'Pinda kushoto kabisa',
+            'uturn': 'Geuka nyuma',
+            'destination': 'unapokwenda',
           };
           
+          let translatedText = text.toLowerCase();
           Object.keys(mapping).forEach(key => {
-            if (text.toLowerCase().includes(key)) {
-              text = mapping[key] + ' ' + text.split(key)[1];
+            if (translatedText.includes(key)) {
+              translatedText = translatedText.replace(key, mapping[key]);
             }
           });
 
+          // Prepend distance info
           if (nextStep.distance < 50) {
-             text = "Sasa, " + text;
+             text = "Sasa, " + translatedText;
           } else if (nextStep.distance > 1000) {
-             text = `Baada ya kilometa ${ (nextStep.distance / 1000).toFixed(1) }, ${text}`;
+             text = `Baada ya kilometa ${ (nextStep.distance / 1000).toFixed(1) }, ${translatedText}`;
           } else {
-             text = `Baada ya mita ${Math.round(nextStep.distance)}, ${text}`;
+             text = `Baada ya mita ${Math.round(nextStep.distance)}, ${translatedText}`;
           }
 
           const utter = new SpeechSynthesisUtterance(text);
@@ -335,30 +339,30 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
     className: 'custom-div-icon',
     html: `
       <div class="relative flex flex-col items-center">
-        <div class="bg-white/90 backdrop-blur-sm border border-emerald-500 rounded-lg px-2 py-1 mb-1 shadow-xl">
-          <p class="text-[8px] font-black text-emerald-600 uppercase whitespace-nowrap">PICKUP MTEJA</p>
+        <div class="bg-[#111118]/90 backdrop-blur-md border border-white/10 rounded-xl px-2 py-1 mb-1 shadow-2xl">
+          <p class="text-[9px] font-black text-emerald-400 uppercase whitespace-nowrap tracking-widest">PICKUP MTEJA</p>
         </div>
-        <div class="bg-[#1D9E75] text-white w-8 h-8 rounded-full border-2 border-white shadow-lg flex items-center justify-center font-black">A</div>
-        <div class="w-0.5 h-2 bg-emerald-500"></div>
+        <div class="bg-emerald-500 text-white w-10 h-10 rounded-full border-4 border-[#111118] shadow-2xl flex items-center justify-center font-black text-xl marker-pulse-green">A</div>
+        <div class="w-1 h-3 bg-emerald-500 rounded-full -mt-1 shadow-lg"></div>
       </div>
     `,
-    iconSize: [80, 60],
-    iconAnchor: [40, 60]
+    iconSize: [120, 80],
+    iconAnchor: [60, 80]
   }), []);
 
   const EndPin = React.useMemo(() => L.divIcon({
     className: 'custom-div-icon',
     html: `
       <div class="relative flex flex-col items-center">
-        <div class="bg-white/90 backdrop-blur-sm border border-orange-500 rounded-lg px-2 py-1 mb-1 shadow-xl">
-          <p class="text-[8px] font-black text-orange-600 uppercase whitespace-nowrap">DESTINATION</p>
+        <div class="bg-[#111118]/90 backdrop-blur-md border border-white/10 rounded-xl px-2 py-1 mb-1 shadow-2xl">
+          <p class="text-[9px] font-black text-orange-400 uppercase whitespace-nowrap tracking-widest">DESTINATION</p>
         </div>
-        <div class="bg-[#D85A30] text-white w-8 h-8 rounded-full border-2 border-white shadow-lg flex items-center justify-center font-black">B</div>
-        <div class="w-0.5 h-2 bg-orange-500"></div>
+        <div class="bg-orange-500 text-white w-10 h-10 rounded-full border-4 border-[#111118] shadow-2xl flex items-center justify-center font-black text-xl">B</div>
+        <div class="w-1 h-3 bg-orange-500 rounded-full -mt-1 shadow-lg"></div>
       </div>
     `,
-    iconSize: [80, 60],
-    iconAnchor: [40, 60]
+    iconSize: [120, 80],
+    iconAnchor: [60, 80]
   }), []);
 
   // Unified location and presence sync

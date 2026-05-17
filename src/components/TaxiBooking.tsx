@@ -281,18 +281,29 @@ export default function TaxiBooking() {
 
   // Live Tracking: Synchronize specialized states from the active ride
   useEffect(() => {
-    if (activeRide?.driverLocation && ['accepted', 'driver_arriving', 'driver_arrived', 'on_trip'].includes(activeRide.status)) {
-       console.log("[TaxiBooking] Syncing driver location from ride doc:", activeRide.driverLocation);
-       setDriverLivePos(activeRide.driverLocation);
+    if (activeRide) {
+       if (activeRide.pickup) {
+         setPickupPos([activeRide.pickup.lat, activeRide.pickup.lng]);
+         setPickup(activeRide.pickup.address || pickup);
+       }
+       if (activeRide.destination) {
+         setDestPos([activeRide.destination.lat, activeRide.destination.lng]);
+         setDestination(activeRide.destination.address || destination);
+       }
        
-       const target = (activeRide.status === 'on_trip') ? activeRide.destination : activeRide.pickup;
-       const dist = L.latLng(activeRide.driverLocation.lat, activeRide.driverLocation.lng)
-                     .distanceTo(L.latLng(target.lat, target.lng));
-       setLiveDistance(dist / 1000); // km
-    } else if (activeRide?.status === 'completed') {
-       setStep('rating');
+       if (activeRide.driverLocation && ['accepted', 'driver_arriving', 'driver_arrived', 'on_trip'].includes(activeRide.status)) {
+          console.log("[TaxiBooking] Syncing driver location from ride doc:", activeRide.driverLocation);
+          setDriverLivePos(activeRide.driverLocation);
+          
+          const target = (activeRide.status === 'on_trip') ? activeRide.destination : activeRide.pickup;
+          const dist = L.latLng(activeRide.driverLocation.lat, activeRide.driverLocation.lng)
+                        .distanceTo(L.latLng(target.lat, target.lng));
+          setLiveDistance(dist / 1000); // km
+       } else if (activeRide?.status === 'completed') {
+          setStep('rating');
+       }
     }
-  }, [activeRide?.driverLocation?.lat, activeRide?.driverLocation?.lng, activeRide?.status]);
+  }, [activeRide?.driverLocation?.lat, activeRide?.driverLocation?.lng, activeRide?.status, activeRide?.pickup?.lat, activeRide?.destination?.lat]);
 
   // Optional: Also listen to the independent driver doc for even more frequent or "idle" updates
   useEffect(() => {
@@ -385,17 +396,33 @@ export default function TaxiBooking() {
   };
 
   const StartPin = React.useMemo(() => L.divIcon({
-      className: 'custom-div-icon',
-      html: `<div class="bg-emerald-500 text-white w-7 h-7 rounded-full border-[3px] border-white shadow-xl flex items-center justify-center font-black text-[10px]">A</div>`,
-      iconSize: [28, 28],
-      iconAnchor: [14, 14]
+    className: 'custom-div-icon',
+    html: `
+      <div class="relative flex flex-col items-center">
+        <div class="bg-[#111118]/90 backdrop-blur-md border border-white/10 rounded-xl px-2 py-1 mb-1 shadow-2xl">
+          <p class="text-[9px] font-black text-emerald-400 uppercase whitespace-nowrap tracking-widest">PICKUP MTEJA</p>
+        </div>
+        <div class="bg-emerald-500 text-white w-9 h-9 rounded-full border-4 border-[#111118] shadow-2xl flex items-center justify-center font-black text-lg marker-pulse-green">A</div>
+        <div class="w-1 h-2.5 bg-emerald-500 rounded-full -mt-0.5 shadow-lg"></div>
+      </div>
+    `,
+    iconSize: [110, 70],
+    iconAnchor: [55, 70]
   }), []);
 
   const EndPin = React.useMemo(() => L.divIcon({
     className: 'custom-div-icon',
-    html: `<div class="bg-red-500 text-white w-7 h-7 rounded-full border-[3px] border-white shadow-xl flex items-center justify-center font-black text-[10px]">B</div>`,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14]
+    html: `
+      <div class="relative flex flex-col items-center">
+        <div class="bg-[#111118]/90 backdrop-blur-md border border-white/10 rounded-xl px-2 py-1 mb-1 shadow-2xl">
+          <p class="text-[9px] font-black text-orange-400 uppercase whitespace-nowrap tracking-widest">DESTINATION</p>
+        </div>
+        <div class="bg-orange-500 text-white w-9 h-9 rounded-full border-4 border-[#111118] shadow-2xl flex items-center justify-center font-black text-lg">B</div>
+        <div class="w-1 h-2.5 bg-orange-500 rounded-full -mt-0.5 shadow-lg"></div>
+      </div>
+    `,
+    iconSize: [110, 70],
+    iconAnchor: [55, 70]
   }), []);
 
   const geocodeAddress = (query: string) => {

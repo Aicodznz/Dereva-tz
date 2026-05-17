@@ -164,7 +164,45 @@
   }
 }
 
+@keyframes markerPulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  }
+  70% {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 20px rgba(16, 185, 129, 0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+@keyframes markerPulsePurple {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.7);
+  }
+  70% {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 20px rgba(139, 92, 246, 0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(139, 92, 246, 0);
+  }
+}
+
 .route-path-animation {
   stroke-dasharray: 10 10;
   animation: routeFlow 1s linear infinite;
+}
+
+.marker-pulse-green {
+  animation: markerPulse 2s infinite;
+}
+
+.marker-pulse-purple {
+  animation: markerPulsePurple 2s infinite;
 }
