@@ -10,7 +10,7 @@ import {
   Clock, TrendingUp, Info, Wifi, Battery, Map as MapIcon,
   CheckCircle2, ArrowRight, RefreshCw, DollarSign, Package, Home, LogOut
 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Chat from '../Chat';
 import { motion, AnimatePresence } from 'motion/react';
 import { db, auth } from '../../firebase';
@@ -133,6 +133,7 @@ interface RiderHomeProps {
 
 export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, profile } = useAuth();
   const [isOnline, setIsOnline] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -1113,6 +1114,10 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                 onArrive={() => handleUpdateStatus('driver_arrived')}
                 onStart={() => handleUpdateStatus('on_trip')}
                 onComplete={handleComplete}
+                onMessage={() => {
+                  setSearchParams({ to: activeRide.customerId });
+                  setIsChatOpen(true);
+                }}
                 isMinimized={isTripMinimized}
                 onToggleMinimize={() => setIsTripMinimized(!isTripMinimized)}
               />

@@ -9,11 +9,12 @@ interface DriverTripSheetProps {
   onArrive: () => void;
   onStart: () => void;
   onComplete: () => void;
+  onMessage?: () => void;
   isMinimized?: boolean;
   onToggleMinimize?: () => void;
 }
 
-export default function DriverTripSheet({ ride, onArrive, onStart, onComplete, isMinimized, onToggleMinimize }: DriverTripSheetProps) {
+export default function DriverTripSheet({ ride, onArrive, onStart, onComplete, onMessage, isMinimized, onToggleMinimize }: DriverTripSheetProps) {
   const isArriving = ride.status === 'accepted' || ride.status === 'driver_arriving';
   const isArrived = ride.status === 'driver_arrived';
   const isOnTrip = ride.status === 'on_trip';
@@ -133,7 +134,10 @@ export default function DriverTripSheet({ ride, onArrive, onStart, onComplete, i
                  <a href={`tel:${ride.customerInfo?.phone || '0700000000'}`} className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500 active:scale-90 transition-transform">
                     <Phone className="w-5 h-5" />
                  </a>
-                 <button className="w-12 h-12 rounded-2xl bg-[#7F77DD]/10 border border-[#7F77DD]/20 flex items-center justify-center text-[#7F77DD] active:scale-90 transition-transform">
+                 <button 
+                   onClick={onMessage}
+                   className="w-12 h-12 rounded-2xl bg-[#7F77DD]/10 border border-[#7F77DD]/20 flex items-center justify-center text-[#7F77DD] active:scale-90 transition-transform"
+                 >
                     <MessageSquare className="w-5 h-5" />
                  </button>
               </div>

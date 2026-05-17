@@ -19,7 +19,7 @@ import {
 import { useAuth } from '../AuthContext';
 import { useLanguage } from '../LanguageContext';
 import { Badge } from '@/components/ui/badge';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { useRouting } from '../hooks/useRouting';
@@ -168,6 +168,7 @@ interface RideOption {
 export default function TaxiBooking() {
   const { user, profile, signInGuest } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [step, setStep] = useState<BookingStep>('home');
   const [isMinimized, setIsMinimized] = useState(false);
@@ -972,7 +973,12 @@ export default function TaxiBooking() {
                 <DriverArrivedScreen 
                   ride={{ ...activeRide, driverLocation: driverLivePos || activeRide.driverLocation } as any} 
                   onCall={() => window.open(`tel:${activeRide.driverInfo?.phone}`)} 
-                  onMessage={() => setIsChatOpen(true)}
+                  onMessage={() => {
+                    if (activeRide.driverId) {
+                      setSearchParams({ to: activeRide.driverId });
+                      setIsChatOpen(true);
+                    }
+                  }}
                   onImComing={() => {
                     updateDoc(doc(db, 'rides', rideId!), { status: 'on_trip', updatedAt: serverTimestamp() });
                   }}
@@ -985,7 +991,12 @@ export default function TaxiBooking() {
             <motion.div key="on_trip" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[70] bg-transparent pointer-events-none">
               <LiveTripScreen 
                 ride={{ ...activeRide, driverLocation: driverLivePos || activeRide.driverLocation, distance: liveDistance || activeRide.distance } as any} 
-                onMessage={() => setIsChatOpen(true)}
+                onMessage={() => {
+                  if (activeRide.driverId) {
+                    setSearchParams({ to: activeRide.driverId });
+                    setIsChatOpen(true);
+                  }
+                }}
                 isMinimized={isMapFullscreen}
               />
             </motion.div>
