@@ -183,10 +183,55 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
     return null;
   }, [activeRide?.status, activeRide?.pickup?.lat, activeRide?.destination?.lat, incomingRequest?.id]);
 
-  const { routeCoords: dynamicRoute } = useRouting(
+  const { routeCoords: dynamicRoute, steps } = useRouting(
     position, 
     routingTarget || position
   );
+  const [isMuted, setIsMuted] = useState(false);
+  const [lastInstruction, setLastInstruction] = useState("");
+
+  // Voice Navigation Implementation
+  useEffect(() => {
+    if (activeRide && steps && steps.length > 0 && !isMuted) {
+      // Find the first step that is ahead of us
+      const nextStep = steps.find(s => s.distance > 20);
+      if (nextStep && nextStep.instruction !== lastInstruction) {
+        // Speak if we are close (300m) or if it's a long way off (every few km - but let's stick to near-maneuver for now)
+        if (nextStep.distance < 500) {
+          let text = nextStep.instruction;
+          // Simple translation mapping for OSRM instructions to Swahili
+          const mapping: Record<string, string> = {
+            'turn right': 'Kata kulia',
+            'turn left': 'Kata kushoto',
+            'arrive': 'Umefika',
+            'depart': 'Anza safari',
+            'continue': 'Endelea moja kwa moja',
+            'roundabout': 'Mzunguko',
+          };
+          
+          Object.keys(mapping).forEach(key => {
+            if (text.toLowerCase().includes(key)) {
+              text = mapping[key] + ' ' + text.split(key)[1];
+            }
+          });
+
+          if (nextStep.distance < 50) {
+             text = "Sasa, " + text;
+          } else if (nextStep.distance > 1000) {
+             text = `Baada ya kilometa ${ (nextStep.distance / 1000).toFixed(1) }, ${text}`;
+          } else {
+             text = `Baada ya mita ${Math.round(nextStep.distance)}, ${text}`;
+          }
+
+          const utter = new SpeechSynthesisUtterance(text);
+          utter.lang = 'sw-TZ';
+          utter.rate = 0.9;
+          window.speechSynthesis.speak(utter);
+          setLastInstruction(nextStep.instruction);
+        }
+      }
+    }
+  }, [steps, activeRide?.id, lastInstruction, isMuted]);
   const [showPayment, setShowPayment] = useState(false);
   const [showRating, setShowRating] = useState(false);
   const [speed, setSpeed] = useState(0);
@@ -646,97 +691,131 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
       <AnimatePresence>
         {!isMinimized && (
           <motion.div 
-            initial={{ y: -100, opacity: 0 }}
+            initial={{ y: -50, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -100, opacity: 0 }}
-            className="absolute top-24 inset-x-6 z-40 flex flex-col gap-4"
+            exit={{ y: -50, opacity: 0 }}
+            className="absolute top-4 inset-x-4 z-[60] flex flex-col gap-2"
           >
-            <div className="flex justify-between items-center bg-white/95 dark:bg-[#111118]/95 p-1.5 rounded-full shadow-2xl border border-neutral-200 dark:border-white/10 backdrop-blur-3xl">
+            {/* Main Header Card */}
+            <div className="bg-[#111118]/90 backdrop-blur-3xl border border-white/10 rounded-[2rem] p-1.5 flex items-center gap-2 shadow-[0_20px_50px_rgba(0,0,0,0.4)]">
               <button 
                 onClick={() => {
                   const nextVal = !showTopInfo;
                   setShowTopInfo(nextVal);
-                  if (onNavVisibilityChange) onNavVisibilityChange(!nextVal);
                 }}
-                className="w-10 h-10 bg-orange-600 rounded-full shadow-lg flex items-center justify-center active:scale-95 transition-transform overflow-hidden shrink-0"
+                className="w-11 h-11 bg-orange-600 rounded-2xl shadow-lg flex items-center justify-center active:scale-95 transition-transform overflow-hidden shrink-0 border border-white/20"
               >
                 {profile?.photoURL ? (
                   <img src={profile.photoURL} alt="Profile" className="w-full h-full object-cover" />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-white font-black text-xs uppercase">
+                  <div className="w-full h-full flex items-center justify-center text-white font-black text-sm uppercase">
                     {(profile?.displayName || 'D').split(' ').map(n => n[0]).join('')}
                   </div>
                 )}
               </button>
 
-              <div className="h-8 w-px bg-neutral-200 dark:bg-white/10 mx-1"></div>
-
-              <Link to="/">
-                <button className="w-10 h-10 bg-neutral-100 dark:bg-white/5 rounded-full flex items-center justify-center relative shrink-0">
-                  <Home className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />
-                </button>
-              </Link>
-
-              <button 
-                onClick={handleSignOut}
-                className="w-10 h-10 bg-red-100 dark:bg-red-500/10 rounded-full flex items-center justify-center relative shrink-0 text-red-600"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-
-              <div className="flex-1 flex flex-col items-center px-2">
+              <div className="flex-1 px-1">
                 {isOnline ? (
-                  <motion.div 
-                    initial={{ scale: 0.9, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className="flex items-center gap-1.5"
-                  >
-                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                    <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-tighter leading-none">ACTIVE & RECEIVING</span>
-                  </motion.div>
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                      <span className="text-[10px] font-black text-emerald-400 uppercase tracking-tighter leading-none">ACTIVE & RECEIVING</span>
+                    </div>
+                    {activeRide ? (
+                      <p className="text-[11px] font-bold text-white/70 mt-0.5 truncate max-w-[120px]">
+                        {activeRide.status === 'on_trip' ? 'Safari inaendelea' : 'Unaenda kumpokea mteja'}
+                      </p>
+                    ) : (
+                      <p className="text-[11px] font-bold text-white/50 mt-0.5 uppercase tracking-tighter">Tafuta Abiria</p>
+                    )}
+                  </div>
                 ) : (
                   <div className="flex items-center gap-1.5">
-                      <div className="w-2 h-2 bg-neutral-400 dark:bg-neutral-600 rounded-full" />
-                      <span className="text-[9px] font-black uppercase tracking-tighter text-neutral-500 dark:text-neutral-500 leading-none">SYSTEM OFFLINE</span>
+                    <div className="w-1.5 h-1.5 bg-neutral-600 rounded-full" />
+                    <span className="text-[10px] font-black uppercase tracking-tighter text-neutral-500 leading-none">SYSTEM OFFLINE</span>
                   </div>
                 )}
               </div>
 
+              <div className="flex items-center gap-1 h-10 px-1 bg-white/5 border border-white/5 rounded-2xl">
+                 <Link to="/">
+                    <button className="w-8 h-8 rounded-xl flex items-center justify-center text-white/60 hover:text-white transition-colors">
+                      <Home className="w-4 h-4" />
+                    </button>
+                 </Link>
+                 <button 
+                  onClick={handleSignOut}
+                  className="w-8 h-8 rounded-xl flex items-center justify-center text-red-400 hover:text-red-300 transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
+
               <button 
                 onClick={() => toast.info("Huna taarifa mpya")}
-                className="w-10 h-10 bg-neutral-100 dark:bg-white/5 rounded-full flex items-center justify-center relative shrink-0"
+                className="w-11 h-11 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center relative shrink-0 text-white/80"
               >
-                <Bell className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />
-                <div className="absolute top-2 right-2 w-2 h-2 bg-red-500 border border-white dark:border-[#1a1a2e] rounded-full shadow-sm" />
+                <Bell className="w-5 h-5" />
+                <div className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-red-500 border-2 border-[#111118] rounded-full shadow-sm" />
               </button>
             </div>
 
-            {/* Info Strip */}
+            {/* Quick Stats Strip */}
             <AnimatePresence>
-              {showTopInfo && (
+              {(showTopInfo || activeRide) && (
                 <motion.div 
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  onClick={() => {
-                    setShowTopInfo(false);
-                    if (onNavVisibilityChange) onNavVisibilityChange(true);
-                  }}
-                  className="flex items-center justify-center gap-3 py-2 px-4 bg-white dark:bg-[#1a1a2e] rounded-xl border border-neutral-200 dark:border-white/10 w-fit mx-auto shadow-xl cursor-pointer hover:bg-neutral-50 dark:hover:bg-[#1a1a2e] transition-all"
+                  className="flex items-center justify-center gap-3 py-2 px-4 bg-[#111118]/80 backdrop-blur-2xl rounded-2xl border border-white/10 w-fit mx-auto shadow-2xl"
                 >
-                  <div className="flex items-center gap-1.5 whitespace-nowrap text-[9px] font-black text-neutral-700 dark:text-neutral-300 uppercase tracking-wider">
-                    <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                  <div className="flex items-center gap-1.5 text-[9px] font-black text-neutral-400 uppercase tracking-wider">
+                    <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
                     <span>{profile?.rating || '4.8'} RATING</span>
                   </div>
-                  <div className="w-px h-3 bg-neutral-200 dark:bg-white/10" />
-                  <div className="flex items-center gap-1.5 whitespace-nowrap text-[9px] font-black text-neutral-700 dark:text-neutral-300 uppercase tracking-wider">
-                    <Wifi className="w-3.5 h-3.5 text-emerald-500" />
+                  <div className="w-px h-3 bg-white/10" />
+                  <div className="flex items-center gap-1.5 text-[9px] font-black text-neutral-400 uppercase tracking-wider">
+                    <Wifi className="w-3 h-3 text-emerald-500" />
                     <span>NETWORK: GOOD</span>
                   </div>
-                  <div className="w-px h-3 bg-neutral-200 dark:bg-white/10" />
-                  <div className="flex items-center gap-1.5 whitespace-nowrap text-[9px] font-black text-neutral-700 dark:text-neutral-300 uppercase tracking-wider">
-                    <Battery className="w-3.5 h-3.5 text-emerald-500" />
+                  <div className="w-px h-3 bg-white/10" />
+                  <div className="flex items-center gap-1.5 text-[9px] font-black text-neutral-400 uppercase tracking-wider">
+                    <Battery className="w-3 h-3 text-emerald-500" />
                     <span>TRIP MODE ON</span>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+            
+            {/* Navigation Instruction Bar (Dynamic) */}
+            <AnimatePresence>
+              {activeRide && steps && steps.length > 0 && (
+                <motion.div
+                  initial={{ x: -20, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  exit={{ x: -20, opacity: 0 }}
+                  className="bg-emerald-600 text-white p-3 rounded-2xl shadow-2xl flex items-center gap-3 border border-emerald-400/30"
+                >
+                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
+                    <Navigation className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <div className="flex-1 overflow-hidden">
+                    <p className="text-[10px] font-black opacity-70 uppercase tracking-widest leading-none mb-1">INSTRUCTION</p>
+                    <p className="text-sm font-black italic tracking-tight truncate uppercase italic">
+                      {steps[0].instruction.includes('turn right') ? 'Kata Kulia' : 
+                       steps[0].instruction.includes('turn left') ? 'Kata Kushoto' : 
+                       steps[0].instruction}
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => setIsMuted(!isMuted)}
+                    className="w-10 h-10 rounded-xl flex items-center justify-center bg-white/10 hover:bg-white/20 transition-colors"
+                  >
+                    {isMuted ? <Wifi className="w-5 h-5 text-red-300" /> : <Navigation2 className="w-5 h-5" />}
+                  </button>
+                  <div className="text-right shrink-0 px-2 border-l border-white/20">
+                     <p className="text-[10px] font-black opacity-70 uppercase leading-none">Mita</p>
+                     <p className="text-lg font-black italic tracking-tighter">{Math.round(steps[0].distance)}</p>
                   </div>
                 </motion.div>
               )}
@@ -744,6 +823,7 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
           </motion.div>
         )}
       </AnimatePresence>
+
 
       {/* Map Layer */}
       <div className="absolute inset-0 z-0 bg-[#0a0a0f]">
@@ -854,13 +934,21 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
 
               {/* 2. Dynamic Live Route (Driver to Current Target) */}
               {dynamicRoute && dynamicRoute.length > 0 && (
-                <Polyline 
-                  positions={dynamicRoute} 
-                  color={activeRide.status === 'on_trip' ? "#1D9E75" : "#7F77DD"} 
-                  weight={6} 
-                  opacity={0.9} 
-                  className="animate-[pulse_2s_infinite]"
-                />
+                <>
+                  <Polyline 
+                    positions={dynamicRoute} 
+                    color={activeRide.status === 'on_trip' ? "#1D9E75" : "#7F77DD"} 
+                    weight={12} 
+                    opacity={0.2} 
+                  />
+                  <Polyline 
+                    positions={dynamicRoute} 
+                    color={activeRide.status === 'on_trip' ? "#1D9E75" : "#7F77DD"} 
+                    weight={6} 
+                    opacity={1} 
+                    className="animate-[pulse_1.5s_infinite]"
+                  />
+                </>
               )}
             </>
           )}

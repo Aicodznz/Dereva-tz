@@ -142,7 +142,7 @@ async function startServer() {
     }
 
     try {
-      const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`;
+      const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=true`;
       const response = await fetch(url, {
         headers: { 'Accept': 'application/json' }
       });

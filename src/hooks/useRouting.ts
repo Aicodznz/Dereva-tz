@@ -1,9 +1,17 @@
 import { useState, useEffect } from 'react';
 
+export interface RouteStep {
+  distance: number;
+  duration: number;
+  instruction: string;
+  location: [number, number];
+}
+
 export interface RouteData {
   routeCoords: [number, number][];
   totalDistance: number; // in meters
   totalDuration: number; // in seconds
+  steps: RouteStep[];
   isLoading: boolean;
   error: string | null;
 }
@@ -13,6 +21,7 @@ export function useRouting(pickup: [number, number], destination: [number, numbe
     routeCoords: [],
     totalDistance: 0,
     totalDuration: 0,
+    steps: [],
     isLoading: false,
     error: null,
   });
@@ -40,10 +49,24 @@ export function useRouting(pickup: [number, number], destination: [number, numbe
         // Coordinates in OSRM GeoJSON are [lon, lat], Leaflet needs [lat, lon]
         const coords: [number, number][] = route.geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number]);
 
+        // Process steps if available
+        const steps: RouteStep[] = [];
+        if (route.legs && route.legs[0] && route.legs[0].steps) {
+          route.legs[0].steps.forEach((step: any) => {
+            steps.push({
+              distance: step.distance,
+              duration: step.duration,
+              instruction: step.maneuver.type + ' ' + (step.name || ''),
+              location: [step.maneuver.location[1], step.maneuver.location[0]]
+            });
+          });
+        }
+
         setData({
           routeCoords: coords,
           totalDistance: route.distance,
           totalDuration: route.duration,
+          steps,
           isLoading: false,
           error: null,
         });
