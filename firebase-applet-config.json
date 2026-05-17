@@ -1,9 +1,9 @@
 {
-  "projectId": "hapotesti",
-  "appId": "1:48479004705:web:b89a1835edcf647ceb5b60",
   "apiKey": "AIzaSyAUcXq9VRS0XbW6JflRcbS7yPaZdmAGtCU",
   "authDomain": "hapotesti.firebaseapp.com",
   "databaseURL": "https://hapotesti-default-rtdb.firebaseio.com",
+  "projectId": "hapotesti",
   "storageBucket": "hapotesti.firebasestorage.app",
-  "messagingSenderId": "48479004705"
+  "messagingSenderId": "48479004705",
+  "appId": "1:48479004705:web:b89a1835edcf647ceb5b60"
 }

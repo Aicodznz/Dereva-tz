@@ -5551,7 +5551,7 @@ export default function VendorDashboard() {
                       <label className="text-xs font-bold text-neutral-500 uppercase">Unit / Kipimo</label>
                       <Select 
                         value={newProduct.unit} 
-                        onValueChange={v => setNewProduct({...newProduct, unit: v})}
+                        onValueChange={v => setNewProduct({...newProduct, unit: v || undefined})}
                       >
                         <SelectTrigger className="bg-neutral-800 border-none h-12 rounded-xl">
                           <SelectValue placeholder="Select unit" />
@@ -7343,7 +7343,7 @@ export default function VendorDashboard() {
                           <label className="text-[10px] font-black uppercase text-neutral-400 tracking-widest">ID Type</label>
                           <Select 
                             value={manualBooking.guestIdType || 'Nida'} 
-                            onValueChange={v => setManualBooking({...manualBooking, guestIdType: v})}
+                            onValueChange={v => setManualBooking({...manualBooking, guestIdType: v || 'Nida'})}
                           >
                              <SelectTrigger className="h-14 rounded-2xl bg-neutral-800 border-none font-bold">
                                 <SelectValue />
@@ -7373,7 +7373,7 @@ export default function VendorDashboard() {
                           <label className="text-[10px] font-black uppercase text-neutral-400 tracking-widest">Room Type</label>
                           <Select 
                             value={manualBooking.roomType || ''} 
-                            onValueChange={v => setManualBooking({...manualBooking, roomType: v})}
+                            onValueChange={v => setManualBooking({...manualBooking, roomType: v || undefined})}
                           >
                              <SelectTrigger className="h-14 rounded-2xl bg-neutral-800 border-none font-bold">
                                 <SelectValue placeholder="Choose Room" />

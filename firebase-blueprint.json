@@ -2,380 +2,97 @@
   "entities": {
     "User": {
       "title": "User",
-      "description": "Core user profile for all roles",
+      "description": "User profile data",
       "type": "object",
       "properties": {
         "uid": { "type": "string" },
-        "email": { "type": "string", "format": "email" },
+        "email": { "type": "string" },
         "displayName": { "type": "string" },
-        "photoURL": { "type": "string" },
-        "role": { "type": "string", "enum": ["customer", "vendor", "rider", "admin"] },
-        "phoneNumber": { "type": "string" },
-        "address": { "type": "string" },
-        "status": { "type": "string", "enum": ["pending", "active", "suspended", "offline", "online"] },
-        "approvalStatus": { "type": "string", "enum": ["pending", "approved", "rejected"] },
-        "balance": { "type": "number", "default": 0 },
-        "totalEarnings": { "type": "number", "default": 0 },
+        "role": { "type": "string", "enum": ["customer", "vendor", "driver", "admin"] },
+        "walletBalance": { "type": "number" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["uid", "email", "role"]
+      "required": ["uid", "role"]
     },
     "Vendor": {
       "title": "Vendor",
-      "description": "Business profile for service providers",
+      "description": "Business/Store data",
       "type": "object",
       "properties": {
-        "ownerUid": { "type": "string" },
-        "businessName": { "type": "string" },
-        "category": { "type": "string", "enum": ["pharmacy", "grocery", "restaurant", "parcel", "taxi", "car_rental", "salon", "hotel", "ecommerce"] },
-        "description": { "type": "string" },
-        "tin": { "type": "string" },
-        "address": { "type": "string" },
-        "location": { "type": "object" },
-        "deliveryRadius": { "type": "number" },
-        "status": { "type": "string", "enum": ["pending", "active", "suspended"] },
-        "balance": { "type": "number", "default": 0 },
-        "totalSales": { "type": "number", "default": 0 },
-        "logoUrl": { "type": "string" },
-        "operatingHours": { "type": "string" },
-        "rating": { "type": "number" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["ownerUid", "businessName", "category", "status"]
-    },
-    "Product": {
-      "title": "Product",
-      "description": "Items or services offered by vendors",
-      "type": "object",
-      "properties": {
-        "vendorId": { "type": "string" },
+        "id": { "type": "string" },
         "name": { "type": "string" },
-        "description": { "type": "string" },
-        "price": { "type": "number" },
+        "ownerUid": { "type": "string" },
         "category": { "type": "string" },
-        "stock": { "type": "number" },
-        "imageUrl": { "type": "string" },
-        "unit": { "type": "string" },
-        "expiryDate": { "type": "string", "format": "date" },
-        "medicationType": { "type": "string", "enum": ["otc", "prescription"] },
-        "variations": { "type": "array" },
-        "highlights": { "type": "array" },
-        "story": { "type": "string" },
-        "qualityPromise": {
-          "type": "object",
-          "properties": {
-            "description": { "type": "string" },
-            "certifiedBy": { "type": "string" }
-          }
-        }
-      },
-      "required": ["vendorId", "name", "price"]
-    },
-    "Order": {
-      "title": "Order",
-      "description": "Transactions between customers and vendors",
-      "type": "object",
-      "properties": {
-        "customerId": { "type": "string" },
-        "vendorId": { "type": "string" },
-        "riderId": { "type": "string" },
-        "items": { "type": "array" },
-        "totalAmount": { "type": "number" },
-        "status": { "type": "string", "enum": ["pending", "accepted", "preparing", "out_for_delivery", "delivered", "cancelled"] },
-        "branchId": { "type": "string", "description": "Branch where mission was booked or sold" },
-        "type": { "type": "string" },
-        "prescriptionUrl": { "type": "string" },
-        "deliveryAddress": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "updatedAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["customerId", "vendorId", "status", "totalAmount"]
-    },
-    "Rider": {
-      "title": "Rider",
-      "description": "Logistics and transport provider profile",
-      "type": "object",
-      "properties": {
-        "uid": { "type": "string" },
-        "vehicleDetails": { "type": "string" },
-        "status": { "type": "string", "enum": ["available", "busy", "offline"] },
-        "currentPosition": { "type": "object" },
-        "heading": { "type": "number" },
-        "speed": { "type": "number" },
-        "battery": { "type": "number" },
-        "networkStatus": { "type": "string", "enum": ["online", "offline"] },
-        "rating": { "type": "number" }
-      },
-      "required": ["uid", "status"]
-    },
-    "Payout": {
-      "title": "Payout",
-      "description": "Payment withdrawal request for drivers or vendors",
-      "type": "object",
-      "properties": {
-        "amount": { "type": "number" },
-        "fee": { "type": "number" },
-        "netAmount": { "type": "number" },
-        "recipientId": { "type": "string" },
-        "recipientRole": { "type": "string", "enum": ["rider", "vendor"] },
-        "method": { "type": "string", "enum": ["mpesa", "tigopesa", "airtelmoney", "bank"] },
-        "details": { "type": "object" },
-        "status": { "type": "string", "enum": ["pending", "processed", "rejected"] },
-        "processedAt": { "type": "string", "format": "date-time" },
+        "status": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["amount", "recipientId", "status"]
-    },
-    "SystemLog": {
-      "title": "System Log",
-      "description": "Action logs for audit purposes",
-      "type": "object",
-      "properties": {
-        "adminId": { "type": "string" },
-        "action": { "type": "string" },
-        "targetId": { "type": "string" },
-        "details": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["adminId", "action"]
-    },
-    "Message": {
-      "title": "Message",
-      "description": "Chat messages between users",
-      "type": "object",
-      "properties": {
-        "text": { "type": "string" },
-        "senderId": { "type": "string" },
-        "senderName": { "type": "string" },
-        "participants": { "type": "array" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["text", "senderId", "participants"]
-    },
-    "Banner": {
-      "title": "Banner",
-      "description": "Promotional banners for the home screen",
-      "type": "object",
-      "properties": {
-        "title": { "type": "string" },
-        "sub": { "type": "string" },
-        "img": { "type": "string" },
-        "link": { "type": "string" },
-        "active": { "type": "boolean" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["title", "img", "active"]
-    },
-    "Notification": {
-      "title": "Notification",
-      "description": "System or user-specific notifications",
-      "type": "object",
-      "properties": {
-        "title": { "type": "string" },
-        "body": { "type": "string" },
-        "type": { "type": "string", "enum": ["order", "promotion", "system", "review"] },
-        "userId": { "type": "string" },
-        "isRead": { "type": "boolean" },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "actionUrl": { "type": "string" }
-      },
-      "required": ["title", "body", "type", "isRead"]
-    },
-    "Review": {
-      "title": "Review",
-      "description": "User reviews for vendors and products",
-      "type": "object",
-      "properties": {
-        "userId": { "type": "string" },
-        "userName": { "type": "string" },
-        "userPhoto": { "type": "string" },
-        "targetId": { "type": "string", "description": "Vendor ID or Product ID" },
-        "targetType": { "type": "string", "enum": ["vendor", "product"] },
-        "rating": { "type": "number" },
-        "comment": { "type": "string" },
-        "images": { "type": "array" },
-        "likes": { "type": "array", "description": "Array of user UIDs who liked this review" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["userId", "targetId", "targetType", "rating"]
-    },
-    "Reply": {
-      "title": "Reply",
-      "description": "Vendor or user reply to a review",
-      "type": "object",
-      "properties": {
-        "reviewId": { "type": "string" },
-        "userId": { "type": "string" },
-        "userName": { "type": "string" },
-        "userPhoto": { "type": "string" },
-        "text": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["reviewId", "userId", "text"]
+      "required": ["name", "ownerUid", "category"]
     },
     "Staff": {
-      "title": "Staff Member",
-      "description": "Employee of a vendor business",
+      "title": "Staff",
+      "description": "Staff member working for a vendor",
       "type": "object",
       "properties": {
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "password": { "type": "string" },
         "vendorId": { "type": "string" },
         "vendorOwnerUid": { "type": "string" },
-        "branchId": { "type": "string", "description": "Specific branch or office assignment" },
-        "name": { "type": "string" },
-        "role": { "type": "string", "enum": ["chef", "waiter", "manager", "admin", "attendant", "driver", "conductor", "agent", "loader"] },
-        "phone": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "uid": { "type": "string" }
       },
-      "required": ["vendorId", "vendorOwnerUid", "name", "role"]
-    },
-    "Branch": {
-      "title": "Business Branch",
-      "description": "Secondary location or office for a vendor",
-      "type": "object",
-      "properties": {
-        "vendorId": { "type": "string" },
-        "name": { "type": "string" },
-        "address": { "type": "string" },
-        "phone": { "type": "string" },
-        "location": { "type": "object" },
-        "managerId": { "type": "string" },
-        "type": { "type": "string", "enum": ["office", "station", "branch", "agent_point"] },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["vendorId", "name"]
-    },
-    "Coupon": {
-      "title": "Coupon",
-      "description": "Discount codes for products or vendors",
-      "type": "object",
-      "properties": {
-        "code": { "type": "string" },
-        "discountType": { "type": "string", "enum": ["percentage", "fixed"] },
-        "discountValue": { "type": "number" },
-        "validFrom": { "type": "string", "format": "date-time" },
-        "validUntil": { "type": "string", "format": "date-time" },
-        "usageLimit": { "type": "number" },
-        "usedCount": { "type": "number" },
-        "vendorId": { "type": "string", "description": "Vendor ID if specific to a vendor, null for global" },
-        "productId": { "type": "string", "description": "Product ID if specific to a product, null for all products of vendor/global" },
-        "active": { "type": "boolean" },
-        "createdBy": { "type": "string", "description": "Admin or Vendor UID" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["code", "discountType", "discountValue", "active"]
-    },
-    "Table": {
-      "title": "Table",
-      "description": "Dine-in tables at a restaurant",
-      "type": "object",
-      "properties": {
-        "vendorId": { "type": "string" },
-        "number": { "type": "string" },
-        "capacity": { "type": "number" },
-        "status": { "type": "string", "enum": ["available", "occupied", "reserved"] },
-        "qrCode": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["vendorId", "number", "capacity"]
+      "required": ["name", "phone", "vendorId"]
     },
     "Ride": {
       "title": "Ride",
-      "description": "Taxi booking details",
+      "description": "Taxi/Delivery request",
       "type": "object",
       "properties": {
+        "id": { "type": "string" },
         "customerId": { "type": "string" },
         "driverId": { "type": "string" },
+        "status": { "type": "string" },
         "pickup": { "type": "object" },
         "destination": { "type": "object" },
-        "pickupAddress": { "type": "string" },
-        "destinationAddress": { "type": "string" },
-        "distance": { "type": "number" },
-        "duration": { "type": "number" },
-        "estimatedFare": { "type": "number" },
-        "actualFare": { "type": "number" },
-        "status": { "type": "string", "enum": ["pending", "accepted", "arrived", "started", "completed", "cancelled"] },
-        "vehicleType": { "type": "string", "enum": ["pikipiki", "bajaji", "gari"] },
-        "paymentMethod": { "type": "string", "enum": ["cash", "mobile_money", "wallet"] },
-        "paymentStatus": { "type": "string", "enum": ["pending", "paid"] },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "updatedAt": { "type": "string", "format": "date-time" },
-        "customerRating": { "type": "number" },
-        "driverRating": { "type": "number" }
+        "fare": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["customerId", "pickup", "destination", "status", "vehicleType"]
+      "required": ["customerId", "status"]
     },
-    "Parcel": {
-      "title": "Parcel Delivery",
-      "description": "Parcel delivery request and fulfillment details",
+    "Order": {
+      "title": "Order",
+      "description": "Product order from a vendor",
       "type": "object",
       "properties": {
-        "status": { "type": "string", "enum": ["pending", "accepted", "at_sender", "picked_up", "in_transit", "arrived_recipient", "delivered", "rated"] },
-        "category": { "type": "string", "enum": ["gift", "document", "electronics", "package", "medicine", "pet_supplies"] },
-        "categoryDetails": { "type": "object" },
-        "sender": { "type": "object" },
-        "recipient": { "type": "object" },
-        "partnerId": { "type": "string" },
-        "partnerInfo": { "type": "object" },
-        "partnerLocation": { "type": "object" },
-        "pricing": { "type": "object" },
-        "paymentMethod": { "type": "string" },
-        "paymentStatus": { "type": "string" },
-        "photos": { "type": "object" },
-        "specialHandling": { "type": "object" },
-        "timestamps": { "type": "object" }
+        "vendorId": { "type": "string" },
+        "customerId": { "type": "string" },
+        "items": { "type": "array" },
+        "total": { "type": "number" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
       },
-       "required": ["status", "category", "sender", "recipient"]
-    },
-    "Partner": {
-      "title": "Delivery Partner",
-      "description": "Rider specifically for parcel delivery delivery",
-      "type": "object",
-      "properties": {
-        "name": { "type": "string" },
-        "phone": { "type": "string" },
-        "vehicleType": { "type": "string" },
-        "isOnline": { "type": "boolean" },
-        "location": { "type": "object" },
-        "earnings": { "type": "object" },
-        "activeParcelIds": { "type": "array" }
-      },
-      "required": ["name", "isOnline"]
-    },
-    "BusinessConfig": {
-      "title": "Business Configuration",
-      "description": "Global platform settings",
-      "type": "object",
-      "properties": {
-        "name": { "type": "string" },
-        "email": { "type": "string" },
-        "phone": { "type": "string" },
-        "maintenanceMode": { "type": "boolean" },
-        "enableAR": { "type": "boolean" },
-        "updatedAt": { "type": "string", "format": "date-time" }
-      }
+      "required": ["vendorId", "customerId", "items", "total", "status"]
     }
   },
   "firestore": {
-    "/users/{uid}": { "schema": "User", "description": "User profiles" },
-    "/vendors/{vendorId}": { "schema": "Vendor", "description": "Vendor business profiles" },
-    "/products/{productId}": { "schema": "Product", "description": "Vendor products/services" },
-    "/orders/{orderId}": { "schema": "Order", "description": "Service orders" },
-    "/riders/{uid}": { "schema": "Rider", "description": "Rider profiles" },
-    "/messages/{messageId}": { "schema": "Message", "description": "Chat messages" },
-    "/banners/{bannerId}": { "schema": "Banner", "description": "Promotional banners" },
-    "/notifications/{notificationId}": { "schema": "Notification", "description": "User notifications" },
-    "/reviews/{reviewId}": { "schema": "Review", "description": "User reviews" },
-    "/reviews/{reviewId}/replies/{replyId}": { "schema": "Reply", "description": "Replies to a review" },
-    "/coupons/{couponId}": { "schema": "Coupon", "description": "Discount coupons" },
-    "/tables/{tableId}": { "schema": "Table", "description": "Dine-in tables" },
-    "/staff/{staffId}": { "schema": "Staff", "description": "Vendor staff members" },
-    "/branches/{branchId}": { "schema": "Branch", "description": "Vendor branch locations" },
-    "/rides/{rideId}": { "schema": "Ride", "description": "Taxi rides" },
-    "/drivers/{driverId}": { "schema": { "$ref": "#/entities/User" }, "description": "Driver live status and location" },
-    "/parcels/{parcelId}": { "schema": "Parcel", "description": "Parcel delivery jobs" },
-    "/partners/{partnerId}": { "schema": "Partner", "description": "Parcel delivery partner profiles" },
-    "/payouts/{payoutId}": { "schema": "Payout", "description": "Withdrawal requests" },
-    "/logs/{logId}": { "schema": "SystemLog", "description": "Audit logs" },
-    "/config/business": { "schema": "BusinessConfig", "description": "Global platform configuration" }
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Individual user profiles"
+    },
+    "/vendors/{vendorId}": {
+      "schema": "Vendor",
+      "description": "Business profiles"
+    },
+    "/staff/{staffId}": {
+      "schema": "Staff",
+      "description": "Staff member records"
+    },
+    "/rides/{rideId}": {
+      "schema": "Ride",
+      "description": "Ride hailing and delivery records"
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Store purchase orders"
+    }
   }
 }

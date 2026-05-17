@@ -193,7 +193,7 @@ export default function RegisterDriver() {
           <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
             <h4 className="text-sm font-black uppercase text-neutral-400 tracking-widest ml-4">Vehicle Info / Taarifa za Gari</h4>
             <div className="grid grid-cols-1 gap-4">
-              <Select onValueChange={(val: string) => setFormData({...formData, vehicleType: val})}>
+              <Select onValueChange={(val: string | null) => val && setFormData({...formData, vehicleType: val})}>
                 <SelectTrigger className="h-12 bg-neutral-50/50 rounded-xl border-none">
                   <SelectValue placeholder="Aina ya Gari (Vehicle Type)" />
                 </SelectTrigger>
@@ -218,7 +218,7 @@ export default function RegisterDriver() {
               <div className="grid grid-cols-2 gap-4">
                 <Input type="number" placeholder="Year (Optional)" className="h-12 bg-neutral-50/50 rounded-xl border-none" value={formData.vehicleYear} onChange={e => setFormData({...formData, vehicleYear: e.target.value})} />
                 {driverType === 'delivery' && (
-                  <Select onValueChange={(val: string) => setFormData({...formData, carryingCapacity: val})}>
+                  <Select onValueChange={(val: string | null) => val && setFormData({...formData, carryingCapacity: val})}>
                     <SelectTrigger className="h-12 bg-neutral-50/50 rounded-xl border-none">
                       <SelectValue placeholder="Capacity" />
                     </SelectTrigger>
@@ -288,7 +288,7 @@ export default function RegisterDriver() {
               <Input placeholder="City / Mkoa" className="h-12 bg-neutral-50/50 rounded-xl border-none" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} />
               <Input placeholder="Preferred Area / Eneo unalopenda kufanya kazi" className="h-12 bg-neutral-50/50 rounded-xl border-none" value={formData.preferredWorkArea} onChange={e => setFormData({...formData, preferredWorkArea: e.target.value})} />
               
-              <Select onValueChange={(val: string) => setFormData({...formData, availability: val})}>
+              <Select onValueChange={(val: string | null) => val && setFormData({...formData, availability: val})}>
                 <SelectTrigger className="h-12 bg-neutral-50/50 rounded-xl border-none">
                   <SelectValue placeholder="Availability" />
                 </SelectTrigger>

@@ -224,7 +224,7 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
   }, [activeRide?.id]);
 
   useEffect(() => {
-    const freshRequests = nearbyRequests.filter(r => !declinedRequests.has(r.id));
+    const freshRequests = nearbyRequests.filter(r => r.id && !declinedRequests.has(r.id));
     const currentStillValid = incomingRequest && incomingRequest.id ? freshRequests.find(r => r.id === incomingRequest.id) : null;
     
     // Only set incoming request if we are online, not in an active ride, and not already showing one

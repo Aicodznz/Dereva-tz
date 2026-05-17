@@ -24,6 +24,7 @@ export default function RateCustomerScreen({ ride, onDone }: RateCustomerScreenP
   };
 
   const handleSubmit = async () => {
+    if (!ride.id) return;
     setIsSubmitting(true);
     try {
       await updateDoc(doc(db, 'rides', ride.id), {

@@ -92,7 +92,7 @@ const PartnerDashboard: React.FC = () => {
           <button 
             onClick={async () => {
                 if (window.confirm("Je, unataka kurudi kwenye Dashboard ya Teksi?")) {
-                    await updateDoc(doc(db, 'users', user.uid), { driverType: 'taxi' });
+                    if (user) await updateDoc(doc(db, 'users', user.uid), { driverType: 'taxi' });
                 }
             }}
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-white/10 bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 transition-colors"

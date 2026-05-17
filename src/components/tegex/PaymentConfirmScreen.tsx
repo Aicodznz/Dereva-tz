@@ -18,12 +18,14 @@ export default function PaymentConfirmScreen({ ride, onPaymentConfirmed }: Payme
     if (!method) return;
     setIsConfirming(true);
     try {
-      await updateDoc(doc(db, 'rides', ride.id), {
-        paymentMethod: method,
-        paymentStatus: 'paid',
-        paidAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
+      if (ride.id) {
+        await updateDoc(doc(db, 'rides', ride.id), {
+          paymentMethod: method,
+          paymentStatus: 'paid',
+          paidAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+      }
       
       onPaymentConfirmed();
     } catch (e) {

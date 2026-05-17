@@ -452,7 +452,7 @@ export default function RegisterVendor() {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
           <label className="text-[10px] font-black uppercase text-neutral-400">Aina ya Biashara / Business Category *</label>
-          <Select required onValueChange={handleCategoryChange}>
+          <Select required onValueChange={(val: string | null) => val && handleCategoryChange(val)}>
             <SelectTrigger className="h-12 bg-neutral-50 border-none rounded-xl">
               <SelectValue placeholder="Chagua aina ya biashara" />
             </SelectTrigger>

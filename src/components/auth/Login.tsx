@@ -36,14 +36,17 @@ export default function Login() {
     } catch (error: any) {
       console.error('Login error details:', error);
       
-      if (error.code === 'auth/invalid-credential' || error.message?.includes('invalid-credential') || error.message?.includes('Invalid login credentials')) {
+      const errorMessage = error.message || '';
+      const errorCode = error.code || '';
+
+      if (errorCode === 'auth/invalid-credential' || 
+          errorMessage.includes('invalid-credential') || 
+          errorMessage.includes('Invalid login credentials') ||
+          errorCode === 'auth/wrong-password' || 
+          errorCode === 'auth/user-not-found') {
         toast.error(t('invalid_email_or_password'));
-      } else if (error.code === 'auth/user-not-found') {
-        toast.error(t('user_not_found'));
-      } else if (error.code === 'auth/wrong-password') {
-        toast.error(t('wrong_password'));
       } else {
-        toast.error(error.message || t('login_failed'));
+        toast.error(errorMessage || t('login_failed'));
       }
     } finally {
       setLoading(false);

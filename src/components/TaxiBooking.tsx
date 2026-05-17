@@ -505,7 +505,7 @@ export default function TaxiBooking() {
         name: customerName,
         rating: 5.0,
         avatar: profile?.photoURL || activeUser.photoURL || null,
-        photo: profile?.photoURL || activeUser.photoURL || null,
+        photo: profile?.photoURL || activeUser.photoURL || undefined,
         phone: profile?.phoneNumber || ""
       };
 
