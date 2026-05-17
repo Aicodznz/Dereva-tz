@@ -14,6 +14,7 @@ import VendorStore from './components/VendorStore';
 import ServiceDetail from './components/ServiceDetail';
 import TableSession from './components/TableSession';
 import Checkout from './components/Checkout';
+import PublicStatusDisplay from './components/PublicStatusDisplay';
 import { Toaster } from '@/components/ui/sonner';
 
 import Login from './components/auth/Login';
@@ -51,6 +52,7 @@ function AppContent() {
     <Routes>
       {/* Auth Routes */}
       <Route path="/login" element={<Login />} />
+      <Route path="/status/:vendorId" element={<PublicStatusDisplay />} />
       <Route path="/register" element={<RegisterChoice />} />
       <Route path="/register/customer" element={<RegisterCustomer />} />
       <Route path="/register/driver" element={<RegisterDriver />} />

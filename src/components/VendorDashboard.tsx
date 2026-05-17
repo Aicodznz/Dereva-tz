@@ -40,6 +40,7 @@ import {
   Ticket,
   AlertCircle,
   HelpCircle,
+  Monitor,
   MoreVertical,
   MoreHorizontal,
   Menu,
@@ -92,7 +93,6 @@ import {
   Scissors,
   Hotel,
   ChefHat,
-  Monitor,
   ClipboardList,
   BadgeCheck,
   Printer as PrinterIcon,
@@ -1926,8 +1926,20 @@ export default function VendorDashboard() {
       className="space-y-8"
     >
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <h1 className="text-4xl font-black italic uppercase tracking-tighter">{vendorContext.ordersLabel}</h1>
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-3">
+            <h1 className="text-4xl font-black italic uppercase tracking-tighter">{vendorContext.ordersLabel}</h1>
+            {vendorProfile?.category === 'restaurant' && (
+              <a 
+                href={`/status/${vendorProfile?.id}`} 
+                target="_blank" 
+                rel="noreferrer"
+                className="flex items-center gap-2 px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-400 hover:text-orange-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-neutral-800"
+              >
+                <Monitor className="w-3 h-3" /> TV Screen
+              </a>
+            )}
+          </div>
           <p className="text-neutral-500 font-medium">{vendorContext.ordersDescription}</p>
         </div>
         <div className="flex items-center gap-2 p-1 bg-neutral-900 rounded-2xl border border-neutral-800">
