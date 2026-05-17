@@ -20,7 +20,7 @@ import {
   Users, ShoppingBag, DollarSign, MessageCircle, AlertTriangle,
   ExternalLink, Search, Ban, History, BarChart3, Settings, Info, CreditCard, Star, Key,
   Package, Undo2, Bike, Trophy, Wallet, MessageSquare, Globe, Clock, Coins, Loader2, Zap,
-  Bed, Wifi, Wind, Monitor, Car, Waves, MapPin, Mail, PhoneCall, FileText, User, Camera,
+  Bed, Wifi, Wind, Monitor, Car, Waves, MapPin, Mail, Phone, PhoneCall, FileText, User, Camera,
   Menu, MoreHorizontal, MoreVertical, LayoutGrid, LogOut
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -890,9 +890,9 @@ export default function AdminDashboard() {
                                     }} className="text-orange-600 hover:text-orange-500 transition-colors">
                                        <Key className="w-3 h-3" />
                                     </button>
-                                    {user.phoneNumber && (
+                                    {user.phone && (
                                       <a 
-                                        href={`https://wa.me/${user.phoneNumber.replace('+', '')}?text=Habari ${user.displayName}, Password yako mpya ya M-Duka platform ni: ${user.password}`}
+                                        href={`https://wa.me/${user.phone.replace('+', '')}?text=Habari ${user.displayName}, Password yako mpya ya M-Duka platform ni: ${user.password}`}
                                         target="_blank"
                                         rel="noreferrer"
                                         className="inline-flex items-center justify-center p-1.5 h-7 w-7 rounded-lg bg-green-500/10 text-green-500 hover:bg-green-500 hover:text-white transition-all ml-1"
