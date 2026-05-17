@@ -79,6 +79,8 @@ import {
   Edit2,
   Box,
   Check,
+  Key,
+  MessageCircle,
   Link as LinkIcon,
   Palette,
   Loader2,
@@ -713,7 +715,9 @@ export default function VendorDashboard() {
   const [branches, setBranches] = useState<any[]>([]);
   const [isAddStaffOpen, setIsAddStaffOpen] = useState(false);
   const [isAddBranchOpen, setIsAddBranchOpen] = useState(false);
-  const [newStaff, setNewStaff] = useState({ name: '', role: 'waiter', phone: '', branchId: '' });
+  const [newStaff, setNewStaff] = useState({ name: '', role: 'waiter', phone: '', branchId: '', password: '' });
+  const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
+  const [newStaffPassword, setNewStaffPassword] = useState('');
   const [newBranch, setNewBranch] = useState({ name: '', address: '', phone: '', type: 'office' });
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -823,7 +827,7 @@ export default function VendorDashboard() {
         createdAt: serverTimestamp()
       });
       setIsAddStaffOpen(false);
-      setNewStaff({ name: '', role: 'waiter', phone: '', branchId: '' });
+      setNewStaff({ name: '', role: 'waiter', phone: '', branchId: '', password: '' });
       toast.success('Staff member added successfully');
     } catch (error) {
       console.error(error);
@@ -3818,9 +3822,64 @@ export default function VendorDashboard() {
                             <span className="text-neutral-600">Contact</span>
                             <span className="text-neutral-300">{member.phone || 'N/A'}</span>
                          </div>
-                         <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest pt-3 border-t border-white/5">
-                            <span className="text-neutral-600">Operations</span>
-                            <span className="text-green-500">Live</span>
+                         <div className="flex flex-col gap-3 pt-3 border-t border-white/5">
+                            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                               <span className="text-neutral-600">Password</span>
+                               <div className="flex items-center gap-2">
+                                  {editingStaffId === member.id ? (
+                                     <div className="flex items-center gap-1">
+                                        <input 
+                                           type="text" 
+                                           className="bg-neutral-900 border border-orange-600/30 rounded px-2 py-0.5 w-20 text-[8px] focus:ring-1 focus:ring-orange-600 outline-none uppercase italic"
+                                           value={newStaffPassword}
+                                           onChange={(e) => setNewStaffPassword(e.target.value)}
+                                           placeholder="NEW PASS"
+                                           autoFocus
+                                        />
+                                        <button 
+                                           onClick={async () => {
+                                              if (!newStaffPassword) return setEditingStaffId(null);
+                                              await updateDoc(doc(db, 'staff', member.id), { password: newStaffPassword });
+                                              toast.success('Password updated');
+                                              setEditingStaffId(null);
+                                              setNewStaffPassword('');
+                                           }}
+                                           className="bg-orange-600 p-1 rounded hover:bg-orange-700"
+                                        >
+                                           <Check className="w-3 h-3 text-white" />
+                                        </button>
+                                     </div>
+                                  ) : (
+                                     <div className="flex items-center gap-2">
+                                        <span className="text-neutral-400 font-mono tracking-wider">{member.password || '••••••'}</span>
+                                        <button onClick={() => {
+                                           setEditingStaffId(member.id);
+                                           setNewStaffPassword(member.password || '');
+                                        }} className="text-orange-600 hover:text-orange-500 transition-colors">
+                                           <Key className="w-3 h-3" />
+                                        </button>
+                                     </div>
+                                  )}
+                               </div>
+                            </div>
+                            
+                            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest pt-2 border-t border-white/5">
+                               <span className="text-neutral-600">Share Login</span>
+                               <a 
+                                  href={`https://wa.me/${member.phone?.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Habari ${member.name}, Password yako mpya ya login ni: ${member.password || 'Tafadhali muulize admin'}. Unaweza kulogin hapa: ${window.location.origin}/login`)}`} 
+                                  target="_blank" 
+                                  rel="noreferrer"
+                               >
+                                  <Button variant="ghost" size="sm" className="h-6 px-3 bg-green-500/10 text-green-500 hover:bg-green-500 hover:text-white rounded-lg text-[8px] font-black uppercase tracking-widest">
+                                     <MessageCircle className="w-3 h-3 mr-1.5" /> WhatsApp
+                                  </Button>
+                               </a>
+                            </div>
+
+                            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest pt-2 border-t border-white/5">
+                               <span className="text-neutral-600">Operations</span>
+                               <span className="text-green-500">Live</span>
+                            </div>
                          </div>
                       </div>
                     </motion.div>
@@ -5884,6 +5943,19 @@ export default function VendorDashboard() {
                     </Select>
                   </div>
                 )}
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Initial Password / Paswedi</label>
+                  <Input 
+                    required
+                    type="password"
+                    placeholder="Set a password for login..." 
+                    className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl font-bold text-white italic"
+                    value={newStaff.password}
+                    onChange={e => setNewStaff({...newStaff, password: e.target.value})}
+                  />
+                </div>
+
                 <Button 
                   type="submit"
                   className="w-full bg-orange-600 hover:bg-orange-700 h-16 rounded-2xl font-black uppercase tracking-widest text-xs mt-4 shadow-xl shadow-orange-950/40"

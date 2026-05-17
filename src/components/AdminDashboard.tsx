@@ -18,7 +18,7 @@ import {
   Check, X, ShieldAlert, Store, UserCheck, Image as ImageIcon, 
   Bell, Plus, Trash2, Send, LayoutDashboard, Megaphone, Home,
   Users, ShoppingBag, DollarSign, MessageCircle, AlertTriangle,
-  ExternalLink, Search, Ban, History, BarChart3, Settings, Info, CreditCard, Star,
+  ExternalLink, Search, Ban, History, BarChart3, Settings, Info, CreditCard, Star, Key,
   Package, Undo2, Bike, Trophy, Wallet, MessageSquare, Globe, Clock, Coins, Loader2, Zap,
   Bed, Wifi, Wind, Monitor, Car, Waves, MapPin, Mail, PhoneCall, FileText, User, Camera,
   Menu, MoreHorizontal, MoreVertical, LayoutGrid, LogOut
@@ -72,6 +72,7 @@ interface UserRecord {
   email: string;
   role: string;
   phone?: string;
+  password?: string;
   status: 'active' | 'blocked';
   approvalStatus?: 'pending' | 'approved' | 'suspended';
   driverType?: string;
@@ -177,6 +178,8 @@ export default function AdminDashboard() {
   const [isAddBannerOpen, setIsAddBannerOpen] = useState(false);
   const [isAddCouponOpen, setIsAddCouponOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserRecord | null>(null);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [newUserPassword, setNewUserPassword] = useState('');
 
   const [isNavVisible, setIsNavVisible] = useState(true);
   const { scrollY } = useScroll();
@@ -852,18 +855,54 @@ export default function AdminDashboard() {
                             {user.role}
                           </Badge>
                         </td>
-                        <td className="px-8 py-6">
-                          <div className="flex flex-col gap-1">
-                            <Badge className={`${user.status === 'blocked' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'} border-none font-black uppercase text-[10px]`}>
-                              {user.status || 'Active'}
-                            </Badge>
-                            {user.role === 'driver' && (
-                              <Badge className={`${user.approvalStatus === 'approved' ? 'bg-blue-100 text-blue-600' : 'bg-amber-100 text-amber-600'} border-none font-black uppercase text-[8px]`}>
-                                {user.approvalStatus || 'Pending'}
-                              </Badge>
-                            )}
-                          </div>
-                        </td>
+                         <td className="px-8 py-6">
+                           <div className="flex flex-col gap-1">
+                             <div className="flex items-center gap-2">
+                               {editingUserId === user.id ? (
+                                 <div className="flex items-center gap-1">
+                                    <Input 
+                                       className="h-8 w-24 text-[10px] bg-neutral-100 border-orange-200 rounded-lg"
+                                       value={newUserPassword}
+                                       onChange={(e) => setNewUserPassword(e.target.value)}
+                                       placeholder="New Pass"
+                                       autoFocus
+                                    />
+                                    <Button 
+                                       size="icon" 
+                                       className="h-8 w-8 bg-orange-600 rounded-lg"
+                                       onClick={async () => {
+                                          if (!newUserPassword) return setEditingUserId(null);
+                                          await updateDoc(doc(db, 'users', user.id), { password: newUserPassword, updatedAt: serverTimestamp() });
+                                          toast.success('Password updated & saved');
+                                          setEditingUserId(null);
+                                          setNewUserPassword('');
+                                       }}
+                                    >
+                                       <Check className="w-4 h-4" />
+                                    </Button>
+                                 </div>
+                               ) : (
+                                 <div className="flex items-center gap-2">
+                                    <span className="text-[10px] text-neutral-400 font-mono tracking-widest">{user.password || '••••••'}</span>
+                                    <button onClick={() => {
+                                       setEditingUserId(user.id);
+                                       setNewUserPassword(user.password || '');
+                                    }} className="text-orange-600 hover:text-orange-500 transition-colors">
+                                       <Key className="w-3 h-3" />
+                                    </button>
+                                 </div>
+                               )}
+                             </div>
+                             <Badge className={`${user.status === 'blocked' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'} border-none font-black uppercase text-[10px] w-fit`}>
+                               {user.status || 'Active'}
+                             </Badge>
+                             {user.role === 'driver' && (
+                               <Badge className={`${user.approvalStatus === 'approved' ? 'bg-blue-100 text-blue-600' : 'bg-amber-100 text-amber-600'} border-none font-black uppercase text-[8px] w-fit`}>
+                                 {user.approvalStatus || 'Pending'}
+                               </Badge>
+                             )}
+                           </div>
+                         </td>
                         <td className="px-8 py-6 text-right">
                           <div className="flex justify-end gap-2">
                              {user.role === 'driver' && user.approvalStatus !== 'approved' && (
@@ -878,12 +917,12 @@ export default function AdminDashboard() {
                                  Approve
                                </Button>
                              )}
-                             {user.phone && (
-                               <a href={`https://wa.me/${user.phone.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer">
-                                  <Button size="icon" variant="ghost" className="rounded-xl text-green-600 hover:bg-green-50">
-                                    <MessageCircle className="w-5 h-5" />
-                                  </Button>
-                               </a>
+                              {user.phone && (
+                                <a href={`https://wa.me/${user.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Habari ${user.displayName}, Password yako ya login sasa ni: ${user.password || 'Tafadhali muulize admin'}. Ingia hapa: ${window.location.origin}/login`)}`} target="_blank" rel="noreferrer">
+                                   <Button size="icon" variant="ghost" className="rounded-xl text-green-600 hover:bg-green-50" title="WhatsApp Password">
+                                     <MessageCircle className="w-5 h-5" />
+                                   </Button>
+                                </a>
                              )}
                              <Button 
                                onClick={() => handleBlockUser(user.id, user.status)}
