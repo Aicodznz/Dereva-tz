@@ -130,6 +130,7 @@ export default function ProductDetail() {
   const [orderType, setOrderType] = useState<'delivery' | 'walk_in' | 'pickup'>('delivery');
   const [tableNumber, setTableNumber] = useState('');
   const [arrivalTime, setArrivalTime] = useState('');
+  const [peopleCount, setPeopleCount] = useState<number>(1);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [tableSession, setTableSession] = useState<any>(null);
   const [vendorTables, setVendorTables] = useState<any[]>([]);
@@ -320,6 +321,7 @@ export default function ProductDetail() {
           addons: selectedAddons
         }],
         orderType: orderType,
+        peopleCount: orderType === 'walk_in' ? peopleCount : 1,
         tableNumber: orderType === 'walk_in' ? tableNumber : null,
         arrivalTime: orderType === 'walk_in' ? arrivalTime : null,
         totalAmount: calculateDiscountedPrice(),
@@ -525,6 +527,23 @@ export default function ProductDetail() {
                     </button>
                   </div>
 
+                  {orderType === 'walk_in' && (
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Idadi ya Watu (Number of People)</label>
+                      <div className="flex items-center gap-2 bg-neutral-100 dark:bg-neutral-800 h-14 px-4 rounded-2xl">
+                         <Users className="w-5 h-5 text-orange-600" />
+                         <input 
+                           type="number"
+                           min="1"
+                           value={peopleCount}
+                           onChange={(e) => setPeopleCount(parseInt(e.target.value) || 1)}
+                           className="bg-transparent border-none w-full text-base font-black focus:ring-0"
+                         />
+                         <span className="text-[9px] font-black text-white uppercase tracking-widest bg-orange-600 px-2 py-1 rounded-lg">Seats</span>
+                      </div>
+                    </div>
+                  )}
+
                   {orderType === 'walk_in' && !tableNumber && (
                     <div className="space-y-2">
                        <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Muda wa Kufika (Arrival Time)</label>
@@ -560,14 +579,15 @@ export default function ProductDetail() {
                          <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
                            {vendorTables.map((table) => {
                              const isOccupied = occupiedTables.includes(table.number);
+                             const isFull = isOccupied && !table.allowSharing;
                              const isSelected = tableNumber === table.number;
                              return (
                                <button
                                  key={table.id}
                                  onClick={() => {
-                                   if (isOccupied) {
-                                      toast.error('Meza Imekaliwa', {
-                                        description: 'Tafadhali chagua meza nyingine iliyo wazi.'
+                                   if (isFull) {
+                                      toast.error('Meza Imejaa', {
+                                        description: 'Hii meza hairuhusu kugawana (sharing).'
                                       });
                                       return;
                                    }
@@ -576,13 +596,18 @@ export default function ProductDetail() {
                                  className={`h-12 rounded-xl border-2 flex flex-col items-center justify-center font-black transition-all relative ${
                                    isSelected 
                                      ? 'border-orange-600 bg-orange-600 text-white shadow-lg' 
-                                     : isOccupied 
-                                       ? 'border-red-100 bg-red-50 text-red-200 dark:bg-red-950/20 dark:border-red-900/40' 
-                                       : 'border-neutral-100 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:border-orange-600/30'
+                                     : isFull 
+                                       ? 'border-red-100 bg-red-50 text-red-100 dark:bg-red-950/20 dark:border-red-900/40' 
+                                       : isOccupied
+                                         ? 'border-blue-100 bg-blue-50 text-blue-600 dark:bg-blue-950/20'
+                                         : 'border-neutral-100 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:border-orange-600/30'
                                  }`}
                                >
                                  <span className="text-sm">{table.number}</span>
-                                 {isOccupied && (
+                                 {isOccupied && !isFull && (
+                                   <div className="absolute top-0.5 right-0.5 bg-blue-600 text-[6px] text-white px-1 rounded-sm uppercase tracking-tighter">Shared</div>
+                                 )}
+                                 {isFull && (
                                    <div className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-neutral-900 animate-pulse" />
                                  )}
                                </button>

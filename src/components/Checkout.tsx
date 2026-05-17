@@ -20,7 +20,8 @@ import {
   ArrowRight,
   Home,
   Utensils,
-  Smartphone
+  Smartphone,
+  Users
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -36,6 +37,7 @@ export default function Checkout() {
   const [orderType, setOrderType] = useState<'delivery' | 'pickup' | 'walk_in'>('delivery');
   const [tableNumber, setTableNumber] = useState('');
   const [arrivalTime, setArrivalTime] = useState('');
+  const [peopleCount, setPeopleCount] = useState<number>(1);
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [vendorTables, setVendorTables] = useState<any[]>([]);
@@ -134,6 +136,7 @@ export default function Checkout() {
         vendorName: vendorName,
         vendorLocation: vendorLocation,
         items: cartItems,
+        peopleCount: orderType === 'walk_in' ? peopleCount : 1,
         totalAmount: totalAmount + deliveryFee,
         subtotal: totalAmount,
         deliveryFee: deliveryFee,
@@ -294,14 +297,15 @@ export default function Checkout() {
                       <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
                         {vendorTables.map((table) => {
                           const isOccupied = occupiedTables.includes(table.number);
+                          const isFull = isOccupied && !table.allowSharing;
                           const isSelected = tableNumber === table.number;
                           return (
                             <button
                               key={table.id}
                               onClick={() => {
-                                if (isOccupied) {
-                                   toast.error('Meza Imekaliwa', {
-                                     description: 'Tafadhali chagua meza nyingine iliyo wazi.'
+                                if (isFull) {
+                                   toast.error('Meza Imejaa', {
+                                     description: 'Hii meza haijaruhusiwa kugawana (Sharing is disabled).'
                                    });
                                    return;
                                 }
@@ -310,12 +314,17 @@ export default function Checkout() {
                               className={`h-11 rounded-xl border-2 flex items-center justify-center font-black transition-all relative ${
                                 isSelected 
                                   ? 'border-orange-600 bg-orange-600 text-white' 
-                                  : isOccupied 
-                                    ? 'border-red-100 bg-red-50 text-red-200 dark:bg-red-950/20 dark:border-red-900/40' 
-                                    : 'border-neutral-100 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400'
+                                  : isFull 
+                                    ? 'border-red-100 bg-red-50 text-red-100 dark:bg-red-950/20 dark:border-red-900/40' 
+                                    : isOccupied
+                                      ? 'border-blue-100 bg-blue-50 text-blue-600 dark:bg-blue-950/20'
+                                      : 'border-neutral-100 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400'
                               }`}
                             >
                               <span className="text-xs">{table.number}</span>
+                              {isOccupied && !isFull && (
+                                <div className="absolute -top-2 px-1 bg-blue-600 text-[7px] text-white rounded font-bold uppercase">Shared</div>
+                              )}
                             </button>
                           );
                         })}
@@ -328,6 +337,23 @@ export default function Checkout() {
                         className="h-14 rounded-2xl border-none bg-neutral-50 dark:bg-neutral-800 font-medium"
                       />
                     )}
+                  </div>
+                )}
+
+                {orderType === 'walk_in' && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Idadi ya Watu (Number of People)</Label>
+                    <div className="flex items-center gap-2 bg-neutral-50 dark:bg-neutral-800 rounded-2xl h-14 px-4">
+                       <Users className="w-5 h-5 text-orange-600" />
+                       <input 
+                         type="number"
+                         min="1"
+                         value={peopleCount}
+                         onChange={(e) => setPeopleCount(parseInt(e.target.value) || 1)}
+                         className="bg-transparent border-none w-full text-base font-black focus:ring-0"
+                       />
+                       <span className="text-[10px] font-black text-neutral-400 uppercase tracking-widest bg-neutral-200 dark:bg-neutral-700 px-2 py-1 rounded-lg">Seats</span>
+                    </div>
                   </div>
                 )}
 

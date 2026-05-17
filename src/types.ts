@@ -143,6 +143,7 @@ export interface Order {
   orderSource?: 'online' | 'pos' | 'reception';
   orderType?: 'walk_in' | 'pickup' | 'delivery' | 'booking';
   tableNumber?: string | null;
+  peopleCount?: number;
   customerName?: string;
   customerPhone?: string;
   prescriptionUrl?: string;
@@ -181,6 +182,7 @@ export interface DiningTable {
   vendorId: string;
   number: string;
   capacity: number;
+  allowSharing?: boolean;
   status: 'available' | 'occupied' | 'reserved' | 'cleaning';
   qrCodeUrl?: string;
 }

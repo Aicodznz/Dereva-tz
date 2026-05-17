@@ -39,6 +39,7 @@ import {
   Bus,
   Ticket,
   AlertCircle,
+  HelpCircle,
   MoreVertical,
   MoreHorizontal,
   Menu,
@@ -179,8 +180,8 @@ export default function VendorDashboard() {
           ordersIcon: Beer,
           inventoryLabel: 'Menu Items',
           inventoryIcon: Utensils,
-          locationLabel: 'Dining Tables',
-          locationLabelSingular: 'Table',
+          locationLabel: 'Section Management',
+          locationLabelSingular: 'Section',
           posLabel: 'Dine-in POS',
           posIcon: ShoppingCart,
           fulfillmentAction: 'Cooking',
@@ -421,7 +422,7 @@ export default function VendorDashboard() {
   // Retail Location States (Formerly Tables)
   const [sections, setSections] = useState<any[]>([]);
   const [isAddSectionOpen, setIsAddSectionOpen] = useState(false);
-  const [newSection, setNewSection] = useState({ number: '', capacity: 10 });
+  const [newSection, setNewSection] = useState({ number: '', capacity: 4, allowSharing: false });
   const [selectedSection, setSelectedSection] = useState<any>(null);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orderToPrint, setOrderToPrint] = useState<Order | null>(null);
@@ -454,7 +455,10 @@ export default function VendorDashboard() {
     accentColor: '#ea580c',
     headerBg: '#1A1A1A',
     contentBg: '#ffffff',
-    bgImage: ''
+    bgImage: '',
+    seatingLabel: 'SEATING',
+    customSeating: '',
+    showSeating: true
   });
   const [qrOptions, setQrOptions] = useState<any>({
     width: 300,
@@ -624,7 +628,7 @@ export default function VendorDashboard() {
     ];
 
     if (vendorProfile?.category === 'restaurant') {
-      baseTabs.push({ id: 'tables', label: 'Dining Tables', icon: Store });
+      baseTabs.push({ id: 'tables', label: 'Section Management', icon: Store });
     }
 
     if (vendorProfile?.category === 'bus_ticket') {
@@ -915,10 +919,10 @@ export default function VendorDashboard() {
     };
 
     const fetchSections = async () => {
-      const path = 'tables';
+      if (!vendorProfile?.id) return;
+      const path = `vendors/${vendorProfile.id}/sections`;
       try {
-        const q = query(collection(db, path), where('vendorId', '==', vendorProfile.id));
-        const snap = await getDocs(q);
+        const snap = await getDocs(collection(db, 'vendors', vendorProfile.id, 'sections'));
         setSections(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       } catch (error) {
         handleFirestoreError(error, OperationType.GET, path);
@@ -1509,7 +1513,7 @@ export default function VendorDashboard() {
     e.preventDefault();
     if (!vendorProfile?.id) return;
     try {
-      await addDoc(collection(db, 'tables'), {
+      await addDoc(collection(db, 'vendors', vendorProfile.id, 'sections'), {
         ...newSection,
         vendorId: vendorProfile.id,
         vendorOwnerUid: user?.uid,
@@ -1517,7 +1521,7 @@ export default function VendorDashboard() {
         createdAt: serverTimestamp()
       });
       setIsAddSectionOpen(false);
-      setNewSection({ number: '', capacity: 10 });
+      setNewSection({ number: '', capacity: 4, allowSharing: false });
       toast.success('Shelf/Section added successfully!');
     } catch (error) {
       console.error(error);
@@ -1525,8 +1529,9 @@ export default function VendorDashboard() {
   };
 
   const handleDeleteSection = async (id: string) => {
+    if (!vendorProfile?.id) return;
     try {
-      await deleteDoc(doc(db, 'tables', id));
+      await deleteDoc(doc(db, 'vendors', vendorProfile.id, 'sections', id));
       toast.success('Section removed.');
     } catch (error) {
       console.error(error);
@@ -1534,8 +1539,9 @@ export default function VendorDashboard() {
   };
 
   const updateTableStatus = async (tableId: string, status: string) => {
+    if (!vendorProfile?.id) return;
     try {
-      await updateDoc(doc(db, 'tables', tableId), { status });
+      await updateDoc(doc(db, 'vendors', vendorProfile.id, 'sections', tableId), { status });
       toast.success('Table status updated!');
     } catch (error) {
       console.error(error);
@@ -2081,6 +2087,12 @@ export default function VendorDashboard() {
                           ? `${order.items[0]?.name || 'Unknown trip'}` 
                           : `${order.items[0]?.name}...`}
                       </p>
+                      {order.peopleCount ? order.peopleCount > 0 && (
+                        <div className="flex items-center gap-1 mt-1">
+                          <Users className="w-3 h-3 text-orange-600" />
+                          <span className="text-[9px] font-black italic bg-orange-600/10 text-orange-600 px-1.5 rounded">{order.peopleCount} Seats</span>
+                        </div>
+                      ) : null}
                     </td>
                     <td className="px-8 py-6">
                       <p className="font-black text-neutral-900 dark:text-white text-lg transition-colors">TZS {order.totalAmount.toLocaleString()}</p>
@@ -2206,6 +2218,13 @@ export default function VendorDashboard() {
                           <span className="text-[9px] font-black uppercase tracking-widest">Table / Location</span>
                        </div>
                        <p className="font-black italic text-sm">{selectedOrder.tableNumber || 'N/A'}</p>
+                    </div>
+                    <div className="p-5 rounded-[1.5rem] bg-neutral-50 dark:bg-neutral-950/50 border border-neutral-100 dark:border-neutral-800 space-y-2">
+                       <div className="flex items-center gap-2 text-neutral-400">
+                          <Users className="w-4 h-4 text-orange-600" />
+                          <span className="text-[9px] font-black uppercase tracking-widest">Watu / People</span>
+                       </div>
+                       <p className="font-black italic text-sm">{selectedOrder.peopleCount || 1} Person(s)</p>
                     </div>
                  </div>
 
@@ -4636,6 +4655,18 @@ export default function VendorDashboard() {
                        </div>
                        <p className="text-xs text-neutral-500 font-medium">Create QR codes for physical sections of your floor to allow customers to scan and spend instantly.</p>
                        
+                       <div className="bg-orange-50 dark:bg-orange-950/20 p-4 rounded-2xl border border-orange-100 dark:border-orange-900/30 space-y-2">
+                          <div className="flex items-center gap-2 text-orange-600">
+                            <HelpCircle className="w-4 h-4" />
+                            <span className="text-[10px] font-black uppercase tracking-widest">Jinsi ya Kuitumia / Guide</span>
+                          </div>
+                          <ul className="text-[10px] text-neutral-600 dark:text-neutral-400 font-medium space-y-1 list-disc pl-4">
+                            <li>Ukiongeza meza mpya, kagua sehemu ya <b>"Sharing / Multi-Booking"</b>.</li>
+                            <li>Kwa meza kubwa, washa sharing ili wateja tofauti waweze kuagiza pamoja.</li>
+                            <li>Kwenye <b>QR Stand Builder</b>, tumia <b>"Seating Label"</b> kuonyesha idadi ya viti (mfano: "Viti 10").</li>
+                          </ul>
+                       </div>
+                       
                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                           {sections.map((section, idx) => (
                             <Card key={`section-card-${section.id || idx}`} className="bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 p-4 border relative group hover:border-orange-600/30 transition-all">
@@ -4648,7 +4679,13 @@ export default function VendorDashboard() {
                                <div className="w-10 h-10 bg-orange-600/10 rounded-lg flex items-center justify-center text-orange-600 font-black mb-3">
                                   {section.number}
                                </div>
-                               <p className="text-[10px] font-black uppercase text-neutral-900 dark:text-white truncate transition-colors">{vendorContext.locationLabelSingular} {section.number}</p>
+                               <div className="flex items-center justify-between mb-1">
+                                 <p className="text-[10px] font-black uppercase text-neutral-900 dark:text-white truncate transition-colors">{vendorContext.locationLabelSingular} {section.number}</p>
+                                 {section.allowSharing && (
+                                   <span className="text-[7px] bg-blue-600 text-white px-1 rounded font-black uppercase tracking-tighter">Shared</span>
+                                 )}
+                               </div>
+                               <p className="text-[8px] text-neutral-500 font-bold uppercase transition-colors">Capacity: {section.capacity || 4}</p>
                                <Button 
                                  variant="ghost" 
                                  size="sm" 
@@ -6079,6 +6116,21 @@ export default function VendorDashboard() {
                     onChange={e => setNewSection({...newSection, capacity: e.target.value ? parseInt(e.target.value) : 0})}
                   />
                 </div>
+
+                <div className="flex items-center justify-between p-3 bg-neutral-800/50 rounded-xl border border-neutral-800">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black text-white uppercase tracking-wider">Sharing / Multi-Booking</span>
+                    <span className="text-[8px] text-neutral-500 uppercase font-bold tracking-tighter">Iruhusu Meza Ikaliwe na watu tofauti</span>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => setNewSection({...newSection, allowSharing: !newSection.allowSharing})}
+                    className={`w-10 h-5 rounded-full transition-all relative flex items-center px-1 ${newSection.allowSharing ? 'bg-orange-600' : 'bg-neutral-700'}`}
+                  >
+                    <div className={`w-3.5 h-3.5 bg-white rounded-full transition-all shadow-sm ${newSection.allowSharing ? 'translate-x-4.5' : 'translate-x-0'}`}></div>
+                  </button>
+                </div>
+
                 <Button 
                   type="submit"
                   className="w-full bg-orange-600 hover:bg-orange-700 h-11 rounded-xl font-bold mt-4"
@@ -6346,15 +6398,40 @@ export default function VendorDashboard() {
                               {printDetails.accentColor === color && <Check className="w-3 h-3 text-white" />}
                             </button>
                           ))}
-                          <label className="w-7 h-7 rounded-full border-2 border-dashed border-white/20 hover:border-orange-600/50 transition-all flex items-center justify-center cursor-pointer group">
-                             <Palette className="w-3.5 h-3.5 text-neutral-500 group-hover:text-orange-600" />
-                             <input 
-                               type="color" 
-                               className="sr-only" 
-                               value={printDetails.accentColor}
-                               onChange={(e) => setPrintDetails({...printDetails, accentColor: e.target.value})}
-                             />
-                           </label>
+                          {[
+                            '#ea580c', '#3b82f6', '#22c55e', '#ef4444', '#a855f7', 
+                            '#ec4899', '#06b6d4', '#000000', '#71717a'
+                          ].includes(printDetails.accentColor) ? (
+                            <label className="w-7 h-7 rounded-full border-2 border-dashed border-white/20 hover:border-orange-600/50 transition-all flex items-center justify-center cursor-pointer group" title="Custom Color">
+                               <Palette className="w-3.5 h-3.5 text-neutral-500 group-hover:text-orange-600" />
+                               <input 
+                                 type="color" 
+                                 className="sr-only" 
+                                 value={printDetails.accentColor}
+                                 onChange={(e) => setPrintDetails({...printDetails, accentColor: e.target.value})}
+                               />
+                             </label>
+                          ) : (
+                             <label 
+                               className="w-7 h-7 rounded-full border-2 border-white scale-110 shadow-lg transition-all flex items-center justify-center cursor-pointer"
+                               style={{ backgroundColor: printDetails.accentColor }}
+                             >
+                               <Palette className={`w-3.5 h-3.5 ${['#ffffff', '#f8fafc', '#f1f5f9', '#fff7ed'].includes(printDetails.accentColor.toLowerCase()) ? 'text-black' : 'text-white'}`} />
+                               <input 
+                                 type="color" 
+                                 className="sr-only" 
+                                 value={printDetails.accentColor}
+                                 onChange={(e) => setPrintDetails({...printDetails, accentColor: e.target.value})}
+                               />
+                             </label>
+                          )}
+                          <input 
+                            type="text"
+                            value={printDetails.accentColor}
+                            onChange={(e) => setPrintDetails({...printDetails, accentColor: e.target.value})}
+                            className="bg-neutral-900 border border-white/10 rounded-lg px-2 py-1 text-[8px] font-black italic text-white w-16 h-7 focus:ring-1 focus:ring-orange-600 uppercase text-center"
+                            placeholder="#HEX"
+                          />
                         </div>
                       </div>
 
@@ -6376,15 +6453,42 @@ export default function VendorDashboard() {
                               {printDetails.contentBg === color && <Check className={`w-3 h-3 ${color === '#ffffff' || color === '#f8fafc' || color === '#f1f5f9' || color === '#fff7ed' ? 'text-black' : 'text-white'}`} />}
                             </button>
                           ))}
-                          <label className="w-7 h-7 rounded-full border-2 border-dashed border-white/20 hover:border-orange-600/50 transition-all flex items-center justify-center cursor-pointer group">
-                             <Palette className="w-3.5 h-3.5 text-neutral-500 group-hover:text-orange-600" />
-                             <input 
-                               type="color" 
-                               className="sr-only" 
-                               value={printDetails.contentBg}
-                               onChange={(e) => setPrintDetails({...printDetails, contentBg: e.target.value})}
-                             />
-                           </label>
+                          <div className="flex items-center gap-2">
+                            {[
+                              '#ffffff', '#f8fafc', '#f1f5f9', '#fff7ed', '#f0f9ff', 
+                              '#f0fdf4', '#000000', '#1a1a1a'
+                            ].includes(printDetails.contentBg) ? (
+                              <label className="w-7 h-7 rounded-full border-2 border-dashed border-white/20 hover:border-orange-600/50 transition-all flex items-center justify-center cursor-pointer group" title="Custom Color">
+                                 <Palette className="w-3.5 h-3.5 text-neutral-500 group-hover:text-orange-600" />
+                                 <input 
+                                   type="color" 
+                                   className="sr-only" 
+                                   value={printDetails.contentBg}
+                                   onChange={(e) => setPrintDetails({...printDetails, contentBg: e.target.value})}
+                                 />
+                               </label>
+                            ) : (
+                               <label 
+                                 className="w-7 h-7 rounded-full border-2 border-orange-600 scale-110 shadow-lg transition-all flex items-center justify-center cursor-pointer"
+                                 style={{ backgroundColor: printDetails.contentBg }}
+                               >
+                                 <Palette className={`w-3.5 h-3.5 ${['#ffffff', '#f8fafc', '#f1f5f9', '#fff7ed', '#f0f9ff', '#f0fdf4'].includes(printDetails.contentBg.toLowerCase()) ? 'text-black' : 'text-white'}`} />
+                                 <input 
+                                   type="color" 
+                                   className="sr-only" 
+                                   value={printDetails.contentBg}
+                                   onChange={(e) => setPrintDetails({...printDetails, contentBg: e.target.value})}
+                                 />
+                               </label>
+                            )}
+                            <input 
+                              type="text"
+                              value={printDetails.contentBg}
+                              onChange={(e) => setPrintDetails({...printDetails, contentBg: e.target.value})}
+                              className="bg-neutral-900 border border-white/10 rounded-lg px-2 py-1 text-[8px] font-black italic text-white w-16 h-7 focus:ring-1 focus:ring-orange-600 uppercase text-center"
+                              placeholder="#HEX"
+                            />
+                          </div>
                         </div>
                       </div>
 
@@ -6444,15 +6548,42 @@ export default function VendorDashboard() {
                               {printDetails.headerBg === color && <Check className={`w-3 h-3 ${color === '#ffffff' ? 'text-black' : 'text-white'}`} />}
                             </button>
                           ))}
-                          <label className="w-7 h-7 rounded-full border-2 border-dashed border-white/20 hover:border-orange-600/50 transition-all flex items-center justify-center cursor-pointer group">
-                             <Palette className="w-3.5 h-3.5 text-neutral-500 group-hover:text-orange-600" />
-                             <input 
-                               type="color" 
-                               className="sr-only" 
-                               value={printDetails.headerBg}
-                               onChange={(e) => setPrintDetails({...printDetails, headerBg: e.target.value})}
-                             />
-                           </label>
+                          <div className="flex items-center gap-2">
+                            {[
+                              '#1A1A1A', '#000000', '#ffffff', '#ea580c', '#3b82f6', 
+                              '#22c55e', '#ef4444', '#71717a'
+                            ].includes(printDetails.headerBg) ? (
+                              <label className="w-7 h-7 rounded-full border-2 border-dashed border-white/20 hover:border-orange-600/50 transition-all flex items-center justify-center cursor-pointer group" title="Custom Header Color">
+                                 <Palette className="w-3.5 h-3.5 text-neutral-500 group-hover:text-orange-600" />
+                                 <input 
+                                   type="color" 
+                                   className="sr-only" 
+                                   value={printDetails.headerBg}
+                                   onChange={(e) => setPrintDetails({...printDetails, headerBg: e.target.value})}
+                                 />
+                               </label>
+                            ) : (
+                               <label 
+                                 className="w-7 h-7 rounded-full border-2 border-white scale-110 shadow-lg transition-all flex items-center justify-center cursor-pointer"
+                                 style={{ backgroundColor: printDetails.headerBg }}
+                               >
+                                 <Palette className={`w-3.5 h-3.5 ${['#ffffff'].includes(printDetails.headerBg.toLowerCase()) ? 'text-black' : 'text-white'}`} />
+                                 <input 
+                                   type="color" 
+                                   className="sr-only" 
+                                   value={printDetails.headerBg}
+                                   onChange={(e) => setPrintDetails({...printDetails, headerBg: e.target.value})}
+                                 />
+                               </label>
+                            )}
+                            <input 
+                              type="text"
+                              value={printDetails.headerBg}
+                              onChange={(e) => setPrintDetails({...printDetails, headerBg: e.target.value})}
+                              className="bg-neutral-900 border border-white/10 rounded-lg px-2 py-1 text-[8px] font-black italic text-white w-16 h-7 focus:ring-1 focus:ring-orange-600 uppercase text-center"
+                              placeholder="#HEX"
+                            />
+                          </div>
                         </div>
                       </div>
 
@@ -6500,6 +6631,40 @@ export default function VendorDashboard() {
                             onChange={e => setPrintDetails({...printDetails, address: e.target.value})}
                           />
                         </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 border-t border-white/5 pt-4 mt-2">
+                        <div className="space-y-1">
+                          <span className="text-[8px] font-black text-neutral-600 uppercase tracking-widest px-1 text-center block">Seating Label / Label ya Viti</span>
+                          <Input 
+                            placeholder="e.g. SEATING"
+                            className="bg-neutral-900 border-white/5 h-11 rounded-xl text-white text-[10px] font-black text-center focus:ring-1 focus:ring-orange-600 uppercase tracking-widest"
+                            value={printDetails.seatingLabel}
+                            onChange={e => setPrintDetails({...printDetails, seatingLabel: e.target.value})}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-[8px] font-black text-neutral-600 uppercase tracking-widest px-1 text-center block">Custom Seater / Idadi</span>
+                          <Input 
+                            placeholder="Weka idadi au herufi"
+                            className="bg-neutral-900 border-white/5 h-11 rounded-xl text-white text-[10px] font-black text-center focus:ring-1 focus:ring-orange-600 uppercase tracking-widest"
+                            value={printDetails.customSeating}
+                            onChange={e => setPrintDetails({...printDetails, customSeating: e.target.value})}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between p-3 bg-neutral-900/30 rounded-xl border border-white/5 mt-4">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-black text-white uppercase tracking-wider">Show Seating Info</span>
+                          <span className="text-[8px] text-neutral-500 uppercase font-bold tracking-tighter">Onyesha idadi ya viti</span>
+                        </div>
+                        <button 
+                          onClick={() => setPrintDetails({...printDetails, showSeating: !printDetails.showSeating})}
+                          className={`w-10 h-5 rounded-full transition-all relative flex items-center px-1 ${printDetails.showSeating ? 'bg-orange-600' : 'bg-neutral-700'}`}
+                        >
+                          <div className={`w-3.5 h-3.5 bg-white rounded-full transition-all shadow-sm ${printDetails.showSeating ? 'translate-x-4.5' : 'translate-x-0'}`}></div>
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -6627,6 +6792,8 @@ export default function VendorDashboard() {
                               </div>
 
                               {/* Capacity */}
+                            {/* Seating Section */}
+                            {printDetails.showSeating && (
                               <div 
                                 className="flex flex-col items-center p-3 rounded-[1.25rem] shadow-sm border"
                                 style={{ 
@@ -6637,7 +6804,7 @@ export default function VendorDashboard() {
                                 <span 
                                   className="text-[7px] font-black uppercase tracking-[0.2em] mb-1 leading-none opacity-60"
                                   style={{ color: printDetails.contentBg === '#000000' || printDetails.contentBg === '#1a1a1a' ? '#ffffff' : '#A3A3A3' }}
-                                >SEATING</span>
+                                >{printDetails.seatingLabel || 'SEATING'}</span>
                                 <div className="flex items-center gap-1">
                                   <Users 
                                     className="w-2.5 h-2.5 opacity-60" 
@@ -6647,10 +6814,11 @@ export default function VendorDashboard() {
                                     className="text-lg font-black italic tracking-tighter text-neutral-900 font-mono leading-none"
                                     style={{ color: printDetails.contentBg === '#000000' || printDetails.contentBg === '#1a1a1a' ? '#ffffff' : '#111827' }}
                                   >
-                                    {selectedSection?.capacity || '04'}
+                                    {printDetails.customSeating || selectedSection?.capacity || '04'}
                                   </span>
                                 </div>
                               </div>
+                            )}
                             </div>
 
                             <div className="space-y-1.5">
