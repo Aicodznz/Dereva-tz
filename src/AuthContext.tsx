@@ -1,13 +1,14 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth, db, handleFirestoreError, OperationType } from './firebase';
 import { User as FirebaseUser, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInAnonymously, GoogleAuthProvider, signInWithPopup, updatePassword } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp, collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { toast } from 'sonner';
 import { UserProfile, UserRole } from './types';
 
 interface AuthContextType {
   user: FirebaseUser | null;
   profile: UserProfile | null;
+  staffProfile: any | null;
   loading: boolean;
   signIn: () => Promise<void>;
   login: (email: string, pass: string) => Promise<void>;
@@ -16,6 +17,7 @@ interface AuthContextType {
   updateRole: (role: UserRole) => Promise<void>;
   updateProfileData: (data: Partial<UserProfile>) => Promise<void>;
   signInGuest: () => Promise<void>;
+  staffLogin: (phone: string, pass: string) => Promise<void>;
   changePassword: (newPass: string) => Promise<void>;
 }
 
@@ -24,6 +26,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [staffProfile, setStaffProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -43,31 +46,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fetchProfile = async (uid: string) => {
     const path = `users/${uid}`;
     try {
+      // 1. Check users collection
       const docRef = doc(db, 'users', uid);
       const docSnap = await getDoc(docRef);
 
       if (docSnap.exists()) {
         setProfile(docSnap.data() as UserProfile);
+        setStaffProfile(null);
       } else {
-        // Profile doesn't exist, check if we should create it
-        const currentUser = auth.currentUser;
-        if (currentUser) {
-          const isAdminEmail = currentUser.email === 'aicodtznation@gmail.com';
-          const newProfile: any = {
-            uid: currentUser.uid,
-            email: currentUser.email || '',
-            displayName: currentUser.displayName || (isAdminEmail ? 'Super Admin' : ''),
-            fullName: currentUser.displayName || (isAdminEmail ? 'Super Admin' : ''),
-            photoURL: currentUser.photoURL || '',
-            role: isAdminEmail ? 'admin' : 'customer',
-            walletBalance: 0,
-            points: 0,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          };
+        // 2. Check staff collection
+        const staffQ = query(collection(db, 'staff'), where('uid', '==', uid), limit(1));
+        const staffSnap = await getDocs(staffQ);
 
-          await setDoc(doc(db, 'users', currentUser.uid), newProfile);
-          setProfile(newProfile);
+        if (!staffSnap.empty) {
+          const staffData = staffSnap.docs[0].data();
+          setStaffProfile({ id: staffSnap.docs[0].id, ...staffData });
+          // Synthesize a profile for staff so Dashboard knows where to go
+          setProfile({
+            uid: uid,
+            role: 'vendor', // Staff acts as vendor (they go to VendorDashboard)
+            email: '',
+          } as any);
+        } else {
+          // Profile doesn't exist, check if we should create it
+          const currentUser = auth.currentUser;
+          if (currentUser) {
+            const isAdminEmail = currentUser.email === 'aicodtznation@gmail.com';
+            const newProfile: any = {
+              uid: currentUser.uid,
+              email: currentUser.email || '',
+              displayName: currentUser.displayName || (isAdminEmail ? 'Super Admin' : ''),
+              fullName: currentUser.displayName || (isAdminEmail ? 'Super Admin' : ''),
+              photoURL: currentUser.photoURL || '',
+              role: isAdminEmail ? 'admin' : 'customer',
+              walletBalance: 0,
+              points: 0,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            };
+
+            await setDoc(doc(db, 'users', currentUser.uid), newProfile);
+            setProfile(newProfile);
+            setStaffProfile(null);
+          }
         }
       }
     } catch (error) {
@@ -196,6 +217,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const staffLogin = async (phone: string, pass: string) => {
+    try {
+      // 1. Search for staff member in Firestore
+      const staffQ = query(
+        collection(db, 'staff'), 
+        where('phone', '==', phone), 
+        where('password', '==', pass),
+        limit(1)
+      );
+      const staffSnap = await getDocs(staffQ);
+
+      if (staffSnap.empty) {
+        throw new Error("Samahani, Namba ya simu au Password si sahihi.");
+      }
+
+      const staffDoc = staffSnap.docs[0];
+      const staffData = staffDoc.data();
+
+      // 2. Sign in anonymously to get a UID if not already logged in
+      if (!auth.currentUser) {
+        const userCredential = await signInAnonymously(auth);
+        const newUser = userCredential.user;
+
+        // 3. Link this UID to the staff record so VendorDashboard can find it
+        await updateDoc(doc(db, 'staff', staffDoc.id), {
+          uid: newUser.uid
+        });
+      } else {
+        // If already logged in, just update the link
+        await updateDoc(doc(db, 'staff', staffDoc.id), {
+          uid: auth.currentUser.uid
+        });
+      }
+
+      toast.success(`Karibu ${staffData.name}!`);
+    } catch (error: any) {
+      console.error('Staff login error:', error);
+      throw error;
+    }
+  };
+
   const signInGuest = async () => {
     try {
       await signInAnonymously(auth);
@@ -224,6 +286,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = React.useMemo(() => ({
     user,
     profile,
+    staffProfile,
     loading,
     signIn,
     login,
@@ -232,8 +295,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     updateRole,
     updateProfileData,
     signInGuest,
+    staffLogin,
     changePassword: changePasswordMethod
-  }), [user, profile, loading]);
+  }), [user, profile, staffProfile, loading]);
 
   return (
     <AuthContext.Provider value={value}>
