@@ -890,6 +890,17 @@ export default function AdminDashboard() {
                                     }} className="text-orange-600 hover:text-orange-500 transition-colors">
                                        <Key className="w-3 h-3" />
                                     </button>
+                                    {user.phoneNumber && (
+                                      <a 
+                                        href={`https://wa.me/${user.phoneNumber.replace('+', '')}?text=Habari ${user.displayName}, Password yako mpya ya M-Duka platform ni: ${user.password}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center justify-center p-1.5 h-7 w-7 rounded-lg bg-green-500/10 text-green-500 hover:bg-green-500 hover:text-white transition-all ml-1"
+                                        title="Send to WhatsApp"
+                                      >
+                                        <Phone className="w-2.5 h-2.5" />
+                                      </a>
+                                    )}
                                  </div>
                                )}
                              </div>

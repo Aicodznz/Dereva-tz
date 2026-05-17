@@ -95,7 +95,6 @@ import {
   ChefHat,
   ClipboardList,
   BadgeCheck,
-  Printer as PrinterIcon,
   Volume2,
   VolumeX,
   UserCheck,
@@ -155,6 +154,7 @@ export default function VendorDashboard() {
   };
   const { config: businessConfig } = useBusinessConfig();
   const [vendorProfile, setVendorProfile] = useState<VendorProfile | null>(null);
+  const [staffProfile, setStaffProfile] = useState<any>(null);
   const [activeFulfillmentTab, setActiveFulfillmentTab] = useState(0);
   const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
 
@@ -405,7 +405,13 @@ export default function VendorDashboard() {
   const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
   const [coupons, setCoupons] = useState<any[]>([]);
   const [isAddCouponOpen, setIsAddCouponOpen] = useState(false);
-  const [newCoupon, setNewCoupon] = useState({
+  const [newCoupon, setNewCoupon] = useState<{
+    code: string;
+    discountType: 'percentage' | 'fixed';
+    discountValue: number;
+    active: boolean;
+    productId: string | null;
+  }>({
     code: '',
     discountType: 'percentage',
     discountValue: 0,
@@ -629,6 +635,32 @@ export default function VendorDashboard() {
       { id: 'messages', label: 'Messages', icon: MessageIcon },
     ];
 
+    // Role-based filtering
+    if (staffProfile) {
+      const role = staffProfile.role;
+      if (role === 'chef') {
+        return [
+          { id: 'orders', label: 'Kitchen Display', icon: ChefHat, badge: orders.length > 0 ? orders.length : null },
+          { id: 'products', label: 'Menu Availability', icon: Utensils },
+        ];
+      }
+      if (role === 'waiter') {
+        return [
+          { id: 'tables', label: 'Table Management', icon: Store },
+          { id: 'pos', label: 'Order Taking', icon: ShoppingCart },
+          { id: 'orders', label: 'My Orders', icon: ClipboardList },
+          { id: 'messages', label: 'Messages', icon: MessageIcon },
+        ];
+      }
+      if (role === 'cashier') {
+        return [
+          { id: 'overview', label: 'Daily Sales', icon: LayoutDashboard },
+          { id: 'pos', label: 'Billing / POS', icon: Banknote },
+          { id: 'orders', label: vendorContext.ordersLabel, icon: vendorContext.ordersIcon },
+        ];
+      }
+    }
+
     if (vendorProfile?.category === 'restaurant') {
       baseTabs.push({ id: 'tables', label: 'Section Management', icon: Store });
     }
@@ -848,6 +880,7 @@ export default function VendorDashboard() {
     const fetchVendor = async () => {
       const path = 'vendors';
       try {
+        // First check if user is a vendor owner
         const q = query(collection(db, 'vendors'), where('ownerUid', '==', user.uid), limit(1));
         const snap = await getDocs(q);
         
@@ -855,15 +888,36 @@ export default function VendorDashboard() {
           const doc = snap.docs[0];
           const data = doc.data() as VendorProfile;
           setVendorProfile({ id: doc.id, ...data } as VendorProfile);
+          setStaffProfile(null); // Not a staff member, an owner
           
-          // Auto-skip onboarding if keys fields already exists (from RegisterVendor)
           if (data.businessName && data.category) {
             setShowOnboarding(false);
           } else {
             setShowOnboarding(true);
           }
         } else {
-          setShowOnboarding(true);
+          // If not an owner, check if the user is a staff member
+          // Search for staff by uid if we have one (usually staff might log in with phone/password)
+          // For now, let's look in staff collection where a field (maybe custom field) links to user uid
+          // Assuming we might have linked the staff record to the user uid
+          const staffQ = query(collection(db, 'staff'), where('uid', '==', user.uid), limit(1));
+          const staffSnap = await getDocs(staffQ);
+
+          if (!staffSnap.empty) {
+            const staffData = staffSnap.docs[0].data();
+            setStaffProfile({ id: staffSnap.docs[0].id, ...staffData });
+            
+            // Get the vendor profile for this staff
+            const vendorDoc = await getDoc(doc(db, 'vendors', staffData.vendorId));
+            if (vendorDoc.exists()) {
+              setVendorProfile({ id: vendorDoc.id, ...vendorDoc.data() } as VendorProfile);
+              setShowOnboarding(false);
+            } else {
+              setShowOnboarding(true);
+            }
+          } else {
+            setShowOnboarding(true);
+          }
         }
       } catch (error) {
         handleFirestoreError(error, OperationType.GET, path);
@@ -888,12 +942,13 @@ export default function VendorDashboard() {
     if (!vendorProfile?.id || !user) return;
     
     const fetchOrders = async () => {
+      if (!vendorProfile?.id) return;
       const path = 'orders';
       try {
         const q = query(
           collection(db, path), 
-          where('vendorOwnerUid', '==', user.uid),
-          limit(50) // Fetch a reasonable amount to sort client-side
+          where('vendorId', '==', vendorProfile.id),
+          limit(100) // Fetch a reasonable amount to sort client-side
         );
         const snap = await getDocs(q);
         const docs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
@@ -957,7 +1012,7 @@ export default function VendorDashboard() {
     };
 
     const unsubs = [
-      onSnapshot(query(collection(db, 'orders'), where('vendorOwnerUid', '==', user.uid)), () => fetchOrders(), errorHandler('orders')),
+      onSnapshot(query(collection(db, 'orders'), where('vendorId', '==', vendorProfile.id)), () => fetchOrders(), errorHandler('orders')),
       onSnapshot(query(collection(db, 'products'), where('vendorId', '==', vendorProfile.id)), () => fetchProducts(), errorHandler('products')),
       onSnapshot(query(collection(db, 'tables'), where('vendorId', '==', vendorProfile.id)), () => fetchSections(), errorHandler('tables')),
       onSnapshot(
@@ -1060,6 +1115,16 @@ export default function VendorDashboard() {
       toast.error('Imeshindwa kusajili biashara.', { id: toastId });
     } finally {
       setIsSubmittingOnboarding(false);
+    }
+  };
+
+  const handleToggleStock = async (product: Product) => {
+    try {
+      const newStock = product.stock > 0 ? 0 : 50; 
+      await updateDoc(doc(db, 'products', product.id!), { stock: newStock });
+      toast.success(`${product.name} is now ${newStock > 0 ? 'available' : 'marked as out of stock'}`);
+    } catch (err) {
+      toast.error('Imeshindwa kubadilisha hali ya chakula');
     }
   };
 
@@ -2490,6 +2555,23 @@ export default function VendorDashboard() {
           </div>
         </header>
 
+        <div className="lg:hidden flex overflow-x-auto no-scrollbar gap-2 px-4 py-4 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border-b border-neutral-100 dark:border-neutral-800 sticky top-16 z-30 shrink-0">
+          {tabs.map((item) => (
+            <button
+               key={`mobile-tab-scroll-${item.id}`}
+               onClick={() => setActiveTab(item.id as TabType)}
+               className={`flex items-center gap-2 px-6 h-12 rounded-2xl whitespace-nowrap transition-all border-2 ${
+                  activeTab === item.id 
+                     ? 'bg-orange-600 border-orange-500 text-white shadow-lg' 
+                     : 'bg-neutral-200/20 dark:bg-neutral-800/50 border-transparent text-neutral-500 hover:border-neutral-300'
+               }`}
+            >
+               <item.icon className="w-4 h-4" />
+               <span className="text-[10px] font-black uppercase tracking-widest">{item.label}</span>
+            </button>
+          ))}
+        </div>
+
         {/* Tab Content */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-8 custom-scrollbar">
           <AnimatePresence mode="wait">
@@ -3331,6 +3413,9 @@ export default function VendorDashboard() {
                                   <Users className="w-3 h-3 text-neutral-500" />
                                 </div>
                                 <span className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">{section.capacity || 4} Seater</span>
+                                {section.allowSharing && (
+                                  <Badge className="bg-orange-600/10 text-orange-600 border-none text-[8px] font-black italic">SHARING ON</Badge>
+                                )}
                              </div>
                              {tableStatus === 'occupied' && (
                                <div className="flex items-center gap-2 px-3 py-1 bg-red-500/10 rounded-full">
@@ -3339,6 +3424,19 @@ export default function VendorDashboard() {
                                </div>
                              )}
                           </div>
+                          {(staffProfile?.role === 'waiter' || !staffProfile) && (
+                            <Button 
+                              className="w-full mt-4 h-12 bg-orange-600 hover:bg-orange-700 text-white font-black uppercase text-[10px] tracking-widest rounded-2xl shadow-xl shadow-orange-900/20 gap-2"
+                              onClick={() => {
+                                setTableNumber(section.number);
+                                setActiveTab('pos');
+                                setOrderType('walk_in');
+                              }}
+                            >
+                              <ShoppingCart className="w-4 h-4" />
+                              Pokea Oda (Take Order)
+                            </Button>
+                          )}
                         </div>
 
                         {/* Background Decoration */}
@@ -3549,7 +3647,7 @@ export default function VendorDashboard() {
                     variant="outline" 
                     className="h-14 px-8 border-neutral-800 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-neutral-900 text-white flex items-center gap-3"
                   >
-                    <PrinterIcon className="w-4 h-4" /> Export CSV
+                    <Printer className="w-4 h-4" /> Export CSV
                   </Button>
                 </div>
 
@@ -4298,8 +4396,8 @@ export default function VendorDashboard() {
                                  <label className="text-[10px] font-black uppercase text-neutral-400 tracking-widest">Availability</label>
                                  <Select 
                                    value={updatedProfile.hotelStatus || 'Available'} 
-                                   onValueChange={(val) => {
-                                      setUpdatedProfile({ ...updatedProfile, hotelStatus: val });
+                                   onValueChange={(val: any) => {
+                                      setUpdatedProfile({ ...updatedProfile, hotelStatus: val as any });
                                    }}
                                  >
                                    <SelectTrigger className="h-14 rounded-2xl bg-white dark:bg-neutral-900 border-none font-bold">
@@ -4763,7 +4861,7 @@ export default function VendorDashboard() {
                                  className="w-full mt-3 h-8 text-[9px] font-black uppercase hover:bg-orange-600 hover:text-white dark:text-neutral-400 group-hover:dark:text-white transition-colors"
                                  onClick={() => {
                                    setSelectedSection(section);
-                                   setQrOptions({ ...qrOptions, data: `${window.location.origin}/table/${vendorProfile?.id}/${section.number}` });
+                                   setQrOptions({ ...qrOptions, data: `${window.location.origin}/table/${vendorProfile?.id || ''}/${section.number}` });
                                    setIsQrBuilderOpen(true);
                                  }}
                                >
@@ -4908,6 +5006,16 @@ export default function VendorDashboard() {
                             </td>
                             <td className="px-8 py-6">
                                <div className="flex flex-col items-center gap-2">
+                                  {staffProfile?.role === 'chef' && (
+                                    <Button 
+                                      size="sm" 
+                                      variant={product.stock > 0 ? "outline" : "destructive"}
+                                      className="h-8 text-[9px] font-black uppercase rounded-lg border-2"
+                                      onClick={() => handleToggleStock(product)}
+                                    >
+                                      {product.stock > 0 ? "Imeisha?" : "Ipo Tena?"}
+                                    </Button>
+                                  )}
                                   <div className="w-24 h-1.5 bg-neutral-950 rounded-full overflow-hidden border border-neutral-800">
                                      <div 
                                        className={`h-full rounded-full transition-all duration-1000 ${
@@ -6438,6 +6546,26 @@ export default function VendorDashboard() {
 
                   {/* Print Customization */}
                   <div className="space-y-4 pt-4 border-t border-white/5">
+                    <div className="space-y-4">
+                         <div className="space-y-2">
+                           <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Seating Label / Maandishi ya Siti</label>
+                           <Input 
+                             placeholder="e.g. VITI" 
+                             value={printDetails.seatingLabel}
+                             onChange={(e) => setPrintDetails({...printDetails, seatingLabel: e.target.value.toUpperCase()})}
+                             className="bg-neutral-900 border-white/5 h-12 rounded-xl text-white font-black italic"
+                           />
+                         </div>
+                         <div className="space-y-2">
+                           <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Seating Capacity / Idadi ya Siti</label>
+                           <Input 
+                             placeholder="e.g. 10" 
+                             value={printDetails.customSeating}
+                             onChange={(e) => setPrintDetails({...printDetails, customSeating: e.target.value})}
+                             className="bg-neutral-900 border-white/5 h-12 rounded-xl text-white font-black italic"
+                           />
+                         </div>
+                    </div>
                     <div className="flex items-center justify-between">
                        <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] px-1">Print Layout / Mpangilio wa Print</label>
                        <button 
@@ -6451,6 +6579,19 @@ export default function VendorDashboard() {
                     </div>
                     
                     <div className="space-y-3">
+                      <div className="flex items-center justify-between p-3 bg-neutral-900/50 rounded-xl border border-white/5">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-black text-white uppercase tracking-wider">Show Seating / Onyesha Siti</span>
+                          <span className="text-[8px] text-neutral-500 uppercase font-bold tracking-tighter">Onyesha idadi ya siti kwenye stand</span>
+                        </div>
+                        <button 
+                          onClick={() => setPrintDetails({...printDetails, showSeating: !printDetails.showSeating})}
+                          className={`w-10 h-5 rounded-full transition-all relative flex items-center px-1 ${printDetails.showSeating ? 'bg-orange-600' : 'bg-neutral-700'}`}
+                        >
+                          <div className={`w-3.5 h-3.5 bg-white rounded-full transition-all shadow-sm ${printDetails.showSeating ? 'translate-x-4.5' : 'translate-x-0'}`}></div>
+                        </button>
+                      </div>
+
                       <div className="flex items-center justify-between p-3 bg-neutral-900/50 rounded-xl border border-white/5">
                         <div className="flex flex-col">
                           <span className="text-[10px] font-black text-white uppercase tracking-wider">Show Shop Logo</span>
