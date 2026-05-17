@@ -435,7 +435,10 @@ export default function TaxiBooking() {
     const timer = setTimeout(async () => {
       try {
         const response = await fetch(`/api/geo/search?q=${encodeURIComponent(query)}&limit=5&addressdetails=1`);
-        if (!response.ok) throw new Error(`Search failed with status ${response.status}`);
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.error || `Search failed with status ${response.status}`);
+        }
         const data = await response.json();
         if (Array.isArray(data)) {
           setSuggestions(data.map((item: any) => ({
@@ -447,7 +450,7 @@ export default function TaxiBooking() {
       } catch (error) {
         console.error("Geocoding search failed", error);
       }
-    }, 600);
+    }, 1000); // Increased to 1s
     setSearchTimer(timer);
   };
 
@@ -747,7 +750,7 @@ export default function TaxiBooking() {
                      undefined
                    }
                  />
-                 <Marker position={pickupPos} icon={StartPin} />
+                 {activeRide?.status !== 'on_trip' && <Marker position={pickupPos} icon={StartPin} />}
                  <Marker position={destPos} icon={EndPin} />
                  
                  {/* Assigned Driver Marker */}

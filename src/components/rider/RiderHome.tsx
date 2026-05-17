@@ -872,25 +872,27 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
 
           {activeRide && (
             <>
-              {/* Pickup Marker */}
-              <Marker 
-                position={[activeRide.pickup.lat, activeRide.pickup.lng]} 
-                icon={StartPin} 
-              >
-                <Popup>
-                  <div className="p-2 text-center">
-                    <p className="font-bold">Eneo la Pickup</p>
-                    <a 
-                      href={`https://www.google.com/maps/dir/?api=1&origin=${position[0]},${position[1]}&destination=${activeRide.pickup.lat},${activeRide.pickup.lng}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-blue-500 underline"
-                    >
-                      Fungua Google Maps
-                    </a>
-                  </div>
-                </Popup>
-              </Marker>
+              {/* Pickup Marker - Only show before trip starts */}
+              {activeRide.status !== 'on_trip' && (
+                <Marker 
+                  position={[activeRide.pickup.lat, activeRide.pickup.lng]} 
+                  icon={StartPin} 
+                >
+                  <Popup>
+                    <div className="p-2 text-center">
+                      <p className="font-bold">Eneo la Pickup</p>
+                      <a 
+                        href={`https://www.google.com/maps/dir/?api=1&origin=${position[0]},${position[1]}&destination=${activeRide.pickup.lat},${activeRide.pickup.lng}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-blue-500 underline"
+                      >
+                        Fungua Google Maps
+                      </a>
+                    </div>
+                  </Popup>
+                </Marker>
+              )}
 
               {/* Destination Marker */}
               <Marker 

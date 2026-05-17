@@ -69,6 +69,9 @@ async function startServer() {
 
     try {
       const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q as string)}&format=json&limit=${limit || 5}&addressdetails=${addressdetails || 1}&email=aicodtznation@gmail.com`;
+      
+      console.log(`[Proxy] Fetching from Nominatim: ${url}`);
+      
       const response = await fetch(url, {
         headers: { 
           'Accept-Language': 'sw,en', 
@@ -81,14 +84,26 @@ async function startServer() {
       if (!response.ok || !contentType?.includes("application/json")) {
         const text = await response.text();
         console.error("Nominatim search error status:", response.status, "body:", text.substring(0, 500));
-        return res.status(response.status || 502).json({ error: "External service error", detail: text.substring(0, 100) });
+        
+        let errorMessage = "External service error";
+        if (response.status === 429) {
+          errorMessage = "Too many requests. Please slow down.";
+        }
+        
+        return res.status(response.status || 502).json({ 
+          error: errorMessage, 
+          detail: text.substring(0, 100) 
+        });
       }
 
       const data = await response.json();
       res.json(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Nominatim search proxy error:", error);
-      res.status(500).json({ error: "Failed to fetch location data" });
+      res.status(500).json({ 
+        error: "Failed to reach location service",
+        detail: error.message 
+      });
     }
   });
 

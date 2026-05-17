@@ -241,22 +241,35 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
       } else if (address.length <= 2) {
         setSuggestions([]);
       }
-    }, 500);
+    }, 1000); // Increased to 1s to match Nominatim rate limits
 
     return () => clearTimeout(delayDebounceFn);
   }, [address]);
 
   const fetchSuggestions = async (query: string) => {
     try {
+      setError(null);
       const response = await fetch(`/api/geo/search?q=${encodeURIComponent(query)}&limit=5&addressdetails=1`);
+      
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Search failed with status ${response.status}`);
+        let errorMsg = `Search failed (${response.status})`;
+        try {
+          const errorData = await response.json();
+          errorMsg = errorData.error || errorData.detail || errorMsg;
+        } catch (e) {
+          // Fallback if not JSON
+        }
+        throw new Error(errorMsg);
       }
+      
       const data = await response.json();
       setSuggestions(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to fetch suggestions:', err);
+      // Only set error if it's not a generic "Failed to fetch" which is often transient
+      if (err.message !== 'Failed to fetch') {
+        setError('Imeshindwa kupata mapendekezo. Jaribu tena.');
+      }
     }
   };
 
