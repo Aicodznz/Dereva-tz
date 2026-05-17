@@ -12,12 +12,10 @@ import { useLanguage } from '../../LanguageContext';
 export default function Login() {
   const { t } = useLanguage();
   const [showPassword, setShowPassword] = useState(false);
-  const [loginType, setLoginType] = useState<'standard' | 'staff'>('standard');
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn, login, staffLogin, user, loading: authLoading } = useAuth();
+  const { signIn, login, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -26,22 +24,27 @@ export default function Login() {
     }
   }, [user, authLoading, navigate]);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email || !password) return;
+
     setLoading(true);
     try {
-      if (loginType === 'standard') {
-        if (!email || !password) return;
-        await login(email.trim(), password);
-      } else {
-        if (!phone || !password) return;
-        await staffLogin(phone.trim(), password);
-      }
+      await login(email.trim(), password);
       toast.success(t('welcome_back'));
       navigate('/');
     } catch (error: any) {
       console.error('Login error details:', error);
-      toast.error(error.message || t('login_failed'));
+      
+      if (error.code === 'auth/invalid-credential' || error.message?.includes('invalid-credential') || error.message?.includes('Invalid login credentials')) {
+        toast.error(t('invalid_email_or_password'));
+      } else if (error.code === 'auth/user-not-found') {
+        toast.error(t('user_not_found'));
+      } else if (error.code === 'auth/wrong-password') {
+        toast.error(t('wrong_password'));
+      } else {
+        toast.error(error.message || t('login_failed'));
+      }
     } finally {
       setLoading(false);
     }
@@ -60,48 +63,19 @@ export default function Login() {
       title={t('welcome_back')} 
       subtitle={t('sign_in_subtitle')}
     >
-      <div className="flex bg-neutral-100 p-1 rounded-xl mb-6">
-        <button 
-          onClick={() => setLoginType('standard')}
-          className={`flex-1 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${loginType === 'standard' ? 'bg-white text-orange-600 shadow-sm' : 'text-neutral-500'}`}
-        >
-          {t('standard_login') || 'Owner / Customer'}
-        </button>
-        <button 
-          onClick={() => setLoginType('staff')}
-          className={`flex-1 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${loginType === 'staff' ? 'bg-white text-orange-600 shadow-sm' : 'text-neutral-500'}`}
-        >
-          {t('staff_login') || 'Staff / Wafanyakazi'}
-        </button>
-      </div>
-
-      <form onSubmit={handleLogin} className="space-y-6">
+      <form onSubmit={handleEmailLogin} className="space-y-6">
         <div className="space-y-4">
-          {loginType === 'standard' ? (
-            <div className="relative">
-              <Mail className="absolute left-3 top-3 w-5 h-5 text-neutral-400" />
-              <Input 
-                type="email" 
-                required
-                placeholder={t('email')} 
-                className="pl-10 h-12 bg-neutral-50 border-none rounded-xl"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-          ) : (
-            <div className="relative">
-              <Phone className="absolute left-3 top-3 w-5 h-5 text-neutral-400" />
-              <Input 
-                type="tel" 
-                required
-                placeholder="Phone Number / Namba ya Simu" 
-                className="pl-10 h-12 bg-neutral-50 border-none rounded-xl"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
-            </div>
-          )}
+          <div className="relative">
+            <Mail className="absolute left-3 top-3 w-5 h-5 text-neutral-400" />
+            <Input 
+              type="email" 
+              required
+              placeholder={t('email')} 
+              className="pl-10 h-12 bg-neutral-50 border-none rounded-xl"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
           
           <div className="relative">
             <Lock className="absolute left-3 top-3 w-5 h-5 text-neutral-400" />

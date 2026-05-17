@@ -18,6 +18,7 @@ import PublicStatusDisplay from './components/PublicStatusDisplay';
 import { Toaster } from '@/components/ui/sonner';
 
 import Login from './components/auth/Login';
+import StaffLogin from './components/auth/StaffLogin';
 import RegisterChoice from './components/auth/RegisterChoice';
 import RegisterCustomer from './components/auth/RegisterCustomer';
 import RegisterDriver from './components/auth/RegisterDriver';
@@ -52,6 +53,7 @@ function AppContent() {
     <Routes>
       {/* Auth Routes */}
       <Route path="/login" element={<Login />} />
+      <Route path="/staff/login" element={<StaffLogin />} />
       <Route path="/status/:vendorId" element={<PublicStatusDisplay />} />
       <Route path="/register" element={<RegisterChoice />} />
       <Route path="/register/customer" element={<RegisterCustomer />} />

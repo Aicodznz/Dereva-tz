@@ -3976,7 +3976,7 @@ export default function VendorDashboard() {
                             <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest pt-2 border-t border-white/5">
                                <span className="text-neutral-600">Share Login</span>
                                <a 
-                                  href={`https://wa.me/${member.phone?.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Habari ${member.name}, Password yako mpya ya login ni: ${member.password || 'Tafadhali muulize admin'}. Unaweza kulogin hapa: ${window.location.origin}/login`)}`} 
+                                  href={`https://wa.me/${member.phone?.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Habari ${member.name}, Password yako mpya ya login ni: ${member.password || 'Tafadhali muulize admin'}. Unaweza kulogin hapa: ${window.location.origin}/staff/login`)}`} 
                                   target="_blank" 
                                   rel="noreferrer"
                                >

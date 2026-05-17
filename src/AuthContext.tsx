@@ -36,6 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await fetchProfile(currentUser.uid);
       } else {
         setProfile(null);
+        setStaffProfile(null);
         setLoading(false);
       }
     });
