@@ -154,3 +154,17 @@
     background: white !important;
   }
 }
+
+@keyframes routeFlow {
+  from {
+    stroke-dashoffset: 20;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.route-path-animation {
+  stroke-dasharray: 10 10;
+  animation: routeFlow 1s linear infinite;
+}

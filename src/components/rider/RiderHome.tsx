@@ -201,12 +201,16 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
           let text = nextStep.instruction;
           // Simple translation mapping for OSRM instructions to Swahili
           const mapping: Record<string, string> = {
-            'turn right': 'Kata kulia',
-            'turn left': 'Kata kushoto',
+            'turn right': 'Pinda kulia',
+            'turn left': 'Pinda kushoto',
             'arrive': 'Umefika',
             'depart': 'Anza safari',
             'continue': 'Endelea moja kwa moja',
             'roundabout': 'Mzunguko',
+            'slight right': 'Pinda kulia kidogo',
+            'slight left': 'Pinda kushoto kidogo',
+            'sharp right': 'Pinda kulia sana',
+            'sharp left': 'Pinda kushoto sana',
           };
           
           Object.keys(mapping).forEach(key => {
@@ -696,90 +700,71 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
             exit={{ y: -50, opacity: 0 }}
             className="absolute top-4 inset-x-4 z-[60] flex flex-col gap-2"
           >
-            {/* Main Header Card */}
-            <div className="bg-[#111118]/90 backdrop-blur-3xl border border-white/10 rounded-[2rem] p-1.5 flex items-center gap-2 shadow-[0_20px_50px_rgba(0,0,0,0.4)]">
+            {/* Main Header Card (Level 1) */}
+            <div className="bg-white/95 dark:bg-[#111118]/95 backdrop-blur-3xl border border-neutral-200 dark:border-white/10 rounded-full p-1.5 flex items-center gap-1 shadow-[0_20px_40px_rgba(0,0,0,0.2)]">
               <button 
-                onClick={() => {
-                  const nextVal = !showTopInfo;
-                  setShowTopInfo(nextVal);
-                }}
-                className="w-11 h-11 bg-orange-600 rounded-2xl shadow-lg flex items-center justify-center active:scale-95 transition-transform overflow-hidden shrink-0 border border-white/20"
+                onClick={() => setShowTopInfo(!showTopInfo)}
+                className="w-10 h-10 bg-orange-600 rounded-full shadow-lg flex items-center justify-center active:scale-95 transition-transform overflow-hidden shrink-0 border-2 border-white/20"
               >
                 {profile?.photoURL ? (
                   <img src={profile.photoURL} alt="Profile" className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-white font-black text-sm uppercase">
-                    {(profile?.displayName || 'D').split(' ').map(n => n[0]).join('')}
+                    {(profile?.displayName || 'J').split(' ').map(n => n[0]).join('')}
                   </div>
                 )}
               </button>
 
-              <div className="flex-1 px-1">
-                {isOnline ? (
-                  <div className="flex flex-col">
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                      <span className="text-[10px] font-black text-emerald-400 uppercase tracking-tighter leading-none">ACTIVE & RECEIVING</span>
-                    </div>
-                    {activeRide ? (
-                      <p className="text-[11px] font-bold text-white/70 mt-0.5 truncate max-w-[120px]">
-                        {activeRide.status === 'on_trip' ? 'Safari inaendelea' : 'Unaenda kumpokea mteja'}
-                      </p>
-                    ) : (
-                      <p className="text-[11px] font-bold text-white/50 mt-0.5 uppercase tracking-tighter">Tafuta Abiria</p>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-1.5 h-1.5 bg-neutral-600 rounded-full" />
-                    <span className="text-[10px] font-black uppercase tracking-tighter text-neutral-500 leading-none">SYSTEM OFFLINE</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center gap-1 h-10 px-1 bg-white/5 border border-white/5 rounded-2xl">
+              <div className="flex items-center gap-1">
                  <Link to="/">
-                    <button className="w-8 h-8 rounded-xl flex items-center justify-center text-white/60 hover:text-white transition-colors">
+                    <button className="w-9 h-9 rounded-full bg-neutral-100 dark:bg-white/5 flex items-center justify-center text-neutral-600 dark:text-neutral-400 hover:text-orange-600 transition-colors">
                       <Home className="w-4 h-4" />
                     </button>
                  </Link>
                  <button 
                   onClick={handleSignOut}
-                  className="w-8 h-8 rounded-xl flex items-center justify-center text-red-400 hover:text-red-300 transition-colors"
+                  className="w-9 h-9 rounded-full bg-red-50 dark:bg-red-500/5 flex items-center justify-center text-red-500 hover:bg-red-100 transition-colors"
                 >
                   <LogOut className="w-4 h-4" />
                 </button>
               </div>
 
+              <div className="flex-1 flex items-center justify-center gap-2 px-2">
+                <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-neutral-400'}`} />
+                <span className="text-[10px] font-black text-neutral-500 dark:text-neutral-400 uppercase tracking-tighter whitespace-nowrap">
+                   {isOnline ? 'SYSTEM ONLINE' : 'SYSTEM OFFLINE'}
+                </span>
+              </div>
+
               <button 
                 onClick={() => toast.info("Huna taarifa mpya")}
-                className="w-11 h-11 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center relative shrink-0 text-white/80"
+                className="w-10 h-10 bg-neutral-100 dark:bg-white/5 rounded-full flex items-center justify-center relative shrink-0 text-neutral-600 dark:text-neutral-400"
               >
                 <Bell className="w-5 h-5" />
-                <div className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-red-500 border-2 border-[#111118] rounded-full shadow-sm" />
+                <div className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-red-500 border border-white dark:border-[#111118] rounded-full shadow-sm" />
               </button>
             </div>
 
-            {/* Quick Stats Strip */}
+            {/* Quick Stats Strip (Level 2) */}
             <AnimatePresence>
               {(showTopInfo || activeRide) && (
                 <motion.div 
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="flex items-center justify-center gap-3 py-2 px-4 bg-[#111118]/80 backdrop-blur-2xl rounded-2xl border border-white/10 w-fit mx-auto shadow-2xl"
+                  className="flex items-center justify-center gap-3 py-2 px-4 bg-white/95 dark:bg-[#111118]/80 backdrop-blur-2xl rounded-full border border-neutral-200 dark:border-white/10 w-fit mx-auto shadow-xl"
                 >
-                  <div className="flex items-center gap-1.5 text-[9px] font-black text-neutral-400 uppercase tracking-wider">
+                  <div className="flex items-center gap-1.5 text-[9px] font-black text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">
                     <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
                     <span>{profile?.rating || '4.8'} RATING</span>
                   </div>
-                  <div className="w-px h-3 bg-white/10" />
-                  <div className="flex items-center gap-1.5 text-[9px] font-black text-neutral-400 uppercase tracking-wider">
+                  <div className="w-px h-3 bg-neutral-200 dark:bg-white/10" />
+                  <div className="flex items-center gap-1.5 text-[9px] font-black text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">
                     <Wifi className="w-3 h-3 text-emerald-500" />
                     <span>NETWORK: GOOD</span>
                   </div>
-                  <div className="w-px h-3 bg-white/10" />
-                  <div className="flex items-center gap-1.5 text-[9px] font-black text-neutral-400 uppercase tracking-wider">
+                  <div className="w-px h-3 bg-neutral-200 dark:bg-white/10" />
+                  <div className="flex items-center gap-1.5 text-[9px] font-black text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">
                     <Battery className="w-3 h-3 text-emerald-500" />
                     <span>TRIP MODE ON</span>
                   </div>
@@ -802,8 +787,10 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                   <div className="flex-1 overflow-hidden">
                     <p className="text-[10px] font-black opacity-70 uppercase tracking-widest leading-none mb-1">INSTRUCTION</p>
                     <p className="text-sm font-black italic tracking-tight truncate uppercase italic">
-                      {steps[0].instruction.includes('turn right') ? 'Kata Kulia' : 
-                       steps[0].instruction.includes('turn left') ? 'Kata Kushoto' : 
+                      {steps[0].instruction.toLowerCase().includes('turn right') ? 'Pinda Kulia' : 
+                       steps[0].instruction.toLowerCase().includes('turn left') ? 'Pinda Kushoto' : 
+                       steps[0].instruction.toLowerCase().includes('continue') ? 'Endelea Moja kwa Moja' :
+                       steps[0].instruction.toLowerCase().includes('arrive') ? 'Umefika' :
                        steps[0].instruction}
                     </p>
                   </div>
@@ -935,18 +922,34 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
               {/* 2. Dynamic Live Route (Driver to Current Target) */}
               {dynamicRoute && dynamicRoute.length > 0 && (
                 <>
+                  {/* Outer Glow */}
                   <Polyline 
                     positions={dynamicRoute} 
-                    color={activeRide.status === 'on_trip' ? "#1D9E75" : "#7F77DD"} 
-                    weight={12} 
-                    opacity={0.2} 
+                    color={activeRide.status === 'on_trip' ? "#10B981" : "#8B5CF6"} 
+                    weight={20} 
+                    opacity={0.15} 
                   />
+                  {/* Path Border */}
                   <Polyline 
                     positions={dynamicRoute} 
-                    color={activeRide.status === 'on_trip' ? "#1D9E75" : "#7F77DD"} 
-                    weight={6} 
+                    color={activeRide.status === 'on_trip' ? "#059669" : "#7C3AED"} 
+                    weight={12} 
+                    opacity={0.3} 
+                  />
+                  {/* Main Route Line */}
+                  <Polyline 
+                    positions={dynamicRoute} 
+                    color={activeRide.status === 'on_trip' ? "#10B981" : "#A78BFA"} 
+                    weight={7} 
                     opacity={1} 
-                    className="animate-[pulse_1.5s_infinite]"
+                    className="route-path-animation"
+                  />
+                  {/* Core white highlight */}
+                  <Polyline 
+                    positions={dynamicRoute} 
+                    color="#ffffff" 
+                    weight={2} 
+                    opacity={0.8} 
                   />
                 </>
               )}
