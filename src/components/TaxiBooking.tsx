@@ -345,10 +345,12 @@ export default function TaxiBooking() {
       }
     };
 
-    if (driverLivePos && ['accepted', 'driver_arriving', 'on_trip'].includes(activeRide?.status || '')) {
+    if (driverLivePos && ['accepted', 'driver_arriving', 'driver_arrived', 'on_trip'].includes(activeRide?.status || '')) {
       fetchDriverRoute();
+    } else {
+      setDriverRouteCoords([]);
     }
-  }, [driverLivePos?.lat, activeRide?.status]);
+  }, [driverLivePos, activeRide?.status]);
 
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [searchTimer, setSearchTimer] = useState<any>(null);

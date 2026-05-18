@@ -173,7 +173,7 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
       if (activeRide.status === 'on_trip') {
         return [activeRide.destination.lat, activeRide.destination.lng];
       }
-      // For all other active statuses (accepted, arriving, arrived), go to pickup
+      // For all active statuses where we need to reach the customer
       if (['accepted', 'driver_arriving', 'driver_arrived'].includes(activeRide.status)) {
         return [activeRide.pickup.lat, activeRide.pickup.lng];
       }
@@ -181,9 +181,9 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
       return [incomingRequest.pickup.lat, incomingRequest.pickup.lng];
     }
     return null;
-  }, [activeRide?.status, activeRide?.pickup?.lat, activeRide?.destination?.lat, incomingRequest?.id]);
+  }, [activeRide?.status, activeRide?.pickup?.lat, activeRide?.destination?.lat, incomingRequest?.pickup?.lat, incomingRequest?.id]);
 
-  const { routeCoords: dynamicRoute, steps } = useRouting(
+  const { routeCoords: dynamicRoute, steps, isLoading: isRoutingLoading } = useRouting(
     position, 
     routingTarget || position
   );
@@ -196,10 +196,8 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
       // Find the first step that is ahead of us
       const nextStep = steps.find(s => s.distance > 20);
       if (nextStep && nextStep.instruction !== lastInstruction) {
-        // Speak if we are close (300m) or if it's a long way off (every few km - but let's stick to near-maneuver for now)
+        // Speak if we are close (500m)
         if (nextStep.distance < 500) {
-          let text = nextStep.instruction;
-          // Simple translation mapping for OSRM instructions to Swahili
           const mapping: Record<string, string> = {
             'turn right': 'Pinda kulia',
             'turn left': 'Pinda kushoto',
@@ -215,14 +213,14 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
             'destination': 'unapokwenda',
           };
           
-          let translatedText = text.toLowerCase();
+          let translatedText = nextStep.instruction.toLowerCase();
           Object.keys(mapping).forEach(key => {
             if (translatedText.includes(key)) {
               translatedText = translatedText.replace(key, mapping[key]);
             }
           });
 
-          // Prepend distance info
+          let text = "";
           if (nextStep.distance < 50) {
              text = "Sasa, " + translatedText;
           } else if (nextStep.distance > 1000) {
@@ -231,10 +229,23 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
              text = `Baada ya mita ${Math.round(nextStep.distance)}, ${translatedText}`;
           }
 
-          const utter = new SpeechSynthesisUtterance(text);
-          utter.lang = 'sw-TZ';
-          utter.rate = 0.9;
-          window.speechSynthesis.speak(utter);
+          if (window.speechSynthesis) {
+            window.speechSynthesis.cancel();
+            const utter = new SpeechSynthesisUtterance(text);
+            
+            // Try to find Swahili voice
+            const voices = window.speechSynthesis.getVoices();
+            const swVoice = voices.find(v => v.lang.startsWith('sw'));
+            if (swVoice) {
+              utter.voice = swVoice;
+              utter.lang = swVoice.lang;
+            } else {
+              utter.lang = 'sw-TZ';
+            }
+
+            utter.rate = 0.9;
+            window.speechSynthesis.speak(utter);
+          }
           setLastInstruction(nextStep.instruction);
         }
       }
@@ -914,8 +925,8 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                 </Popup>
               </Marker>
 
-              {/* 1. Static Route (Original from ride data) */}
-              {activeRide.routeCoords && (
+              {/* 1. Static Route (Original total path) - Only show when on trip */}
+              {activeRide.routeCoords && activeRide.status === 'on_trip' && (
                 <Polyline 
                   positions={activeRide.routeCoords} 
                   color="#ffffff40" 
