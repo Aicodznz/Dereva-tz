@@ -194,6 +194,21 @@
   }
 }
 
+@keyframes markerPulseOrange {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.7);
+  }
+  70% {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 20px rgba(249, 115, 22, 0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(249, 115, 22, 0);
+  }
+}
+
 .route-path-animation {
   stroke-dasharray: 10 10;
   animation: routeFlow 1s linear infinite;
@@ -205,4 +220,12 @@
 
 .marker-pulse-purple {
   animation: markerPulsePurple 2s infinite;
+}
+
+.marker-pulse-orange {
+  animation: markerPulseOrange 2s infinite;
+}
+
+.driver-marker-smooth {
+  transition: all 1s linear;
 }

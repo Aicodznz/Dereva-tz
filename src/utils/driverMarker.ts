@@ -4,9 +4,9 @@ export function createDriverMarkerIcon(initials: string, isOnline: boolean, rota
   const color = isOnline ? '#7F77DD' : '#6b6b8a';
   
   return L.divIcon({
-    className: 'custom-driver-marker',
+    className: 'custom-driver-marker driver-marker-smooth',
     html: `
-      <div class="relative flex items-center justify-center" style="transform: rotate(${rotation}deg); transition: transform 0.5s ease-out;">
+      <div class="relative flex items-center justify-center transition-transform duration-500 ease-out" style="transform: rotate(${rotation}deg);">
         ${isOnline ? `<div class="absolute w-12 h-12 bg-[#7F77DD]/20 rounded-full animate-ping"></div>` : ''}
         <div class="w-10 h-10 bg-[#0a0a0f] border-2 border-[#1e1e2e] rounded-2xl flex items-center justify-center shadow-2xl ring-2 ring-[#7F77DD]/30">
           <span class="text-[10px] font-black italic text-[#7F77DD] uppercase">${initials}</span>
