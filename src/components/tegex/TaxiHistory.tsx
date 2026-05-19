@@ -10,6 +10,7 @@ import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useAuth } from '../../AuthContext';
+import { useTheme } from 'next-themes';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { format } from 'date-fns';
@@ -76,6 +77,12 @@ const TaxiHistory: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selectedRide, setSelectedRide] = useState<Ride | null>(null);
   const receiptRef = useRef<HTMLDivElement>(null);
+  const { resolvedTheme } = useTheme();
+  const theme = resolvedTheme === 'dark' ? 'dark' : 'light';
+
+  const mapTileUrl = theme === 'dark' 
+    ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+    : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
 
   useEffect(() => {
     if (!user) return;
@@ -447,7 +454,7 @@ const TaxiHistory: React.FC = () => {
                            className="h-full w-full"
                          >
                            <TileLayer 
-                             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{y}/{x}{r}.png" 
+                             url={mapTileUrl} 
                              maxZoom={22}
                              maxNativeZoom={19}
                            />

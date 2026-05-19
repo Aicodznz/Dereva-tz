@@ -98,7 +98,7 @@ import { BusinessConfigProvider } from './BusinessConfigContext';
 
 export default function App() {
   return (
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={true}>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem={true}>
       <AuthProvider>
         <LanguageProvider>
           <BusinessConfigProvider>
