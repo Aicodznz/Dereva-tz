@@ -261,6 +261,23 @@
   will-change: stroke-dashoffset;
 }
 
+.animated-route-glow {
+  stroke-dasharray: 12, 8 !important;
+  animation: routeMove 2s linear infinite !important;
+}
+
+@keyframes routeMove {
+  from { stroke-dashoffset: 40; }
+  to   { stroke-dashoffset: 0; }
+}
+
+.leaflet-overlay-pane svg {
+  overflow: visible !important;
+  will-change: transform;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+
 .leaflet-container {
   /* Force hardware acceleration on mobile */
   transform: translate3d(0, 0, 0);

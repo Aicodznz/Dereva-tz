@@ -24,6 +24,7 @@ import { useIncomingRequests } from '../../hooks/useIncomingRequests';
 import { useDriverDashboard } from '../../hooks/useDriverDashboard';
 import { useIncomingOrders } from '../../hooks/useIncomingOrders';
 import { useRouting } from '../../hooks/useRouting';
+import { useVoiceNavigation } from '../../hooks/useVoiceNavigation';
 import { createDriverMarkerIcon } from '../../utils/driverMarker';
 import { calculateBearing, getMapBounds } from '../../utils/mapHelpers';
 import { RideStatus, DriverInfo } from '../../types/ride.types';
@@ -37,6 +38,7 @@ import IncomingOrderCard from './IncomingOrderCard';
 import DriverTripSheet from '../tegex/DriverTripSheet';
 import PaymentConfirmScreen from '../tegex/PaymentConfirmScreen';
 import RateCustomerScreen from '../tegex/RateCustomerScreen';
+import { AnimatedRoute } from '../map/AnimatedRoute';
 
 // Helper components for Map
 function MapController({ position, activeRide }: { position: [number, number], activeRide: any }) {
@@ -232,30 +234,29 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
     position, 
     routingTarget || position
   );
-  const [isMuted, setIsMuted] = useState(true);
-  const [voiceUnlocked, setVoiceUnlocked] = useState(false);
+  const { isUnlocked: voiceUnlocked, isMuted, speak, toggleMute } = useVoiceNavigation();
   const [lastInstruction, setLastInstruction] = useState("");
+  const lastStateRef = React.useRef<string | null>(null);
 
-  const unlockVoice = () => {
-    const u = new SpeechSynthesisUtterance(' ');
-    u.volume = 0;
-    window.speechSynthesis.speak(u);
-    setVoiceUnlocked(true);
-    setIsMuted(false);
-  };
+  // Status-based voice announcements
+  useEffect(() => {
+    if (activeRide) {
+      if (activeRide.status !== lastStateRef.current) {
+        if (activeRide.status === 'on_trip') {
+          speak("Safari imeanza. Fuata njia iliyoonyeshwa.");
+        } else if (activeRide.status === 'driver_arrived') {
+          speak("Umefika. Karibu na mteja wako.");
+        } else if (activeRide.status === 'driver_arriving') {
+          speak("Unakaribia sehemu ya kukusanyia abiria");
+        }
+        lastStateRef.current = activeRide.status;
+      }
+    } else {
+      lastStateRef.current = null;
+    }
+  }, [activeRide?.status, speak]);
 
-  const speak = (text: string) => {
-    if (!voiceUnlocked || isMuted) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'sw-TZ';
-    utterance.rate = 0.95;
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0;
-    window.speechSynthesis.speak(utterance);
-  };
-
-  // Voice Navigation Implementation
+  // Voice Navigation Implementation for turn-by-turn
   useEffect(() => {
     if (activeRide && steps && steps.length > 0 && !isMuted && voiceUnlocked) {
       // Find the first step that is ahead of us
@@ -264,16 +265,16 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
         // Speak if we are close (500m)
         if (nextStep.distance < 500) {
           const mapping: Record<string, string> = {
-            'turn right': 'Pinda kulia',
-            'turn left': 'Pinda kushoto',
+            'turn right': 'geuka kulia',
+            'turn left': 'geuka kushoto',
             'arrive': 'Umefika unapoenda',
             'depart': 'Anza safari yako sasa',
             'continue': 'Endelea moja kwa moja',
             'roundabout': 'Kwenye mzunguko',
-            'slight right': 'Pinda kulia kidogo',
-            'slight left': 'Pinda kushoto kidogo',
-            'sharp right': 'Pinda kulia kabisa',
-            'sharp left': 'Pinda kushoto kabisa',
+            'slight right': 'geuka kulia kidogo',
+            'slight left': 'geuka kushoto kidogo',
+            'sharp right': 'geuka kulia kabisa',
+            'sharp left': 'geuka kushoto kabisa',
             'uturn': 'Geuka nyuma',
             'destination': 'unapokwenda',
           };
@@ -294,28 +295,12 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
              text = `Baada ya mita ${Math.round(nextStep.distance)}, ${translatedText}`;
           }
 
-          if (window.speechSynthesis) {
-            window.speechSynthesis.cancel();
-            const utter = new SpeechSynthesisUtterance(text);
-            
-            // Try to find Swahili voice
-            const voices = window.speechSynthesis.getVoices();
-            const swVoice = voices.find(v => v.lang.startsWith('sw'));
-            if (swVoice) {
-              utter.voice = swVoice;
-              utter.lang = swVoice.lang;
-            } else {
-              utter.lang = 'sw-TZ';
-            }
-
-            utter.rate = 0.9;
-            window.speechSynthesis.speak(utter);
-          }
+          speak(text);
           setLastInstruction(nextStep.instruction);
         }
       }
     }
-  }, [steps, activeRide?.id, lastInstruction, isMuted]);
+  }, [steps, activeRide?.id, lastInstruction, isMuted, voiceUnlocked, speak]);
   const [showPayment, setShowPayment] = useState(false);
   const [showRating, setShowRating] = useState(false);
   const [speed, setSpeed] = useState(0);
@@ -846,13 +831,10 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <button 
-                      onClick={() => {
-                        if (!voiceUnlocked) unlockVoice();
-                        else setIsMuted(!isMuted);
-                      }}
-                      className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${isMuted ? 'bg-white/5 text-[#8B8BA0]' : 'bg-[#00FF88]/10 text-[#00FF88] border border-[#00FF88]/20'}`}
+                      onClick={toggleMute}
+                      className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${voiceUnlocked && !isMuted ? 'bg-[#00FF88]/10 text-[#00FF88] border border-[#00FF88]/20' : 'bg-white/5 text-[#8B8BA0]'}`}
                     >
-                      {isMuted ? <VolumeX className="w-6 h-6" /> : <div className="relative"><Volume2 className="w-6 h-6 animate-pulse" />{!voiceUnlocked && <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />}</div>}
+                      {voiceUnlocked && !isMuted ? <Volume2 className="w-6 h-6 animate-pulse" /> : <VolumeX className="w-6 h-6" />}
                     </button>
                     <div>
                       <p className="text-[10px] font-black text-[#8B8BA0] uppercase tracking-widest leading-none mb-1">DEREVA</p>
@@ -955,87 +937,93 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
         <div className={`absolute inset-0 transition-opacity duration-1000 ${theme === 'dark' ? 'opacity-100' : 'opacity-0'}`}>
            <div className="absolute inset-0 bg-[#0a0a0f]" />
         </div>
-        <MapContainer 
-          center={position} 
-          zoom={15} 
-          maxZoom={22}
-          
-          style={{ height: '100%', width: '100%' }}
-          zoomControl={false}
-          className="transition-all duration-1000"
-        >
-          <TileLayer 
-            url={mapTileUrl}
+        <div style={{
+          transform: 'translateZ(0)',
+          WebkitTransform: 'translateZ(0)',
+          willChange: 'transform',
+          borderRadius: '16px',
+          overflow: 'hidden',
+          height: '100%',
+          width: '100%'
+        }}>
+          <MapContainer 
+            center={position} 
+            zoom={15} 
             maxZoom={22}
-            maxNativeZoom={19}
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          />
-          
-          <Marker 
-            position={position}
-            icon={createDriverMarkerIcon(
-              (profile?.displayName || 'D').split(' ').map(n => n[0]).join(''),
-              isOnline,
-              rotation
-            )}
-          />
-
-          <Circle 
-            center={position}
-            radius={30}
-            pathOptions={{ color: theme === 'dark' ? '#10b981' : '#7F77DD', fillOpacity: 0.1, weight: 1 }}
-          />
-
-          {/* Incoming Request Preview */}
-          {incomingRequest && (
-            <>
-              <Marker 
-                position={[incomingRequest.pickup.lat, incomingRequest.pickup.lng]} 
-                icon={StartPin}
-              />
-              {dynamicRoute && dynamicRoute.length > 0 && (
-                <>
-                  <Polyline 
-                    positions={dynamicRoute} 
-                    pathOptions={{
-                      color: "#FFA500",
-                      weight: 6,
-                      opacity: 0.3,
-                      lineCap: 'round',
-                      lineJoin: 'round'
-                    }}
-                  />
-                  <Polyline 
-                    positions={dynamicRoute} 
-                    dashArray="10, 15"
-                    pathOptions={{
-                      color: "#FF6B35",
-                      weight: 4,
-                      opacity: 0.95,
-                      lineCap: 'round',
-                      lineJoin: 'round',
-                      dashArray: '10, 15',
-                      className: 'route-path-animation'
-                    }}
-                  />
-                </>
+            preferCanvas={false}
+            style={{ height: '100%', width: '100%' }}
+            zoomControl={false}
+            className="transition-all duration-1000"
+          >
+            <TileLayer 
+              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+              attribution=""
+              maxZoom={19}
+              detectRetina={true}
+            />
+            
+            <Marker 
+              position={position}
+              icon={createDriverMarkerIcon(
+                (profile?.displayName || 'D').split(' ').map(n => n[0]).join(''),
+                isOnline,
+                rotation
               )}
-            </>
-          )}
+            />
 
-          {activeRide && (
-            <>
-              {/* Pickup Marker - Only show before trip starts */}
-              {activeRide.status !== 'on_trip' && (
+            <Circle 
+              center={position}
+              radius={30}
+              pathOptions={{ color: theme === 'dark' ? '#10b981' : '#7F77DD', fillOpacity: 0.1, weight: 1 }}
+            />
+
+            {/* Incoming Request Preview */}
+            {incomingRequest && (
+              <>
                 <Marker 
-                  position={[activeRide.pickup.lat, activeRide.pickup.lng]} 
-                  icon={StartPin} 
+                  position={[incomingRequest.pickup.lat, incomingRequest.pickup.lng]} 
+                  icon={StartPin}
+                />
+                {dynamicRoute && dynamicRoute.length > 0 && (
+                  <AnimatedRoute positions={dynamicRoute} color="#FF6B35" />
+                )}
+              </>
+            )}
+
+            {activeRide && (
+              <>
+                {/* Pickup Marker - Only show before trip starts */}
+                {activeRide.status !== 'on_trip' && (
+                  <Marker 
+                    position={[activeRide.pickup.lat, activeRide.pickup.lng]} 
+                    icon={StartPin} 
+                  >
+                    <Popup>
+                      <div className="p-2 text-center">
+                        <p className="font-bold">Eneo la Pickup</p>
+                        <a 
+                          href={`https://www.google.com/maps/dir/?api=1&origin=${position[0]},${position[1]}&destination=${activeRide.pickup.lat},${activeRide.pickup.lng}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-500 underline"
+                        >
+                          Fungua Google Maps
+                        </a>
+                      </div>
+                    </Popup>
+                  </Marker>
+                )}
+
+                {/* Destination Marker */}
+                <Marker 
+                  position={[activeRide.destination.lat, activeRide.destination.lng]} 
+                  icon={EndPin} 
                 >
                   <Popup>
                     <div className="p-2 text-center">
-                      <p className="font-bold">Eneo la Pickup</p>
+                      <p className="font-bold">Eneo la Kushusha</p>
                       <a 
-                        href={`https://www.google.com/maps/dir/?api=1&origin=${position[0]},${position[1]}&destination=${activeRide.pickup.lat},${activeRide.pickup.lng}`}
+                        href={`https://www.google.com/maps/dir/?api=1&origin=${position[0]},${position[1]}&destination=${activeRide.destination.lat},${activeRide.destination.lng}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-xs text-blue-500 underline"
@@ -1045,75 +1033,33 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                     </div>
                   </Popup>
                 </Marker>
-              )}
 
-              {/* Destination Marker */}
-              <Marker 
-                position={[activeRide.destination.lat, activeRide.destination.lng]} 
-                icon={EndPin} 
-              >
-                <Popup>
-                  <div className="p-2 text-center">
-                    <p className="font-bold">Eneo la Kushusha</p>
-                    <a 
-                      href={`https://www.google.com/maps/dir/?api=1&origin=${position[0]},${position[1]}&destination=${activeRide.destination.lat},${activeRide.destination.lng}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-blue-500 underline"
-                    >
-                      Fungua Google Maps
-                    </a>
-                  </div>
-                </Popup>
-              </Marker>
+                {/* 1. Static Route (Original total path) - Only show when on trip */}
+                {activeRide.routeCoords && activeRide.status === 'on_trip' && (
+                  <Polyline 
+                    positions={activeRide.routeCoords} 
+                    color="#ffffff40" 
+                    weight={2} 
+                    opacity={0.4} 
+                    dashArray="4, 8" 
+                  />
+                )}
 
-              {/* 1. Static Route (Original total path) - Only show when on trip */}
-              {activeRide.routeCoords && activeRide.status === 'on_trip' && (
-                <Polyline 
-                  positions={activeRide.routeCoords} 
-                  color="#ffffff40" 
-                  weight={2} 
-                  opacity={0.4} 
-                  dashArray="4, 8" 
-                />
-              )}
-
-          {/* 2. Dynamic Live Route (Driver to Current Target) */}
-          {dynamicRoute && dynamicRoute.length > 1 && (
-            <>
-              {/* Glow Layer */}
-              <Polyline 
+            {/* 2. Dynamic Live Route (Driver to Current Target) */}
+            {dynamicRoute && dynamicRoute.length > 1 && (
+              <AnimatedRoute 
                 positions={dynamicRoute} 
-                pathOptions={{
-                  color: '#00FF88',
-                  weight: 12,
-                  opacity: 0.25,
-                  lineCap: 'round'
-                }}
+                color={activeRide.status === 'on_trip' ? '#00FF88' : '#FF6B35'} 
               />
-              {/* Main Route Layer */}
-              <Polyline 
-                positions={dynamicRoute} 
-                dashArray="10, 15"
-                pathOptions={{
-                  color: '#00FF88',
-                  weight: 5,
-                  opacity: 0.9,
-                  lineCap: 'round',
-                  lineJoin: 'round',
-                  dashArray: '10, 15',
-                  className: 'route-path-animation'
-                }}
-              />
-            </>
-          )}
-            </>
-          )}
+            )}
+              </>
+            )}
 
-          <MapController position={position} activeRide={activeRide} />
-          <MapBoundsUpdater activeRide={activeRide} position={position} />
+            <MapController position={position} activeRide={activeRide} />
+            <MapBoundsUpdater activeRide={activeRide} position={position} />
 
-        </MapContainer>
+          </MapContainer>
+        </div>
       </div>
 
       {/* Floating Buttons */}
