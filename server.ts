@@ -68,7 +68,7 @@ async function startServer() {
     console.log(`[Proxy] Nominatim Search: ${q}`);
 
     try {
-      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q as string)}&format=json&limit=${limit || 5}&addressdetails=${addressdetails || 1}&email=aicodtznation@gmail.com`;
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q as string)}&format=json&limit=${limit || 5}&addressdetails=${addressdetails || 1}&countrycodes=tz&email=aicodtznation@gmail.com`;
       
       console.log(`[Proxy] Fetching from Nominatim: ${url}`);
       

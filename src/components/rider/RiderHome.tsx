@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline, Circle } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents, Polyline, Circle } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { Skeleton } from '../ui/Skeleton';
@@ -42,34 +42,67 @@ import RateCustomerScreen from '../tegex/RateCustomerScreen';
 function MapController({ position, activeRide }: { position: [number, number], activeRide: any }) {
   const map = useMap();
   const hasCentered = React.useRef(false);
+  const [autoFollow, setAutoFollow] = React.useState(true);
+  const lastCenterRef = React.useRef<[number, number] | null>(null);
+
+  // Use map events to turn off autoFollow if user drags or zooms manually
+  useMapEvents({
+    dragstart() {
+      setAutoFollow(false);
+    },
+    zoomstart() {
+      setAutoFollow(false);
+    }
+  });
 
   useEffect(() => {
-    if (position && !hasCentered.current) {
+    if (!position) return;
+    
+    if (!hasCentered.current) {
       map.setView(position, 17);
       hasCentered.current = true;
+      lastCenterRef.current = position;
+      return;
     }
     
-    // Auto follow if active ride
-    if (activeRide && position) {
-      map.flyTo(position, 18, { animate: true, duration: 1.2 });
+    // Only update view if autoFollow is enabled
+    if (autoFollow) {
+      const currentPos = L.latLng(position[0], position[1]);
+      const lastPos = lastCenterRef.current ? L.latLng(lastCenterRef.current[0], lastCenterRef.current[1]) : null;
+
+      // Only flyTo/setView if we have moved significantly to avoid constant jittering / playing of the marker
+      if (!lastPos || currentPos.distanceTo(lastPos) > 10) {
+        if (activeRide) {
+          map.flyTo(position, 18, { animate: true, duration: 1.2 });
+        } else {
+          map.panTo(position, { animate: true, duration: 1.2 });
+        }
+        lastCenterRef.current = position;
+      }
     }
-  }, [position, !!activeRide]);
+  }, [position?.[0], position?.[1], !!activeRide, autoFollow]);
   
   const handleRecenter = () => {
+    setAutoFollow(true);
     if (position) {
-      map.flyTo(position, 18, { animate: true, duration: 1.5 });
+      map.flyTo(position, 18, { animate: true, duration: 1.2 });
+      lastCenterRef.current = position;
     }
   };
 
   return (
     <div className="leaflet-top leaflet-right" style={{ marginTop: '160px', marginRight: '16px' }}>
-      <div className="leaflet-control">
+      <div className="leaflet-control flex flex-col gap-2">
         <button 
           onClick={handleRecenter}
-          className="w-12 h-12 bg-white dark:bg-[#111118] rounded-2xl shadow-2xl flex items-center justify-center text-orange-600 border border-neutral-200 dark:border-[#1e1e2e] active:scale-90 transition-transform"
-          title="Center Map"
+          className={`w-12 h-12 rounded-2xl shadow-2xl flex items-center justify-center border transition-all duration-300 ${
+            autoFollow 
+              ? 'bg-[#00FF88] text-black border-[#00FF88] hover:bg-[#00E577]' 
+              : 'bg-white dark:bg-[#111118] text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-[#1e1e2e] active:scale-90 hover:bg-neutral-50 dark:hover:bg-[#161622]'
+          }`}
+          title={autoFollow ? "Auto-Follow Active" : "Enable Auto-Follow"}
         >
-          <Navigation2 className="w-6 h-6" />
+          <Navigation2 className={`w-6 h-6 ${autoFollow ? 'fill-black' : ''}`} />
         </button>
       </div>
     </div>
@@ -944,12 +977,14 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                   />
                   <Polyline 
                     positions={dynamicRoute} 
+                    dashArray="10, 15"
                     pathOptions={{
                       color: "#FF6B35",
                       weight: 4,
                       opacity: 0.95,
                       lineCap: 'round',
                       lineJoin: 'round',
+                      dashArray: '10, 15',
                       className: 'route-path-animation'
                     }}
                   />
@@ -1029,12 +1064,14 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
               {/* Main Route Layer */}
               <Polyline 
                 positions={dynamicRoute} 
+                dashArray="10, 15"
                 pathOptions={{
                   color: '#00FF88',
                   weight: 5,
                   opacity: 0.9,
                   lineCap: 'round',
                   lineJoin: 'round',
+                  dashArray: '10, 15',
                   className: 'route-path-animation'
                 }}
               />

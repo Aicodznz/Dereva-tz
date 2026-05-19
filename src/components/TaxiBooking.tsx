@@ -445,31 +445,101 @@ export default function TaxiBooking() {
 
   const geocodeAddress = (query: string) => {
     if (searchTimer) clearTimeout(searchTimer);
-    if (!query || query.length < 3) {
+    
+    if (!query || query.trim().length === 0) {
       setSuggestions([]);
       return;
     }
 
-    const timer = setTimeout(async () => {
-      try {
-        const response = await fetch(`/api/geo/search?q=${encodeURIComponent(query)}&limit=5&addressdetails=1`);
-        if (!response.ok) {
-          const errData = await response.json().catch(() => ({}));
-          throw new Error(errData.error || `Search failed with status ${response.status}`);
+    const TZ_POPULAR_PLACES = [
+      { display_name: "Kariakoo, Dar es Salaam", lat: -6.8200, lon: 39.2780 },
+      { display_name: "Posta, Dar es Salaam", lat: -6.8164, lon: 39.2902 },
+      { display_name: "Mwenge, Dar es Salaam", lat: -6.7681, lon: 39.2274 },
+      { display_name: "Sinza, Dar es Salaam", lat: -6.7812, lon: 39.2223 },
+      { display_name: "Masaki, Dar es Salaam", lat: -6.7441, lon: 39.2812 },
+      { display_name: "Mikocheni, Dar es Salaam", lat: -6.7645, lon: 39.2492 },
+      { display_name: "Ubungo Bus Terminal, Dar es Salaam", lat: -6.7961, lon: 39.2155 },
+      { display_name: "Mbezi Luis, Dar es Salaam", lat: -6.7831, lon: 39.1952 },
+      { display_name: "Kinondoni, Dar es Salaam", lat: -6.7952, lon: 39.2631 },
+      { display_name: "Temeke, Dar es Salaam", lat: -6.8550, lon: 39.2650 },
+      { display_name: "Kigamboni, Dar es Salaam", lat: -6.8250, lon: 39.3100 },
+      { display_name: "Ilala, Dar es Salaam", lat: -6.8270, lon: 39.2620 },
+      { display_name: "Gerezani, Dar es Salaam", lat: -6.8239, lon: 39.2797 },
+      { display_name: "Oysterbay, Dar es Salaam", lat: -6.7725, lon: 39.2789 },
+      { display_name: "Msasani, Dar es Salaam", lat: -6.7561, lon: 39.2741 },
+      { display_name: "Tabata, Dar es Salaam", lat: -6.8190, lon: 39.2150 },
+      { display_name: "Segerea, Dar es Salaam", lat: -6.8400, lon: 39.1900 },
+      { display_name: "Kawe, Dar es Salaam", lat: -6.7389, lon: 39.2558 },
+      { display_name: "Tegeta, Dar es Salaam", lat: -6.6850, lon: 39.2140 },
+      { display_name: "Kunduchi, Dar es Salaam", lat: -6.6690, lon: 39.2190 },
+      { display_name: "Kibamba, Dar es Salaam", lat: -6.7900, lon: 39.1100 },
+      { display_name: "Kimara, Dar es Salaam", lat: -6.7920, lon: 39.1670 },
+      { display_name: "Kisutu, Dar es Salaam", lat: -6.8140, lon: 39.2870 },
+      { display_name: "Upanga, Dar es Salaam", lat: -6.8040, lon: 39.2800 },
+      { display_name: "Mbagala, Dar es Salaam", lat: -6.8910, lon: 39.2690 },
+      { display_name: "Chanika, Dar es Salaam", lat: -6.9100, lon: 39.0800 },
+      { display_name: "Kivukoni Ferry, Dar es Salaam", lat: -6.8210, lon: 39.2990 },
+      { display_name: "Boko, Dar es Salaam", lat: -6.6490, lon: 39.1910 },
+      { display_name: "Bunju, Dar es Salaam", lat: -6.6110, lon: 39.1660 },
+      { display_name: "Julius Nyerere Airport (JNIA), Dar es Salaam", lat: -6.8781, lon: 39.2026 },
+      { display_name: "Tazara, Dar es Salaam", lat: -6.8430, lon: 39.2410 },
+      { display_name: "Morocco, Dar es Salaam", lat: -6.7885, lon: 39.2604 },
+      { display_name: "Tandika, Dar es Salaam", lat: -6.8580, lon: 39.2590 },
+      { display_name: "Buguruni, Dar es Salaam", lat: -6.8280, lon: 39.2450 },
+      { display_name: "Vingunguti, Dar es Salaam", lat: -6.8420, lon: 39.2180 },
+      { display_name: "Kijitonyama, Dar es Salaam", lat: -6.7780, lon: 39.2450 },
+      { display_name: "Makumbusho, Dar es Salaam", lat: -6.7760, lon: 39.2410 },
+      { display_name: "Coco Beach, Dar es Salaam", lat: -6.7650, lon: 39.2940 },
+      { display_name: "The Slipway, Oysterbay, Dar es Salaam", lat: -6.7490, lon: 39.2840 },
+      { display_name: "Mlimani City Mall, Dar es Salaam", lat: -6.7722, lon: 39.2241 },
+      { display_name: "Karume, Dar es Salaam", lat: -6.8202, lon: 39.2612 },
+      { display_name: "Machinga Complex, Dar es Salaam", lat: -6.8218, lon: 39.2598 },
+      { display_name: "Kigogo, Dar es Salaam", lat: -6.8070, lon: 39.2310 },
+      { display_name: "Mabibo, Dar es Salaam", lat: -6.8010, lon: 39.2110 },
+      { display_name: "Manzese, Dar es Salaam", lat: -6.7930, lon: 39.2170 },
+      { display_name: "Keko, Dar es Salaam", lat: -6.8370, lon: 39.2820 },
+      { display_name: "Chang’ombe, Dar es Salaam", lat: -6.8410, lon: 39.2680 },
+      { display_name: "Kurasini, Dar es Salaam", lat: -6.8480, lon: 39.2890 },
+      { display_name: "Dodoma Town Central, Tanzania", lat: -6.1722, lon: 35.7481 },
+      { display_name: "Arusha Clock Tower, Tanzania", lat: -3.3731, lon: 36.6857 },
+      { display_name: "Mwanza City Centre, Tanzania", lat: -2.5164, lon: 32.9018 },
+      { display_name: "Zanzibar Stone Town, Tanzania", lat: -6.1659, lon: 39.1990 }
+    ];
+
+    const trimmed = query.trim().toLowerCase();
+    const localFiltered = TZ_POPULAR_PLACES.filter(place => 
+      place.display_name.toLowerCase().includes(trimmed)
+    ).slice(0, 10);
+
+    setSuggestions(localFiltered);
+
+    if (query.length >= 3) {
+      const timer = setTimeout(async () => {
+        try {
+          const response = await fetch(`/api/geo/search?q=${encodeURIComponent(query)}&limit=5&addressdetails=1`);
+          if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData.error || `Search failed with status ${response.status}`);
+          }
+          const data = await response.json();
+          if (Array.isArray(data)) {
+            const fetched = data.map((item: any) => ({
+              display_name: formatAddress(item),
+              lat: parseFloat(item.lat),
+              lon: parseFloat(item.lon)
+            }));
+            setSuggestions(prev => {
+              const existingNames = new Set(prev.map(p => p.display_name.toLowerCase()));
+              const filteredFetched = fetched.filter((f: any) => !existingNames.has(f.display_name.toLowerCase()));
+              return [...prev, ...filteredFetched].slice(0, 15);
+            });
+          }
+        } catch (error) {
+          console.error("Geocoding search failed", error);
         }
-        const data = await response.json();
-        if (Array.isArray(data)) {
-          setSuggestions(data.map((item: any) => ({
-            display_name: formatAddress(item),
-            lat: parseFloat(item.lat),
-            lon: parseFloat(item.lon)
-          })));
-        }
-      } catch (error) {
-        console.error("Geocoding search failed", error);
-      }
-    }, 1000); // Increased to 1s
-    setSearchTimer(timer);
+      }, 700);
+      setSearchTimer(timer);
+    }
   };
 
   const selectSuggestion = (suggestion: any) => {
@@ -819,12 +889,14 @@ export default function TaxiBooking() {
                       />
                       <Polyline 
                         positions={routeCoords} 
+                        dashArray="10, 15"
                         pathOptions={{
                           color: '#00FF88',
                           weight: 4,
                           opacity: 0.95,
                           lineCap: 'round',
                           lineJoin: 'round',
+                          dashArray: '10, 15',
                           className: 'route-path-animation'
                         }}
                       />
@@ -865,6 +937,7 @@ export default function TaxiBooking() {
                          opacity: 0.95,
                          lineCap: "round",
                          lineJoin: "round",
+                         dashArray: '10, 15',
                          className: "route-path-animation"
                        }}
                      />
