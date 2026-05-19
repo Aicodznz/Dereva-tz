@@ -795,7 +795,41 @@ export default function TaxiBooking() {
                    />
                  ))}
 
-                 {routeCoords.length > 1 && <Polyline positions={routeCoords} color="#7F77DD" weight={4} opacity={0.6} dashArray="8, 12" />}
+                 {routeCoords.length > 1 && (
+                    <>
+                      <Polyline 
+                        positions={routeCoords} 
+                        pathOptions={{
+                          color: '#7F77DD',
+                          weight: 8,
+                          opacity: 0.25,
+                          lineCap: 'round',
+                          lineJoin: 'round'
+                        }}
+                      />
+                      <Polyline 
+                        positions={routeCoords} 
+                        pathOptions={{
+                          color: '#7F77DD',
+                          weight: 4,
+                          opacity: 0.8,
+                          lineCap: 'round',
+                          lineJoin: 'round'
+                        }}
+                      />
+                      <Polyline 
+                        positions={routeCoords} 
+                        pathOptions={{
+                          color: '#00FF88',
+                          weight: 4,
+                          opacity: 0.95,
+                          lineCap: 'round',
+                          lineJoin: 'round',
+                          className: 'route-path-animation'
+                        }}
+                      />
+                    </>
+                  )}
                  
                  {/* Driver Tracking Route */}
                  {driverRouteCoords.length > 0 && ['accepted', 'driver_arriving', 'on_trip'].includes(activeRide?.status || '') && (

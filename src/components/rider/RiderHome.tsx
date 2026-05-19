@@ -931,13 +931,29 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                 icon={StartPin}
               />
               {dynamicRoute && dynamicRoute.length > 0 && (
-                <Polyline 
-                  positions={dynamicRoute} 
-                  color="#FFA500" 
-                  weight={4} 
-                  opacity={0.6} 
-                  dashArray="10, 15" 
-                />
+                <>
+                  <Polyline 
+                    positions={dynamicRoute} 
+                    pathOptions={{
+                      color: "#FFA500",
+                      weight: 6,
+                      opacity: 0.3,
+                      lineCap: 'round',
+                      lineJoin: 'round'
+                    }}
+                  />
+                  <Polyline 
+                    positions={dynamicRoute} 
+                    pathOptions={{
+                      color: "#FF6B35",
+                      weight: 4,
+                      opacity: 0.95,
+                      lineCap: 'round',
+                      lineJoin: 'round',
+                      className: 'route-path-animation'
+                    }}
+                  />
+                </>
               )}
             </>
           )}
@@ -1018,7 +1034,8 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                   weight: 5,
                   opacity: 0.9,
                   lineCap: 'round',
-                  lineJoin: 'round'
+                  lineJoin: 'round',
+                  className: 'route-path-animation'
                 }}
               />
             </>
