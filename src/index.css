@@ -212,6 +212,15 @@
 .route-path-animation {
   stroke-dasharray: 10 10;
   animation: routeFlow 1s linear infinite;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  will-change: stroke-dashoffset;
+}
+
+.leaflet-container {
+  /* Force hardware acceleration on mobile */
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
 }
 
 .marker-pulse-green {

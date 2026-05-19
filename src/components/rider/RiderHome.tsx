@@ -8,7 +8,8 @@ import {
   ParkingCircle, Car, Settings, Phone, Gauge, Eye, EyeOff,
   Navigation2, MessageSquare, MapPin, Star, X as CloseX,
   Clock, TrendingUp, Info, Wifi, Battery, Map as MapIcon,
-  CheckCircle2, ArrowRight, RefreshCw, DollarSign, Package, Home, LogOut
+  CheckCircle2, ArrowRight, RefreshCw, DollarSign, Package, Home, LogOut,
+  Volume2, VolumeX
 } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Chat from '../Chat';
@@ -187,12 +188,24 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
     position, 
     routingTarget || position
   );
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(true); // Default to muted to avoid auto-play issues
+  const [isAudioUnlocked, setIsAudioUnlocked] = useState(false);
   const [lastInstruction, setLastInstruction] = useState("");
+
+  const unlockAudio = () => {
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance("Sauti imewashwa");
+      utter.lang = 'sw-TZ';
+      window.speechSynthesis.speak(utter);
+      setIsAudioUnlocked(true);
+      setIsMuted(false);
+    }
+  };
 
   // Voice Navigation Implementation
   useEffect(() => {
-    if (activeRide && steps && steps.length > 0 && !isMuted) {
+    if (activeRide && steps && steps.length > 0 && !isMuted && isAudioUnlocked) {
       // Find the first step that is ahead of us
       const nextStep = steps.find(s => s.distance > 20);
       if (nextStep && nextStep.instruction !== lastInstruction) {
@@ -716,7 +729,17 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
             className="absolute top-4 inset-x-4 z-[60] flex flex-col gap-2"
           >
             {/* Main Header Card (Level 1) */}
-            <div className="bg-white/95 dark:bg-[#111118]/95 backdrop-blur-3xl border border-neutral-200 dark:border-white/10 rounded-full p-1.5 flex items-center gap-1 shadow-[0_20px_40px_rgba(0,0,0,0.2)]">
+            <div className="bg-white/95 dark:bg-[#111118]/95 backdrop-blur-3xl border border-neutral-200 dark:border-white/10 rounded-full p-1.5 flex items-center gap-1 shadow-[0_20px_40_rgba(0,0,0,0.2)]">
+              <button 
+                onClick={() => {
+                  if (isMuted && !isAudioUnlocked) unlockAudio();
+                  setIsMuted(!isMuted);
+                }}
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${isMuted ? 'bg-neutral-100 dark:bg-white/5 text-neutral-400' : 'bg-orange-100 dark:bg-orange-600/20 text-orange-600 shadow-inner'}`}
+              >
+                {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5 animate-pulse" />}
+              </button>
+
               <button 
                 onClick={() => setShowTopInfo(!showTopInfo)}
                 className="w-10 h-10 bg-orange-600 rounded-full shadow-lg flex items-center justify-center active:scale-95 transition-transform overflow-hidden shrink-0 border-2 border-white/20"
@@ -959,7 +982,7 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                     color={activeRide.status === 'on_trip' ? "#10B981" : "#A78BFA"} 
                     weight={7} 
                     opacity={1} 
-                    className="route-path-animation"
+                    pathOptions={{ className: 'route-path-animation' }}
                   />
                   {/* Core white highlight */}
                   <Polyline 
