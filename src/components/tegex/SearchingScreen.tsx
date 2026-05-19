@@ -109,17 +109,17 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel
               className="w-full max-w-sm space-y-5 mt-4 shrink-0 pb-10 pointer-events-auto"
             >
               <div className="text-center">
-                <h2 className="text-xl font-black text-white drop-shadow-xl mb-3 tracking-tight">
-                  Inatafuta Dereva{dots}
+                <h2 className="text-xl font-black text-[#00FF88] drop-shadow-xl mb-3 tracking-tight italic uppercase">
+                  Utafutaji unaendelea{dots}
                 </h2>
                 <AnimatePresence mode="wait">
                   <motion.div 
                     key={statusIndex}
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="px-6 py-2 bg-[#7F77DD]/20 backdrop-blur-xl rounded-full border border-[#7F77DD]/40 inline-block mb-4"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="px-6 py-2 bg-white/5 backdrop-blur-xl rounded-full border border-white/10 inline-block mb-4 shadow-xl"
                   >
-                    <p className="text-white text-[10px] font-black uppercase tracking-[0.2em] italic">
+                    <p className="text-white text-[9px] font-black uppercase tracking-[0.2em] italic">
                       {ride ? statuses[statusIndex] : "Inatayarisha..."}
                     </p>
                   </motion.div>

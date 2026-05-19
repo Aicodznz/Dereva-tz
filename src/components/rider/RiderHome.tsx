@@ -45,14 +45,19 @@ function MapController({ position, activeRide }: { position: [number, number], a
 
   useEffect(() => {
     if (position && !hasCentered.current) {
-      map.setView(position, 15);
+      map.setView(position, 17);
       hasCentered.current = true;
     }
-  }, [position]);
+    
+    // Auto follow if active ride
+    if (activeRide && position) {
+      map.flyTo(position, 18, { animate: true, duration: 1.2 });
+    }
+  }, [position, !!activeRide]);
   
   const handleRecenter = () => {
     if (position) {
-      map.flyTo(position, 16, { animate: true, duration: 1.5 });
+      map.flyTo(position, 18, { animate: true, duration: 1.5 });
     }
   };
 
@@ -188,24 +193,32 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
     position, 
     routingTarget || position
   );
-  const [isMuted, setIsMuted] = useState(true); // Default to muted to avoid auto-play issues
-  const [isAudioUnlocked, setIsAudioUnlocked] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
+  const [voiceUnlocked, setVoiceUnlocked] = useState(false);
   const [lastInstruction, setLastInstruction] = useState("");
 
-  const unlockAudio = () => {
-    if (window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-      const utter = new SpeechSynthesisUtterance("Sauti imewashwa");
-      utter.lang = 'sw-TZ';
-      window.speechSynthesis.speak(utter);
-      setIsAudioUnlocked(true);
-      setIsMuted(false);
-    }
+  const unlockVoice = () => {
+    const u = new SpeechSynthesisUtterance(' ');
+    u.volume = 0;
+    window.speechSynthesis.speak(u);
+    setVoiceUnlocked(true);
+    setIsMuted(false);
+  };
+
+  const speak = (text: string) => {
+    if (!voiceUnlocked || isMuted) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'sw-TZ';
+    utterance.rate = 0.95;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+    window.speechSynthesis.speak(utterance);
   };
 
   // Voice Navigation Implementation
   useEffect(() => {
-    if (activeRide && steps && steps.length > 0 && !isMuted && isAudioUnlocked) {
+    if (activeRide && steps && steps.length > 0 && !isMuted && voiceUnlocked) {
       // Find the first step that is ahead of us
       const nextStep = steps.find(s => s.distance > 20);
       if (nextStep && nextStep.instruction !== lastInstruction) {
@@ -723,124 +736,97 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
       <AnimatePresence>
         {!isMinimized && (
           <motion.div 
-            initial={{ y: -50, opacity: 0 }}
+            initial={{ y: -100, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -50, opacity: 0 }}
+            exit={{ y: -100, opacity: 0 }}
             className="absolute top-4 inset-x-4 z-[60] flex flex-col gap-2"
           >
-            {/* Main Header Card (Level 1) */}
-            <div className="bg-white/95 dark:bg-[#111118]/95 backdrop-blur-3xl border border-neutral-200 dark:border-white/10 rounded-full p-1.5 flex items-center gap-1 shadow-[0_20px_40_rgba(0,0,0,0.2)]">
-              <button 
-                onClick={() => {
-                  if (isMuted && !isAudioUnlocked) unlockAudio();
-                  setIsMuted(!isMuted);
-                }}
-                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${isMuted ? 'bg-neutral-100 dark:bg-white/5 text-neutral-400' : 'bg-orange-100 dark:bg-orange-600/20 text-orange-600 shadow-inner'}`}
-              >
-                {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5 animate-pulse" />}
-              </button>
-
-              <button 
-                onClick={() => setShowTopInfo(!showTopInfo)}
-                className="w-10 h-10 bg-orange-600 rounded-full shadow-lg flex items-center justify-center active:scale-95 transition-transform overflow-hidden shrink-0 border-2 border-white/20"
-              >
-                {profile?.photoURL ? (
-                  <img src={profile.photoURL} alt="Profile" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-white font-black text-sm uppercase">
-                    {(profile?.displayName || 'J').split(' ').map(n => n[0]).join('')}
+            {/* Main Header / Navigation Card */}
+            <div className="glass-morphism rounded-[24px] p-4 flex flex-col gap-4 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+              {activeRide ? (
+                <>
+                  <div className="flex justify-between items-start">
+                    <div className="flex flex-col">
+                      <p className="text-[10px] font-black text-[#8B8BA0] uppercase tracking-widest">UNAKOKWENDA</p>
+                      <h2 className="text-lg font-black text-white italic uppercase truncate max-w-[200px]">
+                        {activeRide.status === 'on_trip' ? activeRide.destination.address : activeRide.pickup.address || 'Pickup Eneo'}
+                      </h2>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] font-black text-[#8B8BA0] uppercase tracking-widest">ETA</p>
+                      <div className="flex items-center gap-1.5 justify-end">
+                        <span className="text-lg font-black text-[#00FF88] italic">
+                          {Math.round((steps?.[0]?.duration || 0) / 60) + 2} MIN
+                        </span>
+                        <div className="w-2 h-2 bg-[#00FF88] rounded-full animate-pulse" />
+                      </div>
+                    </div>
                   </div>
-                )}
-              </button>
 
-              <div className="flex items-center gap-1">
-                 <Link to="/">
-                    <button className="w-9 h-9 rounded-full bg-neutral-100 dark:bg-white/5 flex items-center justify-center text-neutral-600 dark:text-neutral-400 hover:text-orange-600 transition-colors">
-                      <Home className="w-4 h-4" />
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-widest">
+                      <span className="text-[#8B8BA0]">TRIP PROGRESS</span>
+                      <span className="text-[#00FF88]">
+                        {activeRide.status === 'on_trip' ? '65%' : 'ENROUTE'}
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: activeRide.status === 'on_trip' ? '65%' : '35%' }}
+                        className="h-full bg-[#00FF88] shadow-[0_0_10px_#00FF88]"
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={() => {
+                        if (!voiceUnlocked) unlockVoice();
+                        else setIsMuted(!isMuted);
+                      }}
+                      className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${isMuted ? 'bg-white/5 text-[#8B8BA0]' : 'bg-[#00FF88]/10 text-[#00FF88] border border-[#00FF88]/20'}`}
+                    >
+                      {isMuted ? <VolumeX className="w-6 h-6" /> : <div className="relative"><Volume2 className="w-6 h-6 animate-pulse" />{!voiceUnlocked && <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />}</div>}
                     </button>
-                 </Link>
-                 <button 
-                  onClick={handleSignOut}
-                  className="w-9 h-9 rounded-full bg-red-50 dark:bg-red-500/5 flex items-center justify-center text-red-500 hover:bg-red-100 transition-colors"
-                >
-                  <LogOut className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="flex-1 flex items-center justify-center gap-2 px-2">
-                <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-neutral-400'}`} />
-                <span className="text-[10px] font-black text-neutral-500 dark:text-neutral-400 uppercase tracking-tighter whitespace-nowrap">
-                   {isOnline ? 'SYSTEM ONLINE' : 'SYSTEM OFFLINE'}
-                </span>
-              </div>
-
-              <button 
-                onClick={() => toast.info("Huna taarifa mpya")}
-                className="w-10 h-10 bg-neutral-100 dark:bg-white/5 rounded-full flex items-center justify-center relative shrink-0 text-neutral-600 dark:text-neutral-400"
-              >
-                <Bell className="w-5 h-5" />
-                <div className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-red-500 border border-white dark:border-[#111118] rounded-full shadow-sm" />
-              </button>
+                    <div>
+                      <p className="text-[10px] font-black text-[#8B8BA0] uppercase tracking-widest leading-none mb-1">DEREVA</p>
+                      <h3 className="text-sm font-black text-white italic uppercase">{profile?.displayName || 'TzNation Driver'}</h3>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                     <div className={`px-3 py-1.5 rounded-full border flex items-center gap-2 ${isOnline ? 'bg-[#00FF88]/5 border-[#00FF88]/20 text-[#00FF88]' : 'bg-red-500/5 border-red-500/20 text-red-500'}`}>
+                        <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-[#00FF88] animate-pulse' : 'bg-red-500'}`} />
+                        <span className="text-[10px] font-black uppercase tracking-widest">{isOnline ? 'LIVE' : 'OFFLINE'}</span>
+                     </div>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Quick Stats Strip (Level 2) */}
-            <AnimatePresence>
-              {(showTopInfo || activeRide) && (
-                <motion.div 
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="flex items-center justify-center gap-3 py-2 px-4 bg-white/95 dark:bg-[#111118]/80 backdrop-blur-2xl rounded-full border border-neutral-200 dark:border-white/10 w-fit mx-auto shadow-xl"
-                >
-                  <div className="flex items-center gap-1.5 text-[9px] font-black text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">
-                    <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
-                    <span>{profile?.rating || '4.8'} RATING</span>
-                  </div>
-                  <div className="w-px h-3 bg-neutral-200 dark:bg-white/10" />
-                  <div className="flex items-center gap-1.5 text-[9px] font-black text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">
-                    <Wifi className="w-3 h-3 text-emerald-500" />
-                    <span>NETWORK: GOOD</span>
-                  </div>
-                  <div className="w-px h-3 bg-neutral-200 dark:bg-white/10" />
-                  <div className="flex items-center gap-1.5 text-[9px] font-black text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">
-                    <Battery className="w-3 h-3 text-emerald-500" />
-                    <span>TRIP MODE ON</span>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-            
-            {/* Navigation Instruction Bar (Dynamic) */}
+            {/* Instruction Bar when Active */}
             <AnimatePresence>
               {activeRide && steps && steps.length > 0 && (
                 <motion.div
                   initial={{ x: -20, opacity: 0 }}
                   animate={{ x: 0, opacity: 1 }}
                   exit={{ x: -20, opacity: 0 }}
-                  className="bg-emerald-600 text-white p-3 rounded-2xl shadow-2xl flex items-center gap-3 border border-emerald-400/30"
+                  className="bg-[#00FF88] text-[#0A0A0F] p-4 rounded-[20px] shadow-2xl flex items-center gap-4"
                 >
-                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
-                    <Navigation className="w-6 h-6 animate-pulse" />
+                  <div className="w-12 h-12 bg-black/10 rounded-2xl flex items-center justify-center shrink-0">
+                    <Navigation className="w-7 h-7" />
                   </div>
-                  <div className="flex-1 overflow-hidden">
-                    <p className="text-[10px] font-black opacity-70 uppercase tracking-widest leading-none mb-1">INSTRUCTION</p>
-                    <p className="text-sm font-black italic tracking-tight truncate uppercase italic">
-                      {steps[0].instruction.toLowerCase().includes('turn right') ? 'Pinda Kulia' : 
-                       steps[0].instruction.toLowerCase().includes('turn left') ? 'Pinda Kushoto' : 
-                       steps[0].instruction.toLowerCase().includes('continue') ? 'Endelea Moja kwa Moja' :
-                       steps[0].instruction.toLowerCase().includes('arrive') ? 'Umefika' :
-                       steps[0].instruction}
+                  <div className="flex-1">
+                    <p className="text-[9px] font-black opacity-60 uppercase tracking-widest mb-0.5">MALINGANISHO</p>
+                    <p className="text-base font-black italic tracking-tight uppercase leading-none">
+                      {steps[0].instruction}
                     </p>
                   </div>
-                  <button 
-                    onClick={() => setIsMuted(!isMuted)}
-                    className="w-10 h-10 rounded-xl flex items-center justify-center bg-white/10 hover:bg-white/20 transition-colors"
-                  >
-                    {isMuted ? <Wifi className="w-5 h-5 text-red-300" /> : <Navigation2 className="w-5 h-5" />}
-                  </button>
-                  <div className="text-right shrink-0 px-2 border-l border-white/20">
-                     <p className="text-[10px] font-black opacity-70 uppercase leading-none">Mita</p>
-                     <p className="text-lg font-black italic tracking-tighter">{Math.round(steps[0].distance)}</p>
+                  <div className="text-right shrink-0 px-3 border-l border-black/10">
+                     <p className="text-[9px] font-black opacity-60 uppercase tracking-widest">MITA</p>
+                     <p className="text-xl font-black italic tracking-tighter leading-none">{Math.round(steps[0].distance)}</p>
                   </div>
                 </motion.div>
               )}
@@ -849,6 +835,57 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
         )}
       </AnimatePresence>
 
+
+      {/* Bottom Status Bar when Active */}
+      <AnimatePresence>
+        {activeRide && !showPayment && !showRating && !isMinimized && (
+          <motion.div 
+            initial={{ y: 100 }}
+            animate={{ y: 0 }}
+            exit={{ y: 100 }}
+            className="absolute bottom-4 inset-x-4 z-[60] flex flex-col gap-3"
+          >
+            {/* Speed Indicator */}
+            <div className="flex justify-center">
+              <div className="glass-morphism rounded-full px-6 py-2 flex items-center gap-3">
+                <Gauge className="w-5 h-5 text-[#00FF88]" />
+                <div className="flex flex-col items-center">
+                  <span className="text-2xl font-black text-white italic leading-none">{speed}</span>
+                  <span className="text-[8px] font-black text-[#8B8BA0] uppercase">KM/H</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="glass-morphism rounded-[20px] p-4 flex items-center gap-4">
+                <div className="w-10 h-10 bg-white/5 rounded-full flex items-center justify-center">
+                  <MapPin className="w-5 h-5 text-[#FF6B35]" />
+                </div>
+                <div>
+                   <p className="text-[10px] font-black text-[#8B8BA0] uppercase tracking-widest leading-none mb-1">MASAFA</p>
+                   <p className="text-xl font-black text-white italic tracking-tighter">
+                    {steps?.[0] ? (steps[0].distance / 1000).toFixed(1) : '0.0'} KM
+                   </p>
+                </div>
+              </div>
+
+              <motion.button 
+                whileTap={{ scale: 0.95 }}
+                onClick={() => toast.error("SOS DHARURA IMETUMWA!")}
+                className="bg-[#FF0000] rounded-[20px] p-4 flex items-center justify-center gap-2 sos-pulse border-2 border-white/20"
+              >
+                <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                   <div className="w-4 h-4 bg-white rounded-full animate-ping" />
+                </div>
+                <div className="text-left">
+                  <p className="text-[10px] font-black text-white uppercase tracking-widest leading-none mb-1">SOS</p>
+                  <p className="text-sm font-black text-white uppercase italic tracking-tighter leading-none">DHARURA</p>
+                </div>
+              </motion.button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Map Layer */}
       <div className="absolute inset-0 z-0 bg-[#0a0a0f]">
@@ -859,15 +896,16 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
           center={position} 
           zoom={15} 
           maxZoom={22}
+          preferCanvas={true}
           style={{ height: '100%', width: '100%' }}
           zoomControl={false}
           className="transition-all duration-1000"
         >
           <TileLayer 
-            url={mapTileUrl}
+            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
             maxZoom={22}
             maxNativeZoom={19}
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           />
           
           <Marker 
@@ -959,40 +997,32 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                 />
               )}
 
-              {/* 2. Dynamic Live Route (Driver to Current Target) */}
-              {dynamicRoute && dynamicRoute.length > 0 && (
-                <>
-                  {/* Outer Glow */}
-                  <Polyline 
-                    positions={dynamicRoute} 
-                    color={activeRide.status === 'on_trip' ? "#10B981" : "#8B5CF6"} 
-                    weight={20} 
-                    opacity={0.15} 
-                  />
-                  {/* Path Border */}
-                  <Polyline 
-                    positions={dynamicRoute} 
-                    color={activeRide.status === 'on_trip' ? "#059669" : "#7C3AED"} 
-                    weight={12} 
-                    opacity={0.3} 
-                  />
-                  {/* Main Route Line */}
-                  <Polyline 
-                    positions={dynamicRoute} 
-                    color={activeRide.status === 'on_trip' ? "#10B981" : "#A78BFA"} 
-                    weight={7} 
-                    opacity={1} 
-                    pathOptions={{ className: 'route-path-animation' }}
-                  />
-                  {/* Core white highlight */}
-                  <Polyline 
-                    positions={dynamicRoute} 
-                    color="#ffffff" 
-                    weight={2} 
-                    opacity={0.8} 
-                  />
-                </>
-              )}
+          {/* 2. Dynamic Live Route (Driver to Current Target) */}
+          {dynamicRoute && dynamicRoute.length > 1 && (
+            <>
+              {/* Glow Layer */}
+              <Polyline 
+                positions={dynamicRoute} 
+                pathOptions={{
+                  color: '#00FF88',
+                  weight: 12,
+                  opacity: 0.25,
+                  lineCap: 'round'
+                }}
+              />
+              {/* Main Route Layer */}
+              <Polyline 
+                positions={dynamicRoute} 
+                pathOptions={{
+                  color: '#00FF88',
+                  weight: 5,
+                  opacity: 0.9,
+                  lineCap: 'round',
+                  lineJoin: 'round'
+                }}
+              />
+            </>
+          )}
             </>
           )}
 

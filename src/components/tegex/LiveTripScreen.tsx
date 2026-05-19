@@ -3,9 +3,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { Shield, Clock, Navigation2, MapPin, MessageSquare } from 'lucide-react';
+import { Shield, Clock, Navigation2, MapPin, MessageSquare, Star } from 'lucide-react';
 import { Ride } from '../../types/trip.types';
 import { useDriverTracking } from '../../hooks/useDriverTracking';
+import { toast } from 'sonner';
 
 interface LiveTripScreenProps {
   ride: Ride;
@@ -82,6 +83,54 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
           )}
         </AnimatePresence>
 
+        {/* Driver Info Card - Modern Floating */}
+        <AnimatePresence>
+          {!isMinimized && ride.driverInfo && (
+            <motion.div 
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 20, opacity: 0 }}
+              className="absolute top-40 inset-x-6 z-[60] glass-morphism rounded-[24px] p-4 shadow-2xl pointer-events-auto"
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-white/10 relative">
+                    <img src={ride.driverInfo.photo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${ride.driverId}`} alt="Driver" className="w-full h-full object-cover" />
+                    <div className="absolute bottom-1 right-1 w-3 h-3 bg-[#00FF88] border-2 border-[#111118] rounded-full" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-white italic uppercase">{ride.driverInfo.name || 'Dereva'}</h4>
+                    <div className="flex items-center gap-1">
+                      <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                      <span className="text-[10px] font-black text-white/70">{ride.driverInfo.rating || '4.8'}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-black text-[#00FF88] uppercase tracking-widest">{ride.driverInfo.vehicle.plate || 'T 123 ABC'}</p>
+                  <p className="text-[9px] font-bold text-white/50 uppercase">{ride.driverInfo.vehicle?.model || 'Mini'}</p>
+                </div>
+              </div>
+              <div className="mt-3 pt-3 border-t border-white/5 flex gap-2">
+                <button 
+                  onClick={() => toast.info("Link ya safari imenakiliwa!")}
+                  className="flex-1 h-10 bg-white/5 hover:bg-white/10 rounded-xl flex items-center justify-center gap-2 transition-all"
+                >
+                  <span className="text-[9px] font-black text-white uppercase tracking-widest">Share Trip</span>
+                </button>
+                {onMessage && (
+                  <button 
+                    onClick={onMessage}
+                    className="w-12 h-10 bg-[#00FF88]/10 text-[#00FF88] rounded-xl flex items-center justify-center border border-[#00FF88]/20"
+                  >
+                    <MessageSquare className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* SOS Button */}
         <AnimatePresence>
           {!isMinimized && (
@@ -126,18 +175,30 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
            </div>
         </div>
 
-        {/* Progress Bar */}
-        <div className="space-y-3 mb-8">
-           <div className="flex justify-between items-center text-[8px] font-black uppercase tracking-[0.2em] text-[#6b6b8a]">
-              <span>Trip Progress</span>
-              <span>{progress}%</span>
-           </div>
-           <div className="h-3 bg-[#0a0a0f] rounded-full overflow-hidden border border-[#1e1e2e]">
-              <div 
-                style={{ width: `${progress}%` }}
-                className="h-full bg-gradient-to-r from-[#1D9E75] to-[#7F77DD]"
-              />
-           </div>
+        {/* Trip Status Steps */}
+        <div className="flex justify-between items-center mb-8 px-2">
+          {[
+            { label: 'SEARCH', active: true },
+            { label: 'FOUND', active: !!ride.driverId },
+            { label: 'ON TRIP', active: ride.status === 'on_trip' },
+            { label: 'ARRIVED', active: ride.status === 'completed' }
+          ].map((s, i, arr) => (
+            <React.Fragment key={s.label}>
+              <div className="flex flex-col items-center gap-1.5">
+                <div className={`w-3 h-3 rounded-full border-2 transition-all duration-500 ${s.active ? 'bg-[#00FF88] border-[#00FF88] shadow-[0_0_8px_#00FF88]' : 'bg-white/5 border-white/10'}`} />
+                <span className={`text-[7px] font-black uppercase tracking-widest ${s.active ? 'text-white' : 'text-[#6b6b8a]'}`}>{s.label}</span>
+              </div>
+              {i < arr.length - 1 && (
+                <div className="flex-1 h-[2px] mb-4 mx-2 bg-white/5 rounded-full overflow-hidden">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: arr[i+1].active ? '100%' : '0%' }}
+                    className="h-full bg-[#00FF88]"
+                  />
+                </div>
+              )}
+            </React.Fragment>
+          ))}
         </div>
 
         <div className="flex items-center justify-between p-5 bg-[#0a0a0f] rounded-3xl border border-[#1e1e2e]">

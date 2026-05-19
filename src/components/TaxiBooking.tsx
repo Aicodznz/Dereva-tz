@@ -724,15 +724,16 @@ export default function TaxiBooking() {
                  center={pickupPos} 
                  zoom={15} 
                  maxZoom={22}
+                 preferCanvas={true}
                  className="h-full w-full" 
-                 zoomControl={true} 
+                 zoomControl={false} 
                  touchZoom={true} 
                  doubleClickZoom={true} 
                  scrollWheelZoom={true} 
                  dragging={true}
                >
                  <TileLayer 
-                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                   url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
                    maxZoom={22}
                    maxNativeZoom={19}
                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -759,7 +760,10 @@ export default function TaxiBooking() {
                  {(driverLivePos || activeRide?.driverLocation) && (
                    <Marker 
                      key={`active-driver-${activeRide?.driverId || 'presence'}`}
-                     position={[driverLivePos?.lat || activeRide!.driverLocation!.lat, driverLivePos?.lng || activeRide!.driverLocation!.lng]} 
+                     position={[
+                       driverLivePos?.lat || activeRide?.driverLocation?.lat || 0,
+                       driverLivePos?.lng || activeRide?.driverLocation?.lng || 0
+                     ]} 
                      icon={getDriverIcon(activeRide?.vehicleType || 'mini')}
                    />
                  )}
@@ -783,9 +787,10 @@ export default function TaxiBooking() {
                      {/* Outer Glow */}
                      <Polyline 
                        positions={driverRouteCoords} 
-                       color={activeRide?.status === 'on_trip' ? "#10B981" : "#8B5CF6"} 
-                       weight={20} 
-                       opacity={0.15} 
+                     color={activeRide?.status === 'on_trip' ? "#00FF88" : "#8B5CF6"} 
+                     weight={12} 
+                     opacity={0.25} 
+                     lineCap="round"
                      />
                      {/* Path Border */}
                      <Polyline 
@@ -797,10 +802,11 @@ export default function TaxiBooking() {
                      {/* Main Route Line */}
                      <Polyline 
                        positions={driverRouteCoords} 
-                       color={activeRide?.status === 'on_trip' ? "#10B981" : "#A78BFA"} 
-                       weight={7} 
-                       opacity={1} 
-                       className="route-path-animation"
+                     color={activeRide?.status === 'on_trip' ? "#00FF88" : "#A78BFA"} 
+                     weight={5} 
+                     opacity={0.9} 
+                     lineCap="round"
+                     lineJoin="round"
                      />
                      {/* Core white highlight */}
                      <Polyline 
