@@ -111,6 +111,12 @@ const MapEvents = ({ onMapClick, onInteraction }: { onMapClick: (e: L.LeafletMou
     },
     zoomstart() {
       if (onInteraction) onInteraction();
+    },
+    drag() {
+      if (onInteraction) onInteraction();
+    },
+    zoom() {
+      if (onInteraction) onInteraction();
     }
   });
   return null;
@@ -309,7 +315,9 @@ export default function TaxiBooking() {
        
        if (activeRide.driverLocation && ['accepted', 'driver_arriving', 'driver_arrived', 'on_trip'].includes(activeRide.status)) {
           console.log("[TaxiBooking] Syncing driver location from ride doc:", activeRide.driverLocation);
-          setDriverLivePos(activeRide.driverLocation);
+          if (!driverLivePos || L.latLng(activeRide.driverLocation.lat, activeRide.driverLocation.lng).distanceTo(L.latLng(driverLivePos.lat, driverLivePos.lng)) > 3) {
+            setDriverLivePos(activeRide.driverLocation);
+          }
           
           const target = (activeRide.status === 'on_trip') ? activeRide.destination : activeRide.pickup;
           const dist = L.latLng(activeRide.driverLocation.lat, activeRide.driverLocation.lng)
@@ -329,7 +337,9 @@ export default function TaxiBooking() {
           const data = docSnap.data();
           const pos = data.location || data.currentPosition;
           if (pos && (!driverLivePos || pos.lat !== driverLivePos.lat || pos.lng !== driverLivePos.lng)) {
-            setDriverLivePos(pos);
+            if (!driverLivePos || L.latLng(pos.lat, pos.lng).distanceTo(L.latLng(driverLivePos.lat, driverLivePos.lng)) > 3) {
+              setDriverLivePos(pos);
+            }
           }
         }
       }, (error) => {
@@ -513,10 +523,11 @@ export default function TaxiBooking() {
 
     setSuggestions(localFiltered);
 
-    if (query.length >= 3) {
+    if (query.length >= 1) {
       const timer = setTimeout(async () => {
         try {
-          const response = await fetch(`/api/geo/search?q=${encodeURIComponent(query)}&limit=5&addressdetails=1`);
+          const apiQuery = query.toLowerCase().includes('tanzania') ? query : `${query}, Tanzania`;
+          const response = await fetch(`/api/geo/search?q=${encodeURIComponent(apiQuery)}&limit=8&addressdetails=1`);
           if (!response.ok) {
             const errData = await response.json().catch(() => ({}));
             throw new Error(errData.error || `Search failed with status ${response.status}`);
@@ -531,13 +542,13 @@ export default function TaxiBooking() {
             setSuggestions(prev => {
               const existingNames = new Set(prev.map(p => p.display_name.toLowerCase()));
               const filteredFetched = fetched.filter((f: any) => !existingNames.has(f.display_name.toLowerCase()));
-              return [...prev, ...filteredFetched].slice(0, 15);
+              return [...prev, ...filteredFetched].slice(0, 20);
             });
           }
         } catch (error) {
           console.error("Geocoding search failed", error);
         }
-      }, 700);
+      }, 500);
       setSearchTimer(timer);
     }
   };

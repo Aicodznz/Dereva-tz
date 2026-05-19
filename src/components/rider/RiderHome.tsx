@@ -52,6 +52,12 @@ function MapController({ position, activeRide }: { position: [number, number], a
     },
     zoomstart() {
       setAutoFollow(false);
+    },
+    drag() {
+      setAutoFollow(false);
+    },
+    zoom() {
+      setAutoFollow(false);
     }
   });
 
@@ -73,7 +79,7 @@ function MapController({ position, activeRide }: { position: [number, number], a
       // Only flyTo/setView if we have moved significantly to avoid constant jittering / playing of the marker
       if (!lastPos || currentPos.distanceTo(lastPos) > 10) {
         if (activeRide) {
-          map.flyTo(position, 18, { animate: true, duration: 1.2 });
+          map.flyTo(position, map.getZoom() || 18, { animate: true, duration: 1.2 });
         } else {
           map.panTo(position, { animate: true, duration: 1.2 });
         }
@@ -575,12 +581,38 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
     let watchId: number | null = null;
     let lastErrorTime = 0;
 
+    const getDistanceInMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+      const R = 6371000;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = 
+        Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+        Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
+    };
+
     const startTracking = () => {
       if (navigator.geolocation) {
         watchId = navigator.geolocation.watchPosition(
           async (pos) => {
             const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
             
+            let shouldUpdate = true;
+            setPosition(prev => {
+              if (prev && prev[0] && prev[1]) {
+                const dist = getDistanceInMeters(prev[0], prev[1], loc.lat, loc.lng);
+                if (dist < 3) {
+                  shouldUpdate = false;
+                  return prev;
+                }
+              }
+              return [loc.lat, loc.lng];
+            });
+
+            if (!shouldUpdate) return;
+
             setLastPosition(prev => {
               if (prev && (prev[0] !== loc.lat || prev[1] !== loc.lng)) {
                 const b = calculateBearing(prev[0], prev[1], loc.lat, loc.lng);
@@ -588,8 +620,6 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
               }
               return [loc.lat, loc.lng];
             });
-            
-            setPosition([loc.lat, loc.lng]);
             
             // Update active ride tracking if exists
             if (activeRide) {
