@@ -896,7 +896,7 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
           center={position} 
           zoom={15} 
           maxZoom={22}
-          preferCanvas={true}
+          
           style={{ height: '100%', width: '100%' }}
           zoomControl={false}
           className="transition-all duration-1000"

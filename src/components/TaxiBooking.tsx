@@ -740,7 +740,7 @@ export default function TaxiBooking() {
                  center={pickupPos} 
                  zoom={15} 
                  maxZoom={22}
-                 preferCanvas={true}
+                 
                  className="h-full w-full" 
                  zoomControl={false} 
                  touchZoom={true} 
@@ -832,44 +832,58 @@ export default function TaxiBooking() {
                   )}
                  
                  {/* Driver Tracking Route */}
-                 {driverRouteCoords.length > 0 && ['accepted', 'driver_arriving', 'on_trip'].includes(activeRide?.status || '') && (
+                 {driverRouteCoords.length > 0 && ["accepted", "driver_arriving", "on_trip"].includes(activeRide?.status || "") && (
                    <>
                      {/* Outer Glow */}
                      <Polyline 
                        positions={driverRouteCoords} 
-                     color={activeRide?.status === 'on_trip' ? "#00FF88" : "#8B5CF6"} 
-                     weight={12} 
-                     opacity={0.25} 
-                     lineCap="round"
+                       pathOptions={{
+                         color: activeRide?.status === "on_trip" ? "#00FF88" : "#8B5CF6",
+                         weight: 12,
+                         opacity: 0.25,
+                         lineCap: "round",
+                         lineJoin: "round"
+                       }}
                      />
-                     {/* Path Border */}
+                     {/* Base thick colored line */}
                      <Polyline 
                        positions={driverRouteCoords} 
-                       color={activeRide?.status === 'on_trip' ? "#059669" : "#7C3AED"} 
-                       weight={12} 
-                       opacity={0.3} 
+                       pathOptions={{
+                         color: activeRide?.status === "on_trip" ? "#059669" : "#7C3AED",
+                         weight: 6,
+                         opacity: 0.8,
+                         lineCap: "round",
+                         lineJoin: "round"
+                       }}
                      />
-                     {/* Main Route Line */}
+                     {/* Animated Marching Ants Layer */}
                      <Polyline 
                        positions={driverRouteCoords} 
-                     color={activeRide?.status === 'on_trip' ? "#00FF88" : "#A78BFA"} 
-                     weight={5} 
-                     opacity={0.9} 
-                     lineCap="round"
-                     lineJoin="round"
+                       pathOptions={{
+                         color: activeRide?.status === "on_trip" ? "#00FF88" : "#A78BFA",
+                         weight: 6,
+                         opacity: 0.95,
+                         lineCap: "round",
+                         lineJoin: "round",
+                         className: "route-path-animation"
+                       }}
                      />
-                     {/* Core white highlight */}
+                     {/* Fine inner white line to trace center */}
                      <Polyline 
                        positions={driverRouteCoords} 
-                       color="#ffffff" 
-                       weight={2} 
-                       opacity={0.8} 
+                       pathOptions={{
+                         color: "#ffffff",
+                         weight: 2,
+                         opacity: 0.8,
+                         lineCap: "round",
+                         lineJoin: "round"
+                       }}
                      />
                    </>
                  )}
-               </MapContainer>
-            </motion.div>
-          )}
+                </MapContainer>
+             </motion.div>
+           )}
         </AnimatePresence>
 
         <AnimatePresence mode="wait">
