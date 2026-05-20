@@ -1,6 +1,4 @@
 import { Polyline } from 'react-leaflet';
-import { useEffect, useRef } from 'react';
-import L from 'leaflet';
 
 interface AnimatedRouteProps {
   positions: [number, number][];
@@ -11,17 +9,6 @@ export const AnimatedRoute: React.FC<AnimatedRouteProps> = ({
   positions, 
   color = '#00FF88' 
 }) => {
-  const routeRef = useRef<L.Polyline>(null);
-
-  useEffect(() => {
-    if (routeRef.current) {
-      const el = routeRef.current.getElement() as SVGPathElement | undefined;
-      if (el) {
-        el.classList.add('animated-route-glow');
-      }
-    }
-  }, [positions]);
-
   return (
     <>
       {/* Glow layer */}
@@ -37,7 +24,6 @@ export const AnimatedRoute: React.FC<AnimatedRouteProps> = ({
       />
       {/* Animated main route */}
       <Polyline
-        ref={routeRef}
         positions={positions}
         pathOptions={{
           color: color,
@@ -46,6 +32,7 @@ export const AnimatedRoute: React.FC<AnimatedRouteProps> = ({
           dashArray: '12, 8',
           lineCap: 'round',
           lineJoin: 'round',
+          className: 'animated-route-glow',
         }}
       />
     </>

@@ -188,14 +188,17 @@ const MapControl = ({
   step,
   targetPos,
   autoFollow,
+  routeCoords,
 }: {
   position: [number, number];
   step: string;
   targetPos?: [number, number];
   autoFollow: boolean;
+  routeCoords?: [number, number][];
 }) => {
   const map = useMap();
   const lastCenterRef = useRef<[number, number] | null>(null);
+  const lastRouteHash = useRef<string>("");
 
   // Invalidate map size on step change to guarantee correct size calculations on mobile viewports
   useEffect(() => {
@@ -205,8 +208,35 @@ const MapControl = ({
     return () => clearTimeout(timer);
   }, [map, step]);
 
+  // Adjust camera to fit the full route on step 'map'
+  useEffect(() => {
+    if (step === "map" && routeCoords && routeCoords.length > 1) {
+      const hash = routeCoords.map((c) => `${c[0]},${c[1]}`).join("|").slice(0, 500);
+      if (lastRouteHash.current !== hash) {
+        lastRouteHash.current = hash;
+        try {
+          const bounds = L.latLngBounds(routeCoords);
+          map.fitBounds(bounds, {
+            padding: [60, 60],
+            maxZoom: 16,
+            animate: true,
+            duration: 1.2,
+          });
+          setTimeout(() => {
+            map.invalidateSize();
+          }, 350);
+        } catch (e) {
+          console.error("Failed to fit bounds of routeCoords", e);
+        }
+      }
+    }
+  }, [step, routeCoords, map]);
+
   useEffect(() => {
     if (!position || !autoFollow) return;
+
+    // Separate full route fits from dynamic follow center
+    if (step === "map") return;
 
     const currentPos = L.latLng(position[0], position[1]);
     const lastPos = lastCenterRef.current
@@ -1179,10 +1209,11 @@ export default function TaxiBooking() {
                     scrollWheelZoom={true}
                     dragging={true}
                   >
-                    <TileLayer
+                     <TileLayer
                       url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
                       attribution=""
-                      maxZoom={19}
+                      maxZoom={22}
+                      maxNativeZoom={19}
                       detectRetina={true}
                     />
                     <MapEvents
@@ -1207,6 +1238,7 @@ export default function TaxiBooking() {
                             ? destPos
                             : undefined
                       }
+                      routeCoords={routeCoords}
                     />
                     {activeRide?.status !== "on_trip" && (
                       <Marker position={pickupPos} icon={StartPin} />
@@ -1280,17 +1312,27 @@ export default function TaxiBooking() {
               className="flex-1 flex flex-col px-6 pt-12 pb-24 space-y-8 overflow-y-auto no-scrollbar"
             >
               <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-3xl font-black italic tracking-tighter text-white">
-                    TEKSI-PAPA 🚕
-                  </h1>
-                  <p className="text-[10px] font-bold text-[#6b6b8a] uppercase tracking-widest mt-1">
-                    Usafiri wa haraka na uhakika
-                  </p>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => navigate("/")}
+                    className="w-12 h-12 rounded-2xl bg-[#111118] border border-[#1e1e2e] flex items-center justify-center shadow-lg active:scale-95 transition-all text-white/70 hover:text-white"
+                    title="Rudi Nyumbani"
+                  >
+                    <ArrowLeft className="w-5 h-5" />
+                  </button>
+                  <div>
+                    <h1 className="text-2xl font-black italic tracking-tighter text-white leading-tight">
+                      TEKSI-PAPA 🚕
+                    </h1>
+                    <p className="text-[9px] font-bold text-[#6b6b8a] uppercase tracking-widest leading-none mt-0.5">
+                      Usafiri wa haraka na uhakika
+                    </p>
+                  </div>
                 </div>
                 <button
                   onClick={() => navigate("/taxi/history")}
                   className="w-12 h-12 rounded-2xl bg-[#111118] border border-[#1e1e2e] flex items-center justify-center shadow-lg active:scale-95 transition-all text-white"
+                  title="Historia ya Safari"
                 >
                   <Clock size={20} />
                 </button>
