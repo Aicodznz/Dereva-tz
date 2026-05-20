@@ -1297,28 +1297,48 @@ export default function TaxiBooking() {
                           />
                         ))}
 
-                    {activeRide && activeRide.routeCoords && activeRide.routeCoords.length > 0 ? (
-                      <AnimatedRoute positions={getNormalizedCoords(activeRide.routeCoords)} color="#00FF88" />
+                    {activeRide ? (
+                      <AnimatedRoute
+                        positions={
+                          activeRide.routeCoords && activeRide.routeCoords.length > 0
+                            ? getNormalizedCoords(activeRide.routeCoords)
+                            : [pickupPos, destPos]
+                        }
+                        color="#00FF88"
+                      />
                     ) : (
-                      routeCoords.length > 1 && (
+                      routeCoords && routeCoords.length > 1 ? (
                         <AnimatedRoute positions={routeCoords} color="#00FF88" />
+                      ) : (
+                        pickupPos && destPos && (
+                          <AnimatedRoute positions={[pickupPos, destPos]} color="#00FF88" />
+                        )
                       )
                     )}
 
                     {/* Driver Tracking Route */}
-                    {driverRouteCoords.length > 0 &&
-                      ["accepted", "driver_arriving", "on_trip"].includes(
-                        activeRide?.status || "",
-                      ) && (
-                        <AnimatedRoute
-                          positions={driverRouteCoords}
-                          color={
-                            activeRide?.status === "on_trip"
-                              ? "#00FF88"
-                              : "#FF6B35"
-                          }
-                        />
-                      )}
+                    {["accepted", "driver_arriving", "on_trip"].includes(
+                      activeRide?.status || "",
+                    ) && (
+                      <AnimatedRoute
+                        positions={
+                          driverRouteCoords && driverRouteCoords.length > 0
+                            ? driverRouteCoords
+                            : [
+                                [
+                                  driverLivePos?.lat || activeRide?.driverLocation?.lat || pickupPos[0],
+                                  driverLivePos?.lng || activeRide?.driverLocation?.lng || pickupPos[1],
+                                ],
+                                activeRide?.status === "on_trip" ? destPos : pickupPos,
+                              ]
+                        }
+                        color={
+                          activeRide?.status === "on_trip"
+                            ? "#00FF88"
+                            : "#FF6B35"
+                        }
+                      />
+                    )}
                   </MapContainer>
                 </div>
               </motion.div>

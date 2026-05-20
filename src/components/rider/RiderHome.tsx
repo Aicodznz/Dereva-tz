@@ -1010,9 +1010,14 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                   position={[incomingRequest.pickup.lat, incomingRequest.pickup.lng]} 
                   icon={StartPin}
                 />
-                {dynamicRoute && dynamicRoute.length > 0 && (
-                  <AnimatedRoute positions={dynamicRoute} color="#FF6B35" />
-                )}
+                <AnimatedRoute 
+                  positions={
+                    dynamicRoute && dynamicRoute.length > 0 
+                      ? dynamicRoute 
+                      : [position, [incomingRequest.pickup.lat, incomingRequest.pickup.lng]]
+                  } 
+                  color="#FF6B35" 
+                />
               </>
             )}
 
@@ -1061,20 +1066,29 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                 </Marker>
 
                 {/* 1. Static Route (Original total path) - Visible through the entire active trip */}
-                {activeRide.routeCoords && activeRide.routeCoords.length > 0 && (
-                  <AnimatedRoute 
-                    positions={getNormalizedCoords(activeRide.routeCoords)} 
-                    color="#00E5FF" 
-                  />
-                )}
+                <AnimatedRoute 
+                  positions={
+                    activeRide.routeCoords && activeRide.routeCoords.length > 0
+                      ? getNormalizedCoords(activeRide.routeCoords)
+                      : [[activeRide.pickup.lat, activeRide.pickup.lng], [activeRide.destination.lat, activeRide.destination.lng]]
+                  } 
+                  color="#00E5FF" 
+                />
 
-            {/* 2. Dynamic Live Route (Driver to Current Target) */}
-            {dynamicRoute && dynamicRoute.length > 1 && (
-              <AnimatedRoute 
-                positions={dynamicRoute} 
-                color={activeRide.status === 'on_trip' ? '#00FF88' : '#FF6B35'} 
-              />
-            )}
+                {/* 2. Dynamic Live Route (Driver to Current Target) */}
+                <AnimatedRoute 
+                  positions={
+                    dynamicRoute && dynamicRoute.length > 1 
+                      ? dynamicRoute 
+                      : [
+                          position, 
+                          activeRide.status === 'on_trip' 
+                            ? [activeRide.destination.lat, activeRide.destination.lng] 
+                            : [activeRide.pickup.lat, activeRide.pickup.lng]
+                        ]
+                  } 
+                  color={activeRide.status === 'on_trip' ? '#00FF88' : '#FF6B35'} 
+                />
               </>
             )}
 

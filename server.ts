@@ -146,6 +146,82 @@ async function startServer() {
     }
   });
 
+  // Helper functions for straight-line georouting fallback
+  function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371e3; // metres
+    const phi1 = lat1 * Math.PI / 180;
+    const phi2 = lat2 * Math.PI / 180;
+    const deltaPhi = (lat2 - lat1) * Math.PI / 180;
+    const deltaLambda = (lon2 - lon1) * Math.PI / 180;
+
+    const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+              Math.cos(phi1) * Math.cos(phi2) *
+              Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c; // in metres
+  }
+
+  function estimateDistanceMultiple(pairs: number[][]): number {
+    let total = 0;
+    for (let i = 0; i < pairs.length - 1; i++) {
+      total += calculateDistance(pairs[i][1], pairs[i][0], pairs[i + 1][1], pairs[i + 1][0]);
+    }
+    return total;
+  }
+
+  function generateStraightLineRoute(pairs: number[][]) {
+    const listCoord = pairs;
+    const dist = estimateDistanceMultiple(pairs);
+    const estDuration = dist / 11.1; // ~40 km/h
+
+    return {
+      code: "Ok",
+      routes: [
+        {
+          geometry: {
+            coordinates: listCoord,
+            type: "LineString"
+          },
+          legs: [
+            {
+              summary: "Straight line routing fallback",
+              weight: estDuration,
+              duration: estDuration,
+              distance: dist,
+              steps: pairs.map((p, idx) => ({
+                distance: idx === 0 ? dist : 0,
+                duration: idx === 0 ? estDuration : 0,
+                geometry: {
+                  coordinates: [p],
+                  type: "Point"
+                },
+                name: idx === 0 ? "Barabara ya kawaida" : "",
+                mode: "driving",
+                maneuver: {
+                  location: p,
+                  bearing_before: 0,
+                  bearing_after: 0,
+                  type: idx === 0 ? "depart" : "arrive"
+                }
+              }))
+            }
+          ],
+          weight_name: "routability",
+          weight: estDuration,
+          duration: estDuration,
+          distance: dist
+        }
+      ],
+      waypoints: pairs.map(p => ({
+        hint: "",
+        distance: 0,
+        name: "",
+        location: p
+      }))
+    };
+  }
+
   // Proxy for OSRM Routing
   app.get("/api/geo/route", async (req, res) => {
     const { coords } = req.query; // format: lng,lat;lng,lat
@@ -156,24 +232,68 @@ async function startServer() {
       return res.status(400).json({ error: "Invalid coordinates format. Expected lng,lat;lng,lat" });
     }
 
+    // Parse pairs beforehand in case we need straight-line fallback
+    let coordsPairs: number[][] = [];
     try {
-      const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=true`;
-      const response = await fetch(url, {
-        headers: { 'Accept': 'application/json' }
+      coordsPairs = coords.split(";").map(pair => {
+         const parts = pair.split(",");
+         return [parseFloat(parts[0]), parseFloat(parts[1])]; // [lng, lat]
       });
-      
-      const contentType = response.headers.get("content-type");
-      if (!response.ok || !contentType?.includes("application/json")) {
-        const text = await response.text();
-        console.error("OSRM route error status:", response.status, "body:", text.substring(0, 500));
-        return res.status(response.status || 502).json({ error: "Routing service error", detail: text.substring(0, 100) });
-      }
+    } catch (e) {
+      console.warn("[Proxy] Failed to parse coords pairs:", e);
+    }
 
-      const data = await response.json();
-      res.json(data);
-    } catch (error) {
-      console.error("OSRM route proxy error:", error);
-      res.status(500).json({ error: "Failed to fetch routing data" });
+    // 1. Try URL 1 (router.project-osrm.org)
+    try {
+      const url1 = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=true`;
+      console.log(`[Proxy] Attempting primary OSRM: ${url1}`);
+      const response = await fetch(url1, {
+        headers: { 'Accept': 'application/json' },
+        signal: AbortSignal.timeout(5000) // 5s timeout
+      });
+
+      const contentType = response.headers.get("content-type");
+      if (response.ok && contentType?.includes("application/json")) {
+        const data = await response.json();
+        if (data && data.code === "Ok") {
+          console.log(`[Proxy] Primary OSRM success!`);
+          return res.json(data);
+        }
+      }
+      throw new Error(`Primary OSRM responded with status ${response.status}`);
+    } catch (e1: any) {
+      console.warn(`[Proxy] Primary OSRM failed: ${e1.message || e1}. Trying secondary...`);
+
+      // 2. Try URL 2 (routing.openstreetmap.de)
+      try {
+        const url2 = `https://routing.openstreetmap.de/routed-car/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=true`;
+        console.log(`[Proxy] Attempting secondary OSM.de: ${url2}`);
+        const response2 = await fetch(url2, {
+          headers: { 'Accept': 'application/json' },
+          signal: AbortSignal.timeout(5000) // 5s timeout
+        });
+
+        const contentType2 = response2.headers.get("content-type");
+        if (response2.ok && contentType2?.includes("application/json")) {
+          const data2 = await response2.json();
+          if (data2 && data2.code === "Ok") {
+            console.log(`[Proxy] Secondary OSM.de success!`);
+            return res.json(data2);
+          }
+        }
+        throw new Error(`Secondary OSM.de responded with status ${response2.status}`);
+      } catch (e2: any) {
+        console.error(`[Proxy] Secondary OSM.de failed: ${e2.message || e2}. Using straight line fallback.`);
+
+        // 3. Fallback to straight line
+        if (coordsPairs.length >= 2) {
+          const fallbackData = generateStraightLineRoute(coordsPairs);
+          console.log(`[Proxy] Straight line fallback generated successfully.`);
+          return res.json(fallbackData);
+        } else {
+          return res.status(502).json({ error: "All routing attempts failed and could not generate straight line fallback." });
+        }
+      }
     }
   });
 

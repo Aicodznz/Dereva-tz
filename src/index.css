@@ -264,6 +264,7 @@
 .animated-route-glow {
   stroke-dasharray: 12, 8 !important;
   animation: routeMove 2s linear infinite !important;
+  will-change: stroke-dashoffset;
 }
 
 @keyframes routeMove {
@@ -273,6 +274,9 @@
 
 .leaflet-overlay-pane svg {
   overflow: visible !important;
+  will-change: transform, opacity;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
 }
 
 .leaflet-container {
