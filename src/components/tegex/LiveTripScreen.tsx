@@ -66,9 +66,10 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
 
   return (
     <div 
-      className="absolute inset-0 bg-transparent flex flex-col justify-end z-50 pointer-events-none"
+      className="absolute inset-0 bg-transparent z-50 pointer-events-none"
     >
-      <div className="flex-1 relative z-0">
+      {/* Top Floating Content (HUD) */}
+      <div className="absolute top-0 inset-x-0 pointer-events-none">
         {/* Status Pill */}
         <AnimatePresence>
           {showDetails && (
@@ -149,6 +150,7 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
         </AnimatePresence>
       </div>
 
+      {/* Bottom Sheet Card */}
       <AnimatePresence>
         {showDetails && (
           <motion.div 
@@ -164,7 +166,7 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
                 setIsCollapsed(true);
               }
             }}
-            className="bg-[#111118] rounded-t-[40px] border-t border-[#1e1e2e] p-8 pb-10 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] z-[60] touch-none pointer-events-auto"
+            className="absolute bottom-0 left-0 right-0 w-full bg-[#111118] rounded-t-[40px] border-t border-[#1e1e2e] p-8 pb-10 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] z-[60] touch-none pointer-events-auto"
           >
             <div className="relative flex items-center justify-center mb-6">
               <div className="w-12 h-1.5 bg-[#1e1e2e] rounded-full cursor-grab active:cursor-grabbing" />

@@ -55,30 +55,30 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
 
   return (
     <div 
-      className={`absolute inset-0 bg-transparent flex flex-col justify-end z-50 pointer-events-none ${isArrived ? 'animate-haptic' : ''}`}
+      className={`absolute inset-0 bg-transparent z-50 pointer-events-none ${isArrived ? 'animate-haptic' : ''}`}
     >
-      {/* Top Notification Banner */}
-      <AnimatePresence>
-        {isArrived && showDetails && (
-          <motion.div 
-            initial={{ y: -100 }}
-            animate={{ y: 80 }}
-            exit={{ y: -100 }}
-            className="absolute top-0 inset-x-4 z-[70] bg-[#1D9E75] p-4 rounded-2xl shadow-2xl border-2 border-white/20 flex items-center gap-4 animate-bounce pointer-events-auto"
-          >
-            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-2xl">🚗</div>
-            <div className="flex-1">
-              <h4 className="text-sm font-black text-white italic uppercase tracking-tighter leading-none mb-1">Dereva Amefika!</h4>
-              <p className="text-[10px] font-bold text-white/80 uppercase whitespace-nowrap">
-                {ride.driverInfo?.vehicle.model} · {ride.driverInfo?.vehicle.plate}
-              </p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Top Floating Content (HUD) */}
+      <div className="absolute top-0 inset-x-0 pointer-events-none">
+        {/* Top Notification Banner */}
+        <AnimatePresence>
+          {isArrived && showDetails && (
+            <motion.div 
+              initial={{ y: -100 }}
+              animate={{ y: 80 }}
+              exit={{ y: -100 }}
+              className="absolute top-0 inset-x-4 z-[70] bg-[#1D9E75] p-4 rounded-2xl shadow-2xl border-2 border-white/20 flex items-center gap-4 animate-bounce pointer-events-auto"
+            >
+              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-2xl">🚗</div>
+              <div className="flex-1">
+                <h4 className="text-sm font-black text-white italic uppercase tracking-tighter leading-none mb-1">Dereva Amefika!</h4>
+                <p className="text-[10px] font-bold text-white/80 uppercase whitespace-nowrap">
+                  {ride.driverInfo?.vehicle.model} · {ride.driverInfo?.vehicle.plate}
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-      {/* Info Layers */}
-      <div className="flex-1 relative z-0">
         {/* Floating ETA Chip */}
         {eta && !isArrived && showDetails && (
           <div 
@@ -108,7 +108,7 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
                 setIsCollapsed(true);
               }
             }}
-            className={`bg-[#111118] rounded-t-[40px] border-t border-[#1e1e2e] p-8 pb-12 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] z-[60] transition-colors duration-500 touch-none pointer-events-auto ${isArrived ? 'ring-4 ring-[#1D9E75]/20' : ''}`}
+            className={`absolute bottom-0 left-0 right-0 w-full bg-[#111118] rounded-t-[40px] border-t border-[#1e1e2e] p-8 pb-12 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] z-[60] transition-colors duration-500 touch-none pointer-events-auto ${isArrived ? 'ring-4 ring-[#1D9E75]/20' : ''}`}
           >
             <div className="relative flex items-center justify-center mb-6">
               <div className="w-12 h-1.5 bg-[#1e1e2e] rounded-full cursor-grab active:cursor-grabbing" />
