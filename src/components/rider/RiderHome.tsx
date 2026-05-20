@@ -47,6 +47,14 @@ function MapController({ position, activeRide }: { position: [number, number], a
   const [autoFollow, setAutoFollow] = React.useState(true);
   const lastCenterRef = React.useRef<[number, number] | null>(null);
 
+  // Trigger invalidateSize to fix size issues when loaded on mobile phone or tablet layout
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [map, activeRide?.status, activeRide?.id]);
+
   // Use map events to turn off autoFollow if user drags or zooms manually
   useMapEvents({
     dragstart() {

@@ -197,6 +197,14 @@ const MapControl = ({
   const map = useMap();
   const lastCenterRef = useRef<[number, number] | null>(null);
 
+  // Invalidate map size on step change to guarantee correct size calculations on mobile viewports
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [map, step]);
+
   useEffect(() => {
     if (!position || !autoFollow) return;
 

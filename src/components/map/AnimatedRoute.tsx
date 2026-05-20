@@ -18,11 +18,6 @@ export const AnimatedRoute: React.FC<AnimatedRouteProps> = ({
       const el = routeRef.current.getElement() as SVGPathElement | undefined;
       if (el) {
         el.classList.add('animated-route-glow');
-        // Force repaint on mobile
-        el.style.display = 'none';
-        requestAnimationFrame(() => {
-          if (el) el.style.display = '';
-        });
       }
     }
   }, [positions]);
