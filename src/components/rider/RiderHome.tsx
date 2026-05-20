@@ -40,6 +40,23 @@ import PaymentConfirmScreen from '../tegex/PaymentConfirmScreen';
 import RateCustomerScreen from '../tegex/RateCustomerScreen';
 import { AnimatedRoute } from '../map/AnimatedRoute';
 
+const getNormalizedCoords = (coords: any): [number, number][] => {
+  if (!coords || !Array.isArray(coords)) return [];
+  return coords.map((c: any) => {
+    if (Array.isArray(c)) {
+      return [Number(c[0]), Number(c[1])] as [number, number];
+    }
+    if (c && typeof c === "object") {
+      const lat = c.lat !== undefined ? c.lat : c.latitude;
+      const lng = c.lng !== undefined ? c.lng : c.longitude;
+      if (lat !== undefined && lng !== undefined) {
+        return [Number(lat), Number(lng)] as [number, number];
+      }
+    }
+    return null;
+  }).filter((c): c is [number, number] => c !== null);
+};
+
 // Helper components for Map
 function MapController({ position, activeRide }: { position: [number, number], activeRide: any }) {
   const map = useMap();
@@ -1043,14 +1060,11 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                   </Popup>
                 </Marker>
 
-                {/* 1. Static Route (Original total path) - Only show when on trip */}
-                {activeRide.routeCoords && activeRide.status === 'on_trip' && (
-                  <Polyline 
-                    positions={activeRide.routeCoords} 
-                    color="#ffffff40" 
-                    weight={2} 
-                    opacity={0.4} 
-                    dashArray="4, 8" 
+                {/* 1. Static Route (Original total path) - Visible through the entire active trip */}
+                {activeRide.routeCoords && activeRide.routeCoords.length > 0 && (
+                  <AnimatedRoute 
+                    positions={getNormalizedCoords(activeRide.routeCoords)} 
+                    color="#00E5FF" 
                   />
                 )}
 

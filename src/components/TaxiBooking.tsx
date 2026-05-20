@@ -88,6 +88,23 @@ interface NominatimAddress {
   region?: string;
 }
 
+const getNormalizedCoords = (coords: any): [number, number][] => {
+  if (!coords || !Array.isArray(coords)) return [];
+  return coords.map((c: any) => {
+    if (Array.isArray(c)) {
+      return [Number(c[0]), Number(c[1])] as [number, number];
+    }
+    if (c && typeof c === "object") {
+      const lat = c.lat !== undefined ? c.lat : c.latitude;
+      const lng = c.lng !== undefined ? c.lng : c.longitude;
+      if (lat !== undefined && lng !== undefined) {
+        return [Number(lat), Number(lng)] as [number, number];
+      }
+    }
+    return null;
+  }).filter((c): c is [number, number] => c !== null);
+};
+
 function formatAddress(result: { address?: NominatimAddress }): string {
   if (!result || !result.address) return "Eneo Halijapatikana";
   const addr = result.address;
@@ -1278,8 +1295,12 @@ export default function TaxiBooking() {
                           />
                         ))}
 
-                    {routeCoords.length > 1 && (
-                      <AnimatedRoute positions={routeCoords} color="#00FF88" />
+                    {activeRide && activeRide.routeCoords && activeRide.routeCoords.length > 0 ? (
+                      <AnimatedRoute positions={getNormalizedCoords(activeRide.routeCoords)} color="#00FF88" />
+                    ) : (
+                      routeCoords.length > 1 && (
+                        <AnimatedRoute positions={routeCoords} color="#00FF88" />
+                      )
                     )}
 
                     {/* Driver Tracking Route */}
