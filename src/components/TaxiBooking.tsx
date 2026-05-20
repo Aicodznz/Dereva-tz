@@ -1381,8 +1381,8 @@ export default function TaxiBooking() {
                   animate={{ opacity: 1, y: 0 }}
                   className="space-y-5"
                 >
-                  <div className="bg-[#0a0a0f]/60 backdrop-blur-xl border border-white/5 rounded-3xl p-6 relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-[#7F77DD] opacity-30" />
+                  <div className="bg-[#0a0a0f]/60 backdrop-blur-xl border border-white/5 rounded-3xl p-6 relative">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-[#7F77DD] opacity-30 rounded-t-3xl" />
                     <div className="space-y-6">
                       <div className="flex items-center gap-4">
                         <div
