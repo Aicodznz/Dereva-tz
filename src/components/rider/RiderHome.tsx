@@ -212,6 +212,9 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
   const [position, setPosition] = useState<[number, number]>([-6.7924, 39.2083]);
   const [lastPosition, setLastPosition] = useState<[number, number] | null>(null);
   const [rotation, setRotation] = useState(0);
+  const simulatedPathRef = React.useRef<[number, number][]>([]);
+  const simulatedIndexRef = React.useRef<number>(0);
+  const activeStatusRef = React.useRef<string | null>(null);
   const [showTopInfo, setShowTopInfo] = useState(false);
   
   const [rideId, setRideId] = useState<string | null>(null);
@@ -497,6 +500,76 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
       setRideId(assignedRide.id);
     }
   }, [isOnline, assignedRide, rideId]);
+
+  // Synchronize dynamicRoute to simulatedPath once generated
+  useEffect(() => {
+    if (dynamicRoute && dynamicRoute.length > 2 && activeRide) {
+      const status = activeRide.status;
+      // If status changed or simulated path is empty, initialize simulation path
+      if (activeStatusRef.current !== status || simulatedPathRef.current.length === 0) {
+        console.log(`[Simulation] Initializing simulated path for status: ${status}. Points: ${dynamicRoute.length}`);
+        simulatedPathRef.current = [...dynamicRoute];
+        simulatedIndexRef.current = 0;
+        activeStatusRef.current = status;
+        
+        // Put driver at the beginning of the new simulated path immediately
+        const startPoint = dynamicRoute[0];
+        if (startPoint) {
+          setPosition(startPoint);
+        }
+      }
+    }
+  }, [dynamicRoute, activeRide?.status]);
+
+  // Automatic GPS Simulation Loop for preview/testing environments
+  useEffect(() => {
+    if (!isOnline || !activeRide) return;
+
+    const status = activeRide.status;
+    const isMovingStatus = ['accepted', 'driver_arriving', 'on_trip'].includes(status);
+    if (!isMovingStatus) return;
+
+    const simInterval = setInterval(async () => {
+      const path = simulatedPathRef.current;
+      const index = simulatedIndexRef.current;
+
+      if (path && path.length > 0 && index < path.length - 1) {
+        // Advance along the path. 
+        // We advance by 2 coordinate indices per tick to keep up a good simulated pace
+        const nextIndex = Math.min(index + 2, path.length - 1);
+        simulatedIndexRef.current = nextIndex;
+        
+        const currentCoord = path[index];
+        const nextCoord = path[nextIndex];
+
+        if (nextCoord) {
+          const bearing = calculateBearing(currentCoord[0], currentCoord[1], nextCoord[0], nextCoord[1]);
+          
+          console.log(`[Simulation] Moving driver to [${nextCoord[0].toFixed(5)}, ${nextCoord[1].toFixed(5)}]. Bearing: ${bearing.toFixed(1)}`);
+          
+          setRotation(bearing);
+          setPosition(nextCoord);
+          
+          try {
+            await updateDriverLocation(nextCoord[0], nextCoord[1], bearing);
+          } catch (e) {
+            console.warn("[Simulation] sync location fail:", e);
+          }
+        }
+      } else if (path && path.length > 0 && index >= path.length - 1) {
+        // We have successfully arrived at destination/pickup
+        console.log(`[Simulation] Driver reached target for status: ${status}`);
+        
+        // If we are arriving at the customer, auto-transition to arrived at pickup!
+        if (status === 'accepted' || status === 'driver_arriving') {
+          console.log("[Simulation] Auto marking as arrived at pickup");
+          arrivedAtPickup();
+        }
+      }
+    }, 1500);
+
+    return () => clearInterval(simInterval);
+  }, [isOnline, activeRide?.status, updateDriverLocation, arrivedAtPickup]);
 
   // Restore online status from Firestore on mount - ONLY ONCE
   useEffect(() => {
