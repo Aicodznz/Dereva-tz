@@ -12,6 +12,7 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import {
   ArrowLeft,
+  Home,
   MapPin,
   Search,
   Navigation2,
@@ -1336,10 +1337,10 @@ export default function TaxiBooking() {
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => navigate("/")}
-                    className="w-12 h-12 rounded-2xl bg-[#111118] border border-[#1e1e2e] flex items-center justify-center shadow-lg active:scale-95 transition-all text-white/70 hover:text-white"
-                    title="Rudi Nyumbani"
+                    className="w-12 h-12 rounded-2xl bg-[#0e0e17] border border-[#ff6b35]/20 hover:border-[#ff6b35]/40 flex items-center justify-center shadow-lg active:scale-95 transition-all text-[#ff6b35] hover:text-[#ff8552]"
+                    title="Rudi Nyumbani (Home)"
                   >
-                    <ArrowLeft className="w-5 h-5" />
+                    <Home className="w-5 h-5" />
                   </button>
                   <div>
                     <h1 className="text-2xl font-black italic tracking-tighter text-white leading-tight">
