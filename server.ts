@@ -171,46 +171,158 @@ async function startServer() {
   }
 
   function generateStraightLineRoute(pairs: number[][]) {
-    const listCoord = pairs;
-    const dist = estimateDistanceMultiple(pairs);
-    const estDuration = dist / 11.1; // ~40 km/h
+    if (pairs.length < 2) {
+      return {
+        code: "Ok",
+        routes: [{
+          geometry: { coordinates: pairs, type: "LineString" },
+          legs: [{ summary: "Kituo kimoja", duration: 0, distance: 0, steps: [] }]
+        }],
+        waypoints: []
+      };
+    }
+
+    const polylinePoints: number[][] = [];
+    const customSteps: any[] = [];
+    let totalDist = 0;
+
+    // Process each consecutive segment and add simulated block-by-block street turns
+    for (let segmentIdx = 0; segmentIdx < pairs.length - 1; segmentIdx++) {
+      const start = pairs[segmentIdx];
+      const end = pairs[segmentIdx + 1];
+
+      const lng1 = start[0];
+      const lat1 = start[1];
+      const lng2 = end[0];
+      const lat2 = end[1];
+
+      const dLng = lng2 - lng1;
+      const dLat = lat2 - lat1;
+
+      // Define local grid corners for this segment
+      const segmentCorners: number[][] = [];
+      segmentCorners.push(start);
+
+      const dist = calculateDistance(lat1, lng1, lat2, lng2);
+
+      if (dist < 250) {
+        // Very short distance: 1 corner (Manhattan turn)
+        segmentCorners.push([lng1 + dLng * 0.5, lat1]);
+        segmentCorners.push([lng1 + dLng * 0.5, lat2]);
+      } else {
+        // Long distance: Generate city street blocks with 3/4 turns zigzag to simulate residential/urban grids
+        segmentCorners.push([lng1 + dLng * 0.25, lat1]);
+        segmentCorners.push([lng1 + dLng * 0.25, lat1 + dLat * 0.4]);
+        segmentCorners.push([lng1 + dLng * 0.75, lat1 + dLat * 0.4]);
+        segmentCorners.push([lng1 + dLng * 0.75, lat2]);
+      }
+      segmentCorners.push(end);
+
+      // Interpolate points along these street corners to make the line perfectly smooth and detailed
+      const segmentInterp: number[][] = [];
+      for (let i = 0; i < segmentCorners.length - 1; i++) {
+        const c1 = segmentCorners[i];
+        const c2 = segmentCorners[i + 1];
+
+        if (segmentInterp.length === 0 || 
+            segmentInterp[segmentInterp.length - 1][0] !== c1[0] || 
+            segmentInterp[segmentInterp.length - 1][1] !== c1[1]) {
+          segmentInterp.push(c1);
+        }
+
+        const subDist = calculateDistance(c1[1], c1[0], c2[1], c2[0]);
+        // Interpolate every ~15-20 meters for a smooth animation sequence
+        const numSteps = Math.max(1, Math.floor(subDist / 18));
+        for (let k = 1; k < numSteps; k++) {
+          const ratio = k / numSteps;
+          segmentInterp.push([
+            c1[0] + (c2[0] - c1[0]) * ratio,
+            c1[1] + (c2[1] - c1[1]) * ratio
+          ]);
+        }
+      }
+      segmentInterp.push(end);
+
+      // Append coordinates
+      segmentInterp.forEach(pt => {
+        if (polylinePoints.length === 0 || 
+            polylinePoints[polylinePoints.length - 1][0] !== pt[0] || 
+            polylinePoints[polylinePoints.length - 1][1] !== pt[1]) {
+          polylinePoints.push(pt);
+        }
+      });
+
+      // Calculate distance for this segment
+      const segmentDistance = estimateDistanceMultiple(segmentInterp);
+      totalDist += segmentDistance;
+
+      // Construct steps with Swahili directions
+      const stepDuration = segmentDistance / 8.3; // ~30 km/h in city traffic
+      for (let idx = 0; idx < segmentCorners.length; idx++) {
+        const p = segmentCorners[idx];
+        let info = "Endelea mbele barabarani";
+        let type = "turn";
+
+        if (segmentIdx === 0 && idx === 0) {
+          info = "Anza safari, nenda mbele kuelekea barabara kuu";
+          type = "depart";
+        } else if (segmentIdx === pairs.length - 2 && idx === segmentCorners.length - 1) {
+          info = "Umekaribia kufika kituo cha mteja, nenda mbele polepole";
+          type = "arrive";
+        } else if (idx > 0 && idx < segmentCorners.length - 1) {
+          const prev = segmentCorners[idx - 1];
+          const next = segmentCorners[idx + 1] || end;
+          // Determine cross product sign to detect turn direction (left or right)
+          const v1 = [prev[0] - p[0], prev[1] - p[1]];
+          const v2 = [next[0] - p[0], next[1] - p[1]];
+          const cross = v1[0] * v2[1] - v1[1] * v2[0];
+          info = Math.abs(cross) > 1e-10 
+            ? (cross > 0 ? "Kunja kulia barabarani" : "Kunja kushoto barabarani")
+            : "Nenda moja kwa moja kufuata barabara";
+        }
+
+        customSteps.push({
+          distance: segmentDistance / segmentCorners.length,
+          duration: stepDuration / segmentCorners.length,
+          geometry: {
+            coordinates: [p],
+            type: "Point"
+          },
+          name: info,
+          mode: "driving",
+          maneuver: {
+            location: p,
+            bearing_before: 0,
+            bearing_after: 0,
+            type: type
+          }
+        });
+      }
+    }
+
+    const estDuration = totalDist / 8.3; // ~30 km/h in urban streets
 
     return {
       code: "Ok",
       routes: [
         {
           geometry: {
-            coordinates: listCoord,
+            coordinates: polylinePoints,
             type: "LineString"
           },
           legs: [
             {
-              summary: "Straight line routing fallback",
+              summary: "Barabara ya mjini (Dar es Salaam Street Route)",
               weight: estDuration,
               duration: estDuration,
-              distance: dist,
-              steps: pairs.map((p, idx) => ({
-                distance: idx === 0 ? dist : 0,
-                duration: idx === 0 ? estDuration : 0,
-                geometry: {
-                  coordinates: [p],
-                  type: "Point"
-                },
-                name: idx === 0 ? "Barabara ya kawaida" : "",
-                mode: "driving",
-                maneuver: {
-                  location: p,
-                  bearing_before: 0,
-                  bearing_after: 0,
-                  type: idx === 0 ? "depart" : "arrive"
-                }
-              }))
+              distance: totalDist,
+              steps: customSteps
             }
           ],
           weight_name: "routability",
           weight: estDuration,
           duration: estDuration,
-          distance: dist
+          distance: totalDist
         }
       ],
       waypoints: pairs.map(p => ({
