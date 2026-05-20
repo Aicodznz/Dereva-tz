@@ -322,7 +322,7 @@ export default function TaxiBooking() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const [step, setStep] = useState<BookingStep>("home");
+  const [step, setStep] = useState<BookingStep>("map");
   const [isMinimized, setIsMinimized] = useState(false);
   const [isMapFullscreen, setIsMapFullscreen] = useState(false);
   const [autoFollow, setAutoFollow] = useState(true);
@@ -1047,9 +1047,9 @@ export default function TaxiBooking() {
         setStep("completed");
       }
     } else if (currentStatus === "cancelled") {
-      if (step !== "home") {
+      if (step !== "map") {
         toast.info("Safari imeghairiwa");
-        setStep("home");
+        setStep("map");
         setRideId(null);
       }
     }
@@ -1163,10 +1163,11 @@ export default function TaxiBooking() {
                 <div className="absolute top-6 left-6 right-6 z-[60] flex items-center justify-between pointer-events-none">
                   {step === "map" && (
                     <button
-                      onClick={() => setStep("home")}
+                      onClick={() => navigate("/")}
                       className="w-12 h-12 bg-[#111118]/90 backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform text-white pointer-events-auto"
+                      title="Rudi Nyumbani"
                     >
-                      <ArrowLeft className="w-6 h-6" />
+                      <Home className="w-6 h-6" />
                     </button>
                   )}
                   {step !== "map" && <div className="w-12" />}
@@ -1764,7 +1765,7 @@ export default function TaxiBooking() {
               </button>
               <button
                 onClick={() => {
-                  setStep("home");
+                  setStep("map");
                   setRideId(null);
                 }}
                 className="w-full text-[10px] font-black text-[#6b6b8a] uppercase tracking-widest py-4 transition-colors hover:text-[#f0eeff]"
