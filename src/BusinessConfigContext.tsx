@@ -22,6 +22,13 @@ const defaultConfig: BusinessConfig = {
   phone: '+255 700 000 000',
   maintenanceMode: false,
   enableAR: false,
+  appLogo: 'https://cdn-icons-png.flaticon.com/512/5717/5717387.png',
+  splashText: 'Usafiri wa Haraka, Salama na Uhakika',
+  splashColor: '#0c0c0e',
+  enableAppDownload: true,
+  apkDownloadUrl: 'https://example.com/download/app-release.apk',
+  playStoreUrl: 'https://play.google.com',
+  appStoreUrl: 'https://apps.apple.com',
 };
 
 const BusinessConfigContext = createContext<BusinessConfigContextType>({

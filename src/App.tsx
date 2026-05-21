@@ -46,12 +46,80 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+import { useBusinessConfig } from './BusinessConfigContext';
+import { motion, AnimatePresence } from 'motion/react';
+import { Car, Loader2 } from 'lucide-react';
+
 function AppContent() {
   const { user, loading } = useAuth();
-  
+  const { config, loading: configLoading } = useBusinessConfig();
+  const [showSplash, setShowSplash] = React.useState(() => {
+    // Show splash once per tab session for smooth PWA/user experience
+    const shown = sessionStorage.getItem('app_splash_screen_shown');
+    return !shown;
+  });
+
+  React.useEffect(() => {
+    if (showSplash) {
+      const timer = setTimeout(() => {
+        setShowSplash(false);
+        sessionStorage.setItem('app_splash_screen_shown', 'true');
+      }, 2400);
+      return () => clearTimeout(timer);
+    }
+  }, [showSplash]);
+
   return (
-    <Routes>
-      {/* Auth Routes */}
+    <>
+      <AnimatePresence>
+        {showSplash && (
+          <motion.div
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0, scale: 1.05 }}
+            transition={{ duration: 0.5, ease: 'easeInOut' }}
+            className="fixed inset-0 z-[9999] flex flex-col items-center justify-center text-center p-6 select-none"
+            style={{ backgroundColor: config.splashColor || '#0c0c0e' }}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.1, duration: 0.6, type: 'spring' }}
+              className="flex flex-col items-center max-w-sm"
+            >
+              {config.appLogo ? (
+                <img 
+                  src={config.appLogo} 
+                  alt="App Logo" 
+                  className="w-24 h-24 object-contain mb-6 rounded-2xl shadow-2xl shadow-amber-500/10 pointer-events-none"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = 'none';
+                  }}
+                />
+              ) : (
+                <div className="w-20 h-20 rounded-3xl bg-amber-400 flex items-center justify-center text-black shadow-2xl shadow-amber-400/20 mb-6">
+                  <Car className="w-10 h-10" />
+                </div>
+              )}
+
+              <h1 className="text-xl font-black uppercase tracking-wider text-white mb-2">
+                {config.name || 'Tegex Taxi'}
+              </h1>
+              
+              <p className="text-xs text-neutral-400 font-bold uppercase tracking-widest max-w-[280px]">
+                {config.splashText || 'Usafiri wa Haraka, Salama na Uhakika'}
+              </p>
+
+              <div className="mt-8 flex flex-col items-center gap-2">
+                <Loader2 className="w-6 h-6 text-amber-400 animate-spin" />
+                <span className="text-[9px] text-neutral-500 font-mono font-black uppercase tracking-[0.2em]">Inapakia...</span>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <Routes>
+        {/* Auth Routes */}
       <Route path="/login" element={<Login />} />
       <Route path="/staff/login" element={<StaffLogin />} />
       <Route path="/status/:vendorId" element={<PublicStatusDisplay />} />
@@ -87,6 +155,7 @@ function AppContent() {
         </Layout>
       } />
     </Routes>
+    </>
   );
 }
 

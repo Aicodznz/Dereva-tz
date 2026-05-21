@@ -34,7 +34,10 @@ import {
   ArrowRight,
   RefreshCw,
   RotateCw,
+  Sun,
+  Moon,
 } from "lucide-react";
+import { useTheme } from "next-themes";
 import Chat from "./Chat";
 import { db, auth, handleFirestoreError, OperationType } from "../firebase";
 import {
@@ -69,6 +72,7 @@ import { LiveTripScreen } from "./tegex/LiveTripScreen";
 import { TripCompleteScreen } from "./tegex/TripCompleteScreen";
 import { RatingScreen } from "./tegex/RatingScreen";
 import { AnimatedRoute } from "./map/AnimatedRoute";
+import AppDownloadButton from "./AppDownloadButton";
 
 // --- UTILITIES ---
 
@@ -320,6 +324,7 @@ interface RideOption {
 export default function TaxiBooking() {
   const { user, profile, signInGuest } = useAuth();
   const navigate = useNavigate();
+  const { setTheme: setNextTheme } = useTheme();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [step, setStep] = useState<BookingStep>("map");
@@ -437,6 +442,7 @@ export default function TaxiBooking() {
   } | null>(null);
   const [liveDistance, setLiveDistance] = useState<number | null>(null);
   const [isRestoring, setIsRestoring] = useState(true);
+  const lastFetchedPosRef = useRef<any>(null);
 
   // Persistence: Look for active rides on mount
   useEffect(() => {
@@ -598,7 +604,7 @@ export default function TaxiBooking() {
     [number, number][]
   >([]);
 
-  // Driver Route: Fetch route from driver to target
+  // Driver Route: Fetch route from driver to target with smart caching and slicing
   useEffect(() => {
     const fetchDriverRoute = async () => {
       if (!driverLivePos || !activeRide) return;
@@ -606,6 +612,39 @@ export default function TaxiBooking() {
         activeRide.status === "on_trip"
           ? activeRide.destination
           : activeRide.pickup;
+
+      // Helper to calculate distance in meters
+      const getDistMetersLocal = (p1: {lat: number, lng: number}, p2: {lat: number, lng: number}) => {
+        const R = 6371000; // meters
+        const dLat = (p2.lat - p1.lat) * Math.PI / 180;
+        const dLon = (p2.lng - p1.lng) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(p1.lat * Math.PI / 180) * Math.cos(p2.lat * Math.PI / 180) *
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c;
+      };
+
+      if (lastFetchedPosRef.current && driverRouteCoords.length > 0) {
+        const dist = getDistMetersLocal(driverLivePos, lastFetchedPosRef.current);
+        if (dist < 150) {
+          // Find closest index on current route
+          let minDistance = Infinity;
+          let closestIndex = 0;
+          for (let i = 0; i < driverRouteCoords.length; i++) {
+            const coord = driverRouteCoords[i];
+            const d = getDistMetersLocal(driverLivePos, { lat: coord[0], lng: coord[1] });
+            if (d < minDistance) {
+              minDistance = d;
+              closestIndex = i;
+            }
+          }
+          if (minDistance < 300) {
+            setDriverRouteCoords(driverRouteCoords.slice(closestIndex));
+            return;
+          }
+        }
+      }
 
       try {
         const coords = `${driverLivePos.lng},${driverLivePos.lat};${target.lng},${target.lat}`;
@@ -616,9 +655,9 @@ export default function TaxiBooking() {
           );
         const data = await response.json();
         if (data.routes?.[0]) {
-          setDriverRouteCoords(
-            data.routes[0].geometry.coordinates.map((c: any) => [c[1], c[0]]),
-          );
+          const fetched = data.routes[0].geometry.coordinates.map((c: any) => [c[1], c[0]]);
+          setDriverRouteCoords(fetched);
+          lastFetchedPosRef.current = driverLivePos;
         }
       } catch (e) {
         console.error("Driver routing failed", e);
@@ -634,6 +673,7 @@ export default function TaxiBooking() {
       fetchDriverRoute();
     } else {
       setDriverRouteCoords([]);
+      lastFetchedPosRef.current = null;
     }
   }, [driverLivePos, activeRide?.status]);
 
@@ -1172,6 +1212,7 @@ export default function TaxiBooking() {
                   )}
                   {step !== "map" && <div className="w-12" />}
                   <div className="flex gap-3">
+                    <AppDownloadButton variant="compact" className="w-12 h-12 bg-[#111118]/90 backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform text-white pointer-events-auto" />
                     <button
                       onClick={() => {
                         setIsMapFullscreen(!isMapFullscreen);
@@ -1199,6 +1240,17 @@ export default function TaxiBooking() {
                       className="w-12 h-12 bg-[#111118]/90 backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform text-white pointer-events-auto"
                     >
                       <Clock className="w-6 h-6" />
+                    </button>
+                    <button
+                      onClick={() => setNextTheme(theme === "dark" ? "light" : "dark")}
+                      className="w-12 h-12 bg-[#111118]/90 backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform text-white pointer-events-auto"
+                      title={theme === "dark" ? "Badili kwenda mwangaza" : "Badili kwenda giza"}
+                    >
+                      {theme === "dark" ? (
+                        <Sun className="w-6 h-6 text-amber-400" />
+                      ) : (
+                        <Moon className="w-6 h-6 text-blue-400" />
+                      )}
                     </button>
                   </div>
                 </div>

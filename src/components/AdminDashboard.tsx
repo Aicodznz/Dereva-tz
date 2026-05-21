@@ -137,6 +137,14 @@ export default function AdminDashboard() {
     enableAR: true,
     currencySymbol: 'Tsh',
     timeFormat: '24h',
+    // App Design & Download Branding
+    appLogo: 'https://cdn-icons-png.flaticon.com/512/5717/5717387.png', // beautiful default taxi/car logo
+    splashText: 'Usafiri wa Haraka, Salama na Uhakika',
+    splashColor: '#0c0c0e',
+    enableAppDownload: true,
+    apkDownloadUrl: 'https://example.com/download/app-release.apk',
+    playStoreUrl: 'https://play.google.com',
+    appStoreUrl: 'https://apps.apple.com',
     // Vendor Settings
     vendorCancelOrder: true,
     vendorSelfRegistration: true,
@@ -1696,6 +1704,7 @@ export default function AdminDashboard() {
             <div className="flex flex-wrap gap-4 border-b border-neutral-100 pb-4">
               {[
                 { id: 'business_info', label: t('admin_settings_business_info'), icon: Info },
+                { id: 'app_design', label: t('admin_settings_app_design'), icon: Monitor },
                 { id: 'payment', label: t('admin_settings_payment'), icon: CreditCard },
                 { id: 'vendor', label: t('admin_settings_vendor'), icon: Store },
                 { id: 'order', label: t('admin_settings_order'), icon: Package },
@@ -1908,6 +1917,259 @@ export default function AdminDashboard() {
                          </div>
                       </div>
                    </Card>
+                </div>
+
+                {/* Uhariri wa App & Vitufe vya Kupakua (App Customization Section directly inside Taarifa za Biashara) */}
+                <div className="border-t border-neutral-100 pt-8 mt-8 space-y-6">
+                  <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-violet-100 flex items-center justify-center text-violet-600 animate-pulse">
+                        <Monitor className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-black uppercase italic tracking-tight text-neutral-900">Uhariri wa App (Branding Customization)</h3>
+                        <p className="text-xs text-neutral-500 font-medium">Boresha nembo, maneno ya skrini ya mwanzo (splash screen), na vitufe thabiti vya kupakua application.</p>
+                      </div>
+                    </div>
+                    <Button 
+                      onClick={handleSaveSettings}
+                      className="bg-violet-600 hover:bg-violet-700 text-white rounded-xl px-12 font-black uppercase text-xs tracking-widest h-14 shadow-xl shadow-violet-200/50"
+                    >
+                      HIFADHI UHARIRI WA APP / SAVE BRANDING
+                    </Button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {/* Splash Screen & Logo Panel */}
+                    <Card className="rounded-[3rem] border-none shadow-2xl p-8 space-y-6">
+                      <h3 className="text-lg font-black uppercase italic tracking-tighter text-neutral-900">Nembo na Skrini ya Mwanzo (Splash Screen)</h3>
+                      
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">App Logo Image URL *</Label>
+                          <Input 
+                            value={businessConfig.appLogo || ''}
+                            onChange={e => setBusinessConfig({...businessConfig, appLogo: e.target.value})}
+                            placeholder="Mfano: https://yourdomain.com/logo.png"
+                            className="h-12 rounded-xl border-none bg-neutral-100 font-bold px-4 text-xs"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Maneno ya Splash Screen *</Label>
+                          <Input 
+                            value={businessConfig.splashText || ''}
+                            onChange={e => setBusinessConfig({...businessConfig, splashText: e.target.value})}
+                            placeholder="Mfano: Usafiri wa Haraka na Salama"
+                            className="h-12 rounded-xl border-none bg-neutral-100 font-bold px-4 text-xs"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Rangi ya Skrini ya Mwanzo (Splash Color)</Label>
+                          <div className="flex gap-3 items-center">
+                            <Input 
+                              type="color"
+                              value={businessConfig.splashColor || '#0c0c0e'}
+                              onChange={e => setBusinessConfig({...businessConfig, splashColor: e.target.value})}
+                              className="w-16 h-12 rounded-xl border-none bg-neutral-100 p-1 cursor-pointer"
+                            />
+                            <span className="text-xs font-mono text-neutral-400 font-bold uppercase">{businessConfig.splashColor || '#0c0c0e'}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Pre-visualization preview of Splash */}
+                      <div className="border border-neutral-100 rounded-3xl p-6 relative flex flex-col items-center justify-center text-center overflow-hidden" style={{ minHeight: '145px', backgroundColor: businessConfig.splashColor || '#0c0c0e' }}>
+                        <div className="absolute top-2 right-4 text-[9px] text-white/45 uppercase tracking-widest font-mono font-bold">Splash Screen Preview</div>
+                        <div className="flex flex-col items-center">
+                          {businessConfig.appLogo ? (
+                            <img src={businessConfig.appLogo} alt="Logo" className="w-12 h-12 object-contain mb-3 rounded-xl pointer-events-none" onError={(e)=>{ (e.target as HTMLElement).style.display = 'none'; }} />
+                          ) : (
+                            <Car className="w-10 h-10 text-amber-400 mb-3 animate-pulse" />
+                          )}
+                          <h4 className="text-white text-xs font-black uppercase tracking-wider">{businessConfig.splashText || 'Tegex Taxi'}</h4>
+                          <div className="mt-2 w-12 h-1 bg-amber-400/80 rounded-full animate-pulse" />
+                        </div>
+                      </div>
+                    </Card>
+
+                    {/* App Install / Downloads Feature */}
+                    <Card className="rounded-[3rem] border-none shadow-2xl p-8 space-y-6">
+                      <div className="flex items-center justify-between col-span-2">
+                        <h3 className="text-lg font-black uppercase italic tracking-tighter text-neutral-900">Kitufe cha Kupakua App (App Downloads)</h3>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-black uppercase text-neutral-400">{businessConfig.enableAppDownload ? 'ENABLED' : 'DISABLED'}</span>
+                          <Switch 
+                            checked={businessConfig.enableAppDownload}
+                            onCheckedChange={(val) => setBusinessConfig({...businessConfig, enableAppDownload: val})}
+                          />
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-neutral-400 font-medium pb-2 border-b border-neutral-100">Weka swichi na viungo vya kupakua kuwezesha vitufe kwenye kiolesura cha madereva na abiria.</p>
+
+                      <div className="space-y-4 pt-2">
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Android APK Direct Download Link *</Label>
+                          <Input 
+                            value={businessConfig.apkDownloadUrl || ''}
+                            onChange={e => setBusinessConfig({...businessConfig, apkDownloadUrl: e.target.value})}
+                            placeholder="Mfano: /app-release.apk au https://yourdomain.com/app.apk"
+                            className="h-12 rounded-xl border-none bg-neutral-100 font-bold px-4 text-xs"
+                          />
+                        </div>
+
+                         <div className="space-y-2">
+                           <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Google Play Store Link</Label>
+                           <Input 
+                             value={businessConfig.playStoreUrl || ''}
+                             onChange={e => setBusinessConfig({...businessConfig, playStoreUrl: e.target.value})}
+                             placeholder="Mfano: https://play.google.com/store/apps/details?id=..."
+                             className="h-12 rounded-xl border-none bg-neutral-100 font-bold px-4 text-xs"
+                           />
+                         </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Apple App Store Link</Label>
+                          <Input 
+                            value={businessConfig.appStoreUrl || ''}
+                            onChange={e => setBusinessConfig({...businessConfig, appStoreUrl: e.target.value})}
+                            placeholder="Mfano: https://apps.apple.com/app/id..."
+                            className="h-12 rounded-xl border-none bg-neutral-100 font-bold px-4 text-xs"
+                          />
+                        </div>
+                      </div>
+                    </Card>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeSettingsTab === 'app_design' && (
+              <div className="space-y-8 animate-fade-in">
+                <Card className="rounded-[2.5rem] border-none shadow-xl bg-violet-50/50">
+                  <CardContent className="p-8 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-violet-100 flex items-center justify-center text-violet-600">
+                        <Monitor className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-black uppercase italic tracking-tight">Kumbukumbu na Logo (Branding)</h3>
+                        <p className="text-xs text-neutral-500 font-medium">Boresha nembo yako, maneno ya skrini ya mwanzo (splash screen), na kiungo cha kupakua application.</p>
+                      </div>
+                    </div>
+                    <Button 
+                      onClick={handleSaveSettings}
+                      className="bg-violet-600 hover:bg-violet-700 text-white rounded-xl px-8 font-black uppercase text-[11px] tracking-widest h-12 shadow-xl shadow-violet-200/50"
+                    >
+                      HIFADHI MABADILIKO / SAVE BRANDING
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Splash Screen & Logo Panel */}
+                  <Card className="rounded-[3rem] border-none shadow-2xl p-8 space-y-6">
+                    <h3 className="text-lg font-black uppercase italic tracking-tighter">Nembo na Skrini ya Mwanzo (Splash Screen)</h3>
+                    
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">App Logo Image URL *</Label>
+                        <Input 
+                          value={businessConfig.appLogo || ''}
+                          onChange={e => setBusinessConfig({...businessConfig, appLogo: e.target.value})}
+                          placeholder="Mfano: https://yourdomain.com/logo.png"
+                          className="h-12 rounded-xl border-none bg-neutral-100 font-bold px-4 text-xs"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Maneno ya Splash Screen *</Label>
+                        <Input 
+                          value={businessConfig.splashText || ''}
+                          onChange={e => setBusinessConfig({...businessConfig, splashText: e.target.value})}
+                          placeholder="Mfano: Usafiri wa Haraka na Salama"
+                          className="h-12 rounded-xl border-none bg-neutral-100 font-bold px-4 text-xs"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Splash Background Color</Label>
+                        <div className="flex gap-3 items-center">
+                          <Input 
+                            type="color"
+                            value={businessConfig.splashColor || '#0c0c0e'}
+                            onChange={e => setBusinessConfig({...businessConfig, splashColor: e.target.value})}
+                            className="w-16 h-12 rounded-xl border-none bg-neutral-100 p-1 cursor-pointer"
+                          />
+                          <span className="text-xs font-mono text-neutral-400 font-bold uppercase">{businessConfig.splashColor || '#0c0c0e'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Pre-visualization preview of Splash */}
+                    <div className="border border-neutral-100 rounded-3xl p-6 relative flex flex-col items-center justify-center text-center overflow-hidden" style={{ minHeight: '145px', backgroundColor: businessConfig.splashColor || '#0c0c0e' }}>
+                      <div className="absolute top-2 right-4 text-[9px] text-white/45 uppercase tracking-widest font-mono font-bold">Splash Screen Preview</div>
+                      <div className="flex flex-col items-center">
+                        {businessConfig.appLogo ? (
+                          <img src={businessConfig.appLogo} alt="Logo" className="w-12 h-12 object-contain mb-3 rounded-xl pointer-events-none" onError={(e)=>{ (e.target as HTMLElement).style.display = 'none'; }} />
+                        ) : (
+                          <Car className="w-10 h-10 text-amber-400 mb-3 animate-pulse" />
+                        )}
+                        <h4 className="text-white text-xs font-black uppercase tracking-wider">{businessConfig.splashText || 'Tegex Taxi'}</h4>
+                        <div className="mt-2 w-12 h-1 bg-amber-400/80 rounded-full animate-pulse" />
+                      </div>
+                    </div>
+                  </Card>
+
+                  {/* App Install / Downloads Feature */}
+                  <Card className="rounded-[3rem] border-none shadow-2xl p-8 space-y-6">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-black uppercase italic tracking-tighter">Kitufe cha Kupakua App (App Downloads)</h3>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black uppercase text-neutral-400">{businessConfig.enableAppDownload ? 'ENABLED' : 'DISABLED'}</span>
+                        <Switch 
+                          checked={businessConfig.enableAppDownload}
+                          onCheckedChange={(val) => setBusinessConfig({...businessConfig, enableAppDownload: val})}
+                        />
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-neutral-400 font-medium">Bainisha kama unaruhusu madereva na abiria kuona kitufe na sehemu ya kupakua app yao (APK ya Android, Play Store au App Store).</p>
+
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Android APK Direct Download Link *</Label>
+                        <Input 
+                          value={businessConfig.apkDownloadUrl || ''}
+                          onChange={e => setBusinessConfig({...businessConfig, apkDownloadUrl: e.target.value})}
+                          placeholder="Mfano: /app-release.apk au https://yourdomain.com/app.apk"
+                          className="h-12 rounded-xl border-none bg-neutral-100 font-bold px-4 text-xs"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Google Play Store Link</Label>
+                        <Input 
+                          value={businessConfig.playStoreUrl || ''}
+                          onChange={e => setBusinessConfig({...businessConfig, playStoreUrl: e.target.value})}
+                          placeholder="Mfano: https://play.google.com/store/apps/details?id=..."
+                          className="h-12 rounded-xl border-none bg-neutral-100 font-bold px-4 text-xs"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Apple App Store Link</Label>
+                        <Input 
+                          value={businessConfig.appStoreUrl || ''}
+                          onChange={e => setBusinessConfig({...businessConfig, appStoreUrl: e.target.value})}
+                          placeholder="Mfano: https://apps.apple.com/app/id..."
+                          className="h-12 rounded-xl border-none bg-neutral-100 font-bold px-4 text-xs"
+                        />
+                      </div>
+                    </div>
+                  </Card>
                 </div>
               </div>
             )}

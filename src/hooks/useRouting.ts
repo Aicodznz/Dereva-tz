@@ -53,13 +53,56 @@ export function useRouting(pickup: [number, number], destination: [number, numbe
       if (lastFetchedRef.current) {
         const distPickup = getDistMeters(pickup, lastFetchedRef.current.pickup);
         const distDest = getDistMeters(destination, lastFetchedRef.current.destination);
-        const secsPassed = (Date.now() - lastFetchedRef.current.time) / 1000;
 
-        // If pickup shifted less than 80m, destination is same, and let's say less than 20s passed,
-        // we can reuse the existing route, just slicing off passed points if needed.
-        if (distPickup < 80 && distDest < 10 && secsPassed < 20) {
-          console.log("[useRouting] Reusing cached route coordinates. Pickup shift:", distPickup.toFixed(1), "m");
-          return;
+        // If the destination is identical (or shifted less than 50 meters)
+        if (distDest < 50 && lastFetchedRef.current.data.routeCoords.length > 0) {
+          // Find the index of the point on the cached route that is closest to our new pickup (current position)
+          const cachedCoords = lastFetchedRef.current.data.routeCoords;
+          let minDistance = Infinity;
+          let closestIndex = 0;
+
+          for (let i = 0; i < cachedCoords.length; i++) {
+            const dist = getDistMeters(pickup, cachedCoords[i]);
+            if (dist < minDistance) {
+              minDistance = dist;
+              closestIndex = i;
+            }
+          }
+
+          // If the closest point is within 500 meters, we can slice of the portion of the route we already covered!
+          if (minDistance < 500) {
+            const slicedCoords = cachedCoords.slice(closestIndex);
+            
+            // Adjust step directions if available to reflect sliced steps
+            const cachedSteps = lastFetchedRef.current.data.steps;
+            const slicedSteps = cachedSteps.filter(s => {
+              const distToStep = getDistMeters(pickup, s.location);
+              return distToStep > 30; // steps further than 30m ahead
+            });
+
+            const nextData: RouteData = {
+              routeCoords: slicedCoords.length > 0 ? slicedCoords : [[pickup[0], pickup[1]]],
+              totalDistance: Math.max(0, lastFetchedRef.current.data.totalDistance - (closestIndex * 15)),
+              totalDuration: Math.max(0, lastFetchedRef.current.data.totalDuration - (closestIndex * 2)),
+              steps: slicedSteps,
+              isLoading: false,
+              error: null,
+            };
+
+            setData(nextData);
+            
+            // Update lastfetched ref but preserve original full route coordinates for subsequent slicing!
+            lastFetchedRef.current = {
+              pickup,
+              destination,
+              data: {
+                ...nextData,
+                routeCoords: cachedCoords, // Keep original complete route coords so if we continue moving we can slice again from it!
+              },
+              time: Date.now()
+            };
+            return;
+          }
         }
       }
 

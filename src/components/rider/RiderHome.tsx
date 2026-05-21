@@ -9,8 +9,9 @@ import {
   Navigation2, MessageSquare, MapPin, Star, X as CloseX,
   Clock, TrendingUp, Info, Wifi, Battery, Map as MapIcon,
   CheckCircle2, ArrowRight, RefreshCw, DollarSign, Package, Home, LogOut,
-  Volume2, VolumeX
+  Volume2, VolumeX, Sun, Moon
 } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Chat from '../Chat';
 import { motion, AnimatePresence } from 'motion/react';
@@ -39,6 +40,7 @@ import DriverTripSheet from '../tegex/DriverTripSheet';
 import PaymentConfirmScreen from '../tegex/PaymentConfirmScreen';
 import RateCustomerScreen from '../tegex/RateCustomerScreen';
 import { AnimatedRoute } from '../map/AnimatedRoute';
+import AppDownloadButton from '../AppDownloadButton';
 
 const getNormalizedCoords = (coords: any): [number, number][] => {
   if (!coords || !Array.isArray(coords)) return [];
@@ -207,6 +209,7 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, profile } = useAuth();
+  const { setTheme: setNextTheme } = useTheme();
   const [isOnline, setIsOnline] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [position, setPosition] = useState<[number, number]>([-6.7924, 39.2083]);
@@ -1171,6 +1174,26 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
           </MapContainer>
         </div>
       </div>
+
+      {/* Dynamic Theme Toggle - Always available for convenience */}
+      {!isMinimized && (
+        <div className="absolute right-4 top-24 z-40 flex flex-col gap-3">
+          <AppDownloadButton variant="compact" />
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setNextTheme(theme === "dark" ? "light" : "dark")}
+            className="w-12 h-12 bg-[#111118]/90 backdrop-blur-xl border border-[#1e1e2e] rounded-2xl shadow-2xl flex items-center justify-center text-white active:scale-95 transition-all"
+            title={theme === "dark" ? "Badili kwenda mwangaza" : "Badili kwenda giza"}
+          >
+            {theme === "dark" ? (
+              <Sun className="w-5 h-5 text-amber-400 animate-pulse" />
+            ) : (
+              <Moon className="w-5 h-5 text-blue-400" />
+            )}
+          </motion.button>
+        </div>
+      )}
 
       {/* Floating Buttons */}
       {!activeRide && !incomingRequest && !isMinimized && (
