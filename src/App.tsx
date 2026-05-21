@@ -51,13 +51,24 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Car, Loader2 } from 'lucide-react';
 
 function AppContent() {
-  const { user, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
   const { config, loading: configLoading } = useBusinessConfig();
   const [showSplash, setShowSplash] = React.useState(() => {
     // Show splash once per tab session for smooth PWA/user experience
     const shown = sessionStorage.getItem('app_splash_screen_shown');
     return !shown;
   });
+  const [isMobile, setIsMobile] = React.useState(false);
+
+  React.useEffect(() => {
+    const checkMobile = () => {
+      // Only show splash on mobile screen size (< 768px Width) - meaning inside "the App", not the desktop website
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   React.useEffect(() => {
     if (showSplash) {
@@ -69,16 +80,51 @@ function AppContent() {
     }
   }, [showSplash]);
 
+  const getSplashConfig = () => {
+    const role = profile?.role as string | undefined;
+    const driverType = profile?.driverType as string | undefined;
+
+    if (role === 'rider' && driverType === 'taxi') {
+      return {
+        logo: config.driverAppLogo || config.appLogo || 'https://cdn-icons-png.flaticon.com/512/5717/5717387.png',
+        text: config.driverSplashText || 'Usafiri wa Haraka, Salama na Uhakika (Dereva)',
+        color: config.driverSplashColor || '#121214',
+      };
+    }
+    if (role === 'rider' && driverType === 'delivery') {
+      return {
+        logo: config.deliveryAppLogo || config.appLogo || 'https://cdn-icons-png.flaticon.com/512/5717/5717387.png',
+        text: config.deliverySplashText || 'Uwasilishaji Haraka wa Vifurushi na Chakula',
+        color: config.deliverySplashColor || '#0a1a0f',
+      };
+    }
+    if (role === 'vendor') {
+      return {
+        logo: config.vendorAppLogo || config.appLogo || 'https://cdn-icons-png.flaticon.com/512/5717/5717387.png',
+        text: config.vendorSplashText || 'Sanidi Duka Lako Uweze Kuuza wepesi',
+        color: config.vendorSplashColor || '#0b161e',
+      };
+    }
+    // Default to Customer splash
+    return {
+      logo: config.customerAppLogo || config.appLogo || 'https://cdn-icons-png.flaticon.com/512/5717/5717387.png',
+      text: config.customerSplashText || config.splashText || 'Usafiri wa Haraka, Salama na Uhakika',
+      color: config.customerSplashColor || config.splashColor || '#0c0c0e',
+    };
+  };
+
+  const activeSplash = getSplashConfig();
+
   return (
     <>
       <AnimatePresence>
-        {showSplash && (
+        {(showSplash && isMobile) && (
           <motion.div
             initial={{ opacity: 1 }}
             exit={{ opacity: 0, scale: 1.05 }}
             transition={{ duration: 0.5, ease: 'easeInOut' }}
             className="fixed inset-0 z-[9999] flex flex-col items-center justify-center text-center p-6 select-none"
-            style={{ backgroundColor: config.splashColor || '#0c0c0e' }}
+            style={{ backgroundColor: activeSplash.color }}
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
@@ -86,9 +132,9 @@ function AppContent() {
               transition={{ delay: 0.1, duration: 0.6, type: 'spring' }}
               className="flex flex-col items-center max-w-sm"
             >
-              {config.appLogo ? (
+              {activeSplash.logo ? (
                 <img 
-                  src={config.appLogo} 
+                  src={activeSplash.logo} 
                   alt="App Logo" 
                   className="w-24 h-24 object-contain mb-6 rounded-2xl shadow-2xl shadow-amber-500/10 pointer-events-none"
                   onError={(e) => {
@@ -106,7 +152,7 @@ function AppContent() {
               </h1>
               
               <p className="text-xs text-neutral-400 font-bold uppercase tracking-widest max-w-[280px]">
-                {config.splashText || 'Usafiri wa Haraka, Salama na Uhakika'}
+                {activeSplash.text}
               </p>
 
               <div className="mt-8 flex flex-col items-center gap-2">

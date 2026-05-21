@@ -127,7 +127,8 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeSettingsTab, setActiveSettingsTab] = useState('business_info');
-  const [businessConfig, setBusinessConfig] = useState({
+  const [selectedAppProfile, setSelectedAppProfile] = useState<'customer' | 'driver' | 'vendor' | 'deliveryman'>('customer');
+  const [businessConfig, setBusinessConfig] = useState<any>({
     name: 'M-Duka Platform',
     email: 'admin@mduka.com',
     phone: '+255 700 000 000',
@@ -326,7 +327,7 @@ export default function AdminDashboard() {
       try {
         const configSnap = await getDoc(doc(db, 'config', 'business'));
         if (configSnap.exists()) {
-          setBusinessConfig(prev => ({ ...prev, ...configSnap.data() }));
+          setBusinessConfig((prev: any) => ({ ...prev, ...configSnap.data() }));
         }
       } catch (err) {
         console.warn("Permission denied for config/business");
@@ -395,7 +396,7 @@ export default function AdminDashboard() {
 
     const unsubscribes = [
       onSnapshot(doc(db, 'config', 'business'), (snap) => {
-        if (snap.exists()) setBusinessConfig(prev => ({ ...prev, ...snap.data() }));
+        if (snap.exists()) setBusinessConfig((prev: any) => ({ ...prev, ...snap.data() }));
       }, errorHandler('config/business')),
       onSnapshot(collection(db, 'vendors'), (snap) => {
         setVendors(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as VendorProfile)));
@@ -1923,129 +1924,322 @@ export default function AdminDashboard() {
 
             {activeSettingsTab === 'app_design' && (
               <div className="space-y-8 animate-fade-in">
+                {/* Intro Card */}
                 <Card className="rounded-[2.5rem] border-none shadow-xl bg-violet-50/50">
-                  <CardContent className="p-8 flex items-center justify-between">
+                  <CardContent className="p-8 flex flex-col md:flex-row items-center justify-between gap-6">
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 rounded-2xl bg-violet-100 flex items-center justify-center text-violet-600">
                         <Monitor className="w-6 h-6" />
                       </div>
                       <div>
-                        <h3 className="text-lg font-black uppercase italic tracking-tight">Kumbukumbu na Logo (Branding)</h3>
-                        <p className="text-xs text-neutral-500 font-medium">Boresha nembo yako, maneno ya skrini ya mwanzo (splash screen), na kiungo cha kupakua application.</p>
+                        <h3 className="text-xl font-black uppercase italic tracking-tight text-neutral-900">Uhariri wa App na Branding</h3>
+                        <p className="text-xs text-neutral-500 font-medium max-w-xl">
+                          Weka muundo wa kipekee wa nembo na skrini za mwanzo (Splash Screen) tofauti kulingana na kila App/Wajibu. 
+                          <span className="text-violet-650 font-bold block mt-1">💡 Splash Screen huonekana tu kwenye vifaa vya simu (App/Mobile View) na kuskipiwa kwenye kompyuta (Website) ili kufanya uzoefu kuwa wa haraka na mwepesi.</span>
+                        </p>
                       </div>
                     </div>
                     <Button 
                       onClick={handleSaveSettings}
-                      className="bg-violet-600 hover:bg-violet-700 text-white rounded-xl px-8 font-black uppercase text-[11px] tracking-widest h-12 shadow-xl shadow-violet-200/50"
+                      className="bg-violet-600 hover:bg-violet-700 text-white rounded-xl px-8 font-black uppercase text-[11px] tracking-widest h-12 shadow-xl shadow-violet-200/50 whitespace-nowrap"
                     >
-                      HIFADHI MABADILIKO / SAVE BRANDING
+                      HIFADHI UHARIRI / SAVE BRANDING
                     </Button>
                   </CardContent>
                 </Card>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  {/* Splash Screen & Logo Panel */}
-                  <Card className="rounded-[3rem] border-none shadow-2xl p-8 space-y-6">
-                    <h3 className="text-lg font-black uppercase italic tracking-tighter">Nembo na Skrini ya Mwanzo (Splash Screen)</h3>
-                    
-                    <div className="space-y-4">
+                {/* Role Tabs for different Splash screen variants */}
+                <div className="bg-neutral-100 p-2 rounded-2xl flex flex-wrap gap-2 max-w-3xl">
+                  {[
+                    { id: 'customer', label: 'Mteja (Customer App)', desc: 'Abiria / Customer Splash' },
+                    { id: 'driver', label: 'Dereva (Driver App)', desc: 'Dereva / Driver Splash' },
+                    { id: 'vendor', label: 'Muuzaji (Vendor App)', desc: 'Muuzaji / Vendor Splash' },
+                    { id: 'deliveryman', label: 'Mjumbe (Delivery App)', desc: 'Mjumbe / Deliveryman Splash' },
+                  ].map((profileTab) => (
+                    <button
+                      key={profileTab.id}
+                      type="button"
+                      onClick={() => setSelectedAppProfile(profileTab.id as any)}
+                      className={`flex-1 min-w-[140px] text-center px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-350 ${
+                        selectedAppProfile === profileTab.id
+                          ? 'bg-neutral-900 text-white shadow-xl'
+                          : 'text-neutral-500 hover:text-neutral-800 hover:bg-neutral-200/50'
+                      }`}
+                    >
+                      {profileTab.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                  
+                  {/* Left Column: Editor Fields for the selected profile */}
+                  <Card className="lg:col-span-7 rounded-[3rem] border-none shadow-2xl p-8 space-y-6 bg-white">
+                    <div className="border-b border-neutral-100 pb-4">
+                      <span className="text-[10px] font-black uppercase tracking-widest bg-orange-150 text-orange-600 px-3 py-1 rounded-full">
+                        Kiolesura cha {selectedAppProfile === 'customer' ? 'Mteja' : selectedAppProfile === 'driver' ? 'Dereva' : selectedAppProfile === 'vendor' ? 'Muuzaji' : 'Mjumbe'}
+                      </span>
+                      <h4 className="text-lg font-black uppercase italic tracking-tighter text-neutral-900 mt-2">
+                        Sanidi Skrini ya {selectedAppProfile === 'customer' ? 'Mteja (Customer)' : selectedAppProfile === 'driver' ? 'Dereva (Driver)' : selectedAppProfile === 'vendor' ? 'Muuzaji (Vendor)' : 'Mjumbe (Deliveryman)'}
+                      </h4>
+                    </div>
+
+                    <div className="space-y-5">
+                      {/* Logo URL Input */}
                       <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">App Logo Image URL *</Label>
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Logo Image URL *</Label>
                         <Input 
-                          value={businessConfig.appLogo || ''}
-                          onChange={e => setBusinessConfig({...businessConfig, appLogo: e.target.value})}
+                          value={
+                            selectedAppProfile === 'customer' 
+                              ? (businessConfig.customerAppLogo || businessConfig.appLogo || '') 
+                              : selectedAppProfile === 'driver' 
+                              ? (businessConfig.driverAppLogo || '') 
+                              : selectedAppProfile === 'vendor' 
+                              ? (businessConfig.vendorAppLogo || '') 
+                              : (businessConfig.deliveryAppLogo || '')
+                          }
+                          onChange={e => {
+                            const val = e.target.value;
+                            if (selectedAppProfile === 'customer') {
+                              setBusinessConfig({...businessConfig, customerAppLogo: val, appLogo: val});
+                            } else if (selectedAppProfile === 'driver') {
+                              setBusinessConfig({...businessConfig, driverAppLogo: val});
+                            } else if (selectedAppProfile === 'vendor') {
+                              setBusinessConfig({...businessConfig, vendorAppLogo: val});
+                            } else {
+                              setBusinessConfig({...businessConfig, deliveryAppLogo: val});
+                            }
+                          }}
                           placeholder="Mfano: https://yourdomain.com/logo.png"
                           className="h-12 rounded-xl border-none bg-neutral-100 font-bold px-4 text-xs"
                         />
+                        <p className="text-[10.5px] text-neutral-400 font-medium">Nembo inayojivinjari juu ya splash asilimia 3:1 au 1:1.</p>
                       </div>
 
+                      {/* Splash Text Input */}
                       <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Maneno ya Splash Screen *</Label>
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Maneno ya Splash Screen (Slogan) *</Label>
                         <Input 
-                          value={businessConfig.splashText || ''}
-                          onChange={e => setBusinessConfig({...businessConfig, splashText: e.target.value})}
-                          placeholder="Mfano: Usafiri wa Haraka na Salama"
+                          value={
+                            selectedAppProfile === 'customer' 
+                              ? (businessConfig.customerSplashText || businessConfig.splashText || '') 
+                              : selectedAppProfile === 'driver' 
+                              ? (businessConfig.driverSplashText || '') 
+                              : selectedAppProfile === 'vendor' 
+                              ? (businessConfig.vendorSplashText || '') 
+                              : (businessConfig.deliverySplashText || '')
+                          }
+                          onChange={e => {
+                            const val = e.target.value;
+                            if (selectedAppProfile === 'customer') {
+                              setBusinessConfig({...businessConfig, customerSplashText: val, splashText: val});
+                            } else if (selectedAppProfile === 'driver') {
+                              setBusinessConfig({...businessConfig, driverSplashText: val});
+                            } else if (selectedAppProfile === 'vendor') {
+                              setBusinessConfig({...businessConfig, vendorSplashText: val});
+                            } else {
+                              setBusinessConfig({...businessConfig, deliverySplashText: val});
+                            }
+                          }}
+                          placeholder="Mfano: Kusanya wateja na kuongeza mauzo sasa!"
                           className="h-12 rounded-xl border-none bg-neutral-100 font-bold px-4 text-xs"
                         />
                       </div>
 
+                      {/* Splash Background Color */}
                       <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Splash Background Color</Label>
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Splash Background Color *</Label>
                         <div className="flex gap-3 items-center">
                           <Input 
                             type="color"
-                            value={businessConfig.splashColor || '#0c0c0e'}
-                            onChange={e => setBusinessConfig({...businessConfig, splashColor: e.target.value})}
+                            value={
+                              selectedAppProfile === 'customer' 
+                                ? (businessConfig.customerSplashColor || businessConfig.splashColor || '#0c0c0e') 
+                                : selectedAppProfile === 'driver' 
+                                ? (businessConfig.driverSplashColor || '#121214') 
+                                : selectedAppProfile === 'vendor' 
+                                ? (businessConfig.vendorSplashColor || '#0b161e') 
+                                : (businessConfig.deliverySplashColor || '#0a1a0f')
+                            }
+                            onChange={e => {
+                              const val = e.target.value;
+                              if (selectedAppProfile === 'customer') {
+                                setBusinessConfig({...businessConfig, customerSplashColor: val, splashColor: val});
+                              } else if (selectedAppProfile === 'driver') {
+                                setBusinessConfig({...businessConfig, driverSplashColor: val});
+                              } else if (selectedAppProfile === 'vendor') {
+                                setBusinessConfig({...businessConfig, vendorSplashColor: val});
+                              } else {
+                                setBusinessConfig({...businessConfig, deliverySplashColor: val});
+                              }
+                            }}
                             className="w-16 h-12 rounded-xl border-none bg-neutral-100 p-1 cursor-pointer"
                           />
-                          <span className="text-xs font-mono text-neutral-400 font-bold uppercase">{businessConfig.splashColor || '#0c0c0e'}</span>
+                          <span className="text-xs font-mono text-neutral-500 font-bold uppercase">
+                            {
+                              selectedAppProfile === 'customer' 
+                                ? (businessConfig.customerSplashColor || businessConfig.splashColor || '#0c0c0e') 
+                                : selectedAppProfile === 'driver' 
+                                ? (businessConfig.driverSplashColor || '#121214') 
+                                : selectedAppProfile === 'vendor' 
+                                ? (businessConfig.vendorSplashColor || '#0b161e') 
+                                : (businessConfig.deliverySplashColor || '#0a1a0f')
+                            }
+                          </span>
                         </div>
                       </div>
                     </div>
-
-                    {/* Pre-visualization preview of Splash */}
-                    <div className="border border-neutral-100 rounded-3xl p-6 relative flex flex-col items-center justify-center text-center overflow-hidden" style={{ minHeight: '145px', backgroundColor: businessConfig.splashColor || '#0c0c0e' }}>
-                      <div className="absolute top-2 right-4 text-[9px] text-white/45 uppercase tracking-widest font-mono font-bold">Splash Screen Preview</div>
-                      <div className="flex flex-col items-center">
-                        {businessConfig.appLogo ? (
-                          <img src={businessConfig.appLogo} alt="Logo" className="w-12 h-12 object-contain mb-3 rounded-xl pointer-events-none" onError={(e)=>{ (e.target as HTMLElement).style.display = 'none'; }} />
-                        ) : (
-                          <Car className="w-10 h-10 text-amber-400 mb-3 animate-pulse" />
-                        )}
-                        <h4 className="text-white text-xs font-black uppercase tracking-wider">{businessConfig.splashText || 'Tegex Taxi'}</h4>
-                        <div className="mt-2 w-12 h-1 bg-amber-400/80 rounded-full animate-pulse" />
-                      </div>
-                    </div>
                   </Card>
 
-                  {/* App Install / Downloads Feature */}
-                  <Card className="rounded-[3rem] border-none shadow-2xl p-8 space-y-6">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-black uppercase italic tracking-tighter">Kitufe cha Kupakua App (App Downloads)</h3>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-black uppercase text-neutral-400">{businessConfig.enableAppDownload ? 'ENABLED' : 'DISABLED'}</span>
-                        <Switch 
-                          checked={businessConfig.enableAppDownload}
-                          onCheckedChange={(val) => setBusinessConfig({...businessConfig, enableAppDownload: val})}
-                        />
+                  {/* Right Column: Premium Smartphone Mockup Live Preview */}
+                  <div className="lg:col-span-5 flex flex-col items-center justify-center">
+                    <div className="relative mx-auto border-[12px] border-neutral-900 rounded-[3rem] h-[520px] w-[270px] shadow-2xl bg-black overflow-hidden flex flex-col">
+                      {/* Speaker / Camera bar */}
+                      <div className="absolute top-0 inset-x-0 h-6 bg-black flex justify-center items-center z-20">
+                        <div className="w-20 h-4 bg-neutral-900 rounded-b-2xl flex items-center justify-center">
+                          <div className="w-2 h-2 bg-neutral-800 rounded-full" />
+                          <div className="w-8 h-1 bg-neutral-800 rounded mx-1" />
+                        </div>
+                      </div>
+
+                      {/* Smartphone Status Bar */}
+                      <div className="absolute top-6 inset-x-0 h-4 px-4 flex justify-between items-center text-[8px] font-black font-semibold text-white/60 z-20 select-none">
+                        <span>9:41</span>
+                        <div className="flex items-center gap-1">
+                          <span className="tracking-tighter">LTE</span>
+                          <span className="w-3 h-2 bg-white/60 rounded-xs inline-block" />
+                        </div>
+                      </div>
+
+                      {/* Splash Layout Frame content */}
+                      <div 
+                        className="flex-1 flex flex-col items-center justify-center text-center p-6 select-none relative transition-colors duration-450"
+                        style={{ 
+                          backgroundColor: 
+                            selectedAppProfile === 'customer' 
+                              ? (businessConfig.customerSplashColor || businessConfig.splashColor || '#0c0c0e') 
+                              : selectedAppProfile === 'driver' 
+                              ? (businessConfig.driverSplashColor || '#121214') 
+                              : selectedAppProfile === 'vendor' 
+                              ? (businessConfig.vendorSplashColor || '#0b161e') 
+                              : (businessConfig.deliverySplashColor || '#0a1a0f')
+                        }}
+                      >
+                        <div className="flex flex-col items-center max-w-[190px] animate-pulse">
+                          {
+                            (selectedAppProfile === 'customer' 
+                              ? (businessConfig.customerAppLogo || businessConfig.appLogo)
+                              : selectedAppProfile === 'driver'
+                              ? businessConfig.driverAppLogo
+                              : selectedAppProfile === 'vendor'
+                              ? businessConfig.vendorAppLogo
+                              : businessConfig.deliveryAppLogo) ? (
+                              <img 
+                                src={
+                                  selectedAppProfile === 'customer' 
+                                    ? (businessConfig.customerAppLogo || businessConfig.appLogo)
+                                    : selectedAppProfile === 'driver'
+                                    ? businessConfig.driverAppLogo
+                                    : selectedAppProfile === 'vendor'
+                                    ? businessConfig.vendorAppLogo
+                                    : businessConfig.deliveryAppLogo
+                                } 
+                                alt="App logo preview" 
+                                className="w-14 h-14 object-contain mb-4 rounded-xl shadow-lg pointer-events-none"
+                                onError={(e)=>{ (e.target as HTMLElement).style.display = 'none'; }}
+                              />
+                            ) : (
+                              <div className="w-14 h-14 rounded-2xl bg-amber-400 flex items-center justify-center text-black mb-4 shadow-xl">
+                                <Car className="w-8 h-8" />
+                              </div>
+                            )
+                          }
+
+                          <h5 className="text-[13px] font-black uppercase text-white tracking-widest mb-1 select-none">
+                            {businessConfig.name || 'M-Duka'}
+                          </h5>
+
+                          <p className="text-[9px] text-white/70 font-bold uppercase tracking-wide leading-tight mt-1 select-none">
+                            {
+                              selectedAppProfile === 'customer' 
+                                ? (businessConfig.customerSplashText || businessConfig.splashText || 'Usafiri wa Haraka, Salama na Uhakika') 
+                                : selectedAppProfile === 'driver' 
+                                ? (businessConfig.driverSplashText || 'Usafiri wa Haraka, Salama na Uhakika (Dereva)') 
+                                : selectedAppProfile === 'vendor' 
+                                ? (businessConfig.vendorSplashText || 'Sanidi Duka Lako Uweze Kuuza wepesi') 
+                                : (businessConfig.deliverySplashText || 'Uwasilishaji Haraka wa Vifurushi na Chakula')
+                            }
+                          </p>
+
+                          <div className="mt-6 flex flex-col items-center gap-1">
+                            <Loader2 className="w-3 h-3 text-amber-400 animate-spin" />
+                            <span className="text-[6px] text-white/50 font-mono font-black uppercase">Inapakia...</span>
+                          </div>
+                        </div>
+
+                        {/* Interactive info overlay at bottom of phone mockup */}
+                        <div className="absolute bottom-4 inset-x-0 flex flex-col items-center justify-center text-[7px] text-white/30 uppercase font-mono font-bold">
+                          <span>App Splash PREVIEW</span>
+                          <span className="text-[5px] mt-0.5">Showcase on Mobile View</span>
+                        </div>
+                      </div>
+
+                      {/* iPhone Home key bar */}
+                      <div className="absolute bottom-1 inset-x-0 h-4 flex justify-center items-center z-20">
+                        <div className="w-24 h-1 bg-white/40 rounded-full" />
                       </div>
                     </div>
-
-                    <p className="text-xs text-neutral-400 font-medium">Bainisha kama unaruhusu madereva na abiria kuona kitufe na sehemu ya kupakua app yao (APK ya Android, Play Store au App Store).</p>
-
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Android APK Direct Download Link *</Label>
-                        <Input 
-                          value={businessConfig.apkDownloadUrl || ''}
-                          onChange={e => setBusinessConfig({...businessConfig, apkDownloadUrl: e.target.value})}
-                          placeholder="Mfano: /app-release.apk au https://yourdomain.com/app.apk"
-                          className="h-12 rounded-xl border-none bg-neutral-100 font-bold px-4 text-xs"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Google Play Store Link</Label>
-                        <Input 
-                          value={businessConfig.playStoreUrl || ''}
-                          onChange={e => setBusinessConfig({...businessConfig, playStoreUrl: e.target.value})}
-                          placeholder="Mfano: https://play.google.com/store/apps/details?id=..."
-                          className="h-12 rounded-xl border-none bg-neutral-100 font-bold px-4 text-xs"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Apple App Store Link</Label>
-                        <Input 
-                          value={businessConfig.appStoreUrl || ''}
-                          onChange={e => setBusinessConfig({...businessConfig, appStoreUrl: e.target.value})}
-                          placeholder="Mfano: https://apps.apple.com/app/id..."
-                          className="h-12 rounded-xl border-none bg-neutral-100 font-bold px-4 text-xs"
-                        />
-                      </div>
-                    </div>
-                  </Card>
+                  </div>
                 </div>
+
+                {/* Outer Layout: Global Mobile App download configurations */}
+                <Card className="rounded-[3rem] border-none shadow-2xl p-8 space-y-6 bg-white max-w-5xl">
+                  <div className="flex items-center justify-between col-span-2 border-b border-neutral-100 pb-4">
+                    <div>
+                      <h3 className="text-xl font-black uppercase italic tracking-tighter text-neutral-900">Kitufe cha Kupakua App (App Downloads Button)</h3>
+                      <p className="text-[11px] text-neutral-400 font-bold uppercase tracking-wider mt-1">Sanidi kama unaruhusu wauzaji na abiria kuona vitufe vya kupakua play store / app store.</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black uppercase text-neutral-400">{businessConfig.enableAppDownload ? 'ENABLED' : 'DISABLED'}</span>
+                      <Switch 
+                        checked={businessConfig.enableAppDownload}
+                        onCheckedChange={(val) => setBusinessConfig({...businessConfig, enableAppDownload: val})}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Android APK Direct Download Link *</Label>
+                      <Input 
+                        value={businessConfig.apkDownloadUrl || ''}
+                        onChange={e => setBusinessConfig({...businessConfig, apkDownloadUrl: e.target.value})}
+                        placeholder="Mfano: /app-release.apk au https://yourdomain.com/app.apk"
+                        className="h-12 rounded-xl border-none bg-neutral-100 font-bold px-4 text-xs"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                       <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Google Play Store Link</Label>
+                       <Input 
+                         value={businessConfig.playStoreUrl || ''}
+                         onChange={e => setBusinessConfig({...businessConfig, playStoreUrl: e.target.value})}
+                         placeholder="Mfano: https://play.google.com/store/apps/details?id=..."
+                         className="h-12 rounded-xl border-none bg-neutral-100 font-bold px-4 text-xs"
+                       />
+                     </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Apple App Store Link</Label>
+                      <Input 
+                        value={businessConfig.appStoreUrl || ''}
+                        onChange={e => setBusinessConfig({...businessConfig, appStoreUrl: e.target.value})}
+                        placeholder="Mfano: https://apps.apple.com/app/id..."
+                        className="h-12 rounded-xl border-none bg-neutral-100 font-bold px-4 text-xs"
+                      />
+                    </div>
+                  </div>
+                </Card>
               </div>
             )}
 
