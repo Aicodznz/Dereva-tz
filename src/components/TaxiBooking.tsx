@@ -58,7 +58,7 @@ import { Badge } from "@/components/ui/badge";
 import { useNavigate, useSearchParams } from "react-router-dom"; // test transition
 import { toast } from "sonner";
 
-import { useRouting } from "../hooks/useRouting";
+import { useRouting, generateSimulatedRoads } from "../hooks/useRouting";
 import { useCreateRide } from "../hooks/useCreateRide";
 import { useTripFlow } from "../hooks/useTripFlow";
 import { useMatchmaking } from "../hooks/useMatchmaking";
@@ -1354,7 +1354,7 @@ export default function TaxiBooking() {
                         positions={
                           activeRide.routeCoords && activeRide.routeCoords.length > 0
                             ? getNormalizedCoords(activeRide.routeCoords)
-                            : [pickupPos, destPos]
+                            : generateSimulatedRoads(pickupPos, destPos)
                         }
                         color="#00FF88"
                       />
@@ -1363,7 +1363,7 @@ export default function TaxiBooking() {
                         <AnimatedRoute positions={routeCoords} color="#00FF88" />
                       ) : (
                         pickupPos && destPos && (
-                          <AnimatedRoute positions={[pickupPos, destPos]} color="#00FF88" />
+                          <AnimatedRoute positions={generateSimulatedRoads(pickupPos, destPos)} color="#00FF88" />
                         )
                       )
                     )}

@@ -24,7 +24,7 @@ import { useDriverRideListener } from '../../hooks/useDriverRideListener';
 import { useIncomingRequests } from '../../hooks/useIncomingRequests';
 import { useDriverDashboard } from '../../hooks/useDriverDashboard';
 import { useIncomingOrders } from '../../hooks/useIncomingOrders';
-import { useRouting } from '../../hooks/useRouting';
+import { useRouting, generateSimulatedRoads } from '../../hooks/useRouting';
 import { useVoiceNavigation } from '../../hooks/useVoiceNavigation';
 import { createDriverMarkerIcon } from '../../utils/driverMarker';
 import { calculateBearing, getMapBounds } from '../../utils/mapHelpers';
@@ -1146,7 +1146,7 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                   positions={
                     activeRide.routeCoords && activeRide.routeCoords.length > 0
                       ? getNormalizedCoords(activeRide.routeCoords)
-                      : [[activeRide.pickup.lat, activeRide.pickup.lng], [activeRide.destination.lat, activeRide.destination.lng]]
+                      : generateSimulatedRoads([activeRide.pickup.lat, activeRide.pickup.lng], [activeRide.destination.lat, activeRide.destination.lng])
                   } 
                   color="#00E5FF" 
                 />
@@ -1156,12 +1156,12 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                   positions={
                     dynamicRoute && dynamicRoute.length > 1 
                       ? dynamicRoute 
-                      : [
+                      : generateSimulatedRoads(
                           position, 
                           activeRide.status === 'on_trip' 
                             ? [activeRide.destination.lat, activeRide.destination.lng] 
                             : [activeRide.pickup.lat, activeRide.pickup.lng]
-                        ]
+                        )
                   } 
                   color={activeRide.status === 'on_trip' ? '#00FF88' : '#FF6B35'} 
                 />
