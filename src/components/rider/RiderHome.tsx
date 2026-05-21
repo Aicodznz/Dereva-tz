@@ -66,12 +66,19 @@ function MapController({ position, activeRide }: { position: [number, number], a
   const [autoFollow, setAutoFollow] = React.useState(true);
   const lastCenterRef = React.useRef<[number, number] | null>(null);
 
-  // Trigger invalidateSize to fix size issues when loaded on mobile phone or tablet layout
+  // Trigger invalidateSize sequentially to fix size issues when loaded on mobile phone or tablet layout
   useEffect(() => {
-    const timer = setTimeout(() => {
-      map.invalidateSize();
-    }, 250);
-    return () => clearTimeout(timer);
+    const delays = [100, 300, 600, 1200];
+    const timers = delays.map(delay => 
+      setTimeout(() => {
+        try {
+          map.invalidateSize();
+        } catch (e) {
+          // ignore
+        }
+      }, delay)
+    );
+    return () => timers.forEach(clearTimeout);
   }, [map, activeRide?.status, activeRide?.id]);
 
   // Use map events to turn off autoFollow if user drags or zooms manually
@@ -1090,7 +1097,7 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                   positions={
                     dynamicRoute && dynamicRoute.length > 0 
                       ? dynamicRoute 
-                      : [position, [incomingRequest.pickup.lat, incomingRequest.pickup.lng]]
+                      : generateSimulatedRoads(position, [incomingRequest.pickup.lat, incomingRequest.pickup.lng])
                   } 
                   color="#FF6B35" 
                 />

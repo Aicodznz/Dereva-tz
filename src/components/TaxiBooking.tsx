@@ -222,12 +222,19 @@ const MapControl = ({
   const lastCenterRef = useRef<[number, number] | null>(null);
   const lastRouteHash = useRef<string>("");
 
-  // Invalidate map size on step change to guarantee correct size calculations on mobile viewports
+  // Invalidate map size sequentially on step change to guarantee correct size calculations on mobile viewports
   useEffect(() => {
-    const timer = setTimeout(() => {
-      map.invalidateSize();
-    }, 250);
-    return () => clearTimeout(timer);
+    const delays = [100, 300, 600, 1200];
+    const timers = delays.map(delay => 
+      setTimeout(() => {
+        try {
+          map.invalidateSize();
+        } catch (e) {
+          // ignore
+         }
+       }, delay)
+    );
+    return () => timers.forEach(clearTimeout);
   }, [map, step]);
 
   // Adjust camera to fit the full route on step 'map'
@@ -1376,13 +1383,13 @@ export default function TaxiBooking() {
                         positions={
                           driverRouteCoords && driverRouteCoords.length > 0
                             ? driverRouteCoords
-                            : [
+                            : generateSimulatedRoads(
                                 [
                                   driverLivePos?.lat || activeRide?.driverLocation?.lat || pickupPos[0],
                                   driverLivePos?.lng || activeRide?.driverLocation?.lng || pickupPos[1],
                                 ],
-                                activeRide?.status === "on_trip" ? destPos : pickupPos,
-                              ]
+                                activeRide?.status === "on_trip" ? destPos : pickupPos
+                              )
                         }
                         color={
                           activeRide?.status === "on_trip"
