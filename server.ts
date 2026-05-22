@@ -355,6 +355,8 @@ async function startServer() {
       console.warn("[Proxy] Failed to parse coords pairs:", e);
     }
 
+    const encodedCoords = coordsPairs.map(p => encodeURIComponent(`${p[0]},${p[1]}`)).join(";");
+
     // 1. Try URL 1 (router.project-osrm.org - driving)
     const headers = {
       'Accept': 'application/json',
@@ -362,7 +364,7 @@ async function startServer() {
     };
 
     try {
-      const url1 = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=true`;
+      const url1 = `https://router.project-osrm.org/route/v1/driving/${encodedCoords}?overview=full&geometries=geojson&steps=true`;
       console.log(`[Proxy] Attempting primary OSRM driving: ${url1}`);
       const response = await fetch(url1, {
         headers,
@@ -388,7 +390,7 @@ async function startServer() {
 
       // 2. Try URL 2 (routing.openstreetmap.de - car)
       try {
-        const url2 = `https://routing.openstreetmap.de/routed-car/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=true`;
+        const url2 = `https://routing.openstreetmap.de/routed-car/route/v1/driving/${encodedCoords}?overview=full&geometries=geojson&steps=true`;
         console.log(`[Proxy] Attempting secondary OSM.de car: ${url2}`);
         const response2 = await fetch(url2, {
           headers,
@@ -414,7 +416,7 @@ async function startServer() {
 
         // 3. Try OSM.de bicycle (Allows passing minor streets / tracks / cuts that might be mapped as bike-passable but not car-passable)
         try {
-          const url3 = `https://routing.openstreetmap.de/routed-bike/route/v1/bicycle/${coords}?overview=full&geometries=geojson&steps=true`;
+          const url3 = `https://routing.openstreetmap.de/routed-bike/route/v1/bicycle/${encodedCoords}?overview=full&geometries=geojson&steps=true`;
           console.log(`[Proxy] Attempting secondary OSM.de bicycle: ${url3}`);
           const response3 = await fetch(url3, {
             headers,
@@ -443,7 +445,7 @@ async function startServer() {
 
           // 4. Try OSM.de foot (Can route through any pedestrian way/residential pathway)
           try {
-            const url4 = `https://routing.openstreetmap.de/routed-foot/route/v1/foot/${coords}?overview=full&geometries=geojson&steps=true`;
+            const url4 = `https://routing.openstreetmap.de/routed-foot/route/v1/foot/${encodedCoords}?overview=full&geometries=geojson&steps=true`;
             console.log(`[Proxy] Attempting secondary OSM.de foot: ${url4}`);
             const response4 = await fetch(url4, {
               headers,

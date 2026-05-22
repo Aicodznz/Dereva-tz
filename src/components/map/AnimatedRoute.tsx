@@ -7,7 +7,7 @@ interface AnimatedRouteProps {
 
 export const AnimatedRoute: React.FC<AnimatedRouteProps> = ({ 
   positions, 
-  color = '#00FF88' 
+  color = '#00E5A0' 
 }) => {
   return (
     <>
@@ -17,30 +17,30 @@ export const AnimatedRoute: React.FC<AnimatedRouteProps> = ({
         pathOptions={{
           color: color,
           weight: 12,
-          opacity: 0.15,
+          opacity: 0.25,
           lineCap: 'round',
           lineJoin: 'round',
         }}
       />
-      {/* 2. SOLID robust main path. This is GUARANTEED to display on all mobile and tablet devices even if SVGs with dash animations fail on webkit/blink */}
+      {/* 2. SOLID robust main path */}
       <Polyline
         positions={positions}
         pathOptions={{
           color: color,
-          weight: 4,
-          opacity: 0.85,
+          weight: 5,
+          opacity: 0.95,
           lineCap: 'round',
           lineJoin: 'round',
         }}
       />
-      {/* 3. Overlaying animated movement layer */}
+      {/* 3. Overlaying animated movement layer (marching ants) */}
       <Polyline
         positions={positions}
         pathOptions={{
           color: '#ffffff', // Cool glowing flowing dashes over the colored line
-          weight: 4,
+          weight: 5,
           opacity: 0.7,
-          dashArray: '10, 15',
+          dashArray: '12, 10',
           lineCap: 'round',
           lineJoin: 'round',
           className: 'animated-route-glow',

@@ -94,38 +94,38 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 20, opacity: 0 }}
-              className="absolute top-40 inset-x-6 z-[60] glass-morphism rounded-[24px] p-4 shadow-2xl pointer-events-auto"
+              className="absolute top-40 inset-x-6 z-[60] bg-[#0A0C14]/85 backdrop-blur-[20px] border border-white/10 rounded-[24px] p-4 shadow-2xl pointer-events-auto animate-fade-in"
             >
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-white/10 relative">
+                  <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-[#00E5A0] relative bg-[#080A12]">
                     <img src={ride.driverInfo.photo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${ride.driverId}`} alt="Driver" className="w-full h-full object-cover" />
-                    <div className="absolute bottom-1 right-1 w-3 h-3 bg-[#00FF88] border-2 border-[#111118] rounded-full" />
+                    <div className="absolute bottom-1 right-1 w-3 h-3 bg-[#00E5A0] border-2 border-[#0A0C14] rounded-full shadow-lg" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-black text-white italic uppercase">{ride.driverInfo.name || 'Dereva'}</h4>
-                    <div className="flex items-center gap-1">
-                      <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
-                      <span className="text-[10px] font-black text-white/70">{ride.driverInfo.rating || '4.8'}</span>
+                    <h4 className="text-sm font-black text-white uppercase font-heading">{ride.driverInfo.name || 'Dereva'}</h4>
+                    <div className="flex items-center gap-1.5 bg-yellow-400/10 px-2 py-0.5 rounded border border-yellow-400/20 w-fit">
+                      <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
+                      <span className="text-[10px] font-black text-yellow-400 font-mono">{ride.driverInfo.rating || '4.8'}</span>
                     </div>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-[10px] font-black text-[#00FF88] uppercase tracking-widest">{ride.driverInfo.vehicle.plate || 'T 123 ABC'}</p>
-                  <p className="text-[9px] font-bold text-white/50 uppercase">{ride.driverInfo.vehicle?.model || 'Mini'}</p>
+                  <p className="text-[11px] font-black text-[#00E5A0] uppercase tracking-wider font-mono">{ride.driverInfo.vehicle.plate || 'T 123 ABC'}</p>
+                  <p className="text-[9px] font-bold text-[#8A8FA8] uppercase tracking-wider">{ride.driverInfo.vehicle?.model || 'Mini'}</p>
                 </div>
               </div>
               <div className="mt-3 pt-3 border-t border-white/5 flex gap-2">
                 <button 
                   onClick={() => toast.info("Link ya safari imenakiliwa!")}
-                  className="flex-1 h-10 bg-white/5 hover:bg-white/10 rounded-xl flex items-center justify-center gap-2 transition-all"
+                  className="flex-1 h-10 bg-white/5 hover:bg-white/10 rounded-xl flex items-center justify-center gap-2 transition-all border border-white/5"
                 >
-                  <span className="text-[9px] font-black text-white uppercase tracking-widest">Share Trip</span>
+                  <span className="text-[9px] font-black text-white uppercase tracking-widest leading-none">Share Trip</span>
                 </button>
                 {onMessage && (
                   <button 
                     onClick={onMessage}
-                    className="w-12 h-10 bg-[#00FF88]/10 text-[#00FF88] rounded-xl flex items-center justify-center border border-[#00FF88]/20"
+                    className="w-12 h-10 bg-[#00E5A0]/10 text-[#00E5A0] rounded-xl flex items-center justify-center border border-[#00E5A0]/20 hover:bg-[#00E5A0]/20 transition-all text-sm"
                   >
                     <MessageSquare className="w-5 h-5" />
                   </button>
@@ -142,7 +142,7 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
               initial={{ x: 100 }}
               animate={{ x: 0 }}
               exit={{ x: 100 }}
-              className="absolute top-24 right-6 w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-red-600 shadow-2xl z-[60] active:scale-90 transition-transform pointer-events-auto"
+              className="absolute top-24 right-6 w-12 h-12 bg-red-600 rounded-2xl flex items-center justify-center text-white shadow-2xl z-[60] active:scale-90 transition-transform pointer-events-auto border border-red-500/20"
             >
                <Shield className="w-6 h-6" />
             </motion.button>
@@ -166,13 +166,13 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
                 setIsCollapsed(true);
               }
             }}
-            className="absolute bottom-0 left-0 right-0 w-full bg-[#111118] rounded-t-[40px] border-t border-[#1e1e2e] p-8 pb-10 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] z-[60] touch-none pointer-events-auto"
+            className="absolute bottom-0 left-0 right-0 w-full bg-[#0A0C14]/95 backdrop-blur-[20px] rounded-t-[40px] border-t border-white/10 p-8 pb-10 shadow-[0_-20px_50px_rgba(0,0,0,0.6)] z-[60] touch-none pointer-events-auto"
           >
             <div className="relative flex items-center justify-center mb-6">
-              <div className="w-12 h-1.5 bg-[#1e1e2e] rounded-full cursor-grab active:cursor-grabbing" />
+              <div className="w-12 h-1.5 bg-white/10 rounded-full cursor-grab active:cursor-grabbing" />
               <button 
                 onClick={() => setIsCollapsed(true)}
-                className="absolute right-0 text-[10px] font-black uppercase text-[#6b6b8a] hover:text-white tracking-widest px-3 py-1 bg-white/5 hover:bg-white/10 rounded-lg transition-colors pointer-events-auto"
+                className="absolute right-0 text-[10px] font-black uppercase text-[#8A8FA8] hover:text-white tracking-[0.15em] px-3 py-1 bg-white/5 hover:bg-white/10 rounded-full transition-colors pointer-events-auto"
               >
                 Ficha Maelezo
               </button>
@@ -180,14 +180,14 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
             
             <div className="flex items-center justify-between mb-8">
                <div className="space-y-1">
-                  <p className="text-[10px] font-black text-[#6b6b8a] uppercase tracking-widest">{targetLabel}</p>
-                  <h3 className="text-sm font-black text-[#f0eeff] italic truncate max-w-[200px]">
+                  <p className="text-[10px] font-black text-[#8A8FA8] uppercase tracking-[0.1em] font-heading">{targetLabel}</p>
+                  <h3 className="text-sm font-black text-white uppercase tracking-wide truncate max-w-[200px] font-sans">
                     {targetLocation.address}
                   </h3>
                </div>
                <div className="text-right">
-                  <p className="text-[10px] font-black text-[#6b6b8a] uppercase tracking-widest">ETA</p>
-                  <h3 className="text-2xl font-black text-[#1D9E75] italic tracking-tighter">
+                  <p className="text-[10px] font-black text-[#8A8FA8] uppercase tracking-[0.1em] font-heading">ETA</p>
+                  <h3 className="text-2xl font-black text-[#00E5A0] font-mono tracking-wider bg-[#00E5A0]/5 px-3 py-1 rounded-lg border border-[#00E5A0]/10 inline-block shadow-[0_0_12px_rgba(0,229,160,0.05)]">
                     {eta ? `${eta.minutes}:${eta.seconds.toString().padStart(2, '0')}` : '00:00'}
                   </h3>
                </div>
@@ -203,15 +203,15 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
               ].map((s, i, arr) => (
                 <React.Fragment key={s.label}>
                   <div className="flex flex-col items-center gap-1.5">
-                    <div className={`w-3 h-3 rounded-full border-2 transition-all duration-500 ${s.active ? 'bg-[#00FF88] border-[#00FF88] shadow-[0_0_8px_#00FF88]' : 'bg-white/5 border-white/10'}`} />
-                    <span className={`text-[7px] font-black uppercase tracking-widest ${s.active ? 'text-white' : 'text-[#6b6b8a]'}`}>{s.label}</span>
+                    <div className={`w-3.5 h-3.5 rounded-full border-2 transition-all duration-500 ${s.active ? 'bg-[#00E5A0] border-[#00E5A0] shadow-[0_0_12px_#00E5A0]' : 'bg-white/5 border-white/10'}`} />
+                    <span className={`text-[7px] font-black uppercase tracking-[0.1em] ${s.active ? 'text-white' : 'text-[#8A8FA8]'}`}>{s.label}</span>
                   </div>
                   {i < arr.length - 1 && (
                     <div className="flex-1 h-[2px] mb-4 mx-2 bg-white/5 rounded-full overflow-hidden">
                       <motion.div 
                         initial={{ width: 0 }}
                         animate={{ width: arr[i+1].active ? '100%' : '0%' }}
-                        className="h-full bg-[#00FF88]"
+                        className="h-full bg-[#00E5A0]"
                       />
                     </div>
                   )}
@@ -219,14 +219,14 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
               ))}
             </div>
 
-            <div className="flex items-center justify-between p-5 bg-[#0a0a0f] rounded-3xl border border-[#1e1e2e]">
+            <div className="flex items-center justify-between p-5 bg-[#080A12] rounded-3xl border border-white/5">
                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-[#111118] rounded-xl flex items-center justify-center">
-                     <Navigation2 className="w-5 h-5 text-[#1D9E75]" />
+                  <div className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center">
+                     <Navigation2 className="w-5 h-5 text-[#00E5A0]" />
                   </div>
                   <div>
-                     <p className="text-[8px] font-black text-[#6b6b8a] uppercase tracking-widest">{distanceLabel}</p>
-                     <h4 className="text-xs font-black text-[#f0eeff] italic">
+                     <p className="text-[8px] font-black text-[#8A8FA8] uppercase tracking-widest mb-0.5">{distanceLabel}</p>
+                     <h4 className="text-xs font-black text-white font-mono tracking-wide">
                        {distance ? distance.toFixed(1) : (ride.distance || '0.0')} km
                      </h4>
                   </div>
@@ -235,13 +235,13 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
                  {onMessage && (
                    <button 
                      onClick={onMessage}
-                     className="w-10 h-10 bg-[#111118] border border-[#1e1e2e] rounded-xl flex items-center justify-center text-[#1D9E75] active:scale-90 transition-transform"
+                     className="w-10 h-10 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center text-[#00E5A0] active:scale-90 transition-transform hover:bg-white/10"
                    >
                      <MessageSquare className="w-4 h-4" />
                    </button>
                  )}
-                 <button className="text-[10px] font-black text-red-500 uppercase tracking-widest">
-                   SOS Dharura
+                 <button className="text-[10px] font-black text-red-500 uppercase tracking-widest font-heading transition-colors hover:text-red-400">
+                    SOS Dharura
                  </button>
                </div>
             </div>

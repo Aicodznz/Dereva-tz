@@ -368,6 +368,15 @@ export default function TaxiBooking() {
     "pickup",
   );
   const [selectedRide, setSelectedRide] = useState<RideOption | null>(null);
+  const [secondsOffset, setSecondsOffset] = useState<number>(0);
+
+  // Live timer tick for MM:SS countdown and arriving increments
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setSecondsOffset((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const [pickupPos, setPickupPos] = useState<[number, number]>([
     -6.7721, 39.2326,
@@ -453,6 +462,11 @@ export default function TaxiBooking() {
   const { createRide, isLoading: isCreatingRide } = useCreateRide();
   const [rideId, setRideId] = useState<string | null>(null);
   const { ride: activeRide, cancelRide, deleteRide } = useTripFlow(rideId);
+
+  // Reset secondsOffset when ride status or ID changes
+  useEffect(() => {
+    setSecondsOffset(0);
+  }, [rideId, activeRide?.status]);
   const [driverLivePos, setDriverLivePos] = useState<{
     lat: number;
     lng: number;
@@ -744,17 +758,19 @@ export default function TaxiBooking() {
     return L.divIcon({
       className: "custom-div-icon",
       html: `
-        <div class="relative flex flex-col items-center animate-fade-in">
-          <div class="bg-[#111118]/95 backdrop-blur-md border border-emerald-500/30 rounded-2xl px-2.5 py-1 mb-1 shadow-2xl flex flex-col items-center min-w-[125px]">
-            <span class="text-[9px] font-black text-emerald-400 uppercase tracking-widest leading-normal">PICKUP MTEJA</span>
-            <span class="text-[9.5px] font-bold text-white/95 mt-0.5 whitespace-nowrap px-1.5 py-0.5 bg-emerald-500/10 rounded border border-emerald-500/20">${etaText}</span>
+        <div class="relative flex flex-col items-center">
+          <!-- Active Pill above marker with premium typography and alignment -->
+          <div class="bg-[#0A0C14]/95 backdrop-blur-md border border-[#00E5A0]/30 rounded-2xl px-3 py-1.5 mb-2 shadow-2xl flex flex-col items-center min-w-[130px]">
+            <span class="text-[9px] font-black text-[#00E5A0] uppercase tracking-[0.15em] leading-tight font-heading">PICKUP MTEJA</span>
+            <span class="text-[9.5px] font-mono font-bold text-white mt-0.5 whitespace-nowrap">${etaText}</span>
           </div>
-          <div class="bg-emerald-500 text-white w-9 h-9 rounded-full border-4 border-[#111118] shadow-2xl flex items-center justify-center font-black text-lg marker-pulse-green">A</div>
-          <div class="w-1 h-2.5 bg-emerald-500 rounded-full -mt-0.5 shadow-lg"></div>
+          <!-- Pulse green animating container -->
+          <div class="w-9 h-9 bg-[#00E5A0] rounded-full border-4 border-[#0F111E] shadow-2xl flex items-center justify-center font-black text-lg text-[#0F111E] marker-pulse-mint">A</div>
+          <div class="w-1.5 h-3 bg-[#00E5A0] rounded-full -mt-0.5 shadow-lg"></div>
         </div>
       `,
-      iconSize: [145, 85],
-      iconAnchor: [72, 85],
+      iconSize: [160, 95],
+      iconAnchor: [80, 95],
     });
   };
 
@@ -762,17 +778,17 @@ export default function TaxiBooking() {
     return L.divIcon({
       className: "custom-div-icon",
       html: `
-        <div class="relative flex flex-col items-center animate-fade-in">
-          <div class="bg-[#111118]/95 backdrop-blur-md border border-orange-500/30 rounded-2xl px-2.5 py-1 mb-1 shadow-2xl flex flex-col items-center min-w-[160px]">
-            <span class="text-[9px] font-black text-orange-400 uppercase tracking-widest leading-normal">DESTINATION</span>
-            <span class="text-[9.5px] font-bold text-white/95 mt-0.5 whitespace-nowrap px-1.5 py-0.5 bg-orange-500/10 rounded border border-orange-500/20">${etaText}</span>
+        <div class="relative flex flex-col items-center">
+          <div class="bg-[#0A0C14]/95 backdrop-blur-md border border-[#FF6B35]/30 rounded-2xl px-3 py-1.5 mb-2 shadow-2xl flex flex-col items-center min-w-[160px]">
+            <span class="text-[9px] font-black text-[#FF6B35] uppercase tracking-[0.15em] leading-tight font-heading">DESTINATION</span>
+            <span class="text-[9.5px] font-mono font-bold text-white mt-0.5 whitespace-nowrap">${etaText}</span>
           </div>
-          <div class="bg-orange-500 text-white w-9 h-9 rounded-full border-4 border-[#111118] shadow-2xl flex items-center justify-center font-black text-lg marker-pulse-orange">B</div>
-          <div class="w-1 h-2.5 bg-orange-500 rounded-full -mt-0.5 shadow-lg"></div>
+          <div class="w-9 h-9 bg-[#FF6B35] rounded-full border-4 border-[#0F111E] shadow-2xl flex items-center justify-center font-black text-lg text-white">B</div>
+          <div class="w-1.5 h-3 bg-[#FF6B35] rounded-full -mt-0.5 shadow-lg animate-bounce"></div>
         </div>
       `,
-      iconSize: [170, 85],
-      iconAnchor: [85, 85],
+      iconSize: [180, 95],
+      iconAnchor: [90, 95],
     });
   };
 
@@ -1352,6 +1368,76 @@ export default function TaxiBooking() {
                   </div>
                 </div>
 
+                {/* 2025 African Tech Premium Floating Info Cards */}
+                {activeRide && ["found", "arriving", "on_trip"].includes(step) && (
+                  <div className="absolute top-24 right-6 left-6 md:left-auto md:w-[320px] z-[60] flex flex-col gap-3 pointer-events-auto animate-fade-in">
+                    {/* Pickup Card - Only visible when the driver is coming to get them */}
+                    {activeRide.status !== "on_trip" && (
+                      <div className="bg-[#080A12]/85 backdrop-blur-[20px] border border-white/10 rounded-2xl p-4 md:p-5 shadow-[0_12px_40px_rgba(0,0,0,0.5)] flex flex-col relative overflow-hidden">
+                        <div className="absolute top-0 left-0 w-1.5 h-full bg-[#00E5A0]" />
+                        <div className="flex items-center justify-between mb-2 pl-2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-[#00E5A0] animate-ping" />
+                            <span className="text-[10px] font-black tracking-[0.15em] text-[#00E5A0] font-heading">🟢 PICKUP MTEJA</span>
+                          </div>
+                        </div>
+                        <div className="h-[1px] w-full bg-white/5 mb-3" />
+                        <div className="flex flex-col pl-2">
+                          <span className="text-[10px] font-black text-[#8A8FA8] uppercase tracking-[0.08em] mb-1 font-heading">Dereva atakuja baada ya</span>
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="text-xl md:text-2xl font-mono font-black text-white bg-white/5 px-2.5 py-1 rounded-lg border border-white/5 tracking-wider">
+                              {(() => {
+                                const driverLoc: [number, number] | null = driverLivePos
+                                  ? [driverLivePos.lat, driverLivePos.lng]
+                                  : activeRide.driverLocation
+                                  ? [activeRide.driverLocation.lat, activeRide.driverLocation.lng]
+                                  : null;
+                                if (driverLoc) {
+                                  const distToPickup = getDistanceLocal(driverLoc, pickupPos);
+                                  if (distToPickup < 60) {
+                                    return "[ ARRIVED ]";
+                                  } else {
+                                    const durSecs = distToPickup / 6.5; 
+                                    const mins = Math.max(0, Math.floor(durSecs / 60));
+                                    const secs = Math.max(0, Math.floor(durSecs % 60));
+                                    return `[ ${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')} ]`;
+                                  }
+                                }
+                                return "[ 05:00 ]";
+                              })()}
+                            </span>
+                            <span className="text-[9px] font-semibold text-[#8A8FA8] italic">countdown</span>
+                          </div>
+                          <p className="text-[10px] text-white/70 mt-3 truncate bg-white/5 py-1.5 px-3 rounded-lg border border-white/5 font-sans">
+                            Kutoka: <span className="font-semibold text-white">{activeRide.pickup.address}</span>
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Destination Card - Always visible */}
+                    <div className="bg-[#080A12]/85 backdrop-blur-[20px] border border-white/10 rounded-2xl p-4 md:p-5 shadow-[0_12px_40px_rgba(0,0,0,0.5)] flex flex-col relative overflow-hidden">
+                      <div className="absolute top-0 left-0 w-1.5 h-full bg-[#FF6B35]" />
+                      <div className="flex items-center justify-between mb-2 pl-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-[#FF6B35] animate-pulse" />
+                          <span className="text-[10px] font-black tracking-[0.15em] text-[#FF6B35] font-heading">🟠 DESTINATION</span>
+                        </div>
+                      </div>
+                      <div className="h-[1px] w-full bg-white/5 mb-3" />
+                      <div className="flex flex-col pl-2">
+                        <span className="text-[10px] font-black text-[#8A8FA8] uppercase tracking-[0.08em] mb-1 font-heading">Muda unaokadiriwa kufika</span>
+                        <span className="text-xs font-black text-white font-mono tracking-wide bg-white/5 py-1.5 px-3 rounded-lg border border-white/5 inline-block">
+                          {etaDestText}
+                        </span>
+                        <p className="text-[10px] text-white/70 mt-3 truncate bg-white/5 py-1.5 px-3 rounded-lg border border-white/5 font-sans">
+                          Mwisho: <span className="font-semibold text-white">{activeRide.destination.address}</span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <style>{`.leaflet-container { height: 100% !important; width: 100% !important; background: #ffffff !important; } .custom-div-icon { background: none; border: none; } .animate-spin-slow { animation: spin 3s linear infinite; } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
                 <div
                   style={{
@@ -1454,14 +1540,14 @@ export default function TaxiBooking() {
                             ? getNormalizedCoords(activeRide.routeCoords)
                             : generateSimulatedRoads(pickupPos, destPos)
                         }
-                        color="#00FF88"
+                        color="#00E5A0"
                       />
                     ) : (
                       routeCoords && routeCoords.length > 1 ? (
-                        <AnimatedRoute positions={routeCoords} color="#00FF88" />
+                        <AnimatedRoute positions={routeCoords} color="#00E5A0" />
                       ) : (
                         pickupPos && destPos && (
-                          <AnimatedRoute positions={generateSimulatedRoads(pickupPos, destPos)} color="#00FF88" />
+                          <AnimatedRoute positions={generateSimulatedRoads(pickupPos, destPos)} color="#00E5A0" />
                         )
                       )
                     )}
@@ -1484,7 +1570,7 @@ export default function TaxiBooking() {
                         }
                         color={
                           activeRide?.status === "on_trip"
-                            ? "#00FF88"
+                            ? "#00E5A0"
                             : "#FF6B35"
                         }
                       />
@@ -1842,6 +1928,9 @@ export default function TaxiBooking() {
                     setSearchParams({ to: activeRide.driverId });
                     setIsChatOpen(true);
                   }
+                }}
+                onCancel={() => {
+                  cancelRide();
                 }}
                 onImComing={() => {
                   updateDoc(doc(db, "rides", rideId!), {
