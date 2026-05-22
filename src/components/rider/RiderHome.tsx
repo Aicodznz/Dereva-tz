@@ -420,35 +420,41 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
     return () => clearInterval(interval);
   }, [isOnline, !!activeRide]);
 
-  const StartPin = React.useMemo(() => L.divIcon({
-    className: 'custom-div-icon',
-    html: `
-      <div class="relative flex flex-col items-center">
-        <div class="bg-[#111118]/90 backdrop-blur-md border border-white/10 rounded-xl px-2 py-1 mb-1 shadow-2xl">
-          <p class="text-[9px] font-black text-emerald-400 uppercase whitespace-nowrap tracking-widest">PICKUP MTEJA</p>
+  const getStartPin = (etaText: string) => {
+    return L.divIcon({
+      className: "custom-div-icon",
+      html: `
+        <div class="relative flex flex-col items-center animate-fade-in">
+          <div class="bg-[#111118]/95 backdrop-blur-md border border-emerald-500/30 rounded-2xl px-2.5 py-1 mb-1 shadow-2xl flex flex-col items-center min-w-[125px]">
+            <span class="text-[9px] font-black text-emerald-400 uppercase tracking-widest leading-normal">PICKUP MTEJA</span>
+            <span class="text-[9.5px] font-bold text-white/95 mt-0.5 whitespace-nowrap px-1.5 py-0.5 bg-emerald-500/10 rounded border border-emerald-500/20">${etaText}</span>
+          </div>
+          <div class="bg-emerald-500 text-white w-9 h-9 rounded-full border-4 border-[#111118] shadow-2xl flex items-center justify-center font-black text-lg marker-pulse-green">A</div>
+          <div class="w-1 h-2.5 bg-emerald-500 rounded-full -mt-0.5 shadow-lg"></div>
         </div>
-        <div class="bg-emerald-500 text-white w-10 h-10 rounded-full border-4 border-[#111118] shadow-2xl flex items-center justify-center font-black text-xl marker-pulse-green">A</div>
-        <div class="w-1 h-3 bg-emerald-500 rounded-full -mt-1 shadow-lg"></div>
-      </div>
-    `,
-    iconSize: [120, 80],
-    iconAnchor: [60, 80]
-  }), []);
+      `,
+      iconSize: [145, 85],
+      iconAnchor: [72, 85],
+    });
+  };
 
-  const EndPin = React.useMemo(() => L.divIcon({
-    className: 'custom-div-icon',
-    html: `
-      <div class="relative flex flex-col items-center">
-        <div class="bg-[#111118]/90 backdrop-blur-md border border-white/10 rounded-xl px-2 py-1 mb-1 shadow-2xl">
-          <p class="text-[9px] font-black text-orange-400 uppercase whitespace-nowrap tracking-widest">DESTINATION</p>
+  const getEndPin = (etaText: string) => {
+    return L.divIcon({
+      className: "custom-div-icon",
+      html: `
+        <div class="relative flex flex-col items-center animate-fade-in">
+          <div class="bg-[#111118]/95 backdrop-blur-md border border-orange-500/30 rounded-2xl px-2.5 py-1 mb-1 shadow-2xl flex flex-col items-center min-w-[160px]">
+            <span class="text-[9px] font-black text-orange-400 uppercase tracking-widest leading-normal">DESTINATION</span>
+            <span class="text-[9.5px] font-bold text-white/95 mt-0.5 whitespace-nowrap px-1.5 py-0.5 bg-orange-500/10 rounded border border-orange-500/20">${etaText}</span>
+          </div>
+          <div class="bg-orange-500 text-white w-9 h-9 rounded-full border-4 border-[#111118] shadow-2xl flex items-center justify-center font-black text-lg marker-pulse-orange">B</div>
+          <div class="w-1 h-2.5 bg-orange-500 rounded-full -mt-0.5 shadow-lg"></div>
         </div>
-        <div class="bg-orange-500 text-white w-10 h-10 rounded-full border-4 border-[#111118] shadow-2xl flex items-center justify-center font-black text-xl marker-pulse-orange">B</div>
-        <div class="w-1 h-3 bg-orange-500 rounded-full -mt-1 shadow-lg"></div>
-      </div>
-    `,
-    iconSize: [120, 80],
-    iconAnchor: [60, 80]
-  }), []);
+      `,
+      iconSize: [170, 85],
+      iconAnchor: [85, 85],
+    });
+  };
 
   // Unified location and presence sync
   useEffect(() => {
@@ -872,6 +878,58 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
     );
   }
 
+  // Dynamic driver-focused ETA calculations
+  const getDistanceDriver = (p1: [number, number], p2: [number, number]) => {
+    const R = 6371000;
+    const dLat = (p2[0] - p1[0]) * Math.PI / 180;
+    const dLon = (p2[1] - p1[1]) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(p1[0] * Math.PI / 180) * Math.cos(p2[0] * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  };
+
+  const formatTimeDriver = (date: Date) => {
+    let hours = date.getHours();
+    const minutes = date.getMinutes();
+    const amampm = hours >= 12 ? "pm" : "am";
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    const minStr = minutes < 10 ? "0" + minutes : minutes;
+    return `${hours}:${minStr} ${amampm}`;
+  };
+
+  let etaPickupTextD = "baada ya dakika 5 min";
+  if (activeRide && position) {
+    const distToPickup = getDistanceDriver([position[0], position[1]], [activeRide.pickup.lat, activeRide.pickup.lng]);
+    if (distToPickup < 60 || activeRide.status === "driver_arrived") {
+      etaPickupTextD = "UMESHAWASILI!";
+    } else {
+      const durSecs = distToPickup / 6.5;
+      const durMins = Math.max(1, Math.ceil(durSecs / 60));
+      etaPickupTextD = `utafika baada ya ${durMins} min`;
+    }
+  } else if (incomingRequest) {
+    etaPickupTextD = "baada ya dakika 5 min";
+  }
+
+  let etaDestTextD = "";
+  if (activeRide && position) {
+    const distToDest = getDistanceDriver([position[0], position[1]], [activeRide.destination.lat, activeRide.destination.lng]);
+    const remainingDurSecs = distToDest / 9.5;
+    const etaTime = new Date(Date.now() + remainingDurSecs * 1000);
+    etaDestTextD = `EXPECTED ARRIVE BY ${formatTimeDriver(etaTime)}`;
+  } else if (incomingRequest) {
+    const distToDest = getDistanceDriver([incomingRequest.pickup.lat, incomingRequest.pickup.lng], [incomingRequest.destination.lat, incomingRequest.destination.lng]);
+    const etSecs = distToDest / 9.5;
+    const etaTime = new Date(Date.now() + etSecs * 1000);
+    etaDestTextD = `EXPECTED ARRIVE BY ${formatTimeDriver(etaTime)}`;
+  } else {
+    const etaTime = new Date(Date.now() + 600 * 1000);
+    etaDestTextD = `EXPECTED ARRIVE BY ${formatTimeDriver(etaTime)}`;
+  }
+
   return (
     <div className="relative h-full w-full overflow-hidden bg-[#0a0a0f] text-[#f0eeff]">
       {/* Top Bar Overlays */}
@@ -1078,7 +1136,7 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
               <>
                 <Marker 
                   position={[incomingRequest.pickup.lat, incomingRequest.pickup.lng]} 
-                  icon={StartPin}
+                  icon={getStartPin(etaPickupTextD)}
                 />
                 <AnimatedRoute 
                   positions={
@@ -1097,7 +1155,7 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                 {activeRide.status !== 'on_trip' && (
                   <Marker 
                     position={[activeRide.pickup.lat, activeRide.pickup.lng]} 
-                    icon={StartPin} 
+                    icon={getStartPin(etaPickupTextD)} 
                   >
                     <Popup>
                       <div className="p-2 text-center">
@@ -1118,7 +1176,7 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                 {/* Destination Marker */}
                 <Marker 
                   position={[activeRide.destination.lat, activeRide.destination.lng]} 
-                  icon={EndPin} 
+                  icon={getEndPin(etaDestTextD)} 
                 >
                   <Popup>
                     <div className="p-2 text-center">

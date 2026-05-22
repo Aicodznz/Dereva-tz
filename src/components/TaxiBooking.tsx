@@ -239,29 +239,39 @@ const MapControl = ({
 
   const lastFittedStepRef = useRef<string>("");
 
-  // Adjust camera to fit the full route on step 'map'
+  const lastSinglePosRef = useRef<string>("");
+
+  // Adjust camera to fit the full route or selected position on step 'map'
   useEffect(() => {
-    if (step === "map" && routeCoords && routeCoords.length > 1) {
-      const hash = routeCoords.map((c) => `${c[0]},${c[1]}`).join("|").slice(0, 500);
-      if (lastRouteHash.current !== hash) {
-        lastRouteHash.current = hash;
-        try {
-          const bounds = L.latLngBounds(routeCoords);
-          map.fitBounds(bounds, {
-            padding: [60, 60],
-            maxZoom: 16,
-            animate: true,
-            duration: 1.2,
-          });
-          setTimeout(() => {
-            map.invalidateSize();
-          }, 350);
-        } catch (e) {
-          console.error("Failed to fit bounds of routeCoords", e);
+    if (step === "map") {
+      if (routeCoords && routeCoords.length > 1) {
+        const hash = routeCoords.map((c) => `${c[0]},${c[1]}`).join("|").slice(0, 500);
+        if (lastRouteHash.current !== hash) {
+          lastRouteHash.current = hash;
+          try {
+            const bounds = L.latLngBounds(routeCoords);
+            map.fitBounds(bounds, {
+              padding: [60, 60],
+              maxZoom: 16,
+              animate: true,
+              duration: 1.2,
+            });
+            setTimeout(() => {
+              map.invalidateSize();
+            }, 350);
+          } catch (e) {
+            console.error("Failed to fit bounds of routeCoords", e);
+          }
+        }
+      } else if (position) {
+        const posKey = `${position[0]},${position[1]}`;
+        if (lastSinglePosRef.current !== posKey) {
+          lastSinglePosRef.current = posKey;
+          map.setView(position, map.getZoom() || 15, { animate: true, duration: 0.8 });
         }
       }
     }
-  }, [step, routeCoords, map]);
+  }, [step, routeCoords, position, map]);
 
   useEffect(() => {
     if (!position || !autoFollow) return;
@@ -730,43 +740,41 @@ export default function TaxiBooking() {
     });
   };
 
-  const StartPin = React.useMemo(
-    () =>
-      L.divIcon({
-        className: "custom-div-icon",
-        html: `
-      <div class="relative flex flex-col items-center">
-        <div class="bg-[#111118]/90 backdrop-blur-md border border-white/10 rounded-xl px-2 py-1 mb-1 shadow-2xl">
-          <p class="text-[9px] font-black text-emerald-400 uppercase whitespace-nowrap tracking-widest">PICKUP MTEJA</p>
+  const getStartPin = (etaText: string) => {
+    return L.divIcon({
+      className: "custom-div-icon",
+      html: `
+        <div class="relative flex flex-col items-center animate-fade-in">
+          <div class="bg-[#111118]/95 backdrop-blur-md border border-emerald-500/30 rounded-2xl px-2.5 py-1 mb-1 shadow-2xl flex flex-col items-center min-w-[125px]">
+            <span class="text-[9px] font-black text-emerald-400 uppercase tracking-widest leading-normal">PICKUP MTEJA</span>
+            <span class="text-[9.5px] font-bold text-white/95 mt-0.5 whitespace-nowrap px-1.5 py-0.5 bg-emerald-500/10 rounded border border-emerald-500/20">${etaText}</span>
+          </div>
+          <div class="bg-emerald-500 text-white w-9 h-9 rounded-full border-4 border-[#111118] shadow-2xl flex items-center justify-center font-black text-lg marker-pulse-green">A</div>
+          <div class="w-1 h-2.5 bg-emerald-500 rounded-full -mt-0.5 shadow-lg"></div>
         </div>
-        <div class="bg-emerald-500 text-white w-9 h-9 rounded-full border-4 border-[#111118] shadow-2xl flex items-center justify-center font-black text-lg marker-pulse-green">A</div>
-        <div class="w-1 h-2.5 bg-emerald-500 rounded-full -mt-0.5 shadow-lg"></div>
-      </div>
-    `,
-        iconSize: [110, 70],
-        iconAnchor: [55, 70],
-      }),
-    [],
-  );
+      `,
+      iconSize: [145, 85],
+      iconAnchor: [72, 85],
+    });
+  };
 
-  const EndPin = React.useMemo(
-    () =>
-      L.divIcon({
-        className: "custom-div-icon",
-        html: `
-      <div class="relative flex flex-col items-center">
-        <div class="bg-[#111118]/90 backdrop-blur-md border border-white/10 rounded-xl px-2 py-1 mb-1 shadow-2xl">
-          <p class="text-[9px] font-black text-orange-400 uppercase whitespace-nowrap tracking-widest">DESTINATION</p>
+  const getEndPin = (etaText: string) => {
+    return L.divIcon({
+      className: "custom-div-icon",
+      html: `
+        <div class="relative flex flex-col items-center animate-fade-in">
+          <div class="bg-[#111118]/95 backdrop-blur-md border border-orange-500/30 rounded-2xl px-2.5 py-1 mb-1 shadow-2xl flex flex-col items-center min-w-[160px]">
+            <span class="text-[9px] font-black text-orange-400 uppercase tracking-widest leading-normal">DESTINATION</span>
+            <span class="text-[9.5px] font-bold text-white/95 mt-0.5 whitespace-nowrap px-1.5 py-0.5 bg-orange-500/10 rounded border border-orange-500/20">${etaText}</span>
+          </div>
+          <div class="bg-orange-500 text-white w-9 h-9 rounded-full border-4 border-[#111118] shadow-2xl flex items-center justify-center font-black text-lg marker-pulse-orange">B</div>
+          <div class="w-1 h-2.5 bg-orange-500 rounded-full -mt-0.5 shadow-lg"></div>
         </div>
-        <div class="bg-orange-500 text-white w-9 h-9 rounded-full border-4 border-[#111118] shadow-2xl flex items-center justify-center font-black text-lg marker-pulse-orange">B</div>
-        <div class="w-1 h-2.5 bg-orange-500 rounded-full -mt-0.5 shadow-lg"></div>
-      </div>
-    `,
-        iconSize: [110, 70],
-        iconAnchor: [55, 70],
-      }),
-    [],
-  );
+      `,
+      iconSize: [170, 85],
+      iconAnchor: [85, 85],
+    });
+  };
 
   const geocodeAddress = (query: string) => {
     if (searchTimer) clearTimeout(searchTimer);
@@ -1183,6 +1191,87 @@ export default function TaxiBooking() {
     },
   ];
 
+  // Dynamic ETA & Travel Calculations
+  const getDistanceLocal = (p1: [number, number], p2: [number, number]) => {
+    const R = 6371000; // meters
+    const dLat = (p2[0] - p1[0]) * Math.PI / 180;
+    const dLon = (p2[1] - p1[1]) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(p1[0] * Math.PI / 180) * Math.cos(p2[0] * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  };
+
+  const formatTimeLocal = (date: Date) => {
+    let hours = date.getHours();
+    const minutes = date.getMinutes();
+    const amampm = hours >= 12 ? "pm" : "am";
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    const minStr = minutes < 10 ? "0" + minutes : minutes;
+    return `${hours}:${minStr} ${amampm}`;
+  };
+
+  // Determine pickup ETA text ("dereva atakuja baada ya dakika X min" au kashafika)
+  let etaPickupText = "baada ya dakika 5 min";
+  if (activeRide) {
+    if (["accepted", "driver_arriving", "found"].includes(activeRide.status)) {
+      const driverLoc: [number, number] | null = driverLivePos
+        ? [driverLivePos.lat, driverLivePos.lng]
+        : activeRide.driverLocation
+        ? [activeRide.driverLocation.lat, activeRide.driverLocation.lng]
+        : null;
+
+      if (driverLoc) {
+        const distToPickup = getDistanceLocal(driverLoc, pickupPos);
+        if (distToPickup < 60) {
+          etaPickupText = "DEREVA KASHAFIKA!";
+        } else {
+          const durSecs = distToPickup / 6.5; // average 23 km/h
+          const durMins = Math.max(1, Math.ceil(durSecs / 60));
+          etaPickupText = `atakuja baada ya ${durMins} min`;
+        }
+      } else {
+        etaPickupText = "baada ya dakika 5 min";
+      }
+    } else if (step === "arriving") {
+      etaPickupText = "DEREVA KASHAFIKA!";
+    } else {
+      etaPickupText = "IMESHAKAMILIKA";
+    }
+  }
+
+  // Determine destination ETA time ("EXPECTED ARRIVE BY 12:20 pm" nakila akisogea masaa yatajikaunti)
+  let etaDestText = "";
+  let tripDurSecs = totalDuration > 0 ? totalDuration : 300; // default duration based on OSRM or fallback
+  if (tripDurSecs === 300 && pickupPos && destPos) {
+    const dist = getDistanceLocal(pickupPos, destPos);
+    tripDurSecs = dist / 9.5; // average 34 km/h in traffic
+  }
+
+  if (activeRide && activeRide.status === "on_trip") {
+    const driverLoc: [number, number] | null = driverLivePos
+      ? [driverLivePos.lat, driverLivePos.lng]
+      : activeRide.driverLocation
+      ? [activeRide.driverLocation.lat, activeRide.driverLocation.lng]
+      : null;
+
+    if (driverLoc) {
+      const remainingDist = getDistanceLocal(driverLoc, destPos);
+      const remainingDurSecs = remainingDist / 9.5; // account for density and road twists
+      const etaTime = new Date(Date.now() + remainingDurSecs * 1000);
+      etaDestText = `EXPECTED ARRIVE BY ${formatTimeLocal(etaTime)}`;
+    } else {
+      const etaTime = new Date(Date.now() + tripDurSecs * 1000);
+      etaDestText = `EXPECTED ARRIVE BY ${formatTimeLocal(etaTime)}`;
+    }
+  } else {
+    // Before trip starts (during booking setup / search)
+    const etaTime = new Date(Date.now() + tripDurSecs * 1000);
+    etaDestText = `EXPECTED ARRIVE BY ${formatTimeLocal(etaTime)}`;
+  }
+
   return (
     <div className="max-w-md mx-auto bg-green-500/5 w-full flex flex-col relative overflow-hidden font-sans text-[#f0eeff] border-x border-[#1e1e2e] h-[100dvh]">
       <div className="absolute inset-0 bg-[#0a0a0f]" />
@@ -1321,9 +1410,9 @@ export default function TaxiBooking() {
                       routeCoords={routeCoords}
                     />
                     {activeRide?.status !== "on_trip" && (
-                      <Marker position={pickupPos} icon={StartPin} />
+                      <Marker position={pickupPos} icon={getStartPin(etaPickupText)} />
                     )}
-                    <Marker position={destPos} icon={EndPin} />
+                    <Marker position={destPos} icon={getEndPin(etaDestText)} />
 
                     {/* Assigned Driver Marker */}
                     {(driverLivePos || activeRide?.driverLocation) && (
