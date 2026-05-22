@@ -112,13 +112,9 @@ function MapController({ position, activeRide }: { position: [number, number], a
       const currentPos = L.latLng(position[0], position[1]);
       const lastPos = lastCenterRef.current ? L.latLng(lastCenterRef.current[0], lastCenterRef.current[1]) : null;
 
-      // Only flyTo/setView if we have moved significantly to avoid constant jittering / playing of the marker
+      // Only panTo/setView if we have moved significantly to avoid constant jittering / playing of the marker
       if (!lastPos || currentPos.distanceTo(lastPos) > 10) {
-        if (activeRide) {
-          map.flyTo(position, map.getZoom() || 18, { animate: true, duration: 1.2 });
-        } else {
-          map.panTo(position, { animate: true, duration: 1.2 });
-        }
+        map.panTo(position, { animate: true, duration: 0.8 });
         lastCenterRef.current = position;
       }
     }
@@ -1064,7 +1060,8 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
             className="transition-all duration-1000"
           >
             <TileLayer 
-              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+              key={theme}
+              url={mapTileUrl}
               attribution=""
               maxZoom={22}
               maxNativeZoom={19}

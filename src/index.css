@@ -258,13 +258,11 @@
   animation: routeFlow 1s linear infinite;
   stroke-linejoin: round;
   stroke-linecap: round;
-  will-change: stroke-dashoffset;
 }
 
 .animated-route-glow {
   stroke-dasharray: 12, 8 !important;
-  animation: routeMove 2s linear infinite !important;
-  will-change: stroke-dashoffset;
+  animation: routeMove 1.5s linear infinite !important;
 }
 
 @keyframes routeMove {

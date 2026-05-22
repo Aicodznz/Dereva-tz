@@ -237,6 +237,8 @@ const MapControl = ({
     return () => timers.forEach(clearTimeout);
   }, [map, step]);
 
+  const lastFittedStepRef = useRef<string>("");
+
   // Adjust camera to fit the full route on step 'map'
   useEffect(() => {
     if (step === "map" && routeCoords && routeCoords.length > 1) {
@@ -272,21 +274,34 @@ const MapControl = ({
       ? L.latLng(lastCenterRef.current[0], lastCenterRef.current[1])
       : null;
 
-    // Only update view if position changed significantly (e.g., more than 15 meters)
-    if (!lastPos || currentPos.distanceTo(lastPos) > 15) {
-      if (["arriving", "on_trip", "found"].includes(step) && targetPos) {
+    // Transition tracking key
+    const trackingKey = `${step}_${targetPos?.[0] || 0}_${targetPos?.[1] || 0}`;
+
+    // Fit bounds only once when we first enter this booking step
+    if (
+      ["arriving", "on_trip", "found"].includes(step) &&
+      targetPos &&
+      lastFittedStepRef.current !== trackingKey
+    ) {
+      lastFittedStepRef.current = trackingKey;
+      try {
         const bounds = L.latLngBounds([position, targetPos]);
         map.fitBounds(bounds, {
           padding: [80, 80],
-          maxZoom: 20,
+          maxZoom: 17,
           animate: true,
           duration: 1.2,
         });
-      } else if (["arriving", "on_trip"].includes(step)) {
-        map.panTo(position, { animate: true, duration: 1.2 });
-      } else {
-        map.setView(position, 15, { animate: true });
+      } catch (e) {
+        console.warn("Failed to set initial step bounds:", e);
       }
+      lastCenterRef.current = position;
+      return;
+    }
+
+    // Only update tracker view if position changed significantly (e.g., more than 10 meters)
+    if (!lastPos || currentPos.distanceTo(lastPos) > 10) {
+      map.panTo(position, { animate: true, duration: 0.8 });
       lastCenterRef.current = position;
     }
   }, [
@@ -1288,7 +1303,8 @@ export default function TaxiBooking() {
                     dragging={true}
                   >
                      <TileLayer
-                      url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                      key={theme}
+                      url={mapTileUrl}
                       attribution=""
                       maxZoom={22}
                       maxNativeZoom={19}
