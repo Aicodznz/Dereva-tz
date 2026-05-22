@@ -102,6 +102,11 @@ export function useRouting(pickup: [number, number], destination: [number, numbe
         const distPickup = getDistMeters(pickup, lastFetchedRef.current.pickup);
         const distDest = getDistMeters(destination, lastFetchedRef.current.destination);
 
+        // If the destination is identical and driver has barely drifted/moved (< 8 meters), do nothing to prevent any jump or jitter!
+        if (distDest < 50 && distPickup < 8 && lastFetchedRef.current.data.routeCoords.length > 0) {
+          return;
+        }
+
         // If the destination is identical (or shifted less than 50 meters)
         if (distDest < 50 && lastFetchedRef.current.data.routeCoords.length > 0) {
           // Find the index of the point on the cached route that is closest to our new pickup (current position)
@@ -169,7 +174,7 @@ export function useRouting(pickup: [number, number], destination: [number, numbe
         // OSRM expects [lon, lat]
         const pickupStr = `${pickup[1]},${pickup[0]}`;
         const destStr = `${destination[1]},${destination[0]}`;
-        const url = `/api/geo/route?coords=${pickupStr};${destStr}`;
+        const url = `/api/geo/route?coords=${encodeURIComponent(pickupStr + ";" + destStr)}`;
 
         const response = await fetch(url);
         if (!response.ok) throw new Error('OSRM request failed');

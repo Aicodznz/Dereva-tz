@@ -346,7 +346,7 @@ interface RideOption {
 export default function TaxiBooking() {
   const { user, profile, signInGuest } = useAuth();
   const navigate = useNavigate();
-  const { setTheme: setNextTheme } = useTheme();
+  const { setTheme: setNextTheme, resolvedTheme } = useTheme();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [step, setStep] = useState<BookingStep>("map");
@@ -366,22 +366,7 @@ export default function TaxiBooking() {
   const [pickup, setPickup] = useState("Tafuta eneo lako...");
   const [destination, setDestination] = useState("");
 
-  const [theme, setTheme] = useState<"light" | "dark">("dark");
-
-  useEffect(() => {
-    const checkTheme = () => {
-      setTheme(
-        document.documentElement.classList.contains("dark") ? "dark" : "light",
-      );
-    };
-    const observer = new MutationObserver(checkTheme);
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-    checkTheme();
-    return () => observer.disconnect();
-  }, []);
+  const theme = resolvedTheme === "light" ? "light" : "dark";
 
   const mapTileUrl =
     theme === "dark"
@@ -663,6 +648,7 @@ export default function TaxiBooking() {
           }
           if (minDistance < 300) {
             setDriverRouteCoords(driverRouteCoords.slice(closestIndex));
+            lastFetchedPosRef.current = driverLivePos;
             return;
           }
         }
@@ -670,7 +656,7 @@ export default function TaxiBooking() {
 
       try {
         const coords = `${driverLivePos.lng},${driverLivePos.lat};${target.lng},${target.lat}`;
-        const response = await fetch(`/api/geo/route?coords=${coords}`);
+        const response = await fetch(`/api/geo/route?coords=${encodeURIComponent(coords)}`);
         if (!response.ok)
           throw new Error(
             `Driver routing failed with status ${response.status}`,

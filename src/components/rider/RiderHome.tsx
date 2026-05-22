@@ -212,7 +212,7 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, profile } = useAuth();
-  const { setTheme: setNextTheme } = useTheme();
+  const { setTheme: setNextTheme, resolvedTheme } = useTheme();
   const [isOnline, setIsOnline] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [position, setPosition] = useState<[number, number]>([-6.7924, 39.2083]);
@@ -340,18 +340,8 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
   const [speed, setSpeed] = useState(0);
   const [isGoingOnline, setIsGoingOnline] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  const theme = resolvedTheme === 'light' ? 'light' : 'dark';
   const [isTripMinimized, setIsTripMinimized] = useState(false);
-
-  useEffect(() => {
-    const checkTheme = () => {
-      setTheme(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
-    };
-    const observer = new MutationObserver(checkTheme);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    checkTheme();
-    return () => observer.disconnect();
-  }, []);
   
   const mapTileUrl = theme === 'dark' 
     ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
