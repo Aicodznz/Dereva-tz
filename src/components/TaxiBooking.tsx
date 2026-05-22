@@ -211,20 +211,22 @@ const MapControl = ({
   targetPos,
   autoFollow,
   routeCoords,
+  isMapFullscreen,
 }: {
   position: [number, number];
   step: string;
   targetPos?: [number, number];
   autoFollow: boolean;
   routeCoords?: [number, number][];
+  isMapFullscreen?: boolean;
 }) => {
   const map = useMap();
   const lastCenterRef = useRef<[number, number] | null>(null);
   const lastRouteHash = useRef<string>("");
 
-  // Invalidate map size sequentially on step change to guarantee correct size calculations on mobile viewports
+  // Invalidate map size sequentially on step change or fullscreen change to guarantee correct size calculations on mobile/tablet viewports
   useEffect(() => {
-    const delays = [100, 300, 600, 1200];
+    const delays = [50, 200, 450, 900, 1500];
     const timers = delays.map(delay => 
       setTimeout(() => {
         try {
@@ -235,7 +237,7 @@ const MapControl = ({
        }, delay)
     );
     return () => timers.forEach(clearTimeout);
-  }, [map, step]);
+  }, [map, step, isMapFullscreen]);
 
   // Handle auto resizing of the map container element dynamically via ResizeObserver to fix viewport and sizing shifts on mobile and tablet resizes
   useEffect(() => {
@@ -245,7 +247,7 @@ const MapControl = ({
 
     const observer = new ResizeObserver(() => {
       try {
-        map.invalidateSize({ animate: true });
+        map.invalidateSize({ animate: false });
       } catch (e) {
         // ignore
       }
@@ -267,6 +269,7 @@ const MapControl = ({
         if (lastRouteHash.current !== hash) {
           lastRouteHash.current = hash;
           try {
+            map.invalidateSize({ animate: false });
             const bounds = L.latLngBounds(routeCoords);
             map.fitBounds(bounds, {
               padding: [60, 60],
@@ -275,7 +278,9 @@ const MapControl = ({
               duration: 1.2,
             });
             setTimeout(() => {
-              map.invalidateSize();
+              try {
+                map.invalidateSize({ animate: false });
+              } catch (e) {}
             }, 350);
           } catch (e) {
             console.error("Failed to fit bounds of routeCoords", e);
@@ -313,6 +318,7 @@ const MapControl = ({
     ) {
       lastFittedStepRef.current = trackingKey;
       try {
+        map.invalidateSize({ animate: false });
         const bounds = L.latLngBounds([position, targetPos]);
         map.fitBounds(bounds, {
           padding: [80, 80],
@@ -320,6 +326,11 @@ const MapControl = ({
           animate: true,
           duration: 1.2,
         });
+        setTimeout(() => {
+          try {
+            map.invalidateSize({ animate: false });
+          } catch (e) {}
+        }, 350);
       } catch (e) {
         console.warn("Failed to set initial step bounds:", e);
       }
@@ -1277,10 +1288,13 @@ export default function TaxiBooking() {
     }
   } else {
     if (["accepted", "driver_arriving", "found"].includes(activeRide.status)) {
+      const matchedDriver = drivers.find((d) => d.id === activeRide.driverId);
       const driverLoc: [number, number] | null = driverLivePos
         ? [driverLivePos.lat, driverLivePos.lng]
         : activeRide.driverLocation
         ? [activeRide.driverLocation.lat, activeRide.driverLocation.lng]
+        : matchedDriver
+        ? [matchedDriver.lat, matchedDriver.lng]
         : null;
 
       if (driverLoc) {
@@ -1293,8 +1307,10 @@ export default function TaxiBooking() {
           etaPickupText = `atakuja baada ya ${durMins} min`;
         }
       } else {
-        etaPickupText = "baada ya dakika 5 min";
+        etaPickupText = ""; // Keep empty when there is no nearby driver/location info
       }
+    } else if (activeRide.status === "pending") {
+      etaPickupText = ""; // Keep empty during search
     } else if (step === "arriving") {
       etaPickupText = "DEREVA KASHAFIKA!";
     } else {
@@ -1535,6 +1551,7 @@ export default function TaxiBooking() {
                             : undefined
                       }
                       routeCoords={routeCoords}
+                      isMapFullscreen={isMapFullscreen}
                     />
                     {activeRide?.status !== "on_trip" && (
                       <Marker position={pickupPos} icon={getStartPin(etaPickupText)} />
