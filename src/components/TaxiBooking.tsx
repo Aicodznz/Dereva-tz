@@ -237,6 +237,24 @@ const MapControl = ({
     return () => timers.forEach(clearTimeout);
   }, [map, step]);
 
+  // Handle auto resizing of the map container element dynamically via ResizeObserver to fix viewport and sizing shifts on mobile and tablet resizes
+  useEffect(() => {
+    if (!map) return;
+    const container = map.getContainer();
+    if (!container) return;
+
+    const observer = new ResizeObserver(() => {
+      try {
+        map.invalidateSize({ animate: true });
+      } catch (e) {
+        // ignore
+      }
+    });
+
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [map]);
+
   const lastFittedStepRef = useRef<string>("");
 
   const lastSinglePosRef = useRef<string>("");

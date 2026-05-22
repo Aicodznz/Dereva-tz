@@ -272,15 +272,6 @@
 
 .leaflet-overlay-pane svg {
   overflow: visible !important;
-  will-change: transform, opacity;
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
-}
-
-.leaflet-container {
-  /* Force hardware acceleration on mobile */
-  transform: translate3d(0, 0, 0);
-  -webkit-transform: translate3d(0, 0, 0);
 }
 
 .marker-pulse-green {

@@ -81,6 +81,24 @@ function MapController({ position, activeRide }: { position: [number, number], a
     return () => timers.forEach(clearTimeout);
   }, [map, activeRide?.status, activeRide?.id]);
 
+  // Handle dynamic map resize constraints beautifully via ResizeObserver on mobile/tablet viewports
+  useEffect(() => {
+    if (!map) return;
+    const container = map.getContainer();
+    if (!container) return;
+
+    const observer = new ResizeObserver(() => {
+      try {
+        map.invalidateSize({ animate: true });
+      } catch (e) {
+        // ignore
+      }
+    });
+
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [map]);
+
   // Use map events to turn off autoFollow if user drags or zooms manually
   useMapEvents({
     dragstart() {
