@@ -778,10 +778,16 @@ export default function TaxiBooking() {
       html: `
         <div class="relative flex flex-col items-center">
           <!-- Active Pill above marker with premium typography and alignment -->
+          ${etaText ? `
           <div class="bg-[#0A0C14]/95 backdrop-blur-md border border-[#00E5A0]/30 rounded-2xl px-3 py-1.5 mb-2 shadow-2xl flex flex-col items-center min-w-[130px]">
             <span class="text-[9px] font-black text-[#00E5A0] uppercase tracking-[0.15em] leading-tight font-heading">PICKUP MTEJA</span>
             <span class="text-[9.5px] font-mono font-bold text-white mt-0.5 whitespace-nowrap">${etaText}</span>
           </div>
+          ` : `
+          <div class="bg-[#0A0C14]/95 backdrop-blur-md border border-[#00E5A0]/30 rounded-2xl px-3 py-1 mb-1.5 shadow-2xl flex flex-col items-center min-w-[100px]">
+            <span class="text-[9px] font-black text-[#00E5A0] uppercase tracking-[0.15em] leading-tight font-heading font-semibold text-center">PICKUP MTEJA</span>
+          </div>
+          `}
           <!-- Pulse green animating container -->
           <div class="w-9 h-9 bg-[#00E5A0] rounded-full border-4 border-[#0F111E] shadow-2xl flex items-center justify-center font-black text-lg text-[#0F111E] marker-pulse-mint">A</div>
           <div class="w-1.5 h-3 bg-[#00E5A0] rounded-full -mt-0.5 shadow-lg"></div>
@@ -1248,8 +1254,28 @@ export default function TaxiBooking() {
   };
 
   // Determine pickup ETA text ("dereva atakuja baada ya dakika X min" au kashafika)
-  let etaPickupText = "baada ya dakika 5 min";
-  if (activeRide) {
+  let etaPickupText = "";
+  if (!activeRide) {
+    // Before a ride is created, check if we have any online/active drivers nearby
+    let closestDriverDist = Infinity;
+    if (drivers && drivers.length > 0) {
+      drivers.forEach((d) => {
+        const dist = getDistanceLocal([d.lat, d.lng], pickupPos);
+        if (dist < closestDriverDist) {
+          closestDriverDist = dist;
+        }
+      });
+    }
+
+    // Only show ETA text if we have drivers nearby (within 10km)
+    if (closestDriverDist < 10000) {
+      const durSecs = closestDriverDist / 6.5; 
+      const durMins = Math.max(1, Math.ceil(durSecs / 60));
+      etaPickupText = `baada ya dakika ${durMins} min`;
+    } else {
+      etaPickupText = ""; // Empty means do not read/display under PICKUP MTEJA pin
+    }
+  } else {
     if (["accepted", "driver_arriving", "found"].includes(activeRide.status)) {
       const driverLoc: [number, number] | null = driverLivePos
         ? [driverLivePos.lat, driverLivePos.lng]
@@ -1459,9 +1485,6 @@ export default function TaxiBooking() {
                 <style>{`.leaflet-container { height: 100% !important; width: 100% !important; background: #ffffff !important; } .custom-div-icon { background: none; border: none; } .animate-spin-slow { animation: spin 3s linear infinite; } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
                 <div
                   style={{
-                    transform: "translateZ(0)",
-                    WebkitTransform: "translateZ(0)",
-                    willChange: "transform",
                     borderRadius: "16px",
                     overflow: "hidden",
                     height: "100%",

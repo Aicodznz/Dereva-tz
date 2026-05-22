@@ -1108,9 +1108,6 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
            <div className="absolute inset-0 bg-[#0a0a0f]" />
         </div>
         <div style={{
-          transform: 'translateZ(0)',
-          WebkitTransform: 'translateZ(0)',
-          willChange: 'transform',
           borderRadius: '16px',
           overflow: 'hidden',
           height: '100%',
