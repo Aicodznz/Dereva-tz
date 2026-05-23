@@ -191,7 +191,7 @@ function MapBoundsUpdater({ activeRide, position }: { activeRide: any, position:
       lastStatus.current = activeRide.status;
       lastRideId.current = activeRide.id;
     }
-  }, [activeRide?.status, activeRide?.id]);
+  }, [activeRide?.status, activeRide?.id, position, map]);
 
   return null;
 }

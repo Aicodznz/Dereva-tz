@@ -307,8 +307,9 @@ const MapControl = ({
       ? L.latLng(lastCenterRef.current[0], lastCenterRef.current[1])
       : null;
 
-    // Transition tracking key
-    const trackingKey = `${step}_${targetPos?.[0] || 0}_${targetPos?.[1] || 0}`;
+    // Transition tracking key - include loading state to re-fit when real driver position registers!
+    const isFallback = targetPos && position[0] === targetPos[0] && position[1] === targetPos[1];
+    const trackingKey = `${step}_${isFallback ? "fallback" : "active"}_${targetPos?.[0] || 0}_${targetPos?.[1] || 0}`;
 
     // Fit bounds only once when we first enter this booking step
     if (

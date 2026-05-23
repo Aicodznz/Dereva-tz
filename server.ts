@@ -355,7 +355,7 @@ async function startServer() {
       console.warn("[Proxy] Failed to parse coords pairs:", e);
     }
 
-    const encodedCoords = coordsPairs.map(p => encodeURIComponent(`${p[0]},${p[1]}`)).join(";");
+    const encodedCoords = coordsPairs.map(p => `${p[0]},${p[1]}`).join(";");
 
     // 1. Try URL 1 (router.project-osrm.org - driving)
     const headers = {
