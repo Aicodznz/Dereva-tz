@@ -988,7 +988,10 @@ export default function TaxiBooking() {
   };
 
   const selectSuggestion = (suggestion: any) => {
-    const pos: [number, number] = [suggestion.lat, suggestion.lon];
+    const pos: [number, number] = [
+      parseFloat(suggestion.lat),
+      parseFloat(suggestion.lon),
+    ];
     if (settingMode === "pickup") {
       setPickupPos(pos);
       setPickup(suggestion.display_name);

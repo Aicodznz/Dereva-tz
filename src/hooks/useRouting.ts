@@ -64,7 +64,7 @@ export function generateSimulatedRoads(start: [number, number], end: [number, nu
   return route;
 }
 
-export function useRouting(pickup: [number, number], destination: [number, number]): RouteData {
+export function useRouting(pickup: [number, number], destination: [number, number], enableSlicing: boolean = false): RouteData {
   const [data, setData] = useState<RouteData>({
     routeCoords: [],
     totalDistance: 0,
@@ -81,112 +81,128 @@ export function useRouting(pickup: [number, number], destination: [number, numbe
     time: number;
   } | null>(null);
 
+  const lat1 = pickup ? Number(pickup[0]) : NaN;
+  const lng1 = pickup ? Number(pickup[1]) : NaN;
+  const lat2 = destination ? Number(destination[0]) : NaN;
+  const lng2 = destination ? Number(destination[1]) : NaN;
+
   useEffect(() => {
-    if (!pickup || !destination) return;
+    if (isNaN(lat1) || isNaN(lng1) || isNaN(lat2) || isNaN(lng2)) return;
+
+    const currentPickup: [number, number] = [lat1, lng1];
+    const currentDest: [number, number] = [lat2, lng2];
 
     // Helper to calculate distance in meters
     const getDistMeters = (p1: [number, number], p2: [number, number]) => {
       const R = 6371000; // meters
-      const dLat = (p2[0] - p1[0]) * Math.PI / 180;
-      const dLon = (p2[1] - p1[1]) * Math.PI / 180;
-      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                Math.cos(p1[0] * Math.PI / 180) * Math.cos(p2[0] * Math.PI / 180) *
-                Math.sin(dLon/2) * Math.sin(dLon/2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      const dLat = ((p2[0] - p1[0]) * Math.PI) / 180;
+      const dLon = ((p2[1] - p1[1]) * Math.PI) / 180;
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((p1[0] * Math.PI) / 180) *
+          Math.cos((p2[0] * Math.PI) / 180) *
+          Math.sin(dLon / 2) *
+          Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       return R * c;
     };
 
     const fetchRoute = async () => {
       // Check cache/rate-limiting first
       if (lastFetchedRef.current) {
-        const distPickup = getDistMeters(pickup, lastFetchedRef.current.pickup);
-        const distDest = getDistMeters(destination, lastFetchedRef.current.destination);
+        const distPickup = getDistMeters(currentPickup, lastFetchedRef.current.pickup);
+        const distDest = getDistMeters(currentDest, lastFetchedRef.current.destination);
 
-        // If the destination is identical and driver has barely drifted/moved (< 8 meters), do nothing to prevent any jump or jitter!
-        if (distDest < 50 && distPickup < 8 && lastFetchedRef.current.data.routeCoords.length > 0) {
+        // If the coordinate shifts are extremely tiny (less than 2.5 meters), bypass to avoid useless API requests
+        if (distDest < 2.5 && distPickup < 2.5 && lastFetchedRef.current.data.routeCoords.length > 0) {
           return;
         }
 
-        // If the destination is identical (or shifted less than 50 meters)
-        if (distDest < 50 && lastFetchedRef.current.data.routeCoords.length > 0) {
-          // Find the index of the point on the cached route that is closest to our new pickup (current position)
-          const cachedCoords = lastFetchedRef.current.data.routeCoords;
-          let minDistance = Infinity;
-          let closestIndex = 0;
+        // Only perform slicing optimization if requested (useful for driver live positioning)
+        if (enableSlicing) {
+          // If the destination is identical (or shifted less than 50 meters)
+          if (distDest < 50 && lastFetchedRef.current.data.routeCoords.length > 0) {
+            // Find the index of the point on the cached route that is closest to our new pickup (current position)
+            const cachedCoords = lastFetchedRef.current.data.routeCoords;
+            let minDistance = Infinity;
+            let closestIndex = 0;
 
-          for (let i = 0; i < cachedCoords.length; i++) {
-            const dist = getDistMeters(pickup, cachedCoords[i]);
-            if (dist < minDistance) {
-              minDistance = dist;
-              closestIndex = i;
+            for (let i = 0; i < cachedCoords.length; i++) {
+              const dist = getDistMeters(currentPickup, cachedCoords[i]);
+              if (dist < minDistance) {
+                minDistance = dist;
+                closestIndex = i;
+              }
             }
-          }
 
-          // If the closest point is within 500 meters, we can slice of the portion of the route we already covered!
-          if (minDistance < 500) {
-            const slicedCoords = cachedCoords.slice(closestIndex);
-            
-            // Adjust step directions if available to reflect sliced steps
-            const cachedSteps = lastFetchedRef.current.data.steps;
-            const slicedSteps = cachedSteps.filter(s => {
-              const distToStep = getDistMeters(pickup, s.location);
-              return distToStep > 30; // steps further than 30m ahead
-            });
+            // If the closest point is within 500 meters, we can slice off the portion of the route we already covered!
+            if (minDistance < 500) {
+              const slicedCoords = cachedCoords.slice(closestIndex);
 
-            const nextData: RouteData = {
-              routeCoords: slicedCoords.length > 0 ? slicedCoords : [[pickup[0], pickup[1]]],
-              totalDistance: Math.max(0, lastFetchedRef.current.data.totalDistance - (closestIndex * 15)),
-              totalDuration: Math.max(0, lastFetchedRef.current.data.totalDuration - (closestIndex * 2)),
-              steps: slicedSteps,
-              isLoading: false,
-              error: null,
-            };
+              // Adjust step directions if available to reflect sliced steps
+              const cachedSteps = lastFetchedRef.current.data.steps;
+              const slicedSteps = cachedSteps.filter((s) => {
+                const distToStep = getDistMeters(currentPickup, s.location);
+                return distToStep > 30; // steps further than 30m ahead
+              });
 
-            setData(nextData);
-            
-            // Update lastfetched ref but preserve original full route coordinates for subsequent slicing!
-            lastFetchedRef.current = {
-              pickup,
-              destination,
-              data: {
-                ...nextData,
-                routeCoords: cachedCoords, // Keep original complete route coords so if we continue moving we can slice again from it!
-              },
-              time: Date.now()
-            };
-            return;
+              const nextData: RouteData = {
+                routeCoords: slicedCoords.length > 0 ? slicedCoords : [[lat1, lng1]],
+                totalDistance: Math.max(0, lastFetchedRef.current.data.totalDistance - closestIndex * 15),
+                totalDuration: Math.max(0, lastFetchedRef.current.data.totalDuration - closestIndex * 2),
+                steps: slicedSteps,
+                isLoading: false,
+                error: null,
+              };
+
+              setData(nextData);
+
+              // Update lastfetched ref but preserve original full route coordinates for subsequent slicing!
+              lastFetchedRef.current = {
+                pickup: currentPickup,
+                destination: currentDest,
+                data: {
+                  ...nextData,
+                  routeCoords: cachedCoords, // Keep original complete route coords so if we continue moving we can slice again from it!
+                },
+                time: Date.now(),
+              };
+              return;
+            }
           }
         }
       }
 
       // Initialize route with simulated roads grid immediately so we never have layout jumps or straight line flashes!
-      setData(prev => {
-        const initialSimRoute = prev.routeCoords.length > 0 ? prev.routeCoords : generateSimulatedRoads(pickup, destination);
+      setData((prev) => {
+        const initialSimRoute = generateSimulatedRoads(currentPickup, currentDest);
         return {
           ...prev,
           routeCoords: initialSimRoute,
           isLoading: true,
-          error: null
+          error: null,
         };
       });
 
       try {
         // OSRM expects [lon, lat]
-        const pickupStr = `${pickup[1]},${pickup[0]}`;
-        const destStr = `${destination[1]},${destination[0]}`;
+        const pickupStr = `${lng1},${lat1}`;
+        const destStr = `${lng2},${lat2}`;
         const url = `/api/geo/route?coords=${encodeURIComponent(pickupStr + ";" + destStr)}`;
 
         const response = await fetch(url);
-        if (!response.ok) throw new Error('OSRM request failed');
+        if (!response.ok) throw new Error("OSRM request failed");
         const json = await response.json();
 
-        if (json.code !== 'Ok' || !json.routes || json.routes.length === 0) {
-          throw new Error('No route found');
+        if (json.code !== "Ok" || !json.routes || json.routes.length === 0) {
+          throw new Error("No route found");
         }
 
         const route = json.routes[0];
         // Coordinates in OSRM GeoJSON are [lon, lat], Leaflet needs [lat, lon]
-        const coords: [number, number][] = route.geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number]);
+        const coords: [number, number][] = route.geometry.coordinates.map(
+          (c: number[]) => [c[1], c[0]] as [number, number],
+        );
 
         // Process steps if available
         const steps: RouteStep[] = [];
@@ -195,8 +211,8 @@ export function useRouting(pickup: [number, number], destination: [number, numbe
             steps.push({
               distance: step.distance,
               duration: step.duration,
-              instruction: step.maneuver.type + ' ' + (step.name || ''),
-              location: [step.maneuver.location[1], step.maneuver.location[0]]
+              instruction: step.maneuver.type + " " + (step.name || ""),
+              location: [step.maneuver.location[1], step.maneuver.location[0]],
             });
           });
         }
@@ -212,25 +228,25 @@ export function useRouting(pickup: [number, number], destination: [number, numbe
 
         setData(nextData);
         lastFetchedRef.current = {
-          pickup,
-          destination,
+          pickup: currentPickup,
+          destination: currentDest,
           data: nextData,
-          time: Date.now()
+          time: Date.now(),
         };
       } catch (err: any) {
-        console.warn('Real OSRM failed, retaining simulation:', err.message);
+        console.warn("Real OSRM failed, retaining simulation:", err.message);
         // Retain beautiful simulated grids on fail instead of blanking out or creating straight line jumps!
-        setData(prev => ({
+        setData((prev) => ({
           ...prev,
-          routeCoords: prev.routeCoords.length > 0 ? prev.routeCoords : generateSimulatedRoads(pickup, destination),
+          routeCoords: generateSimulatedRoads(currentPickup, currentDest),
           isLoading: false,
-          error: null // clear error so UI functions perfectly
+          error: null, // clear error so UI functions perfectly
         }));
       }
     };
 
     fetchRoute();
-  }, [pickup[0], pickup[1], destination[0], destination[1]]);
+  }, [lat1, lng1, lat2, lng2, enableSlicing]);
 
   return data;
 }

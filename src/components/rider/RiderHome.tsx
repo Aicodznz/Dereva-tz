@@ -284,7 +284,8 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
 
   const { routeCoords: dynamicRoute, steps, isLoading: isRoutingLoading } = useRouting(
     position, 
-    routingTarget || position
+    routingTarget || position,
+    true
   );
   const { isUnlocked: voiceUnlocked, isMuted, speak, toggleMute } = useVoiceNavigation();
   const [lastInstruction, setLastInstruction] = useState("");
