@@ -502,6 +502,14 @@ export default function TaxiBooking() {
   const [rideId, setRideId] = useState<string | null>(null);
   const { ride: activeRide, cancelRide, deleteRide } = useTripFlow(rideId);
 
+  const [timeTicker, setTimeTicker] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeTicker((prev) => prev + 1);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, []);
+
   // Reset secondsOffset when ride status or ID changes
   useEffect(() => {
     setSecondsOffset(0);
@@ -1339,17 +1347,44 @@ export default function TaxiBooking() {
     tripDurSecs = dist / 9.5; // average 34 km/h in traffic
   }
 
-  if (activeRide && activeRide.status === "on_trip") {
-    const driverLoc: [number, number] | null = driverLivePos
-      ? [driverLivePos.lat, driverLivePos.lng]
-      : activeRide.driverLocation
-      ? [activeRide.driverLocation.lat, activeRide.driverLocation.lng]
-      : null;
+  if (activeRide) {
+    if (activeRide.status === "on_trip") {
+      const driverLoc: [number, number] | null = driverLivePos
+        ? [driverLivePos.lat, driverLivePos.lng]
+        : activeRide.driverLocation
+        ? [activeRide.driverLocation.lat, activeRide.driverLocation.lng]
+        : null;
 
-    if (driverLoc) {
-      const remainingDist = getDistanceLocal(driverLoc, destPos);
-      const remainingDurSecs = remainingDist / 9.5; // account for density and road twists
-      const etaTime = new Date(Date.now() + remainingDurSecs * 1000);
+      if (driverLoc) {
+        const remainingDist = getDistanceLocal(driverLoc, destPos);
+        const remainingDurSecs = remainingDist / 9.5; // account for density and road twists
+        const etaTime = new Date(Date.now() + remainingDurSecs * 1000);
+        etaDestText = `EXPECTED ARRIVE BY ${formatTimeLocal(etaTime)}`;
+      } else {
+        const etaTime = new Date(Date.now() + tripDurSecs * 1000);
+        etaDestText = `EXPECTED ARRIVE BY ${formatTimeLocal(etaTime)}`;
+      }
+    } else if (["accepted", "driver_arriving", "driver_arrived", "found"].includes(activeRide.status)) {
+      // Driver is heading to pickup. Estimated total duration = (time to pickup) + (ride duration)
+      const matchedDriver = drivers?.find((d) => d.id === activeRide.driverId);
+      const driverLoc: [number, number] | null = driverLivePos
+        ? [driverLivePos.lat, driverLivePos.lng]
+        : activeRide.driverLocation
+        ? [activeRide.driverLocation.lat, activeRide.driverLocation.lng]
+        : matchedDriver
+        ? [matchedDriver.lat, matchedDriver.lng]
+        : null;
+
+      let durToPickupSecs = 0;
+      if (driverLoc) {
+        const distToPickup = getDistanceLocal(driverLoc, pickupPos);
+        durToPickupSecs = distToPickup / 6.5; // average speed for pickup approach
+      } else {
+        durToPickupSecs = 300; // default 5 minutes to pickup
+      }
+
+      const totalRemainingSecs = durToPickupSecs + tripDurSecs;
+      const etaTime = new Date(Date.now() + totalRemainingSecs * 1000);
       etaDestText = `EXPECTED ARRIVE BY ${formatTimeLocal(etaTime)}`;
     } else {
       const etaTime = new Date(Date.now() + tripDurSecs * 1000);

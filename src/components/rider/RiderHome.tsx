@@ -243,6 +243,14 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
   
   const [rideId, setRideId] = useState<string | null>(null);
   const { ride: activeRide } = useRideStatus(rideId);
+
+  const [timeTicker, setTimeTicker] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeTicker((prev) => prev + 1);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, []);
   const vTypeRaw = (profile?.vehicleType || 'gari').toLowerCase();
   const vType = (vTypeRaw.includes('bike') || vTypeRaw.includes('piki')) ? 'bike' : vTypeRaw.includes('bajaj') ? 'bajaj' : 'mini';
   
@@ -973,10 +981,23 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
 
   let etaDestTextD = "";
   if (activeRide && position) {
-    const distToDest = getDistanceDriver([position[0], position[1]], [activeRide.destination.lat, activeRide.destination.lng]);
-    const remainingDurSecs = distToDest / 9.5;
-    const etaTime = new Date(Date.now() + remainingDurSecs * 1000);
-    etaDestTextD = `EXPECTED ARRIVE BY ${formatTimeDriver(etaTime)}`;
+    if (activeRide.status === "on_trip") {
+      const distToDest = getDistanceDriver([position[0], position[1]], [activeRide.destination.lat, activeRide.destination.lng]);
+      const remainingDurSecs = distToDest / 9.5;
+      const etaTime = new Date(Date.now() + remainingDurSecs * 1000);
+      etaDestTextD = `EXPECTED ARRIVE BY ${formatTimeDriver(etaTime)}`;
+    } else {
+      // heading to pickup: total duration = (driver to pickup) + (pickup to destination)
+      const distToPickup = getDistanceDriver([position[0], position[1]], [activeRide.pickup.lat, activeRide.pickup.lng]);
+      const durToPickupSecs = distToPickup / 6.5;
+
+      const distPickupToDest = getDistanceDriver([activeRide.pickup.lat, activeRide.pickup.lng], [activeRide.destination.lat, activeRide.destination.lng]);
+      const durPickupToDestSecs = distPickupToDest / 9.5;
+
+      const totalRemainingSecs = durToPickupSecs + durPickupToDestSecs;
+      const etaTime = new Date(Date.now() + totalRemainingSecs * 1000);
+      etaDestTextD = `EXPECTED ARRIVE BY ${formatTimeDriver(etaTime)}`;
+    }
   } else if (incomingRequest) {
     const distToDest = getDistanceDriver([incomingRequest.pickup.lat, incomingRequest.pickup.lng], [incomingRequest.destination.lat, incomingRequest.destination.lng]);
     const etSecs = distToDest / 9.5;

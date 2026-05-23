@@ -360,7 +360,7 @@ async function startServer() {
     // 1. Try URL 1 (router.project-osrm.org - driving)
     const headers = {
       'Accept': 'application/json',
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 TegexTaxiApp/1.0 (aicodtznation@gmail.com)'
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
     };
 
     try {
@@ -368,7 +368,7 @@ async function startServer() {
       console.log(`[Proxy] Attempting primary OSRM driving: ${url1}`);
       const response = await fetch(url1, {
         headers,
-        signal: AbortSignal.timeout(6000) // 6s timeout
+        signal: AbortSignal.timeout(15000) // 15s timeout
       });
 
       const contentType = response.headers.get("content-type");
@@ -394,7 +394,7 @@ async function startServer() {
         console.log(`[Proxy] Attempting secondary OSM.de car: ${url2}`);
         const response2 = await fetch(url2, {
           headers,
-          signal: AbortSignal.timeout(6000)
+          signal: AbortSignal.timeout(15000)
         });
 
         const contentType2 = response2.headers.get("content-type");
@@ -420,7 +420,7 @@ async function startServer() {
           console.log(`[Proxy] Attempting secondary OSM.de bicycle: ${url3}`);
           const response3 = await fetch(url3, {
             headers,
-            signal: AbortSignal.timeout(6000)
+            signal: AbortSignal.timeout(15000)
           });
 
           const contentType3 = response3.headers.get("content-type");
@@ -449,7 +449,7 @@ async function startServer() {
             console.log(`[Proxy] Attempting secondary OSM.de foot: ${url4}`);
             const response4 = await fetch(url4, {
               headers,
-              signal: AbortSignal.timeout(6000)
+              signal: AbortSignal.timeout(15000)
             });
 
             const contentType4 = response4.headers.get("content-type");
