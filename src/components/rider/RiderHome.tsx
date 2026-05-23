@@ -847,6 +847,44 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
     }
   };
 
+  // Automatic Proximity & Phase Transition Detector
+  useEffect(() => {
+    if (!isOnline || !activeRide || !position) return;
+
+    const ARRIVAL_THRESHOLD_METERS = 50;
+    const status = activeRide.status;
+
+    // Phase 1: Driver -> Pickup (Point A) [GREEN Route]
+    if (['accepted', 'driver_arriving'].includes(status)) {
+      const distToPickup = getDistanceDriver(
+        [position[0], position[1]], 
+        [activeRide.pickup.lat, activeRide.pickup.lng]
+      );
+      
+      if (distToPickup < ARRIVAL_THRESHOLD_METERS) {
+        console.log(`[Proximity Detector] Within ${distToPickup.toFixed(1)}m of pickup. Triggering arrivedAtPickup.`);
+        arrivedAtPickup().then(() => {
+          toast.success("Mteja amefikiwa! Umewasili eneo la pickup.");
+        }).catch(err => {
+          console.warn("[Proximity] Auto-arrival trigger failed:", err);
+        });
+      }
+    } 
+    // Phase 2: Driver -> Destination (Point B) [ORANGE Route]
+    else if (status === 'on_trip') {
+      const distToDest = getDistanceDriver(
+        [position[0], position[1]], 
+        [activeRide.destination.lat, activeRide.destination.lng]
+      );
+      
+      if (distToDest < ARRIVAL_THRESHOLD_METERS) {
+        console.log(`[Proximity Detector] Within ${distToDest.toFixed(1)}m of destination. Triggering handleComplete.`);
+        handleComplete().catch(err => {
+          console.warn("[Proximity] Auto-completion trigger failed:", err);
+        });
+      }
+    }
+  }, [isOnline, position, activeRide?.status, activeRide?.id, arrivedAtPickup]);
 
 
   // Map centering logic - Auto focus on important points
@@ -1230,7 +1268,7 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                             : [activeRide.pickup.lat, activeRide.pickup.lng]
                         )
                   } 
-                  color={activeRide.status === 'on_trip' ? '#00FF88' : '#FF6B35'} 
+                  color={activeRide.status === 'on_trip' ? '#FF6B35' : '#00E5A0'} 
                 />
               </>
             )}

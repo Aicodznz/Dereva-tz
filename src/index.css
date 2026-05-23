@@ -308,3 +308,11 @@
 .driver-marker-smooth {
   transition: all 1s linear, transform 0.5s ease;
 }
+
+/* Global Leaflet Layout Overrides to ensure maps always render at full container height */
+.leaflet-container {
+  height: 100% !important;
+  width: 100% !important;
+  outline: none;
+  background-color: #0d0d12 !important; /* Elegant off-black fallback background */
+}
