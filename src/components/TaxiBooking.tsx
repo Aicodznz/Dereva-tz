@@ -1608,7 +1608,7 @@ export default function TaxiBooking() {
                             ? getNormalizedCoords(activeRide.routeCoords)
                             : generateSimulatedRoads(pickupPos, destPos)
                         }
-                        color="#00E5A0"
+                        color="#00E5FF"
                       />
                     ) : (
                       routeCoords && routeCoords.length > 1 ? (
@@ -1638,8 +1638,8 @@ export default function TaxiBooking() {
                         }
                         color={
                           activeRide?.status === "on_trip"
-                            ? "#00E5A0"
-                            : "#FF6B35"
+                            ? "#FF6B35"
+                            : "#00E5A0"
                         }
                       />
                     )}
