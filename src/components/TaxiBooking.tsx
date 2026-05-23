@@ -239,17 +239,25 @@ const MapControl = ({
     return () => timers.forEach(clearTimeout);
   }, [map, step, isMapFullscreen]);
 
+  const [containerResizedCount, setContainerResizedCount] = useState(0);
+
   // Handle auto resizing of the map container element dynamically via ResizeObserver to fix viewport and sizing shifts on mobile and tablet resizes
   useEffect(() => {
     if (!map) return;
     const container = map.getContainer();
     if (!container) return;
 
-    const observer = new ResizeObserver(() => {
-      try {
-        map.invalidateSize({ animate: false });
-      } catch (e) {
-        // ignore
+    const observer = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width > 50 && height > 50) {
+          try {
+            map.invalidateSize({ animate: false });
+            setContainerResizedCount((prev) => prev + 1);
+          } catch (e) {
+            // ignore
+          }
+        }
       }
     });
 
@@ -265,7 +273,7 @@ const MapControl = ({
   useEffect(() => {
     if (step === "map") {
       if (routeCoords && routeCoords.length > 1) {
-        const hash = routeCoords.map((c) => `${c[0]},${c[1]}`).join("|").slice(0, 500);
+        const hash = routeCoords.map((c) => `${c[0]},${c[1]}`).join("|").slice(0, 500) + `_${containerResizedCount}`;
         if (lastRouteHash.current !== hash) {
           lastRouteHash.current = hash;
           try {
@@ -287,14 +295,14 @@ const MapControl = ({
           }
         }
       } else if (position) {
-        const posKey = `${position[0]},${position[1]}`;
+        const posKey = `${position[0]},${position[1]}_${containerResizedCount}`;
         if (lastSinglePosRef.current !== posKey) {
           lastSinglePosRef.current = posKey;
           map.setView(position, map.getZoom() || 15, { animate: true, duration: 0.8 });
         }
       }
     }
-  }, [step, routeCoords, position, map]);
+  }, [step, routeCoords, position, map, containerResizedCount]);
 
   useEffect(() => {
     if (!position || !autoFollow) return;
@@ -309,7 +317,7 @@ const MapControl = ({
 
     // Transition tracking key - include loading state to re-fit when real driver position registers!
     const isFallback = targetPos && position[0] === targetPos[0] && position[1] === targetPos[1];
-    const trackingKey = `${step}_${isFallback ? "fallback" : "active"}_${targetPos?.[0] || 0}_${targetPos?.[1] || 0}`;
+    const trackingKey = `${step}_${isFallback ? "fallback" : "active"}_${targetPos?.[0] || 0}_${targetPos?.[1] || 0}_${containerResizedCount}`;
 
     // Fit bounds only once when we first enter this booking step
     if (
@@ -352,6 +360,7 @@ const MapControl = ({
     targetPos?.[1],
     map,
     autoFollow,
+    containerResizedCount,
   ]);
   return null;
 };
@@ -1499,7 +1508,7 @@ export default function TaxiBooking() {
                   </div>
                 )}
 
-                <style>{`.leaflet-container { height: 100% !important; width: 100% !important; background: #ffffff !important; } .custom-div-icon { background: none; border: none; } .animate-spin-slow { animation: spin 3s linear infinite; } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+                <style>{`.leaflet-container { height: 100% !important; width: 100% !important; background: ${theme === 'dark' ? '#0a0a0f' : '#ffffff'} !important; } .custom-div-icon { background: none; border: none; } .animate-spin-slow { animation: spin 3s linear infinite; } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
                 <div
                   style={{
                     borderRadius: "16px",
