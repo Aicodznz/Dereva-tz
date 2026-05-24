@@ -195,7 +195,34 @@ export function useRouting(pickup: [number, number], destination: [number, numbe
           console.error(`[useRouting] HTTP error fetching route: ${response.status} ${response.statusText}`);
           throw new Error(`OSRM request failed with HTTP ${response.status}`);
         }
-        const json = await response.json();
+        let json = await response.json();
+
+        // If the server-side API returned a simulated fallback because it was blocked or failed,
+        // we attempt to fetch directly from the user's browser, which has a clean residential/mobile IP!
+        if (json.isFallback) {
+          console.log("[useRouting] Server proxy returned a fallback route. Attempting DIRECT client-side browser fetch instead...");
+          const directUrls = [
+            `https://router.project-osrm.org/route/v1/driving/${encodeURIComponent(pickupStr + ";" + destStr)}?overview=full&geometries=geojson&steps=true`,
+            `https://routing.openstreetmap.de/routed-car/route/v1/driving/${encodeURIComponent(pickupStr + ";" + destStr)}?overview=full&geometries=geojson&steps=true`
+          ];
+
+          for (const directUrl of directUrls) {
+            try {
+              console.log(`[useRouting] Trying direct browser fetch: ${directUrl}`);
+              const clientRes = await fetch(directUrl);
+              if (clientRes.ok) {
+                const clientJson = await clientRes.json();
+                if (clientJson && clientJson.code === "Ok" && clientJson.routes && clientJson.routes.length > 0) {
+                  console.log(`[useRouting] Browser DIRECT fetch succeeded! Real street route found via ${directUrl}`);
+                  json = clientJson;
+                  break;
+                }
+              }
+            } catch (errDirect) {
+              console.warn(`[useRouting] Direct browser fetch failed for URL ${directUrl}:`, errDirect);
+            }
+          }
+        }
 
         if (json.code !== "Ok" || !json.routes || json.routes.length === 0) {
           console.error(`[useRouting] OSRM service returned invalid code or empty routes:`, json);

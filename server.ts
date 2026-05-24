@@ -174,6 +174,7 @@ async function startServer() {
     if (pairs.length < 2) {
       return {
         code: "Ok",
+        isFallback: true,
         routes: [{
           geometry: { coordinates: pairs, type: "LineString" },
           legs: [{ summary: "Kituo kimoja", duration: 0, distance: 0, steps: [] }]
@@ -304,6 +305,7 @@ async function startServer() {
 
     return {
       code: "Ok",
+      isFallback: true,
       routes: [
         {
           geometry: {

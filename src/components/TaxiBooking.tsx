@@ -732,7 +732,32 @@ export default function TaxiBooking() {
           throw new Error(
             `Driver routing failed with status ${response.status}`,
           );
-        const data = await response.json();
+        let data = await response.json();
+
+        // Direct browser address request if server falls back to simulated coordinates
+        if (data.isFallback) {
+          console.log("[TaxiBooking] Driver route server proxy returned fallback. Attempting DIRECT browser fetch...");
+          const directUrls = [
+            `https://router.project-osrm.org/route/v1/driving/${encodeURIComponent(coords)}?overview=full&geometries=geojson&steps=true`,
+            `https://routing.openstreetmap.de/routed-car/route/v1/driving/${encodeURIComponent(coords)}?overview=full&geometries=geojson&steps=true`
+          ];
+          for (const directUrl of directUrls) {
+            try {
+              const clientRes = await fetch(directUrl);
+              if (clientRes.ok) {
+                const clientJson = await clientRes.json();
+                if (clientJson && clientJson.code === "Ok" && clientJson.routes?.[0]) {
+                  console.log(`[TaxiBooking] Driver route DIRECT fetch succeeded via ${directUrl}`);
+                  data = clientJson;
+                  break;
+                }
+              }
+            } catch (errDirect) {
+              console.warn(`[TaxiBooking] Driver direct fetch failed for ${directUrl}`, errDirect);
+            }
+          }
+        }
+
         if (data.routes?.[0]) {
           const fetched: [number, number][] = data.routes[0].geometry.coordinates.map((c: any) => [c[1], c[0]]);
           if (fetched.length > 0) {
