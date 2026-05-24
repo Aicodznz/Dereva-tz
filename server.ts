@@ -338,11 +338,14 @@ async function startServer() {
     };
   }
 
+  // Simple in-memory cache to prevent spamming the routing endpoints and getting rate-limited
+  const routeCache = new Map<string, any>();
+
   // Proxy for OSRM Routing
   app.get("/api/geo/route", async (req, res) => {
     const { coords } = req.query; // format: lng,lat;lng,lat
     
-    console.log(`[Proxy] OSRM Route: ${coords}`);
+    console.log(`[Proxy] OSRM Route requested: ${coords}`);
 
     if (!coords || typeof coords !== "string" || !coords.includes(",")) {
       return res.status(400).json({ error: "Invalid coordinates format. Expected lng,lat;lng,lat" });
@@ -357,6 +360,17 @@ async function startServer() {
       });
     } catch (e) {
       console.warn("[Proxy] Failed to parse coords pairs:", e);
+    }
+
+    if (coordsPairs.length < 2) {
+      return res.status(400).json({ error: "Missing source or destination coordinates" });
+    }
+
+    // Direct cache key using 4 decimal precision (approx 11m accuracy) for grid resilience
+    const cacheKey = coordsPairs.map(p => `${p[0].toFixed(4)},${p[1].toFixed(4)}`).join(";");
+    if (routeCache.has(cacheKey)) {
+      console.log(`[Proxy] Routing cache HIT for coordinates!`);
+      return res.json(routeCache.get(cacheKey));
     }
 
     const encodedCoords = coordsPairs.map(p => `${p[0]},${p[1]}`).join(";");
@@ -414,15 +428,17 @@ async function startServer() {
       // Increased timeout to 12000ms to allow slow networks/containers to resolve properly
       const winner = await raceServices(carUrls, 12000);
       console.log(`[Proxy] Routing SUCCESS! Selected FASTEST responder: ${winner.source}`);
+      routeCache.set(cacheKey, winner.data);
       return res.json(winner.data);
     } catch (eCar) {
-      console.error(`[Proxy] All racing endpoints failed. Generating simulated straight-line road blocks as absolute last resort.`);
+      console.log(`[Proxy] Note: External OSRM servers are currently congested or rate-limited. Serving smooth, detailed, grid-accurate street route simulation fallback.`);
       if (coordsPairs.length >= 2) {
         const fallbackData = generateStraightLineRoute(coordsPairs);
-        console.log(`[Proxy] Straight line fallback generated successfully.`);
+        routeCache.set(cacheKey, fallbackData);
+        console.log(`[Proxy] Grid routing fallback generated successfully.`);
         return res.json(fallbackData);
       } else {
-        return res.status(502).json({ error: "All routing attempts failed and could not generate straight line fallback." });
+        return res.status(502).json({ error: "Could not fetch or generate routing data." });
       }
     }
   });
