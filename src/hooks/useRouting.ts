@@ -203,7 +203,13 @@ export function useRouting(pickup: [number, number], destination: [number, numbe
           console.log("[useRouting] Server proxy returned a fallback route. Attempting DIRECT client-side browser fetch instead...");
           const directUrls = [
             `https://router.project-osrm.org/route/v1/driving/${pickupStr};${destStr}?overview=full&geometries=geojson&steps=true`,
-            `https://routing.openstreetmap.de/routed-car/route/v1/driving/${pickupStr};${destStr}?overview=full&geometries=geojson&steps=true`
+            `https://routing.openstreetmap.de/routed-car/route/v1/driving/${pickupStr};${destStr}?overview=full&geometries=geojson&steps=true`,
+            `http://router.project-osrm.org/route/v1/driving/${pickupStr};${destStr}?overview=full&geometries=geojson&steps=true`,
+            `http://routing.openstreetmap.de/routed-car/route/v1/driving/${pickupStr};${destStr}?overview=full&geometries=geojson&steps=true`,
+            `https://routing.openstreetmap.de/routed-bike/route/v1/bicycle/${pickupStr};${destStr}?overview=full&geometries=geojson&steps=true`,
+            `http://routing.openstreetmap.de/routed-bike/route/v1/bicycle/${pickupStr};${destStr}?overview=full&geometries=geojson&steps=true`,
+            `https://routing.openstreetmap.de/routed-foot/route/v1/foot/${pickupStr};${destStr}?overview=full&geometries=geojson&steps=true`,
+            `http://routing.openstreetmap.de/routed-foot/route/v1/foot/${pickupStr};${destStr}?overview=full&geometries=geojson&steps=true`
           ];
 
           for (const directUrl of directUrls) {

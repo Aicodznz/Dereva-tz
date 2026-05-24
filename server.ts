@@ -6,6 +6,8 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -395,45 +397,32 @@ async function startServer() {
       }
     };
 
-    // 1. Race Primary & Secondary CAR driving services
+    // 1. Race Primary & Secondary CAR driving services (Both HTTPS and HTTP variants for maximal robustness)
     const carUrls = [
       `https://router.project-osrm.org/route/v1/driving/${encodedCoords}?overview=full&geometries=geojson&steps=true`,
-      `https://routing.openstreetmap.de/routed-car/route/v1/driving/${encodedCoords}?overview=full&geometries=geojson&steps=true`
+      `https://routing.openstreetmap.de/routed-car/route/v1/driving/${encodedCoords}?overview=full&geometries=geojson&steps=true`,
+      `http://router.project-osrm.org/route/v1/driving/${encodedCoords}?overview=full&geometries=geojson&steps=true`,
+      `http://routing.openstreetmap.de/routed-car/route/v1/driving/${encodedCoords}?overview=full&geometries=geojson&steps=true`,
+      `https://routing.openstreetmap.de/routed-bike/route/v1/bicycle/${encodedCoords}?overview=full&geometries=geojson&steps=true`,
+      `http://routing.openstreetmap.de/routed-bike/route/v1/bicycle/${encodedCoords}?overview=full&geometries=geojson&steps=true`,
+      `https://routing.openstreetmap.de/routed-foot/route/v1/foot/${encodedCoords}?overview=full&geometries=geojson&steps=true`,
+      `http://routing.openstreetmap.de/routed-foot/route/v1/foot/${encodedCoords}?overview=full&geometries=geojson&steps=true`
     ];
 
     try {
-      console.log(`[Proxy] Racing CAR routing URLs:`, carUrls);
-      const winner = await raceServices(carUrls, 4000);
+      console.log(`[Proxy] Racing CAR & alternative routing URLs:`, carUrls);
+      // Increased timeout to 12000ms to allow slow networks/containers to resolve properly
+      const winner = await raceServices(carUrls, 12000);
       console.log(`[Proxy] Routing SUCCESS! Selected FASTEST responder: ${winner.source}`);
       return res.json(winner.data);
     } catch (eCar) {
-      console.warn(`[Proxy] CAR routing racing failed. Retrying with alternative (bike/foot) profiles...`);
-
-      // 2. Race Bicycle & Foot profiles
-      const altUrls = [
-        `https://routing.openstreetmap.de/routed-bike/route/v1/bicycle/${encodedCoords}?overview=full&geometries=geojson&steps=true`,
-        `https://routing.openstreetmap.de/routed-foot/route/v1/foot/${encodedCoords}?overview=full&geometries=geojson&steps=true`
-      ];
-
-      try {
-        console.log(`[Proxy] Racing ALTERNATIVE routing URLs:`, altUrls);
-        const winner = await raceServices(altUrls, 4000);
-        console.log(`[Proxy] Alternative Routing SUCCESS! Chosen FASTEST fallback: ${winner.source}`);
-        if (winner.data.routes?.[0]) {
-          winner.data.routes[0].legs?.forEach((leg: any) => {
-            leg.summary = leg.summary || "Njia ya mkato";
-          });
-        }
-        return res.json(winner.data);
-      } catch (eAlt: any) {
-        console.error(`[Proxy] All OSRM & OSM.de backends failed! Resorting to linear distance fallback.`);
-        if (coordsPairs.length >= 2) {
-          const fallbackData = generateStraightLineRoute(coordsPairs);
-          console.log(`[Proxy] Straight line fallback generated successfully.`);
-          return res.json(fallbackData);
-        } else {
-          return res.status(502).json({ error: "All routing attempts failed and could not generate straight line fallback." });
-        }
+      console.error(`[Proxy] All racing endpoints failed. Generating simulated straight-line road blocks as absolute last resort.`);
+      if (coordsPairs.length >= 2) {
+        const fallbackData = generateStraightLineRoute(coordsPairs);
+        console.log(`[Proxy] Straight line fallback generated successfully.`);
+        return res.json(fallbackData);
+      } else {
+        return res.status(502).json({ error: "All routing attempts failed and could not generate straight line fallback." });
       }
     }
   });

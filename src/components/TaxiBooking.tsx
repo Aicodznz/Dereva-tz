@@ -739,7 +739,13 @@ export default function TaxiBooking() {
           console.log("[TaxiBooking] Driver route server proxy returned fallback. Attempting DIRECT browser fetch...");
           const directUrls = [
             `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=true`,
-            `https://routing.openstreetmap.de/routed-car/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=true`
+            `https://routing.openstreetmap.de/routed-car/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=true`,
+            `http://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=true`,
+            `http://routing.openstreetmap.de/routed-car/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=true`,
+            `https://routing.openstreetmap.de/routed-bike/route/v1/bicycle/${coords}?overview=full&geometries=geojson&steps=true`,
+            `http://routing.openstreetmap.de/routed-bike/route/v1/bicycle/${coords}?overview=full&geometries=geojson&steps=true`,
+            `https://routing.openstreetmap.de/routed-foot/route/v1/foot/${coords}?overview=full&geometries=geojson&steps=true`,
+            `http://routing.openstreetmap.de/routed-foot/route/v1/foot/${coords}?overview=full&geometries=geojson&steps=true`
           ];
           for (const directUrl of directUrls) {
             try {
