@@ -441,8 +441,8 @@ export default function TaxiBooking() {
     -6.7721, 39.2326,
   ]);
   const [destPos, setDestPos] = useState<[number, number]>([-6.8235, 39.2695]);
-  const [pickup, setPickup] = useState("");
-  const [destination, setDestination] = useState("");
+  const [pickup, setPickup] = useState("Mwenge, Dar es Salaam");
+  const [destination, setDestination] = useState("Kariakoo, Dar es Salaam");
 
   const theme = resolvedTheme === "light" ? "light" : "dark";
 
@@ -570,24 +570,20 @@ export default function TaxiBooking() {
     const initDefaultAddresses = async () => {
       try {
         const startAddr = await reverseGeocode(-6.7721, 39.2326);
-        if (startAddr && startAddr !== "Eneo Halijapatikana") {
+        if (startAddr && startAddr !== "Eneo Halijapatikana" && startAddr !== "Unknown Area") {
           setPickup(startAddr);
-        } else {
-          setPickup("Mwenge, Dar es Salaam");
         }
       } catch (e) {
-        setPickup("Mwenge, Dar es Salaam");
+        console.warn("Could not geocode initial pickup:", e);
       }
 
       try {
         const endAddr = await reverseGeocode(-6.8235, 39.2695);
-        if (endAddr && endAddr !== "Eneo Halijapatikana") {
+        if (endAddr && endAddr !== "Eneo Halijapatikana" && endAddr !== "Unknown Area") {
           setDestination(endAddr);
-        } else {
-          setDestination("Kariakoo, Dar es Salaam");
         }
       } catch (e) {
-        setDestination("Kariakoo, Dar es Salaam");
+        console.warn("Could not geocode initial destination:", e);
       }
     };
 
@@ -1790,7 +1786,9 @@ export default function TaxiBooking() {
                     {activeRide?.status !== "on_trip" && (
                       <Marker position={pickupPos} icon={getStartPin(etaPickupText)} />
                     )}
-                    <Marker position={destPos} icon={getEndPin(etaDestText)} />
+                    {destination && (
+                      <Marker position={destPos} icon={getEndPin(etaDestText)} />
+                    )}
 
                     {/* Assigned Driver Marker */}
                     {(driverLivePos || activeRide?.driverLocation) && (
@@ -1835,11 +1833,13 @@ export default function TaxiBooking() {
                         color="#00E5FF"
                       />
                     ) : (
-                      routeCoords && routeCoords.length > 1 ? (
-                        <AnimatedRoute positions={routeCoords} color="#00E5A0" />
-                      ) : (
-                        pickupPos && destPos && (
-                          <AnimatedRoute positions={generateSimulatedRoads(pickupPos, destPos)} color="#00E5A0" />
+                      destination && (
+                        routeCoords && routeCoords.length > 1 ? (
+                          <AnimatedRoute positions={routeCoords} color="#00E5A0" />
+                        ) : (
+                          pickupPos && destPos && (
+                            <AnimatedRoute positions={generateSimulatedRoads(pickupPos, destPos)} color="#00E5A0" />
+                          )
                         )
                       )
                     )}
@@ -2005,7 +2005,10 @@ export default function TaxiBooking() {
                   <div className="bg-[#0a0a0f]/60 backdrop-blur-xl border border-white/5 rounded-3xl p-6 relative">
                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-[#7F77DD] opacity-30 rounded-t-3xl" />
                     <div className="space-y-6">
-                      <div className="flex items-center gap-4">
+                      <div 
+                        className="flex items-center gap-4 cursor-pointer"
+                        onClick={() => setSettingMode("pickup")}
+                      >
                         <div
                           className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${settingMode === "pickup" ? "bg-emerald-500 text-white shadow-lg" : "bg-white/5 text-[#6b6b8a]"}`}
                         >
@@ -2040,7 +2043,10 @@ export default function TaxiBooking() {
 
                       <div className="h-px bg-white/5" />
 
-                      <div className="flex items-center gap-4">
+                      <div 
+                        className="flex items-center gap-4 cursor-pointer"
+                        onClick={() => setSettingMode("destination")}
+                      >
                         <div
                           className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${settingMode === "destination" ? "bg-red-500 text-white shadow-lg" : "bg-white/5 text-[#6b6b8a]"}`}
                         >
