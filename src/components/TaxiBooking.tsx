@@ -738,8 +738,8 @@ export default function TaxiBooking() {
         if (data.isFallback) {
           console.log("[TaxiBooking] Driver route server proxy returned fallback. Attempting DIRECT browser fetch...");
           const directUrls = [
-            `https://router.project-osrm.org/route/v1/driving/${encodeURIComponent(coords)}?overview=full&geometries=geojson&steps=true`,
-            `https://routing.openstreetmap.de/routed-car/route/v1/driving/${encodeURIComponent(coords)}?overview=full&geometries=geojson&steps=true`
+            `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=true`,
+            `https://routing.openstreetmap.de/routed-car/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=true`
           ];
           for (const directUrl of directUrls) {
             try {

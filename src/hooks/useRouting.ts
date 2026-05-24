@@ -202,8 +202,8 @@ export function useRouting(pickup: [number, number], destination: [number, numbe
         if (json.isFallback) {
           console.log("[useRouting] Server proxy returned a fallback route. Attempting DIRECT client-side browser fetch instead...");
           const directUrls = [
-            `https://router.project-osrm.org/route/v1/driving/${encodeURIComponent(pickupStr + ";" + destStr)}?overview=full&geometries=geojson&steps=true`,
-            `https://routing.openstreetmap.de/routed-car/route/v1/driving/${encodeURIComponent(pickupStr + ";" + destStr)}?overview=full&geometries=geojson&steps=true`
+            `https://router.project-osrm.org/route/v1/driving/${pickupStr};${destStr}?overview=full&geometries=geojson&steps=true`,
+            `https://routing.openstreetmap.de/routed-car/route/v1/driving/${pickupStr};${destStr}?overview=full&geometries=geojson&steps=true`
           ];
 
           for (const directUrl of directUrls) {
