@@ -36,6 +36,7 @@ import {
   RotateCw,
   Sun,
   Moon,
+  Trash2,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import Chat from "./Chat";
@@ -466,9 +467,63 @@ export default function TaxiBooking() {
   };
 
   const handleCurrentLocation = () => {
+    let fallbackCalled = false;
+    
+    const triggerIpFallback = async () => {
+      if (fallbackCalled) return;
+      fallbackCalled = true;
+      console.log("[TaxiBooking] Attempting IP-based geolocation fallback...");
+      try {
+        const ipRes = await fetch("https://ipapi.co/json/");
+        if (ipRes.ok) {
+          const ipData = await ipRes.json();
+          if (ipData && typeof ipData.latitude === 'number' && typeof ipData.longitude === 'number') {
+            const lat = ipData.latitude;
+            const lng = ipData.longitude;
+            setPickupPos([lat, lng]);
+            setSettingMode("pickup");
+            const addr = await reverseGeocode(lat, lng);
+            if (addr && addr !== "Unknown Area") {
+              setPickup(addr);
+            }
+            toast.success(`Eneo limetambuliwa kiotomatiki (${ipData.city || 'Karibu nawe'})`);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn("[TaxiBooking] IP-based geolocation fallback failed:", err);
+      }
+      
+      try {
+        const ipRes2 = await fetch("https://ip-api.com/json");
+        if (ipRes2.ok) {
+          const ipData2 = await ipRes2.json();
+          if (ipData2 && typeof ipData2.lat === 'number' && typeof ipData2.lon === 'number') {
+            const lat = ipData2.lat;
+            const lng = ipData2.lon;
+            setPickupPos([lat, lng]);
+            setSettingMode("pickup");
+            const addr = await reverseGeocode(lat, lng);
+            if (addr && addr !== "Unknown Area") {
+              setPickup(addr);
+            }
+            toast.success(`Eneo limetambuliwa (${ipData2.city || 'Karibu nawe'})`);
+            return;
+          }
+        }
+      } catch (err2) {
+        console.warn("[TaxiBooking] Secondary IP geolocation failed:", err2);
+      }
+    };
+
     if ("geolocation" in navigator) {
+      const timer = setTimeout(() => {
+        triggerIpFallback();
+      }, 4000);
+
       navigator.geolocation.getCurrentPosition(
         async (position) => {
+          clearTimeout(timer);
           const lat = position.coords.latitude;
           const lng = position.coords.longitude;
           setPickupPos([lat, lng]);
@@ -477,14 +532,17 @@ export default function TaxiBooking() {
           if (addr && addr !== "Unknown Area") {
             setPickup(addr);
           }
-          toast.success("Location updated");
+          toast.success("Eneo lako limepatikana kupitia GPS!");
         },
-        (error) => {
+        async (error) => {
+          clearTimeout(timer);
           console.error("Geolocation error:", error);
-          toast.error("Imeshindwa kupata eneo lako. Hakikisha GPS imewashwa.");
+          await triggerIpFallback();
         },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+        { enableHighAccuracy: true, timeout: 6000, maximumAge: 300000 },
       );
+    } else {
+      triggerIpFallback();
     }
   };
 
@@ -1495,7 +1553,27 @@ export default function TaxiBooking() {
                       <Home className="w-6 h-6" />
                     </button>
                   )}
-                  {step !== "map" && <div className="w-12" />}
+                  {step !== "map" && (
+                    <button
+                      onClick={async () => {
+                        if (activeRide) {
+                          if (window.confirm("Je, una uhakika unataka kukatisha safari hii ya sasa na kuanza upya?")) {
+                            await cancelRide();
+                            setStep("map");
+                            setRideId(null);
+                            toast.success("Safari imefutwa. Sasa unaweza kupanga upya!");
+                          }
+                        } else {
+                          setStep("map");
+                        }
+                      }}
+                      className="px-4 h-12 bg-red-600/90 backdrop-blur-xl rounded-2xl border border-red-500/20 flex items-center gap-2 justify-center shadow-xl active:scale-95 transition-transform text-white pointer-events-auto font-black text-xs uppercase"
+                      title="Ghairi & Anza Mpya"
+                    >
+                      <Trash2 className="w-4 h-4 text-white" />
+                      <span>Ghairi Safari</span>
+                    </button>
+                  )}
                   <div className="flex gap-3">
                     <AppDownloadButton variant="compact" className="w-12 h-12 bg-[#111118]/90 backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform text-white pointer-events-auto" />
                     <button

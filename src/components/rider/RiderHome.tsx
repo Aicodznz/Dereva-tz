@@ -432,15 +432,58 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
 
   // Get current location
   useEffect(() => {
+    let fallbackCalled = false;
+    const triggerIpFallback = async () => {
+      if (fallbackCalled) return;
+      fallbackCalled = true;
+      try {
+        const ipRes = await fetch("https://ipapi.co/json/");
+        if (ipRes.ok) {
+          const ipData = await ipRes.json();
+          if (ipData && typeof ipData.latitude === 'number' && typeof ipData.longitude === 'number') {
+            setPosition([ipData.latitude, ipData.longitude]);
+            toast.success(`Eneo lako la sasa limetambuliwa (${ipData.city || 'Karibu nawe'})`);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn("RiderHome IP Loc fail:", err);
+      }
+      
+      try {
+        const ipRes2 = await fetch("https://ip-api.com/json");
+        if (ipRes2.ok) {
+          const ipData2 = await ipRes2.json();
+          if (ipData2 && typeof ipData2.lat === 'number' && typeof ipData2.lon === 'number') {
+            setPosition([ipData2.lat, ipData2.lon]);
+            toast.success(`Eneo lako limepatikana (${ipData2.city || 'Karibu nawe'})`);
+          }
+        }
+      } catch (err2) {
+        console.warn("RiderHome secondary IP Loc fail:", err2);
+      }
+    };
+
     if (navigator.geolocation) {
+      const timer = setTimeout(() => {
+        triggerIpFallback();
+      }, 4000);
+
       navigator.geolocation.getCurrentPosition(
         (pos) => {
+          clearTimeout(timer);
           setPosition([pos.coords.latitude, pos.coords.longitude]);
+          toast.success("Eneo lako limepatikana kupitia GPS!");
         },
-        (err) => {
-          if (err.code !== 1) console.warn("Initial geolocation failed", err.message);
-        }
+        async (err) => {
+          clearTimeout(timer);
+          console.warn("Initial geolocation failed, fallback to IP", err.message);
+          await triggerIpFallback();
+        },
+        { enableHighAccuracy: true, timeout: 6000, maximumAge: 300000 }
       );
+    } else {
+      triggerIpFallback();
     }
   }, []);
 
