@@ -111,9 +111,19 @@ const getNormalizedCoords = (coords: any): [number, number][] => {
   }).filter((c): c is [number, number] => c !== null);
 };
 
-function formatAddress(result: { address?: NominatimAddress }): string {
-  if (!result || !result.address) return "Eneo Halijapatikana";
+function formatAddress(result: any): string {
+  if (!result) return "Eneo Halijapatikana";
   const addr = result.address;
+
+  if (!addr && result.display_name) {
+    const parts = result.display_name.split(",");
+    if (parts.length > 2) {
+      return parts.slice(0, 2).map((p: string) => p.trim()).join(", ");
+    }
+    return result.display_name;
+  }
+
+  if (!addr) return result.display_name || "Eneo Halijapatikana";
 
   let primary =
     addr.shop ||
@@ -121,7 +131,8 @@ function formatAddress(result: { address?: NominatimAddress }): string {
     addr.building ||
     addr.office ||
     addr.tourism ||
-    addr.point_of_interest;
+    addr.point_of_interest ||
+    addr.house_number;
   let secondary = addr.road || addr.suburb || addr.neighbourhood;
   let tertiary = addr.city || addr.town || addr.village || addr.county;
 
@@ -135,7 +146,15 @@ function formatAddress(result: { address?: NominatimAddress }): string {
   } else if (secondary) {
     label = secondary;
   } else {
-    label = tertiary || "Unknown Location";
+    label = tertiary || result.display_name || "Unknown Location";
+  }
+
+  if ((label === "Unknown Location" || label === "Eneo Halijapatikana") && result.display_name) {
+    const parts = result.display_name.split(",");
+    if (parts.length > 2) {
+      return parts.slice(0, 2).map((p: string) => p.trim()).join(", ");
+    }
+    return result.display_name;
   }
 
   return label.length > 35 ? label.substring(0, 32) + "..." : label;
@@ -422,7 +441,7 @@ export default function TaxiBooking() {
     -6.7721, 39.2326,
   ]);
   const [destPos, setDestPos] = useState<[number, number]>([-6.8235, 39.2695]);
-  const [pickup, setPickup] = useState("Tafuta eneo lako...");
+  const [pickup, setPickup] = useState("");
   const [destination, setDestination] = useState("");
 
   const theme = resolvedTheme === "light" ? "light" : "dark";
@@ -546,8 +565,33 @@ export default function TaxiBooking() {
     }
   };
 
-  // Auto-detect current location
+  // Load initial readable names for default coordinates & detect current location
   useEffect(() => {
+    const initDefaultAddresses = async () => {
+      try {
+        const startAddr = await reverseGeocode(-6.7721, 39.2326);
+        if (startAddr && startAddr !== "Eneo Halijapatikana") {
+          setPickup(startAddr);
+        } else {
+          setPickup("Mwenge, Dar es Salaam");
+        }
+      } catch (e) {
+        setPickup("Mwenge, Dar es Salaam");
+      }
+
+      try {
+        const endAddr = await reverseGeocode(-6.8235, 39.2695);
+        if (endAddr && endAddr !== "Eneo Halijapatikana") {
+          setDestination(endAddr);
+        } else {
+          setDestination("Kariakoo, Dar es Salaam");
+        }
+      } catch (e) {
+        setDestination("Kariakoo, Dar es Salaam");
+      }
+    };
+
+    initDefaultAddresses();
     handleCurrentLocation();
   }, []);
 
