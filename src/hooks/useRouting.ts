@@ -204,6 +204,18 @@ export function useRouting(pickup: [number, number], destination: [number, numbe
           (c: number[]) => [c[1], c[0]] as [number, number],
         );
 
+        // Ensure the route connects exactly to the pickup and destination points
+        if (coords.length > 0) {
+          const firstDist = getDistMeters(currentPickup, coords[0]);
+          if (firstDist > 1) {
+            coords.unshift(currentPickup);
+          }
+          const lastDist = getDistMeters(currentDest, coords[coords.length - 1]);
+          if (lastDist > 1) {
+            coords.push(currentDest);
+          }
+        }
+
         // Process steps if available
         const steps: RouteStep[] = [];
         if (route.legs && route.legs[0] && route.legs[0].steps) {

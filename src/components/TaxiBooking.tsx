@@ -734,7 +734,23 @@ export default function TaxiBooking() {
           );
         const data = await response.json();
         if (data.routes?.[0]) {
-          const fetched = data.routes[0].geometry.coordinates.map((c: any) => [c[1], c[0]]);
+          const fetched: [number, number][] = data.routes[0].geometry.coordinates.map((c: any) => [c[1], c[0]]);
+          if (fetched.length > 0) {
+            const startPoint: [number, number] = [driverLivePos.lat, driverLivePos.lng];
+            const endPoint: [number, number] = [target.lat, target.lng];
+            
+            const distStart = getDistMetersLocal(driverLivePos, { lat: fetched[0][0], lng: fetched[0][1] });
+            if (distStart > 1) {
+              fetched.unshift(startPoint);
+            }
+            const distEnd = getDistMetersLocal(
+              { lat: endPoint[0], lng: endPoint[1] },
+              { lat: fetched[fetched.length - 1][0], lng: fetched[fetched.length - 1][1] }
+            );
+            if (distEnd > 1) {
+              fetched.push(endPoint);
+            }
+          }
           setDriverRouteCoords(fetched);
           lastFetchedPosRef.current = driverLivePos;
         }
