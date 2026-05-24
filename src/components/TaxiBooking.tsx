@@ -1340,8 +1340,10 @@ export default function TaxiBooking() {
           etaPickupText = "DEREVA KASHAFIKA!";
         } else {
           const durSecs = distToPickup / 6.5; // average 23 km/h
-          const durMins = Math.max(1, Math.ceil(durSecs / 60));
-          etaPickupText = `atakuja baada ya ${durMins} min`;
+          const realDurSecs = Math.max(0, durSecs - (secondsOffset % 30));
+          const minsLeft = Math.floor(realDurSecs / 60);
+          const secsLeft = Math.floor(realDurSecs % 60);
+          etaPickupText = `atakuja baada ya dk ${minsLeft} sek ${secsLeft}`;
         }
       } else {
         etaPickupText = ""; // Keep empty when there is no nearby driver/location info
@@ -1374,11 +1376,17 @@ export default function TaxiBooking() {
       if (driverLoc) {
         const remainingDist = getDistanceLocal(driverLoc, destPos);
         const remainingDurSecs = remainingDist / 9.5; // account for density and road twists
-        const etaTime = new Date(Date.now() + remainingDurSecs * 1000);
-        etaDestText = `EXPECTED ARRIVE BY ${formatTimeLocal(etaTime)}`;
+        const realRemainingSecs = Math.max(0, remainingDurSecs - (secondsOffset % 30));
+        const minsLeft = Math.floor(realRemainingSecs / 60);
+        const secsLeft = Math.floor(realRemainingSecs % 60);
+        const etaTime = new Date(Date.now() + realRemainingSecs * 1000);
+        etaDestText = `EXPECTED ARRIVE BY ${formatTimeLocal(etaTime)} (Imebaki dk ${minsLeft} sek ${secsLeft})`;
       } else {
-        const etaTime = new Date(Date.now() + tripDurSecs * 1000);
-        etaDestText = `EXPECTED ARRIVE BY ${formatTimeLocal(etaTime)}`;
+        const realRemainingSecs = Math.max(0, tripDurSecs - secondsOffset);
+        const minsLeft = Math.floor(realRemainingSecs / 60);
+        const secsLeft = Math.floor(realRemainingSecs % 60);
+        const etaTime = new Date(Date.now() + realRemainingSecs * 1000);
+        etaDestText = `EXPECTED ARRIVE BY ${formatTimeLocal(etaTime)} (Imebaki dk ${minsLeft} sek ${secsLeft})`;
       }
     } else if (["accepted", "driver_arriving", "driver_arrived", "found"].includes(activeRide.status)) {
       // Driver is heading to pickup. Estimated total duration = (time to pickup) + (ride duration)
@@ -1400,16 +1408,25 @@ export default function TaxiBooking() {
       }
 
       const totalRemainingSecs = durToPickupSecs + tripDurSecs;
-      const etaTime = new Date(Date.now() + totalRemainingSecs * 1000);
-      etaDestText = `EXPECTED ARRIVE BY ${formatTimeLocal(etaTime)}`;
+      const realRemainingSecs = Math.max(0, totalRemainingSecs - secondsOffset);
+      const minsLeft = Math.floor(realRemainingSecs / 60);
+      const secsLeft = Math.floor(realRemainingSecs % 60);
+      const etaTime = new Date(Date.now() + realRemainingSecs * 1000);
+      etaDestText = `EXPECTED ARRIVE BY ${formatTimeLocal(etaTime)} (Imebaki dk ${minsLeft} sek ${secsLeft})`;
     } else {
-      const etaTime = new Date(Date.now() + tripDurSecs * 1000);
-      etaDestText = `EXPECTED ARRIVE BY ${formatTimeLocal(etaTime)}`;
+      const realRemainingSecs = Math.max(0, tripDurSecs - secondsOffset);
+      const minsLeft = Math.floor(realRemainingSecs / 60);
+      const secsLeft = Math.floor(realRemainingSecs % 60);
+      const etaTime = new Date(Date.now() + realRemainingSecs * 1000);
+      etaDestText = `EXPECTED ARRIVE BY ${formatTimeLocal(etaTime)} (Imebaki dk ${minsLeft} sek ${secsLeft})`;
     }
   } else {
     // Before trip starts (during booking setup / search)
-    const etaTime = new Date(Date.now() + tripDurSecs * 1000);
-    etaDestText = `EXPECTED ARRIVE BY ${formatTimeLocal(etaTime)}`;
+    const realRemainingSecs = Math.max(0, tripDurSecs - secondsOffset);
+    const minsLeft = Math.floor(realRemainingSecs / 60);
+    const secsLeft = Math.floor(realRemainingSecs % 60);
+    const etaTime = new Date(Date.now() + realRemainingSecs * 1000);
+    etaDestText = `EXPECTED ARRIVE BY ${formatTimeLocal(etaTime)} (Imebaki dk ${minsLeft} sek ${secsLeft})`;
   }
 
   return (

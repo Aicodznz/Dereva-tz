@@ -357,122 +357,80 @@ async function startServer() {
 
     const encodedCoords = coordsPairs.map(p => `${p[0]},${p[1]}`).join(";");
 
-    // 1. Try URL 1 (router.project-osrm.org - driving)
     const headers = {
       'Accept': 'application/json',
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
     };
 
-    try {
-      const url1 = `https://router.project-osrm.org/route/v1/driving/${encodedCoords}?overview=full&geometries=geojson&steps=true`;
-      console.log(`[Proxy] Attempting primary OSRM driving: ${url1}`);
-      const response = await fetch(url1, {
-        headers,
-        signal: AbortSignal.timeout(15000) // 15s timeout
-      });
-
-      const contentType = response.headers.get("content-type");
-      if (response.ok && contentType?.includes("application/json")) {
-        const data = await response.json();
-        if (data && data.code === "Ok") {
-          console.log(`[Proxy] Primary OSRM driving success!`);
-          return res.json(data);
-        } else {
-          console.warn(`[Proxy] Primary OSRM returned non-Ok code:`, data?.code);
-        }
-      } else {
-        const bodyText = await response.text().catch(() => "");
-        console.warn(`[Proxy] Primary OSRM failed with status: ${response.status}. Body: ${bodyText.substring(0, 200)}`);
-      }
-      throw new Error(`Primary OSRM responded with status ${response.status}`);
-    } catch (e1: any) {
-      console.warn(`[Proxy] Primary OSRM failed: ${e1.message || e1}. Trying secondary OSM.de car...`);
-
-      // 2. Try URL 2 (routing.openstreetmap.de - car)
-      try {
-        const url2 = `https://routing.openstreetmap.de/routed-car/route/v1/driving/${encodedCoords}?overview=full&geometries=geojson&steps=true`;
-        console.log(`[Proxy] Attempting secondary OSM.de car: ${url2}`);
-        const response2 = await fetch(url2, {
-          headers,
-          signal: AbortSignal.timeout(15000)
-        });
-
-        const contentType2 = response2.headers.get("content-type");
-        if (response2.ok && contentType2?.includes("application/json")) {
-          const data2 = await response2.json();
-          if (data2 && data2.code === "Ok") {
-            console.log(`[Proxy] Secondary OSM.de car success!`);
-            return res.json(data2);
-          } else {
-            console.warn(`[Proxy] Secondary OSM.de car returned non-Ok:`, data2?.code);
-          }
-        } else {
-          const bodyText2 = await response2.text().catch(() => "");
-          console.warn(`[Proxy] Secondary OSM.de car failed: ${response2.status}. Body: ${bodyText2.substring(0, 200)}`);
-        }
-        throw new Error(`Secondary OSM.de car responded with status ${response2.status}`);
-      } catch (e2: any) {
-        console.warn(`[Proxy] Secondary OSM.de car failed: ${e2.message || e2}. Trying secondary OSM.de bicycle (more flexible)...`);
-
-        // 3. Try OSM.de bicycle (Allows passing minor streets / tracks / cuts that might be mapped as bike-passable but not car-passable)
+    const raceServices = async (urls: string[], timeoutMs = 3500): Promise<{ data: any, source: string }> => {
+      const fetchOne = async (url: string) => {
         try {
-          const url3 = `https://routing.openstreetmap.de/routed-bike/route/v1/bicycle/${encodedCoords}?overview=full&geometries=geojson&steps=true`;
-          console.log(`[Proxy] Attempting secondary OSM.de bicycle: ${url3}`);
-          const response3 = await fetch(url3, {
+          const res = await fetch(url, {
             headers,
-            signal: AbortSignal.timeout(15000)
+            signal: AbortSignal.timeout(timeoutMs)
           });
-
-          const contentType3 = response3.headers.get("content-type");
-          if (response3.ok && contentType3?.includes("application/json")) {
-            const data3 = await response3.json();
-            if (data3 && data3.code === "Ok") {
-              console.log(`[Proxy] Secondary OSM.de bicycle success!`);
-              // Rewrite of bicycle response to match generic driving if client checks for it
-              if (data3.routes?.[0]) {
-                data3.routes[0].legs?.forEach((leg: any) => {
-                  leg.summary = leg.summary || "Njia ya mkato";
-                });
-              }
-              return res.json(data3);
-            } else {
-              console.warn(`[Proxy] Secondary OSM.de bicycle returned non-Ok:`, data3?.code);
-            }
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const contentType = res.headers.get("content-type");
+          if (!contentType || !contentType.includes("application/json")) {
+            throw new Error("Invalid Content-Type");
           }
-          throw new Error(`Secondary OSM.de bicycle responded with status ${response3?.status}`);
-        } catch (e3: any) {
-          console.warn(`[Proxy] Secondary OSM.de bicycle failed: ${e3.message || e3}. Trying secondary OSM.de foot (pedestrian)...`);
-
-          // 4. Try OSM.de foot (Can route through any pedestrian way/residential pathway)
-          try {
-            const url4 = `https://routing.openstreetmap.de/routed-foot/route/v1/foot/${encodedCoords}?overview=full&geometries=geojson&steps=true`;
-            console.log(`[Proxy] Attempting secondary OSM.de foot: ${url4}`);
-            const response4 = await fetch(url4, {
-              headers,
-              signal: AbortSignal.timeout(15000)
-            });
-
-            const contentType4 = response4.headers.get("content-type");
-            if (response4.ok && contentType4?.includes("application/json")) {
-              const data4 = await response4.json();
-              if (data4 && data4.code === "Ok") {
-                console.log(`[Proxy] Secondary OSM.de foot success!`);
-                return res.json(data4);
-              }
-            }
-            throw new Error(`Secondary OSM.de foot responded with error status`);
-          } catch (e4: any) {
-            console.error(`[Proxy] All OSRM backends and profiles failed. Using straight line fallback.`);
-
-            // 5. Fallback to straight line
-            if (coordsPairs.length >= 2) {
-              const fallbackData = generateStraightLineRoute(coordsPairs);
-              console.log(`[Proxy] Straight line fallback generated successfully.`);
-              return res.json(fallbackData);
-            } else {
-              return res.status(502).json({ error: "All routing attempts failed and could not generate straight line fallback." });
-            }
+          const json = await res.json();
+          if (json && json.code === "Ok") {
+            return { data: json, source: url };
           }
+          throw new Error(`JSON code non-Ok: ${json?.code}`);
+        } catch (e: any) {
+          throw new Error(`Failed url ${url}: ${e.message}`);
+        }
+      };
+
+      try {
+        // Promise.any registers success as soon as any promise resolves.
+        // Node 15+ has fully native Promise.any
+        return await Promise.any(urls.map(url => fetchOne(url)));
+      } catch (err) {
+        throw new Error("All raced endpoints failed");
+      }
+    };
+
+    // 1. Race Primary & Secondary CAR driving services
+    const carUrls = [
+      `https://router.project-osrm.org/route/v1/driving/${encodedCoords}?overview=full&geometries=geojson&steps=true`,
+      `https://routing.openstreetmap.de/routed-car/route/v1/driving/${encodedCoords}?overview=full&geometries=geojson&steps=true`
+    ];
+
+    try {
+      console.log(`[Proxy] Racing CAR routing URLs:`, carUrls);
+      const winner = await raceServices(carUrls, 4000);
+      console.log(`[Proxy] Routing SUCCESS! Selected FASTEST responder: ${winner.source}`);
+      return res.json(winner.data);
+    } catch (eCar) {
+      console.warn(`[Proxy] CAR routing racing failed. Retrying with alternative (bike/foot) profiles...`);
+
+      // 2. Race Bicycle & Foot profiles
+      const altUrls = [
+        `https://routing.openstreetmap.de/routed-bike/route/v1/bicycle/${encodedCoords}?overview=full&geometries=geojson&steps=true`,
+        `https://routing.openstreetmap.de/routed-foot/route/v1/foot/${encodedCoords}?overview=full&geometries=geojson&steps=true`
+      ];
+
+      try {
+        console.log(`[Proxy] Racing ALTERNATIVE routing URLs:`, altUrls);
+        const winner = await raceServices(altUrls, 4000);
+        console.log(`[Proxy] Alternative Routing SUCCESS! Chosen FASTEST fallback: ${winner.source}`);
+        if (winner.data.routes?.[0]) {
+          winner.data.routes[0].legs?.forEach((leg: any) => {
+            leg.summary = leg.summary || "Njia ya mkato";
+          });
+        }
+        return res.json(winner.data);
+      } catch (eAlt: any) {
+        console.error(`[Proxy] All OSRM & OSM.de backends failed! Resorting to linear distance fallback.`);
+        if (coordsPairs.length >= 2) {
+          const fallbackData = generateStraightLineRoute(coordsPairs);
+          console.log(`[Proxy] Straight line fallback generated successfully.`);
+          return res.json(fallbackData);
+        } else {
+          return res.status(502).json({ error: "All routing attempts failed and could not generate straight line fallback." });
         }
       }
     }

@@ -245,12 +245,26 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
   const { ride: activeRide } = useRideStatus(rideId);
 
   const [timeTicker, setTimeTicker] = useState(0);
+  const [secondsOffset, setSecondsOffset] = useState<number>(0);
+
   useEffect(() => {
     const timer = setInterval(() => {
       setTimeTicker((prev) => prev + 1);
     }, 5000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setSecondsOffset((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Reset secondsOffset when ride status or ID changes
+  useEffect(() => {
+    setSecondsOffset(0);
+  }, [rideId, activeRide?.status]);
   const vTypeRaw = (profile?.vehicleType || 'gari').toLowerCase();
   const vType = (vTypeRaw.includes('bike') || vTypeRaw.includes('piki')) ? 'bike' : vTypeRaw.includes('bajaj') ? 'bajaj' : 'mini';
   
@@ -972,8 +986,10 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
       etaPickupTextD = "UMESHAWASILI!";
     } else {
       const durSecs = distToPickup / 6.5;
-      const durMins = Math.max(1, Math.ceil(durSecs / 60));
-      etaPickupTextD = `utafika baada ya ${durMins} min`;
+      const realDurSecs = Math.max(0, durSecs - (secondsOffset % 30));
+      const minsLeft = Math.floor(realDurSecs / 60);
+      const secsLeft = Math.floor(realDurSecs % 60);
+      etaPickupTextD = `utafika baada ya dk ${minsLeft} s ${secsLeft}`;
     }
   } else if (incomingRequest) {
     etaPickupTextD = "baada ya dakika 5 min";
@@ -984,8 +1000,11 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
     if (activeRide.status === "on_trip") {
       const distToDest = getDistanceDriver([position[0], position[1]], [activeRide.destination.lat, activeRide.destination.lng]);
       const remainingDurSecs = distToDest / 9.5;
-      const etaTime = new Date(Date.now() + remainingDurSecs * 1000);
-      etaDestTextD = `EXPECTED ARRIVE BY ${formatTimeDriver(etaTime)}`;
+      const realRemainingSecs = Math.max(0, remainingDurSecs - (secondsOffset % 30));
+      const minsLeft = Math.floor(realRemainingSecs / 60);
+      const secsLeft = Math.floor(realRemainingSecs % 60);
+      const etaTime = new Date(Date.now() + realRemainingSecs * 1000);
+      etaDestTextD = `EXPECTED ARRIVE BY ${formatTimeDriver(etaTime)} (Imebaki dk ${minsLeft} sek ${secsLeft})`;
     } else {
       // heading to pickup: total duration = (driver to pickup) + (pickup to destination)
       const distToPickup = getDistanceDriver([position[0], position[1]], [activeRide.pickup.lat, activeRide.pickup.lng]);
@@ -995,17 +1014,26 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
       const durPickupToDestSecs = distPickupToDest / 9.5;
 
       const totalRemainingSecs = durToPickupSecs + durPickupToDestSecs;
-      const etaTime = new Date(Date.now() + totalRemainingSecs * 1000);
-      etaDestTextD = `EXPECTED ARRIVE BY ${formatTimeDriver(etaTime)}`;
+      const realRemainingSecs = Math.max(0, totalRemainingSecs - secondsOffset);
+      const minsLeft = Math.floor(realRemainingSecs / 60);
+      const secsLeft = Math.floor(realRemainingSecs % 60);
+      const etaTime = new Date(Date.now() + realRemainingSecs * 1000);
+      etaDestTextD = `EXPECTED ARRIVE BY ${formatTimeDriver(etaTime)} (Imebaki dk ${minsLeft} sek ${secsLeft})`;
     }
   } else if (incomingRequest) {
     const distToDest = getDistanceDriver([incomingRequest.pickup.lat, incomingRequest.pickup.lng], [incomingRequest.destination.lat, incomingRequest.destination.lng]);
     const etSecs = distToDest / 9.5;
-    const etaTime = new Date(Date.now() + etSecs * 1000);
-    etaDestTextD = `EXPECTED ARRIVE BY ${formatTimeDriver(etaTime)}`;
+    const realRemainingSecs = Math.max(0, etSecs - secondsOffset);
+    const minsLeft = Math.floor(realRemainingSecs / 60);
+    const secsLeft = Math.floor(realRemainingSecs % 60);
+    const etaTime = new Date(Date.now() + realRemainingSecs * 1000);
+    etaDestTextD = `EXPECTED ARRIVE BY ${formatTimeDriver(etaTime)} (Imebaki dk ${minsLeft} sek ${secsLeft})`;
   } else {
-    const etaTime = new Date(Date.now() + 600 * 1000);
-    etaDestTextD = `EXPECTED ARRIVE BY ${formatTimeDriver(etaTime)}`;
+    const realRemainingSecs = Math.max(0, 600 - secondsOffset);
+    const minsLeft = Math.floor(realRemainingSecs / 60);
+    const secsLeft = Math.floor(realRemainingSecs % 60);
+    const etaTime = new Date(Date.now() + realRemainingSecs * 1000);
+    etaDestTextD = `EXPECTED ARRIVE BY ${formatTimeDriver(etaTime)} (Imebaki dk ${minsLeft} sek ${secsLeft})`;
   }
 
   return (

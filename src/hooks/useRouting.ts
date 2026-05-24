@@ -191,11 +191,15 @@ export function useRouting(pickup: [number, number], destination: [number, numbe
         const url = `/api/geo/route?coords=${encodeURIComponent(pickupStr + ";" + destStr)}`;
 
         const response = await fetch(url);
-        if (!response.ok) throw new Error("OSRM request failed");
+        if (!response.ok) {
+          console.error(`[useRouting] HTTP error fetching route: ${response.status} ${response.statusText}`);
+          throw new Error(`OSRM request failed with HTTP ${response.status}`);
+        }
         const json = await response.json();
 
         if (json.code !== "Ok" || !json.routes || json.routes.length === 0) {
-          throw new Error("No route found");
+          console.error(`[useRouting] OSRM service returned invalid code or empty routes:`, json);
+          throw new Error("No route found from API");
         }
 
         const route = json.routes[0];
@@ -203,6 +207,8 @@ export function useRouting(pickup: [number, number], destination: [number, numbe
         const coords: [number, number][] = route.geometry.coordinates.map(
           (c: number[]) => [c[1], c[0]] as [number, number],
         );
+
+        console.log(`[useRouting] Successfully fetched route from API! Coordinates length: ${coords.length}`);
 
         // Ensure the route connects exactly to the pickup and destination points
         if (coords.length > 0) {
@@ -246,13 +252,13 @@ export function useRouting(pickup: [number, number], destination: [number, numbe
           time: Date.now(),
         };
       } catch (err: any) {
-        console.warn("Real OSRM failed, retaining simulation:", err.message);
+        console.error("[useRouting] Real OSRM failed! Retaining simulated roads fallback. Error detail:", err);
         // Retain beautiful simulated grids on fail instead of blanking out or creating straight line jumps!
         setData((prev) => ({
           ...prev,
           routeCoords: generateSimulatedRoads(currentPickup, currentDest),
           isLoading: false,
-          error: null, // clear error so UI functions perfectly
+          error: err.message || "Unknown routing failure",
         }));
       }
     };
