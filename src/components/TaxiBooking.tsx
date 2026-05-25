@@ -1663,14 +1663,14 @@ export default function TaxiBooking() {
                 exit={{ opacity: 0 }}
                 className="absolute inset-0 z-0 h-full w-full"
               >
-                <div className="absolute top-6 left-6 right-6 z-[60] flex items-center justify-between pointer-events-none">
+                <div className="absolute top-4 left-4 right-4 sm:top-6 sm:left-6 sm:right-6 z-[60] flex items-center justify-between pointer-events-none">
                   {step === "map" && (
                     <button
                       onClick={() => navigate("/")}
-                      className="w-12 h-12 bg-[#111118]/90 backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform text-white pointer-events-auto"
+                      className="w-10 h-10 sm:w-12 sm:h-12 bg-[#111118]/90 backdrop-blur-xl rounded-xl sm:rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform text-white pointer-events-auto"
                       title="Rudi Nyumbani"
                     >
-                      <Home className="w-6 h-6" />
+                      <Home className="w-5 h-5 sm:w-6 sm:h-6" />
                     </button>
                   )}
                   {step !== "map" && (
@@ -1687,52 +1687,52 @@ export default function TaxiBooking() {
                           setStep("map");
                         }
                       }}
-                      className="px-4 h-12 bg-red-600/90 backdrop-blur-xl rounded-2xl border border-red-500/20 flex items-center gap-2 justify-center shadow-xl active:scale-95 transition-transform text-white pointer-events-auto font-black text-xs uppercase"
+                      className="px-3 sm:px-4 h-10 sm:h-12 bg-red-600/90 backdrop-blur-xl rounded-xl sm:rounded-2xl border border-red-500/20 flex items-center gap-1.5 sm:gap-2 justify-center shadow-xl active:scale-95 transition-transform text-white pointer-events-auto font-black text-[10px] sm:text-xs uppercase"
                       title="Ghairi & Anza Mpya"
                     >
-                      <Trash2 className="w-4 h-4 text-white" />
+                      <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
                       <span>Ghairi Safari</span>
                     </button>
                   )}
-                  <div className="flex gap-3">
-                    <AppDownloadButton variant="compact" className="w-12 h-12 bg-[#111118]/90 backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform text-white pointer-events-auto" />
+                  <div className="flex gap-1.5 sm:gap-3">
+                    <AppDownloadButton variant="compact" className="w-10 h-10 sm:w-12 sm:h-12 bg-[#111118]/90 backdrop-blur-xl rounded-xl sm:rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform text-white pointer-events-auto" />
                     <button
                       onClick={() => {
                         setIsMapFullscreen(!isMapFullscreen);
                         if (!isMapFullscreen) setAutoFollow(true);
                       }}
-                      className={`w-12 h-12 ${isMapFullscreen ? "bg-[#7F77DD] text-white" : "bg-[#111118]/90 text-white"} backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-all pointer-events-auto`}
+                      className={`w-10 h-10 sm:w-12 sm:h-12 ${isMapFullscreen ? "bg-[#7F77DD] text-white" : "bg-[#111118]/90 text-white"} backdrop-blur-xl rounded-xl sm:rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-all pointer-events-auto`}
                       title={isMapFullscreen ? "Onesha Maelezo" : "Ramani tupu"}
                     >
                       {isMapFullscreen ? (
-                        <Layers className="w-6 h-6" />
+                        <Layers className="w-5 h-5 sm:w-6 sm:h-6" />
                       ) : (
-                        <MapPin className="w-6 h-6" />
+                        <MapPin className="w-5 h-5 sm:w-6 sm:h-6" />
                       )}
                     </button>
                     {!autoFollow && step !== "home" && (
                       <button
                         onClick={() => setAutoFollow(true)}
-                        className="w-12 h-12 bg-[#1D9E75] text-white backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-all pointer-events-auto"
+                        className="w-10 h-10 sm:w-12 sm:h-12 bg-[#1D9E75] text-white backdrop-blur-xl rounded-xl sm:rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-all pointer-events-auto"
                       >
-                        <RotateCw size={24} className="animate-spin-slow" />
+                        <RotateCw className="w-5 h-5 sm:w-6 sm:h-6 animate-spin-slow" />
                       </button>
                     )}
                     <button
                       onClick={() => navigate("/taxi/history")}
-                      className="w-12 h-12 bg-[#111118]/90 backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform text-white pointer-events-auto"
+                      className="w-10 h-10 sm:w-12 sm:h-12 bg-[#111118]/90 backdrop-blur-xl rounded-xl sm:rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform text-white pointer-events-auto"
                     >
-                      <Clock className="w-6 h-6" />
+                      <Clock className="w-5 h-5 sm:w-6 sm:h-6" />
                     </button>
                     <button
                       onClick={() => setNextTheme(theme === "dark" ? "light" : "dark")}
-                      className="w-12 h-12 bg-[#111118]/90 backdrop-blur-xl rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform text-white pointer-events-auto"
+                      className="w-10 h-10 sm:w-12 sm:h-12 bg-[#111118]/90 backdrop-blur-xl rounded-xl sm:rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform text-white pointer-events-auto"
                       title={theme === "dark" ? "Badili kwenda mwangaza" : "Badili kwenda giza"}
                     >
                       {theme === "dark" ? (
-                        <Sun className="w-6 h-6 text-amber-400" />
+                        <Sun className="w-5 h-5 sm:w-6 sm:h-6 text-amber-400" />
                       ) : (
-                        <Moon className="w-6 h-6 text-blue-400" />
+                        <Moon className="w-5 h-5 sm:w-6 sm:h-6 text-blue-400" />
                       )}
                     </button>
                   </div>

@@ -72,10 +72,10 @@ export default function AppDownloadButton({ className = "", variant = "floating"
       {variant === 'compact' && (
         <button
           onClick={() => setIsOpen(true)}
-          className={`flex items-center justify-center w-10 h-10 rounded-xl bg-orange-600/15 border border-orange-500/20 text-orange-400 hover:bg-orange-600/25 hover:scale-105 active:scale-95 transition-all ${className}`}
+          className={className ? className : `flex items-center justify-center w-10 h-10 rounded-xl bg-orange-600/15 border border-orange-500/20 text-orange-400 hover:bg-orange-600/25 hover:scale-105 active:scale-95 transition-all`}
           title="Pakua Application yetu"
         >
-          <Smartphone className="w-4 h-4" />
+          <Smartphone className={className ? "w-5 h-5 sm:w-6 sm:h-6" : "w-4 h-4"} />
         </button>
       )}
 
