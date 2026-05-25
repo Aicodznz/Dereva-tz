@@ -442,7 +442,11 @@ export default function TaxiBooking() {
   ]);
   const [destPos, setDestPos] = useState<[number, number]>([-6.8235, 39.2695]);
   const [pickup, setPickup] = useState("Mwenge, Dar es Salaam");
-  const [destination, setDestination] = useState("Kariakoo, Dar es Salaam");
+  const [destination, setDestination] = useState("");
+
+  const isInTanzania = (lat: number, lng: number) => {
+    return lat >= -12.0 && lat <= -1.0 && lng >= 29.0 && lng <= 41.5;
+  };
 
   const theme = resolvedTheme === "light" ? "light" : "dark";
 
@@ -499,14 +503,18 @@ export default function TaxiBooking() {
           if (ipData && typeof ipData.latitude === 'number' && typeof ipData.longitude === 'number') {
             const lat = ipData.latitude;
             const lng = ipData.longitude;
-            setPickupPos([lat, lng]);
-            setSettingMode("pickup");
-            const addr = await reverseGeocode(lat, lng);
-            if (addr && addr !== "Unknown Area") {
-              setPickup(addr);
+            if (isInTanzania(lat, lng)) {
+              setPickupPos([lat, lng]);
+              setSettingMode("pickup");
+              const addr = await reverseGeocode(lat, lng);
+              if (addr && addr !== "Unknown Area") {
+                setPickup(addr);
+              }
+              toast.success(`Eneo limetambuliwa kiotomatiki (${ipData.city || 'Karibu nawe'})`);
+              return;
+            } else {
+              console.log("[TaxiBooking] IP fallback coordinates outside Tanzania ignored:", lat, lng);
             }
-            toast.success(`Eneo limetambuliwa kiotomatiki (${ipData.city || 'Karibu nawe'})`);
-            return;
           }
         }
       } catch (err) {
@@ -520,14 +528,18 @@ export default function TaxiBooking() {
           if (ipData2 && typeof ipData2.lat === 'number' && typeof ipData2.lon === 'number') {
             const lat = ipData2.lat;
             const lng = ipData2.lon;
-            setPickupPos([lat, lng]);
-            setSettingMode("pickup");
-            const addr = await reverseGeocode(lat, lng);
-            if (addr && addr !== "Unknown Area") {
-              setPickup(addr);
+            if (isInTanzania(lat, lng)) {
+              setPickupPos([lat, lng]);
+              setSettingMode("pickup");
+              const addr = await reverseGeocode(lat, lng);
+              if (addr && addr !== "Unknown Area") {
+                setPickup(addr);
+              }
+              toast.success(`Eneo limetambuliwa (${ipData2.city || 'Karibu nawe'})`);
+              return;
+            } else {
+              console.log("[TaxiBooking] Secondary IP fallback coordinates outside Tanzania ignored:", lat, lng);
             }
-            toast.success(`Eneo limetambuliwa (${ipData2.city || 'Karibu nawe'})`);
-            return;
           }
         }
       } catch (err2) {
@@ -545,13 +557,18 @@ export default function TaxiBooking() {
           clearTimeout(timer);
           const lat = position.coords.latitude;
           const lng = position.coords.longitude;
-          setPickupPos([lat, lng]);
-          setSettingMode("pickup");
-          const addr = await reverseGeocode(lat, lng);
-          if (addr && addr !== "Unknown Area") {
-            setPickup(addr);
+          if (isInTanzania(lat, lng)) {
+            setPickupPos([lat, lng]);
+            setSettingMode("pickup");
+            const addr = await reverseGeocode(lat, lng);
+            if (addr && addr !== "Unknown Area") {
+              setPickup(addr);
+            }
+            toast.success("Eneo lako limepatikana kupitia GPS!");
+          } else {
+            console.log("[TaxiBooking] GPS location outside Tanzania ignored:", lat, lng);
+            await triggerIpFallback();
           }
-          toast.success("Eneo lako limepatikana kupitia GPS!");
         },
         async (error) => {
           clearTimeout(timer);
@@ -576,15 +593,6 @@ export default function TaxiBooking() {
       } catch (e) {
         console.warn("Could not geocode initial pickup:", e);
       }
-
-      try {
-        const endAddr = await reverseGeocode(-6.8235, 39.2695);
-        if (endAddr && endAddr !== "Eneo Halijapatikana" && endAddr !== "Unknown Area") {
-          setDestination(endAddr);
-        }
-      } catch (e) {
-        console.warn("Could not geocode initial destination:", e);
-      }
     };
 
     initDefaultAddresses();
@@ -593,7 +601,7 @@ export default function TaxiBooking() {
 
   const { routeCoords, totalDistance, totalDuration } = useRouting(
     pickupPos,
-    destPos,
+    destination ? destPos : [NaN, NaN],
   );
 
   const { createRide, isLoading: isCreatingRide } = useCreateRide();
@@ -1915,6 +1923,7 @@ export default function TaxiBooking() {
                     className="bg-[#0a0a0f] rounded-2xl border border-[#1e1e2e] p-5 flex items-center gap-4 cursor-pointer active:scale-[0.98] transition-transform"
                     onClick={() => {
                       console.log("Manual pickup click");
+                      setSettingMode("pickup");
                       setStep("map");
                     }}
                   >
@@ -1934,6 +1943,7 @@ export default function TaxiBooking() {
                     className="bg-[#0a0a0f] rounded-2xl border border-[#1e1e2e] p-5 flex items-center gap-4 cursor-pointer active:scale-[0.98] transition-transform"
                     onClick={() => {
                       console.log("Manual dest click");
+                      setSettingMode("destination");
                       setStep("map");
                     }}
                   >
@@ -1955,6 +1965,7 @@ export default function TaxiBooking() {
                 <button
                   onClick={() => {
                     console.log("Order now click");
+                    setSettingMode("destination");
                     setStep("map");
                   }}
                   className="w-full h-14 bg-white text-[#0a0a0f] rounded-[50px] font-black tracking-[0.2em] text-xs shadow-2xl shadow-white/5 active:scale-95 transition-all"
@@ -2002,6 +2013,22 @@ export default function TaxiBooking() {
                   animate={{ opacity: 1, y: 0 }}
                   className="space-y-5"
                 >
+                  <div className="flex items-center justify-between">
+                    <button
+                      onClick={() => {
+                        console.log("Back to home click");
+                        setStep("home");
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/5 border border-white/5 hover:border-white/15 hover:bg-white/10 text-[#6b6b8a] hover:text-white transition-all text-[11px] font-black tracking-wider uppercase"
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                      RUDI NYUMBANI
+                    </button>
+                    <span className="text-[9px] font-black text-[#6b6b8a] uppercase tracking-[0.2em] italic">
+                      chagua maeneo
+                    </span>
+                  </div>
+
                   <div className="bg-[#0a0a0f]/60 backdrop-blur-xl border border-white/5 rounded-3xl p-6 relative">
                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-[#7F77DD] opacity-30 rounded-t-3xl" />
                     <div className="space-y-6">
