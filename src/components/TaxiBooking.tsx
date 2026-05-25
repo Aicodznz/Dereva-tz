@@ -455,6 +455,75 @@ export default function TaxiBooking() {
       ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
       : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
 
+  const getNearestPopularPlace = (lat: number, lng: number): string => {
+    let nearestName = "Mwai Kibaki Road, Dar es Salaam";
+    let minDistance = Infinity;
+    
+    const places = [
+      { display_name: "Kariakoo, Dar es Salaam", lat: -6.82, lon: 39.278 },
+      { display_name: "Posta, Dar es Salaam", lat: -6.8164, lon: 39.2902 },
+      { display_name: "Mwenge, Dar es Salaam", lat: -6.7681, lon: 39.2274 },
+      { display_name: "Sinza, Dar es Salaam", lat: -6.7812, lon: 39.2223 },
+      { display_name: "Masaki, Dar es Salaam", lat: -6.7441, lon: 39.2812 },
+      { display_name: "Mikocheni, Dar es Salaam", lat: -6.7645, lon: 39.2492 },
+      { display_name: "Ubungo Bus Terminal, Dar es Salaam", lat: -6.7961, lon: 39.2155 },
+      { display_name: "Mbezi Luis, Dar es Salaam", lat: -6.7831, lon: 39.1952 },
+      { display_name: "Kinondoni, Dar es Salaam", lat: -6.7952, lon: 39.2631 },
+      { display_name: "Temeke, Dar es Salaam", lat: -6.855, lon: 39.265 },
+      { display_name: "Kigamboni, Dar es Salaam", lat: -6.825, lon: 39.31 },
+      { display_name: "Ilala, Dar es Salaam", lat: -6.827, lon: 39.262 },
+      { display_name: "Gerezani, Dar es Salaam", lat: -6.8239, lon: 39.2797 },
+      { display_name: "Oysterbay, Dar es Salaam", lat: -6.7725, lon: 39.2789 },
+      { display_name: "Msasani, Dar es Salaam", lat: -6.7561, lon: 39.2741 },
+      { display_name: "Tabata, Dar es Salaam", lat: -6.819, lon: 39.215 },
+      { display_name: "Segerea, Dar es Salaam", lat: -6.84, lon: 39.19 },
+      { display_name: "Kawe, Dar es Salaam", lat: -6.7389, lon: 39.2558 },
+      { display_name: "Tegeta, Dar es Salaam", lat: -6.685, lon: 39.214 },
+      { display_name: "Kunduchi, Dar es Salaam", lat: -6.669, lon: 39.219 },
+      { display_name: "Kibamba, Dar es Salaam", lat: -6.79, lon: 39.11 },
+      { display_name: "Kimara, Dar es Salaam", lat: -6.792, lon: 39.167 },
+      { display_name: "Kisutu, Dar es Salaam", lat: -6.814, lon: 39.287 },
+      { display_name: "Upanga, Dar es Salaam", lat: -6.804, lon: 39.28 },
+      { display_name: "Mbagala, Dar es Salaam", lat: -6.891, lon: 39.269 },
+      { display_name: "Chanika, Dar es Salaam", lat: -6.91, lon: 39.08 },
+      { display_name: "Kivukoni Ferry, Dar es Salaam", lat: -6.821, lon: 39.299 },
+      { display_name: "Boko, Dar es Salaam", lat: -6.649, lon: 39.191 },
+      { display_name: "Bunju, Dar es Salaam", lat: -6.611, lon: 39.166 },
+      { display_name: "Julius Nyerere Airport (JNIA), Dar es Salaam", lat: -6.8781, lon: 39.2026 },
+      { display_name: "Tazara, Dar es Salaam", lat: -6.843, lon: 39.241 },
+      { display_name: "Morocco, Dar es Salaam", lat: -6.7885, lon: 39.2604 },
+      { display_name: "Tandika, Dar es Salaam", lat: -6.858, lon: 39.259 },
+      { display_name: "Buguruni, Dar es Salaam", lat: -6.828, lon: 39.245 },
+      { display_name: "Vingunguti, Dar es Salaam", lat: -6.842, lon: 39.218 },
+      { display_name: "Kijitonyama, Dar es Salaam", lat: -6.778, lon: 39.245 },
+      { display_name: "Makumbusho, Dar es Salaam", lat: -6.776, lon: 39.241 },
+      { display_name: "Coco Beach, Dar es Salaam", lat: -6.765, lon: 39.294 },
+      { display_name: "The Slipway, Oysterbay, Dar es Salaam", lat: -6.749, lon: 39.284 },
+      { display_name: "Mlimani City Mall, Dar es Salaam", lat: -6.7722, lon: 39.2241 },
+      { display_name: "Karume, Dar es Salaam", lat: -6.8202, lon: 39.2612 },
+      { display_name: "Machinga Complex, Dar es Salaam", lat: -6.8218, lon: 39.2598 },
+      { display_name: "Kigogo, Dar es Salaam", lat: -6.807, lon: 39.231 },
+      { display_name: "Mabibo, Dar es Salaam", lat: -6.801, lon: 39.211 },
+      { display_name: "Manzese, Dar es Salaam", lat: -6.793, lon: 39.217 },
+      { display_name: "Keko, Dar es Salaam", lat: -6.837, lon: 39.282 },
+      { display_name: "Chang’ombe, Dar es Salaam", lat: -6.841, lon: 39.268 },
+      { display_name: "Kurasini, Dar es Salaam", lat: -6.848, lon: 39.289 },
+      { display_name: "Dodoma Town Central, Tanzania", lat: -6.1722, lon: 35.7481 },
+      { display_name: "Arusha Clock Tower, Tanzania", lat: -3.3731, lon: 36.6857 },
+      { display_name: "Mwanza City Centre, Tanzania", lat: -2.5164, lon: 32.9018 },
+      { display_name: "Zanzibar Stone Town, Tanzania", lat: -6.1659, lon: 39.199 },
+    ];
+
+    for (const p of places) {
+      const d = Math.pow(p.lat - lat, 2) + Math.pow(p.lon - lng, 2);
+      if (d < minDistance) {
+        minDistance = d;
+        nearestName = p.display_name;
+      }
+    }
+    return nearestName;
+  };
+
   const reverseGeocode = async (lat: number, lng: number) => {
     try {
       const response = await fetch(`/api/geo/reverse?lat=${lat}&lon=${lng}`);
@@ -463,7 +532,11 @@ export default function TaxiBooking() {
           `Reverse geocoding failed with status ${response.status}`,
         );
       const data = await response.json();
-      return formatAddress(data);
+      const addr = formatAddress(data);
+      if (addr && addr !== "Unknown Area" && addr !== "Eneo Halijapatikana" && addr !== "Unknown Location") {
+        return addr;
+      }
+      throw new Error("Invalid address formatted");
     } catch (error) {
       console.error("Reverse geocoding failed, trying fallback:", error);
       try {
@@ -477,14 +550,13 @@ export default function TaxiBooking() {
           );
         }
         const bdcData = await bdcResponse.json();
-        return (
-          bdcData.locality ||
-          bdcData.city ||
-          bdcData.principalSubdivision ||
-          "Unknown Area"
-        );
+        const bdcAddr = bdcData.locality || bdcData.city || bdcData.principalSubdivision;
+        if (bdcAddr && bdcAddr !== "Unknown Area" && bdcAddr !== "Unknown Location") {
+          return bdcAddr;
+        }
+        throw new Error("BDC returned unknown address");
       } catch (bdcErr) {
-        return "Unknown Area";
+        return getNearestPopularPlace(lat, lng);
       }
     }
   };
