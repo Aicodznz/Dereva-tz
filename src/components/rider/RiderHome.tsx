@@ -1149,7 +1149,7 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
             initial={{ y: -100, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -100, opacity: 0 }}
-            className="absolute top-4 inset-x-4 z-[60] flex flex-col gap-2"
+            className="absolute top-4 inset-x-4 z-[9999] flex flex-col gap-2"
           >
             {/* Main Header / Navigation Card */}
             <div className="glass-morphism rounded-[24px] p-4 flex flex-col gap-4 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
@@ -1250,7 +1250,7 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
             initial={{ y: 100 }}
             animate={{ y: 0 }}
             exit={{ y: 100 }}
-            className="absolute bottom-4 inset-x-4 z-[60] flex flex-col gap-3"
+            className="absolute bottom-4 inset-x-4 z-[9999] flex flex-col gap-3"
           >
             {/* Speed Indicator */}
             <div className="flex justify-center">
@@ -1623,7 +1623,7 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
         }}
         className="absolute inset-x-0 bottom-0 z-50 cursor-grab active:cursor-grabbing"
       >
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-10 h-1.5 bg-neutral-600/30 rounded-full mt-3 z-[60]" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-10 h-1.5 bg-neutral-600/30 rounded-full mt-3 z-[9999]" />
         
         <AnimatePresence mode="wait">
           {!isOnline && (

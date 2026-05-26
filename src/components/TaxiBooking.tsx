@@ -1734,7 +1734,7 @@ export default function TaxiBooking() {
                 exit={{ opacity: 0 }}
                 className="absolute inset-0 z-0 h-full w-full"
               >
-                <div className="absolute top-4 left-4 right-4 sm:top-6 sm:left-6 sm:right-6 z-[60] flex items-center justify-between pointer-events-none">
+                <div className="absolute top-4 left-4 right-4 sm:top-6 sm:left-6 sm:right-6 z-[9999] flex flex-wrap items-center justify-between gap-y-2 pointer-events-none">
                   {step === "map" && (
                     <button
                       onClick={() => navigate("/")}
@@ -1811,7 +1811,7 @@ export default function TaxiBooking() {
 
                 {/* 2025 African Tech Premium Floating Info Cards */}
                 {activeRide && ["found", "arriving", "on_trip"].includes(step) && (
-                  <div className="absolute top-24 right-6 left-6 md:left-auto md:w-[320px] z-[60] flex flex-col gap-3 pointer-events-auto animate-fade-in">
+                  <div className="absolute top-24 right-6 left-6 md:left-auto md:w-[320px] z-[9999] flex flex-col gap-3 pointer-events-auto animate-fade-in">
                     {/* Pickup Card - Only visible when the driver is coming to get them */}
                     {activeRide.status !== "on_trip" && (
                       <div className="bg-[#080A12]/85 backdrop-blur-[20px] border border-white/10 rounded-2xl p-4 md:p-5 shadow-[0_12px_40px_rgba(0,0,0,0.5)] flex flex-col relative overflow-hidden">
@@ -2177,7 +2177,7 @@ export default function TaxiBooking() {
                     : 0,
               }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="absolute bottom-0 left-0 right-0 z-[60] bg-[#111118] rounded-t-[40px] border-t border-[#1e1e2e] p-5 pb-10 space-y-4 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]"
+              className="absolute bottom-0 left-0 right-0 z-[9999] bg-[#111118] rounded-t-[40px] border-t border-[#1e1e2e] p-5 pb-10 space-y-4 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]"
             >
               <div
                 className="w-full h-10 flex items-center justify-center cursor-pointer group -mt-4 relative"
