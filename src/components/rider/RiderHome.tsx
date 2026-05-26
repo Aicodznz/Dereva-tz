@@ -465,6 +465,16 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
   }, [activeRide?.id]);
 
   useEffect(() => {
+    if (onNavVisibilityChange) {
+      if (activeRide && !isTripMinimized) {
+        onNavVisibilityChange(false);
+      } else {
+        onNavVisibilityChange(!isMinimized);
+      }
+    }
+  }, [activeRide, isTripMinimized, isMinimized, onNavVisibilityChange]);
+
+  useEffect(() => {
     const freshRequests = nearbyRequests.filter(r => r.id && !declinedRequests.has(r.id));
     const currentStillValid = incomingRequest && incomingRequest.id ? freshRequests.find(r => r.id === incomingRequest.id) : null;
     
@@ -1245,7 +1255,7 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
 
       {/* Bottom Status Bar when Active */}
       <AnimatePresence>
-        {activeRide && !showPayment && !showRating && !isMinimized && (
+        {activeRide && !showPayment && !showRating && !isMinimized && isTripMinimized && (
           <motion.div 
             initial={{ y: 100 }}
             animate={{ y: 0 }}
