@@ -1162,61 +1162,81 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
             className="absolute top-4 inset-x-4 z-[9999] flex flex-col gap-2"
           >
             {/* Main Header / Navigation Card */}
-            <div className="glass-morphism rounded-[24px] p-4 flex flex-col gap-4 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+            <div className="glass-morphism rounded-[18px] py-1.5 px-3 flex flex-col gap-2 shadow-[0_12px_30px_rgba(0,0,0,0.4)] border border-white/10">
               {activeRide ? (
                 <>
-                  <div className="flex justify-between items-start">
-                    <div className="flex flex-col">
-                      <p className="text-[10px] font-black text-[#8B8BA0] uppercase tracking-widest">UNAKOKWENDA</p>
-                      <h2 className="text-lg font-black text-white italic uppercase truncate max-w-[200px]">
+                  <div className="flex justify-between items-center bg-black/20 p-2 rounded-xl border border-white/5">
+                    <div className="flex flex-col min-w-0">
+                      <p className="text-[8px] font-black text-[#8B8BA0] uppercase tracking-widest mb-0.5">UNAKOKWENDA</p>
+                      <h2 className="text-xs font-black text-white italic uppercase truncate max-w-[150px] sm:max-w-[200px]">
                         {activeRide.status === 'on_trip' ? activeRide.destination.address : activeRide.pickup.address || 'Pickup Eneo'}
                       </h2>
                     </div>
-                    <div className="text-right">
-                      <p className="text-[10px] font-black text-[#8B8BA0] uppercase tracking-widest">ETA</p>
-                      <div className="flex items-center gap-1.5 justify-end">
-                        <span className="text-lg font-black text-[#00FF88] italic">
-                          {Math.round((steps?.[0]?.duration || 0) / 60) + 2} MIN
-                        </span>
-                        <div className="w-2 h-2 bg-[#00FF88] rounded-full animate-pulse" />
+                    <div className="flex items-center gap-2.5 text-right shrink-0">
+                      <div className="flex flex-col">
+                        <p className="text-[8px] font-black text-[#8B8BA0] uppercase tracking-widest text-right mb-0.5">ETA</p>
+                        <div className="flex items-center gap-1 justify-end">
+                          <span className="text-sm font-black text-[#00FF88] italic">
+                            {Math.round((steps?.[0]?.duration || 0) / 60) + 2} MIN
+                          </span>
+                          <div className="w-1.5 h-1.5 bg-[#00FF88] rounded-full animate-pulse" />
+                        </div>
+                      </div>
+                      {/* Driver profile avatar when active */}
+                      <div className="w-7 h-7 rounded-full border-2 border-[#00FF88]/30 overflow-hidden bg-neutral-900 shadow-md">
+                        <img 
+                          src={profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid || 'Juma'}`} 
+                          alt="Driver" 
+                          referrerPolicy="no-referrer"
+                          className="w-full h-full object-cover"
+                        />
                       </div>
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-widest">
+                  <div className="space-y-1 px-1">
+                    <div className="flex justify-between items-center text-[7.5px] font-black uppercase tracking-widest">
                       <span className="text-[#8B8BA0]">TRIP PROGRESS</span>
                       <span className="text-[#00FF88]">
                         {activeRide.status === 'on_trip' ? '65%' : 'ENROUTE'}
                       </span>
                     </div>
-                    <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                    <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
                       <motion.div 
                         initial={{ width: 0 }}
                         animate={{ width: activeRide.status === 'on_trip' ? '65%' : '35%' }}
-                        className="h-full bg-[#00FF88] shadow-[0_0_10px_#00FF88]"
+                        className="h-full bg-[#00FF88] shadow-[0_0_8px_#00FF88]"
                       />
                     </div>
                   </div>
                 </>
               ) : (
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2.5">
                     <button 
                       onClick={toggleMute}
-                      className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${voiceUnlocked && !isMuted ? 'bg-[#00FF88]/10 text-[#00FF88] border border-[#00FF88]/20' : 'bg-white/5 text-[#8B8BA0]'}`}
+                      className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${voiceUnlocked && !isMuted ? 'bg-[#00FF88]/15 text-[#00FF88] border border-[#00FF88]/30' : 'bg-white/5 text-[#8B8BA0]'}`}
                     >
-                      {voiceUnlocked && !isMuted ? <Volume2 className="w-6 h-6 animate-pulse" /> : <VolumeX className="w-6 h-6" />}
+                      {voiceUnlocked && !isMuted ? <Volume2 className="w-4 h-4 animate-pulse" /> : <VolumeX className="w-4 h-4" />}
                     </button>
                     <div>
-                      <p className="text-[10px] font-black text-[#8B8BA0] uppercase tracking-widest leading-none mb-1">DEREVA</p>
-                      <h3 className="text-sm font-black text-white italic uppercase">{profile?.displayName || 'TzNation Driver'}</h3>
+                      <p className="text-[8px] font-black text-[#8B8BA0] uppercase tracking-widest leading-none mb-0.5">DEREVA</p>
+                      <h3 className="text-xs font-black text-white italic uppercase">{profile?.displayName || 'TzNation Driver'}</h3>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                     <div className={`px-3 py-1.5 rounded-full border flex items-center gap-2 ${isOnline ? 'bg-[#00FF88]/5 border-[#00FF88]/20 text-[#00FF88]' : 'bg-red-500/5 border-red-500/20 text-red-500'}`}>
-                        <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-[#00FF88] animate-pulse' : 'bg-red-500'}`} />
-                        <span className="text-[10px] font-black uppercase tracking-widest">{isOnline ? 'LIVE' : 'OFFLINE'}</span>
+                     <div className={`px-2 py-1 rounded-full border flex items-center gap-1.5 ${isOnline ? 'bg-[#00FF88]/10 border-[#00FF88]/30 text-[#00FF88]' : 'bg-red-500/10 border-red-500/30 text-red-500'}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-[#00FF88] animate-pulse' : 'bg-red-500'}`} />
+                        <span className="text-[8px] font-black uppercase tracking-widest">{isOnline ? 'LIVE' : 'OFFLINE'}</span>
+                     </div>
+                     {/* Driver Profile Picture on Top Right */}
+                     <div className="w-8 h-8 rounded-full border-2 border-[#00FF88]/30 overflow-hidden bg-neutral-900 shadow-md">
+                        <img 
+                          src={profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid || 'Juma'}`} 
+                          alt="Driver" 
+                          referrerPolicy="no-referrer"
+                          className="w-full h-full object-cover"
+                        />
                      </div>
                   </div>
                 </div>
@@ -1230,20 +1250,20 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                   initial={{ x: -20, opacity: 0 }}
                   animate={{ x: 0, opacity: 1 }}
                   exit={{ x: -20, opacity: 0 }}
-                  className="bg-[#00FF88] text-[#0A0A0F] p-4 rounded-[20px] shadow-2xl flex items-center gap-4"
+                  className="bg-[#00FF88] text-[#0A0A0F] py-2 px-3 rounded-xl shadow-2xl flex items-center gap-3"
                 >
-                  <div className="w-12 h-12 bg-black/10 rounded-2xl flex items-center justify-center shrink-0">
-                    <Navigation className="w-7 h-7" />
+                  <div className="w-8 h-8 bg-black/10 rounded-lg flex items-center justify-center shrink-0">
+                    <Navigation className="w-4 h-4" />
                   </div>
-                  <div className="flex-1">
-                    <p className="text-[9px] font-black opacity-60 uppercase tracking-widest mb-0.5">MALINGANISHO</p>
-                    <p className="text-base font-black italic tracking-tight uppercase leading-none">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[8px] font-black opacity-60 uppercase tracking-widest mb-0.5">MALINGANISHO</p>
+                    <p className="text-xs font-black italic tracking-tight uppercase leading-none truncate">
                       {steps[0].instruction}
                     </p>
                   </div>
-                  <div className="text-right shrink-0 px-3 border-l border-black/10">
-                     <p className="text-[9px] font-black opacity-60 uppercase tracking-widest">MITA</p>
-                     <p className="text-xl font-black italic tracking-tighter leading-none">{Math.round(steps[0].distance)}</p>
+                  <div className="text-right shrink-0 pl-2 border-l border-black/10">
+                     <p className="text-[8px] font-black opacity-60 uppercase tracking-widest">MITA</p>
+                     <p className="text-sm font-black italic tracking-tighter leading-none">{Math.round(steps[0].distance)}</p>
                   </div>
                 </motion.div>
               )}
@@ -1502,44 +1522,51 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
         </div>
       </div>
 
-      {/* Dynamic Theme Toggle - Always available for convenience */}
+      {/* Floating Controls Column on the Right - Ultra Clean & Seamless Alignment */}
       {!isMinimized && (
-        <div className="absolute right-4 top-24 z-40 flex flex-col gap-3">
-          <AppDownloadButton variant="compact" />
+        <div className="absolute right-4 top-24 z-45 flex flex-col gap-2.5 items-center pointer-events-auto">
+          <AppDownloadButton 
+            variant="compact" 
+            className="flex items-center justify-center w-10 h-10 rounded-xl bg-orange-600/15 border border-orange-500/20 text-orange-400 hover:bg-orange-600/25 shadow-lg active:scale-95 transition-all"
+          />
+          
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setNextTheme(theme === "dark" ? "light" : "dark")}
-            className="w-12 h-12 bg-[#111118]/90 backdrop-blur-xl border border-[#1e1e2e] rounded-2xl shadow-2xl flex items-center justify-center text-white active:scale-95 transition-all"
+            className="w-10 h-10 bg-[#111118]/90 backdrop-blur-xl border border-[#1e1e2e] rounded-xl shadow-lg flex items-center justify-center text-white active:scale-95 transition-all"
             title={theme === "dark" ? "Badili kwenda mwangaza" : "Badili kwenda giza"}
           >
             {theme === "dark" ? (
-              <Sun className="w-5 h-5 text-amber-400 animate-pulse" />
+              <Sun className="w-4 h-4 text-amber-500 animate-pulse" />
             ) : (
-              <Moon className="w-5 h-5 text-blue-400" />
+              <Moon className="w-4 h-4 text-indigo-400" />
             )}
           </motion.button>
-        </div>
-      )}
 
-      {/* Floating Buttons */}
-      {!activeRide && !incomingRequest && !isMinimized && (
-        <div className="absolute bottom-1/2 translate-y-[-20%] right-4 z-40 flex flex-col gap-3">
-           <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={toggleEarnings}
-            className={`w-12 h-12 border-2 rounded-2xl shadow-2xl flex flex-col items-center justify-center transition-all ${
-              showEarnings ? 'bg-[#7F77DD] border-[#7F77DD] text-white' : 'bg-[#111118] border-[#1e1e2e] text-neutral-500'
-            }`}
-          >
-            {showEarnings ? <Eye className="w-4 h-4" /> : <TrendingUp className="w-4 h-4" />}
-            <span className="text-[7px] font-black mt-0.5 uppercase tracking-tighter">Mapato</span>
-          </motion.button>
-          
-           <button className="w-12 h-12 bg-[#111118] border border-[#1e1e2e] rounded-2xl shadow-2xl flex items-center justify-center text-neutral-400 active:scale-95 transition-transform">
-             <MapIcon className="w-5 h-5" />
-           </button>
+          {!activeRide && !incomingRequest && (
+            <>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={toggleEarnings}
+                className={`w-10 h-10 border rounded-xl shadow-lg flex flex-col items-center justify-center transition-all ${
+                  showEarnings ? 'bg-[#7F77DD] border-[#7F77DD] text-white' : 'bg-[#111118]/90 border-[#1e1e2e] text-neutral-500'
+                }`}
+                title="Tazama au ficha mapato ya leo"
+              >
+                {showEarnings ? <Eye className="w-3.5 h-3.5" /> : <TrendingUp className="w-3.5 h-3.5" />}
+                <span className="text-[6px] font-black mt-0.5 uppercase tracking-tighter leading-none">Mapato</span>
+              </motion.button>
+              
+              <button 
+                className="w-10 h-10 bg-[#111118]/90 border border-[#1e1e2e] rounded-xl shadow-lg flex items-center justify-center text-neutral-400 active:scale-95 hover:text-white transition-all"
+                title="Badilisha muonekano wa ramani"
+              >
+                <MapIcon className="w-4 h-4" />
+              </button>
+            </>
+          )}
         </div>
       )}
 
