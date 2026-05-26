@@ -22,7 +22,7 @@ import {
   ExternalLink, Search, Ban, History, BarChart3, Settings, Info, CreditCard, Star, Key,
   Package, Undo2, Bike, Trophy, Wallet, MessageSquare, Globe, Clock, Coins, Loader2, Zap,
   Bed, Wifi, Wind, Monitor, Car, Waves, MapPin, Mail, Phone, PhoneCall, FileText, User, Camera,
-  Menu, MoreHorizontal, MoreVertical, LayoutGrid, LogOut
+  Menu, MoreHorizontal, MoreVertical, LayoutGrid, LogOut, ArrowUp, ArrowDown
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -130,6 +130,62 @@ export default function AdminDashboard() {
   const [activeSettingsTab, setActiveSettingsTab] = useState('business_info');
   const [uploadingVehicleId, setUploadingVehicleId] = useState<string | null>(null);
   const [uploadingType, setUploadingType] = useState<'imageUrl' | 'mapMarkerUrl' | null>(null);
+  const [uploadingSlideId, setUploadingSlideId] = useState<string | null>(null);
+
+  const handleSlideImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, slideId: string) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setUploadingSlideId(slideId);
+      try {
+        const path = `splash_slides/${slideId}/${Date.now()}_${file.name}`;
+        const url = await storageService.uploadFile('vendors', path, file);
+        
+        const currentSlides = businessConfig.splashSlides || [
+          {
+            id: "slide_1",
+            title: "Karibu Papo Hapo!",
+            description: "App bora zaidi ya huduma za usafiri wa haraka na uwasilishaji mizigo/chakula papo hapo.",
+            imageUrl: "https://images.unsplash.com/photo-1549576490-b0b4831ef60a?auto=format&fit=crop&w=600&q=80",
+            color: "#0c0c0e",
+            titleColor: "#ffffff",
+            descColor: "#9ca3af"
+          },
+          {
+            id: "slide_2",
+            title: "Usafiri na Ubebaji Mizigo",
+            description: "Chagua Gari, Bajaji au Pikipiki kulingana na mahitaji yako na ujionee safari isiyo na kelele.",
+            imageUrl: "https://images.unsplash.com/photo-1516594798947-e65505dbb29d?auto=format&fit=crop&w=600&q=80",
+            color: "#0a1a0f",
+            titleColor: "#ffffff",
+            descColor: "#9ca3af"
+          },
+          {
+            id: "slide_3",
+            title: "Ulinzi na Usalama",
+            description: "Madereva wetu wote wamehakikiwa vizuri na kupitishwa na mfumo ili kukuhakikishia usalama 100%.",
+            imageUrl: "https://images.unsplash.com/photo-1494959764136-6be9eb3c261e?auto=format&fit=crop&w=600&q=80",
+            color: "#0b161e",
+            titleColor: "#ffffff",
+            descColor: "#9ca3af"
+          }
+        ];
+
+        const updatedSlides = currentSlides.map((s: any) => 
+          s.id === slideId ? { ...s, imageUrl: url } : s
+        );
+
+        setBusinessConfig({
+          ...businessConfig,
+          splashSlides: updatedSlides
+        });
+        toast.success("Picha ya Slide imepakiwa vizuri!");
+      } catch (err: any) {
+        toast.error("Imeshindwa kupakia picha: " + err.message);
+      } finally {
+        setUploadingSlideId(null);
+      }
+    }
+  };
 
   const handleVehicleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, vehicleId: string, field: 'imageUrl' | 'mapMarkerUrl') => {
     const file = e.target.files?.[0];
@@ -2238,6 +2294,301 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                 </div>
+
+                {/* SPLASH SCREEN SLIDES MULTI-MANAGER */}
+                <Card className="rounded-[3rem] border-none shadow-2xl p-8 space-y-6 bg-white max-w-5xl">
+                  <div className="border-b border-neutral-100 pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div>
+                      <h3 className="text-xl font-black uppercase italic tracking-tighter text-neutral-900">Usimamizi wa Slide za Splash (Splash Screen Slides)</h3>
+                      <p className="text-[11px] text-neutral-400 font-bold uppercase tracking-wider mt-1">Ongeza, hariri au panga slide za skrini ya mwanzo ambazo abiria/mteja anaweza kuzisogeza (swipe ili kuona maelezo ya huduma).</p>
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        const currentSlides = businessConfig.splashSlides || [
+                          {
+                            id: "slide_1",
+                            title: "Karibu Papo Hapo!",
+                            description: "App bora zaidi ya huduma za usafiri wa haraka na uwasilishaji mizigo/chakula papo hapo.",
+                            imageUrl: "https://images.unsplash.com/photo-1549576490-b0b4831ef60a?auto=format&fit=crop&w=600&q=80",
+                            color: "#0c0c0e",
+                            titleColor: "#ffffff",
+                            descColor: "#9ca3af"
+                          },
+                          {
+                            id: "slide_2",
+                            title: "Usafiri na Ubebaji Mizigo",
+                            description: "Chagua Gari, Bajaji au Pikipiki kulingana na mahitaji yako na ujionee safari isiyo na kelele.",
+                            imageUrl: "https://images.unsplash.com/photo-1516594798947-e65505dbb29d?auto=format&fit=crop&w=600&q=80",
+                            color: "#0a1a0f",
+                            titleColor: "#ffffff",
+                            descColor: "#9ca3af"
+                          },
+                          {
+                            id: "slide_3",
+                            title: "Ulinzi na Usalama",
+                            description: "Madereva wetu wote wamehakikiwa vizuri na kupitishwa na mfumo ili kukuhakikishia usalama 100%.",
+                            imageUrl: "https://images.unsplash.com/photo-1494959764136-6be9eb3c261e?auto=format&fit=crop&w=600&q=80",
+                            color: "#0b161e",
+                            titleColor: "#ffffff",
+                            descColor: "#9ca3af"
+                          }
+                        ];
+                        const newId = `slide_${Date.now()}`;
+                        const newSlide = {
+                          id: newId,
+                          title: `Slide Mpya #${currentSlides.length + 1}`,
+                          description: "Maelezo mafupi ya slide hii mpya hapa.",
+                          imageUrl: "https://images.unsplash.com/photo-1549576490-b0b4831ef60a?auto=format&fit=crop&w=600&q=80",
+                          color: "#0c0c0e",
+                          titleColor: "#ffffff",
+                          descColor: "#9ca3af"
+                        };
+                        setBusinessConfig({
+                          ...businessConfig,
+                          splashSlides: [...currentSlides, newSlide]
+                        });
+                        toast.success("Slide mpya imeongezwa! Usisahau kuhifadhi.");
+                      }}
+                      className="h-11 px-6 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-black text-xs uppercase tracking-wider flex items-center gap-2"
+                    >
+                      <Plus className="w-4 h-4" /> Ongeza Slide Mpya
+                    </Button>
+                  </div>
+
+                  <div className="space-y-6">
+                    {(businessConfig.splashSlides || [
+                      {
+                        id: "slide_1",
+                        title: "Karibu Papo Hapo!",
+                        description: "App bora zaidi ya huduma za usafiri wa haraka na uwasilishaji mizigo/chakula papo hapo.",
+                        imageUrl: "https://images.unsplash.com/photo-1549576490-b0b4831ef60a?auto=format&fit=crop&w=600&q=80",
+                        color: "#0c0c0e",
+                        titleColor: "#ffffff",
+                        descColor: "#9ca3af"
+                      },
+                      {
+                        id: "slide_2",
+                        title: "Usafiri na Ubebaji Mizigo",
+                        description: "Chagua Gari, Bajaji au Pikipiki kulingana na mahitaji yako na ujionee safari isiyo na kelele.",
+                        imageUrl: "https://images.unsplash.com/photo-1516594798947-e65505dbb29d?auto=format&fit=crop&w=600&q=80",
+                        color: "#0a1a0f",
+                        titleColor: "#ffffff",
+                        descColor: "#9ca3af"
+                      },
+                      {
+                        id: "slide_3",
+                        title: "Ulinzi na Usalama",
+                        description: "Madereva wetu wote wamehakikiwa vizuri na kupitishwa na mfumo ili kukuhakikishia usalama 100%.",
+                        imageUrl: "https://images.unsplash.com/photo-1494959764136-6be9eb3c261e?auto=format&fit=crop&w=600&q=80",
+                        color: "#0b161e",
+                        titleColor: "#ffffff",
+                        descColor: "#9ca3af"
+                      }
+                    ]).map((slide: any, idx: number, arr: any[]) => (
+                      <div 
+                        key={slide.id || idx} 
+                        className="p-6 rounded-2xl border border-neutral-100 dark:border-neutral-850 bg-neutral-50/70 space-y-4"
+                      >
+                        <div className="flex items-center justify-between border-b border-neutral-150 pb-3">
+                          <div className="flex items-center gap-2">
+                            <span className="w-6 h-6 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center font-black text-xs">
+                              {idx + 1}
+                            </span>
+                            <span className="text-xs font-black uppercase text-neutral-800 tracking-wider">
+                              Slide Details
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            {/* Move Up */}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              disabled={idx === 0}
+                              onClick={() => {
+                                const newSlides = [...arr];
+                                const temp = newSlides[idx];
+                                newSlides[idx] = newSlides[idx - 1];
+                                newSlides[idx - 1] = temp;
+                                setBusinessConfig({ ...businessConfig, splashSlides: newSlides });
+                              }}
+                              className="w-8 h-8 text-neutral-500 hover:bg-neutral-200"
+                            >
+                              <ArrowUp className="w-4 h-4" />
+                            </Button>
+
+                            {/* Move Down */}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              disabled={idx === arr.length - 1}
+                              onClick={() => {
+                                const newSlides = [...arr];
+                                const temp = newSlides[idx];
+                                newSlides[idx] = newSlides[idx + 1];
+                                newSlides[idx + 1] = temp;
+                                setBusinessConfig({ ...businessConfig, splashSlides: newSlides });
+                              }}
+                              className="w-8 h-8 text-neutral-500 hover:bg-neutral-200"
+                            >
+                              <ArrowDown className="w-4 h-4" />
+                            </Button>
+
+                            {/* Delete Button */}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                if (arr.length <= 1) {
+                                  toast.error("Lazima ubaki na angalau slide moja ya Splash screen!");
+                                  return;
+                                }
+                                const newSlides = arr.filter((s: any) => s.id !== slide.id);
+                                setBusinessConfig({ ...businessConfig, splashSlides: newSlides });
+                                toast.success("Slide imefutwa! Usisahau kuhifadhi.");
+                              }}
+                              className="w-8 h-8 text-red-500 hover:bg-red-50 hover:text-red-750"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {/* Title and Description */}
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Slide Title (Kichwa cha Habari) *</Label>
+                              <Input
+                                value={slide.title || ''}
+                                onChange={(e) => {
+                                  const newSlides = arr.map((s: any) => 
+                                    s.id === slide.id ? { ...s, title: e.target.value } : s
+                                  );
+                                  setBusinessConfig({ ...businessConfig, splashSlides: newSlides });
+                                }}
+                                className="h-11 rounded-xl bg-white border border-neutral-200"
+                              />
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Slide Description (Maelezo ya Slide) *</Label>
+                              <Textarea
+                                value={slide.description || ''}
+                                onChange={(e) => {
+                                  const newSlides = arr.map((s: any) => 
+                                    s.id === slide.id ? { ...s, description: e.target.value } : s
+                                  );
+                                  setBusinessConfig({ ...businessConfig, splashSlides: newSlides });
+                                }}
+                                className="min-h-[80px] rounded-xl bg-white border border-neutral-200 text-xs font-semibold px-4 py-2"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Image Path and Color Settings */}
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Linki ya Picha (Image URL) au Upload *</Label>
+                              <div className="flex gap-2">
+                                <Input
+                                  value={slide.imageUrl || ''}
+                                  placeholder="https://images.unsplash.com/...au pakia"
+                                  onChange={(e) => {
+                                    const newSlides = arr.map((s: any) => 
+                                      s.id === slide.id ? { ...s, imageUrl: e.target.value } : s
+                                    );
+                                    setBusinessConfig({ ...businessConfig, splashSlides: newSlides });
+                                  }}
+                                  className="h-11 rounded-xl bg-white border border-neutral-200 text-xs flex-1"
+                                />
+                                <Label className="shrink-0 cursor-pointer text-xs font-black uppercase text-[#7F77DD] bg-[#7F77DD]/10 px-4 py-2.5 rounded-xl border border-dashed border-[#7F77DD]/35 hover:bg-[#7F77DD]/20 transition-all flex items-center justify-center">
+                                  {uploadingSlideId === slide.id ? 'Inapakia...' : 'Pakia'}
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={(e) => handleSlideImageUpload(e, slide.id)}
+                                    disabled={uploadingSlideId !== null}
+                                  />
+                                </Label>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-4">
+                              <div className="space-y-1.5">
+                                <Label className="text-[8.5px] font-black uppercase tracking-wider text-neutral-500">BG Color</Label>
+                                <div className="flex items-center gap-1.5 bg-white p-1 rounded-xl border border-neutral-250">
+                                  <Input 
+                                    type="color"
+                                    value={slide.color || '#0c0c0e'}
+                                    onChange={(e) => {
+                                      const newSlides = arr.map((s: any) => 
+                                        s.id === slide.id ? { ...s, color: e.target.value } : s
+                                      );
+                                      setBusinessConfig({ ...businessConfig, splashSlides: newSlides });
+                                    }}
+                                    className="w-8 h-8 bg-transparent p-0 cursor-pointer border-none rounded-lg"
+                                  />
+                                  <span className="text-[9px] font-mono font-bold uppercase truncate">{slide.color || '#000'}</span>
+                                </div>
+                              </div>
+
+                              <div className="space-y-1.5">
+                                <Label className="text-[8.5px] font-black uppercase tracking-wider text-neutral-500">Title Color</Label>
+                                <div className="flex items-center gap-1.5 bg-white p-1 rounded-xl border border-neutral-250">
+                                  <Input 
+                                    type="color"
+                                    value={slide.titleColor || '#ffffff'}
+                                    onChange={(e) => {
+                                      const newSlides = arr.map((s: any) => 
+                                        s.id === slide.id ? { ...s, titleColor: e.target.value } : s
+                                      );
+                                      setBusinessConfig({ ...businessConfig, splashSlides: newSlides });
+                                    }}
+                                    className="w-8 h-8 bg-transparent p-0 cursor-pointer border-none rounded-lg"
+                                  />
+                                  <span className="text-[9px] font-mono font-bold uppercase truncate">{slide.titleColor || '#fff'}</span>
+                                </div>
+                              </div>
+
+                              <div className="space-y-1.5">
+                                <Label className="text-[8.5px] font-black uppercase tracking-wider text-neutral-500">Desc Color</Label>
+                                <div className="flex items-center gap-1.5 bg-white p-1 rounded-xl border border-neutral-250">
+                                  <Input 
+                                    type="color"
+                                    value={slide.descColor || '#9ca3af'}
+                                    onChange={(e) => {
+                                      const newSlides = arr.map((s: any) => 
+                                        s.id === slide.id ? { ...s, descColor: e.target.value } : s
+                                      );
+                                      setBusinessConfig({ ...businessConfig, splashSlides: newSlides });
+                                    }}
+                                    className="w-8 h-8 bg-transparent p-0 cursor-pointer border-none rounded-lg"
+                                  />
+                                  <span className="text-[9px] font-mono font-bold uppercase truncate">{slide.descColor || '#aaa'}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex justify-end pt-4 gap-4">
+                    <Button
+                      onClick={handleSaveSettings}
+                      className="h-14 px-12 rounded-2xl bg-orange-600 hover:bg-orange-700 text-white shadow-xl shadow-orange-100 font-black uppercase tracking-widest text-xs"
+                    >
+                      Hifadhi Slide za Splash zote (Save Splash Slides Settings)
+                    </Button>
+                  </div>
+                </Card>
 
                 {/* Outer Layout: Global Mobile App download configurations */}
                 <Card className="rounded-[3rem] border-none shadow-2xl p-8 space-y-6 bg-white max-w-5xl">
