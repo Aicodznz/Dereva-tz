@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { db, auth } from '../firebase';
-import { collection, query, where, orderBy, onSnapshot, addDoc, getDocs, doc, getDoc, updateDoc, limit, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, addDoc, getDocs, doc, getDoc, updateDoc, limit, serverTimestamp, arrayUnion, deleteDoc } from 'firebase/firestore';
 import { useAuth } from '../AuthContext';
 import { useLanguage } from '../LanguageContext';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -22,8 +22,12 @@ import {
   CornerUpLeft,
   X,
   Plus,
-  MessageSquare
+  MessageSquare,
+  Trash2,
+  Ban,
+  ShieldAlert
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 
 import { useSearchParams } from 'react-router-dom';
@@ -45,6 +49,7 @@ interface Message {
     senderName: string;
   };
   reactions?: Record<string, string[]>; // emoji -> userIds
+  deletedBy?: string[];
   createdAt: any;
 }
 
@@ -70,11 +75,88 @@ export default function Chat({ onBack }: ChatProps) {
   const [loading, setLoading] = useState(true);
   const [replyingTo, setReplyingTo] = useState<Message|null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState<string | null>(null);
+  const [showChatOptions, setShowChatOptions] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const emojis = ['❤️', '👍', '😂', '😮', '🙏', '🔥'];
 
   const chatId = (user && recipientId) ? [user.uid, recipientId].sort().join('_') : null;
+
+  const visibleMessages = messages.filter(msg => !msg.deletedBy?.includes(user?.uid || ''));
+
+  const isBlockedByMe = (profile as any)?.blockedUsers?.includes(recipientId || '') || false;
+  const amIBlocked = recipientProfile?.blockedUsers?.includes(user?.uid || '') || false;
+
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!user) return;
+    try {
+      await updateDoc(doc(db, 'messages', messageId), {
+        deletedBy: arrayUnion(user.uid)
+      });
+      toast.success("Meseji imefutwa.");
+    } catch (error) {
+      console.error("Error deleting message:", error);
+      toast.error("Imeshindwa kufuta meseji.");
+    }
+  };
+
+  const handleDeleteFullChat = async () => {
+    if (!user || !chatId) return;
+    const confirmDelete = window.confirm("Je, una uhakika unataka kufuta mazungumzo haya yote upande wako?");
+    if (!confirmDelete) return;
+
+    try {
+      const q = query(
+        collection(db, 'messages'),
+        where('chatId', '==', chatId)
+      );
+      const snap = await getDocs(q);
+      const msgPromises = snap.docs.map((mDoc) => {
+        const deletedByList = mDoc.data().deletedBy || [];
+        if (!deletedByList.includes(user.uid)) {
+          return updateDoc(mDoc.ref, {
+            deletedBy: arrayUnion(user.uid)
+          });
+        }
+        return Promise.resolve();
+      });
+      await Promise.all(msgPromises);
+      toast.success("Mazungumzo yote yamefutwa yaliyo upande wako.");
+      setRecipientId(null);
+      setSearchParams({});
+    } catch (error) {
+      console.error("Error deleting chat:", error);
+      toast.error("Imeshindwa kufuta mazungumzo yote.");
+    }
+  };
+
+  const handleToggleBlock = async () => {
+    if (!user || !recipientId) return;
+    const currentlyBlocked = (profile as any)?.blockedUsers || [];
+    let updated;
+    if (isBlockedByMe) {
+      updated = currentlyBlocked.filter((id: string) => id !== recipientId);
+      toast.success("Umemfungulia block mtumiaji huyu.");
+    } else {
+      const confirmBlock = window.confirm("Je, una uhakika unataka kumzuia (Block) mtumiaji huyu? Hatoweza kukutumia meseji tena.");
+      if (!confirmBlock) return;
+      updated = [...currentlyBlocked, recipientId];
+      toast.success("Umemgomea (Blocked) mtumiaji huyu!");
+    }
+
+    try {
+      await updateDoc(doc(db, 'users', user.uid), {
+        blockedUsers: updated
+      });
+      // Sync locally
+      if (profile) {
+        (profile as any).blockedUsers = updated;
+      }
+    } catch (error) {
+      console.error("Error updating block status:", error);
+      toast.error("Imeshindwa kusasisha block.");
+    }
+  };
 
   // Handle Guest Sign In
   useEffect(() => {
@@ -106,6 +188,9 @@ export default function Chat({ onBack }: ChatProps) {
       const sessionsMap = new Map<string, ChatSession>();
       messages.forEach(m => {
         if (!m.chatId || sessionsMap.has(m.chatId)) return;
+        
+        // Skip messages deleted/hidden by this user
+        if (m.deletedBy && m.deletedBy.includes(user.uid)) return;
         
         const otherParticipantId = m.participants.find((id: string) => id !== user.uid);
         sessionsMap.set(m.chatId, {
@@ -139,9 +224,20 @@ export default function Chat({ onBack }: ChatProps) {
     if (!recipientId) return;
     
     const fetchRecipient = async () => {
+      // Fetch recipient's user document to check blockedUsers list
+      let blockedUsers: string[] = [];
+      try {
+        const uSnap = await getDoc(doc(db, 'users', recipientId));
+        if (uSnap.exists()) {
+          const uData = uSnap.data();
+          blockedUsers = uData.blockedUsers || [];
+        }
+      } catch (err) {
+        console.error("Error fetching recipient user doc:", err);
+      }
+
       // 1. Check if recipientId is a Vendor
       const vendorsRef = collection(db, 'vendors');
-      const q1 = query(vendorsRef, where('id', '==', recipientId)); // This might not work if doc ID is recipientId
       const q2 = query(vendorsRef, where('ownerUid', '==', recipientId));
       
       const [snap1, snap2] = await Promise.all([
@@ -151,13 +247,13 @@ export default function Chat({ onBack }: ChatProps) {
 
       if (snap1.exists()) {
         const vData = snap1.data();
-        setRecipientProfile({ name: vData.businessName, photo: vData.logoUrl, role: 'vendor' });
+        setRecipientProfile({ name: vData.businessName, photo: vData.logoUrl, role: 'vendor', blockedUsers });
         return;
       }
       
       if (!snap2.empty) {
         const vData = snap2.docs[0].data();
-        setRecipientProfile({ name: vData.businessName, photo: vData.logoUrl, role: 'vendor' });
+        setRecipientProfile({ name: vData.businessName, photo: vData.logoUrl, role: 'vendor', blockedUsers });
         return;
       }
 
@@ -165,7 +261,7 @@ export default function Chat({ onBack }: ChatProps) {
       const uSnap = await getDoc(doc(db, 'users', recipientId));
       if (uSnap.exists()) {
         const uData = uSnap.data();
-        setRecipientProfile({ name: uData.displayName, photo: uData.photoURL, role: uData.role });
+        setRecipientProfile({ name: uData.displayName, photo: uData.photoURL, role: uData.role, blockedUsers });
       }
     };
     fetchRecipient();
@@ -283,8 +379,8 @@ export default function Chat({ onBack }: ChatProps) {
       )}
 
       <div className="flex-1 flex gap-6 min-h-0">
-        {/* Contacts Sidebar (Visible on Desktop / For Vendors) */}
-        <div className={`hidden lg:flex w-80 bg-white rounded-3xl shadow-sm border border-neutral-100 flex-col overflow-hidden`}>
+        {/* Contacts Sidebar (Responsive list) */}
+        <div className={`w-full lg:w-80 bg-white rounded-3xl shadow-sm border border-neutral-100 flex-col overflow-hidden ${recipientId ? 'hidden lg:flex' : 'flex'}`}>
           <div className="p-6 border-b border-neutral-100">
             <h3 className="text-xl font-black mb-4">Messages</h3>
             <div className="relative">
@@ -328,7 +424,7 @@ export default function Chat({ onBack }: ChatProps) {
 
         {/* Chat Area */}
         {recipientId ? (
-          <Card className="flex-1 border-none shadow-sm rounded-3xl overflow-hidden flex flex-col relative">
+          <Card className="flex-1 border-none shadow-sm rounded-3xl overflow-hidden flex flex-col relative animate-in fade-in duration-200">
             <CardHeader className="bg-white border-b border-neutral-100 p-4 flex flex-row items-center justify-between shrink-0 z-20">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-orange-600 rounded-xl overflow-hidden flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-orange-600/10">
@@ -353,15 +449,64 @@ export default function Chat({ onBack }: ChatProps) {
                 <Button variant="ghost" size="icon" className="hidden sm:flex text-neutral-400 hover:text-orange-600 rounded-xl">
                   <Video className="w-4 h-4" />
                 </Button>
-                <Button variant="ghost" size="icon" className="text-neutral-400 hover:text-orange-600 rounded-xl lg:hidden" onClick={() => setRecipientId(null)}>
-                  <X className="w-4 h-4" />
+                
+                {/* Options Menu */}
+                <div className="relative">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="text-neutral-400 hover:text-orange-600 rounded-xl"
+                    onClick={() => setShowChatOptions(!showChatOptions)}
+                  >
+                    <MoreVertical className="w-4 h-4" />
+                  </Button>
+                  {showChatOptions && (
+                    <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-neutral-900 rounded-2xl shadow-xl border border-neutral-100 dark:border-neutral-800 p-2 z-[999] text-sm animate-in fade-in slide-in-from-top-2 duration-150">
+                      <button
+                        onClick={() => {
+                          handleDeleteFullChat();
+                          setShowChatOptions(false);
+                        }}
+                        className="w-full text-left px-3 py-2.5 text-red-500 hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl font-bold flex items-center gap-2"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Futa Mazungumzo
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleToggleBlock();
+                          setShowChatOptions(false);
+                        }}
+                        className={`w-full text-left px-3 py-2.5 rounded-xl font-bold flex items-center gap-2 ${
+                          isBlockedByMe 
+                            ? 'text-emerald-500 hover:bg-neutral-50 dark:hover:bg-neutral-800' 
+                            : 'text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800'
+                        }`}
+                      >
+                        <Ban className="w-4 h-4" />
+                        {isBlockedByMe ? 'Mfungulie Block (Unblock)' : 'Mzuie Kuniandikia (Block)'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="text-neutral-400 hover:text-orange-600 rounded-xl" 
+                  onClick={() => {
+                    setRecipientId(null);
+                    setSearchParams({});
+                  }}
+                >
+                  <ChevronLeft className="w-5 h-5" />
                 </Button>
               </div>
             </CardHeader>
 
             <CardContent className="flex-1 overflow-y-auto p-6 space-y-6 bg-neutral-50/50 no-scrollbar relative" ref={scrollRef}>
               <AnimatePresence initial={false}>
-                {messages.map((msg) => {
+                {visibleMessages.map((msg) => {
                   const isMe = msg.senderId === user?.uid;
                   return (
                     <motion.div 
@@ -391,8 +536,8 @@ export default function Chat({ onBack }: ChatProps) {
                         }`}>
                           <p className="text-sm leading-relaxed">{msg.text}</p>
                           
-                          {/* Message Actions (Invisible by default, appear on hover) */}
-                          <div className={`absolute top-0 ${isMe ? 'right-full mr-2' : 'left-full ml-2'} opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 h-full`}>
+                          {/* Message Actions (Invisible by default on desktop, partially visible on touch for convenience) */}
+                          <div className={`absolute top-0 ${isMe ? 'right-full mr-2' : 'left-full ml-2'} opacity-60 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center gap-1.5 h-full`}>
                             <button 
                               onClick={() => setReplyingTo(msg)}
                               className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-neutral-400 hover:text-orange-600 transition-all hover:scale-110"
@@ -406,6 +551,13 @@ export default function Chat({ onBack }: ChatProps) {
                               title="React"
                             >
                               <Smile className="w-3.5 h-3.5" />
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteMessage(msg.id)}
+                              className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-red-500 hover:text-red-700 hover:bg-red-50 transition-all hover:scale-110"
+                              title="Futa Meseji"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
 
@@ -461,7 +613,7 @@ export default function Chat({ onBack }: ChatProps) {
                 })}
               </AnimatePresence>
               
-              {messages.length === 0 && !loading && (
+              {visibleMessages.length === 0 && !loading && (
                 <div className="h-full flex flex-col items-center justify-center text-center p-12 opacity-50">
                   <div className="w-20 h-20 bg-orange-100 rounded-[2rem] flex items-center justify-center text-orange-600 mb-6 animate-bounce">
                     <MessageCircle className="w-10 h-10" />
@@ -497,40 +649,50 @@ export default function Chat({ onBack }: ChatProps) {
                 )}
               </AnimatePresence>
               
-              <form onSubmit={handleSendMessage} className="flex gap-3 items-end">
-                <div className="flex-1 bg-neutral-50 rounded-[1.5rem] p-2 flex items-center gap-2 border border-transparent focus-within:border-orange-200 transition-all">
-                  <button type="button" className="p-2 text-neutral-400 hover:text-orange-600 transition-colors">
-                    <Plus className="w-5 h-5" />
-                  </button>
-                  <textarea 
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendMessage(e as any);
-                      }
-                    }}
-                    placeholder={t('chat_placeholder')}
-                    className="flex-1 bg-transparent border-none focus:ring-0 text-sm py-2 px-1 max-h-32 min-h-[44px] resize-none no-scrollbar font-medium"
-                    rows={1}
-                  />
-                  <button type="button" className="p-2 text-neutral-400 hover:text-orange-600 transition-colors">
-                    <Smile className="w-5 h-5" />
-                  </button>
+              {isBlockedByMe ? (
+                <div className="p-4 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 text-xs font-bold uppercase tracking-wider text-center rounded-2xl border border-red-100 dark:border-red-900/30">
+                  Umemuweka block mtumiaji huyu. Mfungulie ili kuendelea kuwasiliana.
                 </div>
-                <Button 
-                  type="submit" 
-                  disabled={!newMessage.trim()}
-                  className="w-12 h-12 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl shrink-0 p-0 shadow-lg shadow-orange-600/20 active:scale-90 transition-all"
-                >
-                  <Send className="w-5 h-5" />
-                </Button>
-              </form>
+              ) : amIBlocked ? (
+                <div className="p-4 bg-neutral-50 dark:bg-neutral-900/20 text-neutral-500 text-xs font-bold uppercase tracking-wider text-center rounded-2xl border border-neutral-100 dark:border-neutral-800">
+                  Huwezi chat na mtu huyu kwa sasa (Umezuiliwa).
+                </div>
+              ) : (
+                <form onSubmit={handleSendMessage} className="flex gap-3 items-end">
+                  <div className="flex-1 bg-neutral-50 rounded-[1.5rem] p-2 flex items-center gap-2 border border-transparent focus-within:border-orange-200 transition-all">
+                    <button type="button" className="p-2 text-neutral-400 hover:text-orange-600 transition-colors">
+                      <Plus className="w-5 h-5" />
+                    </button>
+                    <textarea 
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendMessage(e as any);
+                        }
+                      }}
+                      placeholder={t('chat_placeholder')}
+                      className="flex-1 bg-transparent border-none focus:ring-0 text-sm py-2 px-1 max-h-32 min-h-[44px] resize-none no-scrollbar font-medium"
+                      rows={1}
+                    />
+                    <button type="button" className="p-2 text-neutral-400 hover:text-orange-600 transition-colors">
+                      <Smile className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <Button 
+                    type="submit" 
+                    disabled={!newMessage.trim()}
+                    className="w-12 h-12 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl shrink-0 p-0 shadow-lg shadow-orange-600/20 active:scale-90 transition-all"
+                  >
+                    <Send className="w-5 h-5" />
+                  </Button>
+                </form>
+              )}
             </div>
           </Card>
         ) : (
-          <div className="flex-1 bg-neutral-50/50 rounded-3xl flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-neutral-200">
+          <div className="hidden lg:flex flex-1 bg-neutral-50/50 rounded-3xl flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-neutral-200">
             <div className="w-24 h-24 bg-white rounded-[2.5rem] shadow-xl flex items-center justify-center text-orange-600 mb-6">
               <MessageSquare className="w-12 h-12" />
             </div>

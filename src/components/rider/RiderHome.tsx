@@ -16,7 +16,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Chat from '../Chat';
 import { motion, AnimatePresence } from 'motion/react';
 import { db, auth } from '../../firebase';
-import { doc, updateDoc, getDoc, setDoc, serverTimestamp, collection, query, where, limit, onSnapshot, addDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc, setDoc, serverTimestamp, collection, query, where, limit, onSnapshot, addDoc, getDocs, deleteDoc } from 'firebase/firestore';
 import { useAuth } from '../../AuthContext';
 import { useDriverActions } from '../../hooks/useDriverActions';
 import { useRideStatus } from '../../hooks/useRideStatus';
@@ -1090,6 +1090,19 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
   const handleComplete = async () => {
     if (!activeRide || !user) return;
     try {
+      // Automatic chat deletion between customer and driver
+      try {
+        const cId = [user.uid, activeRide.customerId].sort().join('_');
+        const msgsRef = collection(db, 'messages');
+        const qMsgs = query(msgsRef, where('chatId', '==', cId));
+        const msgsSnap = await getDocs(qMsgs);
+        const deletePromises = msgsSnap.docs.map(doc => deleteDoc(doc.ref));
+        await Promise.all(deletePromises);
+        console.log("Chat history deleted automatically on trip complete.");
+      } catch (chatErr) {
+        console.error("Error clearing chat history:", chatErr);
+      }
+
       await completeTrip(
         activeRide.customerId,
         user.uid,
