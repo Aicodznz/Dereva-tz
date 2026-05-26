@@ -73,13 +73,16 @@ function MapController({ position, activeRide }: { position: [number, number], a
       setTimeout(() => {
         try {
           map.invalidateSize();
+          if (position) {
+            map.setView(position, map.getZoom() || 17, { animate: false });
+          }
         } catch (e) {
           // ignore
         }
       }, delay)
     );
     return () => timers.forEach(clearTimeout);
-  }, [map, activeRide?.status, activeRide?.id]);
+  }, [map, activeRide?.status, activeRide?.id, position]);
 
   // Handle dynamic map resize constraints beautifully via ResizeObserver on mobile/tablet viewports
   useEffect(() => {

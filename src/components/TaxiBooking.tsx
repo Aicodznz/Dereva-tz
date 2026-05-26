@@ -251,13 +251,24 @@ const MapControl = ({
       setTimeout(() => {
         try {
           map.invalidateSize();
+          // Force view refresh / adjustment so things like pins and lines are drawn on-screen
+          if (step === "map") {
+            if (routeCoords && routeCoords.length > 1) {
+              const bounds = L.latLngBounds(routeCoords);
+              map.fitBounds(bounds, { padding: [60, 60] });
+            } else if (position) {
+              map.setView(position, map.getZoom() || 15, { animate: false });
+            }
+          } else if (position) {
+            map.setView(position, map.getZoom() || 15, { animate: false });
+          }
         } catch (e) {
           // ignore
-         }
-       }, delay)
+        }
+      }, delay)
     );
     return () => timers.forEach(clearTimeout);
-  }, [map, step, isMapFullscreen]);
+  }, [map, step, isMapFullscreen, routeCoords, position]);
 
   const [containerResizedCount, setContainerResizedCount] = useState(0);
 
