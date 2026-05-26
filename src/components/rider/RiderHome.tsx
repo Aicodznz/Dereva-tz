@@ -1311,7 +1311,11 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
             maxZoom={22}
             preferCanvas={false}
             style={{ height: '100%', width: '100%' }}
-            zoomControl={false}
+            zoomControl={true}
+            touchZoom={true}
+            doubleClickZoom={true}
+            scrollWheelZoom={true}
+            dragging={true}
             className="transition-all duration-1000"
           >
             <TileLayer 

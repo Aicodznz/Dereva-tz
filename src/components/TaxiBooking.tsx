@@ -1917,10 +1917,10 @@ export default function TaxiBooking() {
 
                 {/* 2025 African Tech Premium Floating Info Cards */}
                 {activeRide && ["found", "arriving", "on_trip"].includes(step) && (
-                  <div className="absolute top-24 right-6 left-6 md:left-auto md:w-[320px] z-[9999] flex flex-col gap-3 pointer-events-auto animate-fade-in">
+                  <div className="absolute top-24 right-6 left-6 md:left-auto md:w-[320px] z-[9999] flex flex-col gap-3 pointer-events-none animate-fade-in font-sans">
                     {/* Pickup Card - Only visible when the driver is coming to get them */}
                     {activeRide.status !== "on_trip" && (
-                      <div className="bg-[#080A12]/85 backdrop-blur-[20px] border border-white/10 rounded-2xl p-4 md:p-5 shadow-[0_12px_40px_rgba(0,0,0,0.5)] flex flex-col relative overflow-hidden">
+                      <div className="bg-[#080A12]/85 backdrop-blur-[20px] border border-white/10 rounded-2xl p-4 md:p-5 shadow-[0_12px_40px_rgba(0,0,0,0.5)] flex flex-col relative overflow-hidden pointer-events-auto">
                         <div className="absolute top-0 left-0 w-1.5 h-full bg-[#00E5A0]" />
                         <div className="flex items-center justify-between mb-2 pl-2">
                           <div className="flex items-center gap-2">
@@ -1961,27 +1961,6 @@ export default function TaxiBooking() {
                         </div>
                       </div>
                     )}
-
-                    {/* Destination Card - Always visible */}
-                    <div className="bg-[#080A12]/85 backdrop-blur-[20px] border border-white/10 rounded-2xl p-4 md:p-5 shadow-[0_12px_40px_rgba(0,0,0,0.5)] flex flex-col relative overflow-hidden">
-                      <div className="absolute top-0 left-0 w-1.5 h-full bg-[#FF6B35]" />
-                      <div className="flex items-center justify-between mb-2 pl-2">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-[#FF6B35] animate-pulse" />
-                          <span className="text-[10px] font-black tracking-[0.15em] text-[#FF6B35] font-heading">🟠 DESTINATION</span>
-                        </div>
-                      </div>
-                      <div className="h-[1px] w-full bg-white/5 mb-3" />
-                      <div className="flex flex-col pl-2">
-                        <span className="text-[10px] font-black text-[#8A8FA8] uppercase tracking-[0.08em] mb-1 font-heading">Muda unaokadiriwa kufika</span>
-                        <span className="text-xs font-black text-white font-mono tracking-wide bg-white/5 py-1.5 px-3 rounded-lg border border-white/5 inline-block">
-                          {etaDestText}
-                        </span>
-                        <p className="text-[10px] text-white/70 mt-3 truncate bg-white/5 py-1.5 px-3 rounded-lg border border-white/5 font-sans">
-                          Mwisho: <span className="font-semibold text-white">{activeRide.destination.address}</span>
-                        </p>
-                      </div>
-                    </div>
                   </div>
                 )}
 
@@ -2001,7 +1980,7 @@ export default function TaxiBooking() {
                     maxZoom={22}
                     preferCanvas={false}
                     className="h-full w-full"
-                    zoomControl={false}
+                    zoomControl={true}
                     touchZoom={true}
                     doubleClickZoom={true}
                     scrollWheelZoom={true}
