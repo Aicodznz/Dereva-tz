@@ -2,7 +2,7 @@ import React from 'react';
 import { 
   User, Wallet, Settings, LayoutGrid, Shield, MessageSquare, 
   HelpCircle, Share2, LogOut, ChevronRight, Calculator,
-  BookOpen, Car, Building2, Trash2, Milestone, Languages
+  BookOpen, Car, Building2, Trash2, Milestone, Languages, ArrowLeft
 } from 'lucide-react';
 import { useAuth } from '../../AuthContext';
 import { motion } from 'motion/react';
@@ -43,11 +43,28 @@ const menuGroups = [
   }
 ];
 
-export default function RiderSettings({ onNavigate }: { onNavigate: (view: string) => void }) {
+export default function RiderSettings({ onNavigate, onBack }: { onNavigate: (view: string) => void; onBack?: () => void }) {
   const { logout, profile } = useAuth();
 
   return (
     <div className="p-6 pb-24 space-y-8 max-w-2xl mx-auto">
+      {/* Top Bar with Back option */}
+      {onBack && (
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={onBack}
+            className="flex items-center justify-center w-10 h-10 rounded-xl bg-white dark:bg-neutral-900 hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-800 dark:text-neutral-200 active:scale-95 transition-all border border-neutral-100 dark:border-neutral-800 shadow-sm"
+            title="Rudi kwenye Ramani"
+          >
+             <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <span className="text-[9px] font-black uppercase text-neutral-400 tracking-[0.2em] leading-none block mb-0.5">WASIFU WA DEREVA</span>
+            <span className="text-xs font-black text-neutral-800 dark:text-neutral-200 leading-none">Mipangilio & Taarifa</span>
+          </div>
+        </div>
+      )}
+
       {/* Header Profile Card */}
       <motion.div 
         initial={{ opacity: 0, y: 20 }}

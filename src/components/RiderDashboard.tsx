@@ -37,13 +37,13 @@ export default function RiderDashboard() {
   const renderContent = () => {
     switch (activeTab) {
       case 'home':
-        return <RiderHome onNavVisibilityChange={setIsNavVisible} />;
+        return <RiderHome onNavVisibilityChange={setIsNavVisible} onProfileClick={() => setActiveTab('settings')} />;
       case 'performance':
         return <RiderStats />;
       case 'rides':
         return <RiderRides />;
       case 'settings':
-        return <RiderSettings onNavigate={handleSettingsNavigate} />;
+        return <RiderSettings onNavigate={handleSettingsNavigate} onBack={() => setActiveTab('home')} />;
       case 'wallet':
         return <RiderWallet onBack={() => setActiveTab('settings')} />;
       case 'docs':
@@ -53,7 +53,7 @@ export default function RiderDashboard() {
       case 'bank':
         return <RiderRegistrationDetails initialTab="bank" onBack={() => setActiveTab('settings')} />;
       default:
-        return <RiderHome />;
+        return <RiderHome onProfileClick={() => setActiveTab('settings')} />;
     }
   };
 

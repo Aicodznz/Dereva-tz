@@ -227,9 +227,10 @@ L.Marker.prototype.options.icon = DefaultIcon;
 
 interface RiderHomeProps {
   onNavVisibilityChange?: (visible: boolean) => void;
+  onProfileClick?: () => void;
 }
 
-export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
+export default function RiderHome({ onNavVisibilityChange, onProfileClick }: RiderHomeProps) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, profile } = useAuth();
@@ -1183,14 +1184,18 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                         </div>
                       </div>
                       {/* Driver profile avatar when active */}
-                      <div className="w-7 h-7 rounded-full border-2 border-[#00FF88]/30 overflow-hidden bg-neutral-900 shadow-md">
+                      <button 
+                        onClick={onProfileClick}
+                        className="w-7 h-7 rounded-full border-2 border-[#00FF88]/30 overflow-hidden bg-neutral-900 shadow-md hover:border-[#00FF88] active:scale-90 transition-all cursor-pointer animate-pulse"
+                        title="Fungua wasifu wako"
+                      >
                         <img 
                           src={profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid || 'Juma'}`} 
                           alt="Driver" 
                           referrerPolicy="no-referrer"
                           className="w-full h-full object-cover"
                         />
-                      </div>
+                      </button>
                     </div>
                   </div>
 
@@ -1230,14 +1235,18 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                         <span className="text-[8px] font-black uppercase tracking-widest">{isOnline ? 'LIVE' : 'OFFLINE'}</span>
                      </div>
                      {/* Driver Profile Picture on Top Right */}
-                     <div className="w-8 h-8 rounded-full border-2 border-[#00FF88]/30 overflow-hidden bg-neutral-900 shadow-md">
+                     <button
+                       onClick={onProfileClick}
+                       className="w-8 h-8 rounded-full border-2 border-[#00FF88]/30 overflow-hidden bg-neutral-900 shadow-md hover:border-[#00FF88] active:scale-90 transition-all cursor-pointer inline-flex items-center justify-center p-0"
+                       title="Fungua wasifu wako"
+                     >
                         <img 
                           src={profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid || 'Juma'}`} 
                           alt="Driver" 
                           referrerPolicy="no-referrer"
                           className="w-full h-full object-cover"
                         />
-                     </div>
+                     </button>
                   </div>
                 </div>
               )}
