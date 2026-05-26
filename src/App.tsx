@@ -185,9 +185,28 @@ function AppContent() {
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
           >
+            {hasSlides && slides[currentSlideIndex] && slides[currentSlideIndex].imageUrl && (
+              <div className="absolute inset-0 z-0">
+                <AnimatePresence mode="wait">
+                  <motion.img
+                    key={currentSlideIndex}
+                    src={slides[currentSlideIndex].imageUrl}
+                    alt=""
+                    initial={{ opacity: 0, scale: 1.05 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.4, ease: 'easeInOut' }}
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                </AnimatePresence>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-black/80" />
+              </div>
+            )}
+
             {hasSlides ? (
               // MULTI-SLIDE SPLASH/ONBOARDING INTERACTIVE VIEW
-              <div className="flex-1 flex flex-col justify-between py-4">
+              <div className="flex-1 flex flex-col justify-between py-4 relative z-10 h-full">
                 {/* Header of Splash Screen: Skip Button & Progress dots */}
                 <div className="flex items-center justify-between w-full">
                   <div className="flex gap-1.5">
@@ -205,48 +224,33 @@ function AppContent() {
                   </div>
                   <button 
                     onClick={handleSkip}
-                    className="text-xs font-black uppercase tracking-wider text-white/50 hover:text-white px-4 py-2 bg-white/5 hover:bg-white/10 rounded-full transition-all"
+                    className="text-xs font-black uppercase tracking-wider text-white/70 hover:text-white px-4 py-2 bg-white/10 hover:bg-white/20 rounded-full transition-all"
                   >
                     Ruka (Skip)
                   </button>
                 </div>
 
                 {/* Main Content Area (With Swipe Motion transitions) */}
-                <div className="flex-1 flex flex-col items-center justify-center text-center my-6">
+                <div className="flex-1 flex flex-col items-center justify-end text-center pb-12">
                   <AnimatePresence mode="wait">
                     <motion.div
                       key={currentSlideIndex}
-                      initial={{ opacity: 0, x: 50, scale: 0.95 }}
-                      animate={{ opacity: 1, x: 0, scale: 1 }}
-                      exit={{ opacity: 0, x: -50, scale: 0.95 }}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
                       transition={{ duration: 0.35, ease: 'easeInOut' }}
                       className="max-w-xs flex flex-col items-center"
                     >
-                      {slides[currentSlideIndex].imageUrl ? (
-                        <div className="w-56 h-56 rounded-[2.5rem] overflow-hidden shadow-2xl shadow-black/40 mb-8 border border-white/5 relative bg-neutral-900 flex items-center justify-center">
-                          <img 
-                            src={slides[currentSlideIndex].imageUrl} 
-                            alt={slides[currentSlideIndex].title} 
-                            className="w-full h-full object-cover"
-                            referrerPolicy="no-referrer"
-                          />
-                        </div>
-                      ) : (
-                        <div className="w-48 h-48 rounded-[2.5rem] bg-orange-400/10 border border-orange-400/20 text-orange-400 flex items-center justify-center text-6xl mb-8 shadow-2xl">
-                          ✨
-                        </div>
-                      )}
-
                       <h2 
-                        className="text-2xl font-black tracking-tight mb-3"
+                        className="text-3xl font-black tracking-tight mb-4 drop-shadow-md leading-tight"
                         style={{ color: slides[currentSlideIndex].titleColor || '#ffffff' }}
                       >
                         {slides[currentSlideIndex].title}
                       </h2>
 
                       <p 
-                        className="text-sm font-medium leading-relaxed"
-                        style={{ color: slides[currentSlideIndex].descColor || '#9ca3af' }}
+                        className="text-sm font-semibold leading-relaxed drop-shadow"
+                        style={{ color: slides[currentSlideIndex].descColor || '#e5e7eb' }}
                       >
                         {slides[currentSlideIndex].description}
                       </p>
@@ -259,7 +263,7 @@ function AppContent() {
                   {currentSlideIndex > 0 ? (
                     <button
                       onClick={handleBack}
-                      className="w-12 h-12 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 text-white flex items-center justify-center transition-all"
+                      className="w-12 h-12 rounded-full border border-white/20 bg-black/40 hover:bg-black/60 text-white flex items-center justify-center transition-all"
                     >
                       <ChevronLeft className="w-5 h-5" />
                     </button>
@@ -269,7 +273,7 @@ function AppContent() {
 
                   <button
                     onClick={handleNext}
-                    className="px-8 h-12 rounded-full bg-orange-500 hover:bg-orange-600 text-white font-black text-xs uppercase tracking-widest shadow-lg shadow-orange-500/20 flex items-center gap-2 transition-all active:scale-95"
+                    className="px-8 h-12 rounded-full bg-orange-500 hover:bg-orange-600 text-white font-black text-xs uppercase tracking-widest shadow-lg shadow-orange-500/30 flex items-center gap-2 transition-all active:scale-95"
                   >
                     <span>{currentSlideIndex === slides.length - 1 ? 'Anza Sasa (Get Started)' : 'Endelea (Next)'}</span>
                     <ChevronRight className="w-4 h-4" />
