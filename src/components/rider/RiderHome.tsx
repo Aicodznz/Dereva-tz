@@ -16,7 +16,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Chat from '../Chat';
 import { motion, AnimatePresence } from 'motion/react';
 import { db, auth } from '../../firebase';
-import { doc, updateDoc, getDoc, setDoc, serverTimestamp, collection, query, where, limit, onSnapshot } from 'firebase/firestore';
+import { doc, updateDoc, getDoc, setDoc, serverTimestamp, collection, query, where, limit, onSnapshot, addDoc } from 'firebase/firestore';
 import { useAuth } from '../../AuthContext';
 import { useDriverActions } from '../../hooks/useDriverActions';
 import { useRideStatus } from '../../hooks/useRideStatus';
@@ -241,6 +241,44 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
   const [activePoiCategory, setActivePoiCategory] = useState<string | null>(null);
   const [poisCollapsed, setPoisCollapsed] = useState<boolean>(false);
 
+  // States for adding a POI
+  const [isAddPoiModalOpen, setIsAddPoiModalOpen] = useState(false);
+  const [newPoiName, setNewPoiName] = useState('');
+  const [newPoiType, setNewPoiType] = useState('charging');
+  const [newPoiPhone, setNewPoiPhone] = useState('');
+  const [newPoiPrice, setNewPoiPrice] = useState('');
+  const [newPoiLat, setNewPoiLat] = useState<number>(0);
+  const [newPoiLng, setNewPoiLng] = useState<number>(0);
+  const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'mobile'>('wallet');
+  const [mobileNumber, setMobileNumber] = useState('');
+  const [isSubmittingPoi, setIsSubmittingPoi] = useState(false);
+
+  // Real-time POIs state from Firestore
+  const [firestorePois, setFirestorePois] = useState<any[]>([]);
+
+  // Track coordinates for placing/adding POIs
+  useEffect(() => {
+    if (position) {
+      setNewPoiLat(position[0]);
+      setNewPoiLng(position[1]);
+    }
+  }, [position?.[0], position?.[1]]);
+
+  // Read POIs in real-time
+  useEffect(() => {
+    const q = query(collection(db, 'pois'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const list: any[] = [];
+      snapshot.forEach((doc) => {
+        list.push({ id: doc.id, ...doc.data() });
+      });
+      setFirestorePois(list);
+    }, (error) => {
+      console.error("Error loading POIs from Firestore:", error);
+    });
+    return () => unsubscribe();
+  }, []);
+
   // Generate simulated POIs centered around driver position
   const simulatedPois = useMemo(() => {
     const lat = position[0];
@@ -273,6 +311,50 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
       ],
     };
   }, [position]);
+
+  // Merged POIs including real-time Firestore POIs
+  const mergedPois = useMemo(() => {
+    const listByCategory: { [key: string]: any[] } = {
+      charging: [...simulatedPois.charging],
+      mechanic: [...simulatedPois.mechanic],
+      wash: [...simulatedPois.wash],
+      parking: [...simulatedPois.parking],
+      fuel: [...simulatedPois.fuel],
+    };
+
+    firestorePois.forEach((poi) => {
+      const isApproved = poi.status === 'approved';
+      const isOwnPending = poi.status === 'pending' && poi.submittedBy === user?.uid;
+
+      if (isApproved || isOwnPending) {
+        const mappedPoi = {
+          id: poi.id,
+          name: poi.name + (poi.status === 'pending' ? ' (Msubiri Uhakiki ⏳)' : ''),
+          lat: poi.lat,
+          lng: poi.lng,
+          type: poi.type,
+          speed: poi.type === 'charging' ? poi.price || '80 kW' : undefined,
+          cost: poi.type === 'charging' ? poi.price || 'TZS 400/kWh' : undefined,
+          status: poi.type === 'mechanic' ? 'Funguliwa' : undefined,
+          phone: poi.phone || '',
+          price: poi.type === 'wash' ? poi.price || 'TZS 5,000' : undefined,
+          rating: poi.type === 'wash' ? '4.8 ⭐' : undefined,
+          rate: poi.type === 'parking' ? poi.price || 'TZS 1,000/hr' : undefined,
+          slots: poi.type === 'parking' ? '12 spots' : undefined,
+          petrol: poi.type === 'fuel' ? poi.price || 'TZS 3,200/L' : undefined,
+          diesel: poi.type === 'fuel' ? 'TZS 3,090/L' : undefined,
+          isReal: true,
+          realStatus: poi.status
+        };
+
+        if (listByCategory[poi.type]) {
+          listByCategory[poi.type].push(mappedPoi);
+        }
+      }
+    });
+
+    return listByCategory;
+  }, [simulatedPois, firestorePois, user?.uid]);
   const [lastPosition, setLastPosition] = useState<[number, number] | null>(null);
   const [rotation, setRotation] = useState(0);
   const simulatedPathRef = React.useRef<[number, number][]>([]);
@@ -1186,6 +1268,78 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
     etaDestTextD = `EXPECTED ARRIVE BY ${formatTimeDriver(etaTime)} (Imebaki dk ${minsLeft} sek ${secsLeft})`;
   }
 
+  const handleSubmitPoi = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPoiName.trim() || !newPoiPhone.trim() || !newPoiPrice.trim()) {
+      toast.error("Tafadhali jaza taarifa zote zinazohitajika.");
+      return;
+    }
+
+    setIsSubmittingPoi(true);
+    try {
+      if (paymentMethod === 'wallet') {
+        const currentBalance = profile?.walletBalance ?? 0;
+        if (currentBalance < 10000) {
+          toast.error("Salio lako la Wallet halitoshi! Tafadhali weka salio au tumia malipo ya m-pesa.");
+          setIsSubmittingPoi(false);
+          return;
+        }
+
+        // Deduct wallet balance
+        const userRef = doc(db, 'users', user!.uid);
+        await updateDoc(userRef, {
+          walletBalance: currentBalance - 10000
+        });
+        
+        // Add POI
+        await addDoc(collection(db, 'pois'), {
+          name: newPoiName,
+          type: newPoiType,
+          phone: newPoiPhone,
+          price: newPoiPrice,
+          lat: Number(newPoiLat),
+          lng: Number(newPoiLng),
+          submittedBy: user?.uid,
+          paidAmount: 10000,
+          transactionId: 'WLT-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
+          status: 'pending',
+          createdAt: serverTimestamp()
+        });
+      } else {
+        // Mobile money simulation
+        toast.info("Tafadhali thibitisha ombi la malipo (USSD PUSH TZS 10,000) lililotumwa kwenye simu yako ya " + mobileNumber);
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+
+        // Add POI
+        await addDoc(collection(db, 'pois'), {
+          name: newPoiName,
+          type: newPoiType,
+          phone: newPoiPhone,
+          price: newPoiPrice,
+          lat: Number(newPoiLat),
+          lng: Number(newPoiLng),
+          submittedBy: user?.uid,
+          paidAmount: 10000,
+          transactionId: 'MPESA-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
+          status: 'pending',
+          createdAt: serverTimestamp()
+        });
+      }
+
+      setIsAddPoiModalOpen(false);
+      // Reset
+      setNewPoiName('');
+      setNewPoiPhone('');
+      setNewPoiPrice('');
+      toast.success("Usajili umekamilika! Huduma yako imetumwa kwa Admin ili iweze kukaguliwa na kuchapishwa.");
+    } catch (error) {
+      console.error("Error submitting driver service POI:", error);
+      toast.error("Imeshindwa kusajili huduma. Tafadhali jaribu tena.");
+    } finally {
+      setIsSubmittingPoi(false);
+    }
+  };
+
   return (
     <div className="relative h-full w-full overflow-hidden bg-[#0a0a0f] text-[#f0eeff]">
       {/* Top Bar Overlays */}
@@ -1608,7 +1762,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
                 });
               };
 
-              const pois = simulatedPois[activePoiCategory as keyof typeof simulatedPois] || [];
+              const pois = mergedPois[activePoiCategory as keyof typeof mergedPois] || [];
               return pois.map((poi: any) => (
                 <Marker
                   key={poi.id}
@@ -1807,6 +1961,21 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
                   title="Kituo cha Mafuta"
                 >
                   <Fuel className="w-5 h-5" />
+                </motion.button>
+
+                <div className="w-8 h-[1px] bg-neutral-200 dark:bg-neutral-800 my-0.5" />
+
+                {/* 6. Ongeza/Sajili Huduma (Paid Submission) */}
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => {
+                    setIsAddPoiModalOpen(true);
+                  }}
+                  className="w-10 h-10 rounded-full shadow-lg flex items-center justify-center bg-[#00FF88] hover:bg-emerald-400 border-2 border-white text-neutral-950 font-black"
+                  title="Sajili/Ongeza Huduma Yako ya Dereva"
+                >
+                  <Plus className="w-5 h-5 stroke-[3]" />
                 </motion.button>
               </motion.div>
             )}
@@ -2058,6 +2227,208 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
                <Chat onBack={() => setIsChatOpen(false)} />
              </div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* modal ya kusajili huduma mpya ya dereva */}
+      <AnimatePresence>
+        {isAddPoiModalOpen && (
+          <div className="absolute inset-0 z-[120] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 overflow-y-auto">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 30 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 30 }}
+              className="bg-[#0c0c12] border border-neutral-800 rounded-3xl w-full max-w-md shadow-[0_20px_50px_rgba(0,255,136,0.15)] flex flex-col overflow-hidden max-h-[90vh]"
+            >
+              {/* Header */}
+              <div className="p-5 border-b border-[#1e1e2e] flex items-center justify-between bg-[#111118]/80">
+                <div>
+                  <h3 className="text-base font-black italic tracking-wide text-white uppercase flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#00FF88] animate-pulse" />
+                    Sajili Huduma Yako
+                  </h3>
+                  <p className="text-[10px] text-neutral-400 uppercase font-bold tracking-wider">Tengeneza kipato kwa madereva wa karibu</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsAddPoiModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-[#161622] hover:bg-neutral-800 text-neutral-400 flex items-center justify-center transition-all"
+                >
+                  <CloseX className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Form */}
+              <form onSubmit={handleSubmitPoi} className="p-5 space-y-4 overflow-y-auto flex-1 text-sm font-sans">
+                {/* Info Note */}
+                <div className="p-3 bg-emerald-500/10 border border-[#00FF88]/20 rounded-xl">
+                  <p className="text-xs text-neutral-300 leading-relaxed font-medium">
+                    <strong className="text-[#00FF88]">Ada ya Usajili TZS 10,000</strong>. Biashara yako itawekwa kwenye ramani na kuonekana kwa madereva wote nchini kwa ajili ya kuwapata wateja na masoko!
+                  </p>
+                </div>
+
+                {/* Service Type */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase text-neutral-500 tracking-wider">Aina ya Huduma</label>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    {[
+                      { id: 'charging', name: '⚡ EV Charger', desc: 'Sajili kituo cha chaji' },
+                      { id: 'mechanic', name: '🛠️ Karakana/Fundi', desc: 'Karabati vyombo vya moto' },
+                      { id: 'wash', name: '🧼 Osha Gari/Piki', desc: 'Sajili eneo la kuosha' },
+                      { id: 'parking', name: '🅿️ Maegesho', desc: 'Sajili eneo la kupaki' },
+                      { id: 'fuel', name: '⛽ Kituo cha Mafuta', desc: 'Sajili shell/fuel station' }
+                    ].map((type) => (
+                      <button
+                        key={type.id}
+                        type="button"
+                        onClick={() => setNewPoiType(type.id)}
+                        className={`p-2.5 rounded-xl border text-left flex flex-col gap-0.5 transition-all ${
+                          newPoiType === type.id
+                            ? 'bg-[#00FF88]/10 border-[#00FF88] text-[#00FF88]'
+                            : 'bg-neutral-900/60 border-neutral-800 text-neutral-400 hover:border-neutral-700'
+                        }`}
+                      >
+                        <span className="font-extrabold">{type.name}</span>
+                        <span className="text-[8.5px] opacity-70 leading-none">{type.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Business Name */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-neutral-500 tracking-wider">Jina la Biashara/Huduma</label>
+                  <input
+                    type="text"
+                    required
+                    value={newPoiName}
+                    onChange={(e) => setNewPoiName(e.target.value)}
+                    placeholder="Mfano: Karakana ya Kisasa Mwenge"
+                    className="w-full py-2.5 px-3 bg-neutral-900/80 border border-neutral-800 rounded-xl focus:border-[#00FF88] text-white focus:outline-none transition-all placeholder:text-neutral-600 text-xs"
+                  />
+                </div>
+
+                {/* Phone Contact */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-neutral-500 tracking-wider">Namba ya Simu ya Huduma</label>
+                  <input
+                    type="tel"
+                    required
+                    value={newPoiPhone}
+                    onChange={(e) => setNewPoiPhone(e.target.value)}
+                    placeholder="Mfano: 0712 345 678"
+                    className="w-full py-2.5 px-3 bg-neutral-900/80 border border-neutral-800 rounded-xl focus:border-[#00FF88] text-white focus:outline-none transition-all placeholder:text-neutral-600 text-xs"
+                  />
+                </div>
+
+                {/* Cost/Pricing Details */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-neutral-500 tracking-wider">Ada ya Huduma/Maelezo ya Bei</label>
+                  <input
+                    type="text"
+                    required
+                    value={newPoiPrice}
+                    onChange={(e) => setNewPoiPrice(e.target.value)}
+                    placeholder={
+                      newPoiType === 'charging' ? "Mfano: TZS 450/kWh" :
+                      newPoiType === 'mechanic' ? "Mfano: Kubadilisha Oil TZS 15,000" :
+                      newPoiType === 'wash' ? "Mfano: Osha gari ndogo TZS 6,000" :
+                      newPoiType === 'parking' ? "Mfano: TZS 1,000 badala ya TZS 2,000/hr" :
+                      "Mfano: Petroli TZS 3,110/L"
+                    }
+                    className="w-full py-2.5 px-3 bg-neutral-900/80 border border-neutral-800 rounded-xl focus:border-[#00FF88] text-white focus:outline-none transition-all placeholder:text-neutral-600 text-xs"
+                  />
+                </div>
+
+                {/* Loaction display coords */}
+                <div className="grid grid-cols-2 gap-2 p-2 bg-neutral-900/60 border border-neutral-800/80 rounded-xl">
+                  <div>
+                    <span className="text-[8.5px] font-black block text-neutral-500 uppercase leading-none mb-0.5">LATITUDE</span>
+                    <span className="font-mono text-[10px] text-white tracking-tight">{newPoiLat?.toFixed(6)}</span>
+                  </div>
+                  <div>
+                    <span className="text-[8.5px] font-black block text-neutral-500 uppercase leading-none mb-0.5">LONGITUDE</span>
+                    <span className="font-mono text-[10px] text-white tracking-tight">{newPoiLng?.toFixed(6)}</span>
+                  </div>
+                </div>
+
+                {/* Payment Method Selector */}
+                <div className="space-y-1.5 pt-1">
+                  <label className="text-[10px] font-black uppercase text-neutral-500 tracking-wider">Chagua Njia ya Malipo (Ada: TZS 10,000)</label>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('wallet')}
+                      className={`p-2 rounded-xl border flex flex-col gap-0.5 transition-all text-left ${
+                        paymentMethod === 'wallet'
+                          ? 'bg-[#7F77DD]/10 border-[#7F77DD] text-[#7F77DD]'
+                          : 'bg-neutral-900/60 border-neutral-800 text-neutral-400'
+                      }`}
+                    >
+                      <span className="font-extrabold flex items-center gap-1">🏦 Kutoka Wallet</span>
+                      <span className="text-[9px] opacity-70">Salio: TZS {(profile?.walletBalance ?? 0).toLocaleString()}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('mobile')}
+                      className={`p-2 rounded-xl border flex flex-col gap-0.5 transition-all text-left ${
+                        paymentMethod === 'mobile'
+                          ? 'bg-orange-500/10 border-orange-500 text-orange-400'
+                          : 'bg-neutral-900/60 border-neutral-800 text-neutral-400'
+                      }`}
+                    >
+                      <span className="font-extrabold">📱 Mtandao wa Simu</span>
+                      <span className="text-[9px] opacity-70">Tigo, M-pesa, Airtel</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Mobile Money Input */}
+                {paymentMethod === 'mobile' && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    className="space-y-1 overflow-hidden"
+                  >
+                    <label className="text-[10px] font-black uppercase text-neutral-500 tracking-wider">Namba ya Simu ya Malipo</label>
+                    <input
+                      type="tel"
+                      required
+                      value={mobileNumber}
+                      onChange={(e) => setMobileNumber(e.target.value)}
+                      placeholder="Mfano: 0712345678"
+                      className="w-full py-2.5 px-3 bg-neutral-900/80 border border-neutral-800 rounded-xl focus:border-orange-500 text-white focus:outline-none transition-all placeholder:text-neutral-600 text-xs"
+                    />
+                  </motion.div>
+                )}
+
+                {/* Submit button */}
+                <div className="pt-2 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddPoiModalOpen(false)}
+                    className="flex-1 py-2.5 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-xl text-neutral-400 font-bold uppercase tracking-wider text-[11px] transition-all"
+                  >
+                    Ghairi
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingPoi}
+                    className="flex-1 py-2.5 bg-gradient-to-r from-emerald-500 to-[#00FF88] text-black font-extrabold uppercase tracking-widest text-[11px] rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all disabled:opacity-50"
+                  >
+                    {isSubmittingPoi ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        Inatuma...
+                      </>
+                    ) : (
+                      'Lipia & Sajili'
+                    )}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

@@ -71,9 +71,34 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["vendorId", "customerId", "items", "total", "status"]
+    },
+    "Poi": {
+      "title": "Poi",
+      "description": "Nearby local driver services like EV charging, mechanic, car wash, parking, or fuel stations",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["charging", "mechanic", "wash", "parking", "fuel"] },
+        "lat": { "type": "number" },
+        "lng": { "type": "number" },
+        "price": { "type": "string" },
+        "rating": { "type": "string" },
+        "phone": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved"] },
+        "submittedBy": { "type": "string" },
+        "paidAmount": { "type": "number" },
+        "transactionId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "type", "lat", "lng", "status"]
     }
   },
   "firestore": {
+    "/pois/{poiId}": {
+      "schema": "Poi",
+      "description": "POI locations and local partner driver services"
+    },
     "/users/{userId}": {
       "schema": "User",
       "description": "Individual user profiles"
