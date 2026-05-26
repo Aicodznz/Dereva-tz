@@ -200,7 +200,11 @@ function AppContent() {
                     referrerPolicy="no-referrer"
                   />
                 </AnimatePresence>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-black/80" />
+                <div className={`absolute inset-0 transition-opacity duration-300 ${
+                  slides[currentSlideIndex].hideText 
+                    ? "bg-gradient-to-t from-black/60 via-transparent to-black/35" 
+                    : "bg-gradient-to-t from-black/95 via-black/60 to-black/80"
+                }`} />
               </div>
             )}
 
@@ -209,7 +213,7 @@ function AppContent() {
               <div className="flex-1 flex flex-col justify-between py-4 relative z-10 h-full">
                 {/* Header of Splash Screen: Skip Button & Progress dots */}
                 <div className="flex items-center justify-between w-full">
-                  <div className="flex gap-1.5">
+                  <div className="flex gap-1.55 bg-black/25 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5">
                     {slides.map((s: any, idx: number) => (
                       <button
                         key={s.id || idx}
@@ -217,14 +221,14 @@ function AppContent() {
                         className={`h-2 rounded-full transition-all duration-300 ${
                           idx === currentSlideIndex 
                             ? 'bg-orange-500 w-6' 
-                            : 'bg-white/20 w-2 hover:bg-white/45'
+                            : 'bg-white/30 w-2 hover:bg-white/50'
                         }`}
                       />
                     ))}
                   </div>
                   <button 
                     onClick={handleSkip}
-                    className="text-xs font-black uppercase tracking-wider text-white/70 hover:text-white px-4 py-2 bg-white/10 hover:bg-white/20 rounded-full transition-all"
+                    className="text-xs font-black uppercase tracking-wider text-white/90 hover:text-white px-4 py-2 bg-black/30 hover:bg-black/50 backdrop-blur-md rounded-full border border-white/5 transition-all"
                   >
                     Ruka (Skip)
                   </button>
@@ -241,19 +245,23 @@ function AppContent() {
                       transition={{ duration: 0.35, ease: 'easeInOut' }}
                       className="max-w-xs flex flex-col items-center"
                     >
-                      <h2 
-                        className="text-3xl font-black tracking-tight mb-4 drop-shadow-md leading-tight"
-                        style={{ color: slides[currentSlideIndex].titleColor || '#ffffff' }}
-                      >
-                        {slides[currentSlideIndex].title}
-                      </h2>
+                      {!slides[currentSlideIndex].hideText && (
+                        <>
+                          <h2 
+                            className="text-3xl font-black tracking-tight mb-4 drop-shadow-md leading-tight"
+                            style={{ color: slides[currentSlideIndex].titleColor || '#ffffff' }}
+                          >
+                            {slides[currentSlideIndex].title}
+                          </h2>
 
-                      <p 
-                        className="text-sm font-semibold leading-relaxed drop-shadow"
-                        style={{ color: slides[currentSlideIndex].descColor || '#e5e7eb' }}
-                      >
-                        {slides[currentSlideIndex].description}
-                      </p>
+                          <p 
+                            className="text-sm font-semibold leading-relaxed drop-shadow"
+                            style={{ color: slides[currentSlideIndex].descColor || '#e5e7eb' }}
+                          >
+                            {slides[currentSlideIndex].description}
+                          </p>
+                        </>
+                      )}
                     </motion.div>
                   </AnimatePresence>
                 </div>

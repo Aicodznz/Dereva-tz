@@ -2488,6 +2488,25 @@ export default function AdminDashboard() {
                                 className="min-h-[80px] rounded-xl bg-white border border-neutral-200 text-xs font-semibold px-4 py-2"
                               />
                             </div>
+
+                            <div className="flex items-center gap-3 pt-3 bg-white/40 dark:bg-black/10 p-3 rounded-xl border border-neutral-150">
+                              <Switch
+                                id={`hideText-${slide.id || idx}`}
+                                checked={!!slide.hideText}
+                                onCheckedChange={(val) => {
+                                  const newSlides = arr.map((s: any) => 
+                                    s.id === slide.id ? { ...s, hideText: val } : s
+                                  );
+                                  setBusinessConfig({ ...businessConfig, splashSlides: newSlides });
+                                }}
+                              />
+                              <Label 
+                                htmlFor={`hideText-${slide.id || idx}`}
+                                className="text-[11px] font-black uppercase tracking-widest text-neutral-700 dark:text-neutral-300 cursor-pointer select-none"
+                              >
+                                Ficha Maandishi (Onyesha Picha Tu Fulu Skrini)
+                              </Label>
+                            </div>
                           </div>
 
                           {/* Image Path and Color Settings */}
