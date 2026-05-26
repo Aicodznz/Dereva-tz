@@ -9,7 +9,7 @@ import {
   Navigation2, MessageSquare, MapPin, Star, X as CloseX,
   Clock, TrendingUp, Info, Wifi, Battery, Map as MapIcon,
   CheckCircle2, ArrowRight, RefreshCw, DollarSign, Package, Home, LogOut,
-  Volume2, VolumeX, Sun, Moon
+  Volume2, VolumeX, Sun, Moon, Wrench, Sparkles, Plus, Minus
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -238,6 +238,41 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
   const [isOnline, setIsOnline] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [position, setPosition] = useState<[number, number]>([-6.7924, 39.2083]);
+  const [activePoiCategory, setActivePoiCategory] = useState<string | null>(null);
+  const [poisCollapsed, setPoisCollapsed] = useState<boolean>(false);
+
+  // Generate simulated POIs centered around driver position
+  const simulatedPois = useMemo(() => {
+    const lat = position[0];
+    const lng = position[1];
+    return {
+      charging: [
+        { id: 'c1', name: 'TzNation EV Fast Charger', lat: lat + 0.003, lng: lng + 0.002, speed: '120 kW', cost: 'TZS 450/kWh', type: 'charging' },
+        { id: 'c2', name: 'Mlimani EV Charging Point', lat: lat - 0.004, lng: lng + 0.005, speed: '50 kW', cost: 'TZS 380/kWh', type: 'charging' },
+        { id: 'c3', name: 'Kijitonyama Smart EV station', lat: lat + 0.002, lng: lng - 0.003, speed: '150 kW', cost: 'TZS 500/kWh', type: 'charging' },
+      ],
+      mechanic: [
+        { id: 'm1', name: 'Karakana ya Boda & Taxi Juma', lat: lat - 0.003, lng: lng - 0.002, status: 'Funguliwa', phone: '+255 712 345 678', type: 'mechanic' },
+        { id: 'm2', name: 'Kinondoni Auto Repair Workshop', lat: lat + 0.004, lng: lng - 0.004, status: 'Funguliwa', phone: '+255 655 987 654', type: 'mechanic' },
+        { id: 'm3', name: 'TzNation Garage Fast Care', lat: lat - 0.002, lng: lng + 0.003, status: 'Funguliwa', phone: '+255 784 444 555', type: 'mechanic' },
+      ],
+      wash: [
+        { id: 'w1', name: 'Kinondoni Smart Car Wash', lat: lat + 0.005, lng: lng + 0.001, price: 'TZS 5,000', rating: '4.8 ⭐', type: 'wash' },
+        { id: 'w2', name: 'Osha Gari Elimu & Care', lat: lat - 0.003, lng: lng + 0.004, price: 'TZS 6,000', rating: '4.5 ⭐', type: 'wash' },
+        { id: 'w3', name: 'Bustani Premium Car Wash', lat: lat + 0.001, lng: lng - 0.004, price: 'TZS 8,000', rating: '4.9 ⭐', type: 'wash' },
+      ],
+      parking: [
+        { id: 'p1', name: 'Maegesho Salama Posta', lat: lat - 0.004, lng: lng - 0.001, rate: 'TZS 1,000/hr', slots: '15 slots', type: 'parking' },
+        { id: 'p2', name: 'Mbezi Park & Ride Slot', lat: lat + 0.003, lng: lng + 0.003, rate: 'TZS 500/hr', slots: '32 slots', type: 'parking' },
+        { id: 'p3', name: 'Mlimani City Parking Mall', lat: lat - 0.001, lng: lng - 0.003, rate: 'TZS 2,000/hr', slots: '120 slots', type: 'parking' },
+      ],
+      fuel: [
+        { id: 'f1', name: 'Puma Energy - Kinondoni', lat: lat + 0.002, lng: lng + 0.004, petrol: 'TZS 3,120/L', diesel: 'TZS 3,050/L', type: 'fuel' },
+        { id: 'f2', name: 'TotalEnergies Station', lat: lat - 0.002, lng: lng - 0.005, petrol: 'TZS 3,110/L', diesel: 'TZS 3,040/L', type: 'fuel' },
+        { id: 'f3', name: 'Mlimani Petrol Station', lat: lat + 0.004, lng: lng - 0.002, petrol: 'TZS 3,130/L', diesel: 'TZS 3,060/L', type: 'fuel' },
+      ],
+    };
+  }, [position]);
   const [lastPosition, setLastPosition] = useState<[number, number] | null>(null);
   const [rotation, setRotation] = useState(0);
   const simulatedPathRef = React.useRef<[number, number][]>([]);
@@ -1527,6 +1562,113 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
             <MapController position={position} activeRide={activeRide} />
             <MapBoundsUpdater activeRide={activeRide} position={position} />
 
+            {/* Render POIs when a category is selected */}
+            {activePoiCategory && (() => {
+              const getPoiMarkerIcon = (type: string) => {
+                let color = '#3b82f6'; // charging (blue)
+                let iconHtml = '';
+                
+                if (type === 'charging') {
+                  color = '#3b82f6'; // blue
+                  iconHtml = `<svg viewBox="0 0 24 24" width="14" height="14" stroke="white" stroke-width="3" fill="none"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>`;
+                } else if (type === 'mechanic') {
+                  color = '#10b981'; // green
+                  iconHtml = `<svg viewBox="0 0 24 24" width="14" height="14" stroke="white" stroke-width="3" fill="none"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`;
+                } else if (type === 'wash') {
+                  color = '#f59e0b'; // orange/amber
+                  iconHtml = `<svg viewBox="0 0 24 24" width="14" height="14" stroke="white" stroke-width="3" fill="none"><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>`;
+                } else if (type === 'parking') {
+                  color = '#ef4444'; // red
+                  iconHtml = `<div style="font-family: sans-serif; font-weight: 900; font-size: 13px; color: white; line-height: 1;">P</div>`;
+                } else if (type === 'fuel') {
+                  color = '#0ea5e9'; // sky-blue
+                  iconHtml = `<svg viewBox="0 0 24 24" width="14" height="14" stroke="white" stroke-width="3" fill="none"><path d="M3 22h12M4 2h10a2 2 0 0 1 2 2v18M11 2v8M14 13h1a2 2 0 0 1 2 2v5a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2"/></svg>`;
+                }
+
+                return L.divIcon({
+                  html: `
+                    <div style="
+                      background-color: ${color};
+                      border: 2px solid white;
+                      border-radius: 50%;
+                      width: 28px;
+                      height: 28px;
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+                      transform: translate(-4px, -4px);
+                    ">
+                      ${iconHtml}
+                    </div>
+                  `,
+                  className: 'custom-poi-marker',
+                  iconSize: [28, 28],
+                  iconAnchor: [14, 14],
+                });
+              };
+
+              const pois = simulatedPois[activePoiCategory as keyof typeof simulatedPois] || [];
+              return pois.map((poi: any) => (
+                <Marker
+                  key={poi.id}
+                  position={[poi.lat, poi.lng]}
+                  icon={getPoiMarkerIcon(poi.type)}
+                >
+                  <Popup>
+                    <div className="p-2.5 max-w-[190px] text-neutral-800 dark:text-neutral-100 font-sans leading-snug">
+                      <p className="font-extrabold text-xs uppercase tracking-tight text-neutral-900 dark:text-white mb-1 leading-tight">{poi.name}</p>
+                      <div className="h-[2px] w-6 bg-[#00FF88] mb-1.5 rounded-full" />
+                      
+                      {poi.type === 'charging' && (
+                        <div className="space-y-0.5 text-[10px] mb-2">
+                          <p className="font-semibold text-neutral-500 uppercase text-[8.5px]">SPEED: <span className="text-blue-500 font-black">{poi.speed}</span></p>
+                          <p className="font-semibold text-neutral-500 uppercase text-[8.5px]">COST: <span className="text-neutral-800 dark:text-neutral-200 font-bold">{poi.cost}</span></p>
+                        </div>
+                      )}
+                      
+                      {poi.type === 'mechanic' && (
+                        <div className="space-y-0.5 text-[10px] mb-2">
+                          <p className="font-semibold text-neutral-500 uppercase text-[8.5px]">STATUS: <span className="text-[#00FF88] font-black">{poi.status}</span></p>
+                          <p className="font-semibold text-neutral-500 uppercase text-[8.5px]">PHONE: <span className="text-neutral-800 dark:text-neutral-200 font-bold">{poi.phone}</span></p>
+                        </div>
+                      )}
+                      
+                      {poi.type === 'wash' && (
+                        <div className="space-y-0.5 text-[10px] mb-2">
+                          <p className="font-semibold text-neutral-500 uppercase text-[8.5px]">COST: <span className="text-amber-500 font-black">{poi.price}</span></p>
+                          <p className="font-semibold text-neutral-500 uppercase text-[8.5px]">RATING: <span className="text-neutral-800 dark:text-neutral-200 font-bold">{poi.rating}</span></p>
+                        </div>
+                      )}
+                      
+                      {poi.type === 'parking' && (
+                        <div className="space-y-0.5 text-[10px] mb-2">
+                          <p className="font-semibold text-neutral-500 uppercase text-[8.5px]">RATE: <span className="text-red-500 font-black">{poi.rate}</span></p>
+                           <p className="font-semibold text-neutral-500 uppercase text-[8.5px]">SLOTS: <span className="text-neutral-800 dark:text-neutral-200 font-bold">{poi.slots}</span></p>
+                        </div>
+                      )}
+                      
+                      {poi.type === 'fuel' && (
+                        <div className="space-y-0.5 text-[10px] mb-2">
+                          <p className="font-semibold text-neutral-500 uppercase text-[8.5px]">PETROL: <span className="text-sky-500 font-black">{poi.petrol}</span></p>
+                          <p className="font-semibold text-neutral-500 uppercase text-[8.5px]">DIESEL: <span className="text-neutral-800 dark:text-neutral-200 font-bold">{poi.diesel}</span></p>
+                        </div>
+                      )}
+                      
+                      <a 
+                        href={`https://www.google.com/maps/dir/?api=1&origin=${position[0]},${position[1]}&destination=${poi.lat},${poi.lng}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1.5 inline-flex items-center gap-1 justify-center w-full py-1 bg-neutral-950 hover:bg-neutral-900 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-[9px] font-black uppercase text-[#00FF88] rounded-md transition-all active:scale-95 text-center leading-none"
+                      >
+                        NIONGOZE RAMANINI
+                      </a>
+                    </div>
+                  </Popup>
+                </Marker>
+              ));
+            })()}
+
           </MapContainer>
         </div>
       </div>
@@ -1576,6 +1718,120 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
               </button>
             </>
           )}
+        </div>
+      )}
+
+      {/* Floating Driver Services Column on the Left - Collapse/Expand Panel */}
+      {!isMinimized && (
+        <div className="absolute left-4 top-24 z-45 flex flex-col gap-2.5 items-center pointer-events-auto">
+          {/* Expanded Container */}
+          <AnimatePresence>
+            {!poisCollapsed && (
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.2 }}
+                className="flex flex-col gap-2.5 items-center"
+              >
+                {/* 1. Electric Charging */}
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setActivePoiCategory(activePoiCategory === 'charging' ? null : 'charging')}
+                  className={`w-10 h-10 rounded-full shadow-lg flex items-center justify-center transition-all ${
+                    activePoiCategory === 'charging'
+                      ? 'bg-blue-600 border-2 border-white text-white scale-110 shadow-blue-500/30'
+                      : 'bg-white text-blue-600 hover:bg-blue-50 border border-neutral-100 dark:bg-[#111118]/90 dark:border-[#1e1e2e] dark:hover:bg-[#181825]'
+                  }`}
+                  title="Vituo vya Chaji za Umeme"
+                >
+                  <Zap className="w-5 h-5" />
+                </motion.button>
+
+                {/* 2. Mechanic */}
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setActivePoiCategory(activePoiCategory === 'mechanic' ? null : 'mechanic')}
+                  className={`w-10 h-10 rounded-full shadow-lg flex items-center justify-center transition-all ${
+                    activePoiCategory === 'mechanic'
+                      ? 'bg-[#10b981] border-2 border-white text-white scale-110 shadow-emerald-500/30'
+                      : 'bg-white text-[#10b981] hover:bg-emerald-50 border border-neutral-100 dark:bg-[#111118]/90 dark:border-[#1e1e2e] dark:hover:bg-[#181825]'
+                  }`}
+                  title="Karakana na Mafundi"
+                >
+                  <Wrench className="w-5 h-5" />
+                </motion.button>
+
+                {/* 3. Car Wash */}
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setActivePoiCategory(activePoiCategory === 'wash' ? null : 'wash')}
+                  className={`w-10 h-10 rounded-full shadow-lg flex items-center justify-center transition-all ${
+                    activePoiCategory === 'wash'
+                      ? 'bg-amber-500 border-2 border-white text-white scale-110 shadow-amber-500/30'
+                      : 'bg-white text-amber-500 hover:bg-amber-50 border border-neutral-100 dark:bg-[#111118]/90 dark:border-[#1e1e2e] dark:hover:bg-[#181825]'
+                  }`}
+                  title="Osha Gari na Pikipiki"
+                >
+                  <Sparkles className="w-5 h-5" />
+                </motion.button>
+
+                {/* 4. Parking */}
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setActivePoiCategory(activePoiCategory === 'parking' ? null : 'parking')}
+                  className={`w-10 h-10 rounded-full shadow-lg flex items-center justify-center transition-all ${
+                    activePoiCategory === 'parking'
+                      ? 'bg-red-500 border-2 border-white text-white scale-110 shadow-red-500/30'
+                      : 'bg-white text-red-500 hover:bg-red-50 border border-neutral-100 dark:bg-[#111118]/90 dark:border-[#1e1e2e] dark:hover:bg-[#181825]'
+                  }`}
+                  title="Maegesho Salama (Parking)"
+                >
+                  <ParkingCircle className="w-5 h-5" />
+                </motion.button>
+
+                {/* 5. Fuel Station */}
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setActivePoiCategory(activePoiCategory === 'fuel' ? null : 'fuel')}
+                  className={`w-10 h-10 rounded-full shadow-lg flex items-center justify-center transition-all ${
+                    activePoiCategory === 'fuel'
+                      ? 'bg-sky-500 border-2 border-white text-white scale-110 shadow-sky-500/30'
+                      : 'bg-white text-sky-500 hover:bg-sky-50 border border-neutral-100 dark:bg-[#111118]/90 dark:border-[#1e1e2e] dark:hover:bg-[#181825]'
+                  }`}
+                  title="Kituo cha Mafuta"
+                >
+                  <Fuel className="w-5 h-5" />
+                </motion.button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Toggle Button to Collapse or Expand */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => {
+              setPoisCollapsed(!poisCollapsed);
+            }}
+            className={`w-10 h-10 rounded-full shadow-lg flex items-center justify-center border-2 transition-all ${
+              poisCollapsed 
+                ? 'bg-[#111118]/95 border-[#1e1e2e] text-[#00FF88] scale-100' 
+                : 'bg-emerald-600 border-white text-white scale-110 shadow-emerald-500/20'
+            }`}
+            title={poisCollapsed ? "Fungua Huduma za Karibu" : "Funga Huduma za Karibu"}
+          >
+            {poisCollapsed ? (
+              <Plus className="w-5 h-5 stroke-[3]" />
+            ) : (
+              <Minus className="w-5 h-5 stroke-[3]" />
+            )}
+          </motion.button>
         </div>
       )}
 
