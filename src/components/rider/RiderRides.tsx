@@ -49,7 +49,7 @@ export default function RiderRides() {
   const pastRides = rides.filter(r => ['completed', 'cancelled'].includes(r.status));
 
   return (
-    <div className="p-6 pb-24 space-y-6">
+    <div className="h-full overflow-y-auto p-6 pb-36 space-y-6">
       <div className="flex flex-col gap-1">
         <h1 className="text-3xl font-black italic uppercase tracking-tighter text-neutral-900 dark:text-white">My Rides</h1>
         <p className="text-[10px] font-black uppercase text-neutral-400 tracking-widest">Manage your trips</p>

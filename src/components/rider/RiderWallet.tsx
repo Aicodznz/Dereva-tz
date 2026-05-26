@@ -19,7 +19,7 @@ export default function RiderWallet({ onBack }: { onBack: () => void }) {
   ];
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 pb-24">
+    <div className="h-full overflow-y-auto bg-neutral-50 dark:bg-neutral-950 pb-36">
       <div className="p-6 space-y-8 max-w-2xl mx-auto">
         {/* Header */}
         <div className="flex items-center gap-4">

@@ -47,7 +47,7 @@ export default function RiderSettings({ onNavigate, onBack }: { onNavigate: (vie
   const { logout, profile } = useAuth();
 
   return (
-    <div className="p-6 pb-24 space-y-8 max-w-2xl mx-auto">
+    <div className="h-full overflow-y-auto p-6 pb-36 space-y-8 max-w-2xl mx-auto">
       {/* Top Bar with Back option */}
       {onBack && (
         <div className="flex items-center gap-3">

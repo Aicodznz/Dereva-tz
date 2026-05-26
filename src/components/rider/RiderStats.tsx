@@ -76,7 +76,7 @@ export default function RiderStats() {
   });
 
   return (
-    <div className="p-6 pb-24 space-y-6">
+    <div className="h-full overflow-y-auto p-6 pb-36 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
          <div>
