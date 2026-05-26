@@ -1571,58 +1571,6 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
         </div>
       )}
 
-      {/* Map Mode Toggle Button - Ultra Modern Hyper-Floating style */}
-      {!activeRide && !incomingRequest && (
-        <div className={`absolute bottom-8 right-6 z-[80] transition-all duration-500`}>
-          <motion.button 
-            whileHover={{ scale: 1.1, y: -4 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={() => {
-              const nextVal = !isMinimized;
-              setIsMinimized(nextVal);
-              if (onNavVisibilityChange) onNavVisibilityChange(!nextVal);
-            }}
-            className={`w-16 h-16 rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.4)] flex items-center justify-center transition-all duration-500 backdrop-blur-3xl border-4 ${
-              isMinimized 
-                ? 'bg-orange-600 border-orange-400 text-white ring-8 ring-orange-600/20' 
-                : 'bg-white/95 dark:bg-[#1a1a2e]/95 border-neutral-200 dark:border-white/10 text-neutral-600 dark:text-neutral-300 shadow-xl'
-            }`}
-          >
-            <AnimatePresence mode="wait">
-              {isMinimized ? (
-                <motion.div 
-                  key="eye"
-                  initial={{ rotate: -180, opacity: 0, scale: 0.3 }}
-                  animate={{ rotate: 0, opacity: 1, scale: 1 }}
-                  exit={{ rotate: 180, opacity: 0, scale: 0.3 }}
-                  transition={{ type: 'spring', damping: 12 }}
-                >
-                  <Eye className="w-8 h-8" />
-                </motion.div>
-              ) : (
-                <motion.div 
-                  key="eye-off"
-                  initial={{ rotate: 180, opacity: 0, scale: 0.3 }}
-                  animate={{ rotate: 0, opacity: 1, scale: 1 }}
-                  exit={{ rotate: -180, opacity: 0, scale: 0.3 }}
-                   transition={{ type: 'spring', damping: 12 }}
-                >
-                  <EyeOff className="w-8 h-8" />
-                </motion.div>
-              )}
-            </AnimatePresence>
-            
-            {isMinimized && (
-              <motion.div 
-                animate={{ scale: [1, 1.4, 1], opacity: [0.5, 0, 0.5] }}
-                transition={{ duration: 1.5, repeat: Infinity }}
-                className="absolute inset-0 rounded-full bg-orange-400 -z-10" 
-              />
-            )}
-          </motion.button>
-        </div>
-      )}
-
       {/* Bottom Sheet Redesign */}
       <motion.div 
         initial={{ y: 0 }}
