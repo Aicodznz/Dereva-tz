@@ -55,6 +55,7 @@ import {
 } from "firebase/firestore";
 import { useAuth } from "../AuthContext";
 import { useLanguage } from "../LanguageContext";
+import { useBusinessConfig } from "../BusinessConfigContext";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate, useSearchParams } from "react-router-dom"; // test transition
 import { toast } from "sonner";
@@ -419,12 +420,14 @@ interface RideOption {
   image: string;
   vehicleType: "mini" | "bajaj" | "bike";
   discount?: string;
+  imageUrl?: string;
 }
 
 // --- MAIN COMPONENT ---
 
 export default function TaxiBooking() {
   const { user, profile, signInGuest } = useAuth();
+  const { config } = useBusinessConfig();
   const navigate = useNavigate();
   const { setTheme: setNextTheme, resolvedTheme } = useTheme();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -1060,8 +1063,13 @@ export default function TaxiBooking() {
   const getDriverIcon = (type: string) => {
     let ringColor = "#ef4444"; // Red Papo Hapo
     let markerHtml = "";
+    const customVehicle = config?.vehicles?.[type];
 
-    if (type === "bike") {
+    if (customVehicle?.mapMarkerUrl) {
+      markerHtml = `
+        <img src="${customVehicle.mapMarkerUrl}" class="w-7 h-7 object-contain rounded-md" referrerPolicy="no-referrer" />
+      `;
+    } else if (type === "bike") {
       markerHtml = `
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="5" cy="18" r="3"/><circle cx="19" cy="18" r="3"/>
@@ -1528,34 +1536,37 @@ export default function TaxiBooking() {
   const rideOptions: RideOption[] = [
     {
       id: "mini",
-      name: "Gari",
+      name: config?.vehicles?.mini?.name || "Gari",
       icon: Car,
-      sub: "Max 4 Siti",
-      price: 2800,
+      sub: config?.vehicles?.mini?.sub || "Max 4 Siti",
+      price: config?.vehicles?.mini?.price !== undefined ? Number(config.vehicles.mini.price) : 2800,
       eta: "4",
       vehicleType: "mini",
-      image: "🚗",
+      image: config?.vehicles?.mini?.image || "🚗",
+      imageUrl: config?.vehicles?.mini?.imageUrl || "",
       discount: "PUNGUZO 3K",
     },
     {
       id: "bajaj",
-      name: "Bajaji",
+      name: config?.vehicles?.bajaj?.name || "Bajaji",
       icon: BajajSVG,
-      sub: "3 Siti",
-      price: 1500,
+      sub: config?.vehicles?.bajaj?.sub || "3 Siti",
+      price: config?.vehicles?.bajaj?.price !== undefined ? Number(config.vehicles.bajaj.price) : 1500,
       eta: "5",
       vehicleType: "bajaj",
-      image: "🛺",
+      image: config?.vehicles?.bajaj?.image || "🛺",
+      imageUrl: config?.vehicles?.bajaj?.imageUrl || "",
     },
     {
       id: "bike",
-      name: "Pikipiki",
+      name: config?.vehicles?.bike?.name || "Pikipiki",
       icon: BikeSVG,
-      sub: "Usafiri Salama",
-      price: 800,
+      sub: config?.vehicles?.bike?.sub || "Usafiri Salama",
+      price: config?.vehicles?.bike?.price !== undefined ? Number(config.vehicles.bike.price) : 800,
       eta: "3",
       vehicleType: "bike",
-      image: "🏍️",
+      image: config?.vehicles?.bike?.image || "🏍️",
+      imageUrl: config?.vehicles?.bike?.imageUrl || "",
     },
   ];
 
@@ -2331,9 +2342,13 @@ export default function TaxiBooking() {
                           />
                         )}
                         <div
-                          className={`text-4xl transition-transform duration-300 ${selectedRide?.id === ride.id ? "scale-110 drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]" : "group-hover:scale-105"}`}
+                          className={`flex items-center justify-center transition-transform duration-300 ${selectedRide?.id === ride.id ? "scale-110 drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]" : "group-hover:scale-105"}`}
                         >
-                          {ride.image}
+                          {ride.imageUrl ? (
+                            <img src={ride.imageUrl} className="w-12 h-12 object-contain" referrerPolicy="no-referrer" />
+                          ) : (
+                            <span className="text-4xl">{ride.image}</span>
+                          )}
                         </div>
                         <div className="text-center">
                           <h4

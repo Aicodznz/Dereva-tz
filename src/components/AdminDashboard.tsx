@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, orderBy, onSnapshot, getDocs, doc, updateDoc, deleteDoc, addDoc, setDoc, getDoc, serverTimestamp, where } from 'firebase/firestore';
 import { VendorProfile, Order, Product } from '../types';
+import { storageService } from '../services/storageService';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -127,6 +128,46 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeSettingsTab, setActiveSettingsTab] = useState('business_info');
+  const [uploadingVehicleId, setUploadingVehicleId] = useState<string | null>(null);
+  const [uploadingType, setUploadingType] = useState<'imageUrl' | 'mapMarkerUrl' | null>(null);
+
+  const handleVehicleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, vehicleId: string, field: 'imageUrl' | 'mapMarkerUrl') => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setUploadingVehicleId(vehicleId);
+      setUploadingType(field);
+      try {
+        const path = `vehicles/${vehicleId}/${field}_${Date.now()}_${file.name}`;
+        const url = await storageService.uploadFile('vendors', path, file);
+        
+        const currentVehicles = businessConfig.vehicles || {
+          mini: { id: "mini", name: "Gari", price: 2800, sub: "Max 4 Siti", image: "🚗", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" },
+          bajaj: { id: "bajaj", name: "Bajaji", price: 1500, sub: "3 Siti", image: "🛺", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" },
+          bike: { id: "bike", name: "Pikipiki", price: 800, sub: "Usafiri Salama", image: "🏍️", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" }
+        };
+
+        const updatedVehicles = {
+          ...currentVehicles,
+          [vehicleId]: {
+            ...currentVehicles[vehicleId],
+            [field]: url,
+            ...(field === 'imageUrl' ? { imageType: 'url' } : {})
+          }
+        };
+
+        setBusinessConfig({
+          ...businessConfig,
+          vehicles: updatedVehicles
+        });
+        toast.success("Picha imepakiwa successfully!");
+      } catch (err: any) {
+        toast.error("Imeshindwa kupakia picha: " + err.message);
+      } finally {
+        setUploadingVehicleId(null);
+        setUploadingType(null);
+      }
+    }
+  };
   const [selectedAppProfile, setSelectedAppProfile] = useState<'customer' | 'driver' | 'vendor' | 'deliveryman'>('customer');
   const [businessConfig, setBusinessConfig] = useState<any>({
     name: 'M-Duka Platform',
@@ -168,7 +209,12 @@ export default function AdminDashboard() {
     orderByPrescription: true,
     deliveryVerifyStatus: false,
     whoConfirmOrder: 'store',
-    refundRequestMode: true
+    refundRequestMode: true,
+    vehicles: {
+      mini: { id: "mini", name: "Gari", price: 2800, sub: "Max 4 Siti", image: "🚗", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" },
+      bajaj: { id: "bajaj", name: "Bajaji", price: 1500, sub: "3 Siti", image: "🛺", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" },
+      bike: { id: "bike", name: "Pikipiki", price: 800, sub: "Usafiri Salama", image: "🏍️", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" }
+    }
   });
   const [vendors, setVendors] = useState<VendorProfile[]>([]);
   const [allUsers, setAllUsers] = useState<UserRecord[]>([]);
@@ -1706,6 +1752,7 @@ export default function AdminDashboard() {
               {[
                 { id: 'business_info', label: t('admin_settings_business_info'), icon: Info },
                 { id: 'app_design', label: t('admin_settings_app_design'), icon: Monitor },
+                { id: 'vehicles', label: 'Usafiri (Vehicles)', icon: Car },
                 { id: 'payment', label: t('admin_settings_payment'), icon: CreditCard },
                 { id: 'vendor', label: t('admin_settings_vendor'), icon: Store },
                 { id: 'order', label: t('admin_settings_order'), icon: Package },
@@ -2650,6 +2697,227 @@ export default function AdminDashboard() {
                       </tbody>
                    </table>
                 </Card>
+              </div>
+            )}
+
+            {activeSettingsTab === 'vehicles' && (
+              <div className="space-y-8 animate-in fade-in-50 duration-200">
+                <Card className="rounded-[3rem] border-none shadow-2xl p-8 bg-gradient-to-br from-neutral-900 to-indigo-950/40 border border-indigo-900/30 text-white space-y-4">
+                  <div>
+                    <h3 className="text-xl font-black uppercase italic tracking-tight">Usanidi wa Aina za Usafiri (Vehicle Configurations)</h3>
+                    <p className="text-xs text-indigo-200/80 font-medium">Badilisha majina, bei, picha za kuonyesha kwenye orodha (booking cards) na picha ama icon za kuonyesha kwenye ramani (map markers) kwa ajili ya Gari, Bajaji na Pikipiki.</p>
+                  </div>
+                </Card>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {Object.entries(businessConfig.vehicles || {
+                    mini: { id: "mini", name: "Gari", price: 2800, sub: "Max 4 Siti", image: "🚗", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" },
+                    bajaj: { id: "bajaj", name: "Bajaji", price: 1500, sub: "3 Siti", image: "🛺", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" },
+                    bike: { id: "bike", name: "Pikipiki", price: 800, sub: "Usafiri Salama", image: "🏍️", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" }
+                  }).map(([id, v]: [string, any]) => (
+                    <Card key={id} className="rounded-[2.5rem] border-none shadow-xl bg-white dark:bg-neutral-900 overflow-hidden flex flex-col justify-between transition-colors">
+                      <CardHeader className="p-6 pb-2 border-b border-neutral-100 dark:border-neutral-800 flex flex-row items-center justify-between">
+                        <div>
+                          <span className="text-[10px] font-black tracking-widest text-[#7F77DD] uppercase bg-[#7F77DD]/10 px-3 py-1.5 rounded-full">{id.toUpperCase()} TYPE</span>
+                        </div>
+                        <div className="text-3xl">
+                          {v.imageType === 'url' && v.imageUrl ? (
+                            <img src={v.imageUrl} className="w-12 h-12 object-contain rounded-xl border border-neutral-200 dark:border-neutral-800" referrerPolicy="no-referrer" />
+                          ) : (
+                            v.image || '🚗'
+                          )}
+                        </div>
+                      </CardHeader>
+                      <CardContent className="p-6 space-y-6 flex-1">
+                        {/* Name/Label */}
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Jina la Usafiri (Gari / Bajaji / Bodaboda)</Label>
+                          <Input
+                            value={v.name || ''}
+                            onChange={(e) => {
+                              const updated = {
+                                ...businessConfig.vehicles,
+                                [id]: { ...v, name: e.target.value }
+                              };
+                              setBusinessConfig({ ...businessConfig, vehicles: updated });
+                            }}
+                            className="h-11 rounded-xl border-none bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white"
+                          />
+                        </div>
+
+                        {/* Sub-label */}
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Maelezo/Siti</Label>
+                          <Input
+                            value={v.sub || ''}
+                            onChange={(e) => {
+                              const updated = {
+                                ...businessConfig.vehicles,
+                                [id]: { ...v, sub: e.target.value }
+                              };
+                              setBusinessConfig({ ...businessConfig, vehicles: updated });
+                            }}
+                            className="h-11 rounded-xl border-none bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white"
+                          />
+                        </div>
+
+                        {/* Price */}
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Bei (TZS)</Label>
+                          <Input
+                            type="number"
+                            value={v.price === undefined ? '' : v.price}
+                            onChange={(e) => {
+                              const updated = {
+                                ...businessConfig.vehicles,
+                                [id]: { ...v, price: Number(e.target.value) }
+                              };
+                              setBusinessConfig({ ...businessConfig, vehicles: updated });
+                            }}
+                            className="h-11 rounded-xl border-none bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white font-bold"
+                          />
+                        </div>
+
+                        {/* Image Source Toggle */}
+                        <div className="space-y-2 border-t border-neutral-100 dark:border-neutral-800 pt-4">
+                          <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Picha ya Orodha (List Image)</Label>
+                          <div className="flex gap-2 p-1 bg-neutral-100 dark:bg-neutral-800 rounded-xl">
+                            {['emoji', 'url'].map((type) => (
+                              <button
+                                key={type}
+                                type="button"
+                                onClick={() => {
+                                  const updated = {
+                                    ...businessConfig.vehicles,
+                                    [id]: { ...v, imageType: type }
+                                  };
+                                  setBusinessConfig({ ...businessConfig, vehicles: updated });
+                                }}
+                                className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${
+                                  (v.imageType || 'emoji') === type ? 'bg-white dark:bg-neutral-700 shadow-sm text-neutral-900 dark:text-white font-black' : 'text-neutral-400 hover:text-neutral-600'
+                                }`}
+                              >
+                                {type === 'emoji' ? 'Mtumiaji Emoji' : 'Mtumiaji Picha'}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Emoji Input (if imageType is emoji) */}
+                        {(v.imageType || 'emoji') === 'emoji' ? (
+                          <div className="space-y-2">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Emoji (Mfano: 🚗, 🛺, 🏍️)</Label>
+                            <Input
+                              value={v.image || ''}
+                              onChange={(e) => {
+                                const updated = {
+                                  ...businessConfig.vehicles,
+                                  [id]: { ...v, image: e.target.value }
+                                };
+                                setBusinessConfig({ ...businessConfig, vehicles: updated });
+                              }}
+                              className="h-11 rounded-xl border-none bg-neutral-100 dark:bg-neutral-800 text-center text-xl"
+                            />
+                          </div>
+                        ) : (
+                          /* Custom Catalog Image URL / Upload (if imageType is url) */
+                          <div className="space-y-2">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block">Linki ya Picha (Image Link)</Label>
+                            <div className="space-y-2">
+                              <Input
+                                placeholder="Weka direct image URL au bofya pakia"
+                                value={v.imageUrl || ''}
+                                onChange={(e) => {
+                                  const updated = {
+                                    ...businessConfig.vehicles,
+                                    [id]: { ...v, imageUrl: e.target.value }
+                                  };
+                                  setBusinessConfig({ ...businessConfig, vehicles: updated });
+                                }}
+                                className="h-11 rounded-xl border-none bg-neutral-100 dark:bg-neutral-800 text-xs text-neutral-900 dark:text-white font-medium"
+                              />
+                              <div className="flex items-center gap-3">
+                                <Label className="shrink-0 cursor-pointer text-xs font-black uppercase text-[#7F77DD] bg-[#7F77DD]/10 px-4 py-2.5 rounded-xl border border-dashed border-[#7F77DD]/30 hover:bg-[#7F77DD]/20 transition-all">
+                                  {uploadingVehicleId === id && uploadingType === 'imageUrl' ? 'Inapakia...' : 'Pakia Picha'}
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={(e) => handleVehicleImageUpload(e, id, 'imageUrl')}
+                                    disabled={uploadingVehicleId !== null}
+                                  />
+                                </Label>
+                                {v.imageUrl && (
+                                  <span className="text-[9px] text-green-500 font-bold uppercase truncate">✓ Imewekwa</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Custom Map Marker Icon */}
+                        <div className="space-y-2 border-t border-neutral-250 dark:border-neutral-800 pt-4">
+                          <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block">Picha ya Kwenye Ramani (Map Marker)</Label>
+                          <div className="space-y-2">
+                            <Input
+                              placeholder="Weka map icon direct image URL"
+                              value={v.mapMarkerUrl || ''}
+                              onChange={(e) => {
+                                const updated = {
+                                  ...businessConfig.vehicles,
+                                  [id]: { ...v, mapMarkerUrl: e.target.value }
+                                };
+                                setBusinessConfig({ ...businessConfig, vehicles: updated });
+                              }}
+                              className="h-11 rounded-xl border-none bg-neutral-100 dark:bg-neutral-800 text-xs text-neutral-900 dark:text-white font-medium"
+                            />
+                            <div className="flex items-center gap-3">
+                              <Label className="shrink-0 cursor-pointer text-xs font-black uppercase text-teal-600 bg-teal-50 dark:bg-teal-950/20 px-4 py-2.5 rounded-xl border border-dashed border-teal-200 dark:border-teal-900/40 hover:bg-teal-100 transition-all">
+                                {uploadingVehicleId === id && uploadingType === 'mapMarkerUrl' ? 'Inapakia...' : 'Pakia Maps Icon'}
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(e) => handleVehicleImageUpload(e, id, 'mapMarkerUrl')}
+                                  disabled={uploadingVehicleId !== null}
+                                />
+                              </Label>
+                              {v.mapMarkerUrl ? (
+                                <div className="flex items-center gap-2">
+                                  <img src={v.mapMarkerUrl} className="w-8 h-8 object-contain rounded-lg border bg-neutral-50 dark:bg-neutral-800" referrerPolicy="no-referrer" />
+                                  <button 
+                                    type="button" 
+                                    onClick={() => {
+                                      const updated = {
+                                        ...businessConfig.vehicles,
+                                        [id]: { ...v, mapMarkerUrl: '' }
+                                      };
+                                      setBusinessConfig({ ...businessConfig, vehicles: updated });
+                                    }}
+                                    className="text-[9px] text-red-500 font-bold uppercase hover:underline"
+                                  >
+                                    Ondoa
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="text-[9px] text-neutral-400 font-bold uppercase">Inatumia SVG ya asili</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                <div className="flex justify-end gap-4 pt-4">
+                  <Button 
+                    className="h-14 px-16 rounded-2xl bg-orange-600 hover:bg-orange-700 text-white shadow-xl shadow-orange-100 font-black uppercase tracking-widest" 
+                    onClick={handleSaveSettings}
+                  >
+                    Hifadhi Mabadiliko (Save Vehicles Settings)
+                  </Button>
+                </div>
               </div>
             )}
 

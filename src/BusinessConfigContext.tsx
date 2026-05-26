@@ -29,6 +29,38 @@ const defaultConfig: BusinessConfig = {
   apkDownloadUrl: 'https://example.com/download/app-release.apk',
   playStoreUrl: 'https://play.google.com',
   appStoreUrl: 'https://apps.apple.com',
+  vehicles: {
+    mini: {
+      id: "mini",
+      name: "Gari",
+      price: 2800,
+      sub: "Max 4 Siti",
+      image: "🚗",
+      imageType: "emoji",
+      imageUrl: "",
+      mapMarkerUrl: ""
+    },
+    bajaj: {
+      id: "bajaj",
+      name: "Bajaji",
+      price: 1500,
+      sub: "3 Siti",
+      image: "🛺",
+      imageType: "emoji",
+      imageUrl: "",
+      mapMarkerUrl: ""
+    },
+    bike: {
+      id: "bike",
+      name: "Pikipiki",
+      price: 800,
+      sub: "Usafiri Salama",
+      image: "🏍️",
+      imageType: "emoji",
+      imageUrl: "",
+      mapMarkerUrl: ""
+    }
+  }
 };
 
 const BusinessConfigContext = createContext<BusinessConfigContextType>({
