@@ -713,6 +713,7 @@ export default function TaxiBooking() {
   const [liveDistance, setLiveDistance] = useState<number | null>(null);
   const [isRestoring, setIsRestoring] = useState(true);
   const lastFetchedPosRef = useRef<any>(null);
+  const driverBearingsRef = useRef<Record<string, { lat: number; lng: number; bearing: number }>>({});
 
   const driverApproachRouteRef = useRef<[number, number][]>([]);
   const lastActiveRideIdStatusRef = useRef<string>("");
@@ -1060,48 +1061,142 @@ export default function TaxiBooking() {
 
   const { drivers } = useNearbyDrivers();
 
-  const getDriverIcon = (type: string) => {
-    let ringColor = "#ef4444"; // Red Papo Hapo
-    let markerHtml = "";
+  const getDriverBearing = (driverId: string, lat: number, lng: number): number => {
+    const prev = driverBearingsRef.current[driverId];
+    if (!prev) {
+      const hash = driverId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+      const initialBearing = hash % 360;
+      driverBearingsRef.current[driverId] = { lat, lng, bearing: initialBearing };
+      return initialBearing;
+    }
+    
+    const dLat = Math.abs(lat - prev.lat);
+    const dLng = Math.abs(lng - prev.lng);
+    if (dLat > 0.00001 || dLng > 0.00001) {
+      const radians = Math.PI / 180;
+      const dLngRad = (lng - prev.lng) * radians;
+      const lat1Rad = prev.lat * radians;
+      const lat2Rad = lat * radians;
+      
+      const y = Math.sin(dLngRad) * Math.cos(lat2Rad);
+      const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) -
+                Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLngRad);
+      let brng = Math.atan2(y, x) * 180 / Math.PI;
+      const bearing = (brng + 360) % 360;
+      
+      driverBearingsRef.current[driverId] = { lat, lng, bearing };
+      return bearing;
+    }
+    
+    return prev.bearing;
+  };
+
+  const getDriverIcon = (type: string, driverId: string, lat: number, lng: number) => {
+    const rotation = getDriverBearing(driverId, lat, lng);
     const customVehicle = config?.vehicles?.[type];
 
+    let markerHtml = "";
     if (customVehicle?.mapMarkerUrl) {
       markerHtml = `
-        <img src="${customVehicle.mapMarkerUrl}" class="w-7 h-7 object-contain rounded-md" referrerPolicy="no-referrer" />
-      `;
-    } else if (type === "bike") {
-      markerHtml = `
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="5" cy="18" r="3"/><circle cx="19" cy="18" r="3"/>
-          <path d="M12 18V9c0-2 2-2 2-2"/><path d="M8 18l3-9h4l3 9"/><path d="M12 13h4"/>
-        </svg>
-      `;
-    } else if (type === "bajaj") {
-      markerHtml = `
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M3 11l2-4h14l2 4"/><path d="M3 11h18v7H3z"/><circle cx="8" cy="18" r="1.5"/><circle cx="16" cy="18" r="1.5"/>
-        </svg>
+        <img src="${customVehicle.mapMarkerUrl}" class="w-7 h-7 object-contain transition-all duration-300" referrerPolicy="no-referrer" />
       `;
     } else {
-      markerHtml = `
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="1" y="10" width="22" height="8" rx="2"/><path d="M7 10l3-6h4l3 6"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>
-        </svg>
-      `;
+      if (type === "bike") {
+        markerHtml = `
+          <svg viewBox="0 0 100 100" class="w-8 h-8 drop-shadow-[0_2px_4px_rgba(0,0,0,0.35)] transition-all duration-300">
+            <!-- Scooter / Motorcycle chassis -->
+            <rect x="42" y="15" width="16" height="70" rx="6" fill="#1e1b4b" />
+            <!-- Front wheel fender -->
+            <rect x="44" y="5" width="12" height="20" rx="4" fill="#111827" />
+            <!-- Handlebars -->
+            <rect x="25" y="27" width="50" height="6" rx="3" fill="#374151" />
+            <!-- Yellow handlebar grips -->
+            <rect x="23" y="25" width="6" height="10" rx="1.5" fill="#f59e0b" />
+            <rect x="71" y="25" width="6" height="10" rx="1.5" fill="#f59e0b" />
+            <!-- Red main body -->
+            <path d="M38,35 C38,32 62,32 62,35 L58,68 C58,74 42,74 42,68 Z" fill="#ef4444" />
+            <rect x="44" y="38" width="12" height="24" rx="4" fill="#b91c1c" />
+            <!-- Black seat -->
+            <rect x="43" y="44" width="14" height="28" rx="7" fill="#111827" />
+            <!-- Rear luggage box/carrier -->
+            <rect x="41" y="74" width="18" height="16" rx="4" fill="#374151" />
+            <!-- Rider Head (Helmet) in the middle -->
+            <circle cx="50" cy="46" r="11" fill="#f97316" /> <!-- Orange helmet -->
+            <path d="M43,44 C45,39 55,39 57,44" fill="#111827" /> <!-- Visor -->
+            <rect x="46" y="86" width="8" height="12" rx="2" fill="#ef4444" /> <!-- Tail light -->
+          </svg>
+        `;
+      } else if (type === "bajaj") {
+        markerHtml = `
+          <svg viewBox="0 0 100 100" class="w-8 h-8 drop-shadow-[0_3px_5px_rgba(0,0,0,0.35)] transition-all duration-300">
+            <!-- Black Wheels -->
+            <rect x="18" y="20" width="10" height="20" rx="3" fill="#111827" />
+            <rect x="72" y="20" width="10" height="20" rx="3" fill="#111827" />
+            <rect x="45" y="75" width="10" height="18" rx="3" fill="#111827" />
+            <!-- Yellow Chassis main outer body -->
+            <path d="M22,25 C22,12 78,12 78,25 L75,72 C75,78 25,78 25,72 Z" fill="#facc15" />
+            <!-- Inside floor cabin black -->
+            <rect x="28" y="22" width="44" height="42" rx="4" fill="#1f2937" />
+            <!-- Black hard top roof -->
+            <path d="M25,28 C25,23 75,23 75,28 L71,64 C71,68 29,68 29,64 Z" fill="#111827" />
+            <!-- Front windshield nose -->
+            <path d="M35,76 L40,86 C42,90 58,90 60,86 L65,76 Z" fill="#eab308" />
+            <rect x="38" y="71" width="24" height="4" rx="2" fill="#e2e8f0" />
+            <!-- Side mirrors -->
+            <rect x="14" y="65" width="8" height="4" rx="1.5" fill="#374151" />
+            <rect x="78" y="65" width="8" height="4" rx="1.5" fill="#374151" />
+            <!-- Tail brake lights -->
+            <rect x="29" y="16" width="8" height="5" rx="1" fill="#ef4444" />
+            <rect x="63" y="16" width="8" height="5" rx="1" fill="#ef4444" />
+          </svg>
+        `;
+      } else {
+        markerHtml = `
+          <svg viewBox="0 0 100 100" class="w-8 h-8 drop-shadow-[0_4px_6px_rgba(0,0,0,0.35)] transition-all duration-300">
+            <!-- Side mirrors -->
+            <rect x="18" y="42" width="6" height="12" rx="2.5" fill="#94a3b8" />
+            <rect x="76" y="42" width="6" height="12" rx="2.5" fill="#94a3b8" />
+            <!-- Wheels under the car -->
+            <rect x="20" y="20" width="8" height="16" rx="3.5" fill="#111827" />
+            <rect x="72" y="20" width="8" height="16" rx="3.5" fill="#111827" />
+            <rect x="20" y="66" width="8" height="16" rx="3.5" fill="#111827" />
+            <rect x="72" y="66" width="8" height="16" rx="3.5" fill="#111827" />
+            <!-- Car body (Silver Slate color) -->
+            <rect x="24" y="8" width="52" height="84" rx="25" fill="#cbd5e1" />
+            <!-- Glossy metallic highlights -->
+            <path d="M28,24 L72,24 M28,76 L72,76" stroke="#94a3b8" stroke-width="2" />
+            <!-- Front Windshield -->
+            <path d="M30,34 C30,30 70,30 70,34 L68,44 C68,44 32,44 32,44 Z" fill="#1e293b" />
+            <!-- Rear Windshield -->
+            <path d="M32,68 C32,71 68,71 68,68 L66,75 L34,75 Z" fill="#1e293b" />
+            <!-- Black Glass Roof Panel -->
+            <rect x="33" y="47" width="34" height="18" rx="2" fill="#0f172a" />
+            <!-- Shiny yellow headlights -->
+            <rect x="29" y="5" width="8" height="4" rx="1.5" fill="#fef08a" />
+            <rect x="63" y="5" width="8" height="4" rx="1.5" fill="#fef08a" />
+            <!-- Red break tail lights -->
+            <rect x="28" y="91" width="10" height="4" rx="1" fill="#ef4444" />
+            <rect x="62" y="91" width="10" height="4" rx="1" fill="#ef4444" />
+          </svg>
+        `;
+      }
     }
 
     return L.divIcon({
-      className: "driver-marker-icon",
+      className: "driver-marker-icon-clean",
       html: `
-        <div class="relative flex items-center justify-center">
-          <div class="absolute w-12 h-12 bg-red-500/20 rounded-full animate-ping"></div>
-          <div class="w-10 h-10 bg-red-600 border-2 border-white rounded-2xl flex items-center justify-center shadow-lg shadow-red-500/40 transition-all">
+        <div class="relative flex items-center justify-center transition-transform duration-500 ease-out" style="transform: rotate(${rotation}deg); width: 36px; height: 36px;">
+          <!-- Elegant subtle background pulse/sonar radiating of red/orange Papo Hapo theme inside -->
+          <div class="absolute w-8 h-8 rounded-full bg-red-500/5 pointer-events-none transition-all duration-1000"></div>
+          
+          <!-- Render Actual Vehicle Shape -->
+          <div class="relative flex items-center justify-center select-none pointer-events-none">
             ${markerHtml}
           </div>
         </div>
       `,
-      iconSize: [40, 40],
-      iconAnchor: [20, 20],
+      iconSize: [36, 36],
+      iconAnchor: [18, 18],
     });
   };
 
@@ -1953,20 +2048,17 @@ export default function TaxiBooking() {
                     )}
 
                     {/* Assigned Driver Marker */}
-                    {(driverLivePos || activeRide?.driverLocation) && (
-                      <Marker
-                        key={`active-driver-${activeRide?.driverId || "presence"}`}
-                        position={[
-                          driverLivePos?.lat ||
-                            activeRide?.driverLocation?.lat ||
-                            0,
-                          driverLivePos?.lng ||
-                            activeRide?.driverLocation?.lng ||
-                            0,
-                        ]}
-                        icon={getDriverIcon(activeRide?.vehicleType || "mini")}
-                      />
-                    )}
+                    {(driverLivePos || activeRide?.driverLocation) && (() => {
+                      const lat = driverLivePos?.lat || activeRide?.driverLocation?.lat || 0;
+                      const lng = driverLivePos?.lng || activeRide?.driverLocation?.lng || 0;
+                      return (
+                        <Marker
+                          key={`active-driver-${activeRide?.driverId || "presence"}`}
+                          position={[lat, lng]}
+                          icon={getDriverIcon(activeRide?.vehicleType || "mini", activeRide?.driverId || "active-driver", lat, lng)}
+                        />
+                      );
+                    })()}
 
                     {/* Nearby Drivers - Only show in map step */}
                     {step === "map" &&
@@ -1981,7 +2073,7 @@ export default function TaxiBooking() {
                           <Marker
                             key={driver.id}
                             position={[driver.lat, driver.lng]}
-                            icon={getDriverIcon(driver.vehicleType)}
+                            icon={getDriverIcon(driver.vehicleType, driver.id, driver.lat, driver.lng)}
                           />
                         ))}
 
