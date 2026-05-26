@@ -700,6 +700,66 @@ export default function TaxiBooking() {
   const [isRestoring, setIsRestoring] = useState(true);
   const lastFetchedPosRef = useRef<any>(null);
 
+  const driverApproachRouteRef = useRef<[number, number][]>([]);
+  const lastActiveRideIdStatusRef = useRef<string>("");
+
+  useEffect(() => {
+    if (!activeRide) {
+      driverApproachRouteRef.current = [];
+      lastActiveRideIdStatusRef.current = "";
+      return;
+    }
+
+    const currentKey = `${activeRide.id}_${activeRide.status}`;
+    if (lastActiveRideIdStatusRef.current !== currentKey) {
+      lastActiveRideIdStatusRef.current = currentKey;
+
+      if (["accepted", "driver_arriving"].includes(activeRide.status) && activeRide.driverLocation) {
+        // Generate approach route once!
+        const startLoc = activeRide.driverLocation;
+        const pickupLoc = activeRide.pickup;
+        const generated = generateSimulatedRoads(
+          [startLoc.lat, startLoc.lng],
+          [pickupLoc.lat, pickupLoc.lng]
+        );
+        driverApproachRouteRef.current = generated;
+      } else {
+        driverApproachRouteRef.current = [];
+      }
+    }
+  }, [activeRide?.id, activeRide?.status, activeRide?.driverLocation?.lat, activeRide?.driverLocation?.lng]);
+
+  const sliceRouteFromCurrentPos = (
+    fullRoute: [number, number][],
+    currentPos: { lat: number; lng: number } | null
+  ): [number, number][] => {
+    if (!fullRoute || fullRoute.length === 0) return [];
+    if (!currentPos) return fullRoute;
+
+    let minDistance = Infinity;
+    let closestIndex = 0;
+
+    for (let i = 0; i < fullRoute.length; i++) {
+      const lat = fullRoute[i][0];
+      const lng = fullRoute[i][1];
+      const diffLat = lat - currentPos.lat;
+      const diffLng = lng - currentPos.lng;
+      const dist = diffLat * diffLat + diffLng * diffLng;
+
+      if (dist < minDistance) {
+        minDistance = dist;
+        closestIndex = i;
+      }
+    }
+
+    const sliced = fullRoute.slice(closestIndex);
+    // Smooth first point to current location
+    if (sliced.length > 0) {
+      sliced[0] = [currentPos.lat, currentPos.lng];
+    }
+    return sliced;
+  };
+
   // Persistence: Look for active rides on mount
   useEffect(() => {
     if (!user) {
@@ -1904,14 +1964,85 @@ export default function TaxiBooking() {
                         ))}
 
                     {activeRide ? (
-                      <AnimatedRoute
-                        positions={
-                          activeRide.routeCoords && activeRide.routeCoords.length > 0
-                            ? getNormalizedCoords(activeRide.routeCoords)
-                            : generateSimulatedRoads(pickupPos, destPos)
+                      (() => {
+                        const hasFullRoute = activeRide.routeCoords && activeRide.routeCoords.length > 0;
+                        const fullTripRoute = hasFullRoute 
+                          ? getNormalizedCoords(activeRide.routeCoords)
+                          : generateSimulatedRoads(pickupPos, destPos);
+
+                        const driverPosObj = driverLivePos || (activeRide.driverLocation ? { lat: activeRide.driverLocation.lat, lng: activeRide.driverLocation.lng } : null);
+
+                        if (activeRide.status === "on_trip") {
+                          const slicedTripRoute = sliceRouteFromCurrentPos(fullTripRoute, driverPosObj);
+                          return (
+                            <>
+                              {/* Planned trip underlay */}
+                              <Polyline
+                                positions={fullTripRoute}
+                                pathOptions={{
+                                  color: theme === 'dark' ? '#334155' : '#94a3b8',
+                                  weight: 6,
+                                  opacity: 0.5,
+                                  lineCap: 'round',
+                                  lineJoin: 'round'
+                                }}
+                              />
+                              {/* Remaining trip path */}
+                              {slicedTripRoute.length > 1 && (
+                                <AnimatedRoute
+                                  positions={slicedTripRoute}
+                                  color="#00E5FF"
+                                />
+                              )}
+                            </>
+                          );
                         }
-                        color="#00E5FF"
-                      />
+
+                        if (["accepted", "driver_arriving"].includes(activeRide.status)) {
+                          if (driverApproachRouteRef.current.length === 0 && driverPosObj) {
+                            driverApproachRouteRef.current = generateSimulatedRoads(
+                              [driverPosObj.lat, driverPosObj.lng],
+                              [activeRide.pickup.lat, activeRide.pickup.lng]
+                            );
+                          }
+                          const slicedApproachRoute = sliceRouteFromCurrentPos(
+                            driverApproachRouteRef.current,
+                            driverPosObj
+                          );
+
+                          return (
+                            <>
+                              {/* Planned trip path is shown underlay since we haven't started yet */}
+                              <Polyline
+                                positions={fullTripRoute}
+                                pathOptions={{
+                                  color: theme === 'dark' ? '#334155' : '#cbd5e1',
+                                  weight: 5,
+                                  opacity: 0.4,
+                                  dashArray: '8, 8',
+                                  lineCap: 'round',
+                                  lineJoin: 'round'
+                                }}
+                              />
+                              {/* Active driver approach route */}
+                              {slicedApproachRoute.length > 1 && (
+                                <AnimatedRoute
+                                  positions={slicedApproachRoute}
+                                  color="#00E5A0"
+                                />
+                              )}
+                            </>
+                          );
+                        }
+
+                        // For driver_arrived or other active steps, show the full upcoming trip route animated
+                        return (
+                          <AnimatedRoute
+                            positions={fullTripRoute}
+                            color="#00E5FF"
+                          />
+                        );
+                      })()
                     ) : (
                       destination && (
                         routeCoords && routeCoords.length > 1 ? (
@@ -1922,30 +2053,6 @@ export default function TaxiBooking() {
                           )
                         )
                       )
-                    )}
-
-                    {/* Driver Tracking Route */}
-                    {["accepted", "driver_arriving", "on_trip"].includes(
-                      activeRide?.status || "",
-                    ) && (
-                      <AnimatedRoute
-                        positions={
-                          driverRouteCoords && driverRouteCoords.length > 0
-                            ? driverRouteCoords
-                            : generateSimulatedRoads(
-                                [
-                                  driverLivePos?.lat || activeRide?.driverLocation?.lat || pickupPos[0],
-                                  driverLivePos?.lng || activeRide?.driverLocation?.lng || pickupPos[1],
-                                ],
-                                activeRide?.status === "on_trip" ? destPos : pickupPos
-                              )
-                        }
-                        color={
-                          activeRide?.status === "on_trip"
-                            ? "#FF6B35"
-                            : "#00E5A0"
-                        }
-                      />
                     )}
                   </MapContainer>
                 </div>

@@ -239,10 +239,68 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
   const simulatedPathRef = React.useRef<[number, number][]>([]);
   const simulatedIndexRef = React.useRef<number>(0);
   const activeStatusRef = React.useRef<string | null>(null);
+
   const [showTopInfo, setShowTopInfo] = useState(false);
-  
   const [rideId, setRideId] = useState<string | null>(null);
   const { ride: activeRide } = useRideStatus(rideId);
+
+  const driverApproachRouteRef = React.useRef<[number, number][]>([]);
+  const lastActiveRideIdStatusRef = React.useRef<string>("");
+
+  useEffect(() => {
+    if (!activeRide) {
+      driverApproachRouteRef.current = [];
+      lastActiveRideIdStatusRef.current = "";
+      return;
+    }
+
+    const currentKey = `${activeRide.id}_${activeRide.status}`;
+    if (lastActiveRideIdStatusRef.current !== currentKey) {
+      lastActiveRideIdStatusRef.current = currentKey;
+
+      if (['accepted', 'driver_arriving'].includes(activeRide.status) && position) {
+        // Generate approach route once!
+        const generated = generateSimulatedRoads(
+          [position[0], position[1]],
+          [activeRide.pickup.lat, activeRide.pickup.lng]
+        );
+        driverApproachRouteRef.current = generated;
+      } else {
+        driverApproachRouteRef.current = [];
+      }
+    }
+  }, [activeRide?.id, activeRide?.status]);
+
+  const sliceRouteFromCurrentPos = (
+    fullRoute: [number, number][],
+    currentPos: [number, number] | null
+  ): [number, number][] => {
+    if (!fullRoute || fullRoute.length === 0) return [];
+    if (!currentPos) return fullRoute;
+
+    let minDistance = Infinity;
+    let closestIndex = 0;
+
+    for (let i = 0; i < fullRoute.length; i++) {
+      const lat = fullRoute[i][0];
+      const lng = fullRoute[i][1];
+      const diffLat = lat - currentPos[0];
+      const diffLng = lng - currentPos[1];
+      const dist = diffLat * diffLat + diffLng * diffLng;
+
+      if (dist < minDistance) {
+        minDistance = dist;
+        closestIndex = i;
+      }
+    }
+
+    const sliced = fullRoute.slice(closestIndex);
+    // Smooth first point to current location
+    if (sliced.length > 0) {
+      sliced[0] = [currentPos[0], currentPos[1]];
+    }
+    return sliced;
+  };
 
   const [timeTicker, setTimeTicker] = useState(0);
   const [secondsOffset, setSecondsOffset] = useState<number>(0);
@@ -1339,30 +1397,84 @@ export default function RiderHome({ onNavVisibilityChange }: RiderHomeProps) {
                   </Popup>
                 </Marker>
 
-                {/* 1. Static Route (Original total path) - Visible through the entire active trip */}
-                <AnimatedRoute 
-                  positions={
-                    activeRide.routeCoords && activeRide.routeCoords.length > 0
-                      ? getNormalizedCoords(activeRide.routeCoords)
-                      : generateSimulatedRoads([activeRide.pickup.lat, activeRide.pickup.lng], [activeRide.destination.lat, activeRide.destination.lng])
-                  } 
-                  color="#00E5FF" 
-                />
+                {/* 1. Beautiful Underlay & Sliced Overlay Routes */}
+                {(() => {
+                  const hasFullRoute = activeRide.routeCoords && activeRide.routeCoords.length > 0;
+                  const fullTripRoute = hasFullRoute 
+                    ? getNormalizedCoords(activeRide.routeCoords)
+                    : generateSimulatedRoads([activeRide.pickup.lat, activeRide.pickup.lng], [activeRide.destination.lat, activeRide.destination.lng]);
 
-                {/* 2. Dynamic Live Route (Driver to Current Target) */}
-                <AnimatedRoute 
-                  positions={
-                    dynamicRoute && dynamicRoute.length > 1 
-                      ? dynamicRoute 
-                      : generateSimulatedRoads(
-                          position, 
-                          activeRide.status === 'on_trip' 
-                            ? [activeRide.destination.lat, activeRide.destination.lng] 
-                            : [activeRide.pickup.lat, activeRide.pickup.lng]
-                        )
-                  } 
-                  color={activeRide.status === 'on_trip' ? '#FF6B35' : '#00E5A0'} 
-                />
+                  if (activeRide.status === "on_trip") {
+                    const slicedTripRoute = sliceRouteFromCurrentPos(fullTripRoute, position);
+                    return (
+                      <>
+                        {/* Planned trip underlay */}
+                        <Polyline
+                          positions={fullTripRoute}
+                          pathOptions={{
+                            color: theme === 'dark' ? '#334155' : '#94a3b8',
+                            weight: 6,
+                            opacity: 0.5,
+                            lineCap: 'round',
+                            lineJoin: 'round'
+                          }}
+                        />
+                        {/* Remaining trip path */}
+                        {slicedTripRoute.length > 1 && (
+                          <AnimatedRoute
+                            positions={slicedTripRoute}
+                            color="#00E5FF"
+                          />
+                        )}
+                      </>
+                    );
+                  }
+
+                  if (["accepted", "driver_arriving"].includes(activeRide.status)) {
+                    if (driverApproachRouteRef.current.length === 0 && position) {
+                      driverApproachRouteRef.current = generateSimulatedRoads(
+                        [position[0], position[1]],
+                        [activeRide.pickup.lat, activeRide.pickup.lng]
+                      );
+                    }
+                    const slicedApproachRoute = sliceRouteFromCurrentPos(
+                      driverApproachRouteRef.current,
+                      position
+                    );
+
+                    return (
+                      <>
+                        {/* Planned trip path is shown underlay since we haven't started yet */}
+                        <Polyline
+                          positions={fullTripRoute}
+                          pathOptions={{
+                            color: theme === 'dark' ? '#334155' : '#cbd5e1',
+                            weight: 5,
+                            opacity: 0.4,
+                            dashArray: '8, 8',
+                            lineCap: 'round',
+                            lineJoin: 'round'
+                          }}
+                        />
+                        {/* Active driver approach route */}
+                        {slicedApproachRoute.length > 1 && (
+                          <AnimatedRoute
+                            positions={slicedApproachRoute}
+                            color="#00E5A0"
+                          />
+                        )}
+                      </>
+                    );
+                  }
+
+                  // For driver_arrived or other active steps, show the full upcoming trip route animated
+                  return (
+                    <AnimatedRoute
+                      positions={fullTripRoute}
+                      color="#00E5FF"
+                    />
+                  );
+                })()}
               </>
             )}
 
