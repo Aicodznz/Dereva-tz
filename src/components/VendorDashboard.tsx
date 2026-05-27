@@ -154,23 +154,28 @@ const MiniQrCode: React.FC<MiniQrProps> = ({
   const ref = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (ref.current && typeof window !== 'undefined') {
-      ref.current.innerHTML = '';
-      const qr = new QRCodeStyling({
-        width: size,
-        height: size,
-        data: data,
-        dotsOptions: {
-          color: dotsColor,
-          type: dotsType
-        },
-        backgroundOptions: {
-          color: 'transparent'
-        },
-        margin: 1
-      });
-      qr.append(ref.current);
-    }
+    const timer = setTimeout(() => {
+      if (ref.current && typeof window !== 'undefined') {
+        ref.current.innerHTML = '';
+        const qr = new QRCodeStyling({
+          type: 'svg',
+          width: size,
+          height: size,
+          data: data,
+          dotsOptions: {
+            color: dotsColor,
+            type: dotsType || 'square'
+          },
+          backgroundOptions: {
+            color: 'transparent'
+          },
+          margin: 1
+        });
+        qr.append(ref.current);
+      }
+    }, 150);
+
+    return () => clearTimeout(timer);
   }, [data, size, dotsColor, dotsType]);
 
   return <div ref={ref} className="shrink-0 flex items-center justify-center bg-white rounded-lg p-1" style={{ width: size + 8, height: size + 8 }} />;
@@ -570,6 +575,7 @@ export default function VendorDashboard() {
     if (typeof window !== 'undefined') {
       const options = {
         ...qrOptions,
+        type: 'svg' as const,
         width: 300,
         height: 300,
       };
@@ -644,6 +650,8 @@ export default function VendorDashboard() {
         quality: 1, 
         pixelRatio: 3,
         backgroundColor: '#FCFAF2',
+        cacheBust: true,
+        skipFonts: true,
         style: {
           borderRadius: '0' // Remove rounded corners for export if needed
         }
@@ -7077,9 +7085,12 @@ export default function VendorDashboard() {
                                 src={vendorProfile.logoUrl} 
                                 alt="Logo" 
                                 className="w-full h-full object-contain" 
+                                crossOrigin="anonymous"
                                 referrerPolicy="no-referrer" 
                                 onError={(e) => {
-                                  (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${vendorProfile.businessName}`;
+                                  const target = e.target as HTMLImageElement;
+                                  target.removeAttribute('crossOrigin');
+                                  target.src = `https://api.dicebear.com/7.x/initials/svg?seed=${vendorProfile?.businessName}`;
                                 }}
                               />
                             </div>
@@ -7134,7 +7145,16 @@ export default function VendorDashboard() {
                                       {/* Product Image */}
                                       {prod.imageUrl ? (
                                         <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 border relative bg-white">
-                                          <img src={prod.imageUrl} alt={prod.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                          <img 
+                                            src={prod.imageUrl} 
+                                            alt={prod.name} 
+                                            className="w-full h-full object-cover" 
+                                            crossOrigin="anonymous"
+                                            referrerPolicy="no-referrer" 
+                                            onError={(e) => {
+                                              (e.target as HTMLImageElement).removeAttribute('crossOrigin');
+                                            }}
+                                          />
                                           {pIdx === 0 && <span className="absolute top-0 left-0 bg-red-600 text-[5px] text-white font-black px-1 py-0.2 rounded-br-md leading-none">BEST</span>}
                                           {pIdx === 1 && <span className="absolute top-0 left-0 bg-emerald-600 text-[5px] text-white font-black px-1 py-0.2 rounded-br-md leading-none">CHEF</span>}
                                           {pIdx === 2 && <span className="absolute top-0 left-0 bg-blue-600 text-[5px] text-white font-black px-1 py-0.2 rounded-br-md leading-none">NEW</span>}
@@ -7660,23 +7680,22 @@ export default function VendorDashboard() {
             size: A5;
             margin: 0;
           }
-          body * {
-            visibility: hidden;
-            display: none !important;
+          body {
+            visibility: hidden !important;
+            background: white !important;
           }
           #printable-stand, #printable-stand *, #order-receipt, #order-receipt * {
             visibility: visible !important;
-            display: flex !important;
-            flex-direction: column !important;
           }
           #printable-stand {
-            position: relative !important;
-            margin: auto !important;
+            position: fixed !important;
+            left: 0 !important;
+            top: 0 !important;
             width: 148mm !important; /* A5 Width */
             height: 210mm !important; /* A5 Height */
             padding: 10mm !important;
             background: white !important;
-            z-index: 10000 !important;
+            z-index: 1000000 !important;
             border: none !important;
             box-shadow: none !important;
             overflow: hidden !important;
@@ -7692,7 +7711,7 @@ export default function VendorDashboard() {
              background: white !important;
              color: black !important;
              padding: 10mm 6mm !important;
-             z-index: 10000 !important;
+             z-index: 1000000 !important;
              display: flex !important;
              flex-direction: column !important;
              border: none !important;
