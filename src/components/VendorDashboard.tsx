@@ -495,6 +495,7 @@ export default function VendorDashboard() {
 
   // QR Builder State
   const [isQrBuilderOpen, setIsQrBuilderOpen] = useState(false);
+  const [bgImageMode, setBgImageMode] = useState<'upload' | 'url'>('upload');
   const [showProductsOnStand, setShowProductsOnStand] = useState(false);
   const [standProductIds, setStandProductIds] = useState<string[]>([]);
   const [printDetails, setPrintDetails] = useState({
@@ -6767,40 +6768,93 @@ export default function VendorDashboard() {
 
                       <div className="space-y-1 pb-4 border-b border-white/5">
                         <span className="text-[8px] font-black text-neutral-600 uppercase tracking-widest px-1 text-center block mb-2">Background Image / Picha ya Nyuma</span>
-                        <div className="flex items-center justify-center gap-3">
-                           <label className="flex-1 cursor-pointer">
-                              <div className="h-14 rounded-2xl border-2 border-dashed border-white/10 hover:border-orange-600/30 bg-neutral-900 flex items-center justify-center gap-2 transition-all">
-                                 {isStandBgUploading ? (
-                                   <Loader2 className="w-5 h-5 animate-spin text-orange-600" />
-                                 ) : printDetails.bgImage ? (
-                                   <div className="flex items-center gap-2">
-                                      <ImageIcon className="w-4 h-4 text-green-500" />
-                                      <span className="text-[9px] font-black text-white uppercase">Picha Imewekwa</span>
-                                   </div>
-                                 ) : (
-                                   <div className="flex items-center gap-2">
-                                      <ImageIcon className="w-4 h-4 text-neutral-500" />
-                                      <span className="text-[9px] font-black text-neutral-500 uppercase">Weka Picha</span>
-                                   </div>
-                                 )}
-                              </div>
-                              <input 
-                                type="file" 
-                                className="hidden" 
-                                accept="image/*"
-                                onChange={handleStandBgUpload}
-                                disabled={isStandBgUploading}
-                              />
-                           </label>
-                           {printDetails.bgImage && (
-                             <button 
-                               onClick={() => setPrintDetails({...printDetails, bgImage: ''})}
-                               className="w-14 h-14 rounded-2xl bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500/20 transition-all"
-                             >
-                               <Trash2 className="w-5 h-5" />
-                             </button>
-                           )}
+                        
+                        <div className="flex bg-neutral-950 p-1 rounded-xl mb-3 border border-white/5">
+                          <button 
+                            type="button"
+                            onClick={() => setBgImageMode('upload')}
+                            className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                              bgImageMode === 'upload' 
+                                ? 'bg-orange-600 text-white shadow-md' 
+                                : 'text-neutral-500 hover:text-white'
+                            }`}
+                          >
+                            Pakia / Upload
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={() => setBgImageMode('url')}
+                            className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                              bgImageMode === 'url' 
+                                ? 'bg-orange-600 text-white shadow-md' 
+                                : 'text-neutral-500 hover:text-white'
+                            }`}
+                          >
+                            Kiungo / URL Link
+                          </button>
                         </div>
+
+                        {bgImageMode === 'upload' && (
+                          <div className="flex items-center justify-center gap-3 animate-in fade-in duration-200">
+                             <label className="flex-1 cursor-pointer">
+                                <div className="h-14 rounded-2xl border-2 border-dashed border-white/10 hover:border-orange-600/30 bg-neutral-900 flex items-center justify-center gap-2 transition-all">
+                                   {isStandBgUploading ? (
+                                     <Loader2 className="w-5 h-5 animate-spin text-orange-600" />
+                                   ) : printDetails.bgImage ? (
+                                     <div className="flex items-center gap-2">
+                                        <ImageIcon className="w-4 h-4 text-green-500" />
+                                        <span className="text-[9px] font-black text-white uppercase">Picha Imewekwa</span>
+                                     </div>
+                                   ) : (
+                                     <div className="flex items-center gap-2">
+                                        <ImageIcon className="w-4 h-4 text-neutral-500" />
+                                        <span className="text-[9px] font-black text-neutral-500 uppercase">Weka Picha</span>
+                                     </div>
+                                   )}
+                                </div>
+                                <input 
+                                  type="file" 
+                                  className="hidden" 
+                                  accept="image/*"
+                                  onChange={handleStandBgUpload}
+                                  disabled={isStandBgUploading}
+                                />
+                             </label>
+                             {printDetails.bgImage && (
+                               <button 
+                                 onClick={() => setPrintDetails({...printDetails, bgImage: ''})}
+                                 className="w-14 h-14 rounded-2xl bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500/20 transition-all"
+                               >
+                                 <Trash2 className="w-5 h-5" />
+                               </button>
+                             )}
+                          </div>
+                        )}
+
+                        {bgImageMode === 'url' && (
+                          <div className="space-y-2 animate-in fade-in duration-200">
+                            <div className="relative">
+                              <input 
+                                type="text"
+                                className="w-full h-12 bg-neutral-900 border border-white/10 rounded-2xl px-4 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-orange-600 transition-all font-bold pr-12"
+                                placeholder="Weka link ya picha (e.g. https://...)"
+                                value={printDetails.bgImage}
+                                onChange={(e) => setPrintDetails({...printDetails, bgImage: e.target.value})}
+                              />
+                              {printDetails.bgImage && (
+                                <button 
+                                  onClick={() => setPrintDetails({...printDetails, bgImage: ''})}
+                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-red-500 transition-colors p-1"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                            <p className="text-[8px] text-neutral-500 text-left px-1 uppercase font-black tracking-tight leading-snug">
+                              Weka kiungo cha picha halali (e.g. .jpg, .png, .webp).
+                            </p>
+                          </div>
+                        )}
                       </div>
 
                       <div className="space-y-1">
