@@ -94,7 +94,15 @@ export default function ProductDetail() {
   const isModelValid = (url: string) => {
     if (!url) return false;
     const lowerUrl = url.split('?')[0].toLowerCase();
-    return lowerUrl.endsWith('.glb') || lowerUrl.endsWith('.gltf');
+    return lowerUrl.endsWith('.glb') || lowerUrl.endsWith('.gltf') || checkIfPageOrWebAR(url);
+  };
+
+  const checkIfPageOrWebAR = (url: string) => {
+    if (!url) return false;
+    const lower = url.toLowerCase();
+    return (lower.startsWith('http://') || lower.startsWith('https://')) && 
+           !lower.endsWith('.glb') && 
+           !lower.endsWith('.gltf');
   };
 
   useEffect(() => {
@@ -779,68 +787,91 @@ export default function ProductDetail() {
               </button>
             </div>
 
-            <div className="flex-1 relative">
-              {/* @ts-ignore */}
-              <model-viewer
-                id="main-ar-viewer"
-                src={product?.model3dUrl}
-                ar
-                ar-modes="webxr scene-viewer quick-look"
-                ar-placement="floor"
-                camera-controls
-                touch-action="pan-y"
-                poster={product?.imageUrl}
-                shadow-intensity="1"
-                autoplay
-                className="w-full h-full"
-                style={{ width: '100%', height: '100%' }}
-              >
-                <button 
-                  slot="ar-button" 
-                  onClick={() => {
-                    const viewer = document.getElementById('main-ar-viewer') as any;
-                    if (viewer && viewer.canActivateAR) {
-                      viewer.activateAR();
-                    }
-                  }}
-                  className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-white text-black px-8 py-4 rounded-full font-black uppercase italic tracking-tighter shadow-2xl flex items-center gap-3 border-4 border-orange-600 animate-bounce active:scale-95 transition-all z-[2005]"
-                >
-                  <Smartphone className="w-5 h-5 text-orange-600" />
-                  View in Space / TAZAMA AR
-                </button>
-                
-                <div slot="ar-failure" className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center p-8 text-center gap-4 z-[2003]">
-                   <div className="w-20 h-20 bg-red-600/20 rounded-full flex items-center justify-center text-red-500 mb-4">
-                      <Box className="w-10 h-10" />
-                   </div>
-                   <h4 className="text-white font-black italic text-xl uppercase tracking-tighter">AR haipatikani</h4>
-                   <p className="text-white/60 text-sm max-w-xs">
-                     {isModelValid(product?.model3dUrl || '') 
-                       ? "Simu yako huenda haisupport AR au unapaswa kutoa ruhusa ya kamera kwenye browser yako."
-                       : "Bidhaa hii haina faili halali la 3D (GLB). Huwezi kutumia picha ya PNG/JPG kwa AR."
-                     }
-                   </p>
-                   {!isModelValid(product?.model3dUrl || '') && (
-                     <div className="bg-orange-600/10 border border-orange-600/20 p-4 rounded-2xl max-w-xs">
-                        <p className="text-orange-500 text-[10px] font-black uppercase tracking-widest mb-1">Kidokezo (Tip)</p>
-                        <p className="text-white/80 text-xs text-left">Huwezi kutumia picha (PNG/JPG) kwa AR. Bidhaa hii inahitaji faili la 3D (.glb). Unaweza kutumia <b>Luma AI</b>, <b>Meshy.ai</b>, au <b>Polycam</b> kubadilisha picha kuwa GLB.</p>
-                     </div>
-                   )}
-                   <button 
-                     onClick={() => setShowARView(false)}
-                     className="mt-4 px-6 py-2 bg-white/10 hover:bg-white text-white hover:text-black rounded-xl font-bold transition-all"
-                   >
-                     Rudi nyuma
-                   </button>
+            <div className="flex-1 relative bg-neutral-950">
+              {checkIfPageOrWebAR(product?.model3dUrl || '') ? (
+                <div className="w-full h-full flex flex-col pt-24 bg-neutral-900">
+                  <iframe
+                    id="main-webar-iframe"
+                    src={product?.model3dUrl}
+                    allow="camera; geolocation; microphone; xr-spatial-tracking; gyroscope; accelerometer; xr; webxr"
+                    className="w-full h-full border-0 absolute inset-0 pt-20"
+                    style={{ width: '100%', height: '100%' }}
+                    title={`WebAR for ${product.name}`}
+                  />
+                  <div className="absolute bottom-6 inset-x-0 flex flex-col items-center gap-3 pointer-events-none z-10">
+                    <div className="bg-black/80 backdrop-blur-md px-6 py-2.5 rounded-full border border-white/10 shadow-2xl">
+                      <p className="text-white text-xs font-black uppercase tracking-wider flex items-center gap-2">
+                        <Smartphone className="w-4 h-4 text-orange-500 animate-bounce" />
+                        Inafungua Kivicube WebAR... Toa Ruhusa ya Kamera!
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                {/* @ts-ignore */}
-              </model-viewer>
+              ) : (
+                <>
+                  {/* @ts-ignore */}
+                  <model-viewer
+                    id="main-ar-viewer"
+                    src={product?.model3dUrl}
+                    ar
+                    ar-modes="webxr scene-viewer quick-look"
+                    ar-placement="floor"
+                    camera-controls
+                    touch-action="pan-y"
+                    poster={product?.imageUrl}
+                    shadow-intensity="1"
+                    autoplay
+                    className="w-full h-full"
+                    style={{ width: '100%', height: '100%' }}
+                  >
+                    <button 
+                      slot="ar-button" 
+                      onClick={() => {
+                        const viewer = document.getElementById('main-ar-viewer') as any;
+                        if (viewer && viewer.canActivateAR) {
+                          viewer.activateAR();
+                        }
+                      }}
+                      className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-white text-black px-8 py-4 rounded-full font-black uppercase italic tracking-tighter shadow-2xl flex items-center gap-3 border-4 border-orange-600 animate-bounce active:scale-95 transition-all z-[2005]"
+                    >
+                      <Smartphone className="w-5 h-5 text-orange-600" />
+                      View in Space / TAZAMA AR
+                    </button>
+                    
+                    <div slot="ar-failure" className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center p-8 text-center gap-4 z-[2003]">
+                       <div className="w-20 h-20 bg-red-600/20 rounded-full flex items-center justify-center text-red-500 mb-4">
+                          <Box className="w-10 h-10" />
+                       </div>
+                       <h4 className="text-white font-black italic text-xl uppercase tracking-tighter">AR haipatikani</h4>
+                       <p className="text-white/60 text-sm max-w-xs font-medium">
+                         {isModelValid(product?.model3dUrl || '') 
+                           ? "Simu yako huenda haisupport AR au unapaswa kutoa ruhusa ya kamera kwenye browser yako."
+                           : "Bidhaa hii haina faili halali la 3D (GLB) au kiungo sahihi cha Kivicube WebAR."
+                         }
+                       </p>
+                       {!isModelValid(product?.model3dUrl || '') && (
+                         <div className="bg-orange-600/10 border border-orange-600/20 p-4 rounded-2xl max-w-xs">
+                            <p className="text-orange-500 text-[10px] font-black uppercase tracking-widest mb-1">Kidokezo (Tip)</p>
+                            <p className="text-white/80 text-xs text-left">Huwezi kutumia picha (PNG/JPG) kwa AR. Bidhaa hii inahitaji faili la 3D (.glb) au kiungo cha WebAR kutoka <b>Kivicube.com</b>.</p>
+                         </div>
+                       )}
+                       <button 
+                         onClick={() => setShowARView(false)}
+                         className="mt-4 px-6 py-2 bg-white/10 hover:bg-white text-white hover:text-black rounded-xl font-bold transition-all"
+                       >
+                         Rudi nyuma
+                       </button>
+                    </div>
+                    {/* @ts-ignore */}
+                  </model-viewer>
 
-              <div className="absolute bottom-10 inset-x-0 flex flex-col items-center gap-4 pointer-events-none">
-                 <div className="bg-black/40 backdrop-blur-md px-6 py-2 rounded-full border border-white/10">
-                    <p className="text-white/60 text-[10px] font-medium text-center">Use your fingers to rotate and zoom • Bonyeza 'View in your space' kwa AR</p>
-                 </div>
-              </div>
+                  <div className="absolute bottom-10 inset-x-0 flex flex-col items-center gap-4 pointer-events-none">
+                     <div className="bg-black/40 backdrop-blur-md px-6 py-2 rounded-full border border-white/10">
+                        <p className="text-white/60 text-[10px] font-medium text-center">Use your fingers to rotate and zoom • Bonyeza 'View in your space' kwa AR</p>
+                     </div>
+                  </div>
+                </>
+              )}
             </div>
           </motion.div>
         )}

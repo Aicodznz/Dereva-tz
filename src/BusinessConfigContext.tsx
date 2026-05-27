@@ -21,7 +21,7 @@ const defaultConfig: BusinessConfig = {
   email: 'admin@mduka.com',
   phone: '+255 700 000 000',
   maintenanceMode: false,
-  enableAR: false,
+  enableAR: true,
   appLogo: 'https://cdn-icons-png.flaticon.com/512/5717/5717387.png',
   splashText: 'Usafiri wa Haraka, Salama na Uhakika',
   splashColor: '#0c0c0e',

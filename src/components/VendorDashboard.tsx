@@ -162,7 +162,7 @@ const MiniQrCode: React.FC<MiniQrProps> = ({
         const qr = new QRCodeStyling({
           width: size,
           height: size,
-          type: 'canvas',
+          type: 'svg',
           data: data || 'https://papo-hapo.com',
           dotsOptions: {
             color: dotsColor || '#000000',
@@ -7446,6 +7446,7 @@ export default function VendorDashboard() {
                             
                             {/* The QR Code itself */}
                             <div 
+                              id="main-qr-card"
                               className="relative p-5 bg-white rounded-[2.5rem] border shadow-xl flex items-center justify-center"
                               style={{ borderColor: `${printDetails.accentColor}15` }}
                             >
@@ -7982,11 +7983,11 @@ export default function VendorDashboard() {
           #printable-stand p {
             font-size: 10pt !important;
           }
-          #printable-stand .bg-white {
-            width: 350px !important;
-            height: 350px !important;
-            margin: 40px 0 !important;
-            border: 2px solid #ea580c20 !important;
+          #printable-stand #main-qr-card {
+            width: 200px !important;
+            height: 200px !important;
+            margin: 20px auto !important;
+            border: 2px solid #ea580c10 !important;
           }
           #printable-stand .bg-orange-600 {
              background-color: #ea580c !important;
