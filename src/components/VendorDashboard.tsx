@@ -147,38 +147,60 @@ interface MiniQrProps {
 
 const MiniQrCode: React.FC<MiniQrProps> = ({ 
   data, 
-  size = 50, 
+  size = 40, 
   dotsColor = '#000000', 
   dotsType = 'square' 
 }) => {
   const ref = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    let active = true;
     const timer = setTimeout(() => {
-      if (ref.current && typeof window !== 'undefined') {
+      if (!active || !ref.current || typeof window === 'undefined') return;
+      try {
         ref.current.innerHTML = '';
         const qr = new QRCodeStyling({
-          type: 'svg',
           width: size,
           height: size,
-          data: data,
+          type: 'canvas',
+          data: data || 'https://papo-hapo.com',
           dotsOptions: {
-            color: dotsColor,
+            color: dotsColor || '#000000',
             type: dotsType || 'square'
           },
           backgroundOptions: {
-            color: 'transparent'
+            color: '#ffffff'
           },
           margin: 1
         });
         qr.append(ref.current);
+      } catch (err) {
+        console.error('MiniQrCode render error:', err);
       }
-    }, 150);
+    }, 100);
 
-    return () => clearTimeout(timer);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
   }, [data, size, dotsColor, dotsType]);
 
-  return <div ref={ref} className="shrink-0 flex items-center justify-center bg-white rounded-lg p-1" style={{ width: size + 8, height: size + 8 }} />;
+  return (
+    <div 
+      ref={ref} 
+      className="shrink-0 flex items-center justify-center bg-white rounded-lg p-0.5 border border-neutral-100 shadow-xs" 
+      style={{ width: size + 4, height: size + 4 }} 
+    />
+  );
+};
+
+const getProxiedImageUrl = (url?: string) => {
+  if (!url) return '';
+  if (url.startsWith('data:') || url.startsWith('blob:')) return url;
+  if (url.startsWith('http') && !url.includes(window.location.host)) {
+    return `/api/proxy-image?url=${encodeURIComponent(url)}`;
+  }
+  return url;
 };
 
 export default function VendorDashboard() {
@@ -623,14 +645,171 @@ export default function VendorDashboard() {
   }, [vendorProfile]);
 
   const handlePrint = () => {
-    window.print();
+    const el = document.getElementById('printable-stand');
+    if (!el) {
+      toast.error("Imeshindwa kupata mpangilio wa stand");
+      return;
+    }
+    
+    // Create a clone of the element to avoid modifying the active view
+    const cloned = el.cloneNode(true) as HTMLElement;
+    
+    // Find all canvas elements in original and cloned
+    const originalCanvases = el.querySelectorAll('canvas');
+    const clonedCanvases = cloned.querySelectorAll('canvas');
+    
+    // Convert canvases to base64 images so they are fully serializable and print/render perfectly
+    for (let i = 0; i < originalCanvases.length; i++) {
+      const origCanvas = originalCanvases[i] as HTMLCanvasElement;
+      const clonedCanvas = clonedCanvases[i] as HTMLCanvasElement;
+      
+      const img = document.createElement('img');
+      try {
+        img.src = origCanvas.toDataURL('image/png');
+        img.className = clonedCanvas.className;
+        img.style.cssText = clonedCanvas.style.cssText;
+        clonedCanvas.parentNode?.replaceChild(img, clonedCanvas);
+      } catch (e) {
+        console.error('Failed to serialize canvas for printing:', e);
+      }
+    }
+    
+    // Create an invisible iframe for standalone print compatibility
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
+    
+    const doc = iframe.contentWindow?.document;
+    if (!doc) {
+      toast.error("Imeshindwa kufungua mfungo wa chapa");
+      return;
+    }
+    
+    doc.open();
+    doc.write(`
+      <html>
+        <head>
+          <title>Chapa Stand</title>
+          <script src="https://cdn.tailwindcss.com"></script>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            body { 
+              font-family: 'Inter', sans-serif; 
+              margin: 0; 
+              padding: 0; 
+              background: white; 
+              color: black; 
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            @page {
+              size: A5;
+              margin: 0;
+            }
+            .printable-container {
+              width: 148mm;
+              height: 210mm;
+              padding: 10mm;
+              overflow: hidden;
+              box-sizing: border-box;
+              display: flex;
+              flex-direction: column;
+              background: white;
+            }
+            img, svg {
+              max-width: 100%;
+              max-height: 100%;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="printable-container">
+            ${cloned.innerHTML}
+          </div>
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+                setTimeout(function() {
+                  window.frameElement.remove();
+                }, 100);
+              }, 400);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    doc.close();
   };
 
   const handlePrintOrder = (order: Order) => {
     setOrderToPrint(order);
     setTimeout(() => {
-      window.print();
-    }, 200);
+      const el = document.getElementById('order-receipt');
+      if (!el) {
+        window.print();
+        return;
+      }
+      
+      const cloned = el.cloneNode(true) as HTMLElement;
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      document.body.appendChild(iframe);
+      
+      const doc = iframe.contentWindow?.document;
+      if (!doc) {
+        window.print();
+        return;
+      }
+      
+      doc.open();
+      doc.write(`
+        <html>
+          <head>
+            <title>Stakabadhi ya Malipo</title>
+            <script src="https://cdn.tailwindcss.com"></script>
+            <style>
+              @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+              body { 
+                font-family: 'Inter', sans-serif; 
+                margin: 0; 
+                padding: 15px; 
+                background: white; 
+                color: black; 
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="max-w-md mx-auto">
+              ${cloned.innerHTML}
+            </div>
+            <script>
+              window.onload = function() {
+                setTimeout(function() {
+                  window.print();
+                  setTimeout(function() {
+                    window.frameElement.remove();
+                  }, 100);
+                }, 300);
+              };
+            </script>
+          </body>
+        </html>
+      `);
+      doc.close();
+    }, 300);
   };
 
   const [isExporting, setIsExporting] = useState(false);
@@ -647,16 +826,26 @@ export default function VendorDashboard() {
       // Small delay to ensure styles are applied
       await new Promise(r => setTimeout(r, 500));
       
-      const dataUrl = await toPng(el, { 
-        quality: 1, 
-        pixelRatio: 3,
-        backgroundColor: '#FCFAF2',
-        cacheBust: true,
-        skipFonts: true,
-        style: {
-          borderRadius: '0' // Remove rounded corners for export if needed
-        }
-      });
+      let dataUrl;
+      try {
+        dataUrl = await toPng(el, { 
+          quality: 0.95, 
+          pixelRatio: 2,
+          backgroundColor: '#ffffff',
+          cacheBust: true,
+          skipFonts: true,
+        });
+      } catch (firstErr) {
+        console.warn('First export attempt failed, trying robust fallback options...', firstErr);
+        // Fallback with lower pixel ratio and disabled cacheBust for high-compatibility
+        dataUrl = await toPng(el, {
+          quality: 0.9,
+          pixelRatio: 1.5,
+          backgroundColor: '#ffffff',
+          cacheBust: false,
+          skipFonts: true,
+        });
+      }
       
       const link = document.createElement('a');
       link.download = `QR-Stand-${selectedSection?.number || 'Vendor'}.png`;
@@ -666,7 +855,7 @@ export default function VendorDashboard() {
       toast.success('Stand imepakuliwa kwa mafanikio!', { id: toastId });
     } catch (err) {
       console.error('Export failed:', err);
-      toast.error('Imeshindwa kupakua stand. Jaribu tena.', { id: toastId });
+      toast.error('Imeshindwa kupakua stand. Hakikisha picha zako zote zimewekwa vizuri au tumia kitufe cha Chapa.', { id: toastId });
     } finally {
       setIsExporting(false);
     }
@@ -7136,7 +7325,7 @@ export default function VendorDashboard() {
                           {vendorProfile?.logoUrl && printDetails.showLogo && (
                             <div className="w-12 h-12 mb-1.5 rounded-xl border border-white/10 overflow-hidden relative z-10 bg-white p-1">
                               <img 
-                                src={vendorProfile.logoUrl} 
+                                src={getProxiedImageUrl(vendorProfile.logoUrl)} 
                                 alt="Logo" 
                                 className="w-full h-full object-contain" 
                                 crossOrigin="anonymous"
@@ -7170,7 +7359,7 @@ export default function VendorDashboard() {
                   className="flex-1 flex flex-col items-center justify-between py-6 px-6 text-center relative overflow-hidden"
                   style={{ 
                     backgroundColor: printDetails.contentBg,
-                    backgroundImage: printDetails.bgImage ? `url(${printDetails.bgImage})` : 'none',
+                    backgroundImage: printDetails.bgImage ? `url(${getProxiedImageUrl(printDetails.bgImage)})` : 'none',
                     backgroundSize: 'cover',
                     backgroundPosition: 'center'
                   }}
@@ -7200,7 +7389,7 @@ export default function VendorDashboard() {
                                       {prod.imageUrl ? (
                                         <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 border relative bg-white">
                                           <img 
-                                            src={prod.imageUrl} 
+                                            src={getProxiedImageUrl(prod.imageUrl)} 
                                             alt={prod.name} 
                                             className="w-full h-full object-cover" 
                                             crossOrigin="anonymous"

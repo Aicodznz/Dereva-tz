@@ -148,6 +148,42 @@ async function startServer() {
     }
   });
 
+  // Image proxy to bypass CORS issues for QR stand and print exporting
+  app.get("/api/proxy-image", async (req, res) => {
+    const { url } = req.query;
+    if (!url) return res.status(400).send("url parameter is required");
+    
+    const imageUrl = url as string;
+    
+    try {
+      const response = await fetch(imageUrl, {
+        headers: {
+          'User-Agent': 'PapoHapoSuperApp/1.0',
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+      }
+      
+      const contentType = response.headers.get("content-type");
+      if (contentType) {
+        res.setHeader("Content-Type", contentType);
+      } else {
+        res.setHeader("Content-Type", "image/png");
+      }
+      
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      
+      const arrayBuffer = await response.arrayBuffer();
+      res.send(Buffer.from(arrayBuffer));
+    } catch (error: any) {
+      console.error("Image proxy error:", error);
+      res.status(500).send("Error proxying image");
+    }
+  });
+
   // Helper functions for straight-line georouting fallback
   function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
     const R = 6371e3; // metres
