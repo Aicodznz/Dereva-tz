@@ -138,6 +138,44 @@ import { useBusinessConfig } from '../BusinessConfigContext';
 import LocationPicker from './LocationPicker';
 import Chat from './Chat';
 
+interface MiniQrProps {
+  data: string;
+  size?: number;
+  dotsColor?: string;
+  dotsType?: any;
+}
+
+const MiniQrCode: React.FC<MiniQrProps> = ({ 
+  data, 
+  size = 50, 
+  dotsColor = '#000000', 
+  dotsType = 'square' 
+}) => {
+  const ref = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (ref.current && typeof window !== 'undefined') {
+      ref.current.innerHTML = '';
+      const qr = new QRCodeStyling({
+        width: size,
+        height: size,
+        data: data,
+        dotsOptions: {
+          color: dotsColor,
+          type: dotsType
+        },
+        backgroundOptions: {
+          color: 'transparent'
+        },
+        margin: 1
+      });
+      qr.append(ref.current);
+    }
+  }, [data, size, dotsColor, dotsType]);
+
+  return <div ref={ref} className="shrink-0 flex items-center justify-center bg-white rounded-lg p-1" style={{ width: size + 8, height: size + 8 }} />;
+};
+
 export default function VendorDashboard() {
   const { profile, user } = useAuth();
   const navigate = useNavigate();
@@ -452,6 +490,8 @@ export default function VendorDashboard() {
 
   // QR Builder State
   const [isQrBuilderOpen, setIsQrBuilderOpen] = useState(false);
+  const [showProductsOnStand, setShowProductsOnStand] = useState(false);
+  const [standProductIds, setStandProductIds] = useState<string[]>([]);
   const [printDetails, setPrintDetails] = useState({
     header: '',
     subHeader: 'ORODHA YA KIDIJITALI',
@@ -6893,6 +6933,115 @@ export default function VendorDashboard() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Select Products on Stand Customization */}
+                  <div className="space-y-6 pt-6 border-t border-white/5">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5 text-left">
+                        <label className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Bidhaa Kwenye Stand</label>
+                        <p className="text-[8px] text-neutral-500 uppercase font-bold tracking-tighter leading-snug">Onyesha bidhaa 1 hadi 3 na QR Code zake kwenye Stand</p>
+                      </div>
+                      <button 
+                        onClick={() => setShowProductsOnStand(!showProductsOnStand)}
+                        className={`w-12 h-6 rounded-full transition-all relative flex items-center px-1 shrink-0 ${showProductsOnStand ? 'bg-orange-600' : 'bg-neutral-800'}`}
+                      >
+                        <div className={`w-4 h-4 bg-white rounded-full transition-all shadow-sm ${showProductsOnStand ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                      </button>
+                    </div>
+
+                    {showProductsOnStand && (
+                      <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                        {/* Selected product badges */}
+                        <div className="space-y-1.5 text-left">
+                          <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest block">Bidhaa Zilizochaguliwa ({standProductIds.length}/3)</span>
+                          {standProductIds.length === 0 ? (
+                            <p className="text-[9px] text-neutral-500 italic bg-neutral-900/50 p-3 rounded-xl border border-white/5 text-center">Hujachagua bidhaa yoyote bado. Gonga bidhaa chini kuongeza.</p>
+                          ) : (
+                            <div className="grid grid-cols-1 gap-2">
+                              {standProductIds.map((pId, idx) => {
+                                const prod = products.find(p => p.id === pId);
+                                if (!prod) return null;
+                                return (
+                                  <div key={`sel-prod-${pId}-${idx}`} className="flex items-center justify-between p-2.5 bg-neutral-900 border border-white/5 rounded-xl text-xs gap-3">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                      <span className="w-5 h-5 rounded-full bg-orange-600/10 text-orange-500 font-bold flex items-center justify-center text-[10px] shrink-0 font-mono">#{idx + 1}</span>
+                                      {prod.imageUrl && (
+                                        <img src={prod.imageUrl} alt={prod.name} className="w-7 h-7 rounded-lg object-cover bg-white shrink-0 border border-white/10" referrerPolicy="no-referrer" />
+                                      )}
+                                      <div className="truncate text-left leading-tight">
+                                        <p className="font-bold text-white truncate text-[11px]">{prod.name}</p>
+                                        <p className="text-[9px] text-orange-500 font-black">TSH {Number(prod.price).toLocaleString()}</p>
+                                      </div>
+                                    </div>
+                                    <button 
+                                      onClick={() => setStandProductIds(standProductIds.filter(id => id !== pId))}
+                                      className="text-red-500 hover:text-red-400 p-1.5 hover:bg-red-500/10 rounded-lg transition-colors shrink-0"
+                                    >
+                                      <X className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Inventory selector list */}
+                        <div className="space-y-2 text-left">
+                          <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest block">Gonga bidhaa inayofuata hapa chini (Kikomo: bidhaa 3)</span>
+                          <div className="max-h-60 overflow-y-auto border border-white/5 rounded-2xl bg-black/20 p-2 space-y-1.5 custom-scrollbar">
+                            {products.length === 0 ? (
+                              <p className="text-[9px] text-neutral-500 italic text-center py-4">Hujaongeza bidhaa zozote kwenye akaunti yako bado.</p>
+                            ) : (
+                              products.map((prod) => {
+                                const isSelected = standProductIds.includes(prod.id || '');
+                                return (
+                                  <button
+                                    key={`sel-inventory-${prod.id}`}
+                                    disabled={!isSelected && standProductIds.length >= 3}
+                                    onClick={() => {
+                                      if (isSelected) {
+                                        setStandProductIds(standProductIds.filter(id => id !== prod.id));
+                                      } else {
+                                        setStandProductIds([...standProductIds, prod.id || '']);
+                                      }
+                                    }}
+                                    className={`w-full flex items-center justify-between p-2 rounded-xl text-left text-xs transition-all border ${
+                                      isSelected 
+                                        ? 'bg-orange-600/10 border-orange-500/30 text-white shadow-md' 
+                                        : 'bg-neutral-900 border-white/5 text-neutral-400 hover:bg-neutral-800'
+                                    } disabled:opacity-40 disabled:cursor-not-allowed`}
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      {prod.imageUrl ? (
+                                        <img src={prod.imageUrl} alt={prod.name} className="w-8 h-8 rounded-lg object-cover bg-white shrink-0" referrerPolicy="no-referrer" />
+                                      ) : (
+                                        <div className="w-8 h-8 rounded-lg bg-neutral-800 flex items-center justify-center shrink-0 border border-white/5">
+                                          <Package className="w-4 h-4 text-neutral-500" />
+                                        </div>
+                                      )}
+                                      <div className="truncate text-left leading-tight">
+                                        <p className="font-bold truncate text-white text-[11px]">{prod.name}</p>
+                                        <p className="text-[9px] text-neutral-500 font-bold truncate">{prod.category}</p>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                      <span className="font-mono text-[10px] text-orange-500 font-black">TSH {Number(prod.price).toLocaleString()}</span>
+                                      <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
+                                        isSelected ? 'bg-orange-600 border-orange-500 text-white' : 'border-neutral-700'
+                                      }`}>
+                                        {isSelected && <Check className="w-2.5 h-2.5" />}
+                                      </div>
+                                    </div>
+                                  </button>
+                                );
+                              })
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Preview Panel */}
@@ -6967,11 +7116,69 @@ export default function VendorDashboard() {
                   )}
                           
                           <div className="relative z-10 flex-1 flex flex-col items-center justify-between w-full">
+                            {/* Selected Products Section if enabled */}
+                            {showProductsOnStand && standProductIds.length > 0 && (
+                              <div className="w-full space-y-2 mb-4 select-none">
+                                {standProductIds.map((pId, pIdx) => {
+                                  const prod = products.find(p => p.id === pId);
+                                  if (!prod) return null;
+                                  
+                                  const productUrl = `${window.location.origin}/product/${prod.id}?tableId=${selectedSection?.number || ''}&vendorId=${vendorProfile?.id || ''}`;
+                                  
+                                  return (
+                                    <div 
+                                      key={`stand-p-row-${pId}-${pIdx}`} 
+                                      className="flex items-center gap-2.5 p-2 bg-white/95 text-black rounded-xl border text-left shadow-xs"
+                                      style={{ borderColor: `${printDetails.accentColor}20` }}
+                                    >
+                                      {/* Product Image */}
+                                      {prod.imageUrl ? (
+                                        <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 border relative bg-white">
+                                          <img src={prod.imageUrl} alt={prod.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                          {pIdx === 0 && <span className="absolute top-0 left-0 bg-red-600 text-[5px] text-white font-black px-1 py-0.2 rounded-br-md leading-none">BEST</span>}
+                                          {pIdx === 1 && <span className="absolute top-0 left-0 bg-emerald-600 text-[5px] text-white font-black px-1 py-0.2 rounded-br-md leading-none">CHEF</span>}
+                                          {pIdx === 2 && <span className="absolute top-0 left-0 bg-blue-600 text-[5px] text-white font-black px-1 py-0.2 rounded-br-md leading-none">NEW</span>}
+                                        </div>
+                                      ) : (
+                                        <div className="w-10 h-10 rounded-lg bg-neutral-100 flex items-center justify-center shrink-0 border">
+                                          <Package className="w-4 h-4 text-neutral-400" />
+                                        </div>
+                                      )}
+
+                                      {/* Details */}
+                                      <div className="flex-1 min-w-0">
+                                        <span className="text-[9px] font-black uppercase text-neutral-900 truncate block leading-tight">{prod.name}</span>
+                                        <span className="text-[8.5px] font-black leading-none mt-0.5 block" style={{ color: printDetails.accentColor }}>
+                                          TSH {Number(prod.price).toLocaleString()}
+                                        </span>
+                                        <span className="text-[7px] text-neutral-400 font-bold truncate block mt-0.5 leading-none">{prod.description}</span>
+                                      </div>
+
+                                      {/* Individual Product QR Code */}
+                                      <div className="flex flex-col items-center shrink-0">
+                                        <MiniQrCode 
+                                          data={productUrl}
+                                          size={32}
+                                          dotsColor={printDetails.accentColor}
+                                          dotsType={qrOptions.dotsOptions.type}
+                                        />
+                                        <span className="text-[5px] font-black text-neutral-400 uppercase tracking-tighter mt-0.5 animate-pulse">SCAN</span>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+
                             {/* QR Code Section */}
                             <div className="w-full flex flex-col items-center">
                               {/* Title above QR */}
-                              <div className="bg-neutral-50/80 backdrop-blur-sm px-5 py-1.5 border border-neutral-100 rounded-full mb-4 shadow-sm">
-                                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-neutral-400">BIDHAA ZA {vendorProfile?.businessName?.toUpperCase() || 'DUKA'}</p>
+                              <div className="bg-neutral-50/85 backdrop-blur-sm px-4 py-1 border border-neutral-100 rounded-full mb-3.5 shadow-xs">
+                                <p className="text-[8.5px] font-black uppercase tracking-[0.15em] text-neutral-500 leading-none">
+                                  {showProductsOnStand && standProductIds.length > 0 
+                                    ? 'INGIA KWENYE DUKA / BIDHAA ZOTE' 
+                                    : `BIDHAA ZA ${vendorProfile?.businessName?.toUpperCase() || 'DUKA'}`}
+                                </p>
                               </div>
                             
                             {/* The QR Code itself */}
