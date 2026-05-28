@@ -520,6 +520,11 @@ export default function VendorDashboard() {
   const [bgImageMode, setBgImageMode] = useState<'upload' | 'url'>('upload');
   const [showProductsOnStand, setShowProductsOnStand] = useState(false);
   const [standProductIds, setStandProductIds] = useState<string[]>([]);
+  const [productQrColors, setProductQrColors] = useState<Record<string, string>>({});
+  const [productQrDotsTypes, setProductQrDotsTypes] = useState<Record<string, string>>({});
+  const [productQrTexts, setProductQrTexts] = useState<Record<string, string>>({});
+  const [productBadges, setProductBadges] = useState<Record<string, string>>({});
+  const [activeQrEditProductId, setActiveQrEditProductId] = useState<string | null>(null);
   const [printDetails, setPrintDetails] = useState({
     header: '',
     subHeader: 'ORODHA YA KIDIJITALI',
@@ -7086,24 +7091,152 @@ export default function VendorDashboard() {
                               {standProductIds.map((pId, idx) => {
                                 const prod = products.find(p => p.id === pId);
                                 if (!prod) return null;
+                                const isEditing = activeQrEditProductId === pId;
                                 return (
-                                  <div key={`sel-prod-${pId}-${idx}`} className="flex items-center justify-between p-2.5 bg-neutral-900 border border-white/5 rounded-xl text-xs gap-3">
-                                    <div className="flex items-center gap-2.5 min-w-0">
-                                      <span className="w-5 h-5 rounded-full bg-orange-600/10 text-orange-500 font-bold flex items-center justify-center text-[10px] shrink-0 font-mono">#{idx + 1}</span>
-                                      {prod.imageUrl && (
-                                        <img src={prod.imageUrl} alt={prod.name} className="w-7 h-7 rounded-lg object-cover bg-white shrink-0 border border-white/10" referrerPolicy="no-referrer" />
-                                      )}
-                                      <div className="truncate text-left leading-tight">
-                                        <p className="font-bold text-white truncate text-[11px]">{prod.name}</p>
-                                        <p className="text-[9px] text-orange-500 font-black">TSH {Number(prod.price).toLocaleString()}</p>
+                                  <div key={`sel-prod-${pId}-${idx}`} className="space-y-2">
+                                    <div 
+                                      className={`flex items-center justify-between p-2.5 bg-neutral-900 border rounded-xl icon-cursor text-xs gap-3 transition-all cursor-pointer ${
+                                        isEditing 
+                                          ? 'border-orange-500/60 bg-neutral-900/90 shadow-md shadow-orange-950/20' 
+                                          : 'border-white/5 hover:border-white/10'
+                                      }`}
+                                      onClick={() => setActiveQrEditProductId(isEditing ? null : pId)}
+                                    >
+                                      <div className="flex items-center gap-2.5 min-w-0">
+                                        <span className="w-5 h-5 rounded-full bg-orange-600/10 text-orange-500 font-bold flex items-center justify-center text-[10px] shrink-0 font-mono">#{idx + 1}</span>
+                                        {prod.imageUrl && (
+                                          <img src={prod.imageUrl} alt={prod.name} className="w-7 h-7 rounded-lg object-cover bg-white shrink-0 border border-white/10" referrerPolicy="no-referrer" />
+                                        )}
+                                        <div className="truncate text-left leading-tight">
+                                          <div className="flex items-center gap-1.5 min-w-0">
+                                            <p className="font-bold text-white truncate text-[11px]">{prod.name}</p>
+                                            <Settings className={`w-3 h-3 text-neutral-500 transition-colors shrink-0 ${isEditing ? 'text-orange-500' : ''}`} />
+                                          </div>
+                                          <p className="text-[9px] text-orange-500 font-black">TSH {Number(prod.price).toLocaleString()}</p>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                                        <button 
+                                          onClick={() => setActiveQrEditProductId(isEditing ? null : pId)}
+                                          title="Sanidi QR ya Bidhaa"
+                                          className={`p-1.5 hover:bg-white/5 rounded-lg transition-colors ${isEditing ? 'text-orange-500' : 'text-neutral-400'}`}
+                                        >
+                                          <Settings className="w-4 h-4" />
+                                        </button>
+                                        <button 
+                                          onClick={() => {
+                                            setStandProductIds(standProductIds.filter(id => id !== pId));
+                                            if (isEditing) setActiveQrEditProductId(null);
+                                          }}
+                                          title="Ondoa Bidhaa"
+                                          className="text-red-500 hover:text-red-400 p-1.5 hover:bg-red-500/10 rounded-lg transition-colors"
+                                        >
+                                          <X className="w-4 h-4" />
+                                        </button>
                                       </div>
                                     </div>
-                                    <button 
-                                      onClick={() => setStandProductIds(standProductIds.filter(id => id !== pId))}
-                                      className="text-red-500 hover:text-red-400 p-1.5 hover:bg-red-500/10 rounded-lg transition-colors shrink-0"
-                                    >
-                                      <X className="w-4 h-4" />
-                                    </button>
+
+                                    {/* Collapsible QR Customization Sub-panel */}
+                                    {isEditing && (
+                                      <div className="p-3 bg-neutral-950/90 border border-orange-500/20 rounded-xl space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                                        {/* QR Dots Color Selector */}
+                                        <div className="space-y-1.5 text-left">
+                                          <label className="text-[8.5px] font-black text-neutral-400 uppercase tracking-wider block">Rangi ya QR (QR Dots Color)</label>
+                                          <div className="flex flex-wrap items-center gap-1.5">
+                                            {[
+                                              { name: 'Accent', value: printDetails.accentColor },
+                                              { name: 'Black', value: '#000000' },
+                                              { name: 'Red', value: '#dc2626' },
+                                              { name: 'Emerald', value: '#10b981' },
+                                              { name: 'Blue', value: '#2563eb' },
+                                              { name: 'Purple', value: '#7c3aed' },
+                                              { name: 'Gold', value: '#d97706' },
+                                            ].map((col) => (
+                                              <button
+                                                key={`color-${pId}-${col.name}`}
+                                                type="button"
+                                                onClick={() => setProductQrColors({ ...productQrColors, [pId]: col.value })}
+                                                className={`w-5 h-5 rounded-full border transition-all ${
+                                                  (productQrColors[pId] || printDetails.accentColor) === col.value
+                                                    ? 'border-white scale-110 shadow-md shadow-black/80'
+                                                    : 'border-white/10 hover:border-white/40'
+                                                }`}
+                                                style={{ backgroundColor: col.value }}
+                                                title={col.name}
+                                              />
+                                            ))}
+                                            <input 
+                                              type="color" 
+                                              value={productQrColors[pId] || printDetails.accentColor} 
+                                              onChange={(e) => setProductQrColors({ ...productQrColors, [pId]: e.target.value })}
+                                              className="w-5 h-5 rounded-full border border-white/10 cursor-pointer bg-transparent" 
+                                            />
+                                          </div>
+                                        </div>
+
+                                        {/* QR Dots Shape Selector */}
+                                        <div className="space-y-1.5 text-left">
+                                          <label className="text-[8.5px] font-black text-neutral-400 uppercase tracking-wider block">Mchoro wa QR (QR Shape)</label>
+                                          <div className="grid grid-cols-3 gap-1">
+                                            {[
+                                              { id: 'square', label: 'Mraba' },
+                                              { id: 'dots', label: 'Doa' },
+                                              { id: 'rounded', label: 'Mviringo' },
+                                              { id: 'extra-rounded', label: 'Mviringo+' },
+                                              { id: 'classy', label: 'Kifahari' },
+                                            ].map((shape) => (
+                                              <button
+                                                key={`shape-${pId}-${shape.id}`}
+                                                type="button"
+                                                onClick={() => setProductQrDotsTypes({ ...productQrDotsTypes, [pId]: shape.id })}
+                                                className={`px-1.5 py-1 text-[9px] font-bold rounded-md border text-center transition-all ${
+                                                  (productQrDotsTypes[pId] || 'square') === shape.id
+                                                    ? 'bg-orange-600/20 border-orange-500/50 text-white'
+                                                    : 'bg-neutral-900 border-white/5 text-neutral-400 hover:border-white/10'
+                                                }`}
+                                              >
+                                                {shape.label}
+                                              </button>
+                                            ))}
+                                          </div>
+                                        </div>
+
+                                        {/* QR Custom Scan Text */}
+                                        <div className="space-y-1 text-left">
+                                          <label className="text-[8.5px] font-black text-neutral-400 uppercase tracking-wider block">Maandishi Chini ya QR (Scan Text)</label>
+                                          <input 
+                                            type="text" 
+                                            value={productQrTexts[pId] !== undefined ? productQrTexts[pId] : 'SCAN'} 
+                                            onChange={(e) => setProductQrTexts({ ...productQrTexts, [pId]: e.target.value.toUpperCase() })}
+                                            placeholder="SOMA / AGIZA / SCAN"
+                                            maxLength={8}
+                                            className="w-full px-2.5 py-1.5 text-[10px] bg-neutral-900 border border-white/10 rounded-lg text-white focus:outline-hidden focus:border-orange-500/50 uppercase font-black tracking-wider"
+                                          />
+                                        </div>
+
+                                        {/* Product Corner Badge Customizer */}
+                                        <div className="space-y-1 text-left">
+                                          <label className="text-[8.5px] font-black text-neutral-400 uppercase tracking-wider block">Kibandiko Picha (Badge - p.g. BEST, CHEF, NEW)</label>
+                                          <div className="flex gap-1.5">
+                                            <input 
+                                              type="text" 
+                                              value={productBadges[pId] !== undefined ? productBadges[pId] : (idx === 0 ? 'BEST' : idx === 1 ? 'CHEF' : 'NEW')} 
+                                              onChange={(e) => setProductBadges({ ...productBadges, [pId]: e.target.value.toUpperCase() })}
+                                              placeholder="Hakuna"
+                                              maxLength={8}
+                                              className="flex-1 px-2.5 py-1.5 text-[10px] bg-neutral-900 border border-white/10 rounded-lg text-white focus:outline-hidden focus:border-orange-500/50 uppercase font-extrabold tracking-tight"
+                                            />
+                                            <button
+                                              type="button"
+                                              onClick={() => setProductBadges({ ...productBadges, [pId]: '' })}
+                                              className="px-2.5 py-1.5 text-[9px] bg-neutral-900 border border-white/5 hover:border-white/10 text-neutral-400 rounded-lg font-bold"
+                                            >
+                                              Weka Wazi
+                                            </button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
                                 );
                               })}
@@ -7257,11 +7390,20 @@ export default function VendorDashboard() {
                                   
                                   const productUrl = `${window.location.origin}/product/${prod.id}?tableId=${selectedSection?.number || ''}&vendorId=${vendorProfile?.id || ''}`;
                                   
+                                  const pIdKey = prod.id || '';
+                                  const customBadge = productBadges[pIdKey] !== undefined 
+                                    ? productBadges[pIdKey] 
+                                    : (pIdx === 0 ? 'BEST' : pIdx === 1 ? 'CHEF' : 'NEW');
+                                    
+                                  const customQrColor = productQrColors[pIdKey] || printDetails.accentColor;
+                                  const customQrDotsType = productQrDotsTypes[pIdKey] || qrOptions.dotsOptions.type;
+                                  const customScanText = productQrTexts[pIdKey] !== undefined ? productQrTexts[pIdKey] : 'SCAN';
+                                  
                                   return (
                                     <div 
                                       key={`stand-p-row-${pId}-${pIdx}`} 
-                                      className="flex items-center gap-2.5 p-2 bg-white/95 text-black rounded-xl border text-left shadow-xs"
-                                      style={{ borderColor: `${printDetails.accentColor}20` }}
+                                      className="flex items-center gap-2.5 p-2 bg-white/95 text-black rounded-xl border text-left shadow-xs transition-colors duration-200"
+                                      style={{ borderColor: `${customQrColor}35` }}
                                     >
                                       {/* Product Image */}
                                       {prod.imageUrl ? (
@@ -7282,20 +7424,33 @@ export default function VendorDashboard() {
                                               }
                                             }}
                                           />
-                                          {pIdx === 0 && <span className="absolute top-0 left-0 bg-red-600 text-[5px] text-white font-black px-1 py-0.2 rounded-br-md leading-none">BEST</span>}
-                                          {pIdx === 1 && <span className="absolute top-0 left-0 bg-emerald-600 text-[5px] text-white font-black px-1 py-0.2 rounded-br-md leading-none">CHEF</span>}
-                                          {pIdx === 2 && <span className="absolute top-0 left-0 bg-blue-600 text-[5px] text-white font-black px-1 py-0.2 rounded-br-md leading-none">NEW</span>}
+                                          {customBadge && (
+                                            <span 
+                                              className="absolute top-0 left-0 text-[5px] text-white font-black px-1.5 py-0.5 rounded-br-md leading-none uppercase tracking-tighter"
+                                              style={{ backgroundColor: customQrColor }}
+                                            >
+                                              {customBadge}
+                                            </span>
+                                          )}
                                         </div>
                                       ) : (
-                                        <div className="w-10 h-10 rounded-lg bg-neutral-100 flex items-center justify-center shrink-0 border">
+                                        <div className="w-10 h-10 rounded-lg bg-neutral-100 flex items-center justify-center shrink-0 border relative">
                                           <Package className="w-4 h-4 text-neutral-400" />
+                                          {customBadge && (
+                                            <span 
+                                              className="absolute top-0 left-0 text-[5px] text-white font-black px-1.5 py-0.5 rounded-br-md leading-none uppercase tracking-tighter"
+                                              style={{ backgroundColor: customQrColor }}
+                                            >
+                                              {customBadge}
+                                            </span>
+                                          )}
                                         </div>
                                       )}
 
                                       {/* Details */}
                                       <div className="flex-1 min-w-0">
                                         <span className="text-[9px] font-black uppercase text-neutral-900 truncate block leading-tight">{prod.name}</span>
-                                        <span className="text-[8.5px] font-black leading-none mt-0.5 block" style={{ color: printDetails.accentColor }}>
+                                        <span className="text-[8.5px] font-black leading-none mt-0.5 block" style={{ color: customQrColor }}>
                                           TSH {Number(prod.price).toLocaleString()}
                                         </span>
                                         <span className="text-[7px] text-neutral-400 font-bold truncate block mt-0.5 leading-none">{prod.description}</span>
@@ -7306,10 +7461,15 @@ export default function VendorDashboard() {
                                         <MiniQrCode 
                                           data={productUrl}
                                           size={32}
-                                          dotsColor={printDetails.accentColor}
-                                          dotsType={qrOptions.dotsOptions.type}
+                                          dotsColor={customQrColor}
+                                          dotsType={customQrDotsType}
                                         />
-                                        <span className="text-[5px] font-black text-neutral-400 uppercase tracking-tighter mt-0.5 animate-pulse">SCAN</span>
+                                        <span 
+                                          className="text-[5.5px] font-black uppercase tracking-tighter mt-0.5 animate-pulse"
+                                          style={{ color: customQrColor }}
+                                        >
+                                          {customScanText}
+                                        </span>
                                       </div>
                                     </div>
                                   );
