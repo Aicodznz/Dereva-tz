@@ -222,7 +222,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const staffLogin = async (phone: string, pass: string) => {
     try {
-      // 1. Search for staff member in Firestore
+      // 1. Ensure the user is signed in (anonymously) first to satisfy raw Firestore read security rules for staff
+      let currentUser = auth.currentUser;
+      if (!currentUser) {
+        const userCredential = await signInAnonymously(auth);
+        currentUser = userCredential.user;
+      }
+
+      // 2. Search for staff member in Firestore
       const staffQ = query(
         collection(db, 'staff'), 
         where('phone', '==', phone), 
@@ -232,27 +239,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const staffSnap = await getDocs(staffQ);
 
       if (staffSnap.empty) {
+        // If query failed and this anonymous user was newly created in this run, sign out to be safe and clean
+        if (currentUser.isAnonymous) {
+          await auth.signOut();
+        }
         throw new Error("Samahani, Namba ya simu au Password si sahihi.");
       }
 
       const staffDoc = staffSnap.docs[0];
       const staffData = staffDoc.data();
 
-      // 2. Sign in anonymously to get a UID if not already logged in
-      if (!auth.currentUser) {
-        const userCredential = await signInAnonymously(auth);
-        const newUser = userCredential.user;
-
-        // 3. Link this UID to the staff record so VendorDashboard can find it
-        await updateDoc(doc(db, 'staff', staffDoc.id), {
-          uid: newUser.uid
-        });
-      } else {
-        // If already logged in, just update the link
-        await updateDoc(doc(db, 'staff', staffDoc.id), {
-          uid: auth.currentUser.uid
-        });
-      }
+      // 3. Link this UID to the staff record so VendorDashboard can find it
+      await updateDoc(doc(db, 'staff', staffDoc.id), {
+        uid: currentUser.uid
+      });
 
       toast.success(`Karibu ${staffData.name}!`);
     } catch (error: any) {

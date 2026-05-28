@@ -55,7 +55,7 @@ service cloud.firestore {
     match /staff/{staffId} {
       allow read: if isSignedIn();
       allow create: if isOwner(incoming().vendorOwnerUid);
-      allow update: if isOwner(existing().vendorOwnerUid) || isOwner(existing().uid);
+      allow update: if isOwner(existing().vendorOwnerUid) || isOwner(existing().uid) || (isSignedIn() && incoming().uid == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['uid']));
       allow delete: if isOwner(existing().vendorOwnerUid);
     }
 
