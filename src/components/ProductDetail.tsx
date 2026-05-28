@@ -174,14 +174,37 @@ export default function ProductDetail() {
   }, [vendor?.id]);
 
   useEffect(() => {
-    const savedSession = localStorage.getItem('papo_hapo_table_session');
-    if (savedSession) {
-      const session = JSON.parse(savedSession);
-      // Only use if same vendor
-      if (session.vendorId === id || session.vendorId === product?.vendorId) {
-        setTableSession(session);
-        setOrderType('walk_in');
-        setTableNumber(session.tableId);
+    // 1. Process search query parameters first
+    const params = new URLSearchParams(window.location.search);
+    const urlTableId = params.get('tableId');
+    const urlVendorId = params.get('vendorId');
+
+    if (urlTableId && urlVendorId) {
+      const session = {
+        tableId: urlTableId,
+        vendorId: urlVendorId,
+        timestamp: Date.now()
+      };
+      localStorage.setItem('papo_hapo_table_session', JSON.stringify(session));
+      setTableSession(session);
+      setOrderType('walk_in');
+      setTableNumber(urlTableId);
+    } else {
+      // 2. Fallback to existing saved session
+      const savedSession = localStorage.getItem('papo_hapo_table_session');
+      if (savedSession) {
+        try {
+          const session = JSON.parse(savedSession);
+          // check if same vendor
+          const isSameVendor = product && session.vendorId === product.vendorId;
+          if (isSameVendor || !product) {
+            setTableSession(session);
+            setOrderType('walk_in');
+            setTableNumber(session.tableId);
+          }
+        } catch (e) {
+          console.error("Failed to parse table session:", e);
+        }
       }
     }
   }, [id, product]);

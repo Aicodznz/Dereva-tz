@@ -171,7 +171,7 @@ const MiniQrCode: React.FC<MiniQrProps> = ({
           backgroundOptions: {
             color: '#ffffff'
           },
-          margin: 1
+          margin: 2
         });
         qr.append(ref.current);
       } catch (err) {
@@ -7460,12 +7460,12 @@ export default function VendorDashboard() {
                                       <div className="flex flex-col items-center shrink-0">
                                         <MiniQrCode 
                                           data={productUrl}
-                                          size={32}
+                                          size={56}
                                           dotsColor={customQrColor}
                                           dotsType={customQrDotsType}
                                         />
                                         <span 
-                                          className="text-[5.5px] font-black uppercase tracking-tighter mt-0.5 animate-pulse"
+                                          className="text-[6.5px] font-black uppercase tracking-tighter mt-1 animate-pulse"
                                           style={{ color: customQrColor }}
                                         >
                                           {customScanText}
