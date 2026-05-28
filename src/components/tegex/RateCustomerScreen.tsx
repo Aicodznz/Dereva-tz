@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { Star, Heart, MessageSquare, FastForward } from 'lucide-react';
 import { Ride } from '../../types/ride.types';
 import { db } from '../../firebase';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 
 interface RateCustomerScreenProps {
   ride: Ride;
@@ -32,6 +32,26 @@ export default function RateCustomerScreen({ ride, onDone }: RateCustomerScreenP
         fullyCompleted: true,
         updatedAt: serverTimestamp()
       });
+      
+      // Update customer aggregate rating in users collection
+      if (ride.customerId) {
+        const userRef = doc(db, 'users', ride.customerId);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          const userData = userSnap.data();
+          const currentRating = userData.rating !== undefined ? Number(userData.rating) : 5.0;
+          const currentCount = userData.ratingCount !== undefined ? Number(userData.ratingCount) : 0;
+          
+          const newCount = currentCount + 1;
+          const newRating = ((currentRating * currentCount) + rating) / newCount;
+          
+          await updateDoc(userRef, {
+            rating: parseFloat(newRating.toFixed(1)),
+            ratingCount: newCount,
+            updatedAt: serverTimestamp()
+          });
+        }
+      }
       
       onDone();
     } catch (e) {

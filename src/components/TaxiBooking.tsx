@@ -1739,6 +1739,50 @@ export default function TaxiBooking() {
         rated: true,
         updatedAt: serverTimestamp(),
       });
+
+      // Update driver aggregate rating in users collection
+      if (activeRide?.driverId) {
+        const driverId = activeRide.driverId;
+        const userRef = doc(db, "users", driverId);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          const userData = userSnap.data();
+          const currentRating = userData.rating !== undefined ? Number(userData.rating) : 4.8;
+          const currentCount = userData.ratingCount !== undefined ? Number(userData.ratingCount) : 0;
+          
+          const newCount = currentCount + 1;
+          const newRating = ((currentRating * currentCount) + ratingValue) / newCount;
+          
+          await updateDoc(userRef, {
+            rating: parseFloat(newRating.toFixed(1)),
+            ratingCount: newCount,
+            updatedAt: serverTimestamp()
+          });
+        }
+
+        // Also update driver rating in the temporary drivers tracking collection if they are listed there
+        try {
+          const driverTrackingRef = doc(db, "drivers", driverId);
+          const trackingSnap = await getDoc(driverTrackingRef);
+          if (trackingSnap.exists()) {
+            const trackingData = trackingSnap.data();
+            const currentRating = trackingData.rating !== undefined ? Number(trackingData.rating) : 4.8;
+            const currentCount = trackingData.ratingCount !== undefined ? Number(trackingData.ratingCount) : 0;
+            
+            const newCount = currentCount + 1;
+            const newRating = ((currentRating * currentCount) + ratingValue) / newCount;
+
+            await updateDoc(driverTrackingRef, {
+              rating: parseFloat(newRating.toFixed(1)),
+              ratingCount: newCount,
+              updatedAt: serverTimestamp()
+            });
+          }
+        } catch (e) {
+          console.warn("Could not update temporary driver presence rating:", e);
+        }
+      }
+
       toast.success("Asante kwa maoni yako!");
       setTimeout(() => navigate("/"), 1500);
     } catch (err) {
@@ -2215,13 +2259,17 @@ export default function TaxiBooking() {
 
                         if (["accepted", "driver_arriving"].includes(activeRide.status)) {
                           if (driverApproachRouteRef.current.length === 0 && driverPosObj) {
-                            driverApproachRouteRef.current = generateSimulatedRoads(
+                            const roads = generateSimulatedRoads(
                               [driverPosObj.lat, driverPosObj.lng],
                               [activeRide.pickup.lat, activeRide.pickup.lng]
                             );
+                            driverApproachRouteRef.current = roads;
+                            if (approachRoute.length === 0) {
+                              setApproachRoute(roads);
+                            }
                           }
                           const slicedApproachRoute = sliceRouteFromCurrentPos(
-                            driverApproachRouteRef.current,
+                            approachRoute.length > 0 ? approachRoute : driverApproachRouteRef.current,
                             driverPosObj
                           );
 

@@ -81,6 +81,9 @@ export function useRouting(pickup: [number, number], destination: [number, numbe
     time: number;
   } | null>(null);
 
+  const lastFetchingPositionRef = useRef<[number, number] | null>(null);
+  const lastFetchingDestinationRef = useRef<[number, number] | null>(null);
+
   const lat1 = pickup ? Number(pickup[0]) : NaN;
   const lng1 = pickup ? Number(pickup[1]) : NaN;
   const lat2 = destination ? Number(destination[0]) : NaN;
@@ -108,6 +111,15 @@ export function useRouting(pickup: [number, number], destination: [number, numbe
     };
 
     const fetchRoute = async () => {
+      // Check if we already have an in-flight fetch for almost the exact same path to prevent request loops
+      if (lastFetchingPositionRef.current && lastFetchingDestinationRef.current) {
+        const distPickup = getDistMeters(currentPickup, lastFetchingPositionRef.current);
+        const distDest = getDistMeters(currentDest, lastFetchingDestinationRef.current);
+        if (distPickup < 30 && distDest < 30) {
+          return;
+        }
+      }
+
       // Check cache/rate-limiting first
       if (lastFetchedRef.current) {
         const distPickup = getDistMeters(currentPickup, lastFetchedRef.current.pickup);
@@ -173,8 +185,26 @@ export function useRouting(pickup: [number, number], destination: [number, numbe
         }
       }
 
+      // Record in-flight fetch coordinates
+      lastFetchingPositionRef.current = currentPickup;
+      lastFetchingDestinationRef.current = currentDest;
+
       // Initialize route with simulated roads grid immediately so we never have layout jumps or straight line flashes!
       setData((prev) => {
+        // ONLY generate a fresh simulated route if we don't have RouteCoords yet OR if the destination has shifted significantly
+        const hasPrevCoords = prev.routeCoords && prev.routeCoords.length > 0;
+        const destShifted = lastFetchedRef.current
+          ? getDistMeters(currentDest, lastFetchedRef.current.destination) > 100
+          : true;
+
+        if (hasPrevCoords && !destShifted) {
+          return {
+            ...prev,
+            isLoading: true,
+            error: null,
+          };
+        }
+
         const initialSimRoute = generateSimulatedRoads(currentPickup, currentDest);
         return {
           ...prev,

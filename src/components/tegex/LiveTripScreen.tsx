@@ -193,13 +193,62 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
               {/* Share Trip Button */}
               <button 
                 onClick={() => {
-                  navigator.clipboard.writeText(window.location.href);
-                  toast.success("Link ya safari imenakiliwa!");
+                  const shareUrl = window.location.origin + "/taxi";
+                  const textToCopy = shareUrl;
+                  
+                  const showSuccessToast = () => {
+                    toast.success("Link ya safari imenakiliwa kwenye clipboard!", {
+                      description: "Sasa unaweza kumtumia mtu yeyote ashiriki safari yako."
+                    });
+                  };
+
+                  if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(textToCopy)
+                      .then(() => {
+                        showSuccessToast();
+                      })
+                      .catch(() => {
+                        // Fallback method for cross-origin iframes
+                        const textArea = document.createElement("textarea");
+                        textArea.value = textToCopy;
+                        textArea.style.position = "fixed";
+                        textArea.style.top = "0";
+                        textArea.style.left = "0";
+                        textArea.style.opacity = "0";
+                        document.body.appendChild(textArea);
+                        textArea.focus();
+                        textArea.select();
+                        const success = document.execCommand("copy");
+                        document.body.removeChild(textArea);
+                        if (success) {
+                          showSuccessToast();
+                        } else {
+                          toast.error("Imeshindwa kunakili link!");
+                        }
+                      });
+                  } else {
+                    const textArea = document.createElement("textarea");
+                    textArea.value = textToCopy;
+                    textArea.style.position = "fixed";
+                    textArea.style.top = "0";
+                    textArea.style.left = "0";
+                    textArea.style.opacity = "0";
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+                    const success = document.execCommand("copy");
+                    document.body.removeChild(textArea);
+                    if (success) {
+                      showSuccessToast();
+                    } else {
+                      toast.error("Imeshindwa kunakili link!");
+                    }
+                  }
                 }}
                 className="col-span-1 bg-white/5 border border-white/5 hover:bg-white/10 text-white rounded-2xl flex flex-col items-center justify-center text-center transition-all p-2 active:scale-95 cursor-pointer"
               >
                 <span className="text-[14px] mb-0.5">🔗</span>
-                <span className="text-[8px] font-black uppercase tracking-widest text-[#8A8FA8] hover:text-white">Share</span>
+                <span className="text-[8px] font-black uppercase tracking-widest text-[#8a8fa8] hover:text-white">Share</span>
               </button>
 
               {/* Chat Button */}
