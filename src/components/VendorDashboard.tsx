@@ -160,9 +160,9 @@ const MiniQrCode: React.FC<MiniQrProps> = ({
       try {
         ref.current.innerHTML = '';
         const qr = new QRCodeStyling({
-          width: size,
-          height: size,
-          type: 'svg',
+          width: size * 2,
+          height: size * 2,
+          type: 'canvas',
           data: data || 'https://papo-hapo.com',
           dotsOptions: {
             color: dotsColor || '#000000',
@@ -188,7 +188,7 @@ const MiniQrCode: React.FC<MiniQrProps> = ({
   return (
     <div 
       ref={ref} 
-      className="shrink-0 flex items-center justify-center bg-white rounded-lg p-0.5 border border-neutral-100 shadow-xs" 
+      className="shrink-0 flex items-center justify-center bg-white rounded-lg p-0.5 border border-neutral-100 shadow-xs [&>svg]:w-full [&>svg]:h-full [&>svg]:block [&>canvas]:w-full [&>canvas]:h-full" 
       style={{ width: size + 4, height: size + 4 }} 
     />
   );
@@ -651,100 +651,12 @@ export default function VendorDashboard() {
       return;
     }
     
-    // Create a clone of the element to avoid modifying the active view
-    const cloned = el.cloneNode(true) as HTMLElement;
+    document.body.classList.add('printing-stand');
+    window.print();
     
-    // Find all canvas elements in original and cloned
-    const originalCanvases = el.querySelectorAll('canvas');
-    const clonedCanvases = cloned.querySelectorAll('canvas');
-    
-    // Convert canvases to base64 images so they are fully serializable and print/render perfectly
-    for (let i = 0; i < originalCanvases.length; i++) {
-      const origCanvas = originalCanvases[i] as HTMLCanvasElement;
-      const clonedCanvas = clonedCanvases[i] as HTMLCanvasElement;
-      
-      const img = document.createElement('img');
-      try {
-        img.src = origCanvas.toDataURL('image/png');
-        img.className = clonedCanvas.className;
-        img.style.cssText = clonedCanvas.style.cssText;
-        clonedCanvas.parentNode?.replaceChild(img, clonedCanvas);
-      } catch (e) {
-        console.error('Failed to serialize canvas for printing:', e);
-      }
-    }
-    
-    // Create an invisible iframe for standalone print compatibility
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = '0';
-    document.body.appendChild(iframe);
-    
-    const doc = iframe.contentWindow?.document;
-    if (!doc) {
-      toast.error("Imeshindwa kufungua mfungo wa chapa");
-      return;
-    }
-    
-    doc.open();
-    doc.write(`
-      <html>
-        <head>
-          <title>Chapa Stand</title>
-          <script src="https://cdn.tailwindcss.com"></script>
-          <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
-            body { 
-              font-family: 'Inter', sans-serif; 
-              margin: 0; 
-              padding: 0; 
-              background: white; 
-              color: black; 
-              -webkit-print-color-adjust: exact;
-              print-color-adjust: exact;
-            }
-            @page {
-              size: A5;
-              margin: 0;
-            }
-            .printable-container {
-              width: 148mm;
-              height: 210mm;
-              padding: 10mm;
-              overflow: hidden;
-              box-sizing: border-box;
-              display: flex;
-              flex-direction: column;
-              background: white;
-            }
-            img, svg {
-              max-width: 100%;
-              max-height: 100%;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="printable-container">
-            ${cloned.innerHTML}
-          </div>
-          <script>
-            window.onload = function() {
-              setTimeout(function() {
-                window.print();
-                setTimeout(function() {
-                  window.frameElement.remove();
-                }, 100);
-              }, 400);
-            };
-          </script>
-        </body>
-      </html>
-    `);
-    doc.close();
+    setTimeout(() => {
+      document.body.classList.remove('printing-stand');
+    }, 1000);
   };
 
   const handlePrintOrder = (order: Order) => {
@@ -752,63 +664,16 @@ export default function VendorDashboard() {
     setTimeout(() => {
       const el = document.getElementById('order-receipt');
       if (!el) {
-        window.print();
+        toast.error("Imeshindwa kupata stakabadhi");
         return;
       }
       
-      const cloned = el.cloneNode(true) as HTMLElement;
-      const iframe = document.createElement('iframe');
-      iframe.style.position = 'fixed';
-      iframe.style.right = '0';
-      iframe.style.bottom = '0';
-      iframe.style.width = '0';
-      iframe.style.height = '0';
-      iframe.style.border = '0';
-      document.body.appendChild(iframe);
+      document.body.classList.add('printing-receipt');
+      window.print();
       
-      const doc = iframe.contentWindow?.document;
-      if (!doc) {
-        window.print();
-        return;
-      }
-      
-      doc.open();
-      doc.write(`
-        <html>
-          <head>
-            <title>Stakabadhi ya Malipo</title>
-            <script src="https://cdn.tailwindcss.com"></script>
-            <style>
-              @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
-              body { 
-                font-family: 'Inter', sans-serif; 
-                margin: 0; 
-                padding: 15px; 
-                background: white; 
-                color: black; 
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-              }
-            </style>
-          </head>
-          <body>
-            <div class="max-w-md mx-auto">
-              ${cloned.innerHTML}
-            </div>
-            <script>
-              window.onload = function() {
-                setTimeout(function() {
-                  window.print();
-                  setTimeout(function() {
-                    window.frameElement.remove();
-                  }, 100);
-                }, 300);
-              };
-            </script>
-          </body>
-        </html>
-      `);
-      doc.close();
+      setTimeout(() => {
+        document.body.classList.remove('printing-receipt');
+      }, 1000);
     }, 300);
   };
 
@@ -834,6 +699,7 @@ export default function VendorDashboard() {
           backgroundColor: '#ffffff',
           cacheBust: true,
           skipFonts: true,
+          imagePlaceholder: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
         });
       } catch (firstErr) {
         console.warn('First export attempt failed, trying robust fallback options...', firstErr);
@@ -844,6 +710,7 @@ export default function VendorDashboard() {
           backgroundColor: '#ffffff',
           cacheBust: false,
           skipFonts: true,
+          imagePlaceholder: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
         });
       }
       
@@ -7186,17 +7053,24 @@ export default function VendorDashboard() {
                   </div>
 
                   {/* Select Products on Stand Customization */}
-                  <div className="space-y-6 pt-6 border-t border-white/5">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5 text-left">
-                        <label className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Bidhaa Kwenye Stand</label>
-                        <p className="text-[8px] text-neutral-500 uppercase font-bold tracking-tighter leading-snug">Onyesha bidhaa 1 hadi 3 na QR Code zake kwenye Stand</p>
+                  <div className="space-y-6 pt-6 border-t border-white/5 p-5 bg-orange-600/5 rounded-3xl border border-orange-500/10 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-orange-650/10 rounded-full blur-2xl group-hover:bg-orange-600/15 transition-all duration-300"></div>
+                    <div className="flex items-center justify-between relative z-10">
+                      <div className="space-y-1 text-left">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
+                          <label className="text-[11px] font-black text-white uppercase tracking-[0.2em] font-sans">Bidhaa Kwenye Stand</label>
+                          <span className="bg-orange-600/20 text-orange-500 text-[7.5px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-widest font-mono">NEW</span>
+                        </div>
+                        <p className="text-[9px] text-neutral-400 font-bold leading-normal">
+                          Onyesha bidhaa 1 hadi 3 na QR Code zake kwenye Stand (Show 1 to 3 select products with direct QR codes on the stand)
+                        </p>
                       </div>
                       <button 
                         onClick={() => setShowProductsOnStand(!showProductsOnStand)}
-                        className={`w-12 h-6 rounded-full transition-all relative flex items-center px-1 shrink-0 ${showProductsOnStand ? 'bg-orange-600' : 'bg-neutral-800'}`}
+                        className={`w-14 h-7 rounded-full transition-all relative flex items-center px-1 shrink-0 ${showProductsOnStand ? 'bg-orange-600 shadow-md shadow-orange-950/40' : 'bg-neutral-800'}`}
                       >
-                        <div className={`w-4 h-4 bg-white rounded-full transition-all shadow-sm ${showProductsOnStand ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                        <div className={`w-5 h-5 bg-white rounded-full transition-all shadow-sm ${showProductsOnStand ? 'translate-x-[26px]' : 'translate-x-0'}`}></div>
                       </button>
                     </div>
 
@@ -7333,7 +7207,11 @@ export default function VendorDashboard() {
                                 onError={(e) => {
                                   const target = e.target as HTMLImageElement;
                                   target.removeAttribute('crossOrigin');
-                                  target.src = `https://api.dicebear.com/7.x/initials/svg?seed=${vendorProfile?.businessName}`;
+                                  if (target.src.includes('/api/proxy-image')) {
+                                    target.src = vendorProfile?.logoUrl || '';
+                                  } else {
+                                    target.src = `https://api.dicebear.com/7.x/initials/svg?seed=${vendorProfile?.businessName}`;
+                                  }
                                 }}
                               />
                             </div>
@@ -7395,7 +7273,13 @@ export default function VendorDashboard() {
                                             crossOrigin="anonymous"
                                             referrerPolicy="no-referrer" 
                                             onError={(e) => {
-                                              (e.target as HTMLImageElement).removeAttribute('crossOrigin');
+                                              const target = e.target as HTMLImageElement;
+                                              target.removeAttribute('crossOrigin');
+                                              if (target.src.includes('/api/proxy-image')) {
+                                                target.src = prod.imageUrl || '';
+                                              } else {
+                                                target.src = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=100&auto=format&fit=crop";
+                                              }
                                             }}
                                           />
                                           {pIdx === 0 && <span className="absolute top-0 left-0 bg-red-600 text-[5px] text-white font-black px-1 py-0.2 rounded-br-md leading-none">BEST</span>}
@@ -7906,32 +7790,36 @@ export default function VendorDashboard() {
 
       <style dangerouslySetInnerHTML={{ __html: `
         .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
+          width: 8px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #262626;
+          background: rgba(0, 0, 0, 0.3);
           border-radius: 10px;
         }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #ea580c;
+          border-radius: 10px;
+          border: 1px solid rgba(255, 255, 255, 0.05);
+        }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #404040;
+          background: #f97316;
         }
 
         @media print {
-          @page {
-            size: A5;
-            margin: 0;
-          }
           body {
             visibility: hidden !important;
             background: white !important;
           }
-          #printable-stand, #printable-stand *, #order-receipt, #order-receipt * {
+          
+          /* Show/Style stand when printing-stand class is active */
+          body.printing-stand {
+            visibility: hidden !important;
+          }
+          body.printing-stand #printable-stand,
+          body.printing-stand #printable-stand * {
             visibility: visible !important;
           }
-          #printable-stand {
+          body.printing-stand #printable-stand {
             position: fixed !important;
             left: 0 !important;
             top: 0 !important;
@@ -7946,7 +7834,19 @@ export default function VendorDashboard() {
             display: flex !important;
             flex-direction: column !important;
           }
-          #order-receipt {
+          body.printing-stand #order-receipt {
+            display: none !important;
+          }
+
+          /* Show/Style receipt when printing-receipt class is active */
+          body.printing-receipt {
+            visibility: hidden !important;
+          }
+          body.printing-receipt #order-receipt,
+          body.printing-receipt #order-receipt * {
+            visibility: visible !important;
+          }
+          body.printing-receipt #order-receipt {
              position: fixed !important;
              left: 0 !important;
              top: 0 !important;
@@ -7961,6 +7861,10 @@ export default function VendorDashboard() {
              border: none !important;
              box-shadow: none !important;
           }
+          body.printing-receipt #printable-stand {
+            display: none !important;
+          }
+          
           #order-receipt * {
              color: black !important;
              border-color: #d4d4d4 !important;
@@ -7993,6 +7897,8 @@ export default function VendorDashboard() {
              background-color: #ea580c !important;
              color: white !important;
              -webkit-print-color-adjust: exact;
+             -webkit-print-color-adjust: exact;
+             print-color-adjust: exact;
           }
         }
       `}} />

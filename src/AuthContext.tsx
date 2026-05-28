@@ -204,15 +204,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await signInWithEmailAndPassword(auth, cleanEmail, pass);
     } catch (error: any) {
-      console.error('Login error:', error);
+      const errorCode = error.code || '';
+      if (errorCode === 'auth/invalid-credential' || errorCode === 'auth/wrong-password' || errorCode === 'auth/user-not-found') {
+        console.warn('Login Auth Warning:', error.message || error);
+      } else {
+        console.error('Login error:', error);
+      }
       if (error.code === 'auth/configuration-not-found') {
         toast.error("Firebase Auth haijaanzishwa.", {
           description: "Washa 'Email/Password' auth kwenye Firebase Console.",
           duration: 10000
         });
-      } else if (error.code === 'auth/invalid-credential') {
-        // This is handled in the UI component as well, but we log more context here if needed
-        console.warn('Invalid credentials provided');
       }
       throw error;
     }

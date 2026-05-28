@@ -15,6 +15,7 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isCredentialError, setIsCredentialError] = useState(false);
   const { signIn, login, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
@@ -29,13 +30,12 @@ export default function Login() {
     if (!email || !password) return;
 
     setLoading(true);
+    setIsCredentialError(false);
     try {
       await login(email.trim(), password);
       toast.success(t('welcome_back'));
       navigate('/');
     } catch (error: any) {
-      console.error('Login error details:', error);
-      
       const errorMessage = error.message || '';
       const errorCode = error.code || '';
 
@@ -44,8 +44,11 @@ export default function Login() {
           errorMessage.includes('Invalid login credentials') ||
           errorCode === 'auth/wrong-password' || 
           errorCode === 'auth/user-not-found') {
+        console.warn('Authentication failure info (credential error):', errorMessage);
+        setIsCredentialError(true);
         toast.error(t('invalid_email_or_password'));
       } else {
+        console.error('Login non-credential error details:', error);
         toast.error(errorMessage || t('login_failed'));
       }
     } finally {
@@ -113,6 +116,20 @@ export default function Login() {
         >
           {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : t('sign_in')}
         </Button>
+
+        {isCredentialError && (
+          <div className="p-4 bg-orange-50 border border-orange-200/60 rounded-2xl space-y-2 text-xs text-orange-950 transition-all duration-300">
+            <p className="font-extrabold flex items-center gap-1 text-orange-850 uppercase tracking-tight text-[11px]">
+               Msaada wa Kuingia / Helpful Tip
+            </p>
+            <p className="leading-relaxed">
+              <strong>Kiswahili:</strong> Kama bado hujasajili akaunti hii kwenye mradi mpya wa Firebase, tafadhali bofya <strong>"Jisajili"</strong> (Sign up) hapo chini ili kutengeneza akaunti yako kwanza.
+            </p>
+            <p className="leading-relaxed">
+              <strong>English:</strong> If you have not registered this email on this new Firebase project, please click <strong>"Sign up"</strong> at the bottom to create your credentials first.
+            </p>
+          </div>
+        )}
 
         <div className="relative py-4">
           <div className="absolute inset-0 flex items-center">
