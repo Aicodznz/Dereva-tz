@@ -91,35 +91,92 @@ export function useMatchmaking(ride: Ride | null) {
       if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
 
       const driverPos = ride.driverLocation || { lat: ride.pickup.lat + 0.005, lng: ride.pickup.lng + 0.005 };
-      const approachRoute = generateSimulatedRoads(
-        [driverPos.lat, driverPos.lng],
-        [ride.pickup.lat, ride.pickup.lng]
-      );
 
-      let stepIdx = 0;
-      console.log(`[Simulation] Starting approach simulation to pickup. Route steps: ${approachRoute.length}`);
+      const runSimulation = (coords: [number, number][]) => {
+        let stepIdx = 0;
+        console.log(`[Simulation] Starting approach simulation to pickup. Route steps: ${coords.length}`);
 
-      simulationIntervalRef.current = setInterval(async () => {
-        if (stepIdx < approachRoute.length) {
-          const nextCoord = approachRoute[stepIdx];
-          
-          await updateDoc(doc(db, 'rides', rideId), {
-            driverLocation: { lat: nextCoord[0], lng: nextCoord[1] },
-            updatedAt: serverTimestamp()
-          });
-          stepIdx += 2; // Move 2 steps at a time for smooth pace
-        } else {
-          console.log("[Simulation] Mock Driver arrived at pickup!");
-          clearInterval(simulationIntervalRef.current);
-          simulationIntervalRef.current = null;
+        simulationIntervalRef.current = setInterval(async () => {
+          if (stepIdx < coords.length) {
+            const nextCoord = coords[stepIdx];
+            
+            await updateDoc(doc(db, 'rides', rideId), {
+              driverLocation: { lat: nextCoord[0], lng: nextCoord[1] },
+              updatedAt: serverTimestamp()
+            });
+            stepIdx += 2; // Move 2 steps at a time for smooth pace
+          } else {
+            console.log("[Simulation] Mock Driver arrived at pickup!");
+            clearInterval(simulationIntervalRef.current);
+            simulationIntervalRef.current = null;
 
-          await updateDoc(doc(db, 'rides', rideId), {
-            status: 'driver_arrived',
-            driverLocation: { lat: ride.pickup.lat, lng: ride.pickup.lng },
-            updatedAt: serverTimestamp()
-          });
+            await updateDoc(doc(db, 'rides', rideId), {
+              status: 'driver_arrived',
+              driverLocation: { lat: ride.pickup.lat, lng: ride.pickup.lng },
+              updatedAt: serverTimestamp()
+            });
+          }
+        }, 1500);
+      };
+
+      // Fetch real routing coordinates asynchronously
+      const fetchRealApproach = async () => {
+        const pickupStr = `${ride.pickup.lng},${ride.pickup.lat}`;
+        const startStr = `${driverPos.lng},${driverPos.lat}`;
+        const url = `/api/geo/route?coords=${encodeURIComponent(startStr + ";" + pickupStr)}`;
+
+        try {
+          const res = await fetch(url);
+          if (res.ok) {
+            let json = await res.json();
+            if (json.isFallback) {
+              const directUrls = [
+                `https://router.project-osrm.org/route/v1/driving/${startStr};${pickupStr}?overview=full&geometries=geojson&steps=true`,
+                `https://routing.openstreetmap.de/routed-car/route/v1/driving/${startStr};${pickupStr}?overview=full&geometries=geojson&steps=true`,
+                `http://router.project-osrm.org/route/v1/driving/${startStr};${pickupStr}?overview=full&geometries=geojson&steps=true`,
+                `http://routing.openstreetmap.de/routed-car/route/v1/driving/${startStr};${pickupStr}?overview=full&geometries=geojson&steps=true`
+              ];
+              for (const directUrl of directUrls) {
+                try {
+                  const clientRes = await fetch(directUrl);
+                  if (clientRes.ok) {
+                    const clientJson = await clientRes.json();
+                    if (clientJson && clientJson.code === "Ok" && clientJson.routes && clientJson.routes.length > 0) {
+                      json = clientJson;
+                      break;
+                    }
+                  }
+                } catch (e) {
+                  console.warn("Direct approach fetch failed in matchmaking:", e);
+                }
+              }
+            }
+
+            if (json.code === "Ok" && json.routes && json.routes.length > 0) {
+              const route = json.routes[0];
+              const coords: [number, number][] = route.geometry.coordinates.map(
+                (c: number[]) => [c[1], c[0]] as [number, number]
+              );
+              if (coords.length > 0) {
+                console.log("[Simulation] Successfully fetched real roads for driver approach route!");
+                runSimulation(coords);
+                return;
+              }
+            }
+          }
+        } catch (e) {
+          console.error("[Simulation] Failed to fetch real approach route:", e);
         }
-      }, 1500);
+
+        // Fallback simulated roads
+        const fallbackRoute = generateSimulatedRoads(
+          [driverPos.lat, driverPos.lng],
+          [ride.pickup.lat, ride.pickup.lng]
+        );
+        runSimulation(fallbackRoute);
+      };
+
+      fetchRealApproach();
 
       return () => {
         if (simulationIntervalRef.current) {
