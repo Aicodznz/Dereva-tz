@@ -364,9 +364,71 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
   const [showTopInfo, setShowTopInfo] = useState(false);
   const [rideId, setRideId] = useState<string | null>(null);
   const { ride: activeRide } = useRideStatus(rideId);
+  const [realTripRoute, setRealTripRoute] = useState<[number, number][]>([]);
 
   const driverApproachRouteRef = React.useRef<[number, number][]>([]);
   const lastActiveRideIdStatusRef = React.useRef<string>("");
+
+  useEffect(() => {
+    if (!activeRide) {
+      setRealTripRoute([]);
+      return;
+    }
+
+    const { pickup, destination } = activeRide;
+    if (!pickup || !destination) return;
+
+    const fetchTripRoute = async () => {
+      const pickupStr = `${pickup.lng},${pickup.lat}`;
+      const destStr = `${destination.lng},${destination.lat}`;
+      const url = `/api/geo/route?coords=${encodeURIComponent(pickupStr + ";" + destStr)}`;
+
+      try {
+        const response = await fetch(url);
+        if (response.ok) {
+          let json = await response.json();
+          if (json.isFallback) {
+            const directUrls = [
+              `https://router.project-osrm.org/route/v1/driving/${pickupStr};${destStr}?overview=full&geometries=geojson&steps=true`,
+              `https://routing.openstreetmap.de/routed-car/route/v1/driving/${pickupStr};${destStr}?overview=full&geometries=geojson&steps=true`,
+              `http://router.project-osrm.org/route/v1/driving/${pickupStr};${destStr}?overview=full&geometries=geojson&steps=true`,
+              `http://routing.openstreetmap.de/routed-car/route/v1/driving/${pickupStr};${destStr}?overview=full&geometries=geojson&steps=true`
+            ];
+            for (const directUrl of directUrls) {
+              try {
+                const clientRes = await fetch(directUrl);
+                if (clientRes.ok) {
+                  const clientJson = await clientRes.json();
+                  if (clientJson && clientJson.code === "Ok" && clientJson.routes && clientJson.routes.length > 0) {
+                    json = clientJson;
+                    break;
+                  }
+                }
+              } catch (e) {
+                console.warn("Direct trip fetch failed in RiderHome:", e);
+              }
+            }
+          }
+
+          if (json.code === "Ok" && json.routes && json.routes.length > 0) {
+            const route = json.routes[0];
+            const coords: [number, number][] = route.geometry.coordinates.map(
+              (c: number[]) => [c[1], c[0]] as [number, number]
+            );
+            if (coords.length > 0) {
+              console.log("[RiderHome] Successfully fetched real-world street curves for trip route!");
+              setRealTripRoute(coords);
+              return;
+            }
+          }
+        }
+      } catch (e) {
+        console.error("[RiderHome] Failed to fetch real trip route:", e);
+      }
+    };
+
+    fetchTripRoute();
+  }, [activeRide?.id, activeRide?.pickup?.lat, activeRide?.destination?.lat]);
 
   useEffect(() => {
     if (!activeRide) {
@@ -1648,10 +1710,13 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
 
                 {/* 1. Beautiful Underlay & Sliced Overlay Routes */}
                 {(() => {
+                  const hasRealTripRoute = realTripRoute && realTripRoute.length > 0;
                   const hasFullRoute = activeRide.routeCoords && activeRide.routeCoords.length > 0;
-                  const fullTripRoute = hasFullRoute 
-                    ? getNormalizedCoords(activeRide.routeCoords)
-                    : generateSimulatedRoads([activeRide.pickup.lat, activeRide.pickup.lng], [activeRide.destination.lat, activeRide.destination.lng]);
+                  const fullTripRoute = hasRealTripRoute
+                    ? realTripRoute
+                    : (hasFullRoute 
+                        ? getNormalizedCoords(activeRide.routeCoords)
+                        : generateSimulatedRoads([activeRide.pickup.lat, activeRide.pickup.lng], [activeRide.destination.lat, activeRide.destination.lng]));
 
                   if (activeRide.status === "on_trip") {
                     const slicedTripRoute = sliceRouteFromCurrentPos(fullTripRoute, position);
