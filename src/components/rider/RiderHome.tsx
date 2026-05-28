@@ -1679,14 +1679,22 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
                   }
 
                   if (["accepted", "driver_arriving"].includes(activeRide.status)) {
-                    if (driverApproachRouteRef.current.length === 0 && position) {
-                      driverApproachRouteRef.current = generateSimulatedRoads(
-                        [position[0], position[1]],
-                        [activeRide.pickup.lat, activeRide.pickup.lng]
-                      );
+                    const roadCoordsToUse = (dynamicRoute && dynamicRoute.length > 0)
+                      ? dynamicRoute
+                      : (driverApproachRouteRef.current.length > 0 ? driverApproachRouteRef.current : generateSimulatedRoads(
+                          [position[0], position[1]],
+                          [activeRide.pickup.lat, activeRide.pickup.lng]
+                        ));
+
+                    // Keep driverApproachRouteRef updated as a fallback reference
+                    if (dynamicRoute && dynamicRoute.length > 0) {
+                      driverApproachRouteRef.current = dynamicRoute;
+                    } else if (driverApproachRouteRef.current.length === 0 && position) {
+                      driverApproachRouteRef.current = roadCoordsToUse;
                     }
+
                     const slicedApproachRoute = sliceRouteFromCurrentPos(
-                      driverApproachRouteRef.current,
+                      roadCoordsToUse,
                       position
                     );
 

@@ -413,15 +413,17 @@ async function startServer() {
 
     const headers = {
       'Accept': 'application/json',
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+      'User-Agent': 'PapoHapoTaxiBookingApp/2.5 (contact: aicodtznation@gmail.com; Swahili Ride Sharing Service; Dar es Salaam, TZ; ID: ddaad525-5a9f-4093-9fef-3a0ab9a965b7)'
     };
 
     const raceServices = async (urls: string[], timeoutMs = 3500): Promise<{ data: any, source: string }> => {
       const fetchOne = async (url: string) => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
         try {
           const res = await fetch(url, {
             headers,
-            signal: AbortSignal.timeout(timeoutMs)
+            signal: controller.signal
           });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const contentType = res.headers.get("content-type");
@@ -435,6 +437,8 @@ async function startServer() {
           throw new Error(`JSON code non-Ok: ${json?.code}`);
         } catch (e: any) {
           throw new Error(`Failed url ${url}: ${e.message}`);
+        } finally {
+          clearTimeout(timeoutId);
         }
       };
 
