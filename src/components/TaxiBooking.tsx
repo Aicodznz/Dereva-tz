@@ -716,11 +716,13 @@ export default function TaxiBooking() {
   const driverBearingsRef = useRef<Record<string, { lat: number; lng: number; bearing: number }>>({});
 
   const driverApproachRouteRef = useRef<[number, number][]>([]);
+  const [approachRoute, setApproachRoute] = useState<[number, number][]>([]);
   const lastActiveRideIdStatusRef = useRef<string>("");
 
   useEffect(() => {
     if (!activeRide) {
       driverApproachRouteRef.current = [];
+      setApproachRoute([]);
       lastActiveRideIdStatusRef.current = "";
       return;
     }
@@ -730,16 +732,70 @@ export default function TaxiBooking() {
       lastActiveRideIdStatusRef.current = currentKey;
 
       if (["accepted", "driver_arriving"].includes(activeRide.status) && activeRide.driverLocation) {
-        // Generate approach route once!
         const startLoc = activeRide.driverLocation;
         const pickupLoc = activeRide.pickup;
-        const generated = generateSimulatedRoads(
+
+        // Immediately populate a quick simulated fallback so there is zero rendering delay
+        const initialSim = generateSimulatedRoads(
           [startLoc.lat, startLoc.lng],
           [pickupLoc.lat, pickupLoc.lng]
         );
-        driverApproachRouteRef.current = generated;
+        driverApproachRouteRef.current = initialSim;
+        setApproachRoute(initialSim);
+
+        // Fetch precise real-world street routing
+        const fetchRealApproach = async () => {
+          try {
+            const pickupStr = `${pickupLoc.lng},${pickupLoc.lat}`;
+            const startStr = `${startLoc.lng},${startLoc.lat}`;
+            const url = `/api/geo/route?coords=${encodeURIComponent(startStr + ";" + pickupStr)}`;
+            const response = await fetch(url);
+            if (!response.ok) throw new Error("API server response failed");
+            let json = await response.json();
+
+            if (json.isFallback) {
+              const directUrls = [
+                `https://router.project-osrm.org/route/v1/driving/${startStr};${pickupStr}?overview=full&geometries=geojson&steps=true`,
+                `https://routing.openstreetmap.de/routed-car/route/v1/driving/${startStr};${pickupStr}?overview=full&geometries=geojson&steps=true`,
+                `http://router.project-osrm.org/route/v1/driving/${startStr};${pickupStr}?overview=full&geometries=geojson&steps=true`,
+                `http://routing.openstreetmap.de/routed-car/route/v1/driving/${startStr};${pickupStr}?overview=full&geometries=geojson&steps=true`
+              ];
+              for (const directUrl of directUrls) {
+                try {
+                  const clientRes = await fetch(directUrl);
+                  if (clientRes.ok) {
+                    const clientJson = await clientRes.json();
+                    if (clientJson && clientJson.code === "Ok" && clientJson.routes && clientJson.routes.length > 0) {
+                      json = clientJson;
+                      break;
+                    }
+                  }
+                } catch (errDirect) {
+                  console.warn("Direct approach fetch failed:", errDirect);
+                }
+              }
+            }
+
+            if (json.code === "Ok" && json.routes && json.routes.length > 0) {
+              const route = json.routes[0];
+              const coords: [number, number][] = route.geometry.coordinates.map(
+                (c: number[]) => [c[1], c[0]] as [number, number]
+              );
+              if (coords.length > 0) {
+                driverApproachRouteRef.current = coords;
+                setApproachRoute(coords);
+                console.log("[Customer View] Driver approach route fetched from real roads API successfully!");
+              }
+            }
+          } catch (err) {
+            console.error("Failed to fetch real driver approach route:", err);
+          }
+        };
+
+        fetchRealApproach();
       } else {
         driverApproachRouteRef.current = [];
+        setApproachRoute([]);
       }
     }
   }, [activeRide?.id, activeRide?.status, activeRide?.driverLocation?.lat, activeRide?.driverLocation?.lng]);
