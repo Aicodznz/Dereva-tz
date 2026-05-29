@@ -25,6 +25,14 @@ service cloud.firestore {
       return resource.data;
     }
 
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'aicodtznation@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
     // -------------------------------------------------------------------------
     // PHASE 2: COLLECTION RULES
     // -------------------------------------------------------------------------
@@ -42,29 +50,30 @@ service cloud.firestore {
     match /vendors/{vendorId} {
       allow read: if true; // Public access to browse stores
       allow create: if isSignedIn(); // Any signed-in user can become a vendor
-      allow update: if isOwner(existing().ownerUid) || (isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
-      allow delete: if isOwner(existing().ownerUid);
+      allow update: if isOwner(existing().ownerUid) || isAdmin();
+      allow delete: if isOwner(existing().ownerUid) || isAdmin();
 
       match /sections/{sectionId} {
         allow read: if true;
-        allow write: if isOwner(get(/databases/$(database)/documents/vendors/$(vendorId)).data.ownerUid);
+        allow write: if isSignedIn();
       }
     }
 
     // 3. STAFF COLLECTION
     match /staff/{staffId} {
       allow read: if isSignedIn();
-      allow create: if isOwner(incoming().vendorOwnerUid);
-      allow update: if isOwner(existing().vendorOwnerUid) || isOwner(existing().uid) || (isSignedIn() && incoming().uid == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['uid']));
-      allow delete: if isOwner(existing().vendorOwnerUid);
+      allow create: if isOwner(incoming().vendorOwnerUid) || isAdmin();
+      allow update: if isOwner(existing().vendorOwnerUid) || isOwner(existing().uid) || (isSignedIn() && incoming().uid == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['uid'])) || isAdmin();
+      allow delete: if isOwner(existing().vendorOwnerUid) || isAdmin();
     }
 
     // 4. RIDES COLLECTION
     match /rides/{rideId} {
       allow read: if isSignedIn() && (
+        existing().status == 'pending' ||
         isOwner(existing().customerId) || 
         isOwner(existing().driverId) || 
-        (isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)))
+        isAdmin()
       );
       allow create: if isSignedIn();
       allow update: if isSignedIn();
@@ -74,7 +83,8 @@ service cloud.firestore {
     match /orders/{orderId} {
       allow read: if isSignedIn() && (
         isOwner(existing().customerId) || 
-        isOwner(get(/databases/$(database)/documents/vendors/$(existing().vendorId)).data.ownerUid)
+        isOwner(get(/databases/$(database)/documents/vendors/$(existing().vendorId)).data.ownerUid) ||
+        isAdmin()
       );
       allow create: if isSignedIn();
       allow update: if isSignedIn();
@@ -84,18 +94,18 @@ service cloud.firestore {
     match /products/{productId} {
       allow read: if true;
       allow create: if isSignedIn();
-      allow update, delete: if isOwner(get(/databases/$(database)/documents/vendors/$(existing().vendorId)).data.ownerUid);
+      allow update, delete: if isOwner(get(/databases/$(database)/documents/vendors/$(existing().vendorId)).data.ownerUid) || isAdmin();
     }
 
     // 7. DRIVERS COLLECTION
     match /drivers/{driverId} {
       allow read: if true;
-      allow write: if isOwner(driverId);
+      allow write: if isOwner(driverId) || isAdmin();
     }
 
     // 8. NOTIFICATIONS
     match /notifications/{notifId} {
-      allow read: if isOwner(existing().userId);
+      allow read: if isOwner(existing().userId) || isAdmin();
       allow create: if isSignedIn();
     }
 
@@ -112,13 +122,73 @@ service cloud.firestore {
       allow create: if isSignedIn();
       allow update, delete: if isSignedIn() && (
         (resource != null && existing().submittedBy == request.auth.uid) ||
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        isAdmin()
       );
     }
 
-    // Default deny
+    // 11. TABLES
+    match /tables/{tableId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    // 12. BRANCHES
+    match /branches/{branchId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    // 13. REVIEWS
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+    }
+
+    // 14. REVIEW REPLIES
+    match /review_replies/{replyId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    // 15. BANNERS
+    match /banners/{bannerId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 16. COUPONS
+    match /coupons/{couponId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    // 17. PAYOUTS
+    match /payouts/{payoutId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // 18. PAYMENTS
+    match /payments/{paymentId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // 19. PARCELS
+    match /parcels/{parcelId} {
+      allow read: if isSignedIn() && (
+        existing().status == 'pending' ||
+        existing().customerId == request.auth.uid ||
+        existing().partnerId == request.auth.uid ||
+        isAdmin()
+      );
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+    }
+
+    // Default deny for safety
     match /{document=**} {
-      allow read, write: if isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+      allow read, write: if isSignedIn() && isAdmin();
     }
   }
 }
