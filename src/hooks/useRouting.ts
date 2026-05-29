@@ -25,41 +25,20 @@ export function generateSimulatedRoads(start: [number, number], end: [number, nu
   const dLat = lat2 - lat1;
   const dLng = lng2 - lng1;
 
-  const corners: [number, number][] = [];
-  corners.push(start);
+  const route: [number, number][] = [];
+  route.push(start);
 
   const dist = Math.sqrt(dLat * dLat + dLng * dLng) * 111000;
-
-  if (dist < 250) {
-    corners.push([lat1 + dLat * 0.5, lng1]);
-    corners.push([lat1 + dLat * 0.5, lng2]);
-  } else {
-    corners.push([lat1 + dLat * 0.25, lng1]);
-    corners.push([lat1 + dLat * 0.25, lng1 + dLng * 0.4]);
-    corners.push([lat1 + dLat * 0.75, lng1 + dLng * 0.4]);
-    corners.push([lat1 + dLat * 0.75, lng2]);
+  // Interpolating every ~12 meters for super smooth animation and tracking
+  const numSteps = Math.max(3, Math.floor(dist / 12));
+  for (let k = 1; k < numSteps; k++) {
+    const r = k / numSteps;
+    route.push([
+      lat1 + dLat * r,
+      lng1 + dLng * r
+    ]);
   }
-  corners.push(end);
-
-  const route: [number, number][] = [];
-  for (let i = 0; i < corners.length - 1; i++) {
-    const c1 = corners[i];
-    const c2 = corners[i + 1];
-
-    if (route.length === 0 || route[route.length - 1][0] !== c1[0] || route[route.length - 1][1] !== c1[1]) {
-      route.push(c1);
-    }
-
-    const segDist = Math.sqrt((c2[0] - c1[0]) ** 2 + (c2[1] - c1[1]) ** 2) * 111000;
-    const numSteps = Math.max(1, Math.floor(segDist / 12)); // fine-grained interpolation
-    for (let k = 1; k < numSteps; k++) {
-      const r = k / numSteps;
-      route.push([
-        c1[0] + (c2[0] - c1[0]) * r,
-        c1[1] + (c2[1] - c1[1]) * r
-      ]);
-    }
-  }
+  
   route.push(end);
   return route;
 }

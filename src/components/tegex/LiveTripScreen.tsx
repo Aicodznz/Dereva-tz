@@ -49,6 +49,7 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
   const { distance, eta } = useDriverTracking(ride.driverLocation, targetLocation);
   
   const [isCollapsed, setIsCollapsed] = React.useState(false);
+  const [showShareModal, setShowShareModal] = React.useState(false);
   const showDetails = !isMinimized && !isCollapsed;
 
   // Progress calculation
@@ -192,60 +193,8 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
 
               {/* Share Trip Button */}
               <button 
-                onClick={() => {
-                  const shareUrl = window.location.origin + "/taxi";
-                  const textToCopy = shareUrl;
-                  
-                  const showSuccessToast = () => {
-                    toast.success("Link ya safari imenakiliwa kwenye clipboard!", {
-                      description: "Sasa unaweza kumtumia mtu yeyote ashiriki safari yako."
-                    });
-                  };
-
-                  if (navigator.clipboard && navigator.clipboard.writeText) {
-                    navigator.clipboard.writeText(textToCopy)
-                      .then(() => {
-                        showSuccessToast();
-                      })
-                      .catch(() => {
-                        // Fallback method for cross-origin iframes
-                        const textArea = document.createElement("textarea");
-                        textArea.value = textToCopy;
-                        textArea.style.position = "fixed";
-                        textArea.style.top = "0";
-                        textArea.style.left = "0";
-                        textArea.style.opacity = "0";
-                        document.body.appendChild(textArea);
-                        textArea.focus();
-                        textArea.select();
-                        const success = document.execCommand("copy");
-                        document.body.removeChild(textArea);
-                        if (success) {
-                          showSuccessToast();
-                        } else {
-                          toast.error("Imeshindwa kunakili link!");
-                        }
-                      });
-                  } else {
-                    const textArea = document.createElement("textarea");
-                    textArea.value = textToCopy;
-                    textArea.style.position = "fixed";
-                    textArea.style.top = "0";
-                    textArea.style.left = "0";
-                    textArea.style.opacity = "0";
-                    document.body.appendChild(textArea);
-                    textArea.focus();
-                    textArea.select();
-                    const success = document.execCommand("copy");
-                    document.body.removeChild(textArea);
-                    if (success) {
-                      showSuccessToast();
-                    } else {
-                      toast.error("Imeshindwa kunakili link!");
-                    }
-                  }
-                }}
-                className="col-span-1 bg-white/5 border border-white/5 hover:bg-white/10 text-white rounded-2xl flex flex-col items-center justify-center text-center transition-all p-2 active:scale-95 cursor-pointer"
+                onClick={() => setShowShareModal(true)}
+                className="col-span-1 bg-white/5 border border-white/5 hover:bg-white/10 text-white rounded-2xl flex flex-col items-center justify-center text-center transition-all p-2 active:scale-95 cursor-pointer pointer-events-auto"
               >
                 <span className="text-[14px] mb-0.5">🔗</span>
                 <span className="text-[8px] font-black uppercase tracking-widest text-[#8a8fa8] hover:text-white">Share</span>
@@ -292,6 +241,104 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
               <span>Onesha Maelezo</span>
               <span className="text-base text-white/80 animate-bounce">▲</span>
             </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Share Modal Dialog */}
+      <AnimatePresence>
+        {showShareModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4 pointer-events-auto"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 15 }}
+              className="bg-[#111118] border border-white/10 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4"
+            >
+              <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                <h3 className="text-sm font-black text-white uppercase tracking-wider">Shiriki Safari</h3>
+                <button 
+                  onClick={() => setShowShareModal(false)}
+                  className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/60 hover:text-white transition-colors text-xs"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <p className="text-xs text-[#8a8fa8] leading-relaxed">
+                Ndugu au rafiki anaweza kufuatilia safari yako kwa wakati halisi kupitia kiungo hiki:
+              </p>
+
+              <div className="space-y-2">
+                <input 
+                  type="text" 
+                  readOnly 
+                  value={window.location.origin + "/taxi?rideId=" + ride.id}
+                  onClick={(e) => (e.target as HTMLInputElement).select()}
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-[#00E5A0] font-mono text-center select-all focus:outline-none focus:border-[#00E5A0]/50 text-xs"
+                />
+                <p className="text-[10px] text-center text-white/40 italic">
+                  Gusa kiungo hapo juu ili kukichagua na kukopi
+                </p>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={() => {
+                    const shareUrl = window.location.origin + "/taxi?rideId=" + ride.id;
+                    const showSuccessToast = () => {
+                      toast.success("Kiungo kimenakiliwa!", {
+                        description: "Sasa unaweza kumtumia mtu yeyote ashiriki safari yako."
+                      });
+                    };
+
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                      navigator.clipboard.writeText(shareUrl)
+                        .then(() => {
+                          showSuccessToast();
+                          setShowShareModal(false);
+                        })
+                        .catch(() => {
+                          // Fallback manual copy attempt
+                          try {
+                            const input = document.createElement("input");
+                            input.value = shareUrl;
+                            document.body.appendChild(input);
+                            input.select();
+                            document.execCommand("copy");
+                            document.body.removeChild(input);
+                            showSuccessToast();
+                            setShowShareModal(false);
+                          } catch (err) {
+                            toast.error("Tafadhali chagua na kunakili kiungo manually");
+                          }
+                        });
+                    } else {
+                      try {
+                        const input = document.createElement("input");
+                        input.value = shareUrl;
+                        document.body.appendChild(input);
+                        input.select();
+                        document.execCommand("copy");
+                        document.body.removeChild(input);
+                        showSuccessToast();
+                        setShowShareModal(false);
+                      } catch (err) {
+                        toast.error("Tafadhali chagua na kunakili kiungo manually");
+                      }
+                    }
+                  }}
+                  className="w-full bg-[#00E5A0] hover:bg-[#00c585] text-[#0a0a0f] py-3 rounded-2xl text-xs font-black uppercase tracking-wider transition-all active:scale-95"
+                >
+                  Kopi Kiungo 🔗
+                </button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

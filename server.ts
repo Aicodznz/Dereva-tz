@@ -238,24 +238,12 @@ async function startServer() {
       const dLng = lng2 - lng1;
       const dLat = lat2 - lat1;
 
-      // Define local grid corners for this segment
+      // Define local corners for direct path interpolation
       const segmentCorners: number[][] = [];
       segmentCorners.push(start);
+      segmentCorners.push(end);
 
       const dist = calculateDistance(lat1, lng1, lat2, lng2);
-
-      if (dist < 250) {
-        // Very short distance: 1 corner (Manhattan turn)
-        segmentCorners.push([lng1 + dLng * 0.5, lat1]);
-        segmentCorners.push([lng1 + dLng * 0.5, lat2]);
-      } else {
-        // Long distance: Generate city street blocks with 3/4 turns zigzag to simulate residential/urban grids
-        segmentCorners.push([lng1 + dLng * 0.25, lat1]);
-        segmentCorners.push([lng1 + dLng * 0.25, lat1 + dLat * 0.4]);
-        segmentCorners.push([lng1 + dLng * 0.75, lat1 + dLat * 0.4]);
-        segmentCorners.push([lng1 + dLng * 0.75, lat2]);
-      }
-      segmentCorners.push(end);
 
       // Interpolate points along these street corners to make the line perfectly smooth and detailed
       const segmentInterp: number[][] = [];

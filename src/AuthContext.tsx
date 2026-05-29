@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth, db, handleFirestoreError, OperationType } from './firebase';
 import { User as FirebaseUser, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInAnonymously, GoogleAuthProvider, signInWithPopup, updatePassword } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp, collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp, collection, query, where, getDocs, limit, onSnapshot } from 'firebase/firestore';
 import { toast } from 'sonner';
 import { UserProfile, UserRole } from './types';
 
@@ -30,11 +30,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      if (currentUser) {
-        await fetchProfile(currentUser.uid);
-      } else {
+      if (!currentUser) {
         setProfile(null);
         setStaffProfile(null);
         setLoading(false);
@@ -44,60 +42,68 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  const fetchProfile = async (uid: string) => {
-    const path = `users/${uid}`;
-    try {
-      // 1. Check users collection
-      const docRef = doc(db, 'users', uid);
-      const docSnap = await getDoc(docRef);
+  useEffect(() => {
+    if (!user) return;
 
-      if (docSnap.exists()) {
-        setProfile(docSnap.data() as UserProfile);
-        setStaffProfile(null);
-      } else {
-        // 2. Check staff collection
-        const staffQ = query(collection(db, 'staff'), where('uid', '==', uid), limit(1));
-        const staffSnap = await getDocs(staffQ);
-
-        if (!staffSnap.empty) {
-          const staffData = staffSnap.docs[0].data();
-          setStaffProfile({ id: staffSnap.docs[0].id, ...staffData });
-          // Synthesize a profile for staff so Dashboard knows where to go
-          setProfile({
-            uid: uid,
-            role: 'vendor', // Staff acts as vendor (they go to VendorDashboard)
-            email: '',
-          } as any);
+    setLoading(true);
+    const path = `users/${user.uid}`;
+    
+    // Subscribe to driver/passenger profile with live updates
+    const unsubProfile = onSnapshot(doc(db, 'users', user.uid), async (docSnap) => {
+      try {
+        if (docSnap.exists()) {
+          setProfile(docSnap.data() as UserProfile);
+          setStaffProfile(null);
+          setLoading(false);
         } else {
-          // Profile doesn't exist, check if we should create it
-          const currentUser = auth.currentUser;
-          if (currentUser) {
-            const isAdminEmail = currentUser.email === 'aicodtznation@gmail.com';
-            const newProfile: any = {
-              uid: currentUser.uid,
-              email: currentUser.email || '',
-              displayName: currentUser.displayName || (isAdminEmail ? 'Super Admin' : ''),
-              fullName: currentUser.displayName || (isAdminEmail ? 'Super Admin' : ''),
-              photoURL: currentUser.photoURL || '',
-              role: isAdminEmail ? 'admin' : 'customer',
-              walletBalance: 0,
-              points: 0,
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-            };
+          // Check staff collection
+          const staffQ = query(collection(db, 'staff'), where('uid', '==', user.uid), limit(1));
+          const staffSnap = await getDocs(staffQ);
 
-            await setDoc(doc(db, 'users', currentUser.uid), newProfile);
-            setProfile(newProfile);
-            setStaffProfile(null);
+          if (!staffSnap.empty) {
+            const staffData = staffSnap.docs[0].data();
+            setStaffProfile({ id: staffSnap.docs[0].id, ...staffData });
+            setProfile({
+              uid: user.uid,
+              role: 'vendor',
+              email: '',
+            } as any);
+          } else {
+            // Profile does not exist, check if we should create it
+            const currentUser = auth.currentUser;
+            if (currentUser) {
+              const isAdminEmail = currentUser.email === 'aicodtznation@gmail.com';
+              const newProfile: any = {
+                uid: currentUser.uid,
+                email: currentUser.email || '',
+                displayName: currentUser.displayName || (isAdminEmail ? 'Super Admin' : ''),
+                fullName: currentUser.displayName || (isAdminEmail ? 'Super Admin' : ''),
+                photoURL: currentUser.photoURL || '',
+                role: isAdminEmail ? 'admin' : 'customer',
+                walletBalance: 0,
+                points: 0,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+              };
+
+              await setDoc(doc(db, 'users', currentUser.uid), newProfile);
+              setProfile(newProfile);
+              setStaffProfile(null);
+            }
           }
         }
+      } catch (error) {
+        handleFirestoreError(error, OperationType.GET, path);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      handleFirestoreError(error, OperationType.GET, path);
-    } finally {
+    }, (error) => {
+      console.error("Live profile sync error:", error);
       setLoading(false);
-    }
-  };
+    });
+
+    return () => unsubProfile();
+  }, [user]);
 
   const signIn = async () => {
     const provider = new GoogleAuthProvider();

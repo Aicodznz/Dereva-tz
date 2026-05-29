@@ -894,8 +894,16 @@ export default function TaxiBooking() {
     return sliced;
   };
 
-  // Persistence: Look for active rides on mount
+  // Persistence/Sharing: Look for active rides or shared rides on mount
   useEffect(() => {
+    const paramRideId = searchParams.get("rideId");
+    if (paramRideId) {
+      console.log("[TaxiBooking] Loading shared ride from url param:", paramRideId);
+      setRideId(paramRideId);
+      setIsRestoring(false);
+      return;
+    }
+
     if (!user) {
       setIsRestoring(false);
       return;
@@ -951,7 +959,7 @@ export default function TaxiBooking() {
     );
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, searchParams]);
 
   // Live Tracking: Synchronize specialized states from the active ride
   useEffect(() => {

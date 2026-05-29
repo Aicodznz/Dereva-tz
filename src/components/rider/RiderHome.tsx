@@ -1103,7 +1103,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
         name: profile?.displayName || 'Dereva',
         initials: (profile?.displayName || 'D').split(' ').map(n => n[0]).join(''),
         plate: profile?.licensePlate || 'T 123 ABC',
-        rating: 4.8,
+        rating: profile?.rating !== undefined && profile?.rating > 0 ? Number(profile.rating) : 4.8,
         phone: profile?.phoneNumber || '0700000000',
         photo: profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`,
         vehicle: {
