@@ -9,6 +9,7 @@ import { useBusinessConfig } from '../BusinessConfigContext';
 import { initiatePayment } from '../services/paymentService';
 import { Product, VendorProfile, FAQ } from '../types';
 import ReviewSection from './reviews/ReviewSection';
+import MabasiMaarufuFlow from './MabasiMaarufuFlow';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   ChevronLeft, 
@@ -1029,6 +1030,18 @@ export default function ProductDetail() {
       </div>
     );
   };
+
+  const isBusTrip = product?.category === 'bus_ticket' || vendor?.category === 'bus_ticket' || product?.vendorCategory === 'bus_ticket';
+
+  if (isBusTrip && product) {
+    return (
+      <div className="min-h-screen bg-neutral-950 pb-12">
+        <div className="max-w-7xl mx-auto px-1 md:px-8 pt-4 lg:pt-8 bg-neutral-950">
+          <MabasiMaarufuFlow product={product} vendor={vendor} onBackToTripSelection={() => navigate(-1)} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-950 lg:bg-neutral-50 lg:dark:bg-neutral-950 pb-12 transition-colors">
