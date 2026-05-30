@@ -14,6 +14,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 interface BusBookingProps {
   vendors: VendorProfile[];
@@ -57,20 +58,26 @@ export default function BusBooking({ vendors, products }: BusBookingProps) {
     .map(p => (p as any).destination as string)
   )).sort();
 
-  const handleSearch = () => {
+  const handleSearch = (originOverride?: any, destOverride?: string) => {
     setIsSearching(true);
     setHasSearched(true);
     
+    const targetOrigin = (typeof originOverride === 'string') ? originOverride : search.origin;
+    const targetDest = (typeof destOverride === 'string') ? destOverride : search.destination;
+
     // Simulate search delay
     setTimeout(() => {
-      const filtered = products.filter(p => {
+       const filtered = products.filter(p => {
         const isBus = p.vendorCategory === 'bus_ticket';
-        const matchesOrigin = !search.origin || (p as any).origin?.toLowerCase().includes(search.origin.toLowerCase());
-        const matchesDest = !search.destination || (p as any).destination?.toLowerCase().includes(search.destination.toLowerCase());
+        const matchesOrigin = !targetOrigin || (p as any).origin?.toLowerCase().includes(targetOrigin.toLowerCase());
+        const matchesDest = !targetDest || (p as any).destination?.toLowerCase().includes(targetDest.toLowerCase());
         return isBus && matchesOrigin && matchesDest;
       });
       setResults(filtered);
       setIsSearching(false);
+      if (filtered.length === 0) {
+        toast.error("Safari haijapatikana. Jaribu kubadilisha tarehe au mji unapotafuta.");
+      }
     }, 800);
   };
 
@@ -132,11 +139,22 @@ export default function BusBooking({ vendors, products }: BusBookingProps) {
               </div>
 
               <div className="space-y-2 relative">
-                <div className="hidden md:block absolute -left-8 top-1/2 -translate-y-1/2 z-20">
-                  <div className="w-8 h-8 bg-orange-600 rounded-full flex items-center justify-center text-white shadow-xl border-4 border-white">
+                <button
+                  type="button"
+                  title="Swap / Badilisha Vituo"
+                  onClick={() => {
+                    setSearch(prev => ({
+                      ...prev,
+                      origin: prev.destination,
+                      destination: prev.origin
+                    }));
+                  }}
+                  className="hidden md:block absolute -left-8 top-11 -translate-y-1/2 z-20 hover:scale-110 active:scale-95 transition-all text-white focus:outline-none"
+                >
+                  <div className="w-8 h-8 bg-orange-600 hover:bg-orange-700 rounded-full flex items-center justify-center shadow-xl border-4 border-white cursor-pointer select-none">
                     <ArrowRight className="w-4 h-4" />
                   </div>
-                </div>
+                </button>
                 <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 flex items-center gap-2">
                   <MapPin className="w-3 h-3 text-orange-500" />
                   Kwenda (To)
@@ -206,11 +224,12 @@ export default function BusBooking({ vendors, products }: BusBookingProps) {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.05 }}
                   className="group"
-                  onClick={() => navigate(`/product/${trip.id}?booking=true`)}
+                  onClick={() => navigate(`/product/${trip.id}?booking=true&date=${search.date}`)}
                 >
-                  <Card className="overflow-hidden rounded-[2rem] border-2 border-neutral-100 hover:border-orange-500/30 transition-all cursor-pointer group-hover:shadow-2xl group-hover:shadow-orange-600/5">
+                  <Card className="overflow-hidden rounded-[2rem] border-2 border-neutral-100 hover:border-orange-500/30 transition-all cursor-pointer group-hover:shadow-2xl group-hover:shadow-orange-600/5 bg-white">
                     <CardContent className="p-0">
-                      <div className="flex flex-col md:flex-row items-stretch">
+                      {/* Desktop View */}
+                      <div className="hidden md:flex flex-row items-stretch">
                         {/* Vendor & Bus Branding */}
                         <div className="w-full md:w-64 bg-neutral-50 p-6 flex flex-col items-center justify-center space-y-4 border-r border-neutral-100">
                           <div className="w-20 h-20 bg-white rounded-3xl p-1 shadow-xl border border-neutral-100 relative group-hover:scale-105 transition-transform duration-500">
@@ -297,13 +316,76 @@ export default function BusBooking({ vendors, products }: BusBookingProps) {
                              </div>
                              
                              <div className="flex items-center gap-2">
-                               <div className="sm:hidden text-right mr-4">
-                                 <p className="text-xl font-black text-orange-600 italic">TZS {trip.price.toLocaleString()}</p>
-                               </div>
                                <Button className="rounded-2xl bg-neutral-900 hover:bg-orange-600 text-white font-black uppercase tracking-widest text-[10px] px-6 h-11 transition-all">
                                  Book Ticket
                                </Button>
                              </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Mobile View Layout (stunningly compact, matching Maraliner ticket format) */}
+                      <div className="block md:hidden p-5 bg-white space-y-5 rounded-[2rem]">
+                        {/* Top: Logo + Brand + Price */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 bg-neutral-50 rounded-full p-1 shadow-md border border-neutral-100 shrink-0 flex items-center justify-center">
+                              <img 
+                                src={vendor?.logoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${vendor?.businessName || 'Bus'}`} 
+                                alt="Bus Logo" 
+                                className="w-full h-full object-contain rounded-full"
+                              />
+                            </div>
+                            <div className="space-y-0.5">
+                              <h4 className="font-extrabold text-sm text-neutral-800 uppercase italic tracking-tight leading-tight">
+                                {vendor?.businessName}
+                              </h4>
+                              <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">
+                                AC Seater
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-base font-black text-orange-600 italic tracking-tighter">
+                              TZS {trip.price.toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Mid/Bottom: Route Line Tracker */}
+                        <div className="grid grid-cols-3 items-center pt-3 border-t border-dashed border-neutral-100">
+                          {/* Origin */}
+                          <div className="text-left space-y-1">
+                            <p className="text-xs font-bold text-neutral-500 uppercase tracking-tight truncate">
+                              {(trip as any).origin || 'Dar'}
+                            </p>
+                            <p className="text-base font-extrabold text-orange-600 leading-none">
+                              {(trip as any).departureTime || '06:00'}
+                            </p>
+                          </div>
+
+                          {/* Timeline Progress Tracker */}
+                          <div className="flex flex-col items-center justify-center space-y-1">
+                            <div className="w-full flex items-center gap-1 px-1">
+                              <div className="flex-1 border-t-2 border-dotted border-orange-200" />
+                              <div className="w-7 h-7 rounded-full bg-orange-50 flex items-center justify-center shadow-inner border border-orange-100 shrink-0">
+                                <Bus className="w-3.5 h-3.5 text-orange-600" />
+                              </div>
+                              <div className="flex-1 border-t-2 border-dotted border-orange-200" />
+                            </div>
+                            <span className="text-[9px] font-black text-neutral-400 uppercase tracking-widest text-center">
+                              {(trip as any).duration || '12h'}
+                            </span>
+                          </div>
+
+                          {/* Destination */}
+                          <div className="text-right space-y-1">
+                            <p className="text-xs font-bold text-neutral-500 uppercase tracking-tight truncate">
+                              {(trip as any).destination || 'Arusha'}
+                            </p>
+                            <p className="text-base font-extrabold text-orange-600 leading-none">
+                              {(trip as any).arrivalTime || '18:00'}
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -358,7 +440,7 @@ export default function BusBooking({ vendors, products }: BusBookingProps) {
                 className="bg-white p-6 rounded-[2rem] border-2 border-neutral-100 shadow-xl shadow-neutral-900/5 cursor-pointer relative overflow-hidden group"
                 onClick={() => {
                   setSearch({ ...search, origin: route.from, destination: route.to });
-                  handleSearch();
+                  handleSearch(route.from, route.to);
                 }}
               >
                 <div className="absolute top-0 right-0 w-16 h-16 bg-neutral-50 rounded-bl-[2rem] flex items-center justify-center group-hover:bg-orange-50 transition-colors">

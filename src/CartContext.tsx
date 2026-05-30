@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 interface CartItem extends Product {
   quantity: number;
   selectedSeats?: string[];
+  departureDate?: string;
 }
 
 interface CartContextType {
@@ -16,7 +17,8 @@ interface CartContextType {
     orderType?: string,
     tableNumber?: string | null,
     arrivalTime?: string | null,
-    selectedSeats?: string[]
+    selectedSeats?: string[],
+    departureDate?: string
   }) => void;
   removeItem: (productId: string, variation?: string, addons?: string[]) => void;
   clearCart: () => void;

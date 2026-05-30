@@ -138,7 +138,8 @@ export default function ProductDetail() {
       orderType,
       tableNumber: orderType === 'walk_in' ? tableNumber : null,
       arrivalTime: orderType === 'walk_in' ? arrivalTime : null,
-      selectedSeats: vendorCategory === 'bus_ticket' ? selectedSeats : undefined
+      selectedSeats: vendorCategory === 'bus_ticket' ? selectedSeats : undefined,
+      departureDate: vendorCategory === 'bus_ticket' ? travelDate : undefined
     });
     toast.success('Imeongezwa kwenye kikapu', {
       description: `${quantity}x ${product.name} imewekwa.`,
@@ -185,6 +186,14 @@ export default function ProductDetail() {
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
+  const [travelDate, setTravelDate] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('date') || new Date().toISOString().split('T')[0];
+    } catch (e) {
+      return new Date().toISOString().split('T')[0];
+    }
+  });
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
@@ -419,7 +428,8 @@ export default function ProductDetail() {
           quantity: quantity,
           variation: selectedSize,
           addons: selectedAddons,
-          selectedSeats: vendorCategory === 'bus_ticket' ? selectedSeats : undefined
+          selectedSeats: vendorCategory === 'bus_ticket' ? selectedSeats : undefined,
+          departureDate: vendorCategory === 'bus_ticket' ? travelDate : undefined
         }],
         selectedSeats: vendorCategory === 'bus_ticket' ? selectedSeats : undefined,
         orderType: orderType,
@@ -786,7 +796,7 @@ export default function ProductDetail() {
               <Badge className="bg-green-50 dark:bg-green-950/20 text-green-600 dark:text-green-400 border-none font-black text-[10px] uppercase">Active Trip</Badge>
             </div>
             
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="bg-neutral-50 dark:bg-neutral-900 p-4 rounded-2xl border border-neutral-100 dark:border-neutral-800 transition-colors">
                 <p className="text-[10px] font-black text-neutral-400 dark:text-neutral-500 uppercase mb-1">Boarding Point</p>
                 <p className="text-sm font-bold text-neutral-900 dark:text-white line-clamp-1 transition-colors">{(product as any).boardingPoint || 'Main Office, Ubungo'}</p>
@@ -801,6 +811,19 @@ export default function ProductDetail() {
                 <div className="flex items-center gap-1 mt-1 text-orange-600">
                   <Clock className="w-3 h-3" />
                   <span className="text-[10px] font-bold">Local Time</span>
+                </div>
+              </div>
+              <div className="bg-neutral-50 dark:bg-neutral-900 p-4 rounded-2xl border border-neutral-100 dark:border-neutral-800 transition-colors">
+                <p className="text-[10px] font-black text-neutral-400 dark:text-neutral-500 uppercase mb-1">Tarehe ya Safari</p>
+                <input 
+                  type="date"
+                  value={travelDate}
+                  onChange={(e) => setTravelDate(e.target.value)}
+                  className="w-full bg-transparent text-sm font-bold text-neutral-905 dark:text-white border-none p-0 focus:ring-0 cursor-pointer text-orange-600 uppercase"
+                />
+                <div className="flex items-center gap-1 mt-1 text-orange-600">
+                  <Calendar className="w-3 h-3" />
+                  <span className="text-[10px] font-bold">Departure Date</span>
                 </div>
               </div>
             </div>
