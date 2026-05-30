@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot, addDoc, doc, setDoc } from 'firebase/firestore';
 import { useAuth } from '../AuthContext';
+import { useTheme } from 'next-themes';
 
 interface MabasiMaarufuFlowProps {
   product?: any;
@@ -21,6 +22,7 @@ interface MabasiMaarufuFlowProps {
 
 export default function MabasiMaarufuFlow({ product, vendor, onBackToTripSelection, standalone = false }: MabasiMaarufuFlowProps) {
   const { user, profile } = useAuth();
+  const { theme, resolvedTheme } = useTheme();
 
   // Mobile Simulator State
   const [step, setStep] = useState<number>(1);
@@ -771,6 +773,670 @@ export function useFirebaseBooking(tripId: string) {
   return { bookedSeats, loading, confirmBooking };
 }`
   };
+
+  if (standalone) {
+    return (
+      <div className="w-full flex flex-col font-sans transition-colors duration-200">
+        
+        {/* 1. PROGRESSIVE HEADER */}
+        <div className="w-full bg-white dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-850 rounded-3xl p-4 md:p-6 shadow-sm mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 transition-colors">
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            {onBackToTripSelection && (
+              <button 
+                onClick={onBackToTripSelection}
+                className="p-2 sm:p-2.5 bg-neutral-105 dark:bg-neutral-800 hover:bg-violet-605 dark:hover:bg-violet-600 hover:text-white dark:hover:text-white rounded-xl text-neutral-850 dark:text-neutral-200 transition-all active:scale-95 shrink-0"
+                title="Rudi kwenye Orodha"
+              >
+                <ChevronLeft className="w-5 h-5 stroke-[2.5]" />
+              </button>
+            )}
+            <div className="min-w-0 flex-1">
+              <h2 className="text-base sm:text-lg md:text-xl font-black text-neutral-900 dark:text-neutral-50 tracking-tight leading-none truncate uppercase font-sans">
+                {busName}
+              </h2>
+              <p className="text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400 font-bold mt-1.5 uppercase tracking-wide truncate">
+                {origin} → {destination} • {travelDate} | {departureTime}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs font-bold shrink-0 w-full sm:w-auto overflow-x-auto no-scrollbar py-1">
+            {[
+              { label: 'Viti (Seats)', stepNum: 1 },
+              { label: 'Wasafiri (Details)', stepNum: 2 },
+              { label: 'Hakiki & Lipa (Review)', stepNum: 3 },
+              { label: 'Risiti (Ticket)', stepNum: 4 }
+            ].map((s, sIdx) => (
+              <React.Fragment key={`stepper-act-${s.stepNum}`}>
+                {sIdx > 0 && <div className={`w-4 sm:w-6 h-0.5 rounded ${step >= s.stepNum ? 'bg-violet-600' : 'bg-neutral-250 dark:bg-neutral-850'}`} />}
+                <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+                  <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[10px] font-black ${
+                    step === s.stepNum 
+                      ? 'bg-violet-600 text-white shadow-md shadow-violet-500/10' 
+                      : step > s.stepNum 
+                        ? 'bg-green-500 text-white' 
+                        : 'bg-neutral-105 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-550'
+                  }`}>
+                    {step > s.stepNum ? '✓' : s.stepNum}
+                  </div>
+                  <span className={`text-[10px] sm:text-xs ${step === s.stepNum ? 'text-neutral-900 dark:text-neutral-50 font-black' : 'text-neutral-400 dark:text-neutral-500 font-semibold'}`}>
+                    {s.label}
+                  </span>
+                </div>
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+
+        {/* 2. MAIN LAYOUT BLOCK */}
+        {step < 4 ? (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            
+            {/* LEFT SIDE PANEL (Active Step Forms) - 7 cols */}
+            <div className="col-span-1 lg:col-span-7 space-y-5">
+              
+              {/* STEP 1: SEAT SELECTION */}
+              {step === 1 && (
+                <div className="bg-white dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-805 rounded-[1.75rem] p-4 sm:p-6 shadow-sm space-y-5 transition-colors">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-100 dark:border-neutral-800 pb-4">
+                    <h3 className="font-extrabold text-sm sm:text-base text-neutral-900 dark:text-neutral-100 uppercase tracking-tight flex items-center gap-2 font-sans">
+                       Chagua Nafasi ya Kiti <span className="text-[11px] text-neutral-400 lowercase italic font-medium">(Choose seat numbers)</span>
+                    </h3>
+                    <div className="bg-neutral-100 dark:bg-neutral-800 p-1 flex gap-1 border border-neutral-200 dark:border-neutral-700 max-w-sm sm:w-56 shadow-inner shrink-0 rounded-xl">
+                      <button 
+                        type="button"
+                        onClick={() => setActiveDeck('lower')}
+                        className={`flex-1 py-1.5 text-[10px] sm:text-xs font-black rounded-lg transition-all ${activeDeck === 'lower' ? 'bg-white dark:bg-neutral-900 text-violet-700 dark:text-violet-400 shadow-sm' : 'text-neutral-500 hover:text-neutral-200 dark:hover:bg-neutral-750/50'}`}
+                      >
+                        Lower (Chini)
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => setActiveDeck('upper')}
+                        className={`flex-1 py-1.5 text-[10px] sm:text-xs font-black rounded-lg transition-all ${activeDeck === 'upper' ? 'bg-white dark:bg-neutral-900 text-violet-700 dark:text-violet-400 shadow-sm' : 'text-neutral-500 hover:text-neutral-200 dark:hover:bg-neutral-750/50'}`}
+                      >
+                        Upper (Juu)
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Steering wheel illustration */}
+                  <div className="flex justify-between items-center bg-neutral-50 dark:bg-neutral-950/40 p-3 sm:p-4 rounded-2xl border border-neutral-200 dark:border-neutral-850">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-450 animate-spin-slow">
+                        ⚙️
+                      </div>
+                      <div>
+                        <span className="text-[9px] font-black text-neutral-400 dark:text-neutral-500 uppercase leading-none">Mbele ya Basi</span>
+                        <p className="text-xs font-black text-neutral-800 dark:text-neutral-200 leading-none mt-0.5 font-sans">Driver Cabin</p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-black text-neutral-500 dark:text-neutral-400 uppercase bg-neutral-150 dark:bg-neutral-850 px-2.5 py-1 rounded-lg">40 Viti (Seats) Max</span>
+                  </div>
+
+                  {/* Main Interactive Seat Selection Grid */}
+                  <div className="bg-neutral-50/50 dark:bg-neutral-950/20 border border-neutral-200/50 dark:border-neutral-850 rounded-2xl p-3 sm:p-5">
+                    <div className="space-y-3.5 max-h-[360px] overflow-y-auto pr-1 sm:pr-2 no-scrollbar">
+                      {Array.from({ length: 10 }).map((_, rIndex) => {
+                        const base = activeDeck === 'lower' ? 0 : 40;
+                        const seat1 = String(base + (rIndex * 4 + 1));
+                        const seat2 = String(base + (rIndex * 4 + 2));
+                        const seat3 = String(base + (rIndex * 4 + 3));
+                        const seat4 = String(base + (rIndex * 4 + 4));
+
+                        const renderSeatBtn = (seatNum: string) => {
+                          const isBooked = bookedSeats.includes(seatNum);
+                          const isFemale = femaleOccupiedSeats.includes(seatNum);
+                          const isVIP = vipSeats.includes(seatNum);
+                          const isSelected = selectedSeats.includes(seatNum);
+
+                          return (
+                            <button
+                              key={`resp-seat-btn-${seatNum}`}
+                              type="button"
+                              onClick={() => toggleSeat(seatNum)}
+                              className={`aspect-square w-full rounded-xl flex flex-col items-center justify-center text-[11px] font-black border transition-all relative ${
+                                isBooked ? 'bg-neutral-200 dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700 text-neutral-400 dark:text-neutral-500 opacity-40 cursor-not-allowed' :
+                                isFemale ? 'bg-pink-100 dark:bg-pink-950/20 border-pink-300 dark:border-pink-850 hover:bg-pink-100 text-pink-600 dark:text-pink-400 font-extrabold shadow-sm' :
+                                isSelected ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white border-violet-500 scale-105 shadow-md shadow-violet-500/20' :
+                                isVIP ? 'bg-amber-50 dark:bg-amber-950/20 border-2 border-amber-400 hover:bg-amber-100/60 text-amber-805 dark:text-amber-400 hover:border-amber-500' :
+                                'bg-white dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 hover:border-violet-500 text-neutral-800 dark:text-neutral-205 hover:bg-violet-50/20 dark:hover:bg-violet-900/10'
+                              }`}
+                            >
+                              {isFemale ? (
+                                <span className="text-[14px]">👱‍♀️</span>
+                              ) : isVIP && !isSelected ? (
+                                <span className="text-[13px] text-amber-600 font-sans">👑</span>
+                              ) : (
+                                <span className="text-[14px] opacity-75">🪑</span>
+                              )}
+                              <span className="text-[9px] mt-0.5 leading-none font-bold">{seatNum}</span>
+                              {isVIP && <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-amber-500 rounded-full" />}
+                            </button>
+                          );
+                        };
+
+                        return (
+                          <div key={`resp-row-${rIndex}`} className="grid grid-cols-5 gap-2.5 items-center">
+                            <div className="col-span-2 grid grid-cols-2 gap-2.5">
+                              {renderSeatBtn(seat1)}
+                              {renderSeatBtn(seat2)}
+                            </div>
+                            <div className="text-center text-[9px] uppercase font-black tracking-widest text-neutral-300 dark:text-neutral-700 select-none font-sans">
+                              Aisle
+                            </div>
+                            <div className="col-span-2 grid grid-cols-2 gap-2.5">
+                              {renderSeatBtn(seat3)}
+                              {renderSeatBtn(seat4)}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Legends list */}
+                  <div className="border-t border-neutral-100 dark:border-neutral-805 pt-4 space-y-3">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400 dark:text-neutral-500 leading-none">Legend (Alama za Viti)</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5 text-[10px] font-bold text-neutral-605 dark:text-neutral-400 font-sans">
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700" />
+                        <span>Wazi (Free)</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded bg-gradient-to-r from-violet-605 to-fuchsia-650" />
+                        <span>Chaguo Lako</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded bg-neutral-200 dark:bg-neutral-800 border border-neutral-300 opacity-45" />
+                        <span>Imejaa</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded bg-pink-100 dark:bg-pink-950/20 border border-pink-300 flex items-center justify-center text-[9px]">👱‍♀️</div>
+                        <span>Kike (Female)</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded bg-amber-50 dark:bg-amber-950/20 border border-amber-400 flex items-center justify-center text-[9px]">👑</div>
+                        <span>VIP Class</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 2: PASSENGER FORMS */}
+              {step === 2 && (
+                <div className="space-y-5">
+                  <div className="bg-white dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-800 p-4 rounded-2xl shadow-sm text-xs font-bold text-neutral-700 dark:text-neutral-300 flex justify-between items-center transition-colors">
+                    <span>Katiza maelezo sahihi kiti chako kithibitishwe</span>
+                    <span className="px-2.5 py-1 bg-violet-100 dark:bg-violet-900/20 text-violet-750 dark:text-violet-400 rounded-full font-black text-[10px] uppercase">
+                      Traveler Profiles Needed
+                    </span>
+                  </div>
+
+                  {passengers.map((p, idx) => (
+                    <div key={`p-desc-${p.seat}`} className="bg-white dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-800 p-5 rounded-[1.75rem] shadow-sm space-y-4">
+                      <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-805 pb-2.5">
+                        <h4 className="text-xs font-black text-violet-700 dark:text-violet-400 uppercase tracking-widest flex items-center gap-1.5 font-sans">
+                          👤 Passenger {idx + 1}
+                        </h4>
+                        <span className="text-[10px] bg-violet-600 text-white font-black px-3.5 py-1 rounded-full uppercase tracking-wider">
+                          Seat {p.seat}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1 sm:col-span-2">
+                          <label className="text-[9px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-widest">Jina Kamili (Full Name)</label>
+                          <input 
+                            type="text" 
+                            className="w-full h-11 bg-neutral-50 dark:bg-neutral-950 px-3.5 rounded-xl border border-neutral-200 dark:border-neutral-800 text-xs font-bold text-neutral-950 dark:text-neutral-50 focus:border-violet-500 transition-colors"
+                            placeholder="Mf. Mfalme Juma"
+                            value={p.fullName}
+                            onChange={(e) => {
+                              const list = [...passengers];
+                              list[idx].fullName = e.target.value;
+                              setPassengers(list);
+                            }}
+                          />
+                          {errors[`name-${p.seat}`] && (
+                            <p className="text-[9px] text-red-500 font-extrabold">{errors[`name-${p.seat}`]}</p>
+                          )}
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-widest">Umri (Age)</label>
+                          <input 
+                            type="number" 
+                            className="w-full h-11 bg-neutral-50 dark:bg-neutral-950 px-3.5 rounded-xl border border-neutral-200 dark:border-neutral-800 text-xs font-bold text-neutral-955 dark:text-neutral-50 focus:border-violet-500"
+                            placeholder="Mf. 28"
+                            value={p.age}
+                            onChange={(e) => {
+                              const list = [...passengers];
+                              list[idx].age = e.target.value;
+                              setPassengers(list);
+                            }}
+                          />
+                          {errors[`age-${p.seat}`] && (
+                            <p className="text-[9px] text-red-500 font-extrabold">{errors[`age-${p.seat}`]}</p>
+                          )}
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-widest">Utaifa (Nationality)</label>
+                          <select 
+                            className="w-full h-11 bg-neutral-50 dark:bg-neutral-950 px-3 rounded-xl border border-neutral-200 dark:border-neutral-800 text-xs font-bold text-neutral-955 dark:text-neutral-50 focus:border-violet-500"
+                            value={p.nationality}
+                            onChange={(e) => {
+                              const list = [...passengers];
+                              list[idx].nationality = e.target.value;
+                              setPassengers(list);
+                            }}
+                          >
+                            <option value="Tanzanian">🇹🇿 Mtanzania</option>
+                            <option value="Kenyan">🇰🇪 Mkenya</option>
+                            <option value="Ugandan">🇺🇬 Mganda</option>
+                            <option value="Rwandan">🇷🇼 Mnyarwanda</option>
+                            <option value="Other">🌍 Raia wa Kigeni / Other</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-1 sm:col-span-2">
+                          <label className="text-[9px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-widest block mb-1">Jinsia (Gender)</label>
+                          <div className="flex gap-2.5 font-sans">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const list = [...passengers];
+                                list[idx].gender = 'male';
+                                setPassengers(list);
+                              }}
+                              className={`flex-1 py-2.5 rounded-xl text-xs font-bold border-2 flex items-center justify-center gap-2 transition-all ${
+                                p.gender === 'male'
+                                  ? 'border-violet-605 bg-violet-100/10 text-violet-700 dark:text-violet-400 font-black'
+                                  : 'border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-850 text-neutral-500 dark:text-neutral-400'
+                              }`}
+                            >
+                              <span>👨</span> Male
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const list = [...passengers];
+                                list[idx].gender = 'female';
+                                setPassengers(list);
+                              }}
+                              className={`flex-1 py-2.5 rounded-xl text-xs font-bold border-2 flex items-center justify-center gap-2 transition-all ${
+                                p.gender === 'female'
+                                  ? 'border-fuchsia-605 bg-fuchsia-100/10 text-fuchsia-700 dark:text-fuchsia-400 font-black'
+                                  : 'border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-850 text-neutral-500 dark:text-neutral-400'
+                              }`}
+                            >
+                              <span>👩</span> Female
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Buyer detail box */}
+                  <div className="bg-white dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-800 p-5 rounded-[1.75rem] shadow-sm space-y-4">
+                    <h4 className="text-xs font-black text-neutral-900 dark:text-neutral-100 uppercase tracking-widest flex items-center gap-1.5 border-b border-neutral-100 dark:border-neutral-805 pb-2 font-sans">
+                      📦 Taarifa za Mnunuzi (Billing Contact)
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-widest">Jina la Mnunuzi</label>
+                        <input 
+                          type="text"
+                          className="w-full h-11 bg-neutral-50 dark:bg-neutral-950 px-3.5 rounded-xl border border-neutral-200 dark:border-neutral-800 text-xs font-bold text-neutral-955 dark:text-neutral-50 focus:border-violet-500"
+                          placeholder="Juma Selemani"
+                          value={buyerName}
+                          onChange={(e) => setBuyerName(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-widest">Namba ya Simu</label>
+                        <input 
+                          type="text"
+                          className="w-full h-11 bg-neutral-50 dark:bg-neutral-950 px-3.5 rounded-xl border border-neutral-200 dark:border-neutral-805 text-xs font-bold text-neutral-955 dark:text-neutral-50 focus:border-violet-500"
+                          placeholder="+255 712 345678"
+                          value={buyerPhone}
+                          onChange={(e) => setBuyerPhone(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1 sm:col-span-2">
+                        <label className="text-[9px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-widest">Email Address</label>
+                        <input 
+                          type="email"
+                          className="w-full h-11 bg-neutral-50 dark:bg-neutral-950 px-3.5 rounded-xl border border-neutral-200 dark:border-neutral-800 text-xs font-bold text-neutral-955 dark:text-neutral-50 focus:border-violet-500"
+                          placeholder="abiria@gmail.com"
+                          value={buyerEmail}
+                          onChange={(e) => setBuyerEmail(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 3: REVIEW DETAILS AND NETWORKS ACCENTS */}
+              {step === 3 && (
+                <div className="space-y-5">
+                  {/* Passenger names review */}
+                  <div className="bg-white dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-800 p-5 rounded-[1.75rem] shadow-sm space-y-3 font-sans">
+                    <h4 className="text-xs font-black text-neutral-900 dark:text-neutral-100 uppercase tracking-widest border-b border-neutral-100 dark:border-neutral-800 pb-2.5 flex items-center gap-1.5 font-sans">
+                       Hakiki Orodha ya Wasafiri (Traveling Details)
+                    </h4>
+                    <div className="space-y-2 max-h-[190px] overflow-y-auto pr-1">
+                      {passengers.map((p, idx) => (
+                        <div key={`resp-rev-${p.seat}`} className="flex justify-between items-center text-xs py-2 border-b border-neutral-50 dark:border-neutral-805 last:border-0 font-sans">
+                          <div className="flex items-center gap-2">
+                            <span className="w-5 h-5 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center text-[10px] font-black text-neutral-700 dark:text-neutral-205">
+                              {idx + 1}
+                            </span>
+                            <div>
+                              <p className="font-extrabold text-neutral-955 dark:text-neutral-50 leading-none">{p.fullName || 'Abiria (Passenger)'}</p>
+                              <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-1 leading-none">Jinsia: {p.gender === 'male' ? 'Kiume' : 'Kike'} | Utaifa: {p.nationality} ({p.age} Yrs)</p>
+                            </div>
+                          </div>
+                          <span className="bg-violet-50 dark:bg-violet-900/20 text-violet-750 dark:text-violet-400 font-black px-2.5 py-1 rounded-lg text-[10px] border border-violet-100/55 dark:border-violet-800">
+                            Seat {p.seat}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Wallet Balance toggle */}
+                  <div className="bg-white dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-800 p-5 rounded-2xl shadow-sm flex items-center justify-between transition-colors">
+                    <div className="space-y-0.5 font-sans">
+                      <div className="flex items-center gap-2 font-extrabold text-xs text-neutral-900 dark:text-neutral-100">
+                        <Wallet className="w-4 h-4 text-violet-650 dark:text-violet-400" />
+                        <span>Use Tigo Pesa Wallet Balance</span>
+                      </div>
+                      <p className="text-[10px] text-neutral-400 dark:text-neutral-500 font-bold uppercase tracking-wider">Balance: TZS 150,000</p>
+                    </div>
+                    <button 
+                      type="button"
+                      onClick={() => setUseWallet(prev => !prev)}
+                      className={`w-12 h-6.5 rounded-full p-1 transition-all ${useWallet ? 'bg-violet-600' : 'bg-neutral-200 dark:bg-neutral-800'}`}
+                    >
+                      <div className={`w-4.5 h-4.5 bg-white rounded-full shadow-md transition-all transform ${useWallet ? 'translate-x-[22px]' : 'translate-x-0'}`} />
+                    </button>
+                  </div>
+
+                  {/* Payment provider selectors with colorful indicators */}
+                  <div className="bg-white dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-800 p-5 rounded-[1.75rem] shadow-sm space-y-3 font-sans">
+                    <p className="text-[10px] font-black uppercase text-neutral-400 dark:text-neutral-500 tracking-widest leading-none">Chagua Mtandao wa Lipa (Payment Channels)</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {[
+                        { id: 'mpesa', name: 'M-Pesa', logo: '🔴' },
+                        { id: 'tigo', name: 'Tigo Pesa', logo: '🔵' },
+                        { id: 'airtel', name: 'Airtel Money', logo: '🔴' },
+                        { id: 'halo', name: 'HaloPesa', logo: '🟠' },
+                        { id: 'visa', name: 'Visa', logo: '💳' },
+                        { id: 'mastercard', name: 'Mastercard', logo: '💳' }
+                      ].map((prov) => (
+                        <button
+                          type="button"
+                          key={`resp-prov-btn-${prov.id}`}
+                          onClick={() => setPaymentMethod(prov.id)}
+                          className={`p-3.5 rounded-2l border-2 flex flex-col items-center justify-center gap-1.5 transition-all ${
+                            paymentMethod === prov.id 
+                              ? 'border-violet-600 bg-violet-50/20 dark:bg-violet-950/20 ring-2 ring-violet-500/10' 
+                              : 'border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-850 hover:bg-neutral-50 dark:hover:bg-neutral-800/40'
+                          }`}
+                        >
+                          <span className="text-xl">{prov.logo}</span>
+                          <span className="text-[10px] font-black uppercase text-neutral-800 dark:text-neutral-200 mt-0.5">{prov.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* RIGHT SIDE PANEL (Dynamic pricing summary invoice card) - 5 cols */}
+            <div className="col-span-1 lg:col-span-5 h-full">
+              <div className="bg-white dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-800 rounded-[1.75rem] p-5 sm:p-6 shadow-sm space-y-5 flex flex-col justify-between h-full transition-colors">
+                <div className="space-y-5">
+                  
+                  {/* Direct details brief */}
+                  <div className="bg-violet-50/50 dark:bg-violet-950/15 p-4 rounded-2xl border border-violet-100/50 dark:border-violet-900/25 text-xs text-neutral-900 dark:text-neutral-50 transition-colors">
+                    <span className="text-[9px] font-black bg-violet-600 text-white px-2.5 py-0.5 rounded uppercase tracking-wider">Muhtasari wa Nauli (Summary)</span>
+                    <div className="flex justify-between items-center mt-3 font-extrabold text-neutral-850 dark:text-neutral-100">
+                      <span>Dar es Salaam</span>
+                      <ArrowRight className="w-3.5 h-3.5 text-violet-500 font-extrabold" />
+                      <span>Arusha</span>
+                    </div>
+                    <div className="mt-2.5 space-y-1.5 text-neutral-500 dark:text-neutral-400 leading-relaxed font-sans font-medium">
+                      <p>• Operator: <b className="text-neutral-850 dark:text-neutral-100 font-bold">{busName}</b></p>
+                      <p>• Tarehe (Date): <b className="text-neutral-850 dark:text-neutral-100 font-bold">{travelDate}</b></p>
+                      <p>• Muda (Time): <b className="text-neutral-850 dark:text-neutral-100 font-bold font-sans">07:00 AM</b></p>
+                      <p>• Viti Vilivyoteuliwa: <b className="text-violet-600 dark:text-violet-400 font-extrabold">{selectedSeats.join(', ') || 'N/A'}</b></p>
+                    </div>
+                  </div>
+
+                  {/* Promo coupon input and validation feedback */}
+                  <div className="space-y-1.5 font-sans">
+                    <label className="text-[9px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-widest leading-none block">Weka Kuponi la Punguzo (Coupon Code)</label>
+                    <div className="flex gap-2">
+                      <input 
+                        type="text" 
+                        className="flex-1 h-11 bg-neutral-50 dark:bg-neutral-950 px-3.5 rounded-xl border border-neutral-200 dark:border-neutral-800 text-xs font-black text-neutral-955 dark:text-neutral-100 uppercase tracking-widest"
+                        placeholder="Mf. MABASI20"
+                        value={couponCode}
+                        onChange={(e) => setCouponCode(e.target.value)}
+                      />
+                      <button 
+                        type="button"
+                        onClick={handleApplyCoupon}
+                        className="px-4.5 bg-neutral-900 dark:bg-neutral-800 hover:bg-violet-605 dark:hover:bg-violet-600 text-white rounded-xl text-xs font-black uppercase transition-colors"
+                      >
+                        Sajili
+                      </button>
+                    </div>
+                    {isCouponApplied && (
+                      <div className="bg-green-50/50 dark:bg-green-950/20 border border-green-200/50 dark:border-green-800/50 p-2.5 rounded-xl flex items-center justify-between text-green-700 dark:text-green-400">
+                        <span className="text-[10px] font-bold">✓ Punguzo Limesajiliwa vyema</span>
+                        <span className="text-[10px] font-black">-TZS 14,000 Saved</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Invoice breakdown table */}
+                  <div className="space-y-2.5 border-t border-neutral-100 dark:border-neutral-805 pt-4">
+                    <div className="flex justify-between items-center text-xs font-bold text-neutral-500 dark:text-neutral-400">
+                      <span>Nauli ({selectedSeats.length} Viti)</span>
+                      <span className="tabular-nums font-black text-neutral-850 dark:text-neutral-200">
+                        TZS {originalTotalPrice.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs font-bold text-neutral-500 dark:text-neutral-400 font-sans">
+                      <span>Kuponi ya Ofa</span>
+                      <span className="tabular-nums text-green-600 dark:text-green-400 font-extrabold font-sans">
+                        -TZS {couponDiscount.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs font-bold text-neutral-500 dark:text-neutral-400 font-sans">
+                      <span>Pochi ya Kidijitali</span>
+                      <span className="tabular-nums text-green-600 dark:text-green-400 font-extrabold font-sans">
+                        -TZS {walletDeduction.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs font-bold text-neutral-500 dark:text-neutral-400 font-sans">
+                      <span>Ada ya Mfumo (Service Fee)</span>
+                      <span className="tabular-nums font-black text-neutral-800 dark:text-neutral-200 font-sans">
+                        TZS {serviceFee.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="h-px bg-neutral-100 dark:bg-neutral-800 my-1" />
+                    <div className="flex justify-between items-center text-xs font-black uppercase text-neutral-950 dark:text-neutral-100 font-sans">
+                      <span className="text-[10px] tracking-tight">Kiwango cha Kulipa</span>
+                      <span className="text-base text-violet-600 dark:text-violet-400 tracking-tight font-black font-sans">
+                        TZS {finalTotalAmount.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Confirm and travel CTA action */}
+                <div className="mt-6">
+                  <button
+                    type="button"
+                    onClick={handleNextStep}
+                    disabled={step === 1 && selectedSeats.length === 0}
+                    className="w-full py-4 rounded-xl bg-gradient-to-r from-violet-650 to-fuchsia-650 hover:opacity-95 text-white text-xs font-black uppercase tracking-widest shadow-lg shadow-violet-500/15 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed font-sans"
+                  >
+                    <span>
+                      {step === 1 && "KATA TIKETI / PROCEED"}
+                      {step === 2 && "HAKIKI MAELEZO / REVIEW"}
+                      {step === 3 && `LIPA SASA (TZS ${finalTotalAmount.toLocaleString()})`}
+                    </span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                  {step === 1 && selectedSeats.length === 0 && (
+                    <p className="text-[10px] text-red-500 font-bold text-center mt-2 uppercase font-sans">Chagua angalau Kiti kimoja kwanza!</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          
+          /* STEP 4: PRINTABLE AND reset */
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            <div className="col-span-1 lg:col-span-8 bg-white dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-805 rounded-[2rem] p-6 shadow-sm text-center space-y-6">
+              <div className="flex justify-center pt-2">
+                <div className="relative w-20 h-20 bg-gradient-to-r from-violet-600 to-fuchsia-600 rounded-full flex items-center justify-center shadow-lg shadow-violet-500/30">
+                  <div className="absolute inset-0 rounded-full bg-violet-400/20 animate-ping" />
+                  <Check className="w-10 h-10 text-white stroke-[3.5]" />
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-xl font-black text-neutral-900 dark:text-neutral-100 uppercase font-sans">🎉 Tiketi yako imethibitishwa vyema!</h3>
+                <p className="text-xs text-green-600 dark:text-green-400 font-bold uppercase mt-1">Sajili sahihi imeshahifadhiwa kwenye mfumo live</p>
+              </div>
+
+              {/* Physical look boarding pass ticket */}
+              <div className="bg-[#fafbfb] dark:bg-neutral-950 p-6 rounded-[2rem] border border-neutral-200 dark:border-neutral-800 text-left relative overflow-hidden max-w-xl mx-auto space-y-5 shadow-sm">
+                
+                {/* Visual punch holes */}
+                <div className="absolute -left-3 top-[170px] w-6 h-6 bg-white dark:bg-neutral-900 rounded-full border-r border-neutral-200 dark:border-neutral-800" />
+                <div className="absolute -right-3 top-[170px] w-6 h-6 bg-white dark:bg-neutral-900 rounded-full border-l border-neutral-200 dark:border-neutral-800" />
+
+                <div className="flex justify-between items-center border-b border-dashed border-neutral-200 dark:border-neutral-850 pb-3">
+                  <div>
+                    <span className="text-[10px] bg-violet-605 text-white px-2.5 py-1 rounded font-black uppercase tracking-widest">{busName}</span>
+                    <p className="text-[9px] text-neutral-400 font-bold uppercase tracking-wider mt-1.5 font-mono">PAPO HAPO CO. LTD</p>
+                  </div>
+                  <div className="text-right font-sans">
+                    <p className="text-xs font-black text-violet-600 dark:text-violet-400 uppercase tracking-tight">BOARDING PASS TICKET</p>
+                    <p className="text-[9px] text-green-600 dark:text-green-400 font-black">STATUS: CONFIRMED</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-y-4 gap-x-6 text-xs text-neutral-700 dark:text-neutral-300 font-sans">
+                  <div>
+                    <span className="text-[10px] font-bold text-neutral-400 uppercase block leading-none">Route (Njia ya Safari)</span>
+                    <p className="font-extrabold text-neutral-955 dark:text-neutral-50 mt-1">{origin} → {destination}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] font-bold text-neutral-400 uppercase block leading-none">Muda wa Safari (Time)</span>
+                    <p className="font-extrabold text-neutral-955 dark:text-neutral-50 mt-1">{travelDate} | {departureTime}</p>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-bold text-neutral-400 uppercase block leading-none">Jina la Mteja (Passenger Name)</span>
+                    <p className="font-black text-neutral-955 dark:text-neutral-50 mt-1">{buyerName || 'Jane Doe'}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] font-bold text-neutral-400 uppercase block leading-none">Viti Ulivyopewa (Seat No)</span>
+                    <p className="font-black text-violet-600 dark:text-violet-400 text-sm mt-1">{selectedSeats.join(', ')}</p>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-bold text-neutral-400 uppercase block leading-none">Tiketi ID Reference</span>
+                    <p className="font-mono text-[11px] font-black uppercase tracking-wider text-neutral-607 dark:text-neutral-300 mt-1">TZS-E-{Math.floor(Math.random() * 89999 + 10000)}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] font-bold text-neutral-400 uppercase block leading-none">Malipo (Financial Status)</span>
+                    <p className="font-black text-neutral-950 dark:text-neutral-100 mt-1">PAID TZS {finalTotalAmount.toLocaleString()}</p>
+                  </div>
+                </div>
+
+                <div className="border-t border-dashed border-neutral-200 dark:border-neutral-805 my-2" />
+
+                <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-2">
+                  {/* QR details CSS blocks */}
+                  <div className="w-20 h-20 bg-white dark:bg-neutral-800 p-1.5 rounded-xl border border-neutral-250 dark:border-neutral-700 flex flex-wrap gap-[1px] shrink-0 select-none">
+                    <div className="w-6 h-6 border-2 border-neutral-900 dark:border-white rounded p-[1px]">
+                      <div className="w-full h-full bg-neutral-900 dark:bg-white" />
+                    </div>
+                    <div className="w-2 h-2 bg-neutral-900 dark:bg-white rounded" />
+                    <div className="w-6 h-6 border-2 border-neutral-900 dark:border-white rounded p-[1px]">
+                      <div className="w-full h-full bg-neutral-900 dark:bg-white" />
+                    </div>
+                    <div className="w-full h-0.5 bg-neutral-900 dark:bg-white rounded" />
+                    <div className="w-6 h-6 border-2 border-neutral-900 dark:border-white rounded p-[1px]">
+                      <div className="w-full h-full bg-neutral-900 dark:bg-white" />
+                    </div>
+                    <div className="w-8 bg-neutral-900 dark:bg-white h-6 rounded shrink-0" />
+                  </div>
+
+                  {/* Simulated barcode */}
+                  <div className="text-center font-mono space-y-1.5 flex-1 select-none">
+                    <div className="h-10 w-full flex items-stretch gap-[2px] opacity-80">
+                      {Array.from({ length: 30 }).map((_, bIdx) => {
+                        const widths = ['w-[1.5px]', 'w-[2.5px]', 'w-[4px]', 'w-[1px]'];
+                        const chosenWidth = widths[bIdx % widths.length];
+                        return (
+                          <div 
+                            key={`resp-success-bar-${bIdx}`} 
+                            className={`bg-neutral-900 dark:bg-neutral-100 ${chosenWidth}`} 
+                          />
+                        );
+                      })}
+                    </div>
+                    <p className="text-[9px] tracking-wider text-neutral-405 dark:text-neutral-500 uppercase font-bold font-sans">PAPO HAPO ONLINE TRAVEL ACCENTS</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Action resetting */}
+            <div className="col-span-1 lg:col-span-4 bg-white dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-800 rounded-[2rem] p-6 shadow-sm flex flex-col justify-center text-center space-y-4 font-sans">
+              <div>
+                <h4 className="font-extrabold text-neutral-900 dark:text-neutral-50 uppercase text-xs">Mambo Mengineyo</h4>
+                <p className="text-[11px] text-neutral-400 mt-1 uppercase font-semibold">Tuma tiketi kwenye Barua Pepe au ipakue kama Picha thabiti.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => toast.success('Imepakua tiketi vizuri kwenye simu na barua pepe yako!')}
+                className="w-full py-4 rounded-xl bg-violet-605 hover:bg-violet-700 text-white font-black text-xs uppercase tracking-widest transition-all cursor-pointer font-sans"
+              >
+                Download PDF Receipt
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setStep(1);
+                  setSelectedSeats([]);
+                }}
+                className="w-full py-4 bg-neutral-50 dark:bg-neutral-850 text-neutral-700 dark:text-neutral-200 font-extrabold text-xs uppercase rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-750 transition-all cursor-pointer"
+              >
+                Nunua Tiketi Nyingine (Book New)
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className={standalone ? "w-full flex flex-col gap-0 bg-transparent text-neutral-100 relative overflow-hidden select-none" : "w-full flex flex-col gap-8 bg-neutral-950 text-neutral-100 p-2 md:p-6 rounded-[2.5rem] border border-neutral-800 shadow-2xl relative overflow-hidden"}>

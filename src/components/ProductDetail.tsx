@@ -1042,8 +1042,8 @@ export default function ProductDetail() {
 
   if (isBusTrip && product) {
     return (
-      <div className="min-h-screen bg-neutral-950 pb-12 flex justify-center items-center">
-        <div className="w-full max-w-lg px-2 md:px-4 py-6">
+      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 pb-12 flex justify-center items-center transition-colors duration-200">
+        <div className="w-full max-w-7xl px-2 md:px-6 py-6">
           <MabasiMaarufuFlow product={product} vendor={vendor} standalone={true} onBackToTripSelection={() => navigate(-1)} />
         </div>
       </div>
