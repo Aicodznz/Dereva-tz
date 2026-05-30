@@ -16,6 +16,34 @@ import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
+interface SafeBusLogoProps {
+  vendor: any;
+  className?: string;
+}
+
+function SafeBusLogo({ vendor, className = "w-full h-full object-contain rounded-2xl" }: SafeBusLogoProps) {
+  const [imgError, setImgError] = useState(false);
+  const initials = vendor?.businessName ? vendor.businessName.substring(0, 2).toUpperCase() : 'B';
+
+  if (!vendor?.logoUrl || imgError) {
+    return (
+      <div className="w-full h-full bg-orange-50 text-orange-600 rounded-2xl flex items-center justify-center font-black text-lg select-none italic tracking-tighter">
+        {initials}
+      </div>
+    );
+  }
+
+  return (
+    <img 
+      src={vendor.logoUrl} 
+      alt={vendor.businessName || 'Logo'} 
+      onError={() => setImgError(true)}
+      referrerPolicy="no-referrer"
+      className={className}
+    />
+  );
+}
+
 interface BusBookingProps {
   vendors: VendorProfile[];
   products: Product[];
@@ -226,169 +254,92 @@ export default function BusBooking({ vendors, products }: BusBookingProps) {
                   className="group"
                   onClick={() => navigate(`/product/${trip.id}?booking=true&date=${search.date}`)}
                 >
-                  <Card className="overflow-hidden rounded-[2rem] border-2 border-neutral-100 hover:border-orange-500/30 transition-all cursor-pointer group-hover:shadow-2xl group-hover:shadow-orange-600/5 bg-white">
-                    <CardContent className="p-0">
-                      {/* Desktop View */}
-                      <div className="hidden md:flex flex-row items-stretch">
-                        {/* Vendor & Bus Branding */}
-                        <div className="w-full md:w-64 bg-neutral-50 p-6 flex flex-col items-center justify-center space-y-4 border-r border-neutral-100">
-                          <div className="w-20 h-20 bg-white rounded-3xl p-1 shadow-xl border border-neutral-100 relative group-hover:scale-105 transition-transform duration-500">
-                            <img 
-                              src={vendor?.logoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${vendor?.businessName || 'Bus'}`} 
-                              alt="Bus Logo" 
-                              className="w-full h-full object-contain rounded-2xl"
-                            />
-                            <div className="absolute -bottom-2 -right-2 bg-green-500 text-white p-1.5 rounded-full border-4 border-white">
-                              <CheckCircle2 className="w-3 h-3" />
-                            </div>
+                  <Card className="overflow-hidden rounded-[2.25rem] border border-neutral-200/50 hover:border-[#8b5cf6]/50 transition-all cursor-pointer hover:shadow-xl hover:shadow-violet-600/5 bg-[#f8f9fa]">
+                    <CardContent className="p-6 md:p-8 space-y-6">
+                      
+                      {/* Top Row: Brand & Logo + Price */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="w-14 h-14 bg-white rounded-full p-0.5 shadow-sm border border-neutral-200/60 shrink-0 overflow-hidden flex items-center justify-center">
+                            <SafeBusLogo vendor={vendor} className="w-full h-full object-cover rounded-full" />
                           </div>
-                          <div className="text-center">
-                            <h4 className="font-black text-lg text-neutral-900 uppercase italic tracking-tighter leading-tight">
-                              {vendor?.businessName}
+                          <div>
+                            <h4 className="font-bold text-base md:text-lg text-neutral-800 tracking-tight leading-tight">
+                              {vendor?.businessName || 'Kilimanjaro Express'}
                             </h4>
-                            <div className="flex items-center justify-center gap-1 mt-1">
-                              <Star className="w-3 h-3 text-orange-500 fill-current" />
-                              <span className="text-[10px] font-black text-neutral-600">4.8 (320 Reviews)</span>
-                            </div>
+                            <p className="text-xs text-neutral-400 font-semibold tracking-wide mt-1">
+                              Luxury AC Seater
+                            </p>
                           </div>
-                          <Badge variant="outline" className="bg-white border-neutral-100 text-[9px] uppercase font-bold tracking-widest text-neutral-400">
-                            Luxury Bus
-                          </Badge>
                         </div>
-
-                        {/* Trip Details */}
-                        <div className="flex-1 p-6 md:p-8 flex flex-col justify-between space-y-8">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-8 md:gap-12 flex-1">
-                              {/* From */}
-                              <div className="space-y-1">
-                                <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest flex items-center gap-1">
-                                  Ondoka 
-                                  {(trip as any).branchId && branches.find(b => b.id === (trip as any).branchId) && (
-                                    <span className="text-orange-600">({branches.find(b => b.id === (trip as any).branchId)?.name})</span>
-                                  )}
-                                </p>
-                                <h5 className="text-2xl font-black text-neutral-900">{(trip as any).departureTime || '06:00'}</h5>
-                                <p className="text-xs font-bold text-neutral-500 uppercase italic">{(trip as any).origin || 'Dar'}</p>
-                              </div>
-
-                              {/* Duration line */}
-                              <div className="flex-1 flex flex-col items-center gap-2 max-w-[100px]">
-                                <p className="text-[9px] font-black text-neutral-400 uppercase tracking-tighter">{(trip as any).duration || '12h'}</p>
-                                <div className="w-full h-0.5 bg-neutral-100 rounded-full relative">
-                                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-neutral-200 rotate-45" />
-                                  <div className="absolute top-1/2 left-0 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-neutral-300" />
-                                  <div className="absolute top-1/2 right-0 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-orange-600" />
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <Bus className="w-3 h-3 text-neutral-300" />
-                                </div>
-                              </div>
-
-                              {/* To */}
-                              <div className="space-y-1">
-                                <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Fika</p>
-                                <h5 className="text-2xl font-black text-neutral-900">{(trip as any).arrivalTime || '18:00'}</h5>
-                                <p className="text-xs font-bold text-neutral-500 uppercase italic">{(trip as any).destination || 'Arusha'}</p>
-                              </div>
-                            </div>
-
-                            {/* Price */}
-                            <div className="text-right hidden sm:block">
-                              <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1">Tiketi</p>
-                              <p className="text-2xl font-black text-orange-600 tracking-tighter italic">
-                                TZS {trip.price.toLocaleString()}
-                              </p>
-                              <p className="text-[9px] text-green-600 font-bold uppercase mt-1">Free Cancellation</p>
-                            </div>
-                          </div>
-
-                          <div className="flex flex-wrap items-center justify-between gap-4 pt-6 border-t border-dashed border-neutral-100">
-                             <div className="flex items-center gap-4">
-                                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-50 rounded-xl text-neutral-600">
-                                  <Armchair className="w-3.5 h-3.5 text-orange-500" />
-                                  <span className="text-[10px] font-black uppercase tracking-tight">{(trip as any).availableSeats || '45'} Seats left</span>
-                                </div>
-                                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50/50 rounded-xl text-blue-600">
-                                  <Info className="w-3.5 h-3.5" />
-                                  <span className="text-[10px] font-black uppercase tracking-tight">Wi-Fi & AC</span>
-                                </div>
-                             </div>
-                             
-                             <div className="flex items-center gap-2">
-                               <Button className="rounded-2xl bg-neutral-900 hover:bg-orange-600 text-white font-black uppercase tracking-widest text-[10px] px-6 h-11 transition-all">
-                                 Book Ticket
-                               </Button>
-                             </div>
-                          </div>
+                        
+                        <div className="text-right">
+                          <p className="text-lg md:text-xl font-extrabold text-[#7c3aed] tracking-tight">
+                            TZS {trip.price.toLocaleString()}
+                          </p>
+                          <p className="text-[10px] text-green-600 font-bold uppercase tracking-wider mt-1">
+                            Bure Kughairi
+                          </p>
                         </div>
                       </div>
 
-                      {/* Mobile View Layout (stunningly compact, matching Maraliner ticket format) */}
-                      <div className="block md:hidden p-5 bg-white space-y-5 rounded-[2rem]">
-                        {/* Top: Logo + Brand + Price */}
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 bg-neutral-50 rounded-full p-1 shadow-md border border-neutral-100 shrink-0 flex items-center justify-center">
-                              <img 
-                                src={vendor?.logoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${vendor?.businessName || 'Bus'}`} 
-                                alt="Bus Logo" 
-                                className="w-full h-full object-contain rounded-full"
-                              />
-                            </div>
-                            <div className="space-y-0.5">
-                              <h4 className="font-extrabold text-sm text-neutral-800 uppercase italic tracking-tight leading-tight">
-                                {vendor?.businessName}
-                              </h4>
-                              <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">
-                                AC Seater
-                              </p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-base font-black text-orange-600 italic tracking-tighter">
-                              TZS {trip.price.toLocaleString()}
-                            </p>
-                          </div>
+                      {/* Middle Row: Route Timeline Tracker with Violet Accents */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 items-center pt-2 gap-4 md:gap-0">
+                        
+                        {/* Origin Station & Departure Time */}
+                        <div className="text-left space-y-1">
+                          <p className="text-xs md:text-sm font-bold text-neutral-700 tracking-tight leading-tight">
+                            {(trip as any).origin || 'Dar es Salaam'}
+                          </p>
+                          <p className="text-xl md:text-2xl font-black text-[#7c3aed] tracking-tight">
+                            {(trip as any).departureTime || '06:00 AM'}
+                          </p>
                         </div>
 
-                        {/* Mid/Bottom: Route Line Tracker */}
-                        <div className="grid grid-cols-3 items-center pt-3 border-t border-dashed border-neutral-100">
-                          {/* Origin */}
-                          <div className="text-left space-y-1">
-                            <p className="text-xs font-bold text-neutral-500 uppercase tracking-tight truncate">
-                              {(trip as any).origin || 'Dar'}
-                            </p>
-                            <p className="text-base font-extrabold text-orange-600 leading-none">
-                              {(trip as any).departureTime || '06:00'}
-                            </p>
-                          </div>
-
-                          {/* Timeline Progress Tracker */}
-                          <div className="flex flex-col items-center justify-center space-y-1">
-                            <div className="w-full flex items-center gap-1 px-1">
-                              <div className="flex-1 border-t-2 border-dotted border-orange-200" />
-                              <div className="w-7 h-7 rounded-full bg-orange-50 flex items-center justify-center shadow-inner border border-orange-100 shrink-0">
-                                <Bus className="w-3.5 h-3.5 text-orange-600" />
-                              </div>
-                              <div className="flex-1 border-t-2 border-dotted border-orange-200" />
+                        {/* Dashed Timeline Tracker */}
+                        <div className="flex flex-col items-center justify-center space-y-2 py-2 md:py-0">
+                          <div className="w-full flex items-center gap-1">
+                            <div className="flex-1 border-t border-dashed border-[#8b5cf6]/35" />
+                            <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center shadow-sm border border-violet-100 shrink-0">
+                              <Bus className="w-4 h-4 text-[#7c3aed]" />
                             </div>
-                            <span className="text-[9px] font-black text-neutral-400 uppercase tracking-widest text-center">
-                              {(trip as any).duration || '12h'}
-                            </span>
+                            <div className="flex-1 border-t border-dashed border-[#8b5cf6]/35" />
                           </div>
+                          <span className="text-xs font-bold text-neutral-500 tracking-tight">
+                            {(trip as any).duration || '08h 30m'}
+                          </span>
+                        </div>
 
-                          {/* Destination */}
-                          <div className="text-right space-y-1">
-                            <p className="text-xs font-bold text-neutral-500 uppercase tracking-tight truncate">
-                              {(trip as any).destination || 'Arusha'}
-                            </p>
-                            <p className="text-base font-extrabold text-orange-600 leading-none">
-                              {(trip as any).arrivalTime || '18:00'}
-                            </p>
-                          </div>
+                        {/* Destination Station & Arrival Time */}
+                        <div className="text-right space-y-1">
+                          <p className="text-xs md:text-sm font-bold text-neutral-700 tracking-tight leading-tight">
+                            {(trip as any).destination || 'Arusha'}
+                          </p>
+                          <p className="text-xl md:text-2xl font-black text-[#7c3aed] tracking-tight">
+                            {(trip as any).arrivalTime || '02:30 PM'}
+                          </p>
                         </div>
                       </div>
+
+                      {/* Bottom Accessories Strip */}
+                      <div className="flex items-center justify-between pt-4 border-t border-dashed border-neutral-200/60">
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/80 rounded-xl text-neutral-600 border border-neutral-200/40">
+                            <Armchair className="w-4 h-4 text-violet-500" />
+                            <span className="text-xs font-bold text-neutral-500">{(trip as any).availableSeats || '45'} Viti vimebaki</span>
+                          </div>
+                          
+                          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-violet-50/50 rounded-xl text-[#7c3aed] border border-violet-100">
+                            <Info className="w-4 h-4 text-violet-500" />
+                            <span className="text-xs font-bold">WiFi & AC ya Kifahari</span>
+                          </div>
+                        </div>
+
+                        <Button className="rounded-2xl bg-neutral-900 hover:bg-[#7c3aed] text-white font-bold uppercase tracking-wider text-xs px-6 h-11 transition-all duration-300 shadow-md">
+                          Kata Tiketi / Book
+                        </Button>
+                      </div>
+
                     </CardContent>
                   </Card>
                 </motion.div>
