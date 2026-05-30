@@ -257,8 +257,7 @@ export default function BusBooking({ vendors, products }: BusBookingProps) {
                   transition={{ delay: idx * 0.05 }}
                   className="group"
                   onClick={() => {
-                    setExpandedTripId(isExpanded ? null : (trip.id || ''));
-                    setActiveTab('amenities');
+                    navigate(`/product/${trip.id}?booking=true&date=${search.date}`);
                   }}
                 >
                   <Card className={`overflow-hidden rounded-[2.25rem] border transition-all cursor-pointer bg-[#f8f9fa] ${

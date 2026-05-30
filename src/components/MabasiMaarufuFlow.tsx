@@ -4,21 +4,27 @@ import {
   Check, CheckCircle2, ChevronLeft, ChevronRight, 
   Smartphone, Sparkles, CreditCard, Wallet, Copy, 
   FileText, Terminal, Star, Wifi, ShieldCheck, HelpCircle, 
-  Award, Send, Trash2, Info, Lock
+  Award, Send, Trash2, Info, Lock, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
+import { db } from '../firebase';
+import { collection, query, where, onSnapshot, addDoc, doc, setDoc } from 'firebase/firestore';
+import { useAuth } from '../AuthContext';
 
 interface MabasiMaarufuFlowProps {
   product?: any;
   vendor?: any;
   onBackToTripSelection?: () => void;
+  standalone?: boolean;
 }
 
-export default function MabasiMaarufuFlow({ product, vendor, onBackToTripSelection }: MabasiMaarufuFlowProps) {
+export default function MabasiMaarufuFlow({ product, vendor, onBackToTripSelection, standalone = false }: MabasiMaarufuFlowProps) {
+  const { user, profile } = useAuth();
+
   // Mobile Simulator State
   const [step, setStep] = useState<number>(1);
-  const [selectedSeats, setSelectedSeats] = useState<string[]>(['14', '15']);
+  const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
   const [activeDeck, setActiveDeck] = useState<'lower' | 'upper'>('lower');
   const [couponCode, setCouponCode] = useState<string>('MABASI2GESPA');
   const [isCouponApplied, setIsCouponApplied] = useState<boolean>(true);
@@ -27,12 +33,57 @@ export default function MabasiMaarufuFlow({ product, vendor, onBackToTripSelecti
   
   // Passenger state
   const [passengers, setPassengers] = useState<any[]>([]);
-  const [buyerName, setBuyerName] = useState<string>('Jane Doe');
-  const [buyerEmail, setBuyerEmail] = useState<string>('jane.doe@email.com');
-  const [buyerPhone, setBuyerPhone] = useState<string>('+255 789 123456');
+  const [buyerName, setBuyerName] = useState<string>('');
+  const [buyerEmail, setBuyerEmail] = useState<string>('');
+  const [buyerPhone, setBuyerPhone] = useState<string>('');
   const [emergencyPhone, setEmergencyPhone] = useState<string>('+255 712 987654');
   const [saveProfile, setSaveProfile] = useState<boolean>(true);
   const [isFrequent, setIsFrequent] = useState<boolean>(false);
+
+  // Firestore Booked Seats connection
+  const [bookedSeats, setBookedSeats] = useState<string[]>(['3', '4', '8', '11', '12', '18', '22', '31']);
+
+  // Dynamic Route details from Product
+  const origin = product?.origin || 'Dar es Salaam';
+  const destination = product?.destination || 'Arusha';
+  const busName = product?.name || product?.vendorName || 'Kilimanjaro Royal Bus';
+  const departureTime = product?.departureTime || '07:00 AM';
+  const travelDate = product?.travelDate || product?.departureDate || new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  // Sync logged in user profile to checkout billing inputs
+  useEffect(() => {
+    if (user) {
+      setBuyerName(profile?.displayName || user.displayName || '');
+      setBuyerEmail(user.email || '');
+      setBuyerPhone((profile as any)?.phone || (profile as any)?.phoneNumber || '');
+    }
+  }, [user, profile]);
+
+  // Synchronize Firestore Booked Seats
+  useEffect(() => {
+    if (!product?.id || !db) return;
+    const q = query(
+      collection(db, 'tables'),
+      where('productId', '==', product.id)
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      const booked: string[] = [];
+      snap.docs.forEach((doc) => {
+        const data = doc.data();
+        const isPendingActive = data.status === 'pending' && data.expiresAt && data.expiresAt > Date.now();
+        const isBooked = data.status === 'booked' || data.status === 'completed' || data.status === 'confirmed';
+        if (isBooked || isPendingActive) {
+          booked.push(String(data.seatNum));
+        }
+      });
+      if (booked.length > 0) {
+        setBookedSeats(booked);
+      }
+    }, (error) => {
+      console.warn("Could not lead booked seats from Firestore:", error.message);
+    });
+    return () => unsub();
+  }, [product?.id]);
 
   // Form Validation errors
   const [errors, setErrors] = useState<any>({});
@@ -58,23 +109,22 @@ export default function MabasiMaarufuFlow({ product, vendor, onBackToTripSelecti
       return {
         id: index + 1,
         seat: seat,
-        fullName: index === 0 ? 'Jane Doe' : index === 1 ? 'John Doe' : '',
-        age: index === 0 ? '28' : '32',
+        fullName: index === 0 ? (buyerName || '') : '',
+        age: index === 0 ? '28' : '',
         nationality: 'Tanzanian',
-        gender: index === 0 ? 'female' : 'male',
+        gender: 'male',
       };
     });
     setPassengers(list);
-  }, [selectedSeats]);
+  }, [selectedSeats, buyerName]);
 
-  // Demo hardcoded occupied and VIP seats
-  const bookedSeats = ['3', '4', '8', '11', '12', '18', '22', '31'];
+  // Demo hardcoded female occupied and VIP seats
   const femaleOccupiedSeats = ['6', '7', '19', '20'];
   const vipSeats = ['1', '2', '5', '6', '9', '10'];
 
   const toggleSeat = (seatNum: string) => {
     if (bookedSeats.includes(seatNum) || femaleOccupiedSeats.includes(seatNum)) {
-      toast.error(`Kiti hiki kimeshahifadhiwa taila! (Seat ${seatNum} is already booked)`);
+      toast.error(`Kiti hiki kimeshahifadhiwa tayari! (Seat ${seatNum} is already booked)`);
       return;
     }
     setSelectedSeats(prev => {
@@ -112,7 +162,8 @@ export default function MabasiMaarufuFlow({ product, vendor, onBackToTripSelecti
     return Object.keys(errs).length === 0;
   };
 
-  const handleNextStep = () => {
+
+  const handleNextStep = async () => {
     if (step === 1) {
       if (selectedSeats.length === 0) {
         toast.error('Tafadhali chagua viti kabla ya kuendelea');
@@ -126,12 +177,62 @@ export default function MabasiMaarufuFlow({ product, vendor, onBackToTripSelecti
       }
       setStep(3);
     } else if (step === 3) {
-      // Simulate API saving and success
-      toast.info('Inahifadhi uhifadhi wako kwenye Firebase Database...');
-      setTimeout(() => {
+      // Submit order to Firebase for real!
+      const userUid = user?.uid || 'anonymous';
+      const orderPayload = {
+        vendorId: product?.vendorId || vendor?.id || 'mabasi_maarufu_vendor',
+        vendorOwnerUid: vendor?.ownerUid || null,
+        customerId: userUid,
+        customerName: buyerName || 'Mteja Mabasi',
+        customerPhone: buyerPhone,
+        customerEmail: buyerEmail,
+        branchId: product?.branchId || null,
+        items: [{
+          productId: product?.id || 'demo_bus_trip',
+          name: `${busName} - Kiti ${selectedSeats.join(', ')}`,
+          price: basePricePerSeat,
+          quantity: selectedSeats.length,
+          selectedSeats: selectedSeats,
+          departureDate: travelDate,
+          origin: origin,
+          destination: destination
+        }],
+        selectedSeats: selectedSeats,
+        departureDate: travelDate,
+        orderType: 'delivery', // general order type represented as Ticket Booking
+        totalAmount: finalTotalAmount,
+        status: 'pending',
+        paymentStatus: 'paid', // Mark as paid for simulating quick successful payment
+        paymentMethod: paymentMethod,
+        orderSource: 'app_direct',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const loaderId = toast.loading('Inatuma taarifa za tiketi kwenye hifadhi ya mifumo...');
+      
+      try {
+        // 1. Create order
+        await addDoc(collection(db, 'orders'), orderPayload);
+
+        // 2. Lock seats in 'tables' collection
+        for (const seat of selectedSeats) {
+          const docId = `seat_${product?.id || 'demo_bus_trip'}_${seat}`;
+          await setDoc(doc(db, 'tables', docId), {
+            id: docId,
+            productId: product?.id || 'demo_bus_trip',
+            seatNum: seat,
+            customerId: userUid,
+            status: 'booked',
+            updatedAt: Date.now()
+          });
+        }
+
+        toast.success('Malipo na Tiketi imethibitishwa kikamilifu!', { id: loaderId });
         setStep(4);
-        toast.success('Malipo yamefanikiwa! Hongera!');
-      }, 1500);
+      } catch (err: any) {
+        toast.error('Imeshindwa kukamilisha uhifadhi: ' + err.message, { id: loaderId });
+      }
     }
   };
 
@@ -672,7 +773,7 @@ export function useFirebaseBooking(tripId: string) {
   };
 
   return (
-    <div className="w-full flex flex-col gap-8 bg-neutral-950 text-neutral-100 p-2 md:p-6 rounded-[2.5rem] border border-neutral-800 shadow-2xl relative overflow-hidden">
+    <div className={standalone ? "w-full flex flex-col gap-0 bg-transparent text-neutral-100 relative overflow-hidden select-none" : "w-full flex flex-col gap-8 bg-neutral-950 text-neutral-100 p-2 md:p-6 rounded-[2.5rem] border border-neutral-800 shadow-2xl relative overflow-hidden"}>
       
       {/* Background radial effects */}
       <div className="absolute inset-0 pointer-events-none opacity-25">
@@ -681,40 +782,42 @@ export function useFirebaseBooking(tripId: string) {
       </div>
 
       {/* Main Container Header */}
-      <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-neutral-800 pb-6">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-1 bg-violet-500/20 text-violet-400 rounded-full text-[10px] font-black uppercase tracking-wider border border-violet-500/30">
-              Mabasi Maarufu Leo
-            </span>
-            <span className="px-2 py-0.5 bg-neutral-800 text-neutral-400 rounded-md text-[9px] font-mono tracking-widest uppercase border border-neutral-700/50">
-              V2.1 - Luxury Edition
-            </span>
+      {!standalone && (
+        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-neutral-800 pb-6">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-1 bg-violet-500/20 text-violet-400 rounded-full text-[10px] font-black uppercase tracking-wider border border-violet-500/30">
+                Mabasi Maarufu Leo
+              </span>
+              <span className="px-2 py-0.5 bg-neutral-800 text-neutral-400 rounded-md text-[9px] font-mono tracking-widest uppercase border border-neutral-700/50">
+                V2.1 - Luxury Edition
+              </span>
+            </div>
+            <h2 className="text-2xl md:text-3xl font-black italic text-transparent bg-clip-text bg-gradient-to-r from-violet-400 via-fuchsia-400 to-amber-300 uppercase tracking-tighter">
+              Premium Tanzanian Booking Architecture
+            </h2>
+            <p className="text-neutral-400 text-xs font-semibold">
+              An interactive simulator representing full mobile screens paired with cross-platform React Native / NativeWind components.
+            </p>
           </div>
-          <h2 className="text-2xl md:text-3xl font-black italic text-transparent bg-clip-text bg-gradient-to-r from-violet-400 via-fuchsia-400 to-amber-300 uppercase tracking-tighter">
-            Premium Tanzanian Booking Architecture
-          </h2>
-          <p className="text-neutral-400 text-xs font-semibold">
-            An interactive simulator representing full mobile screens paired with cross-platform React Native / NativeWind components.
-          </p>
-        </div>
 
-        {onBackToTripSelection && (
-          <button 
-            type="button"
-            onClick={onBackToTripSelection}
-            className="px-5 py-2.5 bg-neutral-900 border border-neutral-700 rounded-xl hover:bg-violet-600 hover:border-violet-500 hover:text-white transition-all text-xs font-bold flex items-center gap-2 text-neutral-300"
-          >
-            <ChevronLeft className="w-4 h-4" /> Safari Zingine (Other Trips)
-          </button>
-        )}
-      </div>
+          {onBackToTripSelection && (
+            <button 
+              type="button"
+              onClick={onBackToTripSelection}
+              className="px-5 py-2.5 bg-neutral-900 border border-neutral-700 rounded-xl hover:bg-violet-600 hover:border-violet-500 hover:text-white transition-all text-xs font-bold flex items-center gap-2 text-neutral-300"
+            >
+              <ChevronLeft className="w-4 h-4" /> Safari Zingine (Other Trips)
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Dual Panel workspace */}
       <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
         
         {/* LEFT COLUMN: The Interactive Phone Simulator (5 Cols) */}
-        <div className="col-span-1 lg:col-span-5 flex justify-center">
+        <div className={standalone ? "col-span-1 lg:col-span-12 flex justify-center" : "col-span-1 lg:col-span-5 flex justify-center"}>
           <div className="w-full max-w-[420px] aspect-[9/19.5] bg-neutral-900 rounded-[3rem] p-3.5 shadow-[0_0_80px_rgba(124,58,237,0.15)] border-[8px] border-neutral-800 relative flex flex-col overflow-hidden">
             
             {/* Phone Ear Speaker & Punch-hole Camera */}
@@ -1453,8 +1556,8 @@ export function useFirebaseBooking(tripId: string) {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: The High-Fidelity IDE Source Code Exporter (7 Cols) */}
-        <div className="col-span-1 lg:col-span-7 flex flex-col bg-neutral-900 rounded-[2rem] border border-neutral-800 overflow-hidden shadow-inner">
+        {!standalone && (
+          <div className="col-span-1 lg:col-span-7 flex flex-col bg-neutral-900 rounded-[2rem] border border-neutral-800 overflow-hidden shadow-inner">
           
           {/* Mock IDE Titlebar header */}
           <div className="bg-neutral-950 px-5 py-4 flex items-center justify-between border-b border-neutral-850">
@@ -1544,6 +1647,7 @@ export function useFirebaseBooking(tripId: string) {
           </div>
 
         </div>
+        )}
 
       </div>
 

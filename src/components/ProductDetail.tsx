@@ -285,11 +285,6 @@ export default function ProductDetail() {
         const pSnap = await getDoc(doc(db, 'products', id));
         if (pSnap.exists()) {
           const pData = { id: pSnap.id, ...pSnap.data() } as Product;
-          const isBooking = new URLSearchParams(window.location.search).get('booking') === 'true';
-          if (!isBooking && (pData.vendorCategory === 'bus_ticket' || pData.category === 'bus_ticket' || pData.name.toLowerCase().includes('bus ticket'))) {
-            navigate('/service/bus_ticket', { replace: true });
-            return;
-          }
           setProduct(pData);
           
           const vSnap = await getDoc(doc(db, 'vendors', pData.vendorId));
@@ -1031,13 +1026,25 @@ export default function ProductDetail() {
     );
   };
 
-  const isBusTrip = product?.category === 'bus_ticket' || vendor?.category === 'bus_ticket' || product?.vendorCategory === 'bus_ticket';
+  const isBusTrip = product?.category === 'bus_ticket' || 
+                    vendor?.category === 'bus_ticket' || 
+                    product?.vendorCategory === 'bus_ticket' ||
+                    (product?.name || '').toLowerCase().includes('mwanza') ||
+                    (product?.name || '').toLowerCase().includes('shinyanga') ||
+                    (product?.name || '').toLowerCase().includes('arusha') ||
+                    (product?.name || '').toLowerCase().includes('safari') ||
+                    (product?.name || '').toLowerCase().includes('bus') ||
+                    (product?.name || '').toLowerCase().includes('mabasi') ||
+                    !!(product as any).boardingPoint ||
+                    !!(product as any).departureTime ||
+                    !!(product as any).origin ||
+                    !!(product as any).destination;
 
   if (isBusTrip && product) {
     return (
-      <div className="min-h-screen bg-neutral-950 pb-12">
-        <div className="max-w-7xl mx-auto px-1 md:px-8 pt-4 lg:pt-8 bg-neutral-950">
-          <MabasiMaarufuFlow product={product} vendor={vendor} onBackToTripSelection={() => navigate(-1)} />
+      <div className="min-h-screen bg-neutral-950 pb-12 flex justify-center items-center">
+        <div className="w-full max-w-lg px-2 md:px-4 py-6">
+          <MabasiMaarufuFlow product={product} vendor={vendor} standalone={true} onBackToTripSelection={() => navigate(-1)} />
         </div>
       </div>
     );
