@@ -40,6 +40,8 @@ const ParcelHome: React.FC = () => {
       } else {
         setActiveParcel(null);
       }
+    }, (error) => {
+      console.warn("Restricted access or error listening to active parcel:", error.message);
     });
 
     return () => unsubscribe();

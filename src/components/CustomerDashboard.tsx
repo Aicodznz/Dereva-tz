@@ -701,7 +701,7 @@ export default function CustomerDashboard() {
                 whileHover={{ y: -5 }}
               >
                 <Link 
-                  to={`/product/${product.id}`}
+                  to={product.vendorCategory === 'bus_ticket' || product.category === 'bus_ticket' || product.name.toLowerCase().includes('bus ticket') ? '/service/bus_ticket' : `/product/${product.id}`}
                   className="block group"
                 >
                   <Card className="overflow-hidden rounded-[2.5rem] border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xl shadow-neutral-900/5 hover:shadow-orange-900/10 transition-all h-full group/card border-2 hover:border-orange-500/10 active:scale-95">

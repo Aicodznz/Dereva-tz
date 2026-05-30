@@ -225,7 +225,7 @@ export default function ServiceDetail() {
                     {filteredProducts.map((product, idx) => (
                       <Link 
                         key={`svc-prod-${product.id}-${idx}`} 
-                        to={`/product/${product.id}`}
+                        to={product.vendorCategory === 'bus_ticket' || product.category === 'bus_ticket' || product.name.toLowerCase().includes('bus ticket') ? '/service/bus_ticket' : `/product/${product.id}`}
                         className="block group"
                       >
                         <Card className="overflow-hidden rounded-3xl border-neutral-100 shadow-sm hover:shadow-lg transition-all h-full relative group/card">

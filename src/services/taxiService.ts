@@ -53,6 +53,8 @@ export const taxiService = {
       if (docSnap.exists()) {
         callback({ id: docSnap.id, ...docSnap.data() } as RideRequest);
       }
+    }, (error) => {
+      console.warn("Restricted access or error listening to ride request updates:", error.message);
     });
   },
 
@@ -68,6 +70,8 @@ export const taxiService = {
     return onSnapshot(q, (snapshot) => {
       const requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RideRequest));
       callback(requests);
+    }, (error) => {
+      console.warn("Restricted access or error listening to nearby requests:", error.message);
     });
   },
 
@@ -143,6 +147,8 @@ export const taxiService = {
     return onSnapshot(q, (snapshot) => {
       const drivers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       callback(drivers);
+    }, (error) => {
+      console.warn("Restricted access or error listening to nearby drivers:", error.message);
     });
   }
 };

@@ -76,6 +76,8 @@ export default function VendorStore() {
       if (vDoc.exists()) {
         setVendor({ id: vDoc.id, ...vDoc.data() } as VendorProfile);
       }
+    }, (error) => {
+      console.warn("Restricted access or error listening to vendor:", error.message);
     });
 
     const fetchProducts = async () => {
@@ -381,7 +383,7 @@ export default function VendorStore() {
                         transition={{ delay: 0.1 * idx, ease: "easeOut" }}
                       >
                         <Link 
-                          to={`/product/${product.id}`}
+                          to={product.vendorCategory === 'bus_ticket' || product.category === 'bus_ticket' || product.name.toLowerCase().includes('bus ticket') ? '/service/bus_ticket' : `/product/${product.id}`}
                           className="group block h-full"
                         >
                           <div className="relative h-full bg-white dark:bg-neutral-900 rounded-[1.5rem] md:rounded-[3.5rem] border border-neutral-100 dark:border-white/5 shadow-[0_15px_40px_rgba(0,0,0,0.04)] hover:shadow-[0_30px_60px_rgba(234,88,12,0.18)] transition-all duration-700 overflow-hidden group/card">

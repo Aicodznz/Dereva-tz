@@ -108,6 +108,9 @@ const TaxiHistory: React.FC = () => {
 
       setRides(rideData);
       setLoading(false);
+    }, (error) => {
+      console.warn("Restricted access or error listening to taxi history:", error.message);
+      setLoading(false);
     });
 
     return () => unsubscribe();

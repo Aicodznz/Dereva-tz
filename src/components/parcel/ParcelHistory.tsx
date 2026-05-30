@@ -60,6 +60,9 @@ const ParcelHistory: React.FC = () => {
 
       setParcels(parcelData);
       setLoading(false);
+    }, (error) => {
+      console.warn("Restricted access or error listening to parcel history:", error.message);
+      setLoading(false);
     });
 
     return () => unsubscribe();

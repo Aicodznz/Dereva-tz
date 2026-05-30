@@ -72,6 +72,8 @@ export default function ReviewSection({ targetId, targetType, isVendor }: Review
     onSnapshot(q, (snapshot) => {
       const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ReviewReply));
       setReplies(prev => ({ ...prev, [reviewId]: docs }));
+    }, (error) => {
+      console.warn("Restricted access or error listening to review replies:", error.message);
     });
   };
 

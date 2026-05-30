@@ -41,6 +41,8 @@ const PartnerDashboard: React.FC = () => {
         };
         setDoc(doc(db, 'partners', user.uid), initialPartner);
       }
+    }, (error) => {
+      console.warn("Restricted access or error listening to partner profile:", error.message);
     });
     return () => unsubscribe();
   }, [user?.uid]);

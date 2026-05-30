@@ -208,7 +208,8 @@ export default function Chat({ onBack }: ChatProps) {
 
     const unsub = onSnapshot(
       query(collection(db, 'messages'), where('participants', 'array-contains', user.uid)),
-      () => fetchSessions()
+      () => fetchSessions(),
+      (error) => console.warn("Restricted access or error listening to chat sessions:", error.message)
     );
 
     return () => unsub();
@@ -294,7 +295,8 @@ export default function Chat({ onBack }: ChatProps) {
 
     const unsub = onSnapshot(
       query(collection(db, 'messages'), where('chatId', '==', chatId)),
-      () => fetchMessages()
+      () => fetchMessages(),
+      (error) => console.warn("Restricted access or error listening to chat messages:", error.message)
     );
 
     return () => unsub();

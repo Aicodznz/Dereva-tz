@@ -51,6 +51,8 @@ export function useIncomingParcels() {
         }
       });
       setParcels(incomingParcels);
+    }, (error) => {
+      console.warn("Restricted access or error listening to incoming parcels:", error.message);
     });
 
     return () => unsubscribe();

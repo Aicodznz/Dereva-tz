@@ -206,7 +206,7 @@ export default function BusBooking({ vendors, products }: BusBookingProps) {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.05 }}
                   className="group"
-                  onClick={() => navigate(`/product/${trip.id}`)}
+                  onClick={() => navigate(`/product/${trip.id}?booking=true`)}
                 >
                   <Card className="overflow-hidden rounded-[2rem] border-2 border-neutral-100 hover:border-orange-500/30 transition-all cursor-pointer group-hover:shadow-2xl group-hover:shadow-orange-600/5">
                     <CardContent className="p-0">

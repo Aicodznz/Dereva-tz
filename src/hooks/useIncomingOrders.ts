@@ -61,6 +61,8 @@ export function useIncomingOrders(isOnline: boolean, driverLocation: { lat: numb
         }
         return nearbyOrders;
       });
+    }, (error) => {
+      console.warn("Restricted access or error listening to incoming orders:", error.message);
     });
 
     return () => unsub();

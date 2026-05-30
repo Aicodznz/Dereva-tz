@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { db } from '../firebase';
-import { collection, addDoc, serverTimestamp, doc, getDoc, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, getDoc, onSnapshot, query, where, setDoc } from 'firebase/firestore';
 import { toast } from 'sonner';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
@@ -54,6 +54,8 @@ export default function Checkout() {
       // Fetch Vendor Tables (Sections)
       const unsubTables = onSnapshot(collection(db, 'vendors', vendorId, 'sections'), (snap) => {
         setVendorTables(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      }, (error) => {
+        console.warn("Restricted access or error listening to vendor areas:", error.message);
       });
 
       // Fetch Active Orders to find occupied tables
@@ -69,6 +71,8 @@ export default function Checkout() {
           .map(doc => doc.data().tableNumber)
           .filter(t => !!t);
         setOccupiedTables(occupied);
+      }, (error) => {
+        console.warn("Restricted access or error listening to active table orders:", error.message);
       });
 
       return () => {
@@ -127,6 +131,10 @@ export default function Checkout() {
         }
       }
 
+      // Get selectedSeats if any item has them
+      const itemsWithSeats = cartItems.filter(item => Array.isArray((item as any).selectedSeats));
+      const orderSeats = itemsWithSeats.length > 0 ? (itemsWithSeats[0] as any).selectedSeats : null;
+
       const orderData = {
         customerId: user.uid,
         customerName: profile?.displayName || user.displayName || 'Mteja',
@@ -149,11 +157,32 @@ export default function Checkout() {
         notes: notes,
         deliveryAddress: orderType === 'delivery' ? address : null,
         type: vendorCategory,
+        selectedSeats: orderSeats,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
 
       const orderRef = await addDoc(collection(db, 'orders'), orderData);
+      
+      // Mark selected seats as permanently booked in tables collection
+      if (Array.isArray(orderSeats) && orderSeats.length > 0) {
+        try {
+          for (const seat of orderSeats) {
+            const docId = `seat_${primaryVendorId}_${seat}`;
+            await setDoc(doc(db, 'tables', docId), {
+              id: docId,
+              productId: cartItems[0]?.id || '',
+              seatNum: String(seat),
+              customerId: user.uid,
+              orderId: orderRef.id,
+              status: 'booked',
+              expiresAt: Date.now() + 365 * 24 * 60 * 60 * 1000 // 1 year expiry
+            });
+          }
+        } catch (err) {
+          console.warn("Failed to lock booked seats in tables collection:", err);
+        }
+      }
       
       if (paymentMethod === 'online' || paymentMethod === 'mobile_money') {
         const formattedPhone = phoneNumber.startsWith('0') 

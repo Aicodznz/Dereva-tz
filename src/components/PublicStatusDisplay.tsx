@@ -47,6 +47,9 @@ export default function PublicStatusDisplay() {
       })) as Order[];
       setOrders(ordersData);
       setLoading(false);
+    }, (error) => {
+      console.warn("Restricted access or error listening to public orders display:", error.message);
+      setLoading(false);
     });
 
     return () => unsubscribe();

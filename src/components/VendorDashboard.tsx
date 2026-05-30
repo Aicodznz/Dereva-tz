@@ -1192,7 +1192,13 @@ export default function VendorDashboard() {
 
     fetchCoupons();
 
-    const unsub = onSnapshot(query(collection(db, 'coupons'), where('vendorId', '==', vendorProfile.id)), () => fetchCoupons());
+    const unsub = onSnapshot(
+      query(collection(db, 'coupons'), where('vendorId', '==', vendorProfile.id)), 
+      () => fetchCoupons(),
+      (error) => {
+        console.warn("Restricted access or error listening to coupons:", error.message);
+      }
+    );
 
     return () => unsub();
   }, [vendorProfile?.id, user?.uid]);
@@ -4732,7 +4738,7 @@ export default function VendorDashboard() {
                                 {(updatedProfile.logoUrl || vendorProfile?.logoUrl) ? (
                                   <img 
                                     key={updatedProfile.logoUrl || vendorProfile?.logoUrl}
-                                    src={updatedProfile.logoUrl || vendorProfile?.logoUrl || ''} 
+                                    src={updatedProfile.logoUrl || vendorProfile?.logoUrl || undefined} 
                                     className={`w-full h-full object-cover transition-all group-hover:scale-110 ${isLogoUploading ? 'opacity-30 grayscale' : ''}`} 
                                     referrerPolicy="no-referrer" 
                                     onError={(e) => {
@@ -4798,7 +4804,7 @@ export default function VendorDashboard() {
                             <div className="relative group aspect-video rounded-3xl bg-neutral-50 dark:bg-neutral-950 border-2 border-dashed border-neutral-200 dark:border-neutral-800 overflow-hidden flex items-center justify-center transition-colors">
                               {(updatedProfile.bannerUrl || vendorProfile?.bannerUrl) ? (
                                 <img 
-                                  src={updatedProfile.bannerUrl || vendorProfile?.bannerUrl || ''} 
+                                  src={updatedProfile.bannerUrl || vendorProfile?.bannerUrl || undefined} 
                                   className={`w-full h-full object-cover ${isBannerUploading ? 'opacity-30 grayscale' : ''}`} 
                                   referrerPolicy="no-referrer" 
                                   onError={(e) => {

@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { storageService } from '../services/storageService';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, onSnapshot, getDocs, doc, getDoc, addDoc, updateDoc, deleteDoc, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, getDocs, doc, getDoc, addDoc, updateDoc, deleteDoc, orderBy, limit, setDoc } from 'firebase/firestore';
 import { useAuth } from '../AuthContext';
 import { useCart } from '../CartContext';
 import { useBusinessConfig } from '../BusinessConfigContext';
@@ -74,8 +74,62 @@ export default function ProductDetail() {
   const [activeTab, setActiveTab] = useState('Maelezo');
   const arViewerRef = useRef<any>(null);
 
-  const handleAddToCart = () => {
+  const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
+  const [bookedSeats, setBookedSeats] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!product?.id || !db) return;
+    const vendorCategory = vendor?.category || product?.category || '';
+    if (vendorCategory === 'bus_ticket') {
+      const q = query(
+        collection(db, 'tables'),
+        where('productId', '==', product.id)
+      );
+      const unsub = onSnapshot(q, (snap) => {
+        const booked: string[] = [];
+        snap.docs.forEach((doc) => {
+          const data = doc.data();
+          const isPendingActive = data.status === 'pending' && data.expiresAt && data.expiresAt > Date.now();
+          const isBooked = data.status === 'booked';
+          if (isBooked || isPendingActive) {
+            booked.push(String(data.seatNum));
+          }
+        });
+        setBookedSeats(Array.from(new Set(booked)));
+      }, (error) => {
+        console.warn("Error listening to booked seats in tables:", error.message);
+      });
+      return () => unsub();
+    }
+  }, [product?.id, product?.vendorId, vendor?.category, product?.category]);
+
+  const handleAddToCart = async () => {
     if (!product) return;
+    const vendorCategory = vendor?.category || product?.category || '';
+    if (vendorCategory === 'bus_ticket' && selectedSeats.length === 0) {
+      toast.error('Tafadhali chagua kiti angalau kimoja! (Please select at least one seat!)');
+      return;
+    }
+
+    if (vendorCategory === 'bus_ticket') {
+      try {
+        // Reserve selected seats for 10 minutes temporary hold during checkout
+        for (const seat of selectedSeats) {
+          const docId = `seat_${product.id}_${seat}`;
+          await setDoc(doc(db, 'tables', docId), {
+            id: docId,
+            productId: product.id,
+            seatNum: seat,
+            customerId: user?.uid || 'anonymous',
+            status: 'pending',
+            expiresAt: Date.now() + 10 * 60 * 1000 // 10 minutes expiry
+          });
+        }
+      } catch (err) {
+        console.warn("Could not write temporary seat hold:", err);
+      }
+    }
+
     addItem({ 
       ...product, 
       quantity,
@@ -83,7 +137,8 @@ export default function ProductDetail() {
       addons: selectedAddons,
       orderType,
       tableNumber: orderType === 'walk_in' ? tableNumber : null,
-      arrivalTime: orderType === 'walk_in' ? arrivalTime : null
+      arrivalTime: orderType === 'walk_in' ? arrivalTime : null,
+      selectedSeats: vendorCategory === 'bus_ticket' ? selectedSeats : undefined
     });
     toast.success('Imeongezwa kwenye kikapu', {
       description: `${quantity}x ${product.name} imewekwa.`,
@@ -149,6 +204,8 @@ export default function ProductDetail() {
       // Fetch Vendor Tables (Sections)
       const unsubTables = onSnapshot(collection(db, 'vendors', vendor.id, 'sections'), (snap) => {
         setVendorTables(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      }, (error) => {
+        console.warn("Restricted access or error listening to vendor areas:", error.message);
       });
 
       // Fetch Active Orders to find occupied tables
@@ -164,6 +221,8 @@ export default function ProductDetail() {
           .map(doc => doc.data().tableNumber)
           .filter(t => !!t);
         setOccupiedTables(occupied);
+      }, (error) => {
+        console.warn("Restricted access or error listening to active table orders:", error.message);
       });
 
       return () => {
@@ -216,6 +275,11 @@ export default function ProductDetail() {
         const pSnap = await getDoc(doc(db, 'products', id));
         if (pSnap.exists()) {
           const pData = { id: pSnap.id, ...pSnap.data() } as Product;
+          const isBooking = new URLSearchParams(window.location.search).get('booking') === 'true';
+          if (!isBooking && (pData.vendorCategory === 'bus_ticket' || pData.category === 'bus_ticket' || pData.name.toLowerCase().includes('bus ticket'))) {
+            navigate('/service/bus_ticket', { replace: true });
+            return;
+          }
           setProduct(pData);
           
           const vSnap = await getDoc(doc(db, 'vendors', pData.vendorId));
@@ -329,6 +393,11 @@ export default function ProductDetail() {
 
   const processPayment = async () => {
     if (!product) return;
+    const vendorCategory = vendor?.category || product?.category || '';
+    if (vendorCategory === 'bus_ticket' && selectedSeats.length === 0) {
+      toast.error('Tafadhali chagua kiti angalau kimoja! (Please select at least one seat!)');
+      return;
+    }
     if (!buyerPhone.trim()) {
       toast.error('Tafadhali ingia namba yako ya simu');
       return;
@@ -349,8 +418,10 @@ export default function ProductDetail() {
           price: product.price,
           quantity: quantity,
           variation: selectedSize,
-          addons: selectedAddons
+          addons: selectedAddons,
+          selectedSeats: vendorCategory === 'bus_ticket' ? selectedSeats : undefined
         }],
+        selectedSeats: vendorCategory === 'bus_ticket' ? selectedSeats : undefined,
         orderType: orderType,
         peopleCount: orderType === 'walk_in' ? peopleCount : 1,
         tableNumber: orderType === 'walk_in' ? tableNumber : null,
@@ -739,36 +810,194 @@ export default function ProductDetail() {
                 <h4 className="text-sm font-black text-neutral-900 dark:text-white uppercase italic transition-colors">Chagua Kiti (Select Seat)</h4>
                 <p className="text-[10px] font-bold text-neutral-500 dark:text-neutral-400 transition-colors">{(product as any).availableSeats || '45'} available</p>
               </div>
-              <div className="grid grid-cols-5 gap-2 h-48 overflow-y-auto p-4 bg-neutral-900 dark:bg-black rounded-3xl no-scrollbar border-4 border-neutral-800 dark:border-neutral-900 transition-colors">
-                {Array.from({ length: 48 }).map((_, i) => {
-                  const isBooked = [3, 7, 12, 14, 22, 23, 30].includes(i);
-                  return (
-                    <button 
-                      key={`bus-seat-${i}`}
-                      disabled={isBooked}
-                      className={`aspect-square rounded-lg flex items-center justify-center text-[10px] font-black transition-all ${
-                        isBooked 
-                        ? 'bg-neutral-800 text-neutral-700 cursor-not-allowed' 
-                        : 'bg-neutral-700 text-white hover:bg-orange-600 hover:scale-110 active:scale-95'
-                      }`}
-                    >
-                      <Armchair className="w-4 h-4" />
-                    </button>
-                  );
-                })}
+
+              {/* Driving Cabin Info / Steering wheel */}
+              <div className="flex justify-between items-center px-4 py-2 bg-neutral-900/60 rounded-2xl border border-neutral-800 text-[10px] font-bold text-neutral-400">
+                <span className="flex items-center gap-1">🪟 Dirisha (Left)</span>
+                <div className="flex items-center gap-1.5 px-3 py-1 bg-neutral-950 rounded-xl border border-neutral-800 text-orange-600 animate-pulse">
+                  <span>●</span> Mbele ya Basi (Front)
+                </div>
+                <span className="flex items-center gap-1">(Right) Dirisha 🪟</span>
               </div>
-              <div className="flex justify-center gap-4">
+
+              <div className="space-y-3 h-[320px] overflow-y-auto p-4 bg-neutral-950 rounded-3xl border-4 border-neutral-900 transition-colors no-scrollbar">
+                {(() => {
+                  const totalSeatsCount = (product as any).totalSeats || 55;
+                  const layoutType = (product as any).seatLayout || 'A1 A2 || A3 A4';
+                  
+                  // Generate seats list based on layout rules
+                  const seatsList: string[] = [];
+                  if (layoutType === '1A 1B || 1C 1D') {
+                    const rowsCount = Math.ceil(totalSeatsCount / 4);
+                    const seatLetters = ['A', 'B', 'C', 'D'];
+                    for (let r = 1; r <= rowsCount; r++) {
+                      for (let s = 0; s < 4; s++) {
+                        const id = `${r}${seatLetters[s]}`;
+                        if (seatsList.length < totalSeatsCount) seatsList.push(id);
+                      }
+                    }
+                  } else if (layoutType === 'A1 A2 || A3 A4') {
+                    const rowsCount = Math.ceil(totalSeatsCount / 4);
+                    const rowLetters = "ABCDEFGHJKLMNOPQRSTUVWXYZ".split("");
+                    for (let r = 0; r < rowsCount; r++) {
+                      const letter = rowLetters[r % rowLetters.length] || `X${r}`;
+                      for (let s = 1; s <= 4; s++) {
+                        const id = `${letter}${s}`;
+                        if (seatsList.length < totalSeatsCount) seatsList.push(id);
+                      }
+                    }
+                  } else {
+                    for (let i = 1; i <= totalSeatsCount; i++) {
+                      seatsList.push(String(i));
+                    }
+                  }
+
+                  // Break into rows of 4
+                  const rows: string[][] = [];
+                  for (let i = 0; i < seatsList.length; i += 4) {
+                    rows.push(seatsList.slice(i, i + 4));
+                  }
+
+                  return rows.map((rowChunk, rowIdx) => (
+                    <div key={`row-grid-${rowIdx}`} className="grid grid-cols-5 gap-2 items-center">
+                      {/* Left Side (Col 1 & 2) */}
+                      {rowChunk[0] ? (
+                        (() => {
+                          const seatNum = rowChunk[0];
+                          const isBooked = bookedSeats.includes(seatNum);
+                          const isSelected = selectedSeats.includes(seatNum);
+                          return (
+                            <button
+                              disabled={isBooked}
+                              type="button"
+                              onClick={() => {
+                                setSelectedSeats(prev => {
+                                  const nextSelected = prev.includes(seatNum) ? prev.filter(s => s !== seatNum) : [...prev, seatNum];
+                                  setQuantity(nextSelected.length > 0 ? nextSelected.length : 1);
+                                  return nextSelected;
+                                });
+                              }}
+                              className={`aspect-square rounded-2xl flex flex-col items-center justify-center text-[10px] font-black transition-all gap-0.5 ${
+                                isBooked ? 'bg-neutral-900 border border-neutral-800/50 text-neutral-600 cursor-not-allowed' :
+                                isSelected ? 'bg-orange-600 text-white border border-orange-400 font-bold scale-105 shadow-md' :
+                                'bg-neutral-800 hover:bg-neutral-705 text-neutral-300 border border-neutral-700/50'
+                              }`}
+                            >
+                              <Armchair className="w-3.5 h-3.5" />
+                              <span className="text-[7px] leading-none">{seatNum}</span>
+                            </button>
+                          );
+                        })()
+                      ) : <div />}
+
+                      {rowChunk[1] ? (
+                        (() => {
+                          const seatNum = rowChunk[1];
+                          const isBooked = bookedSeats.includes(seatNum);
+                          const isSelected = selectedSeats.includes(seatNum);
+                          return (
+                            <button
+                              disabled={isBooked}
+                              type="button"
+                              onClick={() => {
+                                setSelectedSeats(prev => {
+                                  const nextSelected = prev.includes(seatNum) ? prev.filter(s => s !== seatNum) : [...prev, seatNum];
+                                  setQuantity(nextSelected.length > 0 ? nextSelected.length : 1);
+                                  return nextSelected;
+                                });
+                              }}
+                              className={`aspect-square rounded-2xl flex flex-col items-center justify-center text-[10px] font-black transition-all gap-0.5 ${
+                                isBooked ? 'bg-neutral-900 border border-neutral-800/50 text-neutral-600 cursor-not-allowed' :
+                                isSelected ? 'bg-orange-600 text-white border border-orange-400 font-bold scale-105 shadow-md' :
+                                'bg-neutral-800 hover:bg-neutral-705 text-neutral-300 border border-neutral-700/50'
+                              }`}
+                            >
+                              <Armchair className="w-3.5 h-3.5" />
+                              <span className="text-[7px] leading-none">{seatNum}</span>
+                            </button>
+                          );
+                        })()
+                      ) : <div />}
+
+                      {/* Aisle */}
+                      <div className="flex items-center justify-center text-neutral-700 text-[10px] font-black italic">
+                        ||
+                      </div>
+
+                      {/* Right Side (Col 3 & 4) */}
+                      {rowChunk[2] ? (
+                        (() => {
+                          const seatNum = rowChunk[2];
+                          const isBooked = bookedSeats.includes(seatNum);
+                          const isSelected = selectedSeats.includes(seatNum);
+                          return (
+                            <button
+                              disabled={isBooked}
+                              type="button"
+                              onClick={() => {
+                                setSelectedSeats(prev => {
+                                  const nextSelected = prev.includes(seatNum) ? prev.filter(s => s !== seatNum) : [...prev, seatNum];
+                                  setQuantity(nextSelected.length > 0 ? nextSelected.length : 1);
+                                  return nextSelected;
+                                });
+                              }}
+                              className={`aspect-square rounded-2xl flex flex-col items-center justify-center text-[10px] font-black transition-all gap-0.5 ${
+                                isBooked ? 'bg-neutral-900 border border-neutral-800/50 text-neutral-600 cursor-not-allowed' :
+                                isSelected ? 'bg-orange-600 text-white border border-orange-400 font-bold scale-105 shadow-md' :
+                                'bg-neutral-800 hover:bg-neutral-705 text-neutral-300 border border-neutral-700/50'
+                              }`}
+                            >
+                              <Armchair className="w-3.5 h-3.5" />
+                              <span className="text-[7px] leading-none">{seatNum}</span>
+                            </button>
+                          );
+                        })()
+                      ) : <div />}
+
+                      {rowChunk[3] ? (
+                        (() => {
+                          const seatNum = rowChunk[3];
+                          const isBooked = bookedSeats.includes(seatNum);
+                          const isSelected = selectedSeats.includes(seatNum);
+                          return (
+                            <button
+                              disabled={isBooked}
+                              type="button"
+                              onClick={() => {
+                                setSelectedSeats(prev => {
+                                  const nextSelected = prev.includes(seatNum) ? prev.filter(s => s !== seatNum) : [...prev, seatNum];
+                                  setQuantity(nextSelected.length > 0 ? nextSelected.length : 1);
+                                  return nextSelected;
+                                });
+                              }}
+                              className={`aspect-square rounded-2xl flex flex-col items-center justify-center text-[10px] font-black transition-all gap-0.5 ${
+                                isBooked ? 'bg-neutral-900 border border-neutral-800/50 text-neutral-600 cursor-not-allowed' :
+                                isSelected ? 'bg-orange-600 text-white border border-orange-400 font-bold scale-105 shadow-md' :
+                                'bg-neutral-800 hover:bg-neutral-705 text-neutral-300 border border-neutral-700/50'
+                              }`}
+                            >
+                              <Armchair className="w-3.5 h-3.5" />
+                              <span className="text-[7px] leading-none">{seatNum}</span>
+                            </button>
+                          );
+                        })()
+                      ) : <div />}
+                    </div>
+                  ));
+                })()}
+              </div>
+              <div className="flex justify-center gap-4 bg-neutral-900/40 p-3 rounded-2xl border border-neutral-800">
                 <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 rounded-full bg-neutral-700" />
-                  <span className="text-[10px] font-bold text-neutral-400 uppercase">Available</span>
+                  <div className="w-2.5 h-2.5 rounded-full bg-neutral-800 border border-neutral-750" />
+                  <span className="text-[9px] font-bold text-neutral-400 uppercase">Available</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 rounded-full bg-neutral-800" />
-                  <span className="text-[10px] font-bold text-neutral-400 uppercase">Booked</span>
+                  <div className="w-2.5 h-2.5 rounded-full bg-neutral-900 border border-neutral-800" />
+                  <span className="text-[9px] font-bold text-neutral-600 uppercase">Booked / Hold</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 rounded-full bg-orange-600" />
-                  <span className="text-[10px] font-bold text-neutral-400 uppercase">Selected</span>
+                  <div className="w-2.5 h-2.5 rounded-full bg-orange-600" />
+                  <span className="text-[9px] font-bold text-orange-500 uppercase font-black">Selected</span>
                 </div>
               </div>
             </div>

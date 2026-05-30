@@ -78,6 +78,8 @@ export default function OrderTracker({ order, onBack }: OrderTrackerProps) {
         }
         setDriverProfile(data);
       }
+    }, (error) => {
+      console.warn("Restricted access or error listening to driver location:", error.message);
     });
 
     return () => unsub();

@@ -60,6 +60,8 @@ const ParcelPartnerController: React.FC = () => {
         setActiveParcel(null);
         setScreen('dashboard');
       }
+    }, (error) => {
+      console.warn("Restricted access or error listening to partner active parcels:", error.message);
     });
 
     return () => unsubscribe();
