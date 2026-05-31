@@ -4,7 +4,7 @@ import {
   Check, CheckCircle2, ChevronLeft, ChevronRight, 
   Smartphone, Sparkles, CreditCard, Wallet, Copy, 
   FileText, Terminal, Star, Wifi, ShieldCheck, HelpCircle, 
-  Award, Send, Trash2, Info, Lock, X
+  Award, Send, Trash2, Info, Lock, X, Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
@@ -42,6 +42,46 @@ export default function MabasiMaarufuFlow({ product, vendor, onBackToTripSelecti
   const [emergencyPhone, setEmergencyPhone] = useState<string>('+255 712 987654');
   const [saveProfile, setSaveProfile] = useState<boolean>(true);
   const [isFrequent, setIsFrequent] = useState<boolean>(false);
+
+  // My tickets state and realtimes data integration
+  const [showMyTickets, setShowMyTickets] = useState<boolean>(false);
+  const [myTicketsList, setMyTicketsList] = useState<any[]>([]);
+  const [myTicketsLoading, setMyTicketsLoading] = useState<boolean>(false);
+  const [viewingTicketDetail, setViewingTicketDetail] = useState<any | null>(null);
+  const [activeTicketsTab, setActiveTicketsTab] = useState<'upcoming' | 'completed' | 'cancelled'>('upcoming');
+
+  useEffect(() => {
+    if (!user?.uid || !db) return;
+    setMyTicketsLoading(true);
+    const q = query(
+      collection(db, 'orders'),
+      where('customerId', '==', user.uid)
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      const tickets: any[] = [];
+      snap.docs.forEach((docSnap) => {
+        const data = docSnap.data();
+        const isBusTicket = data.selectedSeats || data.departureDate || data.vendorId === 'mabasi_maarufu_vendor';
+        if (isBusTicket) {
+          tickets.push({
+            id: docSnap.id,
+            ...data
+          });
+        }
+      });
+      tickets.sort((a, b) => {
+        const dA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dB - dA;
+      });
+      setMyTicketsList(tickets);
+      setMyTicketsLoading(false);
+    }, (error) => {
+      console.warn("Could not load user's tickets from Firestore:", error.message);
+      setMyTicketsLoading(false);
+    });
+    return () => unsub();
+  }, [user?.uid]);
 
   // Reference for stable ticket layout and download
   const ticketRef = useRef<HTMLDivElement>(null);
@@ -817,6 +857,317 @@ export function useFirebaseBooking(tripId: string) {
 }`
   };
 
+  const renderTicketPass = (ticketData: any, printRef: any = null) => {
+    const d_ticketId = ticketData.ticketId || ticketData.id || ticketData.bookingId || ticketRefId || 'SE-104928';
+    const d_buyerName = ticketData.customerName || ticketData.buyerName || buyerName || 'Mteja Msafiri';
+    const d_seats = ticketData.selectedSeats || (ticketData.items && ticketData.items[0]?.selectedSeats) || selectedSeats || ['18'];
+    const d_busName = ticketData.busName || busName || 'Kilimanjaro Royal Bus';
+    const d_origin = ticketData.origin || (ticketData.items && ticketData.items[0]?.origin) || origin || 'Dar es Salaam';
+    const d_destination = ticketData.destination || (ticketData.items && ticketData.items[0]?.destination) || destination || 'Arusha';
+    const d_travelDate = ticketData.travelDate || ticketData.departureDate || (ticketData.items && ticketData.items[0]?.departureDate) || travelDate;
+    const d_departureTime = ticketData.departureTime || departureTime || '07:00 AM';
+    const d_total = ticketData.totalAmount || ticketData.finalTotalAmount || finalTotalAmount;
+    
+    // Nauli breakdown
+    const d_fare = ticketData.originalTotalPrice || (ticketData.items && ticketData.items[0]?.price * d_seats.length) || originalTotalPrice;
+    const d_discount = ticketData.couponDiscount || (ticketData.isCouponApplied ? 14000 : 0) || couponDiscount;
+
+    return (
+      <div 
+        ref={printRef}
+        className="w-full relative overflow-hidden rounded-[2.5rem] border-2 border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-0 shadow-2xl transition-all duration-200 select-text text-neutral-900 dark:text-neutral-100 font-sans"
+      >
+        <div className="grid grid-cols-1 md:grid-cols-12 items-stretch min-h-[460px]">
+          
+          {/* Main Ticket */}
+          <div className="col-span-1 md:col-span-9 p-5 flex flex-col justify-between space-y-5 border-b md:border-b-0 md:border-r border-dashed border-neutral-300 dark:border-neutral-800 relative">
+            
+            <div className="hidden md:block absolute -right-3 -top-3 w-6 h-6 bg-neutral-100 dark:bg-neutral-950 rounded-full border border-neutral-200 dark:border-neutral-800 z-10" />
+            <div className="hidden md:block absolute -right-3 -bottom-3 w-6 h-6 bg-neutral-100 dark:bg-neutral-950 rounded-full border border-neutral-200 dark:border-neutral-800 z-10" />
+
+            {/* UPPER BRANDING ACCENT SHEET WITH KILIMANJARO BACKDROP */}
+            <div className="relative rounded-[1.75rem] overflow-hidden bg-gradient-to-r from-sky-600 via-blue-700 to-indigo-800 h-44 text-white shadow-md p-5 flex flex-col justify-between">
+              
+              <div className="absolute inset-0 z-0 opacity-40 mix-blend-overlay pointer-events-none select-none">
+                <svg viewBox="0 0 800 200" className="w-full h-full object-cover" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <linearGradient id="scenic-sky-generic" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#1e3a8a" />
+                      <stop offset="50%" stopColor="#1d4ed8" />
+                      <stop offset="100%" stopColor="#0284c7" />
+                    </linearGradient>
+                  </defs>
+                  <rect width="800" height="200" fill="url(#scenic-sky-generic)" />
+                  <polygon points="120,200 300,40 480,200" fill="#0f172a" opacity="0.6"/>
+                  <polygon points="180,200 300,50 420,200" fill="#1e293b" />
+                  <polygon points="265,95 300,50 335,95 320,85 300,98 280,85" fill="#ffffff" />
+                  <circle cx="650" cy="70" r="25" fill="#facc15" opacity="0.8" />
+                  <path d="M0,170 Q200,140 400,170 T820,150 L800,200 L0,200 Z" fill="#15803d" />
+                  <path d="M0,185 Q300,170 600,185 T800,175 L800,200 L0,200 Z" fill="#166534" />
+                  <path d="M100,180 L100,165 M90,165 L115,165 M85,160 Q100,155 120,160 Z" stroke="#064e3b" strokeWidth="2.5" fill="#064e3b"/>
+                  <path d="M680,185 L680,168 M670,168 L695,168 M660,163 Q680,158 700,163 Z" stroke="#064e3b" strokeWidth="2.5" fill="#064e3b"/>
+                  <g transform="translate(480, 145) scale(0.6)">
+                    <rect x="0" y="5" width="125" height="42" rx="10" fill="#ffffff" />
+                    <rect x="100" y="10" width="22" height="15" rx="3" fill="#0f172a" />
+                    <rect x="80" y="10" width="16" height="15" fill="#1d4ed8" />
+                    <rect x="15" y="10" width="60" height="15" fill="#1d4ed8" />
+                    <circle cx="25" cy="48" r="9" fill="#000" />
+                    <circle cx="25" cy="48" r="4" fill="#64748b" />
+                    <circle cx="98" cy="48" r="9" fill="#000" />
+                    <circle cx="98" cy="48" r="4" fill="#64748b" />
+                    <path d="M5,25 L120,25" stroke="#22c55e" strokeWidth="3" />
+                  </g>
+                </svg>
+              </div>
+
+              <div className="relative z-10 flex justify-between items-start">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-white/25 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-md">
+                    <span className="text-2xl">🚌</span>
+                  </div>
+                  <div>
+                    <span className="text-[9.5px] bg-red-600 font-extrabold text-white px-2.5 py-0.5 rounded uppercase tracking-wider">
+                      Premium Inter-Regional
+                    </span>
+                    <h4 className="text-base font-black uppercase tracking-tight leading-none mt-1 text-white">
+                      {d_busName}
+                    </h4>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <span className="text-[10px] bg-white/20 backdrop-blur-sm border border-white/30 text-white font-black px-3 py-1 rounded-full uppercase tracking-wider">
+                    BOARDING PASS
+                  </span>
+                  <span className="text-[10px] uppercase block font-mono font-bold tracking-tight text-emerald-300 mt-1">
+                    ● CONFIRMED STATUS
+                  </span>
+                </div>
+              </div>
+
+              <div className="relative z-10 flex justify-between items-end border-t border-white/10 pt-2.5">
+                <span className="text-[10px] text-white/80 font-bold uppercase tracking-widest leading-none">
+                  TIKETI YA ABIRIA (TRAVEL TICKET)
+                </span>
+                <span className="text-xs font-black text-amber-300 tracking-wider font-mono font-bold">
+                  NO: {d_ticketId}
+                </span>
+              </div>
+            </div>
+
+            {/* TWO-COLUMN DETAILED DATA GRID */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-5 gap-y-4 text-xs font-semibold">
+              <div className="col-span-2 py-1.5 border-b border-neutral-100 dark:border-neutral-800">
+                <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 uppercase block leading-none tracking-wider">
+                  Jina la Abiria (Passenger Name)
+                </span>
+                <p className="font-extrabold text-neutral-900 dark:text-white text-sm uppercase leading-none mt-2 font-sans truncate">
+                  {d_buyerName}
+                </p>
+              </div>
+
+              <div className="col-span-1 py-1.5 border-b border-neutral-100 dark:border-neutral-800">
+                <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 uppercase block leading-none tracking-wider">
+                  Kiti (Seat No)
+                </span>
+                <p className="font-black text-violet-600 dark:text-violet-400 text-base leading-none mt-2 font-mono">
+                  {Array.isArray(d_seats) ? d_seats.join(', ') : d_seats}
+                </p>
+              </div>
+
+              <div className="col-span-1 py-1.5 border-b border-neutral-100 dark:border-neutral-800">
+                <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 uppercase block leading-none tracking-wider">
+                  Namba ya Basi
+                </span>
+                <p className="font-extrabold text-neutral-800 dark:text-neutral-200 text-xs mt-2 uppercase">
+                  T 315 DCS (AC)
+                </p>
+              </div>
+
+              <div className="col-span-1 py-1.5 border-b border-neutral-100 dark:border-neutral-800">
+                <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 uppercase block leading-none tracking-wider">
+                  Kutoka (From)
+                </span>
+                <p className="font-extrabold text-neutral-900 dark:text-neutral-100 text-sm uppercase mt-1.5 font-sans leading-none">
+                  {d_origin}
+                </p>
+                <span className="text-[8px] text-neutral-400 dark:text-neutral-500 block mt-1 font-medium font-sans">Bus Terminal Center</span>
+              </div>
+
+              <div className="col-span-1 py-1.5 border-b border-neutral-100 dark:border-neutral-800">
+                <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 uppercase block leading-none tracking-wider">
+                  Kwenda (To)
+                </span>
+                <p className="font-extrabold text-neutral-900 dark:text-neutral-100 text-sm uppercase mt-1.5 font-sans leading-none">
+                  {d_destination}
+                </p>
+                <span className="text-[8px] text-neutral-400 dark:text-neutral-500 block mt-1 font-medium font-sans">Destination Hub</span>
+              </div>
+
+              <div className="col-span-1 py-1.5 border-b border-neutral-100 dark:border-neutral-800">
+                <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 uppercase block leading-none tracking-wider">
+                  Tarehe ya Safari
+                </span>
+                <p className="font-extrabold text-neutral-850 dark:text-neutral-200 text-xs mt-2 uppercase font-sans">
+                  {d_travelDate}
+                </p>
+              </div>
+
+              <div className="col-span-1 py-1.5 border-b border-neutral-100 dark:border-neutral-800">
+                <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 uppercase block leading-none tracking-wider">
+                  Muda wa Basi (Time)
+                </span>
+                <p className="font-extrabold text-neutral-850 dark:text-neutral-200 text-xs mt-2 uppercase font-sans">
+                  {d_departureTime}
+                </p>
+              </div>
+            </div>
+
+            {/* LOWER GHARAMA/MALIPO BANNER WITH QR CODE */}
+            <div className="bg-neutral-50 dark:bg-neutral-950/40 border border-neutral-200 dark:border-neutral-800 p-4 rounded-3xl grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
+              <div className="col-span-1 sm:col-span-6 space-y-1 text-[11px] font-semibold">
+                <span className="text-[9px] font-black text-violet-750 dark:text-violet-405 uppercase tracking-widest block mb-1">
+                  Gharama za Safari (Malipo)
+                </span>
+                <div className="flex justify-between border-b border-neutral-200/50 dark:border-neutral-800 pb-1">
+                  <span className="text-neutral-400 font-bold">Nauli Kuu (Fare):</span>
+                  <span className="text-neutral-800 dark:text-neutral-250 font-mono font-bold">TZS {d_fare ? d_fare.toLocaleString() : '35,000'}</span>
+                </div>
+                <div className="flex justify-between border-b border-neutral-200/50 dark:border-neutral-800 pb-1">
+                  <span className="text-neutral-400 font-bold">Punguzo / Waive:</span>
+                  <span className="text-red-500 dark:text-red-400 font-mono font-bold">-{d_discount ? d_discount.toLocaleString() : '0'}</span>
+                </div>
+                <div className="flex justify-between pt-0.5 font-black text-neutral-900 dark:text-white">
+                  <span className="uppercase text-[9px] tracking-tight">Jumla Kuu:</span>
+                  <span className="text-sm text-emerald-600 dark:text-emerald-400 font-mono">TZS {d_total ? d_total.toLocaleString() : '35,000'}</span>
+                </div>
+              </div>
+
+              <div className="col-span-1 sm:col-span-3 flex flex-col items-center justify-center text-center p-1 border-l border-r border-neutral-200/60 dark:border-neutral-800">
+                <div className="w-16 h-16 bg-white p-1 rounded-xl border border-neutral-200 flex flex-wrap gap-[1px] shadow-sm select-none">
+                  <div className="w-5 h-5 border-2 border-neutral-900 rounded p-[1px] shrink-0">
+                    <div className="w-full h-full bg-neutral-900" />
+                  </div>
+                  <div className="w-1.5 h-1.5 bg-neutral-900 rounded" />
+                  <div className="w-5 h-5 border-2 border-neutral-900 rounded p-[1px] shrink-0">
+                    <div className="w-full h-full bg-neutral-900" />
+                  </div>
+                  <div className="w-full h-0.5 bg-neutral-900 rounded" />
+                  <div className="w-5 h-5 border-2 border-neutral-900 rounded p-[1px] shrink-0">
+                    <div className="w-full h-full bg-neutral-900" />
+                  </div>
+                  <div className="w-6 bg-neutral-900 h-5 rounded shrink-0" />
+                </div>
+                <span className="text-[7.5px] font-black uppercase text-neutral-450 dark:text-neutral-550 tracking-wide mt-1.5 block leading-none">
+                  Lipa Kielektroniki
+                </span>
+              </div>
+
+              <div className="col-span-1 sm:col-span-3 text-center sm:text-right space-y-1 font-mono">
+                <span className="text-[8px] font-bold text-neutral-400 uppercase block tracking-wider">SIMBA-PAY NO</span>
+                <p className="text-[10px] font-black text-neutral-800 dark:text-neutral-205 tracking-tight leading-none">TKT-{d_ticketId}</p>
+                
+                <div className="h-6 w-full flex items-stretch gap-[1.5px] justify-center sm:justify-end opacity-75 mt-2">
+                  {Array.from({ length: 22 }).map((_, bIdx) => {
+                    const widths = ['w-[1px]', 'w-[2px]', 'w-[3px]', 'w-[0.5px]'];
+                    const chosenWidth = widths[bIdx % widths.length];
+                    return (
+                      <div key={`ticket-sub-bar-${bIdx}`} className={`bg-neutral-900 dark:bg-neutral-205 ${chosenWidth}`} />
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row justify-between items-center text-[8.5px] font-extrabold text-neutral-400 dark:text-neutral-450 uppercase tracking-wider leading-none border-t border-neutral-100 dark:border-neutral-800 pt-3 gap-2">
+              <span>⚠️ HAKUNA KURUDISHA NAULI • MASHARTS YANAZINGATIWA</span>
+              <span>Msaada wa Wateja: +255 711 123 456</span>
+            </div>
+          </div>
+
+          {/* Passenger Stub */}
+          <div className="col-span-1 md:col-span-3 p-5 bg-neutral-50/50 dark:bg-neutral-950/25 flex flex-col justify-between space-y-5 relative">
+            <div className="hidden md:block absolute left-0 top-0 bottom-0 border-l border-dashed border-neutral-200 dark:border-neutral-800" />
+
+            <div className="rounded-xl bg-violet-600 dark:bg-violet-950 p-3.5 text-white text-center shadow-inner relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-violet-550 to-indigo-750 opacity-90" />
+              <div className="relative z-10">
+                <span className="text-[8px] font-black uppercase tracking-widest bg-white/20 px-2 py-0.5 rounded">
+                  Traveler Copy
+                </span>
+                <h4 className="text-xs font-extrabold uppercase mt-1.5 leading-tight">
+                  PASSENGER STUB
+                </h4>
+                <p className="text-[9px] text-violet-250 font-bold uppercase mt-0.5 truncate tracking-wide">
+                  {d_busName}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3 text-xs font-semibold">
+              <div className="border-b border-neutral-100 dark:border-neutral-800 pb-1.5">
+                <span className="text-[8.5px] font-bold text-neutral-400 block leading-none">Ticket Number</span>
+                <p className="font-extrabold text-neutral-850 dark:text-neutral-105 font-mono mt-1 text-[10px] uppercase font-bold">
+                  {d_ticketId}
+                </p>
+              </div>
+
+              <div className="border-b border-neutral-100 dark:border-neutral-800 pb-1.5">
+                <span className="text-[8.5px] font-bold text-neutral-400 block leading-none">Abiria (Name)</span>
+                <p className="font-extrabold text-neutral-850 dark:text-neutral-105 mt-1 truncate uppercase">
+                  {d_buyerName}
+                </p>
+              </div>
+
+              <div className="border-b border-neutral-100 dark:border-neutral-800 pb-1.5">
+                <span className="text-[8.5px] font-bold text-neutral-400 block leading-none">Njia (Route)</span>
+                <p className="font-extrabold text-neutral-800 dark:text-neutral-200 mt-1 uppercase text-[11px]">
+                  {d_origin.substring(0, 3)} ➔ {d_destination.substring(0, 3)}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 border-b border-neutral-100 dark:border-neutral-800 pb-1.5">
+                <div>
+                  <span className="text-[8.5px] font-bold text-neutral-400 block leading-none">Kiti No</span>
+                  <p className="font-bold text-violet-600 dark:text-violet-400 mt-1 font-mono">
+                    {Array.isArray(d_seats) ? d_seats.join(',') : d_seats}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[8.5px] font-bold text-neutral-400 block leading-none">Nauli</span>
+                  <p className="font-bold text-neutral-850 dark:text-neutral-300 mt-1 font-mono text-[10px]">
+                    TZS {d_total ? d_total.toLocaleString() : '35,000'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col items-center justify-center pt-2">
+              <div className="w-20 h-20 bg-white p-1.5 rounded-2xl border border-neutral-200 flex flex-wrap gap-[1px] shadow-sm select-none">
+                <div className="w-6 h-6 border-2 border-neutral-900 rounded p-[1px] shrink-0">
+                  <div className="w-full h-full bg-neutral-900" />
+                </div>
+                <div className="w-2 h-2 bg-neutral-900 rounded" />
+                <div className="w-6 h-6 border-2 border-neutral-900 rounded p-[1px] shrink-0">
+                  <div className="w-full h-full bg-neutral-900" />
+                </div>
+                <div className="w-full h-0.5 bg-neutral-900 rounded" />
+                <div className="w-6 h-6 border-2 border-neutral-900 rounded p-[1px] shrink-0">
+                  <div className="w-full h-full bg-neutral-900" />
+                </div>
+                <div className="w-8 bg-neutral-900 h-6 rounded shrink-0" />
+              </div>
+              <span className="text-[8px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-widest mt-1.5">
+                OFFICIAL QR PASS
+              </span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    );
+  };
+
   if (standalone) {
     return (
       <div className="w-full flex flex-col font-sans transition-colors duration-200">
@@ -871,8 +1222,276 @@ export function useFirebaseBooking(tripId: string) {
           </div>
         </div>
 
-        {/* 2. MAIN LAYOUT BLOCK */}
-        {step < 4 ? (
+        {/* Sub Navigation to switch between New Booking flow and Booked Tickets History list */}
+        <div className="mb-6 flex flex-col xs:flex-row justify-between items-stretch xs:items-center bg-white dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-850 p-2 rounded-2xl shadow-sm gap-2 transition-colors">
+          <div className="flex gap-2 w-full xs:w-auto font-sans">
+            <button
+              onClick={() => {
+                setShowMyTickets(false);
+                setViewingTicketDetail(null);
+              }}
+              className={`flex-1 xs:flex-initial px-5 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
+                !showMyTickets 
+                  ? 'bg-violet-600 text-white shadow-md' 
+                  : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 bg-transparent hover:bg-neutral-100 dark:hover:bg-neutral-800'
+              }`}
+            >
+              🚌 Kata Tiketi mpya
+            </button>
+            <button
+              onClick={() => {
+                setShowMyTickets(true);
+                setViewingTicketDetail(null);
+              }}
+              className={`flex-1 xs:flex-initial px-5 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 relative ${
+                showMyTickets 
+                  ? 'bg-violet-600 text-white shadow-md' 
+                  : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 bg-transparent hover:bg-neutral-100 dark:hover:bg-neutral-800'
+              }`}
+            >
+              🎟️ Tiketi Zangu
+              {myTicketsList.length > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 bg-red-500 text-[10px] font-black italic rounded-full flex items-center justify-center text-white scale-90 select-none animate-bounce">
+                  {myTicketsList.length}
+                </span>
+              )}
+            </button>
+          </div>
+
+          <div className="flex items-center justify-center gap-2 px-3 py-1.5 bg-neutral-50 dark:bg-neutral-950/40 rounded-xl border border-neutral-200/50 dark:border-neutral-830">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-[10px] uppercase font-mono tracking-widest text-neutral-450 dark:text-neutral-500 font-black">
+              Mfumo uko Live (Online)
+            </span>
+          </div>
+        </div>
+
+        {/* CONDITIONALLY RENDER MY BOOKED TICKETS SECTION OR STANDARD STEP FLOW */}
+        {showMyTickets ? (
+          <div className="space-y-6 font-sans">
+            
+            {/* If viewing a single ticket boarding pass detail */}
+            {viewingTicketDetail ? (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center bg-white dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-850 p-4 rounded-3xl shadow-sm transition-colors">
+                  <button
+                    onClick={() => setViewingTicketDetail(null)}
+                    className="px-4 py-2.5 bg-neutral-105 dark:bg-neutral-800 hover:bg-violet-600 dark:hover:bg-violet-600 text-xs text-neutral-850 dark:text-neutral-200 hover:text-white dark:hover:text-white font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-1.5"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    Rudi kwenye Orodha (Back to list)
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      const printElement = document.getElementById("my-ticket-detail-render");
+                      if (printElement) {
+                        const loaderId = toast.loading("Inapakua tiketi...");
+                        toPng(printElement, {
+                          cacheBust: true,
+                          backgroundColor: resolvedTheme === 'dark' ? '#171717' : '#ffffff',
+                          style: {
+                            transform: 'scale(1)',
+                            transformOrigin: 'top left',
+                          }
+                        })
+                          .then((dataUrl) => {
+                            const link = document.createElement('a');
+                            link.download = `Tiketi-${viewingTicketDetail.id || 'Safari'}.png`;
+                            link.href = dataUrl;
+                            link.click();
+                            toast.success('Imefanikiwa Kupakua picha ya tiketi! (Ticket Saved)', { id: loaderId });
+                          })
+                          .catch((e) => {
+                            toast.error('Imeshindwa kupakua picha.', { id: loaderId });
+                          });
+                      }
+                    }}
+                    className="px-4 py-2.5 bg-neutral-900 border border-neutral-800 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 shadow-sm"
+                  >
+                    <span>Pakua Ticket (PNG/Image)</span>
+                  </button>
+                </div>
+
+                <div id="my-ticket-detail-render" className="p-1 rounded-[2.5rem] bg-white dark:bg-neutral-100">
+                  {renderTicketPass(viewingTicketDetail)}
+                </div>
+              </div>
+            ) : (
+              // MULTI-TAB SCENIC TICKETS HISTORY ARCHITECTURE (matching Image 1)
+              <div className="space-y-6">
+                
+                {/* 3 tabs: Upcoming, Completed, Cancelled */}
+                <div className="grid grid-cols-3 gap-1 bg-white dark:bg-neutral-900 border border-neutral-200/50 dark:border-neutral-850 p-1 rounded-2xl shadow-sm">
+                  {[
+                    { id: 'upcoming', label: 'Zinazokuja' },
+                    { id: 'completed', label: 'Zilizopita' },
+                    { id: 'cancelled', label: 'Zilizofutwa' }
+                  ].map((tab) => {
+                    const isActive = activeTicketsTab === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => setActiveTicketsTab(tab.id as any)}
+                        className={`py-3 text-[11px] sm:text-xs font-black uppercase tracking-wider rounded-xl transition-all leading-none ${
+                          isActive
+                            ? 'bg-violet-600 text-white shadow-sm font-bold'
+                            : 'text-neutral-450 dark:text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-850/40'
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {myTicketsLoading ? (
+                  <div className="bg-white dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-805 rounded-3xl p-16 text-center space-y-4">
+                    <Loader2 className="w-10 h-10 text-violet-600 animate-spin mx-auto" />
+                    <p className="text-xs uppercase font-mono tracking-widest text-neutral-400 dark:text-neutral-500 font-extrabold animate-pulse">
+                      Inajaza taarifa za safari...
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Filter local booking orders */}
+                    {(() => {
+                      const filtered = myTicketsList.filter((ticket) => {
+                        const s_status = (ticket.status || 'pending').toLowerCase();
+                        
+                        if (activeTicketsTab === 'cancelled') {
+                          return s_status === 'cancelled' || s_status === 'failed';
+                        }
+                        
+                        let isPast = false;
+                        if (ticket.departureDate || ticket.travelDate) {
+                          const dateVal = ticket.travelDate || ticket.departureDate;
+                          const dateObj = new Date(dateVal);
+                          if (!isNaN(dateObj.getTime())) {
+                            isPast = dateObj.getTime() < new Date().setHours(0,0,0,0);
+                          }
+                        }
+                        
+                        if (activeTicketsTab === 'completed') {
+                          return s_status === 'completed' || isPast;
+                        }
+                        
+                        return s_status !== 'cancelled' && s_status !== 'failed' && !isPast;
+                      });
+
+                      if (filtered.length === 0) {
+                        return (
+                          <div className="bg-white dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-805 rounded-3xl p-12 text-center space-y-4 shadow-sm transition-colors">
+                            <div className="w-16 h-16 bg-neutral-100 dark:bg-neutral-800 rounded-2xl flex items-center justify-center mx-auto text-neutral-400">
+                              <span className="text-3xl">🎟️</span>
+                            </div>
+                            <div className="space-y-1.5 max-w-sm mx-auto">
+                              <h4 className="font-extrabold text-sm text-neutral-900 dark:text-neutral-200 uppercase tracking-tight">Hukuna tiketi zenye hadhi hii</h4>
+                              <p className="text-xs text-neutral-401 dark:text-neutral-500 leading-relaxed">Hauna tiketi yoyote hapa. Unaweza kukata tiketi yako sasa hivi kwa sekunde chache.</p>
+                            </div>
+                            <div className="pt-2">
+                              <button
+                                onClick={() => {
+                                  setShowMyTickets(false);
+                                  setViewingTicketDetail(null);
+                                }}
+                                className="px-5 py-3.5 bg-violet-600 hover:bg-violet-700 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-md active:scale-95"
+                              >
+                                🚌 Kata tiketi yako sasa!
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="space-y-3.5">
+                          {filtered.map((ticket) => {
+                            const d_id = ticket.id;
+                            const d_busName = ticket.busName || (ticket.items && ticket.items[0]?.name?.split(' - ')[0]) || 'Simba Express';
+                            const d_seats = ticket.selectedSeats || (ticket.items && ticket.items[0]?.selectedSeats) || [];
+                            const d_from = ticket.origin || (ticket.items && ticket.items[0]?.origin) || 'Dar es Salaam';
+                            const d_to = ticket.destination || (ticket.items && ticket.items[0]?.destination) || 'Arusha';
+                            const d_date = ticket.travelDate || ticket.departureDate || (ticket.items && ticket.items[0]?.departureDate) || 'Today';
+                            const d_price = ticket.totalAmount || ticket.finalTotalAmount || 35000;
+
+                            return (
+                              <div
+                                key={`history-tkt-${d_id}`}
+                                className="bg-white dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-805 rounded-3xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 border-l-4 border-l-violet-600"
+                              >
+                                <div className="flex items-center gap-4 min-w-0 flex-1">
+                                  <div className="w-12 h-12 rounded-2xl bg-neutral-105 dark:bg-neutral-850 flex items-center justify-center text-xl shrink-0">
+                                    🚌
+                                  </div>
+                                  <div className="min-w-0 flex-1 space-y-1">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <h4 className="text-xs sm:text-sm font-black text-neutral-900 dark:text-neutral-100 uppercase tracking-tight">
+                                        {d_busName}
+                                      </h4>
+                                      <span className="px-2 py-0.5 bg-neutral-105 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 rounded text-[9px] font-bold uppercase tracking-wide">
+                                        Viti: {d_seats.join(', ') || 'N/A'}
+                                      </span>
+                                    </div>
+                                    
+                                    <div className="flex items-center gap-3.5 py-1 text-xs">
+                                      <div className="min-w-[80px] shrink-0 font-extrabold text-neutral-800 dark:text-neutral-200 uppercase tracking-tight truncate leading-none font-sans">
+                                        {d_from}
+                                      </div>
+                                      
+                                      <div className="flex-1 flex items-center justify-center gap-1 min-w-[60px] relative">
+                                        <div className="border-b border-dashed border-neutral-300 dark:border-neutral-800 w-full relative top-[1px]" />
+                                        <div className="absolute bg-white dark:bg-neutral-900 px-1.5 text-violet-500 scale-90">
+                                          🚌
+                                        </div>
+                                      </div>
+                                      
+                                      <div className="min-w-[80px] text-right shrink-0 font-extrabold text-neutral-800 dark:text-neutral-200 uppercase tracking-tight truncate leading-none font-sans">
+                                        {d_to}
+                                      </div>
+                                    </div>
+
+                                    <div className="text-[10px] text-neutral-450 dark:text-neutral-500 font-bold uppercase tracking-wide flex flex-wrap gap-x-3 gap-y-1">
+                                      <span>Tarehe: {d_date}</span>
+                                      <span>•</span>
+                                      <span>Ondoka: {departureTime}</span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="flex sm:flex-row md:flex-col items-center justify-between md:justify-center md:items-end gap-3 shrink-0 pt-4 md:pt-0 border-t md:border-t-0 border-neutral-100 dark:border-neutral-805">
+                                  <div className="text-left md:text-right">
+                                    <span className="text-[10px] text-neutral-400 dark:text-neutral-500 font-bold block leading-none">Jumla ya Malipo</span>
+                                    <span className="text-sm font-black text-emerald-600 dark:text-emerald-400 mt-1 block font-sans">
+                                      TZS {d_price.toLocaleString()}
+                                    </span>
+                                  </div>
+
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => setViewingTicketDetail(ticket)}
+                                      className="px-4 py-2.5 bg-neutral-900 hover:bg-neutral-950 text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition-all shadow-sm shrink-0 font-sans"
+                                    >
+                                      Fungua Tiketi / View Boarding Pass 🎟️
+                                    </button>
+                                  </div>
+                                </div>
+
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                  </>
+                )}
+
+              </div>
+            )}
+
+          </div>
+        ) : step < 4 ? (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             
             {/* LEFT SIDE PANEL (Active Step Forms) - 7 cols */}
