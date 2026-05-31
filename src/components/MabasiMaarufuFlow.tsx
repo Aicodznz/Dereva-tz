@@ -42,6 +42,7 @@ export default function MabasiMaarufuFlow({ product, vendor, onBackToTripSelecti
   const [emergencyPhone, setEmergencyPhone] = useState<string>('+255 712 987654');
   const [saveProfile, setSaveProfile] = useState<boolean>(true);
   const [isFrequent, setIsFrequent] = useState<boolean>(false);
+  const [ticketPrintMode, setTicketPrintMode] = useState<'consolidated' | 'individual'>('consolidated');
 
   // My tickets state and realtimes data integration
   const [showMyTickets, setShowMyTickets] = useState<boolean>(false);
@@ -854,11 +855,12 @@ export function useFirebaseBooking(tripId: string) {
   };
 
   return { bookedSeats, loading, confirmBooking };
-}`
+}
+`
   };
 
   const renderTicketPass = (ticketData: any, printRef: any = null) => {
-    const d_ticketId = ticketData.ticketId || ticketData.id || ticketData.bookingId || ticketRefId || 'SE-104928';
+    const d_ticketId = (ticketData.ticketId || ticketData.id || ticketData.bookingId || ticketRefId || 'SE-104928').toUpperCase();
     const d_buyerName = ticketData.customerName || ticketData.buyerName || buyerName || 'Mteja Msafiri';
     const d_seats = ticketData.selectedSeats || (ticketData.items && ticketData.items[0]?.selectedSeats) || selectedSeats || ['18'];
     const d_busName = ticketData.busName || busName || 'Kilimanjaro Royal Bus';
@@ -920,73 +922,90 @@ export function useFirebaseBooking(tripId: string) {
                 </svg>
               </div>
 
+              {/* Dynamic route/ticket number and bus shape overlay match */}
+              <div className="absolute right-50 bottom-16 z-10 hidden sm:flex items-center gap-1.5 opacity-90 scale-90">
+                <span className="text-[10px] font-mono font-black tracking-widest text-[#22c55e] bg-black/45 px-2.5 py-1 rounded border border-white/10 uppercase">
+                  NO: {d_ticketId}
+                </span>
+              </div>
+
               <div className="relative z-10 flex justify-between items-start">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-white/25 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-md">
-                    <span className="text-2xl">🚌</span>
+                  <div className="w-11 h-11 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-md">
+                    <span className="text-xl">🚌</span>
                   </div>
                   <div>
-                    <span className="text-[9.5px] bg-red-600 font-extrabold text-white px-2.5 py-0.5 rounded uppercase tracking-wider">
-                      Premium Inter-Regional
-                    </span>
-                    <h4 className="text-base font-black uppercase tracking-tight leading-none mt-1 text-white">
-                      {d_busName}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[8px] bg-red-600 font-black text-white px-2 py-0.5 rounded uppercase tracking-wider">
+                        PREMIUM INTER-REGIONAL
+                      </span>
+                      <span className="text-[8px] bg-violet-600 font-extrabold text-white px-2 py-0.5 rounded uppercase tracking-wider">
+                        PAPO HAPO
+                      </span>
+                    </div>
+                    <h4 className="text-base sm:text-lg font-black uppercase tracking-tight leading-none mt-1 text-white">
+                      {d_origin.toUpperCase()} TU {d_destination.toUpperCase()}
                     </h4>
                   </div>
                 </div>
 
-                <div className="text-right">
-                  <span className="text-[10px] bg-white/20 backdrop-blur-sm border border-white/30 text-white font-black px-3 py-1 rounded-full uppercase tracking-wider">
+                <div className="text-right flex flex-col items-end">
+                  <span className="text-[9.5px] bg-white/20 backdrop-blur-sm border border-white/35 text-white font-black px-3 py-1 rounded-full uppercase tracking-wider">
                     BOARDING PASS
                   </span>
-                  <span className="text-[10px] uppercase block font-mono font-bold tracking-tight text-emerald-300 mt-1">
-                    ● CONFIRMED STATUS
+                  <span className="text-[9px] uppercase font-bold tracking-tight text-emerald-300 mt-1 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" /> CONFIRMED STATUS
                   </span>
                 </div>
               </div>
 
-              <div className="relative z-10 flex justify-between items-end border-t border-white/10 pt-2.5">
-                <span className="text-[10px] text-white/80 font-bold uppercase tracking-widest leading-none">
-                  TIKETI YA ABIRIA (TRAVEL TICKET)
-                </span>
-                <span className="text-xs font-black text-amber-300 tracking-wider font-mono font-bold">
-                  NO: {d_ticketId}
-                </span>
+              <div className="relative z-10 flex justify-between items-end border-t border-white/15 pt-2">
+                <div className="flex flex-col text-left">
+                  <span className="text-[9.5px] text-sky-205 font-black uppercase tracking-widest leading-none">
+                    TIKETI YA ABIRIA (TRAVEL TICKET)
+                  </span>
+                  <span className="text-[9px] text-white/95 font-extrabold uppercase mt-0.5">
+                    Mtoa Huduma: <span className="text-amber-300">{d_busName}</span>
+                  </span>
+                </div>
+                <div className="text-right font-mono text-[9.5px] font-extrabold text-amber-200">
+                  Ticket ID: {d_ticketId}
+                </div>
               </div>
             </div>
 
             {/* TWO-COLUMN DETAILED DATA GRID */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-x-5 gap-y-4 text-xs font-semibold">
-              <div className="col-span-2 py-1.5 border-b border-neutral-100 dark:border-neutral-800">
+              <div className="col-span-2 py-1.5 border-b border-neutral-105 dark:border-neutral-800">
                 <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 uppercase block leading-none tracking-wider">
-                  Jina la Abiria (Passenger Name)
+                  JINA LA ABIRIA (PASSENGER NAME)
                 </span>
                 <p className="font-extrabold text-neutral-900 dark:text-white text-sm uppercase leading-none mt-2 font-sans truncate">
                   {d_buyerName}
                 </p>
               </div>
 
-              <div className="col-span-1 py-1.5 border-b border-neutral-100 dark:border-neutral-800">
+              <div className="col-span-1 py-1.5 border-b border-neutral-105 dark:border-neutral-800">
                 <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 uppercase block leading-none tracking-wider">
-                  Kiti (Seat No)
+                  KITI (SEAT NO)
                 </span>
-                <p className="font-black text-violet-600 dark:text-violet-400 text-base leading-none mt-2 font-mono">
+                <p className="font-black text-violet-600 dark:text-violet-404 text-base leading-none mt-2 font-mono">
                   {Array.isArray(d_seats) ? d_seats.join(', ') : d_seats}
                 </p>
               </div>
 
-              <div className="col-span-1 py-1.5 border-b border-neutral-100 dark:border-neutral-800">
+              <div className="col-span-1 py-1.5 border-b border-neutral-105 dark:border-neutral-800">
                 <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 uppercase block leading-none tracking-wider">
-                  Namba ya Basi
+                  NAMBA YA BASI
                 </span>
                 <p className="font-extrabold text-neutral-800 dark:text-neutral-200 text-xs mt-2 uppercase">
                   T 315 DCS (AC)
                 </p>
               </div>
 
-              <div className="col-span-1 py-1.5 border-b border-neutral-100 dark:border-neutral-800">
+              <div className="col-span-1 py-1.5 border-b border-neutral-150 dark:border-neutral-800">
                 <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 uppercase block leading-none tracking-wider">
-                  Kutoka (From)
+                  KUTOKA (FROM)
                 </span>
                 <p className="font-extrabold text-neutral-900 dark:text-neutral-100 text-sm uppercase mt-1.5 font-sans leading-none">
                   {d_origin}
@@ -994,9 +1013,9 @@ export function useFirebaseBooking(tripId: string) {
                 <span className="text-[8px] text-neutral-400 dark:text-neutral-500 block mt-1 font-medium font-sans">Bus Terminal Center</span>
               </div>
 
-              <div className="col-span-1 py-1.5 border-b border-neutral-100 dark:border-neutral-800">
+              <div className="col-span-1 py-1.5 border-b border-neutral-110 dark:border-neutral-800">
                 <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 uppercase block leading-none tracking-wider">
-                  Kwenda (To)
+                  KWENDA (TO)
                 </span>
                 <p className="font-extrabold text-neutral-900 dark:text-neutral-100 text-sm uppercase mt-1.5 font-sans leading-none">
                   {d_destination}
@@ -1004,18 +1023,18 @@ export function useFirebaseBooking(tripId: string) {
                 <span className="text-[8px] text-neutral-400 dark:text-neutral-500 block mt-1 font-medium font-sans">Destination Hub</span>
               </div>
 
-              <div className="col-span-1 py-1.5 border-b border-neutral-100 dark:border-neutral-800">
+              <div className="col-span-1 py-1.5 border-b border-neutral-150 dark:border-neutral-800">
                 <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 uppercase block leading-none tracking-wider">
-                  Tarehe ya Safari
+                  TAREHE YA SAFARI
                 </span>
                 <p className="font-extrabold text-neutral-850 dark:text-neutral-200 text-xs mt-2 uppercase font-sans">
                   {d_travelDate}
                 </p>
               </div>
 
-              <div className="col-span-1 py-1.5 border-b border-neutral-100 dark:border-neutral-800">
+              <div className="col-span-1 py-1.5 border-b border-neutral-110 dark:border-neutral-800">
                 <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 uppercase block leading-none tracking-wider">
-                  Muda wa Basi (Time)
+                  MUDA WA BASI (TIME)
                 </span>
                 <p className="font-extrabold text-neutral-850 dark:text-neutral-200 text-xs mt-2 uppercase font-sans">
                   {d_departureTime}
@@ -1038,7 +1057,7 @@ export function useFirebaseBooking(tripId: string) {
                   <span className="text-red-500 dark:text-red-400 font-mono font-bold">-{d_discount ? d_discount.toLocaleString() : '0'}</span>
                 </div>
                 <div className="flex justify-between pt-0.5 font-black text-neutral-900 dark:text-white">
-                  <span className="uppercase text-[9px] tracking-tight">Jumla Kuu:</span>
+                  <span className="uppercase text-[9px] tracking-tight">JUMLA KUU:</span>
                   <span className="text-sm text-emerald-600 dark:text-emerald-400 font-mono">TZS {d_total ? d_total.toLocaleString() : '35,000'}</span>
                 </div>
               </div>
@@ -1059,7 +1078,7 @@ export function useFirebaseBooking(tripId: string) {
                   <div className="w-6 bg-neutral-900 h-5 rounded shrink-0" />
                 </div>
                 <span className="text-[7.5px] font-black uppercase text-neutral-450 dark:text-neutral-550 tracking-wide mt-1.5 block leading-none">
-                  Lipa Kielektroniki
+                  LIPA KIELEKTRONIKI
                 </span>
               </div>
 
@@ -1080,7 +1099,7 @@ export function useFirebaseBooking(tripId: string) {
             </div>
 
             <div className="flex flex-col sm:flex-row justify-between items-center text-[8.5px] font-extrabold text-neutral-400 dark:text-neutral-450 uppercase tracking-wider leading-none border-t border-neutral-100 dark:border-neutral-800 pt-3 gap-2">
-              <span>⚠️ HAKUNA KURUDISHA NAULI • MASHARTS YANAZINGATIWA</span>
+              <span>⚠️ HAKUNA KURUDISHA NAULI • MASHARTS YANAZINGATIWA • KUPITIA PAPO HAPO</span>
               <span>Msaada wa Wateja: +255 711 123 456</span>
             </div>
           </div>
@@ -1089,25 +1108,26 @@ export function useFirebaseBooking(tripId: string) {
           <div className="col-span-1 md:col-span-3 p-5 bg-neutral-50/50 dark:bg-neutral-950/25 flex flex-col justify-between space-y-5 relative">
             <div className="hidden md:block absolute left-0 top-0 bottom-0 border-l border-dashed border-neutral-200 dark:border-neutral-800" />
 
-            <div className="rounded-xl bg-violet-600 dark:bg-violet-950 p-3.5 text-white text-center shadow-inner relative overflow-hidden">
+            <div className="rounded-xl bg-violet-600 dark:bg-violet-955 p-3.5 text-white text-center shadow-inner relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-violet-550 to-indigo-750 opacity-90" />
-              <div className="relative z-10">
+              <div className="relative z-10 flex flex-col items-center">
                 <span className="text-[8px] font-black uppercase tracking-widest bg-white/20 px-2 py-0.5 rounded">
                   Traveler Copy
                 </span>
                 <h4 className="text-xs font-extrabold uppercase mt-1.5 leading-tight">
                   PASSENGER STUB
                 </h4>
-                <p className="text-[9px] text-violet-250 font-bold uppercase mt-0.5 truncate tracking-wide">
-                  {d_busName}
+                <p className="text-[9px] text-amber-250 font-black uppercase mt-0.5 truncate tracking-wide">
+                  {d_origin.substring(0, 3).toUpperCase()} ➔ {d_destination.substring(0, 3).toUpperCase()}
                 </p>
+                <span className="text-[7px] text-white/70 block uppercase font-mono font-bold mt-1">Platform: PAPO HAPO</span>
               </div>
             </div>
 
             <div className="space-y-3 text-xs font-semibold">
               <div className="border-b border-neutral-100 dark:border-neutral-800 pb-1.5">
                 <span className="text-[8.5px] font-bold text-neutral-400 block leading-none">Ticket Number</span>
-                <p className="font-extrabold text-neutral-850 dark:text-neutral-105 font-mono mt-1 text-[10px] uppercase font-bold">
+                <p className="font-extrabold text-neutral-850 dark:text-neutral-105 font-mono mt-1 text-[10px] uppercase font-bold text-violet-650 dark:text-violet-400">
                   {d_ticketId}
                 </p>
               </div>
@@ -1122,14 +1142,14 @@ export function useFirebaseBooking(tripId: string) {
               <div className="border-b border-neutral-100 dark:border-neutral-800 pb-1.5">
                 <span className="text-[8.5px] font-bold text-neutral-400 block leading-none">Njia (Route)</span>
                 <p className="font-extrabold text-neutral-800 dark:text-neutral-200 mt-1 uppercase text-[11px]">
-                  {d_origin.substring(0, 3)} ➔ {d_destination.substring(0, 3)}
+                  {d_origin.substring(0, 3).toUpperCase()} ➔ {d_destination.substring(0, 3).toUpperCase()}
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-2 border-b border-neutral-100 dark:border-neutral-800 pb-1.5">
                 <div>
                   <span className="text-[8.5px] font-bold text-neutral-400 block leading-none">Kiti No</span>
-                  <p className="font-bold text-violet-600 dark:text-violet-400 mt-1 font-mono">
+                  <p className="font-bold text-violet-600 dark:text-violet-404 mt-1 font-mono">
                     {Array.isArray(d_seats) ? d_seats.join(',') : d_seats}
                   </p>
                 </div>
@@ -1157,7 +1177,7 @@ export function useFirebaseBooking(tripId: string) {
                 </div>
                 <div className="w-8 bg-neutral-900 h-6 rounded shrink-0" />
               </div>
-              <span className="text-[8px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-widest mt-1.5">
+              <span className="text-[8px] font-black text-neutral-405 dark:text-neutral-500 uppercase tracking-widest mt-1.5">
                 OFFICIAL QR PASS
               </span>
             </div>
@@ -1986,333 +2006,143 @@ export function useFirebaseBooking(tripId: string) {
                 </div>
               </div>
 
-              {/* HIGH-FIDELITY PRINTABLE BOARDING PASS TICKET CARD CONTAINER */}
-              <div 
-                ref={ticketRef}
-                id="digital-travel-boarding-pass"
-                className="w-full relative overflow-hidden rounded-[2.5rem] border-2 border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-0 shadow-2xl transition-all duration-200 select-text text-neutral-900 dark:text-neutral-100 font-sans"
-              >
-                
-                {/* Beautiful Modern Ticket Grid: Main Ticket (Left 72%) & Passenger Stub (Right 28%) */}
-                <div className="grid grid-cols-1 md:grid-cols-12 items-stretch min-h-[460px]">
+              {/* Selector for Consolidated vs Individual Tickets */}
+              <div className="bg-white dark:bg-neutral-900 border border-neutral-200/65 dark:border-neutral-850 p-5 rounded-3xl shadow-sm space-y-4 mb-6 transition-colors">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                  <div>
+                    <h4 className="font-extrabold text-xs uppercase tracking-wider text-neutral-900 dark:text-neutral-50 flex items-center gap-1.5 font-sans">
+                      <span>🎟️ Chaguzi za Kuchapa Tiketi (Ticket Print Options)</span>
+                      <span className="px-2 py-0.5 bg-violet-100 dark:bg-violet-950 text-violet-750 dark:text-violet-300 text-[8.5px] rounded-full uppercase font-black tracking-wide">Mpya</span>
+                    </h4>
+                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-bold uppercase mt-1">
+                      Chagua kuprinti tiketi moja ya pamoja au kila abiria aweze kupata tiketi yake tofauti binafsi.
+                    </p>
+                  </div>
+
+                  <div className="flex bg-neutral-100 dark:bg-neutral-950 p-1 rounded-xl shrink-0">
+                    <button
+                      onClick={() => setTicketPrintMode('consolidated')}
+                      className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                        ticketPrintMode === 'consolidated'
+                          ? 'bg-violet-600 text-white shadow-md font-bold'
+                          : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200'
+                      }`}
+                    >
+                      Tiketi Moja
+                    </button>
+                    <button
+                      onClick={() => setTicketPrintMode('individual')}
+                      className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                        ticketPrintMode === 'individual'
+                          ? 'bg-violet-600 text-white shadow-md font-bold'
+                          : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200'
+                      }`}
+                    >
+                      Kila Abiria (Individual)
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {ticketPrintMode === 'consolidated' ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between px-2 text-[10px] text-neutral-400 uppercase font-bold tracking-widest leading-none">
+                    <span>Tiketi ya Pamoja (Consolidated boarding pass)</span>
+                    <span className="text-violet-600 dark:text-violet-400">Viti vyote vimetajwa pamoja</span>
+                  </div>
+                  <div className="p-1 bg-white dark:bg-neutral-950 rounded-[2.5rem] border border-neutral-150 dark:border-neutral-850 shadow-md">
+                    {renderTicketPass({
+                      ticketId: ticketRefId,
+                      buyerName,
+                      selectedSeats,
+                      busName,
+                      origin,
+                      destination,
+                      travelDate,
+                      departureTime,
+                      totalAmount: finalTotalAmount,
+                      originalTotalPrice,
+                      couponDiscount,
+                      isCouponApplied,
+                      passengers
+                    }, ticketRef)}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between px-2 text-[10px] text-neutral-400 uppercase font-bold tracking-widest border-b border-dashed border-neutral-200 dark:border-neutral-800 pb-2">
+                    <span>Tiketi za Kila Abiria Binafsi ({passengers.length} Tickets)</span>
+                    <span className="text-emerald-500">Kila kiti kina tiketi yake kamili</span>
+                  </div>
                   
-                  {/* LEFT PANE: MAIN ABIRIA TICKET (8 cols on md+) */}
-                  <div className="col-span-1 md:col-span-9 p-5 flex flex-col justify-between space-y-5 border-b md:border-b-0 md:border-r border-dashed border-neutral-300 dark:border-neutral-800 relative">
-                    
-                    {/* Visual Punch Hole helper on bottom-right/top-right of dashed divider */}
-                    <div className="hidden md:block absolute -right-3 -top-3 w-6 h-6 bg-neutral-100 dark:bg-neutral-950 rounded-full border border-neutral-200 dark:border-neutral-800 z-10" />
-                    <div className="hidden md:block absolute -right-3 -bottom-3 w-6 h-6 bg-neutral-100 dark:bg-neutral-950 rounded-full border border-neutral-200 dark:border-neutral-800 z-10" />
+                  {passengers.map((passenger, pIdx) => {
+                    const singleSeatTotal = finalTotalAmount / passengers.length;
+                    const singleSeatFare = originalTotalPrice / passengers.length;
+                    const singleSeatDiscount = couponDiscount / passengers.length;
+                    const p_ticketId = `${ticketRefId || 'TKT'}-${passenger.seat}`;
 
-                    {/* UPPER SCENIC HEADER SECTION WITH KILIMANJARO & LUXURY BUS VECTOR */}
-                    <div className="relative rounded-[1.75rem] overflow-hidden bg-gradient-to-r from-sky-650 via-blue-700 to-indigo-805 h-44 text-white shadow-md p-5 flex flex-col justify-between">
-                      
-                      {/* Mount Kilimanjaro silhouette with snowy peak, savannah and acacia trees */}
-                      <div className="absolute inset-0 z-0 opacity-40 mix-blend-overlay pointer-events-none select-none">
-                        <svg viewBox="0 0 800 200" className="w-full h-full object-cover" xmlns="http://www.w3.org/2000/svg">
-                          {/* Sky Gradient */}
-                          <defs>
-                            <linearGradient id="scenic-sky" x1="0%" y1="0%" x2="100%" y2="100%">
-                              <stop offset="0%" stopColor="#1e3a8a" />
-                              <stop offset="50%" stopColor="#1d4ed8" />
-                              <stop offset="100%" stopColor="#0284c7" />
-                            </linearGradient>
-                          </defs>
-                          <rect width="800" height="200" fill="url(#scenic-sky)" />
-                          
-                          {/* Mountains Peak (Kilimanjaro) */}
-                          <polygon points="120,200 300,40 480,200" fill="#0f172a" opacity="0.6"/>
-                          <polygon points="180,200 300,50 420,200" fill="#1e293b" />
-                          {/* White Snow Cap */}
-                          <polygon points="265,95 300,50 335,95 320,85 300,98 280,85" fill="#ffffff" />
-
-                          {/* Sun */}
-                          <circle cx="650" cy="70" r="25" fill="#facc15" opacity="0.8" />
-
-                          {/* Savannah Hills and Ground */}
-                          <path d="M0,170 Q200,140 400,170 T820,150 L800,200 L0,200 Z" fill="#15803d" />
-                          <path d="M0,185 Q300,170 600,185 T800,175 L800,200 L0,200 Z" fill="#166534" />
-                          
-                          {/* Acacia Trees silhouettes */}
-                          <path d="M100,180 L100,165 M90,165 L115,165 M85,160 Q100,155 120,160 Z" stroke="#064e3b" strokeWidth="2.5" fill="#064e3b"/>
-                          <path d="M680,185 L680,168 M670,168 L695,168 M660,163 Q680,158 700,163 Z" stroke="#064e3b" strokeWidth="2.5" fill="#064e3b"/>
-
-                          {/* Modern bus vector shape on road */}
-                          <g transform="translate(480, 145) scale(0.6)">
-                            <rect x="0" y="5" width="125" height="42" rx="10" fill="#ffffff" />
-                            <rect x="100" y="10" width="22" height="15" rx="3" fill="#0f172a" />
-                            <rect x="80" y="10" width="16" height="15" fill="#1d4ed8" />
-                            <rect x="15" y="10" width="60" height="15" fill="#1d4ed8" />
-                            <circle cx="25" cy="48" r="9" fill="#000" />
-                            <circle cx="25" cy="48" r="4" fill="#64748b" />
-                            <circle cx="98" cy="48" r="9" fill="#000" />
-                            <circle cx="98" cy="48" r="4" fill="#64748b" />
-                            <path d="M5,25 L120,25" stroke="#22c55e" strokeWidth="3" />
-                          </g>
-                        </svg>
-                      </div>
-
-                      {/* Top Brand Block */}
-                      <div className="relative z-10 flex justify-between items-start">
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 rounded-xl bg-white/25 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-md">
-                            <span className="text-2xl">🦁</span>
-                          </div>
-                          <div>
-                            <span className="text-[9px] bg-emerald-500/95 font-black text-white px-2 py-0.5 rounded uppercase tracking-wider">
-                              Premium Inter-Regional
-                            </span>
-                            <h4 className="text-base font-black uppercase tracking-tight leading-none mt-1 text-white">
-                              {busName}
-                            </h4>
-                          </div>
+                    return (
+                      <div key={`p-tkt-frame-${pIdx}`} className="bg-neutral-50 dark:bg-neutral-950/20 p-4 border border-neutral-200/50 dark:border-neutral-850 shadow-sm rounded-[3rem] space-y-4">
+                        <div className="flex items-center justify-between px-4 pb-1">
+                          <h5 className="font-extrabold text-xs uppercase text-violet-600 dark:text-violet-400 tracking-wider">
+                            👤 Abiria {pIdx + 1}: <span className="text-neutral-950 dark:text-white font-black">{passenger.fullName || buyerName || 'Mteja Msafiri'}</span> (Kiti: {passenger.seat})
+                          </h5>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const el = document.getElementById(`digital-individual-pass-${passenger.seat}`);
+                              if (el) {
+                                const loaderId = toast.loading(`Inapakua tiketi ya ${passenger.fullName || `Kiti ${passenger.seat}`}...`);
+                                toPng(el, {
+                                  cacheBust: true,
+                                  backgroundColor: resolvedTheme === 'dark' ? '#171717' : '#ffffff',
+                                  style: {
+                                    transform: 'scale(1)',
+                                    transformOrigin: 'top left',
+                                  }
+                                })
+                                  .then((dataUrl) => {
+                                    const link = document.createElement('a');
+                                    link.download = `Tiketi_${(passenger.fullName || '').replace(/\s+/g, '_') || `Kiti_${passenger.seat}`}-${passenger.seat}.png`;
+                                    link.href = dataUrl;
+                                    document.body.appendChild(link);
+                                    link.click();
+                                    document.body.removeChild(link);
+                                    toast.success('Picha ya tiketi imepakuliwa kwenye kifaa chako!', { id: loaderId });
+                                  })
+                                  .catch(() => {
+                                    toast.error('Imeshindwa kupakua picha ya abiria huyu.', { id: loaderId });
+                                  });
+                              }
+                            }}
+                            className="px-3.5 py-2 bg-neutral-900 text-white hover:bg-black font-black text-[9.5px] uppercase tracking-wider rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <span>Pakua tiketi hii (PNG) 📥</span>
+                          </button>
                         </div>
-
-                        <div className="text-right">
-                          <span className="text-[10px] bg-white/20 backdrop-blur-sm border border-white/30 text-white font-black px-3 py-1 rounded-full uppercase tracking-wider">
-                            BOARDING PASS
-                          </span>
-                          <span className="text-[10px] uppercase block font-mono font-bold tracking-tight text-emerald-300 mt-1">
-                            ● CONFIRMED STATUS
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Ticket Type Display Label (Simba Express Look Overlay) */}
-                      <div className="relative z-10 flex justify-between items-end border-t border-white/10 pt-2.5">
-                        <span className="text-[10px] text-white/80 font-bold uppercase tracking-widest leading-none">
-                          TIKETI YA ABIRIA (TRAVEL TICKET)
-                        </span>
-                        <span className="text-xs font-black text-amber-300 tracking-wider font-mono">
-                          NO: {ticketRefId}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* TWO-COLUMN DETAILED DATA GRID */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-x-5 gap-y-4 text-xs font-semibold">
-                      
-                      <div className="col-span-2 md:col-span-2 py-1.5 border-b border-neutral-100 dark:border-neutral-800">
-                        <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 uppercase block leading-none tracking-wider">
-                          Jina la Abiria (Passenger Name)
-                        </span>
-                        <p className="font-extrabold text-neutral-900 dark:text-neutral-105 text-sm uppercase leading-none mt-2 font-sans truncate">
-                          {buyerName || 'Mteja Msafiri'}
-                        </p>
-                      </div>
-
-                      <div className="col-span-1 md:col-span-1 py-1.5 border-b border-neutral-100 dark:border-neutral-800">
-                        <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 uppercase block leading-none tracking-wider">
-                          Kiti (Seat No)
-                        </span>
-                        <p className="font-black text-violet-600 dark:text-violet-400 text-base leading-none mt-2 font-mono">
-                          {selectedSeats.join(', ')}
-                        </p>
-                      </div>
-
-                      <div className="col-span-1 md:col-span-1 py-1.5 border-b border-neutral-100 dark:border-neutral-800">
-                        <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 uppercase block leading-none tracking-wider">
-                          Namba ya Basi
-                        </span>
-                        <p className="font-extrabold text-neutral-800 dark:text-neutral-200 text-xs mt-2 uppercase">
-                          T 315 DCS (AC)
-                        </p>
-                      </div>
-
-                      <div className="col-span-1 py-1.5 border-b border-neutral-100 dark:border-neutral-800">
-                        <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 uppercase block leading-none tracking-wider">
-                          Kutoka (From)
-                        </span>
-                        <p className="font-extrabold text-neutral-900 dark:text-neutral-205 text-sm uppercase mt-1.5 font-sans leading-none">
-                          {origin}
-                        </p>
-                        <span className="text-[8px] text-neutral-405 dark:text-neutral-500 block mt-1">Bus Terminal Center</span>
-                      </div>
-
-                      <div className="col-span-1 py-1.5 border-b border-neutral-100 dark:border-neutral-800">
-                        <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 uppercase block leading-none tracking-wider">
-                          Kwenda (To)
-                        </span>
-                        <p className="font-extrabold text-neutral-900 dark:text-neutral-205 text-sm uppercase mt-1.5 font-sans leading-none">
-                          {destination}
-                        </p>
-                        <span className="text-[8px] text-neutral-405 dark:text-neutral-500 block mt-1">Destination Hub</span>
-                      </div>
-
-                      <div className="col-span-1 py-1.5 border-b border-neutral-100 dark:border-neutral-800">
-                        <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 uppercase block leading-none tracking-wider">
-                          Tarehe ya Safari
-                        </span>
-                        <p className="font-extrabold text-neutral-850 dark:text-neutral-200 text-xs mt-2 uppercase font-sans">
-                          {travelDate}
-                        </p>
-                      </div>
-
-                      <div className="col-span-1 py-1.5 border-b border-neutral-100 dark:border-neutral-800">
-                        <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 uppercase block leading-none tracking-wider">
-                          Muda wa Basi (Time)
-                        </span>
-                        <p className="font-extrabold text-neutral-850 dark:text-neutral-200 text-xs mt-2 uppercase font-sans">
-                          {departureTime}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* LOWER GHARAMA/MALIPO BANNER WITH QR CODE & FINANCIAL STANDINGS */}
-                    <div className="bg-neutral-50 dark:bg-neutral-950/40 border border-neutral-200 dark:border-neutral-800 p-4 rounded-3xl grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
-                      
-                      {/* Breakdown lists (6 cols) */}
-                      <div className="col-span-1 sm:col-span-6 space-y-1 text-[11px] font-bold">
-                        <span className="text-[9px] font-black text-violet-750 dark:text-violet-405 uppercase tracking-widest block mb-1">
-                          Gharama za Safari (Malipo)
-                        </span>
-                        <div className="flex justify-between border-b border-neutral-200/50 dark:border-neutral-800 pb-1">
-                          <span className="text-neutral-400">Nauli Kuu (Fare):</span>
-                          <span className="text-neutral-800 dark:text-neutral-200 font-mono">TZS {originalTotalPrice.toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between border-b border-neutral-200/50 dark:border-neutral-800 pb-1">
-                          <span className="text-neutral-400">Punguzo / Kodi:</span>
-                          <span className="text-red-500 dark:text-red-400 font-mono">-TZS {couponDiscount.toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between pt-0.5 font-black text-neutral-900 dark:text-white">
-                          <span className="uppercase text-[9px] tracking-tight">Jumla Kuu (Total Fare):</span>
-                          <span className="text-sm text-emerald-600 dark:text-emerald-400 font-mono">TZS {finalTotalAmount.toLocaleString()}</span>
-                        </div>
-                      </div>
-
-                      {/* Electronic QR scan area (3 cols) */}
-                      <div className="col-span-1 sm:col-span-3 flex flex-col items-center justify-center text-center p-1 border-l border-r border-neutral-200/60 dark:border-neutral-800">
-                        <div className="w-16 h-16 bg-white p-1 rounded-xl border border-neutral-200 flex flex-wrap gap-[1px] shadow-sm select-none">
-                          <div className="w-5 h-5 border-2 border-neutral-900 rounded p-[1px] shrink-0">
-                            <div className="w-full h-full bg-neutral-900" />
-                          </div>
-                          <div className="w-1.5 h-1.5 bg-neutral-900 rounded" />
-                          <div className="w-5 h-5 border-2 border-neutral-900 rounded p-[1px] shrink-0">
-                            <div className="w-full h-full bg-neutral-900" />
-                          </div>
-                          <div className="w-full h-0.5 bg-neutral-900 rounded" />
-                          <div className="w-5 h-5 border-2 border-neutral-900 rounded p-[1px] shrink-0">
-                            <div className="w-full h-full bg-neutral-900" />
-                          </div>
-                          <div className="w-6 bg-neutral-900 h-5 rounded shrink-0" />
-                        </div>
-                        <span className="text-[7.5px] font-black uppercase text-neutral-450 dark:text-neutral-500 tracking-wide mt-1.5 block leading-none">
-                          Lipa Kielektroniki
-                        </span>
-                      </div>
-
-                      {/* Payment ref & barcode (3 cols) */}
-                      <div className="col-span-1 sm:col-span-3 text-center sm:text-right space-y-1 font-mono">
-                        <span className="text-[8px] font-bold text-neutral-400 uppercase block tracking-wider">SIMBA-PAY NO</span>
-                        <p className="text-[10px] font-black text-neutral-800 dark:text-neutral-200 tracking-tight leading-none">TKT-{ticketRefId}</p>
                         
-                        {/* Real-looking barcode columns */}
-                        <div className="h-6 w-full flex items-stretch gap-[1.5px] justify-center sm:justify-end opacity-75 mt-2">
-                          {Array.from({ length: 22 }).map((_, bIdx) => {
-                            const widths = ['w-[1px]', 'w-[2px]', 'w-[3px]', 'w-[0.5px]'];
-                            const chosenWidth = widths[bIdx % widths.length];
-                            return (
-                              <div key={`ticket-main-bar-${bIdx}`} className={`bg-neutral-900 dark:bg-neutral-200 ${chosenWidth}`} />
-                            );
+                        <div id={`digital-individual-pass-${passenger.seat}`} className="bg-white dark:bg-neutral-900 rounded-[2.5rem] p-1">
+                          {renderTicketPass({
+                            ticketId: p_ticketId,
+                            buyerName: passenger.fullName || buyerName || 'Mteja Msafiri',
+                            selectedSeats: [passenger.seat],
+                            busName,
+                            origin,
+                            destination,
+                            travelDate,
+                            departureTime,
+                            totalAmount: singleSeatTotal,
+                            originalTotalPrice: singleSeatFare,
+                            couponDiscount: singleSeatDiscount,
+                            isCouponApplied,
+                            passengers: [passenger]
                           })}
                         </div>
                       </div>
-                    </div>
-
-                    {/* BOTTOM LEGAL NOTICES FOOTER */}
-                    <div className="flex flex-col sm:flex-row justify-between items-center text-[8.5px] font-extrabold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider leading-none border-t border-neutral-100 dark:border-neutral-800 pt-3 gap-2">
-                      <span>⚠️ HAKUNA KURUDISHA NAULI (No Refunds) • MASHARTI YANAZINGATIWA</span>
-                      <span>Msaada wa Wateja: +255 711 123 456</span>
-                    </div>
-                  </div>
-
-                  {/* RIGHT PANE: TEAR-OFF PASSENGER STUB (4 cols on md+) */}
-                  <div className="col-span-1 md:col-span-3 p-5 bg-neutral-50/50 dark:bg-neutral-950/25 flex flex-col justify-between space-y-5 relative">
-                    
-                    {/* Vertical split tear indicator line decoration for stub */}
-                    <div className="hidden md:block absolute left-0 top-0 bottom-0 border-l border-dashed border-neutral-200 dark:border-neutral-830" />
-
-                    {/* STUB HEADER BRAND CARD */}
-                    <div className="rounded-xl bg-violet-600 dark:bg-violet-900 p-3.5 text-white text-center shadow-inner relative overflow-hidden">
-                      <div className="absolute inset-0 bg-gradient-to-br from-violet-500 to-indigo-700 opacity-90" />
-                      <div className="relative z-10">
-                        <span className="text-[8px] font-black uppercase tracking-widest bg-white/20 px-2 py-0.5 rounded">
-                          Traveler Copy
-                        </span>
-                        <h4 className="text-xs font-extrabold uppercase mt-1.5 leading-tight">
-                          PASSENGER STUB
-                        </h4>
-                        <p className="text-[9px] text-violet-200 font-bold uppercase mt-0.5 truncate tracking-wide">
-                          {busName}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* STUB INFO BULLET LIST ROWS */}
-                    <div className="space-y-3 text-xs font-semibold">
-                      <div className="border-b border-neutral-105 dark:border-neutral-800 pb-1.5">
-                        <span className="text-[8.5px] font-bold text-neutral-400 block leading-none">Ticket Number</span>
-                        <p className="font-extrabold text-neutral-850 dark:text-neutral-50 font-mono mt-1 text-[10px] uppercase">
-                          {ticketRefId}
-                        </p>
-                      </div>
-
-                      <div className="border-b border-neutral-105 dark:border-neutral-800 pb-1.5">
-                        <span className="text-[8.5px] font-bold text-neutral-400 block leading-none">Abiria (Name)</span>
-                        <p className="font-extrabold text-neutral-850 dark:text-neutral-50 mt-1 truncate uppercase">
-                          {buyerName || 'Jane Doe'}
-                        </p>
-                      </div>
-
-                      <div className="border-b border-neutral-105 dark:border-neutral-800 pb-1.5">
-                        <span className="text-[8.5px] font-bold text-neutral-400 block leading-none">Njia (Route)</span>
-                        <p className="font-extrabold text-neutral-850 dark:text-neutral-50 mt-1 uppercase text-[11px]">
-                          {origin.substring(0, 3)} ➔ {destination.substring(0, 3)}
-                        </p>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2 border-b border-neutral-105 dark:border-neutral-800 pb-1.5">
-                        <div>
-                          <span className="text-[8.5px] font-bold text-neutral-400 block leading-none">Kiti No</span>
-                          <p className="font-bold text-violet-605 dark:text-violet-400 mt-1 font-mono">
-                            {selectedSeats.join(',')}
-                          </p>
-                        </div>
-                        <div>
-                          <span className="text-[8.5px] font-bold text-neutral-400 block leading-none">Nauli</span>
-                          <p className="font-bold text-neutral-850 dark:text-neutral-50 mt-1 font-mono text-[10px]">
-                            TZS {finalTotalAmount.toLocaleString()}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* STUB OFFICIAL VALIDATION CENTER (QR CODE) */}
-                    <div className="flex flex-col items-center justify-center pt-2">
-                      <div className="w-20 h-20 bg-white p-1.5 rounded-2xl border border-neutral-200 flex flex-wrap gap-[1px] shadow-sm select-none">
-                        <div className="w-6 h-6 border-2 border-neutral-900 rounded p-[1px] shrink-0">
-                          <div className="w-full h-full bg-neutral-900" />
-                        </div>
-                        <div className="w-2 h-2 bg-neutral-900 rounded" />
-                        <div className="w-6 h-6 border-2 border-neutral-900 rounded p-[1px] shrink-0">
-                          <div className="w-full h-full bg-neutral-900" />
-                        </div>
-                        <div className="w-full h-0.5 bg-neutral-900 rounded" />
-                        <div className="w-6 h-6 border-2 border-neutral-900 rounded p-[1px] shrink-0">
-                          <div className="w-full h-full bg-neutral-900" />
-                        </div>
-                        <div className="w-8 bg-neutral-900 h-6 rounded shrink-0" />
-                      </div>
-                      <span className="text-[8px] font-black text-neutral-405 dark:text-neutral-500 uppercase tracking-widest mt-1.5">
-                        OFFICIAL QR PASS
-                      </span>
-                    </div>
-
-                  </div>
-
+                    );
+                  })}
                 </div>
-
-              </div>
-
+              )}
             </div>
 
             {/* RIGHT SIDEBAR: HIGHLY EXPLAINED DOWNLOADING DESKTOP & PRINT CTA BUTTONS */}
