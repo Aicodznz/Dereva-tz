@@ -90,7 +90,7 @@ export default function MabasiMaarufuFlow({ product, vendor, onBackToTripSelecti
 
   useEffect(() => {
     if (step === 4 && !ticketRefId) {
-      setTicketRefId(`SE-${Math.floor(123456 + Math.random() * 867530)}`);
+      setTicketRefId(`${Math.floor(10000000 + Math.random() * 90000000)}`);
     }
   }, [step, ticketRefId]);
 
@@ -860,7 +860,21 @@ export function useFirebaseBooking(tripId: string) {
   };
 
   const renderTicketPass = (ticketData: any, printRef: any = null) => {
-    const d_ticketId = (ticketData.ticketId || ticketData.id || ticketData.bookingId || ticketRefId || 'SE-104928').toUpperCase();
+    const getNumericTicketId = (idStr: string): string => {
+      if (!idStr) return '104928';
+      const digitsOnly = idStr.replace(/\D/g, '');
+      if (digitsOnly.length >= 6) {
+        return digitsOnly;
+      }
+      let hash = 0;
+      for (let i = 0; i < idStr.length; i++) {
+        hash = (hash << 5) - hash + idStr.charCodeAt(i);
+        hash = Math.abs(hash);
+      }
+      return ((hash % 90000) + 10000).toString() + (digitsOnly || '582');
+    };
+
+    const d_ticketId = getNumericTicketId(ticketData.ticketId || ticketData.id || ticketData.bookingId || ticketRefId || '104928').toUpperCase();
     const d_buyerName = ticketData.customerName || ticketData.buyerName || buyerName || 'Mteja Msafiri';
     const d_seats = ticketData.selectedSeats || (ticketData.items && ticketData.items[0]?.selectedSeats) || selectedSeats || ['18'];
     const d_busName = ticketData.busName || busName || 'Kilimanjaro Royal Bus';
@@ -877,7 +891,7 @@ export function useFirebaseBooking(tripId: string) {
     return (
       <div 
         ref={printRef}
-        className="w-full relative overflow-hidden rounded-[2.5rem] border-2 border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-0 shadow-2xl transition-all duration-200 select-text text-neutral-900 dark:text-neutral-100 font-sans"
+        className="w-full relative overflow-hidden rounded-[2.5rem] border-2 border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-0 shadow-2xl transition-all duration-200 select-text text-neutral-900 dark:text-neutral-100 font-sans print-ticket-card"
       >
         <div className="grid grid-cols-1 md:grid-cols-12 items-stretch min-h-[460px]">
           
@@ -1990,11 +2004,11 @@ export function useFirebaseBooking(tripId: string) {
         ) : (
           
           /* STEP 4: PRINTABLE AND HIGH-FIDELITY MODERN TICKET ACCENT */
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start printable-step-4-area">
             <div className="col-span-1 xl:col-span-8 space-y-6">
               
               {/* Congratulations Message Banner with Light Mode Harmony */}
-              <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900 rounded-3xl p-5 text-center space-y-2">
+              <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900 rounded-3xl p-5 text-center space-y-2 print:hidden">
                 <div className="flex justify-center">
                   <div className="relative w-14 h-14 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full flex items-center justify-center shadow-md">
                     <Check className="w-7 h-7 text-white stroke-[3.5]" />
@@ -2007,7 +2021,7 @@ export function useFirebaseBooking(tripId: string) {
               </div>
 
               {/* Selector for Consolidated vs Individual Tickets */}
-              <div className="bg-white dark:bg-neutral-900 border border-neutral-200/65 dark:border-neutral-850 p-5 rounded-3xl shadow-sm space-y-4 mb-6 transition-colors">
+              <div className="bg-white dark:bg-neutral-900 border border-neutral-200/65 dark:border-neutral-850 p-5 rounded-3xl shadow-sm space-y-4 mb-6 transition-colors print:hidden">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                   <div>
                     <h4 className="font-extrabold text-xs uppercase tracking-wider text-neutral-900 dark:text-neutral-50 flex items-center gap-1.5 font-sans">
@@ -2046,7 +2060,7 @@ export function useFirebaseBooking(tripId: string) {
 
               {ticketPrintMode === 'consolidated' ? (
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between px-2 text-[10px] text-neutral-400 uppercase font-bold tracking-widest leading-none">
+                  <div className="flex items-center justify-between px-2 text-[10px] text-neutral-400 uppercase font-bold tracking-widest leading-none print:hidden">
                     <span>Tiketi ya Pamoja (Consolidated boarding pass)</span>
                     <span className="text-violet-600 dark:text-violet-400">Viti vyote vimetajwa pamoja</span>
                   </div>
@@ -2070,7 +2084,7 @@ export function useFirebaseBooking(tripId: string) {
                 </div>
               ) : (
                 <div className="space-y-6">
-                  <div className="flex items-center justify-between px-2 text-[10px] text-neutral-400 uppercase font-bold tracking-widest border-b border-dashed border-neutral-200 dark:border-neutral-800 pb-2">
+                  <div className="flex items-center justify-between px-2 text-[10px] text-neutral-400 uppercase font-bold tracking-widest border-b border-dashed border-neutral-200 dark:border-neutral-800 pb-2 print:hidden font-sans">
                     <span>Tiketi za Kila Abiria Binafsi ({passengers.length} Tickets)</span>
                     <span className="text-emerald-500">Kila kiti kina tiketi yake kamili</span>
                   </div>
@@ -2079,11 +2093,11 @@ export function useFirebaseBooking(tripId: string) {
                     const singleSeatTotal = finalTotalAmount / passengers.length;
                     const singleSeatFare = originalTotalPrice / passengers.length;
                     const singleSeatDiscount = couponDiscount / passengers.length;
-                    const p_ticketId = `${ticketRefId || 'TKT'}-${passenger.seat}`;
+                    const p_ticketId = `${ticketRefId || '93847291'}${passenger.seat}`;
 
                     return (
-                      <div key={`p-tkt-frame-${pIdx}`} className="bg-neutral-50 dark:bg-neutral-950/20 p-4 border border-neutral-200/50 dark:border-neutral-850 shadow-sm rounded-[3rem] space-y-4">
-                        <div className="flex items-center justify-between px-4 pb-1">
+                      <div key={`p-tkt-frame-${pIdx}`} className="bg-neutral-55 dark:bg-neutral-950/20 p-4 border border-neutral-200/50 dark:border-neutral-850 shadow-sm rounded-[3rem] space-y-4 print-card-item">
+                        <div className="flex items-center justify-between px-4 pb-1 print:hidden">
                           <h5 className="font-extrabold text-xs uppercase text-violet-600 dark:text-violet-400 tracking-wider">
                             👤 Abiria {pIdx + 1}: <span className="text-neutral-950 dark:text-white font-black">{passenger.fullName || buyerName || 'Mteja Msafiri'}</span> (Kiti: {passenger.seat})
                           </h5>
@@ -2146,7 +2160,7 @@ export function useFirebaseBooking(tripId: string) {
             </div>
 
             {/* RIGHT SIDEBAR: HIGHLY EXPLAINED DOWNLOADING DESKTOP & PRINT CTA BUTTONS */}
-            <div className="col-span-1 xl:col-span-4 bg-white dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-800 rounded-[2.25rem] p-6 shadow-sm flex flex-col justify-between space-y-6 font-sans">
+            <div className="col-span-1 xl:col-span-4 bg-white dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-800 rounded-[2.25rem] p-6 shadow-sm flex flex-col justify-between space-y-6 font-sans print:hidden">
               
               <div className="space-y-4">
                 <div className="flex items-center gap-2.5">
