@@ -3103,7 +3103,14 @@ export default function VendorDashboard() {
                           </div>
                           <div className="text-right">
                              <Badge className={`${getStatusColor(order.status)} border-none text-[8px] font-black uppercase tracking-widest px-2`}>{order.status}</Badge>
-                             <p className="text-[10px] text-neutral-600 font-bold uppercase mt-1">{format(order.createdAt?.toDate() || new Date(), 'p')}</p>
+                             <p className="text-[10px] text-neutral-600 font-bold uppercase mt-1">{format(order.createdAt
+                                ? (typeof order.createdAt.toDate === 'function'
+                                  ? order.createdAt.toDate()
+                                  : (order.createdAt.seconds
+                                    ? new Date(order.createdAt.seconds * 1000)
+                                    : new Date(order.createdAt)))
+                                : new Date(),
+                              'p')}</p>
                           </div>
                         </div>
                       ))}
