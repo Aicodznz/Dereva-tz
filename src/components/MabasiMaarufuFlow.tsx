@@ -893,13 +893,13 @@ export function useFirebaseBooking(tripId: string) {
         ref={printRef}
         className="w-full relative overflow-hidden rounded-[2.5rem] border-2 border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-0 shadow-2xl transition-all duration-200 select-text text-neutral-900 dark:text-neutral-100 font-sans print-ticket-card"
       >
-        <div className="grid grid-cols-1 md:grid-cols-12 items-stretch min-h-[460px]">
+        <div className="grid grid-cols-1 md:grid-cols-12 print:grid-cols-12 items-stretch min-h-[460px]">
           
           {/* Main Ticket */}
-          <div className="col-span-1 md:col-span-9 p-5 flex flex-col justify-between space-y-5 border-b md:border-b-0 md:border-r border-dashed border-neutral-300 dark:border-neutral-800 relative">
+          <div className="col-span-1 md:col-span-9 print:col-span-9 p-5 flex flex-col justify-between space-y-5 border-b md:border-b-0 md:border-r print:border-b-0 print:border-r border-dashed border-neutral-300 dark:border-neutral-800 relative">
             
-            <div className="hidden md:block absolute -right-3 -top-3 w-6 h-6 bg-neutral-100 dark:bg-neutral-950 rounded-full border border-neutral-200 dark:border-neutral-800 z-10" />
-            <div className="hidden md:block absolute -right-3 -bottom-3 w-6 h-6 bg-neutral-100 dark:bg-neutral-950 rounded-full border border-neutral-200 dark:border-neutral-800 z-10" />
+            <div className="hidden md:block print:block absolute -right-3 -top-3 w-6 h-6 bg-neutral-100 dark:bg-neutral-950 rounded-full border border-neutral-200 dark:border-neutral-800 z-10" />
+            <div className="hidden md:block print:block absolute -right-3 -bottom-3 w-6 h-6 bg-neutral-100 dark:bg-neutral-950 rounded-full border border-neutral-200 dark:border-neutral-800 z-10" />
 
             {/* UPPER BRANDING ACCENT SHEET WITH KILIMANJARO BACKDROP */}
             <div className="relative rounded-[1.75rem] overflow-hidden bg-gradient-to-r from-sky-600 via-blue-700 to-indigo-800 h-44 text-white shadow-md p-5 flex flex-col justify-between">
@@ -937,7 +937,7 @@ export function useFirebaseBooking(tripId: string) {
               </div>
 
               {/* Dynamic route/ticket number and bus shape overlay match */}
-              <div className="absolute right-50 bottom-16 z-10 hidden sm:flex items-center gap-1.5 opacity-90 scale-90">
+              <div className="absolute right-50 bottom-16 z-10 hidden sm:flex print:flex items-center gap-1.5 opacity-90 scale-90">
                 <span className="text-[10px] font-mono font-black tracking-widest text-[#22c55e] bg-black/45 px-2.5 py-1 rounded border border-white/10 uppercase">
                   NO: {d_ticketId}
                 </span>
@@ -989,8 +989,8 @@ export function useFirebaseBooking(tripId: string) {
             </div>
 
             {/* TWO-COLUMN DETAILED DATA GRID */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-5 gap-y-4 text-xs font-semibold">
-              <div className="col-span-2 py-1.5 border-b border-neutral-105 dark:border-neutral-800">
+            <div className="grid grid-cols-2 md:grid-cols-4 print:grid-cols-4 gap-x-5 gap-y-4 text-xs font-semibold">
+              <div className="col-span-2 print:col-span-2 py-1.5 border-b border-neutral-105 dark:border-neutral-800">
                 <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 uppercase block leading-none tracking-wider">
                   JINA LA ABIRIA (PASSENGER NAME)
                 </span>
@@ -999,7 +999,7 @@ export function useFirebaseBooking(tripId: string) {
                 </p>
               </div>
 
-              <div className="col-span-1 py-1.5 border-b border-neutral-105 dark:border-neutral-800">
+              <div className="col-span-1 print:col-span-1 py-1.5 border-b border-neutral-105 dark:border-neutral-800">
                 <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 uppercase block leading-none tracking-wider">
                   KITI (SEAT NO)
                 </span>
@@ -1008,7 +1008,7 @@ export function useFirebaseBooking(tripId: string) {
                 </p>
               </div>
 
-              <div className="col-span-1 py-1.5 border-b border-neutral-105 dark:border-neutral-800">
+              <div className="col-span-1 print:col-span-1 py-1.5 border-b border-neutral-105 dark:border-neutral-800">
                 <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 uppercase block leading-none tracking-wider">
                   NAMBA YA BASI
                 </span>
@@ -1017,7 +1017,7 @@ export function useFirebaseBooking(tripId: string) {
                 </p>
               </div>
 
-              <div className="col-span-1 py-1.5 border-b border-neutral-150 dark:border-neutral-800">
+              <div className="col-span-1 print:col-span-1 py-1.5 border-b border-neutral-150 dark:border-neutral-800">
                 <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 uppercase block leading-none tracking-wider">
                   KUTOKA (FROM)
                 </span>
@@ -1027,7 +1027,7 @@ export function useFirebaseBooking(tripId: string) {
                 <span className="text-[8px] text-neutral-400 dark:text-neutral-500 block mt-1 font-medium font-sans">Bus Terminal Center</span>
               </div>
 
-              <div className="col-span-1 py-1.5 border-b border-neutral-110 dark:border-neutral-800">
+              <div className="col-span-1 print:col-span-1 py-1.5 border-b border-neutral-110 dark:border-neutral-800">
                 <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 uppercase block leading-none tracking-wider">
                   KWENDA (TO)
                 </span>
@@ -1037,7 +1037,7 @@ export function useFirebaseBooking(tripId: string) {
                 <span className="text-[8px] text-neutral-400 dark:text-neutral-500 block mt-1 font-medium font-sans">Destination Hub</span>
               </div>
 
-              <div className="col-span-1 py-1.5 border-b border-neutral-150 dark:border-neutral-800">
+              <div className="col-span-1 print:col-span-1 py-1.5 border-b border-neutral-150 dark:border-neutral-800">
                 <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 uppercase block leading-none tracking-wider">
                   TAREHE YA SAFARI
                 </span>
@@ -1046,7 +1046,7 @@ export function useFirebaseBooking(tripId: string) {
                 </p>
               </div>
 
-              <div className="col-span-1 py-1.5 border-b border-neutral-110 dark:border-neutral-800">
+              <div className="col-span-1 print:col-span-1 py-1.5 border-b border-neutral-110 dark:border-neutral-800">
                 <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 uppercase block leading-none tracking-wider">
                   MUDA WA BASI (TIME)
                 </span>
@@ -1057,8 +1057,8 @@ export function useFirebaseBooking(tripId: string) {
             </div>
 
             {/* LOWER GHARAMA/MALIPO BANNER WITH QR CODE */}
-            <div className="bg-neutral-50 dark:bg-neutral-950/40 border border-neutral-200 dark:border-neutral-800 p-4 rounded-3xl grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
-              <div className="col-span-1 sm:col-span-6 space-y-1 text-[11px] font-semibold">
+            <div className="bg-neutral-50 dark:bg-neutral-950/40 border border-neutral-200 dark:border-neutral-800 p-4 rounded-3xl grid grid-cols-1 sm:grid-cols-12 print:grid-cols-12 gap-4 items-center">
+              <div className="col-span-1 sm:col-span-6 print:col-span-6 space-y-1 text-[11px] font-semibold">
                 <span className="text-[9px] font-black text-violet-750 dark:text-violet-405 uppercase tracking-widest block mb-1">
                   Gharama za Safari (Malipo)
                 </span>
@@ -1076,29 +1076,23 @@ export function useFirebaseBooking(tripId: string) {
                 </div>
               </div>
 
-              <div className="col-span-1 sm:col-span-3 flex flex-col items-center justify-center text-center p-1 border-l border-r border-neutral-200/60 dark:border-neutral-800">
-                <div className="w-16 h-16 bg-white p-1 rounded-xl border border-neutral-200 flex flex-wrap gap-[1px] shadow-sm select-none">
-                  <div className="w-5 h-5 border-2 border-neutral-900 rounded p-[1px] shrink-0">
-                    <div className="w-full h-full bg-neutral-900" />
-                  </div>
-                  <div className="w-1.5 h-1.5 bg-neutral-900 rounded" />
-                  <div className="w-5 h-5 border-2 border-neutral-900 rounded p-[1px] shrink-0">
-                    <div className="w-full h-full bg-neutral-900" />
-                  </div>
-                  <div className="w-full h-0.5 bg-neutral-900 rounded" />
-                  <div className="w-5 h-5 border-2 border-neutral-900 rounded p-[1px] shrink-0">
-                    <div className="w-full h-full bg-neutral-900" />
-                  </div>
-                  <div className="w-6 bg-neutral-900 h-5 rounded shrink-0" />
+              <div className="col-span-1 sm:col-span-3 print:col-span-3 flex flex-col items-center justify-center text-center p-1 border-l border-r border-neutral-200/60 dark:border-neutral-800">
+                <div className="w-16 h-16 bg-white p-1 rounded-xl border border-neutral-200 flex items-center justify-center shadow-sm select-none">
+                  <img 
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(d_ticketId)}`}
+                    alt="LIPA QR"
+                    className="w-full h-full object-contain"
+                    referrerPolicy="no-referrer"
+                  />
                 </div>
                 <span className="text-[7.5px] font-black uppercase text-neutral-450 dark:text-neutral-550 tracking-wide mt-1.5 block leading-none">
                   LIPA KIELEKTRONIKI
                 </span>
               </div>
 
-              <div className="col-span-1 sm:col-span-3 text-center sm:text-right space-y-1 font-mono">
+              <div className="col-span-1 sm:col-span-3 print:col-span-3 text-center sm:text-right space-y-1 font-mono">
                 <span className="text-[8px] font-bold text-neutral-400 uppercase block tracking-wider">SIMBA-PAY NO</span>
-                <p className="text-[10px] font-black text-neutral-800 dark:text-neutral-205 tracking-tight leading-none">TKT-{d_ticketId}</p>
+                <p className="text-[10px] font-black text-neutral-800 dark:text-neutral-205 tracking-tight leading-none">{d_ticketId}</p>
                 
                 <div className="h-6 w-full flex items-stretch gap-[1.5px] justify-center sm:justify-end opacity-75 mt-2">
                   {Array.from({ length: 22 }).map((_, bIdx) => {
@@ -1119,8 +1113,8 @@ export function useFirebaseBooking(tripId: string) {
           </div>
 
           {/* Passenger Stub */}
-          <div className="col-span-1 md:col-span-3 p-5 bg-neutral-50/50 dark:bg-neutral-950/25 flex flex-col justify-between space-y-5 relative">
-            <div className="hidden md:block absolute left-0 top-0 bottom-0 border-l border-dashed border-neutral-200 dark:border-neutral-800" />
+          <div className="col-span-1 md:col-span-3 print:col-span-3 p-5 bg-neutral-50/50 dark:bg-neutral-950/25 flex flex-col justify-between space-y-5 relative">
+            <div className="hidden md:block print:block absolute left-0 top-0 bottom-0 border-l border-dashed border-neutral-200 dark:border-neutral-800" />
 
             <div className="rounded-xl bg-violet-600 dark:bg-violet-955 p-3.5 text-white text-center shadow-inner relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-violet-550 to-indigo-750 opacity-90" />
@@ -1177,19 +1171,13 @@ export function useFirebaseBooking(tripId: string) {
             </div>
 
             <div className="flex flex-col items-center justify-center pt-2">
-              <div className="w-20 h-20 bg-white p-1.5 rounded-2xl border border-neutral-200 flex flex-wrap gap-[1px] shadow-sm select-none">
-                <div className="w-6 h-6 border-2 border-neutral-900 rounded p-[1px] shrink-0">
-                  <div className="w-full h-full bg-neutral-900" />
-                </div>
-                <div className="w-2 h-2 bg-neutral-900 rounded" />
-                <div className="w-6 h-6 border-2 border-neutral-900 rounded p-[1px] shrink-0">
-                  <div className="w-full h-full bg-neutral-900" />
-                </div>
-                <div className="w-full h-0.5 bg-neutral-900 rounded" />
-                <div className="w-6 h-6 border-2 border-neutral-900 rounded p-[1px] shrink-0">
-                  <div className="w-full h-full bg-neutral-900" />
-                </div>
-                <div className="w-8 bg-neutral-900 h-6 rounded shrink-0" />
+              <div className="w-20 h-20 bg-white p-1 rounded-2xl border border-neutral-200 flex items-center justify-center shadow-sm select-none">
+                <img 
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(d_ticketId)}`}
+                  alt="Official QR Pass"
+                  className="w-full h-full object-contain"
+                  referrerPolicy="no-referrer"
+                />
               </div>
               <span className="text-[8px] font-black text-neutral-405 dark:text-neutral-500 uppercase tracking-widest mt-1.5">
                 OFFICIAL QR PASS
@@ -2876,25 +2864,14 @@ export function useFirebaseBooking(tripId: string) {
                         Mizigo & Tiketi Code (QR Ticket)
                       </span>
 
-                      {/* Pure CSS simulated QR Code block */}
-                      <div className="w-36 h-36 mx-auto bg-neutral-100 p-2.5 rounded-2xl border border-neutral-200 flex flex-wrap content-between justify-between gap-1">
-                        <div className="w-10 h-10 border-4 border-neutral-900 rounded-lg flex items-center justify-center p-1.5 shrink-0">
-                          <div className="w-full h-full bg-neutral-900" />
-                        </div>
-                        <div className="w-4 h-4 bg-neutral-900 rounded" />
-                        <div className="w-10 h-10 border-4 border-neutral-900 rounded-lg flex items-center justify-center p-1.5 shrink-0">
-                          <div className="w-full h-full bg-neutral-900" />
-                        </div>
-                        <div className="w-full h-1 bg-neutral-900 rounded" />
-                        <div className="w-full h-4 flex justify-between gap-1">
-                          <div className="w-5 bg-neutral-900 rounded" />
-                          <div className="w-8 bg-neutral-900 rounded" />
-                          <div className="w-12 bg-neutral-900 rounded" />
-                        </div>
-                        <div className="w-10 h-10 border-4 border-neutral-900 rounded-lg flex items-center justify-center p-1.5 shrink-0">
-                          <div className="w-full h-full bg-neutral-900" />
-                        </div>
-                        <div className="w-16 bg-neutral-900 h-10 rounded shrink-0" />
+                      {/* Real dynamic QR Code block */}
+                      <div className="w-36 h-36 mx-auto bg-white p-2 rounded-2xl border border-neutral-200 flex items-center justify-center">
+                        <img 
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(ticketRefId || '93847291')}`}
+                          alt="Ticket Success QR Code"
+                          className="w-full h-full object-contain"
+                          referrerPolicy="no-referrer"
+                        />
                       </div>
 
                       {/* Ticket details list */}

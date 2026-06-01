@@ -81,12 +81,15 @@ service cloud.firestore {
 
     // 5. ORDERS COLLECTION
     match /orders/{orderId} {
-      allow read: if isSignedIn() && (
-        isOwner(existing().customerId) || 
-        isOwner(existing().vendorOwnerUid) ||
-        isOwner(existing().riderId) ||
-        (existing().orderType == 'delivery' && existing().riderAssignmentType == 'app') ||
-        isAdmin()
+      allow read: if (
+        (resource != null && existing().orderType == 'walk_in') ||
+        (isSignedIn() && (
+          isOwner(existing().customerId) || 
+          isOwner(existing().vendorOwnerUid) ||
+          isOwner(existing().riderId) ||
+          (existing().orderType == 'delivery' && existing().riderAssignmentType == 'app') ||
+          isAdmin()
+        ))
       );
       allow create: if isSignedIn();
       allow update: if isSignedIn();
@@ -198,6 +201,13 @@ service cloud.firestore {
     match /config/business {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    // 22. BUS SEAT BOOKINGS
+    match /bus_seat_bookings/{bookingId} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if isSignedIn();
     }
 
     // Default deny for safety
