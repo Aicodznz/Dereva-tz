@@ -77,6 +77,22 @@ type TabType = 'overview' | 'appointments' | 'services' | 'staff' | 'clients' | 
 
 const COLORS = ['#ea580c', '#f97316', '#fb923c', '#fdba74'];
 
+const getSafeTime = (val: any): number => {
+  if (!val) return 0;
+  if (typeof val.toDate === 'function') return val.toDate().getTime();
+  if (val.seconds) return val.seconds * 1000;
+  const parsed = new Date(val).getTime();
+  return isNaN(parsed) ? 0 : parsed;
+};
+
+const getSafeDate = (val: any): Date => {
+  if (!val) return new Date();
+  if (typeof val.toDate === 'function') return val.toDate();
+  if (val.seconds) return new Date(val.seconds * 1000);
+  const parsed = new Date(val);
+  return isNaN(parsed.getTime()) ? new Date() : parsed;
+};
+
 export default function SalonVendorDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -143,8 +159,8 @@ export default function SalonVendorDashboard() {
       
       // Sort client-side
       const sorted = docs.sort((a, b) => {
-        const timeA = a.createdAt ? (a.createdAt.toDate?.()?.getTime() || new Date(a.createdAt).getTime()) : 0;
-        const timeB = b.createdAt ? (b.createdAt.toDate?.()?.getTime() || new Date(b.createdAt).getTime()) : 0;
+        const timeA = getSafeTime(a.createdAt);
+        const timeB = getSafeTime(b.createdAt);
         return timeB - timeA;
       });
       
@@ -191,7 +207,7 @@ export default function SalonVendorDashboard() {
     today.setHours(0, 0, 0, 0);
     
     const todayApts = appointments.filter(a => {
-      const d = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
+      const d = getSafeDate(a.createdAt);
       return d >= today;
     });
 
@@ -431,7 +447,7 @@ export default function SalonVendorDashboard() {
                               <td className="px-6 py-4">
                                 <div className="flex items-center gap-2 text-neutral-400 text-sm">
                                   <Clock3 size={14} />
-                                  {apt.createdAt?.toDate ? format(apt.createdAt.toDate(), 'HH:mm') : 'N/A'}
+                                  {apt.createdAt ? format(getSafeDate(apt.createdAt), 'HH:mm') : 'N/A'}
                                 </div>
                               </td>
                               <td className="px-6 py-4">

@@ -24,16 +24,25 @@ export function useIncomingRequests(vehicleType: string, isOnline: boolean, driv
 
     const unsub = onSnapshot(q, (snap) => {
       const twoMinutesAgoMs = Date.now() - 2 * 60 * 1000;
+      const getSafeTime = (val: any): number => {
+        if (!val) return 0;
+        if (typeof val.toMillis === 'function') return val.toMillis();
+        if (typeof val.toDate === 'function') return val.toDate().getTime();
+        if (val.seconds) return val.seconds * 1000;
+        const parsed = new Date(val).getTime();
+        return isNaN(parsed) ? 0 : parsed;
+      };
+
       const rides = snap.docs
         .map(doc => ({ id: doc.id, ...doc.data() } as Ride))
         .filter(ride => {
-          const createdAtMs = ride.createdAt?.toMillis ? ride.createdAt.toMillis() : 0;
+          const createdAtMs = getSafeTime(ride.createdAt);
           return createdAtMs >= twoMinutesAgoMs;
         })
         .sort((a, b) => {
           // Manual sort by createdAt desc
-          const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
-          const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+          const timeA = getSafeTime(a.createdAt);
+          const timeB = getSafeTime(b.createdAt);
           return timeB - timeA;
         });
       

@@ -39,7 +39,7 @@ export function useDriverDashboard() {
       
       snapshot.forEach(doc => {
         const data = doc.data();
-        const createdAt = data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt);
+        const createdAt = data.createdAt && typeof data.createdAt.toDate === 'function' ? data.createdAt.toDate() : new Date(data.createdAt);
         
         // Client-side filtering for today's completed trips
         if (data.status === 'completed' && createdAt >= today) {

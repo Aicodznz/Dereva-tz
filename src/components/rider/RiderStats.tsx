@@ -30,8 +30,8 @@ export default function RiderStats() {
       const ridesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       // Sort client-side to avoid index requirement
       ridesData.sort((a: any, b: any) => {
-        const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
-        const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+        const dateA = a.createdAt && typeof a.createdAt.toDate === 'function' ? a.createdAt.toDate() : new Date(a.createdAt);
+        const dateB = b.createdAt && typeof b.createdAt.toDate === 'function' ? b.createdAt.toDate() : new Date(b.createdAt);
         return dateB.getTime() - dateA.getTime();
       });
       setRides(ridesData);
@@ -68,7 +68,7 @@ export default function RiderStats() {
   const earningsByDay = last7Days.map(day => {
     const amount = completedRides
       .filter(r => {
-        const date = r.createdAt?.toDate ? r.createdAt.toDate() : new Date(r.createdAt);
+        const date = r.createdAt && typeof r.createdAt.toDate === 'function' ? r.createdAt.toDate() : new Date(r.createdAt);
         return date.toLocaleDateString('en-US', { weekday: 'short' }) === day;
       })
       .reduce((sum, r) => sum + (r.actualFare || r.estimatedFare || 0), 0);

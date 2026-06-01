@@ -46,7 +46,8 @@ export default function ReviewSection({ targetId, targetType, isVendor }: Review
       const sortedDocs = [...docs].sort((a, b) => {
         const getTime = (val: any) => {
           if (!val) return 0;
-          if (val.toDate) return val.toDate().getTime(); // Firebase Timestamp
+          if (typeof val.toDate === 'function') return val.toDate().getTime(); // Firebase Timestamp
+          if (val.seconds) return val.seconds * 1000;
           return new Date(val).getTime(); // ISO String
         };
         return getTime(b.createdAt) - getTime(a.createdAt);

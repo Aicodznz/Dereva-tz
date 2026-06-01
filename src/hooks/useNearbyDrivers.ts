@@ -27,7 +27,14 @@ export function useNearbyDrivers() {
       const driverList = snap.docs
         .map(doc => {
           const data = doc.data();
-          const lastActive = data.lastActive?.toDate?.()?.getTime() || 0;
+          const getSafeTime = (val: any): number => {
+            if (!val) return 0;
+            if (typeof val.toDate === 'function') return val.toDate().getTime();
+            if (val.seconds) return val.seconds * 1000;
+            const parsed = new Date(val).getTime();
+            return isNaN(parsed) ? 0 : parsed;
+          };
+          const lastActive = getSafeTime(data.lastActive);
           return { id: doc.id, ...data, lastActiveTime: lastActive } as any;
         })
         .filter(d => {

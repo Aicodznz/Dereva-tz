@@ -229,7 +229,7 @@ const TaxiHistory: React.FC = () => {
                       )}
                     </div>
                     <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">
-                      {ride.createdAt ? format(ride.createdAt.toDate(), 'dd MMM, HH:mm') : 'Hivi sasa'}
+                      {ride.createdAt ? format(typeof ride.createdAt.toDate === 'function' ? ride.createdAt.toDate() : (ride.createdAt.seconds ? new Date(ride.createdAt.seconds * 1000) : new Date(ride.createdAt)), 'dd MMM, HH:mm') : 'Hivi sasa'}
                     </p>
                   </div>
                 </div>
@@ -313,7 +313,7 @@ const TaxiHistory: React.FC = () => {
                      <div className="border-t border-b border-dashed border-neutral-200 py-6 my-6 space-y-4">
                         <div className="flex justify-between items-center text-xs">
                            <span className="font-bold text-neutral-400 uppercase tracking-widest">Tarehe</span>
-                           <span className="font-black">{selectedRide.createdAt ? format(selectedRide.createdAt.toDate(), 'dd MMM yyyy, HH:mm') : '-'}</span>
+                           <span className="font-black">{selectedRide.createdAt ? format(typeof selectedRide.createdAt.toDate === 'function' ? selectedRide.createdAt.toDate() : (selectedRide.createdAt.seconds ? new Date(selectedRide.createdAt.seconds * 1000) : new Date(selectedRide.createdAt)), 'dd MMM yyyy, HH:mm') : '-'}</span>
                         </div>
                         <div className="flex justify-between items-center text-xs">
                            <span className="font-bold text-neutral-400 uppercase tracking-widest">Booking ID</span>
@@ -401,7 +401,7 @@ const TaxiHistory: React.FC = () => {
                     </div>
                     <div className="bg-neutral-800/50 p-4 rounded-3xl border border-white/5">
                       <p className="text-[9px] font-black text-neutral-500 uppercase tracking-widest mb-1 italic">Iliwekwa</p>
-                      <p className="text-xs font-black italic">{selectedRide.createdAt ? format(selectedRide.createdAt.toDate(), 'dd MMM, HH:mm') : 'Leo'}</p>
+                      <p className="text-xs font-black italic">{selectedRide.createdAt ? format(typeof selectedRide.createdAt.toDate === 'function' ? selectedRide.createdAt.toDate() : (selectedRide.createdAt.seconds ? new Date(selectedRide.createdAt.seconds * 1000) : new Date(selectedRide.createdAt)), 'dd MMM, HH:mm') : 'Leo'}</p>
                     </div>
                   </div>
 

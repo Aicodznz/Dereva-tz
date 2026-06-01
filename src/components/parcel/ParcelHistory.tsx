@@ -136,7 +136,7 @@ const ParcelHistory: React.FC = () => {
                   <div>
                     <h4 className="font-black text-sm uppercase tracking-tighter italic">{parcel.category}</h4>
                     <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest">
-                      {parcel.createdAt ? format(parcel.createdAt.toDate(), 'dd MMM, HH:mm') : 'Hivi sasa'}
+                      {parcel.createdAt ? format(typeof parcel.createdAt.toDate === 'function' ? parcel.createdAt.toDate() : (parcel.createdAt.seconds ? new Date(parcel.createdAt.seconds * 1000) : new Date(parcel.createdAt)), 'dd MMM, HH:mm') : 'Hivi sasa'}
                     </p>
                   </div>
                 </div>
@@ -224,7 +224,7 @@ const ParcelHistory: React.FC = () => {
                     </div>
                     <div className="bg-neutral-50 dark:bg-neutral-800/50 p-4 rounded-3xl">
                       <p className="text-[9px] font-black text-neutral-400 uppercase tracking-widest mb-1 italic">Iliwekwa</p>
-                      <p className="text-xs font-black italic">{selectedParcel.createdAt ? format(selectedParcel.createdAt.toDate(), 'dd MMM, HH:mm') : 'Leo'}</p>
+                      <p className="text-xs font-black italic">{selectedParcel.createdAt ? format(typeof selectedParcel.createdAt.toDate === 'function' ? selectedParcel.createdAt.toDate() : (selectedParcel.createdAt.seconds ? new Date(selectedParcel.createdAt.seconds * 1000) : new Date(selectedParcel.createdAt)), 'dd MMM, HH:mm') : 'Leo'}</p>
                     </div>
                   </div>
 

@@ -30,8 +30,8 @@ export default function RiderRides() {
       const ridesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       // Sort client-side to avoid index requirement
       ridesData.sort((a: any, b: any) => {
-        const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
-        const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+        const dateA = a.createdAt && typeof a.createdAt.toDate === 'function' ? a.createdAt.toDate() : new Date(a.createdAt);
+        const dateB = b.createdAt && typeof b.createdAt.toDate === 'function' ? b.createdAt.toDate() : new Date(b.createdAt);
         return dateB.getTime() - dateA.getTime();
       });
       setRides(ridesData);
@@ -143,7 +143,7 @@ export default function RiderRides() {
 
 function RideCard({ ride, isUpcoming, isActive }: { ride: any, isUpcoming?: boolean, isActive?: boolean }) {
   const price = ride.actualFare || ride.estimatedFare || 0;
-  const dateStr = ride.createdAt?.toDate ? ride.createdAt.toDate().toLocaleDateString() : 'N/A';
+  const dateStr = ride.createdAt && typeof ride.createdAt.toDate === 'function' ? ride.createdAt.toDate().toLocaleDateString() : 'N/A';
 
   return (
     <motion.div 

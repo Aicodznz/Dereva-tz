@@ -82,8 +82,8 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
         
         // Client-side sorting
         ordersList.sort((a, b) => {
-          const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
-          const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+          const dateA = a.createdAt && typeof a.createdAt.toDate === 'function' ? a.createdAt.toDate() : new Date(a.createdAt);
+          const dateB = b.createdAt && typeof b.createdAt.toDate === 'function' ? b.createdAt.toDate() : new Date(b.createdAt);
           return dateB.getTime() - dateA.getTime();
         });
 
@@ -107,8 +107,8 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
       
       // Client-side sorting
       ordersList.sort((a, b) => {
-        const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
-        const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+        const dateA = a.createdAt && typeof a.createdAt.toDate === 'function' ? a.createdAt.toDate() : new Date(a.createdAt);
+        const dateB = b.createdAt && typeof b.createdAt.toDate === 'function' ? b.createdAt.toDate() : new Date(b.createdAt);
         return dateB.getTime() - dateA.getTime();
       });
 
@@ -308,7 +308,7 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
                         {t('order_id')}: <span className="text-orange-600">#{selectedOrder.id?.slice(-8).toUpperCase()}</span>
                       </h2>
                       <p className="text-neutral-500 mt-1">
-                        {selectedOrder.createdAt?.toDate ? selectedOrder.createdAt.toDate().toLocaleString() : new Date(selectedOrder.createdAt).toLocaleString()}
+                        {selectedOrder.createdAt && typeof selectedOrder.createdAt.toDate === 'function' ? selectedOrder.createdAt.toDate().toLocaleString() : new Date(selectedOrder.createdAt).toLocaleString()}
                       </p>
                     </div>
                     <Badge className={`${getStatusColor(selectedOrder.status)} border-none px-4 py-1.5 rounded-full font-bold`}>
@@ -520,7 +520,7 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
                       </Badge>
                     </div>
                     <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                      {order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString() : new Date(order.createdAt).toLocaleString()}
+                      {order.createdAt && typeof order.createdAt.toDate === 'function' ? order.createdAt.toDate().toLocaleString() : new Date(order.createdAt).toLocaleString()}
                     </p>
                     <div className="flex justify-between items-center mt-3">
                       <p className="text-sm font-black text-neutral-900 dark:text-neutral-200">
@@ -570,7 +570,7 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
                       </Badge>
                     </div>
                     <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                      {order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString() : new Date(order.createdAt).toLocaleString()}
+                      {order.createdAt && typeof order.createdAt.toDate === 'function' ? order.createdAt.toDate().toLocaleString() : new Date(order.createdAt).toLocaleString()}
                     </p>
                     <div className="flex justify-between items-center mt-3">
                       <p className="text-sm font-black text-neutral-900 dark:text-neutral-200">

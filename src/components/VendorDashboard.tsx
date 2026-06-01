@@ -203,6 +203,22 @@ const getProxiedImageUrl = (url?: string) => {
   return url;
 };
 
+const getSafeTime = (val: any): number => {
+  if (!val) return 0;
+  if (typeof val.toDate === 'function') return val.toDate().getTime();
+  if (val.seconds) return val.seconds * 1000;
+  const parsed = new Date(val).getTime();
+  return isNaN(parsed) ? 0 : parsed;
+};
+
+const getSafeDate = (val: any): Date => {
+  if (!val) return new Date();
+  if (typeof val.toDate === 'function') return val.toDate();
+  if (val.seconds) return new Date(val.seconds * 1000);
+  const parsed = new Date(val);
+  return isNaN(parsed.getTime()) ? new Date() : parsed;
+};
+
 export default function VendorDashboard() {
   const { profile, user } = useAuth();
   const navigate = useNavigate();
@@ -1065,8 +1081,8 @@ export default function VendorDashboard() {
         
         // Sort client-side
         const sorted = docs.sort((a, b) => {
-          const timeA = a.createdAt ? (a.createdAt.toDate?.()?.getTime() || new Date(a.createdAt).getTime()) : 0;
-          const timeB = b.createdAt ? (b.createdAt.toDate?.()?.getTime() || new Date(b.createdAt).getTime()) : 0;
+          const timeA = getSafeTime(a.createdAt);
+          const timeB = getSafeTime(b.createdAt);
           return timeB - timeA;
         });
         
@@ -1150,7 +1166,7 @@ export default function VendorDashboard() {
     // Only process very recent orders to avoid infinite loop or flickering
     const now = Date.now();
     orders.forEach(order => {
-      const orderTime = order.createdAt ? new Date(order.createdAt).getTime() : 0;
+      const orderTime = getSafeTime(order.createdAt);
       // If order is walk_in (Dine In) and pending, and has table number, and is relatively fresh (within last 5 mins)
       if (order.status === 'pending' && order.orderType === 'walk_in' && order.tableNumber && (now - orderTime < 300000)) {
         const table = sections.find(s => s.number === order.tableNumber);
@@ -2031,7 +2047,7 @@ export default function VendorDashboard() {
                 <div className="pt-4 border-t border-neutral-100 dark:border-neutral-950 flex items-center justify-between transition-colors">
                    <div className="flex items-center gap-2 text-neutral-500">
                       <Clock className="w-3 h-3" />
-                      <span className="text-[10px] font-bold">{order.createdAt ? format(new Date(order.createdAt), 'HH:mm') : 'Now'}</span>
+                      <span className="text-[10px] font-bold">{order.createdAt ? format(getSafeDate(order.createdAt), 'HH:mm') : 'Now'}</span>
                    </div>
                    <div className="flex gap-2">
                       {order.status === 'pending' && (
@@ -3103,14 +3119,7 @@ export default function VendorDashboard() {
                           </div>
                           <div className="text-right">
                              <Badge className={`${getStatusColor(order.status)} border-none text-[8px] font-black uppercase tracking-widest px-2`}>{order.status}</Badge>
-                             <p className="text-[10px] text-neutral-600 font-bold uppercase mt-1">{format(order.createdAt
-                                ? (typeof order.createdAt.toDate === 'function'
-                                  ? order.createdAt.toDate()
-                                  : (order.createdAt.seconds
-                                    ? new Date(order.createdAt.seconds * 1000)
-                                    : new Date(order.createdAt)))
-                                : new Date(),
-                              'p')}</p>
+                             <p className="text-[10px] text-neutral-600 font-bold uppercase mt-1">{format(getSafeDate(order.createdAt), 'p')}</p>
                           </div>
                         </div>
                       ))}
@@ -7702,8 +7711,8 @@ export default function VendorDashboard() {
             <div className="space-y-1 mb-4">
                <p className="text-[11px] font-bold text-neutral-900">Order #{orderToPrint.id?.slice(-8).toUpperCase()}</p>
                <div className="flex justify-between items-center text-[10px] font-bold text-neutral-600">
-                  <span>{format(orderToPrint.createdAt ? new Date(orderToPrint.createdAt) : new Date(), 'dd-MM-yyyy')}</span>
-                  <span>{format(orderToPrint.createdAt ? new Date(orderToPrint.createdAt) : new Date(), 'HH:mm A')}</span>
+                  <span>{format(getSafeDate(orderToPrint.createdAt), 'dd-MM-yyyy')}</span>
+                  <span>{format(getSafeDate(orderToPrint.createdAt), 'HH:mm A')}</span>
                </div>
             </div>
 
