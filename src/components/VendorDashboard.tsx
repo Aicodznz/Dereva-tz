@@ -204,19 +204,45 @@ const getProxiedImageUrl = (url?: string) => {
 };
 
 const getSafeTime = (val: any): number => {
-  if (!val) return 0;
-  if (typeof val.toDate === 'function') return val.toDate().getTime();
-  if (val.seconds) return val.seconds * 1000;
-  const parsed = new Date(val).getTime();
-  return isNaN(parsed) ? 0 : parsed;
+  try {
+    if (!val) return 0;
+    if (typeof val.toDate === 'function') {
+      try {
+        const d = val.toDate();
+        if (d && typeof d.getTime === 'function') {
+          return d.getTime();
+        }
+      } catch (innerErr) {
+        console.warn("Error calling toDate inside getSafeTime:", innerErr);
+      }
+    }
+    if (val.seconds) return val.seconds * 1000;
+    const parsed = new Date(val).getTime();
+    return isNaN(parsed) ? 0 : parsed;
+  } catch (err) {
+    console.error("Critical error in getSafeTime:", err);
+    return 0;
+  }
 };
 
 const getSafeDate = (val: any): Date => {
-  if (!val) return new Date();
-  if (typeof val.toDate === 'function') return val.toDate();
-  if (val.seconds) return new Date(val.seconds * 1000);
-  const parsed = new Date(val);
-  return isNaN(parsed.getTime()) ? new Date() : parsed;
+  try {
+    if (!val) return new Date();
+    if (typeof val.toDate === 'function') {
+      try {
+        const d = val.toDate();
+        if (d instanceof Date) return d;
+      } catch (innerErr) {
+        console.warn("Error calling toDate inside getSafeDate:", innerErr);
+      }
+    }
+    if (val.seconds) return new Date(val.seconds * 1000);
+    const parsed = new Date(val);
+    return isNaN(parsed.getTime()) ? new Date() : parsed;
+  } catch (err) {
+    console.error("Critical error in getSafeDate:", err);
+    return new Date();
+  }
 };
 
 export default function VendorDashboard() {
