@@ -20,7 +20,10 @@ import {
   Printer,
   CreditCard,
   Loader2,
-  Navigation
+  Navigation,
+  Bus,
+  MapPin,
+  Ticket
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import OrderTracker from './OrderTracker';
@@ -135,7 +138,30 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
     }
   };
 
-  const getStatusLabel = (status: string) => {
+  const isBusOrder = (order: Order | null) => {
+    if (!order) return false;
+    return order.type === 'bus_ticket' || 
+           order.orderType === 'booking' ||
+           order.items?.[0]?.productId?.includes('bus') || 
+           order.items?.[0]?.name?.toLowerCase()?.includes('kiti') || 
+           order.items?.[0]?.name?.toLowerCase()?.includes('ticket');
+  };
+
+  const getStatusLabel = (status: string, order?: Order) => {
+    if (order && isBusOrder(order)) {
+      switch (status) {
+        case 'pending': return 'Booked (Imepokelewa)';
+        case 'accepted': return 'Confirmed (Imethibitishwa)';
+        case 'preparing': return 'Processing (Inashughulikiwa)';
+        case 'prepared': return 'Boarding (Kupanda)';
+        case 'out_for_delivery': return 'On Trip (Njiani)';
+        case 'delivered': return 'Completed (Safari Imeisha)';
+        case 'completed': return 'Completed (Safari Imeisha)';
+        case 'cancelled': return 'Cancelled (Imeghairiwa)';
+        default: return status;
+      }
+    }
+
     switch (status) {
       case 'pending': return 'Pending';
       case 'preparing': return 'Preparing';
@@ -165,7 +191,7 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
         </button>
 
         <div className="printable-receipt space-y-8">
-          {selectedOrder.type === 'bus_ticket' ? (
+          {isBusOrder(selectedOrder) ? (
             <div className="max-w-4xl mx-auto space-y-6">
               <div className="bg-neutral-900 border border-neutral-800 p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden text-white">
                 {/* Background bus logo overlay */}
@@ -324,13 +350,24 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
                           const currentIdx = steps.indexOf(selectedOrder.status === 'completed' ? 'delivered' : selectedOrder.status);
                           const isCompleted = idx <= currentIdx;
                           
+                          const isBus = isBusOrder(selectedOrder);
+                          let stepLabel = step.replace(/_/g, ' ');
+                          if (isBus) {
+                            if (step === 'placed') stepLabel = 'Booked';
+                            else if (step === 'accepted') stepLabel = 'Confirmed';
+                            else if (step === 'preparing') stepLabel = 'Processing';
+                            else if (step === 'prepared') stepLabel = 'Boarding';
+                            else if (step === 'out_for_delivery') stepLabel = 'On Trip';
+                            else if (step === 'delivered') stepLabel = 'Arrived';
+                          }
+
                           return (
                             <div key={step} className="flex flex-col items-center gap-2 z-10">
                               <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isCompleted ? 'bg-teal-500 text-white' : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-400'}`}>
                                 <CheckCircle2 className="w-5 h-5" />
                               </div>
                               <span className="text-[10px] font-bold text-neutral-500 uppercase text-center w-12">
-                                {step.replace(/_/g, ' ')}
+                                {stepLabel}
                               </span>
                             </div>
                           );
@@ -346,29 +383,54 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
                     
                     <div className="text-center mt-8">
                       <img 
-                        src={selectedOrder.status === 'out_for_delivery' ? "https://cdn-icons-png.flaticon.com/512/2972/2972185.png" : "https://cdn-icons-png.flaticon.com/512/3063/3063822.png"} 
+                        src={isBusOrder(selectedOrder)
+                          ? (selectedOrder.status === 'out_for_delivery' ? "https://cdn-icons-png.flaticon.com/512/1042/1042336.png" : "https://cdn-icons-png.flaticon.com/512/432/432291.png")
+                          : (selectedOrder.status === 'out_for_delivery' ? "https://cdn-icons-png.flaticon.com/512/2972/2972185.png" : "https://cdn-icons-png.flaticon.com/512/3063/3063822.png")
+                        } 
                         alt="Status" 
                         className="w-32 h-32 mx-auto mb-4 opacity-80"
                         onError={(e) => {
-                          (e.target as HTMLImageElement).src = 'https://cdn-icons-png.flaticon.com/512/3063/3063822.png';
+                          (e.target as HTMLImageElement).src = isBusOrder(selectedOrder) ? 'https://cdn-icons-png.flaticon.com/512/432/432291.png' : 'https://cdn-icons-png.flaticon.com/512/3063/3063822.png';
                         }}
                       />
                       <h3 className="text-xl font-bold text-neutral-800 dark:text-neutral-200">
-                        {selectedOrder.status === 'preparing' ? 'The chef is preparing your food.' : 
-                         selectedOrder.status === 'out_for_delivery' ? 'The delivery man is on the way!' :
-                         selectedOrder.status === 'delivered' ? 'Your order has been delivered' : 'Processing your order...'}
+                        {isBusOrder(selectedOrder) ? (
+                          selectedOrder.status === 'pending' ? 'Uhifadhi wako wa tiketi umepokelewa. Subiri thibitisho la agent wetu.' :
+                          selectedOrder.status === 'accepted' ? 'Tiketi yako imethibitishwa kikamilifu! Safiri salama.' :
+                          selectedOrder.status === 'preparing' ? 'Taarifa za tiketi yako zinahakikiwa kwa sasa...' :
+                          selectedOrder.status === 'prepared' ? 'Muda wa kupanda basi! Tafadhali fika kituoni na mizigo yako.' :
+                          selectedOrder.status === 'out_for_delivery' ? 'Safari imeanza! Basi liko njiani kuelekea kule unakokwenda.' :
+                          selectedOrder.status === 'delivered' || selectedOrder.status === 'completed' ? 'Safari imekamilika kikamilifu! Asante kwa kusafiri nasi.' : 'Tiketi yako inashughulikiwa...'
+                        ) : (
+                          selectedOrder.status === 'preparing' ? 'The chef is preparing your food.' : 
+                          selectedOrder.status === 'out_for_delivery' ? 'The delivery man is on the way!' :
+                          selectedOrder.status === 'delivered' ? 'Your order has been delivered' : 'Processing your order...'
+                        )}
                       </h3>
                     </div>
                   </div>
 
                   <div className="space-y-6">
                     <div>
-                      <h4 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-4">{t('delivery_address')}</h4>
+                      <h4 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-4">
+                        {isBusOrder(selectedOrder) ? 'Njia ya Safari & Kiti / Route & Seat' : t('delivery_address')}
+                      </h4>
                       <div className="flex gap-3 p-4 bg-neutral-50 dark:bg-neutral-800/50 rounded-2xl">
                         <div className="w-10 h-10 bg-white dark:bg-neutral-800 rounded-xl flex items-center justify-center shadow-sm">
-                          <Truck className="w-5 h-5 text-orange-600" />
+                          {isBusOrder(selectedOrder) ? (
+                            <MapPin className="w-5 h-5 text-orange-600" />
+                          ) : (
+                            <Truck className="w-5 h-5 text-orange-600" />
+                          )}
                         </div>
-                        <p className="text-sm font-medium text-neutral-700">{selectedOrder.deliveryAddress}</p>
+                        <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                          {isBusOrder(selectedOrder) 
+                            ? (selectedOrder.items?.[0]?.origin && selectedOrder.items?.[0]?.destination 
+                              ? `${selectedOrder.items[0].origin} ➔ ${selectedOrder.items[0].destination} (${selectedOrder.items[0].name})` 
+                              : selectedOrder.deliveryAddress || 'Kituo cha Kutokea/Mabasi')
+                            : selectedOrder.deliveryAddress
+                          }
+                        </p>
                       </div>
                     </div>
 
@@ -508,7 +570,11 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
               >
                 <CardContent className="p-6 flex items-center gap-6">
                   <div className="w-16 h-16 bg-orange-50 dark:bg-orange-950/20 rounded-2xl flex items-center justify-center text-orange-600 shrink-0">
-                    <ShoppingBag className="w-8 h-8" />
+                    {isBusOrder(order) ? (
+                      <Bus className="w-8 h-8 text-orange-600 animate-pulse" />
+                    ) : (
+                      <ShoppingBag className="w-8 h-8" />
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start mb-1">
@@ -516,7 +582,7 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
                         {t('order_id')}: #{order.id?.slice(-8).toUpperCase()}
                       </h4>
                       <Badge className={`${getStatusColor(order.status)} border-none text-[10px] font-bold`}>
-                        {getStatusLabel(order.status)}
+                        {getStatusLabel(order.status, order)}
                       </Badge>
                     </div>
                     <p className="text-xs text-neutral-500 dark:text-neutral-400">
@@ -558,7 +624,11 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
               >
                 <CardContent className="p-6 flex items-center gap-6">
                   <div className="w-16 h-16 bg-neutral-100 dark:bg-neutral-800 rounded-2xl flex items-center justify-center text-neutral-400 shrink-0">
-                    <ShoppingBag className="w-8 h-8" />
+                    {isBusOrder(order) ? (
+                      <Bus className="w-8 h-8 text-neutral-400" />
+                    ) : (
+                      <ShoppingBag className="w-8 h-8" />
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start mb-1">
@@ -566,7 +636,7 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
                         {t('order_id')}: #{order.id?.slice(-8).toUpperCase()}
                       </h4>
                       <Badge className={`${getStatusColor(order.status)} border-none text-[10px] font-bold`}>
-                        {getStatusLabel(order.status)}
+                        {getStatusLabel(order.status, order)}
                       </Badge>
                     </div>
                     <p className="text-xs text-neutral-500 dark:text-neutral-400">

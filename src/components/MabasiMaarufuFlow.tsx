@@ -285,7 +285,8 @@ export default function MabasiMaarufuFlow({ product, vendor, onBackToTripSelecti
         }],
         selectedSeats: selectedSeats,
         departureDate: travelDate,
-        orderType: 'delivery', // general order type represented as Ticket Booking
+        type: 'bus_ticket',
+        orderType: 'booking', // represented as Booking
         totalAmount: finalTotalAmount,
         status: 'pending',
         paymentStatus: 'paid', // Mark as paid for simulating quick successful payment

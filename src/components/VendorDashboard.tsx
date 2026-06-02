@@ -7715,140 +7715,255 @@ export default function VendorDashboard() {
       </AnimatePresence>
 
       <div id="order-receipt" className="hidden fixed left-0 top-0 w-[80mm] bg-white text-black p-6 font-sans">
-        {orderToPrint && (
-          <div className="flex flex-col">
-            {/* Header / Brand */}
-            <div className="w-full text-center mb-6">
-               <h1 className="text-2xl font-black text-neutral-900 leading-tight mb-2">
-                 {vendorProfile?.businessName || 'Soko App'}
-               </h1>
-               <p className="text-[10px] text-neutral-600 font-bold max-w-[200px] mx-auto leading-relaxed">
-                 {vendorProfile?.address || 'Anuani ya Biashara'}
-               </p>
-               <p className="text-[10px] text-neutral-600 font-bold mt-1">
-                 Tel: {vendorProfile?.phoneNumber || 'Simu'}
-               </p>
-            </div>
+        {orderToPrint && (() => {
+          const isBusReceipt = orderToPrint.type === 'bus_ticket' || vendorProfile?.category === 'bus_ticket';
+          if (isBusReceipt) {
+            const seatsStr = Array.isArray((orderToPrint as any).selectedSeats) 
+              ? (orderToPrint as any).selectedSeats.join(', ') 
+              : ((orderToPrint as any).tableNumber || 'A2');
+            
+            return (
+              <div className="flex flex-col text-neutral-900">
+                {/* Header / Brand */}
+                <div className="w-full text-center mb-4">
+                   <h1 className="text-xl font-extrabold uppercase leading-tight tracking-tight text-black">
+                     {vendorProfile?.businessName || 'PapoHapo Bus Services'}
+                   </h1>
+                   <p className="text-[10px] text-neutral-600 font-bold">BOARDING TICKET / ABIRIA PASS</p>
+                   {vendorProfile?.address && (
+                     <p className="text-[9px] text-neutral-500 mt-0.5">{vendorProfile.address}</p>
+                   )}
+                   <p className="text-[9px] text-neutral-500 font-mono mt-0.5">
+                     Tel: {vendorProfile?.phoneNumber || orderToPrint.customerPhone || 'N/A'}
+                   </p>
+                </div>
+                
+                <div className="w-full border-b border-dashed border-neutral-300 mb-3 h-0"></div>
 
-            {/* Receipt Divider */}
-            <div className="w-full border-b border-dashed border-neutral-300 mb-4 h-0"></div>
+                <div className="space-y-1 text-xs font-bold text-center mb-3">
+                   <p className="text-[14px] font-black tracking-widest text-orange-600">
+                     TKT-{orderToPrint.id?.slice(-8).toUpperCase()}
+                   </p>
+                   <p className="text-[10px] text-neutral-550">
+                     {format(getSafeDate(orderToPrint.createdAt), 'dd-MM-yyyy HH:mm A')}
+                   </p>
+                </div>
 
-            {/* Order Basics */}
-            <div className="space-y-1 mb-4">
-               <p className="text-[11px] font-bold text-neutral-900">Order #{orderToPrint.id?.slice(-8).toUpperCase()}</p>
-               <div className="flex justify-between items-center text-[10px] font-bold text-neutral-600">
-                  <span>{format(getSafeDate(orderToPrint.createdAt), 'dd-MM-yyyy')}</span>
-                  <span>{format(getSafeDate(orderToPrint.createdAt), 'HH:mm A')}</span>
-               </div>
-            </div>
+                <div className="w-full border-b border-dashed border-neutral-300 mb-3 h-0"></div>
 
-            {/* Receipt Divider */}
-            <div className="w-full border-b border-dashed border-neutral-300 mb-3 h-0"></div>
+                {/* Passenger Details */}
+                <div className="space-y-2 mb-4 bg-neutral-50 p-3 rounded-2xl border border-neutral-150 text-black">
+                   <div className="flex justify-between items-center text-[11px] font-bold">
+                      <span className="text-neutral-500 uppercase text-[9px] font-medium">Passenger:</span>
+                      <span className="font-extrabold uppercase">{orderToPrint.customerName || 'Walk-In Passenger'}</span>
+                   </div>
+                   {orderToPrint.customerPhone && (
+                     <div className="flex justify-between items-center text-[11px] font-bold">
+                        <span className="text-neutral-500 uppercase text-[9px] font-medium">Phone Number:</span>
+                        <span className="font-extrabold font-mono">{orderToPrint.customerPhone}</span>
+                     </div>
+                   )}
+                   <div className="flex justify-between items-center text-[11px] font-bold">
+                      <span className="text-neutral-500 uppercase text-[9px] font-medium">Departure Date:</span>
+                      <span className="font-extrabold">{(orderToPrint as any).departureDate || (orderToPrint.items?.[0] as any)?.departureDate || format(new Date(), 'dd-MM-yyyy')}</span>
+                   </div>
+                </div>
 
-            {/* Table Header */}
-            <div className="flex justify-between text-[11px] font-black uppercase tracking-widest text-neutral-900 mb-3 px-1">
-               <span className="w-8">Qty</span>
-               <span className="flex-1 px-4">Item Description</span>
-               <span className="w-20 text-right">Price</span>
-            </div>
+                {/* Ticket Details */}
+                <div className="space-y-2 mb-4 bg-neutral-50 p-3 rounded-2xl border border-neutral-150 text-black">
+                   <div className="flex justify-between items-start text-[11px] font-bold">
+                      <span className="text-neutral-500 uppercase text-[9px] font-medium pt-0.5">Trip/Route:</span>
+                      <span className="font-extrabold uppercase text-right leading-tight max-w-[150px]">
+                        {orderToPrint.items?.[0]?.origin || 'Mwanza'} ➔ {orderToPrint.items?.[0]?.destination || 'Dar es Salaam'}
+                      </span>
+                   </div>
+                   <div className="flex justify-between items-center text-[11px] font-bold">
+                      <span className="text-neutral-500 uppercase text-[9px] font-medium">Class / Bus:</span>
+                      <span className="font-extrabold uppercase">{(orderToPrint.items?.[0] as any)?.class || 'Luxury Class'}</span>
+                   </div>
+                   <div className="flex justify-between items-center text-[11px] font-bold">
+                      <span className="text-neutral-500 uppercase text-[9px] font-medium">Seats (Viti):</span>
+                      <span className="font-black text-orange-600 font-mono text-base">
+                        {seatsStr}
+                      </span>
+                   </div>
+                   <div className="flex justify-between items-center text-[11px] font-bold">
+                      <span className="text-neutral-500 uppercase text-[9px] font-medium">Qty (Idadi):</span>
+                      <span className="font-extrabold">{orderToPrint.items?.[0]?.quantity || 1} x Seat</span>
+                   </div>
+                </div>
 
-            {/* Receipt Divider (Inner) */}
-            <div className="w-full border-b border-neutral-100 mb-3 h-0"></div>
+                <div className="w-full border-t border-dashed border-neutral-300 pt-3 flex justify-between items-center mb-4">
+                   <span className="text-xs font-black uppercase text-neutral-900">FARE TOTAL:</span>
+                   <span className="text-lg font-black text-neutral-900 italic">TZS {orderToPrint.totalAmount.toLocaleString()}</span>
+                </div>
 
-            {/* Items List */}
-            <div className="space-y-4 mb-6">
-               {orderToPrint.items.map((item, idx) => (
-                 <div key={`print-item-${orderToPrint.id}-${idx}`} className="flex justify-between items-start text-[11px] font-bold text-neutral-900">
-                    <span className="w-8 shrink-0">{item.quantity}</span>
-                    <div className="flex-1 px-4">
-                       <p className="uppercase leading-tight">{item.name}</p>
-                       <p className="text-[9px] text-neutral-500 font-bold mt-1 uppercase italic">
-                         Size: {item.variation || 'Regular'}
-                         {item.addOns && item.addOns.length > 0 && ` • Extras: ${item.addOns.map((a: any) => a.name).join(', ')}`}
-                       </p>
+                {/* QR Verification */}
+                <div className="text-center mb-4 text-black">
+                   <div className="border border-neutral-200 p-2 rounded-2xl bg-white w-[130px] h-[130px] mx-auto flex items-center justify-center">
+                      <img 
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${orderToPrint.id}`} 
+                        alt="Boarding QR" 
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full"
+                      />
+                   </div>
+                   <p className="text-[9px] font-bold uppercase tracking-wider text-neutral-500 mt-2">Boarding Scanner Code</p>
+                </div>
+
+                <div className="w-full border-b border-dashed border-neutral-300 mb-4 h-0"></div>
+
+                <div className="text-center">
+                   <p className="text-[10px] font-black uppercase tracking-widest text-neutral-700">SAFARI NJEMA!</p>
+                   <p className="text-[8px] font-semibold text-neutral-500 mt-1 max-w-[180px] mx-auto leading-relaxed">
+                     Tafadhali fika kituoni nusu saa kabla ya basi kuondoka. Tiketi hii ni halali kwa safari ya leo tu.
+                   </p>
+                   <div className="mt-4 flex flex-col items-center opacity-40 text-black">
+                      <span className="text-[6px] font-bold uppercase tracking-tight">System Powered by</span>
+                      <p className="text-[7px] font-black uppercase tracking-tight leading-tight">
+                        Papo Hapo - Bus Ticket Engine
+                      </p>
+                   </div>
+                </div>
+              </div>
+            );
+          }
+
+          return (
+            <div className="flex flex-col">
+              {/* Header / Brand */}
+              <div className="w-full text-center mb-6">
+                 <h1 className="text-2xl font-black text-neutral-900 leading-tight mb-2">
+                   {vendorProfile?.businessName || 'Soko App'}
+                 </h1>
+                 <p className="text-[10px] text-neutral-600 font-bold max-w-[200px] mx-auto leading-relaxed">
+                   {vendorProfile?.address || 'Anuani ya Biashara'}
+                 </p>
+                 <p className="text-[10px] text-neutral-600 font-bold mt-1">
+                   Tel: {vendorProfile?.phoneNumber || 'Simu'}
+                 </p>
+              </div>
+
+              {/* Receipt Divider */}
+              <div className="w-full border-b border-dashed border-neutral-300 mb-4 h-0"></div>
+
+              {/* Order Basics */}
+              <div className="space-y-1 mb-4">
+                 <p className="text-[11px] font-bold text-neutral-900">Order #{orderToPrint.id?.slice(-8).toUpperCase()}</p>
+                 <div className="flex justify-between items-center text-[10px] font-bold text-neutral-600">
+                    <span>{format(getSafeDate(orderToPrint.createdAt), 'dd-MM-yyyy')}</span>
+                    <span>{format(getSafeDate(orderToPrint.createdAt), 'HH:mm A')}</span>
+                 </div>
+              </div>
+
+              {/* Receipt Divider */}
+              <div className="w-full border-b border-dashed border-neutral-300 mb-3 h-0"></div>
+
+              {/* Table Header */}
+              <div className="flex justify-between text-[11px] font-black uppercase tracking-widest text-neutral-900 mb-3 px-1">
+                 <span className="w-8">Qty</span>
+                 <span className="flex-1 px-4">Item Description</span>
+                 <span className="w-20 text-right">Price</span>
+              </div>
+
+              {/* Receipt Divider (Inner) */}
+              <div className="w-full border-b border-neutral-100 mb-3 h-0"></div>
+
+              {/* Items List */}
+              <div className="space-y-4 mb-6">
+                 {orderToPrint.items.map((item, idx) => (
+                   <div key={`print-item-${orderToPrint.id}-${idx}`} className="flex justify-between items-start text-[11px] font-bold text-neutral-900">
+                      <span className="w-8 shrink-0">{item.quantity}</span>
+                      <div className="flex-1 px-4">
+                         <p className="uppercase leading-tight">{item.name}</p>
+                         <p className="text-[9px] text-neutral-500 font-bold mt-1 uppercase italic">
+                           Size: {item.variation || 'Regular'}
+                           {item.addOns && item.addOns.length > 0 && ` • Extras: ${item.addOns.map((a: any) => a.name).join(', ')}`}
+                         </p>
+                      </div>
+                      <span className="w-20 text-right shrink-0">TZS {(item.price * item.quantity).toLocaleString()}</span>
+                   </div>
+                 ))}
+              </div>
+
+              {/* Summary Totals Section */}
+              <div className="w-full border-t border-dashed border-neutral-300 pt-4 space-y-2 mb-6">
+                 <div className="flex justify-between items-center text-[10px] font-bold text-neutral-600 uppercase tracking-widest">
+                    <span>SUBTOTAL:</span>
+                    <span>TZS {orderToPrint.totalAmount.toLocaleString()}</span>
+                 </div>
+                 <div className="flex justify-between items-center text-[10px] font-bold text-neutral-600 uppercase tracking-widest">
+                    <span>TOTAL TAX:</span>
+                    <span>TZS 0.00</span>
+                 </div>
+                 <div className="flex justify-between items-center text-[10px] font-bold text-neutral-600 uppercase tracking-widest">
+                    <span>DISCOUNT:</span>
+                    <span>TZS 0.00</span>
+                 </div>
+                 <div className="flex justify-between items-center text-[10px] font-bold text-neutral-600 uppercase tracking-widest leading-relaxed">
+                    <span>DELIVERY CHARGE:</span>
+                    <span>TZS 0.00</span>
+                 </div>
+                 <div className="flex justify-between items-center pt-3 mt-1 border-t border-neutral-900">
+                    <span className="text-sm font-black uppercase tracking-tighter text-neutral-900">TOTAL:</span>
+                    <span className="text-lg font-black text-neutral-900 tracking-tighter italic">TZS {orderToPrint.totalAmount.toLocaleString()}</span>
+                 </div>
+              </div>
+
+              {/* Receipt Divider */}
+              <div className="w-full border-b border-dashed border-neutral-300 mb-4 h-0"></div>
+
+              {/* Detailed Info Section */}
+              <div className="space-y-3 mb-6 px-1">
+                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[10px] font-bold text-neutral-600">
+                    <div className="flex flex-col decoration-neutral-200">
+                       <span className="text-neutral-400 uppercase text-[8px] mb-0.5">Payment Type:</span>
+                       <span className="text-neutral-900 uppercase">{orderToPrint.paymentMethod || 'Cash'}</span>
                     </div>
-                    <span className="w-20 text-right shrink-0">TZS {(item.price * item.quantity).toLocaleString()}</span>
+                    <div className="flex flex-col text-right">
+                       <span className="text-neutral-400 uppercase text-[8px] mb-0.5">Order Type:</span>
+                       <span className="text-neutral-900 uppercase">{orderToPrint.orderType || 'N/A'}</span>
+                    </div>
+                    <div className="flex flex-col col-span-2">
+                       <span className="text-neutral-400 uppercase text-[8px] mb-0.5">Delivery Time:</span>
+                       <span className="text-neutral-900">19-04-2026 08:30 PM - 09:00 PM</span>
+                    </div>
                  </div>
-               ))}
-            </div>
+              </div>
 
-            {/* Summary Totals Section */}
-            <div className="w-full border-t border-dashed border-neutral-300 pt-4 space-y-2 mb-6">
-               <div className="flex justify-between items-center text-[10px] font-bold text-neutral-600 uppercase tracking-widest">
-                  <span>SUBTOTAL:</span>
-                  <span>TZS {orderToPrint.totalAmount.toLocaleString()}</span>
-               </div>
-               <div className="flex justify-between items-center text-[10px] font-bold text-neutral-600 uppercase tracking-widest">
-                  <span>TOTAL TAX:</span>
-                  <span>TZS 0.00</span>
-               </div>
-               <div className="flex justify-between items-center text-[10px] font-bold text-neutral-600 uppercase tracking-widest">
-                  <span>DISCOUNT:</span>
-                  <span>TZS 0.00</span>
-               </div>
-               <div className="flex justify-between items-center text-[10px] font-bold text-neutral-600 uppercase tracking-widest leading-relaxed">
-                  <span>DELIVERY CHARGE:</span>
-                  <span>TZS 0.00</span>
-               </div>
-               <div className="flex justify-between items-center pt-3 mt-1 border-t border-neutral-900">
-                  <span className="text-sm font-black uppercase tracking-tighter text-neutral-900">TOTAL:</span>
-                  <span className="text-lg font-black text-neutral-900 tracking-tighter italic">TZS {orderToPrint.totalAmount.toLocaleString()}</span>
-               </div>
-            </div>
-
-            {/* Receipt Divider */}
-            <div className="w-full border-b border-dashed border-neutral-300 mb-4 h-0"></div>
-
-            {/* Detailed Info Section */}
-            <div className="space-y-3 mb-6 px-1">
-               <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[10px] font-bold text-neutral-600">
-                  <div className="flex flex-col decoration-neutral-200">
-                     <span className="text-neutral-400 uppercase text-[8px] mb-0.5">Payment Type:</span>
-                     <span className="text-neutral-900 uppercase">{orderToPrint.paymentMethod || 'Cash'}</span>
-                  </div>
-                  <div className="flex flex-col text-right">
-                     <span className="text-neutral-400 uppercase text-[8px] mb-0.5">Order Type:</span>
-                     <span className="text-neutral-900 uppercase">{orderToPrint.orderType || 'N/A'}</span>
-                  </div>
-                  <div className="flex flex-col col-span-2">
-                     <span className="text-neutral-400 uppercase text-[8px] mb-0.5">Delivery Time:</span>
-                     <span className="text-neutral-900">19-04-2026 08:30 PM - 09:00 PM</span>
-                  </div>
-               </div>
-            </div>
-
-            {/* Customer Details */}
-            <div className="w-full border-t border-dashed border-neutral-300 pt-4 mb-8 space-y-3 px-1">
-               <div className="flex flex-col">
-                  <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest mb-1">Customer:</span>
-                  <p className="text-[10px] font-bold text-neutral-900 uppercase">{orderToPrint.customerName || 'Walk-in Customer'}</p>
-               </div>
-               {orderToPrint.customerPhone && (
+              {/* Customer Details */}
+              <div className="w-full border-t border-dashed border-neutral-300 pt-4 mb-8 space-y-3 px-1">
                  <div className="flex flex-col">
-                    <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest mb-1">Phone:</span>
-                    <p className="text-[10px] font-bold text-neutral-900">{orderToPrint.customerPhone}</p>
+                    <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest mb-1">Customer:</span>
+                    <p className="text-[10px] font-bold text-neutral-900 uppercase">{orderToPrint.customerName || 'Walk-in Customer'}</p>
                  </div>
-               )}
-               {orderToPrint.deliveryAddress && (
-                 <div className="flex flex-col">
-                    <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest mb-1">Address:</span>
-                    <p className="text-[10px] font-bold text-neutral-900 leading-relaxed">{orderToPrint.deliveryAddress}</p>
-                 </div>
-               )}
-            </div>
+                 {orderToPrint.customerPhone && (
+                   <div className="flex flex-col">
+                      <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest mb-1">Phone:</span>
+                      <p className="text-[10px] font-bold text-neutral-900">{orderToPrint.customerPhone}</p>
+                   </div>
+                 )}
+                 {orderToPrint.deliveryAddress && (
+                   <div className="flex flex-col">
+                      <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest mb-1">Address:</span>
+                      <p className="text-[10px] font-bold text-neutral-900 leading-relaxed">{orderToPrint.deliveryAddress}</p>
+                   </div>
+                 )}
+              </div>
 
-            {/* Receipt Footer */}
-            <div className="w-full border-t border-dashed border-neutral-300 pt-6 text-center">
-               <p className="text-[12px] font-black text-neutral-900 italic tracking-widest mb-12">Thank You</p>
-               <div className="flex flex-col items-end opacity-40 grayscale">
-                  <span className="text-[6px] font-bold uppercase tracking-tight">Powered by</span>
-                  <p className="text-[7px] font-black uppercase tracking-tight text-neutral-900 leading-tight">
-                    Papo Hapo - Grocery Store & Delivery App
-                  </p>
-               </div>
+              {/* Receipt Footer */}
+              <div className="w-full border-t border-dashed border-neutral-300 pt-6 text-center">
+                 <p className="text-[12px] font-black text-neutral-900 italic tracking-widest mb-12">Thank You</p>
+                 <div className="flex flex-col items-end opacity-40 grayscale">
+                    <span className="text-[6px] font-bold uppercase tracking-tight">Powered by</span>
+                    <p className="text-[7px] font-black uppercase tracking-tight text-neutral-900 leading-tight">
+                      Papo Hapo - Grocery Store & Delivery App
+                    </p>
+                 </div>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
 
       {/* Manual Booking Modal (Reception) */}
