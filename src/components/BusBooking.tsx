@@ -275,7 +275,7 @@ export default function BusBooking({ vendors, products }: BusBookingProps) {
                           </div>
                           <div>
                             <h4 className="font-bold text-base md:text-lg text-neutral-800 tracking-tight leading-tight">
-                              {vendor?.businessName || 'Kilimanjaro Express'}
+                              {vendor?.businessName || 'Simba-Pay Express'}
                             </h4>
                             <p className="text-xs text-neutral-400 font-semibold tracking-wide mt-1">
                               Luxury AC Seater
@@ -454,7 +454,7 @@ export default function BusBooking({ vendors, products }: BusBookingProps) {
                                   <div className="space-y-2.5">
                                     <div className="bg-white p-4 rounded-2xl border border-neutral-200/40 text-left">
                                       <p className="text-xs font-medium italic text-neutral-600 leading-relaxed">
-                                        "Kilimanjaro Express ndio basi langu kila nikisafiri kati ya Dar na Arusha. Wana nidhamu sana, na viti vina nafasi kubwa ya kutosha."
+                                        "Simba-Pay Express ndio basi langu kila nikisafiri kati ya Dar na Arusha. Wana nidhamu sana, na viti vina nafasi kubwa ya kutosha."
                                       </p>
                                       <div className="flex items-center justify-between mt-3 pt-3 border-t border-dotted border-neutral-100">
                                         <span className="text-[10px] font-black text-neutral-400">— Juma M. (Verified Passenger)</span>

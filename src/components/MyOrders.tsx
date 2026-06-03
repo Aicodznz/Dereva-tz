@@ -206,7 +206,7 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="w-2.5 h-2.5 rounded-full bg-orange-500 animate-pulse" />
-                          <h3 className="text-xs font-black text-orange-400 uppercase tracking-widest">{order.vendorName || "PAPO HAPO BUS"}</h3>
+                          <h3 className="text-xs font-black text-orange-400 uppercase tracking-widest">{order.vendorName || "SIMBA-PAY"}</h3>
                         </div>
                         <h2 className="text-xl lg:text-2xl font-black uppercase italic tracking-tighter mt-1 text-white">TIKETI YA SAFARI YA MIKOA</h2>
                         <span className="text-[9px] font-mono text-neutral-500 uppercase">Tanzania Intercity Passenger Ticket</span>
@@ -274,7 +274,7 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
                           {['delivered', 'completed', 'used'].includes(selectedOrder.status) ? 'USED / IMEKATWA' : 'VALID / HAIJAKATWA'}
                         </span>
                       </div>
-                      <p className="text-[8px] italic text-neutral-500 font-bold">Inamilikiwa na PapoHapo Ticketing Engine © 2026</p>
+                      <p className="text-[8px] italic text-neutral-500 font-bold">Inamilikiwa na Simba-Pay Ticketing Engine © 2026</p>
                     </div>
                   </div>
 
