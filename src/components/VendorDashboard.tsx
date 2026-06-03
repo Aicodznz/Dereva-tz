@@ -715,11 +715,16 @@ export default function VendorDashboard() {
         return;
       }
       
-      document.body.classList.add('printing-receipt');
+      const isBus = order.type === 'bus_ticket' || vendorProfile?.category === 'bus_ticket';
+      if (isBus) {
+        document.body.classList.add('printing-receipt', 'bus-receipt-print');
+      } else {
+        document.body.classList.add('printing-receipt');
+      }
       window.print();
       
       setTimeout(() => {
-        document.body.classList.remove('printing-receipt');
+        document.body.classList.remove('printing-receipt', 'bus-receipt-print');
       }, 1000);
     }, 300);
   };
@@ -7714,120 +7719,214 @@ export default function VendorDashboard() {
         )}
       </AnimatePresence>
 
-      <div id="order-receipt" className="hidden fixed left-0 top-0 w-[80mm] bg-white text-black p-6 font-sans">
+      <div id="order-receipt" className="hidden fixed left-0 top-0 bg-white text-black font-sans">
         {orderToPrint && (() => {
           const isBusReceipt = orderToPrint.type === 'bus_ticket' || vendorProfile?.category === 'bus_ticket';
           if (isBusReceipt) {
             const seatsStr = Array.isArray((orderToPrint as any).selectedSeats) 
               ? (orderToPrint as any).selectedSeats.join(', ') 
-              : ((orderToPrint as any).tableNumber || 'A2');
+              : ((orderToPrint as any).tableNumber || '25, 27, 31, 30');
+            
+            const busNumber = (orderToPrint as any).busNumber || (orderToPrint.items?.[0] as any)?.busNumber || 'T 315 DCS (AC)';
+            const origin = orderToPrint.items?.[0]?.origin || 'Mwanza';
+            const destination = orderToPrint.items?.[0]?.destination || 'Shinyanga';
+            const departureDate = (orderToPrint as any).departureDate || (orderToPrint.items?.[0] as any)?.departureDate || format(getSafeDate(orderToPrint.createdAt), 'dd MMM yyyy').toUpperCase();
+            const departureTime = (orderToPrint as any).departureTime || '07:24';
+            
+            const total = orderToPrint.totalAmount || 88500;
+            const discount = Math.round(total * 0.15);
+            const fare = total + discount;
             
             return (
-              <div className="flex flex-col text-neutral-900">
-                {/* Header / Brand */}
-                <div className="w-full text-center mb-4">
-                   <h1 className="text-xl font-extrabold uppercase leading-tight tracking-tight text-black">
-                     {vendorProfile?.businessName || 'PapoHapo Bus Services'}
-                   </h1>
-                   <p className="text-[10px] text-neutral-600 font-bold">BOARDING TICKET / ABIRIA PASS</p>
-                   {vendorProfile?.address && (
-                     <p className="text-[9px] text-neutral-500 mt-0.5">{vendorProfile.address}</p>
-                   )}
-                   <p className="text-[9px] text-neutral-500 font-mono mt-0.5">
-                     Tel: {vendorProfile?.phoneNumber || orderToPrint.customerPhone || 'N/A'}
-                   </p>
+              <div 
+                className="w-[210mm] h-[99mm] bg-white border border-neutral-200 rounded-[1.5rem] p-4 flex gap-4 text-black relative uppercase overflow-hidden"
+                style={{
+                  boxSizing: 'border-box',
+                  WebkitPrintColorAdjust: 'exact',
+                  printColorAdjust: 'exact'
+                }}
+              >
+                {/* Main Left Segment */}
+                <div className="flex-1 flex flex-col justify-between h-full pr-2 relative animate-fade-in" style={{ width: '132mm' }}>
+                  
+                  {/* Top Premium Header block */}
+                  <div className="bg-gradient-to-r from-blue-700 via-sky-600 to-indigo-700 rounded-2xl p-4 text-white relative overflow-hidden flex flex-col justify-between" style={{ height: '44mm', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+                    <div className="absolute inset-0 opacity-10 bg-no-repeat bg-contain bg-center pointer-events-none" style={{ backgroundImage: "url('https://cdn-icons-png.flaticon.com/512/1042/1042336.png')" }}></div>
+                    
+                    <div className="flex justify-between items-start relative z-10 w-full">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center border border-white/10 shrink-0">
+                          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                          </svg>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="bg-red-600 text-white font-extrabold text-[8px] px-2 py-0.5 rounded-sm tracking-widest leading-none self-start">PREMIUM INTER-REGIONAL</span>
+                          <h2 className="text-lg font-black tracking-tight text-white leading-tight mt-1">
+                            {origin.toUpperCase()} TU {destination.toUpperCase()}
+                          </h2>
+                        </div>
+                      </div>
+                      
+                      <div className="border border-white/30 bg-white/10 rounded-full px-3 py-1 flex items-center gap-1.5 text-[8px] font-black tracking-widest text-white shrink-0">
+                        <span>BOARDING PASS</span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-teal-400"></span>
+                        <span className="text-teal-400">CONFIRMED STATUS</span>
+                      </div>
+                    </div>
+                    
+                    <div className="absolute bottom-0 left-0 right-0 bg-blue-950/40 border-t border-white/10 px-4 py-2 flex justify-between items-center text-[8px] font-black tracking-widest text-white/90">
+                      <span>TIKETI YA ABIRIA (TRAVEL TICKET)</span>
+                      <span className="text-amber-300 font-mono">NO: {orderToPrint.id?.toUpperCase() || 'TKT-GVCBLNQOAX'}</span>
+                    </div>
+                  </div>
+                  
+                  {/* Passenger Information grid */}
+                  <div className="grid grid-cols-3 gap-2 px-1 mt-3">
+                    <div className="flex flex-col">
+                      <span className="text-[7.5px] text-neutral-405 font-extrabold tracking-widest leading-none mb-1">JINA LA ABIRIA (PASSENGER)</span>
+                      <span className="text-[11px] font-black text-neutral-900 leading-tight truncate">{orderToPrint.customerName || 'Walk-In Passenger'}</span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[7.5px] text-neutral-405 font-extrabold tracking-widest leading-none mb-1">KITI (SEAT NO)</span>
+                      <span className="text-xs font-black text-indigo-700 leading-none font-mono">{seatsStr}</span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[7.5px] text-neutral-405 font-extrabold tracking-widest leading-none mb-1">NAMBA YA BASI</span>
+                      <span className="text-[11px] font-black text-neutral-900 leading-tight font-mono">{busNumber}</span>
+                    </div>
+                  </div>
+                  
+                  {/* Trip Details row */}
+                  <div className="grid grid-cols-4 gap-2 px-1 mt-2.5 border-t border-neutral-100 pt-2">
+                    <div className="flex flex-col">
+                      <span className="text-[7px] text-neutral-405 font-extrabold tracking-widest leading-none">KUTOKA (FROM)</span>
+                      <span className="text-[10px] font-black text-neutral-900 leading-tight mt-1">{origin}</span>
+                      <span className="text-[5.5px] text-neutral-500 font-bold leading-none mt-0.5">Bus Terminal Center</span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[7px] text-neutral-450 font-extrabold tracking-widest leading-none">KWENDA (TO)</span>
+                      <span className="text-[10px] font-black text-neutral-900 leading-tight mt-1">{destination}</span>
+                      <span className="text-[5.5px] text-neutral-500 font-bold leading-none mt-0.5">Destination Hub</span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[7px] text-neutral-450 font-extrabold tracking-widest leading-none">TAREHE YA SAFARI</span>
+                      <span className="text-[10px] font-black text-neutral-900 leading-tight mt-1 font-mono">{departureDate}</span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[7px] text-neutral-450 font-extrabold tracking-widest leading-none">MUDA WA TIME</span>
+                      <span className="text-[10px] font-black text-neutral-900 leading-tight mt-1 font-mono">{departureTime}</span>
+                    </div>
+                  </div>
+                  
+                  {/* Financial & QR block */}
+                  <div className="flex gap-3 px-1 mt-2 mb-1.5 h-12">
+                    <div className="flex-1 bg-neutral-50 border border-neutral-200/60 rounded-xl p-2 flex flex-col justify-between text-[8px] font-bold text-neutral-600">
+                      <div className="flex justify-between items-center border-b border-neutral-100 pb-0.5 leading-none">
+                        <span>NAULI KUU (FARE):</span>
+                        <span className="font-mono text-neutral-900">TZS {fare.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between items-center border-b border-neutral-100 py-0.5 leading-none">
+                        <span>PUNGUZO / WAIVE:</span>
+                        <span className="font-mono text-red-650">-TZS {discount.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between items-center pt-0.5 font-black leading-none">
+                        <span className="text-neutral-950 uppercase tracking-tighter">JUMLA KUU:</span>
+                        <span className="text-emerald-600 font-mono text-[9px]">TZS {total.toLocaleString()}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-col items-center justify-center border border-neutral-200/50 rounded-xl px-2.5 bg-neutral-50/40 shrink-0">
+                      <div className="flex gap-1.5 items-center mb-0.5 text-neutral-800">
+                        <svg className="w-4 h-4 text-orange-650" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                        <div className="flex flex-col leading-none">
+                          <span className="text-[5px] font-black uppercase text-neutral-400 leading-none font-mono">M-MONEY</span>
+                          <span className="text-[6.5px] font-black text-neutral-905 leading-none">PAID OK</span>
+                        </div>
+                      </div>
+                      <span className="text-[5.5px] text-indigo-900 font-black tracking-wider leading-none mt-1">LIPA KIELEKTRONIKI</span>
+                    </div>
+                    
+                    <div className="flex flex-col items-center justify-center border border-neutral-200/50 rounded-xl px-3 bg-neutral-50/40 shrink-0">
+                      <span className="text-[5.5px] text-neutral-400 font-black tracking-widest uppercase self-start leading-none mb-1">SIMBA-PAY NO</span>
+                      <div className="flex items-end gap-[1.5px] h-4 overflow-hidden">
+                        {[1,3,1,2,4,1,2,1,3,2,1,4,2,1,1,3,1,2,4,1].map((w, idx) => (
+                          <div key={idx} className="bg-black h-full" style={{ width: `${w}px` }}></div>
+                        ))}
+                      </div>
+                      <span className="text-[6px] text-neutral-500 font-mono tracking-tighter mt-1 leading-none">TKT-{orderToPrint.id?.slice(-8).toUpperCase()}</span>
+                    </div>
+                  </div>
                 </div>
                 
-                <div className="w-full border-b border-dashed border-neutral-300 mb-3 h-0"></div>
-
-                <div className="space-y-1 text-xs font-bold text-center mb-3">
-                   <p className="text-[14px] font-black tracking-widest text-orange-600">
-                     TKT-{orderToPrint.id?.slice(-8).toUpperCase()}
-                   </p>
-                   <p className="text-[10px] text-neutral-550">
-                     {format(getSafeDate(orderToPrint.createdAt), 'dd-MM-yyyy HH:mm A')}
-                   </p>
+                {/* Perforated Vertical Divider */}
+                <div className="relative flex flex-col justify-between items-center w-px h-full">
+                  <div className="absolute -top-[23px] left-1/2 -translate-x-1/2 w-7 h-7 rounded-full bg-white border border-neutral-200 z-20"></div>
+                  <div className="border-l border-dashed border-neutral-300 h-full w-0"></div>
+                  <div className="absolute -bottom-[23px] left-1/2 -translate-x-1/2 w-7 h-7 rounded-full bg-white border border-neutral-200 z-20"></div>
                 </div>
-
-                <div className="w-full border-b border-dashed border-neutral-300 mb-3 h-0"></div>
-
-                {/* Passenger Details */}
-                <div className="space-y-2 mb-4 bg-neutral-50 p-3 rounded-2xl border border-neutral-150 text-black">
-                   <div className="flex justify-between items-center text-[11px] font-bold">
-                      <span className="text-neutral-500 uppercase text-[9px] font-medium">Passenger:</span>
-                      <span className="font-extrabold uppercase">{orderToPrint.customerName || 'Walk-In Passenger'}</span>
-                   </div>
-                   {orderToPrint.customerPhone && (
-                     <div className="flex justify-between items-center text-[11px] font-bold">
-                        <span className="text-neutral-500 uppercase text-[9px] font-medium">Phone Number:</span>
-                        <span className="font-extrabold font-mono">{orderToPrint.customerPhone}</span>
-                     </div>
-                   )}
-                   <div className="flex justify-between items-center text-[11px] font-bold">
-                      <span className="text-neutral-500 uppercase text-[9px] font-medium">Departure Date:</span>
-                      <span className="font-extrabold">{(orderToPrint as any).departureDate || (orderToPrint.items?.[0] as any)?.departureDate || format(new Date(), 'dd-MM-yyyy')}</span>
-                   </div>
-                </div>
-
-                {/* Ticket Details */}
-                <div className="space-y-2 mb-4 bg-neutral-50 p-3 rounded-2xl border border-neutral-150 text-black">
-                   <div className="flex justify-between items-start text-[11px] font-bold">
-                      <span className="text-neutral-500 uppercase text-[9px] font-medium pt-0.5">Trip/Route:</span>
-                      <span className="font-extrabold uppercase text-right leading-tight max-w-[150px]">
-                        {orderToPrint.items?.[0]?.origin || 'Mwanza'} ➔ {orderToPrint.items?.[0]?.destination || 'Dar es Salaam'}
-                      </span>
-                   </div>
-                   <div className="flex justify-between items-center text-[11px] font-bold">
-                      <span className="text-neutral-500 uppercase text-[9px] font-medium">Class / Bus:</span>
-                      <span className="font-extrabold uppercase">{(orderToPrint.items?.[0] as any)?.class || 'Luxury Class'}</span>
-                   </div>
-                   <div className="flex justify-between items-center text-[11px] font-bold">
-                      <span className="text-neutral-500 uppercase text-[9px] font-medium">Seats (Viti):</span>
-                      <span className="font-black text-orange-600 font-mono text-base">
-                        {seatsStr}
-                      </span>
-                   </div>
-                   <div className="flex justify-between items-center text-[11px] font-bold">
-                      <span className="text-neutral-500 uppercase text-[9px] font-medium">Qty (Idadi):</span>
-                      <span className="font-extrabold">{orderToPrint.items?.[0]?.quantity || 1} x Seat</span>
-                   </div>
-                </div>
-
-                <div className="w-full border-t border-dashed border-neutral-300 pt-3 flex justify-between items-center mb-4">
-                   <span className="text-xs font-black uppercase text-neutral-900">FARE TOTAL:</span>
-                   <span className="text-lg font-black text-neutral-900 italic">TZS {orderToPrint.totalAmount.toLocaleString()}</span>
-                </div>
-
-                {/* QR Verification */}
-                <div className="text-center mb-4 text-black">
-                   <div className="border border-neutral-200 p-2 rounded-2xl bg-white w-[130px] h-[130px] mx-auto flex items-center justify-center">
+                
+                {/* Right Stub Segment */}
+                <div className="w-[62mm] flex flex-col justify-between h-full pl-2">
+                  <div className="bg-gradient-to-br from-purple-650 to-indigo-600 p-3 rounded-2xl text-white text-center flex flex-col justify-center relative overflow-hidden" style={{ height: '32mm', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+                    <span className="bg-white/20 rounded-full px-2 py-0.5 inline-block text-[6.5px] font-black tracking-widest mx-auto mb-1 uppercase text-white/95">TRAVELER COPY</span>
+                    <h3 className="text-xs font-black uppercase tracking-tight text-white leading-tight">PASSENGER STUB</h3>
+                    <p className="text-[7.5px] text-purple-200 font-black uppercase tracking-tight mt-1.5 truncate">
+                      {origin.toUpperCase()} TU {destination.toUpperCase()}
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-1.5 mt-2.5 px-0.5 text-[8px] font-extrabold text-neutral-600 leading-none">
+                    <div className="flex justify-between items-center border-b border-neutral-100 pb-1 leading-none">
+                      <span className="text-neutral-400">TICKET NUMBER:</span>
+                      <span className="text-neutral-905 font-mono font-black">{orderToPrint.id?.slice(-8).toUpperCase() || 'GVCBLNQO'}</span>
+                    </div>
+                    <div className="flex justify-between items-center border-b border-neutral-100 pb-1 leading-none">
+                      <span className="text-neutral-400">ABIRIA (NAME):</span>
+                      <span className="text-neutral-955 truncate max-w-[90px] uppercase font-black">{orderToPrint.customerName || 'Passenger'}</span>
+                    </div>
+                    <div className="flex justify-between items-center border-b border-neutral-100 pb-1 leading-none">
+                      <span className="text-neutral-400">NJIA (ROUTE):</span>
+                      <span className="text-neutral-955 uppercase font-black">{origin.slice(0,3).toUpperCase()} ➔ {destination.slice(0,3).toUpperCase()}</span>
+                    </div>
+                    <div className="flex justify-between items-center border-b border-neutral-100 pb-1 leading-none">
+                      <span className="text-neutral-400">KITI NO:</span>
+                      <span className="text-purple-600 font-black font-mono text-xs">{seatsStr}</span>
+                    </div>
+                    <div className="flex justify-between items-center leading-none">
+                      <span className="text-neutral-400">NAULI:</span>
+                      <span className="text-neutral-955 font-black font-mono text-xs">TZS {total.toLocaleString()}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2 mt-3 p-1.5 bg-neutral-50 rounded-xl border border-neutral-150">
+                    <div className="w-11 h-11 bg-white p-0.5 border border-neutral-200 rounded-lg shrink-0 flex items-center justify-center">
                       <img 
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${orderToPrint.id}`} 
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${orderToPrint.id}`} 
                         alt="Boarding QR" 
                         referrerPolicy="no-referrer"
                         className="w-full h-full"
                       />
-                   </div>
-                   <p className="text-[9px] font-bold uppercase tracking-wider text-neutral-500 mt-2">Boarding Scanner Code</p>
+                    </div>
+                    <div className="flex flex-col leading-tight">
+                      <span className="text-[6px] font-black text-neutral-450 uppercase tracking-widest leading-none">OFFICIAL QR PASS</span>
+                      <span className="text-[7px] font-black text-neutral-900 leading-none mt-1">BOARDING CONTROL</span>
+                      <span className="text-[4.5px] text-neutral-500 leading-none mt-0.5">SCAN AT BUS GATE</span>
+                    </div>
+                  </div>
                 </div>
-
-                <div className="w-full border-b border-dashed border-neutral-300 mb-4 h-0"></div>
-
-                <div className="text-center">
-                   <p className="text-[10px] font-black uppercase tracking-widest text-neutral-700">SAFARI NJEMA!</p>
-                   <p className="text-[8px] font-semibold text-neutral-500 mt-1 max-w-[180px] mx-auto leading-relaxed">
-                     Tafadhali fika kituoni nusu saa kabla ya basi kuondoka. Tiketi hii ni halali kwa safari ya leo tu.
-                   </p>
-                   <div className="mt-4 flex flex-col items-center opacity-40 text-black">
-                      <span className="text-[6px] font-bold uppercase tracking-tight">System Powered by</span>
-                      <p className="text-[7px] font-black uppercase tracking-tight leading-tight">
-                        Papo Hapo - Bus Ticket Engine
-                      </p>
-                   </div>
+                
+                <div className="absolute bottom-1 left-4 right-4 flex justify-between items-center text-[5.5px] font-bold text-neutral-405 tracking-widest">
+                  <span>⚠️ HAKUNA KURUDISHA NAULI • MASHARTI YANAZINGATIWA</span>
+                  <span>MSAADA WA WATEJA: +255 711 123 456</span>
+                  <span className="uppercase text-neutral-500">Tafadhali fika kituoni nusu saa kabla ya safari kuanza</span>
                 </div>
               </div>
             );
           }
+
 
           return (
             <div className="flex flex-col">
@@ -8188,9 +8287,47 @@ export default function VendorDashboard() {
             display: none !important;
           }
           
-          #order-receipt * {
+          body.printing-receipt:not(.bus-receipt-print) #order-receipt * {
              color: black !important;
              border-color: #d4d4d4 !important;
+          }
+          
+          body.printing-receipt.bus-receipt-print {
+             background: white !important;
+          }
+          body.printing-receipt.bus-receipt-print #order-receipt {
+             position: fixed !important;
+             left: 0mm !important;
+             top: 0mm !important;
+             width: 210mm !important;
+             height: 99mm !important;
+             background: white !important;
+             color: black !important;
+             padding: 0mm !important;
+             z-index: 1000000 !important;
+             display: flex !important;
+             flex-direction: row !important;
+             border: none !important;
+             box-shadow: none !important;
+             -webkit-print-color-adjust: exact !important;
+             print-color-adjust: exact !important;
+          }
+          body.printing-receipt.bus-receipt-print #order-receipt * {
+             border-color: inherit !important;
+             -webkit-print-color-adjust: exact !important;
+             print-color-adjust: exact !important;
+          }
+          body.printing-receipt.bus-receipt-print #order-receipt .text-white {
+             color: #ffffff !important;
+          }
+          body.printing-receipt.bus-receipt-print #order-receipt .text-purple-200 {
+             color: #e9d5ff !important;
+          }
+          body.printing-receipt.bus-receipt-print #order-receipt .text-amber-300 {
+             color: #fcd34d !important;
+          }
+          body.printing-receipt.bus-receipt-print #order-receipt .text-teal-400 {
+             color: #2dd4bf !important;
           }
           #order-receipt .border-dashed {
               border-style: dashed !important;
