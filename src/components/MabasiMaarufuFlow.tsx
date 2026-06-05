@@ -1307,32 +1307,11 @@ export function useFirebaseBooking(tripId: string) {
 
                   <button
                     onClick={() => {
-                      const printElement = document.getElementById("my-ticket-detail-render");
-                      if (printElement) {
-                        const loaderId = toast.loading("Inapakua tiketi...");
-                        toPng(printElement, {
-                          cacheBust: true,
-                          backgroundColor: resolvedTheme === 'dark' ? '#171717' : '#ffffff',
-                          style: {
-                            transform: 'scale(1)',
-                            transformOrigin: 'top left',
-                          }
-                        })
-                          .then((dataUrl) => {
-                            const link = document.createElement('a');
-                            link.download = `Tiketi-${viewingTicketDetail.id || 'Safari'}.png`;
-                            link.href = dataUrl;
-                            link.click();
-                            toast.success('Imefanikiwa Kupakua picha ya tiketi! (Ticket Saved)', { id: loaderId });
-                          })
-                          .catch((e) => {
-                            toast.error('Imeshindwa kupakua picha.', { id: loaderId });
-                          });
-                      }
+                      window.print();
                     }}
-                    className="px-4 py-2.5 bg-neutral-900 border border-neutral-800 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 shadow-sm"
+                    className="px-4 py-2.5 bg-neutral-900 border border-neutral-800 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 shadow-sm cursor-pointer"
                   >
-                    <span>Pakua Ticket (PNG/Image)</span>
+                    <span>Print Ticket (PDF) 🖨️</span>
                   </button>
                 </div>
 
@@ -2087,41 +2066,9 @@ export function useFirebaseBooking(tripId: string) {
                     return (
                       <div key={`p-tkt-frame-${pIdx}`} className="bg-neutral-55 dark:bg-neutral-950/20 p-4 border border-neutral-200/50 dark:border-neutral-850 shadow-sm rounded-[3rem] space-y-4 print-card-item">
                         <div className="flex items-center justify-between px-4 pb-1 print:hidden">
-                          <h5 className="font-extrabold text-xs uppercase text-violet-600 dark:text-violet-400 tracking-wider">
+                          <h5 className="font-extrabold text-xs uppercase text-violet-600 dark:text-violet-400 tracking-wider font-sans">
                             👤 Abiria {pIdx + 1}: <span className="text-neutral-950 dark:text-white font-black">{passenger.fullName || buyerName || 'Mteja Msafiri'}</span> (Kiti: {passenger.seat})
                           </h5>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const el = document.getElementById(`digital-individual-pass-${passenger.seat}`);
-                              if (el) {
-                                const loaderId = toast.loading(`Inapakua tiketi ya ${passenger.fullName || `Kiti ${passenger.seat}`}...`);
-                                toPng(el, {
-                                  cacheBust: true,
-                                  backgroundColor: resolvedTheme === 'dark' ? '#171717' : '#ffffff',
-                                  style: {
-                                    transform: 'scale(1)',
-                                    transformOrigin: 'top left',
-                                  }
-                                })
-                                  .then((dataUrl) => {
-                                    const link = document.createElement('a');
-                                    link.download = `Tiketi_${(passenger.fullName || '').replace(/\s+/g, '_') || `Kiti_${passenger.seat}`}-${passenger.seat}.png`;
-                                    link.href = dataUrl;
-                                    document.body.appendChild(link);
-                                    link.click();
-                                    document.body.removeChild(link);
-                                    toast.success('Picha ya tiketi imepakuliwa kwenye kifaa chako!', { id: loaderId });
-                                  })
-                                  .catch(() => {
-                                    toast.error('Imeshindwa kupakua picha ya abiria huyu.', { id: loaderId });
-                                  });
-                              }
-                            }}
-                            className="px-3.5 py-2 bg-neutral-900 text-white hover:bg-black font-black text-[9.5px] uppercase tracking-wider rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
-                          >
-                            <span>Pakua tiketi hii (PNG) 📥</span>
-                          </button>
                         </div>
                         
                         <div id={`digital-individual-pass-${passenger.seat}`} className="bg-white dark:bg-neutral-900 rounded-[2.5rem] p-1">
@@ -2155,11 +2102,11 @@ export function useFirebaseBooking(tripId: string) {
                 <div className="flex items-center gap-2.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-violet-600 animate-pulse" />
                   <h4 className="font-black text-xs uppercase text-neutral-900 dark:text-neutral-50 tracking-wider">
-                    CHAGUA NJIA YA KUPAKUA
+                    CHAGUA NJIA YA KUCHAPISHA
                   </h4>
                 </div>
                 <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-relaxed font-bold uppercase">
-                  Imepakua tiketi kikamilifu kwenye miundo tofauti kama picha thabiti (PNG) au kupitia chapisho la kawaida (Standard Print).
+                  Chapa tiketi yako kwa PDF au karatasi safi kusafiri salama.
                 </p>
 
                 {/* Info Card box */}
@@ -2179,16 +2126,8 @@ export function useFirebaseBooking(tripId: string) {
               <div className="space-y-3">
                 <button
                   type="button"
-                  onClick={handleDownloadTicketImage}
-                  className="w-full py-4 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:opacity-95 text-white font-black text-xs uppercase tracking-widest transition-all cursor-pointer shadow-md flex items-center justify-center gap-2"
-                >
-                  📥 PAKUA PICHA YA TIKETI (PNG)
-                </button>
-
-                <button
-                  type="button"
                   onClick={() => window.print()}
-                  className="w-full py-4 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-750 text-neutral-800 dark:text-neutral-200 font-black text-xs uppercase tracking-widest rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 border border-neutral-200/50 dark:border-neutral-700"
+                  className="w-full py-4 bg-gradient-to-r from-violet-650 to-fuchsia-600 hover:opacity-95 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 border border-neutral-200/50 dark:border-neutral-700 shadow-md"
                 >
                   🖨️ CHAPISHA TIKETI (PRINT / PDF)
                 </button>
@@ -2957,13 +2896,13 @@ export function useFirebaseBooking(tripId: string) {
                     <ChevronRight className="w-4 h-4 stroke-[2.5] animate-pulse" />
                   </button>
                 ) : (
-                  <div className="flex gap-2.5">
+                  <div className="flex gap-2.5 font-sans">
                     <button
                       type="button"
-                      onClick={handleDownloadTicketImage}
-                      className="flex-1 py-3.5 bg-neutral-900 hover:bg-neutral-950 text-white border border-neutral-800 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all"
+                      onClick={() => window.print()}
+                      className="flex-1 py-3.5 bg-neutral-900 hover:bg-neutral-950 text-white border border-neutral-800 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5"
                     >
-                      View Ticket
+                      🖨️ Chapisha / Print
                     </button>
                     <button
                       type="button"
@@ -2971,9 +2910,9 @@ export function useFirebaseBooking(tripId: string) {
                         setStep(1);
                         setSelectedSeats([]);
                       }}
-                      className="flex-1 py-3.5 bg-violet-600 hover:bg-violet-750 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all"
+                      className="flex-1 py-3.5 bg-violet-600 hover:bg-violet-750 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all cursor-pointer"
                     >
-                      Go Home
+                      Nenda Nyumbani
                     </button>
                   </div>
                 )}
