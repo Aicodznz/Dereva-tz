@@ -206,7 +206,7 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="w-2.5 h-2.5 rounded-full bg-orange-500 animate-pulse" />
-                          <h3 className="text-xs font-black text-orange-400 uppercase tracking-widest">{order.vendorName || "SIMBA-PAY"}</h3>
+                          <h3 className="text-xs font-black text-orange-400 uppercase tracking-widest">{order.vendorName || "KILIMANJARO EXPRESS"}</h3>
                         </div>
                         <h2 className="text-xl lg:text-2xl font-black uppercase italic tracking-tighter mt-1 text-white">TIKETI YA SAFARI YA MIKOA</h2>
                         <span className="text-[9px] font-mono text-neutral-500 uppercase">Tanzania Intercity Passenger Ticket</span>

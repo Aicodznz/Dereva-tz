@@ -7761,7 +7761,9 @@ export default function VendorDashboard() {
                           </svg>
                         </div>
                         <div className="flex flex-col">
-                          <span className="bg-red-600 text-white font-extrabold text-[8px] px-2 py-0.5 rounded-sm tracking-widest leading-none self-start">PREMIUM INTER-REGIONAL</span>
+                          <span className="bg-red-600 text-white font-extrabold text-[8px] px-2 py-0.5 rounded-sm tracking-widest leading-none self-start">
+                            {vendorProfile?.businessName?.toUpperCase() || 'KILIMANJARO EXPRESS'}
+                          </span>
                           <h2 className="text-lg font-black tracking-tight text-white leading-tight mt-1">
                             {origin.toUpperCase()} TU {destination.toUpperCase()}
                           </h2>
@@ -7872,8 +7874,11 @@ export default function VendorDashboard() {
                 <div className="w-[62mm] flex flex-col justify-between h-full pl-2">
                   <div className="bg-gradient-to-br from-purple-650 to-indigo-600 p-3 rounded-2xl text-white text-center flex flex-col justify-center relative overflow-hidden" style={{ height: '32mm', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
                     <span className="bg-white/20 rounded-full px-2 py-0.5 inline-block text-[6.5px] font-black tracking-widest mx-auto mb-1 uppercase text-white/95">TRAVELER COPY</span>
-                    <h3 className="text-xs font-black uppercase tracking-tight text-white leading-tight">PASSENGER STUB</h3>
-                    <p className="text-[7.5px] text-purple-200 font-black uppercase tracking-tight mt-1.5 truncate">
+                    <h3 className="text-xs font-black uppercase tracking-tight text-white leading-tight truncate">
+                      {vendorProfile?.businessName || 'KILIMANJARO EXPRESS'}
+                    </h3>
+                    <p className="text-[7px] text-purple-200 font-extrabold uppercase tracking-widest mt-1">PASSENGER STUB</p>
+                    <p className="text-[7.5px] text-purple-200 font-black uppercase tracking-tight mt-1 truncate">
                       {origin.toUpperCase()} TU {destination.toUpperCase()}
                     </p>
                   </div>

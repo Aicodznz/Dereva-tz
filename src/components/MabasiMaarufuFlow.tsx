@@ -132,7 +132,7 @@ export default function MabasiMaarufuFlow({ product, vendor, onBackToTripSelecti
   // Dynamic Route details from Product
   const origin = product?.origin || 'Dar es Salaam';
   const destination = product?.destination || 'Arusha';
-  const busName = product?.name || product?.vendorName || 'Simba-Pay Royal Bus';
+  const busName = product?.name || product?.vendorName || 'Kilimanjaro Royal Bus';
   const departureTime = product?.departureTime || '07:00 AM';
   const travelDate = product?.travelDate || product?.departureDate || new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
@@ -463,7 +463,7 @@ export default function SeatSelectionScreen({ navigation }) {
           <Icon name="chevron-left" size={28} color="#000" />
         </TouchableOpacity>
         <View>
-          <Text style={styles.headerTitle}>Simba-Pay</Text>
+          <Text style={styles.headerTitle}>Mabasi Maarufu</Text>
           <Text style={styles.headerSubtitle}>Dar es Salaam → Arusha</Text>
         </View>
         <Icon name="bus" size={24} color="#7C3AED" />
@@ -698,7 +698,7 @@ export default function ReviewPaymentScreen({ navigation }) {
           <Text style={styles.panelTitle}>Safari Summary</Text>
           <View style={styles.summaryItem}>
             <Text style={styles.sumKey}>Operator:</Text>
-            <Text style={styles.sumVal}>Simba-Pay Express</Text>
+            <Text style={styles.sumVal}>Mabasi Maarufu Express</Text>
           </View>
           <View style={styles.summaryItem}>
             <Text style={styles.sumKey}>Njia (Route):</Text>
@@ -878,7 +878,7 @@ export function useFirebaseBooking(tripId: string) {
     const d_ticketId = getNumericTicketId(ticketData.ticketId || ticketData.id || ticketData.bookingId || ticketRefId || '104928').toUpperCase();
     const d_buyerName = ticketData.customerName || ticketData.buyerName || buyerName || 'Mteja Msafiri';
     const d_seats = ticketData.selectedSeats || (ticketData.items && ticketData.items[0]?.selectedSeats) || selectedSeats || ['18'];
-    const d_busName = ticketData.busName || busName || 'Simba-Pay Royal Bus';
+    const d_busName = ticketData.busName || busName || 'Kilimanjaro Royal Bus';
     const d_origin = ticketData.origin || (ticketData.items && ticketData.items[0]?.origin) || origin || 'Dar es Salaam';
     const d_destination = ticketData.destination || (ticketData.items && ticketData.items[0]?.destination) || destination || 'Arusha';
     const d_travelDate = ticketData.travelDate || ticketData.departureDate || (ticketData.items && ticketData.items[0]?.departureDate) || travelDate;
@@ -2170,7 +2170,7 @@ export function useFirebaseBooking(tripId: string) {
                   </p>
                   <p className="flex items-start gap-2">
                     <span className="text-violet-600">✓</span>
-                    <span>Picha inajumuisha Simba-Pay background mapambo yote ya kisasa.</span>
+                    <span>Picha inajumuisha Kilimanjaro background mapambo yote ya kisasa.</span>
                   </p>
                 </div>
               </div>
@@ -2227,7 +2227,7 @@ export function useFirebaseBooking(tripId: string) {
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="px-2.5 py-1 bg-violet-500/20 text-violet-400 rounded-full text-[10px] font-black uppercase tracking-wider border border-violet-500/30">
-                Simba-Pay Tickets
+                Mabasi Maarufu Leo
               </span>
               <span className="px-2 py-0.5 bg-neutral-800 text-neutral-400 rounded-md text-[9px] font-mono tracking-widest uppercase border border-neutral-700/50">
                 V2.1 - Luxury Edition
@@ -2301,7 +2301,7 @@ export function useFirebaseBooking(tripId: string) {
                     {step === 4 && "Booking Confirmed"}
                   </h3>
                   <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider mt-0.5">
-                    {step === 1 && "Simba-Pay Tickets"}
+                    {step === 1 && "Mabasi Maarufu Leo"}
                     {step === 2 && `Buyer Profile - ${selectedSeats.length} Seats`}
                     {step === 3 && "Weka Malipo Salama"}
                     {step === 4 && "Uhifadhi Umethibitishwa"}
@@ -2345,7 +2345,7 @@ export function useFirebaseBooking(tripId: string) {
                       </div>
                       <div className="h-px bg-white/20 my-1" />
                       <div className="flex justify-between text-[11px] font-bold text-violet-100">
-                        <span>Simba-Pay Royal Bus</span>
+                        <span>Kilimanjaro Royal Bus</span>
                         <span>Muda: 8h 30m</span>
                       </div>
                     </div>
@@ -2691,7 +2691,7 @@ export function useFirebaseBooking(tripId: string) {
                     {/* Booking summary ticket card */}
                     <div className="bg-white p-4 rounded-2xl border border-neutral-200/50 shadow-md space-y-3">
                       <div className="flex justify-between items-center bg-violet-50 p-2.5 rounded-xl border border-violet-100">
-                        <span className="text-[10px] font-black text-violet-700 uppercase">Simba-Pay Express</span>
+                        <span className="text-[10px] font-black text-violet-700 uppercase">Mabasi Maarufu Express</span>
                         <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
                       </div>
 
