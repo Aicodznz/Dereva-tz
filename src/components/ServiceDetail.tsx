@@ -165,9 +165,24 @@ export default function ServiceDetail() {
             </p>
           </div>
         </div>
-        <div className={`p-3 rounded-2xl text-white shadow-lg ${config.color}`}>
-          <config.icon className="w-6 h-6" />
-        </div>
+        {config.category === 'bus_ticket' ? (
+          <button 
+            id="btn-tiketi-zangu"
+            onClick={() => navigate('/my-orders')}
+            className={`p-2.5 px-3.5 rounded-2xl text-white shadow-lg ${config.color} hover:brightness-110 active:scale-95 transition-all flex items-center gap-2 cursor-pointer border border-white/20`}
+            title="Angalia Tiketi Zangu / View My Tickets"
+          >
+            <div className="flex flex-col items-end text-right leading-none">
+              <span className="text-[8px] font-black uppercase tracking-widest text-orange-200 opacity-90">Tiketi</span>
+              <span className="text-[11px] font-black uppercase italic tracking-tight text-white">Zangu</span>
+            </div>
+            <config.icon className="w-5 h-5" />
+          </button>
+        ) : (
+          <div className={`p-3 rounded-2xl text-white shadow-lg ${config.color}`}>
+            <config.icon className="w-6 h-6" />
+          </div>
+        )}
       </div>
 
       {config.category === 'bus_ticket' ? (
