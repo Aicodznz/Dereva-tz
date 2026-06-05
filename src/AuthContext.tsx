@@ -98,7 +98,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
       }
     }, (error) => {
-      console.error("Live profile sync error:", error);
+      const errMsg = error?.message || String(error);
+      if (errMsg.includes('offline') || errMsg.includes('unavailable') || errMsg.includes('network')) {
+        console.warn("Live profile sync warning (offline):", error);
+      } else {
+        console.error("Live profile sync error:", error);
+      }
       setLoading(false);
     });
 

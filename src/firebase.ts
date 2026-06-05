@@ -62,23 +62,34 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   }
   
   const errorMessage = error instanceof Error ? error.message : String(error);
+  const isOffline = errorMessage.includes('unavailable') || 
+                    errorMessage.includes('Could not reach Cloud Firestore backend') || 
+                    errorMessage.includes('client is offline') || 
+                    errorMessage.includes('offline') ||
+                    errorMessage.includes('network');
+
   if (errorMessage.includes('Quota limit exceeded') || errorMessage.includes('resource-exhausted')) {
     toast.error("Quota ya Firestore imeisha kwaleo. Tafadhali jaribu tena kesho.", {
       description: "Limit ya database ya bure imefikiwa.",
       duration: Infinity,
     });
-  } else if (errorMessage.includes('unavailable') || errorMessage.includes('Could not reach Cloud Firestore backend') || errorMessage.includes('client is offline')) {
-    toast.error("Inashindwa kuunganishwa na database (Offline).", {
-      description: "Hakikisha Firestore imewezeshwa kwenye Console na una internet.",
-      duration: 8000
+  } else if (isOffline) {
+    // Show a subtle warning toast rather than an intrusive error
+    toast.info("Unatumia Mfumo bila Mtandao (Offline Mode).", {
+      description: "Data zako zitatunzwa kwenye kifaa chako hadi mtandao urudi.",
+      duration: 5000
     });
   }
 
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  if (isOffline) {
+    console.warn('Firestore Offline/Network Warning: ', JSON.stringify(errInfo));
+  } else {
+    console.error('Firestore Error: ', JSON.stringify(errInfo));
+  }
   
   // Only throw for modification operations as per integration instructions
   const isModifying = [OperationType.CREATE, OperationType.UPDATE, OperationType.DELETE, OperationType.WRITE].includes(operationType);
-  if (isModifying) {
+  if (isModifying && !isOffline) {
     throw new Error(JSON.stringify(errInfo));
   }
 }
@@ -88,8 +99,8 @@ async function testConnection() {
     await getDocFromServer(doc(db, 'test', 'connection'));
   } catch (error) {
     if (error instanceof Error) {
-      if (error.message.includes('the client is offline') || error.message.includes('unavailable')) {
-        console.error("Please check your Firebase configuration or internet connection.");
+      if (error.message.includes('the client is offline') || error.message.includes('unavailable') || error.message.includes('network')) {
+        console.warn("Please check your Firebase configuration or internet connection (Client is offline).");
       }
     }
   }
