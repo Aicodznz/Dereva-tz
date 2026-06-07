@@ -575,7 +575,7 @@ export default function TaxiBooking() {
     }
   };
 
-  const handleCurrentLocation = () => {
+  const handleCurrentLocation = async (isInitial = false) => {
     let fallbackCalled = false;
     
     const triggerIpFallback = async () => {
@@ -593,8 +593,10 @@ export default function TaxiBooking() {
               setPickupPos([lat, lng]);
               setSettingMode("pickup");
               const addr = await reverseGeocode(lat, lng);
-              if (addr && addr !== "Unknown Area") {
+              if (addr && addr !== "Unknown Area" && addr !== "Eneo Halijapatikana" && addr !== "Unknown Location") {
                 setPickup(addr);
+              } else {
+                setPickup(getNearestPopularPlace(lat, lng));
               }
               toast.success(`Eneo limetambuliwa kiotomatiki (${ipData.city || 'Karibu nawe'})`);
               return;
@@ -618,10 +620,12 @@ export default function TaxiBooking() {
               setPickupPos([lat, lng]);
               setSettingMode("pickup");
               const addr = await reverseGeocode(lat, lng);
-              if (addr && addr !== "Unknown Area") {
+              if (addr && addr !== "Unknown Area" && addr !== "Eneo Halijapatikana" && addr !== "Unknown Location") {
                 setPickup(addr);
+              } else {
+                setPickup(getNearestPopularPlace(lat, lng));
               }
-              toast.success(`Eneo limetambuliwa (${ipData2.city || 'Karibu nawe'})`);
+              toast.success(`Eneo limetambuliwa kiotomatiki (${ipData2.city || 'Karibu nawe'})`);
               return;
             } else {
               console.log("[TaxiBooking] Secondary IP fallback coordinates outside Tanzania ignored:", lat, lng);
@@ -630,6 +634,23 @@ export default function TaxiBooking() {
         }
       } catch (err2) {
         console.warn("[TaxiBooking] Secondary IP geolocation failed:", err2);
+      }
+
+      // If all fallbacks fail, set the default coordinates
+      console.log("[TaxiBooking] All geolocation attempts failed. Falling back to default Dar es Salaam.");
+      const defLat = -6.7721;
+      const defLng = 39.2326;
+      setPickupPos([defLat, defLng]);
+      setSettingMode("pickup");
+      try {
+        const startAddr = await reverseGeocode(defLat, defLng);
+        if (startAddr && startAddr !== "Eneo Halijapatikana" && startAddr !== "Unknown Area" && startAddr !== "Unknown Location") {
+          setPickup(startAddr);
+        } else {
+          setPickup(getNearestPopularPlace(defLat, defLng));
+        }
+      } catch (e) {
+        setPickup(getNearestPopularPlace(defLat, defLng));
       }
     };
 
@@ -647,10 +668,12 @@ export default function TaxiBooking() {
             setPickupPos([lat, lng]);
             setSettingMode("pickup");
             const addr = await reverseGeocode(lat, lng);
-            if (addr && addr !== "Unknown Area") {
+            if (addr && addr !== "Unknown Area" && addr !== "Eneo Halijapatikana" && addr !== "Unknown Location") {
               setPickup(addr);
+            } else {
+              setPickup(getNearestPopularPlace(lat, lng));
             }
-            toast.success("Eneo lako limepatikana kupitia GPS!");
+            toast.success("Eneo lako la sasa limepatikana kupitia GPS! 📍");
           } else {
             console.log("[TaxiBooking] GPS location outside Tanzania ignored:", lat, lng);
             await triggerIpFallback();
@@ -661,28 +684,16 @@ export default function TaxiBooking() {
           console.error("Geolocation error:", error);
           await triggerIpFallback();
         },
-        { enableHighAccuracy: true, timeout: 6000, maximumAge: 300000 },
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 300000 },
       );
     } else {
       triggerIpFallback();
     }
   };
 
-  // Load initial readable names for default coordinates & detect current location
+  // Load initial readable names & detect current location
   useEffect(() => {
-    const initDefaultAddresses = async () => {
-      try {
-        const startAddr = await reverseGeocode(-6.7721, 39.2326);
-        if (startAddr && startAddr !== "Eneo Halijapatikana" && startAddr !== "Unknown Area") {
-          setPickup(startAddr);
-        }
-      } catch (e) {
-        console.warn("Could not geocode initial pickup:", e);
-      }
-    };
-
-    initDefaultAddresses();
-    handleCurrentLocation();
+    handleCurrentLocation(true);
   }, []);
 
   const { routeCoords, totalDistance, totalDuration } = useRouting(
