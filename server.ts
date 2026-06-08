@@ -241,6 +241,23 @@ async function startServer() {
       // Define local corners for direct path interpolation
       const segmentCorners: number[][] = [];
       segmentCorners.push(start);
+
+      const absDLng = Math.abs(dLng);
+      const absDLat = Math.abs(dLat);
+
+      if (absDLng > 0.00015 && absDLat > 0.00015) {
+        if (absDLng > absDLat) {
+          // Travel 60% of longitude first (lng, lat)
+          const midLng = lng1 + dLng * 0.6;
+          segmentCorners.push([midLng, lat1]);
+          segmentCorners.push([midLng, lat2]);
+        } else {
+          // Travel 60% of latitude first
+          const midLat = lat1 + dLat * 0.6;
+          segmentCorners.push([lng1, midLat]);
+          segmentCorners.push([lng2, midLat]);
+        }
+      }
       segmentCorners.push(end);
 
       const dist = calculateDistance(lat1, lng1, lat2, lng2);
