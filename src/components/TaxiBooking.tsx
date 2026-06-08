@@ -37,6 +37,7 @@ import {
   Sun,
   Moon,
   Trash2,
+  Loader2,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import Chat from "./Chat";
@@ -1231,14 +1232,14 @@ export default function TaxiBooking() {
             const endPoint: [number, number] = [target.lat, target.lng];
             
             const distStart = getDistMetersLocal(driverLivePos, { lat: fetched[0][0], lng: fetched[0][1] });
-            if (distStart > 1) {
+            if (distStart > 1 && distStart < 50) {
               fetched.unshift(startPoint);
             }
             const distEnd = getDistMetersLocal(
               { lat: endPoint[0], lng: endPoint[1] },
               { lat: fetched[fetched.length - 1][0], lng: fetched[fetched.length - 1][1] }
             );
-            if (distEnd > 1) {
+            if (distEnd > 1 && distEnd < 50) {
               fetched.push(endPoint);
             }
           }
