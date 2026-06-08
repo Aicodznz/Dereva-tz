@@ -971,10 +971,8 @@ export default function TaxiBooking() {
     return sliced;
   };
 
-  // Persistence/Sharing: Look for active rides or shared rides on mount
+   // Persistence/Sharing: Look for active rides or shared rides on mount
   useEffect(() => {
-    if (loading) return;
-
     const paramRideId = searchParams.get("rideId");
     if (paramRideId) {
       console.log("[TaxiBooking] Loading shared ride from url param:", paramRideId);
@@ -982,6 +980,8 @@ export default function TaxiBooking() {
       setIsRestoring(false);
       return;
     }
+
+    if (loading) return;
 
     if (!user) {
       setIsRestoring(false);
@@ -1035,11 +1035,11 @@ export default function TaxiBooking() {
       (error) => {
         handleFirestoreError(error, OperationType.GET, "rides");
         setIsRestoring(false);
-      },
+      }
     );
 
     return () => unsubscribe();
-  }, [user, searchParams]);
+  }, [user, loading, searchParams]);
 
   // Live Tracking: Synchronize specialized states from the active ride
   useEffect(() => {
@@ -2092,7 +2092,7 @@ export default function TaxiBooking() {
                 className="absolute inset-0 z-0 h-full w-full"
               >
                 <div className="absolute top-4 left-4 right-4 sm:top-6 sm:left-6 sm:right-6 z-[9999] flex flex-wrap items-center justify-between gap-y-2 pointer-events-none">
-                  {step === "map" && (
+                  {(step === "map" || isSpectator) && (
                     <button
                       onClick={() => navigate("/")}
                       className="w-10 h-10 sm:w-12 sm:h-12 bg-[#111118]/90 backdrop-blur-xl rounded-xl sm:rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform text-white pointer-events-auto"
@@ -2922,6 +2922,27 @@ export default function TaxiBooking() {
           </div>
         )}
       </div>
+
+      {/* Spectator Loading Overlay for Guest Viewers */}
+      <AnimatePresence>
+        {isSpectator && !activeRide && (
+          <motion.div
+            key="spectator-loading"
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="absolute bottom-6 left-6 right-6 z-[120] bg-[#0A0C14]/95 backdrop-blur-[20px] border border-white/10 rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center font-sans pointer-events-auto"
+          >
+            <Loader2 className="w-8 h-8 text-[#00E5A0] animate-spin mb-3" />
+            <h3 className="text-sm font-black text-white uppercase tracking-wider mb-1">
+              INAPAKIA SAFARI...
+            </h3>
+            <p className="text-[10px] text-[#8a8fa8] font-bold uppercase tracking-widest leading-relaxed">
+              Tunaunganisha kwenye safari ya mshiriki wako kwa njia ya setilaiti
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Chat Overlay */}
       <AnimatePresence>
