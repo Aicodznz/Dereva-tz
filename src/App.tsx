@@ -349,7 +349,7 @@ function AppContent() {
             <Route path="/service/:id" element={<ServiceDetail />} />
             <Route path="/product/:id" element={<ProductDetail />} />
             <Route path="/vendor/:id" element={<VendorStore />} />
-            <Route path="/taxi" element={<PrivateRoute><TaxiBooking /></PrivateRoute>} />
+            <Route path="/taxi" element={<TaxiBooking />} />
             <Route path="/taxi/history" element={<PrivateRoute><TaxiHistory /></PrivateRoute>} />
             <Route path="/service/vifurushi" element={<PrivateRoute><ParcelHome /></PrivateRoute>} />
             <Route path="/parcel/history" element={<PrivateRoute><ParcelHistory /></PrivateRoute>} />

@@ -47,4 +47,5 @@ export interface Ride {
   duration: number;
   paymentStatus?: 'pending' | 'paid';
   paymentMethod?: 'cash' | 'online';
+  viewers?: Record<string, number>;
 }

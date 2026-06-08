@@ -12,6 +12,7 @@ interface LiveTripScreenProps {
   ride: Ride;
   onMessage?: () => void;
   isMinimized?: boolean;
+  isSpectator?: boolean;
 }
 
 const MapControl = ({ position, target }: { position: { lat: number, lng: number } | any, target: { lat: number, lng: number } | any }) => {
@@ -43,7 +44,7 @@ const MapControl = ({ position, target }: { position: { lat: number, lng: number
   return null;
 };
 
-export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage, isMinimized }) => {
+export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage, isMinimized, isSpectator = false }) => {
   const isArriving = ride.status !== 'on_trip';
   const targetLocation = isArriving ? ride.pickup : ride.destination;
   const { distance, eta } = useDriverTracking(ride.driverLocation, targetLocation);
@@ -51,6 +52,16 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   const [showShareModal, setShowShareModal] = React.useState(false);
   const showDetails = !isMinimized && !isCollapsed;
+
+  // Active viewer calculations
+  const activeViewersCount = useMemo(() => {
+    const viewersMap = (ride as any).viewers || {};
+    const now = Date.now();
+    const active = Object.entries(viewersMap).filter(([_, timestamp]) => {
+      return typeof timestamp === 'number' && (now - timestamp) < 35000;
+    });
+    return active.length;
+  }, [ride]);
 
   // Progress calculation
   const progress = useMemo(() => {
@@ -93,9 +104,20 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
             className="absolute bottom-0 left-0 right-0 w-full bg-[#0A0C14]/95 backdrop-blur-[20px] rounded-t-[40px] border-t border-white/10 p-8 pb-10 shadow-[0_-20px_50px_rgba(0,0,0,0.6)] z-[60] touch-none pointer-events-auto"
           >
             <div className="relative flex items-center justify-between mb-5 select-none">
-              <div className="bg-[#1D9E75]/10 text-[#00E5A0] border border-[#00E5A0]/20 px-3 py-1 rounded-full flex items-center gap-2">
-                <div className="w-1.5 h-1.5 bg-[#00E5A0] rounded-full animate-pulse" />
-                <span className="text-[9px] font-black uppercase tracking-wider leading-none">{statusText}</span>
+              <div className="flex items-center gap-2">
+                <div className="bg-[#1D9E75]/10 text-[#00E5A0] border border-[#00E5A0]/20 px-3 py-1 rounded-full flex items-center gap-2 animate-fade">
+                  <div className="w-1.5 h-1.5 bg-[#00E5A0] rounded-full animate-pulse" />
+                  <span className="text-[9px] font-black uppercase tracking-wider leading-none">{statusText}</span>
+                </div>
+
+                {activeViewersCount > 0 && (
+                  <div className="bg-blue-500/10 text-blue-400 border border-blue-400/20 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-[0_0_12px_rgba(59,130,246,0.15)] animate-bounce-subtle">
+                    <span className="text-[10px] leading-none">👁️</span>
+                    <span className="text-[9.5px] font-black uppercase tracking-wider leading-none">
+                      {activeViewersCount} {activeViewersCount === 1 ? 'Anatazama' : 'Wanatazama'}
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="w-12 h-1.5 bg-white/10 rounded-full cursor-grab active:cursor-grabbing absolute left-1/2 -translate-x-1/2" />
@@ -213,14 +235,18 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
                 <div className="col-span-1" />
               )}
 
-              {/* SOS safety Button */}
-              <button 
-                onClick={() => toast.error("SOS Aleriti ya Dharura imetumwa kwa kituo cha usalama!")}
-                className="col-span-1 bg-red-650/15 border border-red-500/20 text-red-400 hover:bg-red-500/25 rounded-2xl flex flex-col items-center justify-center text-center transition-all p-2 active:scale-95 cursor-pointer"
-              >
-                <Shield className="w-4 h-4 text-red-500 mb-1" />
-                <span className="text-[8px] font-black uppercase tracking-widest text-red-400">SOS</span>
-              </button>
+              {/* SOS safety Button (hidden for spectator viewers) */}
+              {!isSpectator ? (
+                <button 
+                  onClick={() => toast.error("SOS Aleriti ya Dharura imetumwa kwa kituo cha usalama!")}
+                  className="col-span-1 bg-red-650/15 border border-red-500/20 text-red-400 hover:bg-red-500/25 rounded-2xl flex flex-col items-center justify-center text-center transition-all p-2 active:scale-95 cursor-pointer"
+                >
+                  <Shield className="w-4 h-4 text-red-500 mb-1" />
+                  <span className="text-[8px] font-black uppercase tracking-widest text-red-400">SOS</span>
+                </button>
+              ) : (
+                <div className="col-span-1" />
+              )}
             </div>
           </motion.div>
         )}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   MapContainer,
@@ -52,6 +52,7 @@ import {
   onSnapshot,
   limit,
   getDoc,
+  deleteField,
 } from "firebase/firestore";
 import { useAuth } from "../AuthContext";
 import { useLanguage } from "../LanguageContext";
@@ -426,7 +427,7 @@ interface RideOption {
 // --- MAIN COMPONENT ---
 
 export default function TaxiBooking() {
-  const { user, profile, signInGuest } = useAuth();
+  const { user, profile, signInGuest, loading } = useAuth();
   const { config } = useBusinessConfig();
   const navigate = useNavigate();
   const { setTheme: setNextTheme, resolvedTheme } = useTheme();
@@ -442,6 +443,73 @@ export default function TaxiBooking() {
   );
   const [selectedRide, setSelectedRide] = useState<RideOption | null>(null);
   const [secondsOffset, setSecondsOffset] = useState<number>(0);
+
+  const [rideId, setRideId] = useState<string | null>(null);
+  const { ride: activeRide, cancelRide, deleteRide } = useTripFlow(rideId);
+
+  const isSpectator = useMemo(() => {
+    const paramRideId = searchParams.get("rideId");
+    if (!paramRideId) return false;
+    if (!user) return true;
+    if (activeRide && user.uid !== activeRide.customerId && user.uid !== activeRide.driverId) {
+      return true;
+    }
+    return false;
+  }, [searchParams, user, activeRide]);
+
+  // Spectator session registry and active ping
+  useEffect(() => {
+    if (!isSpectator || !rideId) return;
+
+    let viewerId = sessionStorage.getItem(`ride_viewer_${rideId}`);
+    if (!viewerId) {
+      viewerId = `viewer_${Math.random().toString(36).substring(2, 9)}`;
+      sessionStorage.setItem(`ride_viewer_${rideId}`, viewerId);
+    }
+
+    const docRef = doc(db, "rides", rideId);
+
+    const ping = async () => {
+      try {
+        await updateDoc(docRef, {
+          [`viewers.${viewerId}`]: Date.now()
+        });
+      } catch (e) {
+        console.error("Spectator ping failed:", e);
+      }
+    };
+
+    ping();
+    const timer = setInterval(ping, 15000);
+
+    return () => {
+      clearInterval(timer);
+      const cleanUp = async () => {
+        try {
+          await updateDoc(docRef, {
+            [`viewers.${viewerId}`]: deleteField()
+          });
+        } catch (e) {
+          // ignore
+        }
+      };
+      cleanUp();
+    };
+  }, [isSpectator, rideId]);
+
+  // Keep step in sync with the active ride of the shared link
+  useEffect(() => {
+    const paramRideId = searchParams.get("rideId");
+    if (paramRideId && activeRide) {
+      if (activeRide.status === "completed") {
+        setStep("completed");
+      } else if (activeRide.status === "cancelled") {
+        setStep("timeout");
+      } else {
+        setStep("on_trip"); 
+      }
+    }
+  }, [activeRide?.status, searchParams]);
 
   // Live timer tick for MM:SS countdown and arriving increments
   useEffect(() => {
@@ -702,8 +770,6 @@ export default function TaxiBooking() {
   );
 
   const { createRide, isLoading: isCreatingRide } = useCreateRide();
-  const [rideId, setRideId] = useState<string | null>(null);
-  const { ride: activeRide, cancelRide, deleteRide } = useTripFlow(rideId);
 
   const [timeTicker, setTimeTicker] = useState(0);
   useEffect(() => {
@@ -907,6 +973,8 @@ export default function TaxiBooking() {
 
   // Persistence/Sharing: Look for active rides or shared rides on mount
   useEffect(() => {
+    if (loading) return;
+
     const paramRideId = searchParams.get("rideId");
     if (paramRideId) {
       console.log("[TaxiBooking] Loading shared ride from url param:", paramRideId);
@@ -917,6 +985,7 @@ export default function TaxiBooking() {
 
     if (!user) {
       setIsRestoring(false);
+      navigate("/login");
       return;
     }
 
@@ -2032,7 +2101,7 @@ export default function TaxiBooking() {
                       <Home className="w-5 h-5 sm:w-6 sm:h-6" />
                     </button>
                   )}
-                  {step !== "map" && (
+                  {step !== "map" && !isSpectator && (
                     <button
                       onClick={async () => {
                         if (activeRide) {
@@ -2436,7 +2505,7 @@ export default function TaxiBooking() {
               </div>
             </motion.div>
           )}
-          {step === "map" && (
+          {step === "map" && !isSpectator && (
             <motion.div
               key="map-ui"
               initial={{ y: "100%" }}
@@ -2747,15 +2816,17 @@ export default function TaxiBooking() {
                     ...activeRide,
                     driverLocation: driverLivePos || activeRide.driverLocation,
                     distance: liveDistance || activeRide.distance,
+                    viewers: activeRide.viewers,
                   } as any
                 }
-                onMessage={() => {
+                onMessage={isSpectator ? undefined : () => {
                   if (activeRide.driverId) {
                     setSearchParams({ to: activeRide.driverId });
                     setIsChatOpen(true);
                   }
                 }}
                 isMinimized={isMapFullscreen}
+                isSpectator={isSpectator}
               />
             </motion.div>
           )}
@@ -2791,6 +2862,32 @@ export default function TaxiBooking() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {isSpectator && activeRide && ["completed", "cancelled"].includes(activeRide.status) && (
+          <div className="absolute inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-center justify-center p-6">
+            <div className="bg-[#111118] border border-white/10 rounded-3xl p-8 max-w-sm w-full text-center space-y-6 shadow-2xl">
+              <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center text-3xl bg-neutral-800 border border-neutral-700">
+                {activeRide.status === "completed" ? "🎉" : "⚠️"}
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-xl font-black text-white uppercase tracking-wider">
+                  {activeRide.status === "completed" ? "SAFARI IMEKAMILIKA" : "SAFARI IMEGHAIRIWA"}
+                </h2>
+                <p className="text-xs text-[#8A8FA8] leading-relaxed">
+                  {activeRide.status === "completed" 
+                    ? "Safari hii imekamilika salama. Asante kwa kumpasha na kumfuatilia safari yake kuanzia mwanzo hadi mwisho!"
+                    : "Safari hii imeghairiwa na dereva au msafiri. Asante kwa kufuatilia."}
+                </p>
+              </div>
+              <button
+                onClick={() => navigate("/")}
+                className="w-full bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded-2xl py-3 text-xs font-black uppercase tracking-wider transition-all"
+              >
+                Nenda Mwanzo
+              </button>
+            </div>
+          </div>
+        )}
 
         {step === "timeout" && (
           <div className="absolute inset-0 z-[100] bg-[#0a0a0f] flex flex-col items-center justify-center p-8 text-center">
