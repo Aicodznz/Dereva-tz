@@ -294,15 +294,15 @@ export function useRouting(pickup: [number, number], destination: [number, numbe
 
         console.log(`[useRouting] Successfully fetched route from API! Coordinates length: ${coords.length}`);
 
-        // Ensure the route connects exactly to the pickup and destination points only if they are extremely close (under 50 meters)
+        // Ensure the route connects exactly to the pickup and destination points only if they are reasonably close (under 500 meters)
         // This avoids creating long straight-line diagonal connectors that cross buildings/off-road terrain
         if (coords.length > 0) {
           const firstDist = getDistMeters(currentPickup, coords[0]);
-          if (firstDist > 1 && firstDist < 50) {
+          if (firstDist > 1 && firstDist < 500) {
             coords.unshift(currentPickup);
           }
           const lastDist = getDistMeters(currentDest, coords[coords.length - 1]);
-          if (lastDist > 1 && lastDist < 50) {
+          if (lastDist > 1 && lastDist < 500) {
             coords.push(currentDest);
           }
         }

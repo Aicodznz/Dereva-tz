@@ -77,7 +77,7 @@ async function startServer() {
       const response = await fetch(url, {
         headers: { 
           'Accept-Language': 'sw,en', 
-          'User-Agent': 'PapoHapoSuperApp/1.0',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           'Accept': 'application/json'
         }
       });
@@ -128,7 +128,7 @@ async function startServer() {
       const response = await fetch(url, {
         headers: { 
           'Accept-Language': 'sw,en', 
-          'User-Agent': 'PapoHapoSuperApp/1.0',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           'Accept': 'application/json'
         }
       });
@@ -158,7 +158,7 @@ async function startServer() {
     try {
       const response = await fetch(imageUrl, {
         headers: {
-          'User-Agent': 'PapoHapoSuperApp/1.0',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         }
       });
       
@@ -418,7 +418,7 @@ async function startServer() {
 
     const headers = {
       'Accept': 'application/json',
-      'User-Agent': 'PapoHapoTaxiBookingApp/2.5 (contact: aicodtznation@gmail.com; Swahili Ride Sharing Service; Dar es Salaam, TZ; ID: ddaad525-5a9f-4093-9fef-3a0ab9a965b7)'
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     };
 
     const raceServices = async (urls: string[], timeoutMs = 3500): Promise<{ data: any, source: string }> => {
@@ -497,7 +497,7 @@ async function startServer() {
       const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=sw`;
       const response = await fetch(url, {
         headers: {
-          'User-Agent': 'PapoHapoSuperApp/1.0',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           'Accept': 'application/json'
         }
       });
