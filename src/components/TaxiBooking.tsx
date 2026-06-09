@@ -452,11 +452,22 @@ export default function TaxiBooking() {
     const paramRideId = searchParams.get("rideId");
     if (!paramRideId) return false;
     if (!user) return true;
-    if (activeRide && user.uid !== activeRide.customerId && user.uid !== activeRide.driverId) {
+    if (!activeRide) return true; // Keep true as default while loading to avoid flicking or early redirects
+    if (user.uid !== activeRide.customerId && user.uid !== activeRide.driverId) {
       return true;
     }
     return false;
   }, [searchParams, user, activeRide]);
+
+  // Anonymous guest sign-in for spectators
+  useEffect(() => {
+    if (isSpectator && !user && !loading) {
+      console.log("[TaxiBooking] Spectator detected but not authorized. Signing in anonymously...");
+      signInGuest().catch((err) => {
+        console.error("[TaxiBooking] Spectator anonymous signin failed:", err);
+      });
+    }
+  }, [isSpectator, user, loading, signInGuest]);
 
   // Spectator session registry and active ping
   useEffect(() => {
@@ -2090,18 +2101,16 @@ export default function TaxiBooking() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="absolute inset-0 z-0 h-full w-full"
+                className="absolute inset-0 z-0 h-full w-full pointer-events-auto"
               >
                 <div className="absolute top-4 left-4 right-4 sm:top-6 sm:left-6 sm:right-6 z-[9999] flex flex-wrap items-center justify-between gap-y-2 pointer-events-none">
-                  {(step === "map" || isSpectator) && (
-                    <button
-                      onClick={() => navigate("/")}
-                      className="w-10 h-10 sm:w-12 sm:h-12 bg-[#111118]/90 backdrop-blur-xl rounded-xl sm:rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform text-white pointer-events-auto"
-                      title="Rudi Nyumbani"
-                    >
-                      <Home className="w-5 h-5 sm:w-6 sm:h-6" />
-                    </button>
-                  )}
+                  <button
+                    onClick={() => navigate("/")}
+                    className="w-10 h-10 sm:w-12 sm:h-12 bg-[#111118]/90 backdrop-blur-xl rounded-xl sm:rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform text-white pointer-events-auto"
+                    title="Rudi Nyumbani"
+                  >
+                    <Home className="w-5 h-5 sm:w-6 sm:h-6" />
+                  </button>
                   {step !== "map" && !isSpectator && (
                     <button
                       onClick={async () => {
