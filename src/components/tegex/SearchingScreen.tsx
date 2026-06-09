@@ -8,9 +8,10 @@ interface SearchingScreenProps {
   onCancel: () => void;
   onTimeout: () => void;
   isMinimized?: boolean;
+  isSpectator?: boolean;
 }
 
-export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel, onTimeout, isMinimized }) => {
+export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel, onTimeout, isMinimized, isSpectator }) => {
   const [dots, setDots] = useState('');
   const [statusIndex, setStatusIndex] = useState(0);
 
@@ -126,13 +127,15 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel
                 </AnimatePresence>
               </div>
 
-              <button 
-                onClick={onCancel}
-                className="w-full h-16 bg-white text-black rounded-[24px] font-black italic uppercase text-sm tracking-[0.2em] shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3"
-              >
-                <X className="w-6 h-6 stroke-[3]" />
-                GHAIRI SAFARI
-              </button>
+              {!isSpectator && (
+                <button 
+                  onClick={onCancel}
+                  className="w-full h-16 bg-white text-black rounded-[24px] font-black italic uppercase text-sm tracking-[0.2em] shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3"
+                >
+                  <X className="w-6 h-6 stroke-[3]" />
+                  GHAIRI SAFARI
+                </button>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

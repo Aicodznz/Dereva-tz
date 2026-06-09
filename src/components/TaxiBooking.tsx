@@ -254,24 +254,13 @@ const MapControl = ({
       setTimeout(() => {
         try {
           map.invalidateSize();
-          // Force view refresh / adjustment so things like pins and lines are drawn on-screen
-          if (step === "map") {
-            if (routeCoords && routeCoords.length > 1) {
-              const bounds = L.latLngBounds(routeCoords);
-              map.fitBounds(bounds, { padding: [60, 60] });
-            } else if (position) {
-              map.setView(position, map.getZoom() || 15, { animate: false });
-            }
-          } else if (position) {
-            map.setView(position, map.getZoom() || 15, { animate: false });
-          }
         } catch (e) {
           // ignore
         }
       }, delay)
     );
     return () => timers.forEach(clearTimeout);
-  }, [map, step, isMapFullscreen, routeCoords, position]);
+  }, [map, step, isMapFullscreen]);
 
   const [containerResizedCount, setContainerResizedCount] = useState(0);
 
@@ -517,6 +506,14 @@ export default function TaxiBooking() {
         setStep("completed");
       } else if (activeRide.status === "cancelled") {
         setStep("timeout");
+      } else if (activeRide.status === "pending") {
+        setStep("searching");
+      } else if (activeRide.status === "accepted") {
+        setStep("found");
+      } else if (activeRide.status === "driver_arriving" || activeRide.status === "driver_arrived") {
+        setStep("arriving");
+      } else if (activeRide.status === "on_trip") {
+        setStep("on_trip");
       } else {
         setStep("on_trip"); 
       }
@@ -2748,6 +2745,7 @@ export default function TaxiBooking() {
               <SearchingScreen
                 ride={activeRide as any}
                 onCancel={() => {
+                  if (isSpectator) return;
                   console.log("Cancel from searching");
                   cancelRide();
                   setStep("map");
@@ -2755,6 +2753,7 @@ export default function TaxiBooking() {
                 }}
                 onTimeout={handleTimeout}
                 isMinimized={isMapFullscreen}
+                isSpectator={isSpectator}
               />
             </motion.div>
           )}
@@ -2799,15 +2798,18 @@ export default function TaxiBooking() {
                   }
                 }}
                 onCancel={() => {
+                  if (isSpectator) return;
                   cancelRide();
                 }}
                 onImComing={() => {
+                  if (isSpectator) return;
                   updateDoc(doc(db, "rides", rideId!), {
                     status: "on_trip",
                     updatedAt: serverTimestamp(),
                   });
                 }}
                 isMinimized={isMapFullscreen}
+                isSpectator={isSpectator}
               />
             </motion.div>
           )}

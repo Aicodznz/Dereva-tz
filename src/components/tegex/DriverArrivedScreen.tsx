@@ -14,6 +14,7 @@ interface DriverArrivedScreenProps {
   onImComing?: () => void;
   onCancel?: () => void;
   isMinimized?: boolean;
+  isSpectator?: boolean;
 }
 
 const MapControl = ({ position, target }: { position: { lat: number, lng: number } | any, target: { lat: number, lng: number } | any }) => {
@@ -46,7 +47,7 @@ const MapControl = ({ position, target }: { position: { lat: number, lng: number
   return null;
 };
 
-export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, onCall, onMessage, onImComing, onCancel, isMinimized }) => {
+export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, onCall, onMessage, onImComing, onCancel, isMinimized, isSpectator }) => {
   const { distance, eta } = useDriverTracking(ride.driverLocation, ride.pickup);
   
   const [isCollapsed, setIsCollapsed] = React.useState(false);
@@ -148,28 +149,30 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
             </div>
 
             {/* Premium Pill Action Buttons Row */}
-            <div className="grid grid-cols-3 gap-3 mb-8">
-              <button 
-                onClick={onCall} 
-                className="h-12 bg-white/5 border border-white/10 rounded-full flex items-center justify-center gap-2 active:scale-95 transition-all text-white pointer-events-auto hover:bg-white/10"
-              >
-                <Phone className="w-4 h-4 text-[#00E5A0]" />
-                <span className="text-[10px] font-black uppercase tracking-[0.08em] font-heading">Call</span>
-              </button>
-              <button 
-                onClick={onMessage} 
-                className="h-12 bg-white/5 border border-white/10 rounded-full flex items-center justify-center gap-2 active:scale-95 transition-all text-white pointer-events-auto hover:bg-white/10"
-              >
-                <MessageSquare className="w-4 h-4 text-[#00E5A0]" />
-                <span className="text-[10px] font-black uppercase tracking-[0.08em] font-heading">Chat</span>
-              </button>
-              <button 
-                onClick={onCancel || (() => {})} 
-                className="h-12 bg-red-500/10 border border-red-500/20 rounded-full flex items-center justify-center gap-2 active:scale-95 transition-all text-red-400 pointer-events-auto hover:bg-red-500/20"
-              >
-                <span className="text-[10px] font-black uppercase tracking-[0.08em] font-heading">✕ Cancel</span>
-              </button>
-            </div>
+            {!isSpectator && (
+              <div className="grid grid-cols-3 gap-3 mb-8">
+                <button 
+                  onClick={onCall} 
+                  className="h-12 bg-white/5 border border-white/10 rounded-full flex items-center justify-center gap-2 active:scale-95 transition-all text-white pointer-events-auto hover:bg-white/10"
+                >
+                  <Phone className="w-4 h-4 text-[#00E5A0]" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.08em] font-heading">Call</span>
+                </button>
+                <button 
+                  onClick={onMessage} 
+                  className="h-12 bg-white/5 border border-white/10 rounded-full flex items-center justify-center gap-2 active:scale-95 transition-all text-white pointer-events-auto hover:bg-white/10"
+                >
+                  <MessageSquare className="w-4 h-4 text-[#00E5A0]" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.08em] font-heading">Chat</span>
+                </button>
+                <button 
+                  onClick={onCancel || (() => {})} 
+                  className="h-12 bg-red-500/10 border border-red-500/20 rounded-full flex items-center justify-center gap-2 active:scale-95 transition-all text-red-400 pointer-events-auto hover:bg-red-500/20"
+                >
+                  <span className="text-[10px] font-black uppercase tracking-[0.08em] font-heading">✕ Cancel</span>
+                </button>
+              </div>
+            )}
 
             <div className={`p-5 rounded-3xl border flex items-center justify-between transition-all duration-500 ${isArrived ? 'bg-[#00E5A0]/10 border-[#00E5A0]/30 shadow-[0_4px_20px_rgba(0,229,160,0.1)]' : 'bg-[#080A12] border-white/5'}`}>
               <div className="flex items-center gap-4">
@@ -189,7 +192,7 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
                   <h4 className="text-xs font-black text-white px-2 py-0.5 bg-white/5 rounded border border-white/5 inline-block font-mono tracking-wide">{distance.toFixed(1)} km · {eta?.minutes} min</h4>
                 </div>
               )}
-              {isArrived && onImComing && (
+              {isArrived && onImComing && !isSpectator && (
                 <button 
                   onClick={onImComing}
                   className="px-6 h-10 bg-[#00E5A0] rounded-full text-[10px] font-black uppercase tracking-[0.1em] text-[#0A0C14] hover:brightness-110 active:scale-95 transition-all"
