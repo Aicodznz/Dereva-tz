@@ -963,7 +963,36 @@ export default function AdminDashboard() {
                         </td>
                         <td className="px-8 py-6">
                           <Badge className="bg-neutral-100 text-neutral-600 border-none font-bold uppercase text-[10px] tracking-tighter">
-                            {user.role}
+                            {(() => {
+                              const roleLower = (user.role || '').toLowerCase();
+                              if (roleLower === 'vendor') {
+                                const vProf = vendors.find(v => v.ownerUid === user.id);
+                                if (vProf) {
+                                  if (vProf.category === 'bus_ticket') {
+                                    return 'vendor/ Bus Tickets';
+                                  }
+                                  if (vProf.category === 'parcel') {
+                                    return 'vendor/ Vifurushi';
+                                  }
+                                  const categoryNames: Record<string, string> = {
+                                    pharmacy: 'Dawa',
+                                    grocery: 'Soko',
+                                    restaurant: 'Chakula',
+                                    taxi: 'Taksi',
+                                    car_rental: 'Kukodisha Gari',
+                                    salon: 'Saluni',
+                                    hotel: 'Hoteli',
+                                    ecommerce: 'E-Commerce'
+                                  };
+                                  return `vendor/ ${categoryNames[vProf.category] || vProf.category}`;
+                                }
+                                return 'vendor';
+                              }
+                              if (roleLower === 'rider' || roleLower === 'driver') {
+                                return 'rider/ Vifurushi';
+                              }
+                              return user.role;
+                            })()}
                           </Badge>
                         </td>
                          <td className="px-8 py-6">
