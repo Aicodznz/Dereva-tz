@@ -969,10 +969,10 @@ export default function AdminDashboard() {
                                 const vProf = vendors.find(v => v.ownerUid === user.id);
                                 if (vProf) {
                                   if (vProf.category === 'bus_ticket') {
-                                    return 'vendor/ Bus Tickets';
+                                    return 'vendor/ wa Bus Tickets';
                                   }
                                   if (vProf.category === 'parcel') {
-                                    return 'vendor/ Vifurushi';
+                                    return 'vendor/ wa Vifurushi';
                                   }
                                   const categoryNames: Record<string, string> = {
                                     pharmacy: 'Dawa',
@@ -989,7 +989,7 @@ export default function AdminDashboard() {
                                 return 'vendor';
                               }
                               if (roleLower === 'rider' || roleLower === 'driver') {
-                                return 'rider/ Vifurushi';
+                                return 'rider/ wa Vifurushi';
                               }
                               return user.role;
                             })()}

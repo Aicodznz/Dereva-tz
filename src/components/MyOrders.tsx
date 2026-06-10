@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { initiatePayment } from '../services/paymentService';
+import { toPng } from 'html-to-image';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -18,6 +19,7 @@ import {
   Truck, 
   ShoppingBag,
   Printer,
+  Download,
   CreditCard,
   Loader2,
   Navigation,
@@ -27,6 +29,39 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import OrderTracker from './OrderTracker';
+
+const getSafeDate = (val: any): Date => {
+  try {
+    if (!val) return new Date();
+    
+    // 1. Standard Date object
+    if (val instanceof Date) {
+      return val;
+    }
+    
+    // 2. Firestore Timestamp standard class or deserialized plain object
+    if (typeof val === 'object') {
+      if (typeof val.seconds === 'number') {
+        return new Date(val.seconds * 1000);
+      }
+      if (typeof val.toDate === 'function') {
+        try {
+          const d = val.toDate();
+          if (d instanceof Date) return d;
+        } catch (innerErr) {
+          console.warn("Error calling toDate inside getSafeDate:", innerErr);
+        }
+      }
+    }
+    
+    // 3. String, Number or other parsable format
+    const parsed = new Date(val);
+    return isNaN(parsed.getTime()) ? new Date() : parsed;
+  } catch (err) {
+    console.error("Critical error in getSafeDate:", err);
+    return new Date();
+  }
+};
 
 interface MyOrdersProps {
   onBack?: () => void;
@@ -40,6 +75,50 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [trackingOrder, setTrackingOrder] = useState<Order | null>(null);
   const [isPaying, setIsPaying] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownloadTicket = async () => {
+    const el = document.getElementById('passenger-ticket-card');
+    if (!el) {
+      toast.error('Imeshindwa kupata kadi ya tiketi.');
+      return;
+    }
+    setDownloading(true);
+    const toastId = toast.loading('Inapakia picha ya tiketi...');
+    try {
+      await new Promise(r => setTimeout(r, 600));
+      let dataUrl;
+      try {
+        dataUrl = await toPng(el, { 
+          quality: 0.95, 
+          pixelRatio: 2,
+          backgroundColor: '#0a0a0a', 
+          cacheBust: true,
+          skipFonts: true,
+        });
+      } catch (firstErr) {
+        console.warn('First export attempt failed, trying fallback...', firstErr);
+        dataUrl = await toPng(el, {
+          quality: 0.9,
+          pixelRatio: 1.5,
+          backgroundColor: '#0a0a0a',
+          cacheBust: false,
+          skipFonts: true,
+        });
+      }
+
+      const link = document.createElement('a');
+      link.download = `Tiketi_${selectedOrder?.id?.slice(-8).toUpperCase() || 'BUS'}.png`;
+      link.href = dataUrl;
+      link.click();
+      toast.success('Tiketi imepakuliwa kwenye kifaa chako!', { id: toastId });
+    } catch (err) {
+      console.error('Error exporting ticket image:', err);
+      toast.error('Imeshindwa kupakua tiketi ya picha.', { id: toastId });
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const handlePayNow = async (order: Order) => {
     const userPhone = user?.phoneNumber || profile?.phoneNumber || '';
@@ -85,8 +164,8 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
         
         // Client-side sorting
         ordersList.sort((a, b) => {
-          const dateA = a.createdAt && typeof a.createdAt.toDate === 'function' ? a.createdAt.toDate() : new Date(a.createdAt);
-          const dateB = b.createdAt && typeof b.createdAt.toDate === 'function' ? b.createdAt.toDate() : new Date(b.createdAt);
+          const dateA = getSafeDate(a.createdAt);
+          const dateB = getSafeDate(b.createdAt);
           return dateB.getTime() - dateA.getTime();
         });
 
@@ -110,8 +189,8 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
       
       // Client-side sorting
       ordersList.sort((a, b) => {
-        const dateA = a.createdAt && typeof a.createdAt.toDate === 'function' ? a.createdAt.toDate() : new Date(a.createdAt);
-        const dateB = b.createdAt && typeof b.createdAt.toDate === 'function' ? b.createdAt.toDate() : new Date(b.createdAt);
+        const dateA = getSafeDate(a.createdAt);
+        const dateB = getSafeDate(b.createdAt);
         return dateB.getTime() - dateA.getTime();
       });
 
@@ -193,7 +272,7 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
         <div className="printable-receipt space-y-8">
           {isBusOrder(selectedOrder) ? (
             <div className="max-w-4xl mx-auto space-y-6">
-              <div className="bg-neutral-900 border border-neutral-800 p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden text-white">
+              <div id="passenger-ticket-card" className="bg-neutral-900 border border-neutral-800 p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden text-white">
                 {/* Background bus logo overlay */}
                 <div className="absolute -right-16 -bottom-16 opacity-5 pointer-events-none">
                   <Package className="w-96 h-96" />
@@ -311,12 +390,25 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
                       </div>
                     </div>
 
-                    <div className="w-full flex gap-2 print:hidden justify-center">
+                    <div className="w-full flex flex-col sm:flex-row gap-2 print:hidden justify-center mt-4">
                       <Button 
                         onClick={() => window.print()}
-                        className="bg-neutral-800 hover:bg-neutral-700 h-10 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest text-white border border-neutral-750"
+                        className="bg-neutral-800 hover:bg-neutral-700 h-10 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider text-white border border-neutral-750 flex-1 flex items-center justify-center gap-1.5"
                       >
-                        <Printer className="w-3.5 h-3.5 mr-1" /> Print Stub
+                        <Printer className="w-3.5 h-3.5 text-orange-500" />
+                        Print Tiketi
+                      </Button>
+                      <Button 
+                        onClick={handleDownloadTicket}
+                        disabled={downloading}
+                        className="bg-orange-600 hover:bg-orange-700 h-10 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider text-white flex-1 flex items-center justify-center gap-1.5 shadow-md shadow-orange-950/20"
+                      >
+                        {downloading ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
+                        ) : (
+                          <Download className="w-3.5 h-3.5 text-white" />
+                        )}
+                        Pakua PNG
                       </Button>
                     </div>
                   </div>
@@ -334,7 +426,7 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
                         {t('order_id')}: <span className="text-orange-600">#{selectedOrder.id?.slice(-8).toUpperCase()}</span>
                       </h2>
                       <p className="text-neutral-500 mt-1">
-                        {selectedOrder.createdAt && typeof selectedOrder.createdAt.toDate === 'function' ? selectedOrder.createdAt.toDate().toLocaleString() : new Date(selectedOrder.createdAt).toLocaleString()}
+                        {selectedOrder.createdAt ? getSafeDate(selectedOrder.createdAt).toLocaleString() : ''}
                       </p>
                     </div>
                     <Badge className={`${getStatusColor(selectedOrder.status)} border-none px-4 py-1.5 rounded-full font-bold`}>
@@ -586,7 +678,7 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
                       </Badge>
                     </div>
                     <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                      {order.createdAt && typeof order.createdAt.toDate === 'function' ? order.createdAt.toDate().toLocaleString() : new Date(order.createdAt).toLocaleString()}
+                      {order.createdAt ? getSafeDate(order.createdAt).toLocaleString() : ''}
                     </p>
                     <div className="flex justify-between items-center mt-3">
                       <p className="text-sm font-black text-neutral-900 dark:text-neutral-200">
@@ -640,7 +732,7 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
                       </Badge>
                     </div>
                     <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                      {order.createdAt && typeof order.createdAt.toDate === 'function' ? order.createdAt.toDate().toLocaleString() : new Date(order.createdAt).toLocaleString()}
+                      {order.createdAt ? getSafeDate(order.createdAt).toLocaleString() : ''}
                     </p>
                     <div className="flex justify-between items-center mt-3">
                       <p className="text-sm font-black text-neutral-900 dark:text-neutral-200">

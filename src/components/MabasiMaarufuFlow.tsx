@@ -1889,9 +1889,9 @@ export function useFirebaseBooking(tripId: string) {
                   <div className="bg-violet-50/50 dark:bg-violet-950/15 p-4 rounded-2xl border border-violet-100/50 dark:border-violet-900/25 text-xs text-neutral-900 dark:text-neutral-50 transition-colors">
                     <span className="text-[9px] font-black bg-violet-600 text-white px-2.5 py-0.5 rounded uppercase tracking-wider">Muhtasari wa Nauli (Summary)</span>
                     <div className="flex justify-between items-center mt-3 font-extrabold text-neutral-850 dark:text-neutral-100">
-                      <span>Dar es Salaam</span>
+                      <span>{origin}</span>
                       <ArrowRight className="w-3.5 h-3.5 text-violet-500 font-extrabold" />
-                      <span>Arusha</span>
+                      <span>{destination}</span>
                     </div>
                     <div className="mt-2.5 space-y-1.5 text-neutral-500 dark:text-neutral-400 leading-relaxed font-sans font-medium">
                       <p>• Operator: <b className="text-neutral-850 dark:text-neutral-100 font-bold">{busName}</b></p>
@@ -2290,26 +2290,26 @@ export function useFirebaseBooking(tripId: string) {
                     <div className="bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white p-4 rounded-2xl shadow-md border border-violet-500/30 space-y-2">
                       <div className="flex justify-between items-center text-[10px] uppercase font-black tracking-widest text-violet-100">
                         <span className="flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5" /> 07:00 AM
+                          <Clock className="w-3.5 h-3.5" /> {departureTime}
                         </span>
-                        <span>24 Nov 2026</span>
+                        <span>{travelDate}</span>
                       </div>
                       <div className="flex items-center justify-between pt-1">
                         <div>
                           <p className="text-[10px] font-black uppercase text-violet-200">Kutoka (From)</p>
-                          <h4 className="text-sm font-black text-white leading-tight">Dar es Salaam</h4>
+                          <h4 className="text-sm font-black text-white leading-tight">{origin}</h4>
                         </div>
                         <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0">
                           <ArrowRight className="w-4 h-4" />
                         </div>
                         <div className="text-right">
                           <p className="text-[10px] font-black uppercase text-violet-200">Kwenda (To)</p>
-                          <h4 className="text-sm font-black text-white leading-tight">Arusha</h4>
+                          <h4 className="text-sm font-black text-white leading-tight">{destination}</h4>
                         </div>
                       </div>
                       <div className="h-px bg-white/20 my-1" />
                       <div className="flex justify-between text-[11px] font-bold text-violet-100">
-                        <span>Kilimanjaro Royal Bus</span>
+                        <span>{busName}</span>
                         <span>Muda: 8h 30m</span>
                       </div>
                     </div>
@@ -2446,9 +2446,9 @@ export function useFirebaseBooking(tripId: string) {
                   >
                     {/* Header quick route info */}
                     <div className="bg-white p-3.5 rounded-2xl border border-neutral-100 shadow-sm flex items-center justify-between">
-                      <span className="text-xs font-extrabold text-neutral-800">Dar es Salaam → Arusha</span>
+                      <span className="text-xs font-extrabold text-neutral-800">{origin} → {destination}</span>
                       <span className="text-[9px] bg-violet-100 text-violet-700 font-black px-2.5 py-1 rounded-full uppercase">
-                        24 November 2026
+                        {travelDate}
                       </span>
                     </div>
 
@@ -2654,19 +2654,19 @@ export function useFirebaseBooking(tripId: string) {
                   >
                     {/* Booking summary ticket card */}
                     <div className="bg-white p-4 rounded-2xl border border-neutral-200/50 shadow-md space-y-3">
-                      <div className="flex justify-between items-center bg-violet-50 p-2.5 rounded-xl border border-violet-100">
-                        <span className="text-[10px] font-black text-violet-700 uppercase">Mabasi Maarufu Express</span>
+                      <div className="flex justify-between items-center bg-violet-55 p-2.5 rounded-xl border border-violet-100">
+                        <span className="text-[10px] font-black text-violet-700 uppercase">{busName}</span>
                         <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
                       </div>
 
                       <div className="space-y-2.5 text-xs text-neutral-700">
                         <div className="flex justify-between">
                           <span className="text-neutral-400 font-bold">Njia (Route):</span>
-                          <span className="font-extrabold text-neutral-950">Dar es Salaam → Arusha</span>
+                          <span className="font-extrabold text-neutral-950">{origin} → {destination}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-neutral-400 font-bold">Muda (Time):</span>
-                          <span className="font-extrabold text-neutral-950">24 Nov 2026 | 07:00 AM</span>
+                          <span className="font-extrabold text-neutral-950">{travelDate} | {departureTime}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-neutral-400 font-bold">Viti Visajiliwa (Seats):</span>

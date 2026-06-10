@@ -80,17 +80,30 @@ const COLORS = ['#ea580c', '#f97316', '#fb923c', '#fdba74'];
 const getSafeTime = (val: any): number => {
   try {
     if (!val) return 0;
-    if (typeof val.toDate === 'function') {
-      try {
-        const d = val.toDate();
-        if (d && typeof d.getTime === 'function') {
-          return d.getTime();
+    
+    // 1. Standard Date object
+    if (val instanceof Date) {
+      return val.getTime();
+    }
+    
+    // 2. Firestore Timestamp standard class or deserialized plain object
+    if (typeof val === 'object') {
+      if (typeof val.seconds === 'number') {
+        return val.seconds * 1000;
+      }
+      if (typeof val.toDate === 'function') {
+        try {
+          const d = val.toDate();
+          if (d && typeof d.getTime === 'function') {
+            return d.getTime();
+          }
+        } catch (innerErr) {
+          console.warn("Error calling toDate inside getSafeTime:", innerErr);
         }
-      } catch (innerErr) {
-        console.warn("Error calling toDate inside getSafeTime:", innerErr);
       }
     }
-    if (val.seconds) return val.seconds * 1000;
+    
+    // 3. String, Number or other parsable format
     const parsed = new Date(val).getTime();
     return isNaN(parsed) ? 0 : parsed;
   } catch (err) {
@@ -102,15 +115,28 @@ const getSafeTime = (val: any): number => {
 const getSafeDate = (val: any): Date => {
   try {
     if (!val) return new Date();
-    if (typeof val.toDate === 'function') {
-      try {
-        const d = val.toDate();
-        if (d instanceof Date) return d;
-      } catch (innerErr) {
-        console.warn("Error calling toDate inside getSafeDate:", innerErr);
+    
+    // 1. Standard Date object
+    if (val instanceof Date) {
+      return val;
+    }
+    
+    // 2. Firestore Timestamp standard class or deserialized plain object
+    if (typeof val === 'object') {
+      if (typeof val.seconds === 'number') {
+        return new Date(val.seconds * 1000);
+      }
+      if (typeof val.toDate === 'function') {
+        try {
+          const d = val.toDate();
+          if (d instanceof Date) return d;
+        } catch (innerErr) {
+          console.warn("Error calling toDate inside getSafeDate:", innerErr);
+        }
       }
     }
-    if (val.seconds) return new Date(val.seconds * 1000);
+    
+    // 3. String, Number or other parsable format
     const parsed = new Date(val);
     return isNaN(parsed.getTime()) ? new Date() : parsed;
   } catch (err) {
