@@ -696,6 +696,38 @@ export default function CustomerDashboard() {
                                   product.category === 'bus_ticket' || 
                                   product.name.toLowerCase().includes('bus ticket') ||
                                   product.name.toLowerCase().includes('mwanza tu');
+              
+              const rawOrigin = (product as any).origin || 'Dar';
+              const rawDestination = (product as any).destination || 'Mwanza';
+
+              const getStationCode = (city: string) => {
+                if (!city) return '???';
+                const c = city.trim().toUpperCase();
+                if (c.includes('DAR')) return 'DAR';
+                if (c.includes('MWANZA')) return 'MWZ';
+                if (c.includes('SHINYANGA')) return 'SHY';
+                if (c.includes('ARUSHA')) return 'ARU';
+                if (c.includes('DODOMA')) return 'DOM';
+                if (c.includes('MOSHI')) return 'MSH';
+                if (c.includes('MBEYA')) return 'MBY';
+                if (c.includes('MOROGORO')) return 'MRG';
+                if (c.includes('KIGOMA')) return 'KIG';
+                if (c.includes('MTWARA')) return 'MTW';
+                if (c.includes('TANGA')) return 'TGA';
+                if (c.includes('IRINGA')) return 'IRG';
+                if (c.includes('TABORA')) return 'TBR';
+                if (c.includes('SINGIDA')) return 'SGD';
+                if (c.includes('BUKOBA')) return 'BKU';
+                if (c.includes('MUSOMA')) return 'MSM';
+                if (c.includes('SONGEA')) return 'SNG';
+                if (c.includes('LINDI')) return 'LND';
+                if (c.includes('SUMBAWANGA')) return 'SBY';
+                return c.substring(0, 3);
+              };
+
+              const originCode = getStationCode(rawOrigin);
+              const destinationCode = getStationCode(rawDestination);
+
               return (
                 <motion.div
                   key={`product-${product.id || `product-${idx}`}`}
@@ -706,7 +738,7 @@ export default function CustomerDashboard() {
                   whileHover={{ y: -5 }}
                 >
                   <Link 
-                    to={isBusTicket ? '/service/bus_ticket' : `/product/${product.id}`}
+                    to={isBusTicket ? `/product/${product.id}?booking=true` : `/product/${product.id}`}
                     className="block group h-full"
                   >
                     <Card className="overflow-hidden rounded-[2.5rem] border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xl shadow-neutral-900/5 hover:shadow-orange-900/10 transition-all h-full group/card border-2 hover:border-orange-500/10 active:scale-95 flex flex-col justify-between">
@@ -723,13 +755,15 @@ export default function CustomerDashboard() {
                             {/* Center Route Graphics */}
                             <div className="my-auto flex flex-col items-center">
                               <div className="flex items-center gap-2 justify-center w-full">
-                                <span className="text-xs md:text-sm font-black uppercase tracking-wider text-white">DAR</span>
+                                <span className="text-xs md:text-sm font-black uppercase tracking-wider text-white" title={rawOrigin}>{originCode}</span>
                                 <div className="flex-1 border-t-2 border-dashed border-indigo-400/40 relative flex justify-center items-center">
                                   <Bus className="w-5 h-5 text-emerald-400 absolute bg-indigo-900 rounded-full p-1 border border-indigo-700" />
                                 </div>
-                                <span className="text-xs md:text-sm font-black uppercase tracking-wider text-white">MWZ</span>
+                                <span className="text-xs md:text-sm font-black uppercase tracking-wider text-white" title={rawDestination}>{destinationCode}</span>
                               </div>
-                              <span className="text-[8px] uppercase tracking-widest text-indigo-200 font-extrabold mt-2">Safiri Salama • Tanzania</span>
+                              <span className="text-[9px] uppercase tracking-wider text-indigo-200 font-black mt-2 text-center truncate max-w-full px-1">
+                                {rawOrigin} {rawOrigin && rawDestination ? '→' : ''} {rawDestination}
+                              </span>
                             </div>
 
                             {/* Floating Bus Service label */}
