@@ -659,6 +659,56 @@ export default function TaxiBooking() {
       if (fallbackCalled) return;
       fallbackCalled = true;
       console.log("[TaxiBooking] Attempting IP-based geolocation fallback...");
+      
+      // Try freeipapi.com
+      try {
+        const ipRes = await fetch("https://freeipapi.com/api/json");
+        if (ipRes.ok) {
+          const ipData = await ipRes.json();
+          if (ipData && typeof ipData.latitude === 'number' && typeof ipData.longitude === 'number' && ipData.latitude !== 0) {
+            const lat = ipData.latitude;
+            const lng = ipData.longitude;
+            setPickupPos([lat, lng]);
+            setSettingMode("pickup");
+            const addr = await reverseGeocode(lat, lng);
+            if (addr && addr !== "Unknown Area" && addr !== "Eneo Halijapatikana" && addr !== "Unknown Location") {
+              setPickup(addr);
+            } else {
+              setPickup(getNearestPopularPlace(lat, lng));
+            }
+            toast.success(`Eneo lako limetambuliwa kiotomatiki (${ipData.cityName || 'Karibu nawe'}) 📍`);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn("[TaxiBooking] freeipapi fallback failed:", err);
+      }
+
+      // Try ipwho.is
+      try {
+        const ipRes = await fetch("https://ipwho.is/");
+        if (ipRes.ok) {
+          const ipData = await ipRes.json();
+          if (ipData && ipData.success && typeof ipData.latitude === 'number' && typeof ipData.longitude === 'number') {
+            const lat = ipData.latitude;
+            const lng = ipData.longitude;
+            setPickupPos([lat, lng]);
+            setSettingMode("pickup");
+            const addr = await reverseGeocode(lat, lng);
+            if (addr && addr !== "Unknown Area" && addr !== "Eneo Halijapatikana" && addr !== "Unknown Location") {
+              setPickup(addr);
+            } else {
+              setPickup(getNearestPopularPlace(lat, lng));
+            }
+            toast.success(`Eneo lako limetambuliwa kiotomatiki (${ipData.city || 'Karibu nawe'}) 📍`);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn("[TaxiBooking] ipwho.is fallback failed:", err);
+      }
+
+      // Try ipapi.co
       try {
         const ipRes = await fetch("https://ipapi.co/json/");
         if (ipRes.ok) {
@@ -666,51 +716,20 @@ export default function TaxiBooking() {
           if (ipData && typeof ipData.latitude === 'number' && typeof ipData.longitude === 'number') {
             const lat = ipData.latitude;
             const lng = ipData.longitude;
-            if (isInTanzania(lat, lng)) {
-              setPickupPos([lat, lng]);
-              setSettingMode("pickup");
-              const addr = await reverseGeocode(lat, lng);
-              if (addr && addr !== "Unknown Area" && addr !== "Eneo Halijapatikana" && addr !== "Unknown Location") {
-                setPickup(addr);
-              } else {
-                setPickup(getNearestPopularPlace(lat, lng));
-              }
-              toast.success(`Eneo limetambuliwa kiotomatiki (${ipData.city || 'Karibu nawe'})`);
-              return;
+            setPickupPos([lat, lng]);
+            setSettingMode("pickup");
+            const addr = await reverseGeocode(lat, lng);
+            if (addr && addr !== "Unknown Area" && addr !== "Eneo Halijapatikana" && addr !== "Unknown Location") {
+              setPickup(addr);
             } else {
-              console.log("[TaxiBooking] IP fallback coordinates outside Tanzania ignored:", lat, lng);
+              setPickup(getNearestPopularPlace(lat, lng));
             }
+            toast.success(`Eneo lako limetambuliwa kiotomatiki (${ipData.city || 'Karibu nawe'}) 📍`);
+            return;
           }
         }
       } catch (err) {
-        console.warn("[TaxiBooking] IP-based geolocation fallback failed:", err);
-      }
-      
-      try {
-        const ipRes2 = await fetch("https://ip-api.com/json");
-        if (ipRes2.ok) {
-          const ipData2 = await ipRes2.json();
-          if (ipData2 && typeof ipData2.lat === 'number' && typeof ipData2.lon === 'number') {
-            const lat = ipData2.lat;
-            const lng = ipData2.lon;
-            if (isInTanzania(lat, lng)) {
-              setPickupPos([lat, lng]);
-              setSettingMode("pickup");
-              const addr = await reverseGeocode(lat, lng);
-              if (addr && addr !== "Unknown Area" && addr !== "Eneo Halijapatikana" && addr !== "Unknown Location") {
-                setPickup(addr);
-              } else {
-                setPickup(getNearestPopularPlace(lat, lng));
-              }
-              toast.success(`Eneo limetambuliwa kiotomatiki (${ipData2.city || 'Karibu nawe'})`);
-              return;
-            } else {
-              console.log("[TaxiBooking] Secondary IP fallback coordinates outside Tanzania ignored:", lat, lng);
-            }
-          }
-        }
-      } catch (err2) {
-        console.warn("[TaxiBooking] Secondary IP geolocation failed:", err2);
+        console.warn("[TaxiBooking] ipapi.co fallback failed:", err);
       }
 
       // If all fallbacks fail, set the default coordinates
@@ -741,7 +760,7 @@ export default function TaxiBooking() {
           clearTimeout(timer);
           const lat = position.coords.latitude;
           const lng = position.coords.longitude;
-          if (isInTanzania(lat, lng)) {
+          if (lat && lng) {
             setPickupPos([lat, lng]);
             setSettingMode("pickup");
             const addr = await reverseGeocode(lat, lng);
@@ -750,9 +769,12 @@ export default function TaxiBooking() {
             } else {
               setPickup(getNearestPopularPlace(lat, lng));
             }
-            toast.success("Eneo lako la sasa limepatikana kupitia GPS! 📍");
+            if (isInTanzania(lat, lng)) {
+              toast.success("Eneo lako la sasa limepatikana kupitia GPS! 📍");
+            } else {
+              toast.success("Eneo lako la sasa limepatikana! 📍");
+            }
           } else {
-            console.log("[TaxiBooking] GPS location outside Tanzania ignored:", lat, lng);
             await triggerIpFallback();
           }
         },
@@ -2413,6 +2435,18 @@ export default function TaxiBooking() {
                       )
                     )}
                   </MapContainer>
+
+                  {/* Floating locate button inside the map area */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCurrentLocation();
+                    }}
+                    title="Angazia Eneo Langu la Sasa"
+                    className="absolute bottom-6 right-6 z-[1000] bg-black/80 hover:bg-black border border-white/20 hover:border-[#00E5A0]/50 text-white rounded-full p-4 shadow-2xl flex items-center justify-center backdrop-blur-md active:scale-95 transition-all hover:shadow-[#00E5A0]/20 hover:shadow-lg"
+                  >
+                    <Navigation2 className="w-5 h-5 text-[#00E5A0]" />
+                  </button>
                 </div>
               </motion.div>
             )}
