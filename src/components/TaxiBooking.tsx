@@ -2390,6 +2390,11 @@ export default function TaxiBooking() {
                             driverPosObj
                           );
 
+                          // Prefer actual fetched street-following coordinates from driverRouteCoords if loaded
+                          const activeApproachPath = (driverRouteCoords && driverRouteCoords.length > 1)
+                            ? driverRouteCoords
+                            : slicedApproachRoute;
+
                           return (
                             <>
                               {/* Planned trip path is shown underlay since we haven't started yet */}
@@ -2405,9 +2410,9 @@ export default function TaxiBooking() {
                                 }}
                               />
                               {/* Active driver approach route */}
-                              {slicedApproachRoute.length > 1 && (
+                              {activeApproachPath.length > 1 && (
                                 <AnimatedRoute
-                                  positions={slicedApproachRoute}
+                                  positions={activeApproachPath}
                                   color="#00E5A0"
                                 />
                               )}

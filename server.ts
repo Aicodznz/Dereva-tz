@@ -476,7 +476,96 @@ async function startServer() {
       routeCache.set(cacheKey, winner.data);
       return res.json(winner.data);
     } catch (eCar) {
-      console.log(`[Proxy] Note: External OSRM servers are currently congested or rate-limited. Serving smooth, detailed, grid-accurate street route simulation fallback.`);
+      console.log(`[Proxy] Note: External OSRM servers are currently congested or rate-limited. Trying stable BRouter geojson fallback...`);
+      
+      // 1. Try stable brouter.de fallback
+      if (coordsPairs.length >= 2) {
+        try {
+          const p1 = coordsPairs[0];
+          const p2 = coordsPairs[coordsPairs.length - 1];
+          // BRouter expects: lon1, lat1, lon2, lat2
+          const brouterUrl = `https://brouter.de/brouter?lon1=${p1[0]}&lat1=${p1[1]}&lon2=${p2[0]}&lat2=${p2[1]}&profile=car-fast&alternativeidx=0&format=geojson`;
+          
+          console.log(`[Proxy] Fetching fallback coordinates from BRouter: ${brouterUrl}`);
+          const bRes = await fetch(brouterUrl, { headers });
+          if (bRes.ok) {
+            const bData = await bRes.json();
+            if (bData && bData.features && bData.features.length > 0) {
+              const feat = bData.features[0];
+              const coordinates = feat.geometry.coordinates; // array of [lng, lat]
+              const totalDistance = parseFloat(feat.properties["track-length"] || "0");
+              const totalDuration = parseFloat(feat.properties["total-time"] || "0");
+              
+              console.log(`[Proxy] BRouter request succeeded! Distance: ${totalDistance}m, Duration: ${totalDuration}s. Converting to OSRM format.`);
+              
+              const brouterFallbackData = {
+                code: "Ok",
+                routes: [
+                  {
+                    geometry: {
+                      coordinates: coordinates,
+                      type: "LineString"
+                    },
+                    legs: [
+                      {
+                        summary: "Barabara kuu (Real Street Route via BRouter)",
+                        weight: totalDuration,
+                        duration: totalDuration,
+                        distance: totalDistance,
+                        steps: []
+                      }
+                    ],
+                    weight_name: "routability",
+                    weight: totalDuration,
+                    duration: totalDuration,
+                    distance: totalDistance
+                  }
+                ],
+                waypoints: [
+                  {
+                    hint: "",
+                    distance: 0,
+                    name: "Mwanzo",
+                    location: p1
+                  },
+                  {
+                    hint: "",
+                    distance: 0,
+                    name: "Mwisho",
+                    location: p2
+                  }
+                ]
+              };
+              
+              routeCache.set(cacheKey, brouterFallbackData);
+              return res.json(brouterFallbackData);
+            }
+          }
+        } catch (errBrouter) {
+          console.warn(`[Proxy] BRouter fallback failed too:`, errBrouter);
+        }
+      }
+
+      // 2. Try secondary OSRM bicycle/foot server directly since alternative profiles are rarely rate-limited
+      if (coordsPairs.length >= 2) {
+        const altUrls = [
+          `https://routing.openstreetmap.de/routed-bike/route/v1/bicycle/${encodedCoords}?overview=full&geometries=geojson&steps=true`,
+          `https://routing.openstreetmap.de/routed-foot/route/v1/foot/${encodedCoords}?overview=full&geometries=geojson&steps=true`,
+          `http://routing.openstreetmap.de/routed-bike/route/v1/bicycle/${encodedCoords}?overview=full&geometries=geojson&steps=true`
+        ];
+        try {
+          console.log(`[Proxy] Attempting secondary bicycle/foot engine routing fallback...`);
+          const winner = await raceServices(altUrls, 8000);
+          console.log(`[Proxy] Secondary Profile OSRM success: ${winner.source}`);
+          routeCache.set(cacheKey, winner.data);
+          return res.json(winner.data);
+        } catch (errAlt) {
+          console.warn(`[Proxy] Secondary profiles failed:`, errAlt);
+        }
+      }
+
+      // 3. Last resort layout-perfect grid simulation:
+      console.log(`[Proxy] No external street router available. Generating grid-precise routing simulation.`);
       if (coordsPairs.length >= 2) {
         const fallbackData = generateStraightLineRoute(coordsPairs);
         routeCache.set(cacheKey, fallbackData);
