@@ -691,63 +691,131 @@ export default function CustomerDashboard() {
               </div>
             ))
           ) : (
-            filteredProducts.map((product, idx) => (
-              <motion.div
-                key={`product-${product.id || `product-${idx}`}`}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.05 * idx }}
-                whileHover={{ y: -5 }}
-              >
-                <Link 
-                  to={product.vendorCategory === 'bus_ticket' || product.category === 'bus_ticket' || product.name.toLowerCase().includes('bus ticket') ? '/service/bus_ticket' : `/product/${product.id}`}
-                  className="block group"
+            filteredProducts.map((product, idx) => {
+              const isBusTicket = product.vendorCategory === 'bus_ticket' || 
+                                  product.category === 'bus_ticket' || 
+                                  product.name.toLowerCase().includes('bus ticket') ||
+                                  product.name.toLowerCase().includes('mwanza tu');
+              return (
+                <motion.div
+                  key={`product-${product.id || `product-${idx}`}`}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: 0.05 * idx }}
+                  whileHover={{ y: -5 }}
                 >
-                  <Card className="overflow-hidden rounded-[2.5rem] border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xl shadow-neutral-900/5 hover:shadow-orange-900/10 transition-all h-full group/card border-2 hover:border-orange-500/10 active:scale-95">
-                  <div className="h-44 relative overflow-hidden">
-                    <img 
-                      src={product.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80'} 
-                      alt={product.name} 
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
-                      referrerPolicy="no-referrer"
-                    />
-                    {/* AR Badge */}
-                    {product?.model3dUrl && businessConfig?.enableAR && (
-                      <div className="absolute top-4 left-4 z-10 animate-pulse">
-                        <div className="bg-orange-600 text-white p-1.5 rounded-full shadow-lg border border-orange-400/40">
-                          <Box className="w-3 h-3" />
+                  <Link 
+                    to={isBusTicket ? '/service/bus_ticket' : `/product/${product.id}`}
+                    className="block group h-full"
+                  >
+                    <Card className="overflow-hidden rounded-[2.5rem] border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xl shadow-neutral-900/5 hover:shadow-orange-900/10 transition-all h-full group/card border-2 hover:border-orange-500/10 active:scale-95 flex flex-col justify-between">
+                      {isBusTicket ? (
+                        <div className="flex flex-col h-full bg-neutral-950 text-white relative">
+                          {/* Inner custom ticket background & border */}
+                          <div className="h-44 bg-gradient-to-br from-indigo-800 via-blue-900 to-slate-950 p-4 flex flex-col justify-between relative overflow-hidden">
+                            {/* Barcode line on top */}
+                            <div className="flex justify-between items-center opacity-70">
+                              <span className="text-[9px] font-mono tracking-widest text-indigo-200 font-bold">#TK-{idx}N42</span>
+                              <span className="text-[10px] font-mono tracking-tighter text-indigo-300">||||| | ||| ||</span>
+                            </div>
+
+                            {/* Center Route Graphics */}
+                            <div className="my-auto flex flex-col items-center">
+                              <div className="flex items-center gap-2 justify-center w-full">
+                                <span className="text-xs md:text-sm font-black uppercase tracking-wider text-white">DAR</span>
+                                <div className="flex-1 border-t-2 border-dashed border-indigo-400/40 relative flex justify-center items-center">
+                                  <Bus className="w-5 h-5 text-emerald-400 absolute bg-indigo-900 rounded-full p-1 border border-indigo-700" />
+                                </div>
+                                <span className="text-xs md:text-sm font-black uppercase tracking-wider text-white">MWZ</span>
+                              </div>
+                              <span className="text-[8px] uppercase tracking-widest text-indigo-200 font-extrabold mt-2">Safiri Salama • Tanzania</span>
+                            </div>
+
+                            {/* Floating Bus Service label */}
+                            <span className="absolute top-4 right-4 bg-emerald-500 font-black text-[8px] px-2 py-0.5 rounded-full uppercase tracking-wider text-neutral-900 shadow-sm animate-pulse">
+                              Active
+                            </span>
+
+                            {/* Half-circles on left and right borders of the ticket perforated line */}
+                            <div className="absolute left-[-8px] bottom-[-8px] w-4 h-4 rounded-full bg-white dark:bg-neutral-900 z-20 shadow-inner" />
+                            <div className="absolute right-[-8px] bottom-[-8px] w-4 h-4 rounded-full bg-white dark:bg-neutral-900 z-20 shadow-inner" />
+                          </div>
+
+                          {/* Perforated dashed line at the bottom of the image area */}
+                          <div className="relative flex justify-center items-center">
+                            <div className="w-full border-t-2 border-dashed border-neutral-100 dark:border-neutral-800 z-10" />
+                          </div>
+
+                          <CardContent className="p-5 bg-white dark:bg-neutral-900 flex-1 flex flex-col justify-between min-h-[140px]">
+                            <div>
+                              <h4 className="font-black text-sm text-neutral-900 dark:text-white truncate group-hover/card:text-blue-500 transition-colors uppercase tracking-tight">{product.name}</h4>
+                              <p className="text-[10px] font-black tracking-wider text-blue-500 mt-0.5 uppercase">TIKETI YA BASI / BUS TICKET</p>
+                            </div>
+                            <div className="flex items-end justify-between mt-4">
+                              <div>
+                                <p className="text-[9px] font-extrabold text-neutral-400 uppercase tracking-wider">Nauli/Fare</p>
+                                <p className="text-xs md:text-sm text-orange-600 font-black">
+                                  TZS {product.price.toLocaleString()}
+                                </p>
+                              </div>
+                              
+                              <div className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 font-black text-[10px] rounded-xl flex items-center gap-1 text-white shadow-lg shadow-indigo-600/20 active:scale-95 transition-all">
+                                <span className="uppercase tracking-wider">Kata</span>
+                                <ChevronRight className="w-3 h-3" />
+                              </div>
+                            </div>
+                          </CardContent>
                         </div>
-                      </div>
-                    )}
-                      <motion.button 
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          addItem(product);
-                          toast.success(`${product.name} imeongezwa!`);
-                        }}
-                        className="absolute bottom-4 right-4 w-12 h-12 bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl flex items-center justify-center text-orange-600 hover:bg-orange-600 hover:text-white transition-all transform overflow-hidden group/btn"
-                      >
-                      <div className="absolute inset-0 bg-orange-600 -translate-x-full group-hover/btn:translate-x-0 transition-transform" />
-                      <Plus className="w-6 h-6 relative z-10" />
-                    </motion.button>
-                  </div>
-                  <CardContent className="p-5">
-                    <h4 className="font-black text-sm text-neutral-900 dark:text-white truncate group-hover/card:text-orange-600 transition-colors uppercase tracking-tight">{product.name}</h4>
-                    <div className="flex items-center justify-between mt-2">
-                       <p className="text-xs text-orange-600 font-black">
-                        TZS {product.price.toLocaleString()}
-                      </p>
-                      <span className="text-[10px] text-neutral-400 font-bold">Qty: 1</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            </motion.div>
-          )))}
+                      ) : (
+                        <>
+                          <div className="h-44 relative overflow-hidden">
+                            <img 
+                              src={product.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80'} 
+                              alt={product.name} 
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+                              referrerPolicy="no-referrer"
+                            />
+                            {/* AR Badge */}
+                            {product?.model3dUrl && businessConfig?.enableAR && (
+                              <div className="absolute top-4 left-4 z-10 animate-pulse">
+                                <div className="bg-orange-600 text-white p-1.5 rounded-full shadow-lg border border-orange-400/40">
+                                  <Box className="w-3 h-3" />
+                                </div>
+                              </div>
+                            )}
+                            <motion.button 
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                addItem(product);
+                                toast.success(`${product.name} imeongezwa!`);
+                              }}
+                              className="absolute bottom-4 right-4 w-12 h-12 bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl flex items-center justify-center text-orange-600 hover:bg-orange-600 hover:text-white transition-all transform overflow-hidden group/btn"
+                            >
+                              <div className="absolute inset-0 bg-orange-600 -translate-x-full group-hover/btn:translate-x-0 transition-transform" />
+                              <Plus className="w-6 h-6 relative z-10" />
+                            </motion.button>
+                          </div>
+                          <CardContent className="p-5">
+                            <h4 className="font-black text-sm text-neutral-900 dark:text-white truncate group-hover/card:text-orange-600 transition-colors uppercase tracking-tight">{product.name}</h4>
+                            <div className="flex items-center justify-between mt-2">
+                              <p className="text-xs text-orange-600 font-black">
+                                TZS {product.price.toLocaleString()}
+                              </p>
+                              <span className="text-[10px] text-neutral-400 font-bold">Qty: 1</span>
+                            </div>
+                          </CardContent>
+                        </>
+                      )}
+                    </Card>
+                  </Link>
+                </motion.div>
+              );
+            })
+          )}
           {products.length === 0 && (
             <div className="min-w-full py-8 text-center bg-neutral-50 dark:bg-neutral-900/50 rounded-3xl border border-dashed border-neutral-200 dark:border-neutral-800 col-span-full">
               <p className="text-neutral-400 text-xs italic">{t('no_products_found') || 'Hakuna bidhaa maarufu kwa sasa.'}</p>
