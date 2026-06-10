@@ -206,12 +206,14 @@
     background: white !important;
   }
 
-  /* Support the modern landscape bus ticket printing */
-  .printable-step-4-area, .printable-step-4-area * {
+  /* Support the modern landscape bus ticket printing and viewing */
+  .printable-step-4-area, .printable-step-4-area *,
+  .printable-ticket-view, .printable-ticket-view * {
     visibility: visible !important;
   }
 
-  .printable-step-4-area {
+  .printable-step-4-area,
+  .printable-ticket-view {
     position: absolute !important;
     left: 0 !important;
     top: 0 !important;
@@ -220,6 +222,7 @@
     background: white !important;
     padding: 0 !important;
     margin: 0 !important;
+    z-index: 9999 !important;
   }
 
   .print-ticket-card {

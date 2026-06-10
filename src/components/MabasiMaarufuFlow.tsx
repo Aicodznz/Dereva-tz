@@ -86,6 +86,7 @@ export default function MabasiMaarufuFlow({ product, vendor, onBackToTripSelecti
 
   // Reference for stable ticket layout and download
   const ticketRef = useRef<HTMLDivElement>(null);
+  const viewingTicketRef = useRef<HTMLDivElement>(null);
   const [ticketRefId, setTicketRefId] = useState<string>('');
 
   useEffect(() => {
@@ -94,16 +95,15 @@ export default function MabasiMaarufuFlow({ product, vendor, onBackToTripSelecti
     }
   }, [step, ticketRefId]);
 
-  const handleDownloadTicketImage = () => {
-    if (!ticketRef.current) {
+  const downloadTicketAsImage = (element: HTMLDivElement | null, tId: string, bName: string) => {
+    if (!element) {
       toast.error("Haikupata kadi ya tiketi ya kupakuliwa!");
       return;
     }
 
-    const loaderId = toast.loading("Inatayarisha tiketi yako ya kisasa...");
+    const loaderId = toast.loading("Inatayarisha kupakua tiketi yako...");
 
-    // Basic options of html-to-image to ensure maximum accuracy
-    toPng(ticketRef.current, {
+    toPng(element, {
       cacheBust: true,
       backgroundColor: resolvedTheme === 'dark' ? '#171717' : '#ffffff',
       style: {
@@ -113,17 +113,21 @@ export default function MabasiMaarufuFlow({ product, vendor, onBackToTripSelecti
     })
       .then((dataUrl) => {
         const link = document.createElement('a');
-        link.download = `Tiketi_${busName.replace(/\s+/g, '_')}_${ticketRefId || 'SUCC'}.png`;
+        link.download = `Tiketi_${(bName || 'Basi').replace(/\s+/g, '_')}_${tId || 'PAY'}.png`;
         link.href = dataUrl;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        toast.success("Tiketi imepakuliwa kwa mafanikio kama picha!", { id: loaderId });
+        toast.success("Tiketi imepakuliwa kwa mafanikio kama picha ya HD!", { id: loaderId });
       })
       .catch((error) => {
         console.error("html-to-image error:", error);
         toast.error("Imeshindwa kutengeneza picha otomatiki. Tafadhali chukua picha ya skrini (Screenshot) au fanya Print!", { id: loaderId });
       });
+  };
+
+  const handleDownloadTicketImage = () => {
+    downloadTicketAsImage(ticketRef.current, ticketRefId, busName);
   };
 
   // Firestore Booked Seats connection
@@ -1296,27 +1300,40 @@ export function useFirebaseBooking(tripId: string) {
             {/* If viewing a single ticket boarding pass detail */}
             {viewingTicketDetail ? (
               <div className="space-y-6">
-                <div className="flex justify-between items-center bg-white dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-850 p-4 rounded-3xl shadow-sm transition-colors">
+                <div className="flex flex-col xs:flex-row justify-between items-stretch xs:items-center bg-white dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-850 p-4 rounded-3xl shadow-sm gap-3 transition-colors print:hidden">
                   <button
                     onClick={() => setViewingTicketDetail(null)}
-                    className="px-4 py-2.5 bg-neutral-105 dark:bg-neutral-800 hover:bg-violet-600 dark:hover:bg-violet-600 text-xs text-neutral-850 dark:text-neutral-200 hover:text-white dark:hover:text-white font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-1.5"
+                    className="px-4 py-2.5 bg-neutral-105 dark:bg-neutral-800 hover:bg-violet-600 dark:hover:bg-violet-600 text-xs text-neutral-850 dark:text-neutral-200 hover:text-white dark:hover:text-white font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-1.5"
                   >
                     <ChevronLeft className="w-4 h-4" />
-                    Rudi kwenye Orodha (Back to list)
+                    Rudi (Back)
                   </button>
 
-                  <button
-                    onClick={() => {
-                      window.print();
-                    }}
-                    className="px-4 py-2.5 bg-neutral-900 border border-neutral-800 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 shadow-sm cursor-pointer"
-                  >
-                    <span>Print Ticket (PDF) 🖨️</span>
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        const tId = viewingTicketDetail.ticketId || viewingTicketDetail.id || viewingTicketDetail.bookingId || '104928';
+                        const bName = viewingTicketDetail.busName || viewingTicketDetail.name || 'Kilimanjaro Royal Bus';
+                        downloadTicketAsImage(viewingTicketRef.current, tId, bName);
+                      }}
+                      className="flex-1 xs:flex-none px-4 py-2.5 bg-violet-600 hover:bg-violet-750 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+                    >
+                      <span>Pakua (Download PNG) 📥</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        window.print();
+                      }}
+                      className="flex-1 xs:flex-none px-4 py-2.5 bg-neutral-900 border border-neutral-800 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+                    >
+                      <span>Print (PDF) 🖨️</span>
+                    </button>
+                  </div>
                 </div>
 
-                <div id="my-ticket-detail-render" className="p-1 rounded-[2.5rem] bg-white dark:bg-neutral-100">
-                  {renderTicketPass(viewingTicketDetail)}
+                <div id="my-ticket-detail-render" className="p-1 rounded-[2.5rem] bg-white dark:bg-neutral-100 printable-ticket-view">
+                  {renderTicketPass(viewingTicketDetail, viewingTicketRef)}
                 </div>
               </div>
             ) : (
@@ -2126,8 +2143,16 @@ export function useFirebaseBooking(tripId: string) {
               <div className="space-y-3">
                 <button
                   type="button"
+                  onClick={handleDownloadTicketImage}
+                  className="w-full py-4 bg-gradient-to-r from-violet-650 to-indigo-600 hover:opacity-95 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 border border-violet-500 shadow-md"
+                >
+                  📥 PAKUA TIKETI KAMA PICHA (DOWNLOAD)
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => window.print()}
-                  className="w-full py-4 bg-gradient-to-r from-violet-650 to-fuchsia-600 hover:opacity-95 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 border border-neutral-200/50 dark:border-neutral-700 shadow-md"
+                  className="w-full py-4 bg-neutral-900 hover:bg-neutral-950 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 border border-neutral-800 shadow-md"
                 >
                   🖨️ CHAPISHA TIKETI (PRINT / PDF)
                 </button>
