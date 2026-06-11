@@ -25,7 +25,8 @@ import {
   Navigation,
   Bus,
   MapPin,
-  Ticket
+  Ticket,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import OrderTracker from './OrderTracker';
@@ -77,6 +78,9 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
   const [isPaying, setIsPaying] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [selectedVendorProfile, setSelectedVendorProfile] = useState<any>(null);
+  const [selectedOrientation, setSelectedOrientation] = useState<'portrait' | 'landscape'>('landscape');
+  const [orientationModalOpen, setOrientationModalOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<{ type: 'print' | 'download'; elementId?: string } | null>(null);
 
   useEffect(() => {
     if (!selectedOrder || !selectedOrder.vendorId) {
@@ -327,7 +331,10 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
                 </div>
                 <div className="flex gap-2 w-full sm:w-auto">
                   <Button 
-                    onClick={() => window.print()}
+                    onClick={() => {
+                      setPendingAction({ type: 'print' });
+                      setOrientationModalOpen(true);
+                    }}
                     className="bg-orange-600 hover:bg-orange-700 text-white font-black h-12 rounded-2xl px-6 gap-2 w-full sm:w-auto shadow-xl shadow-orange-900/10"
                   >
                     <Printer className="w-4 h-4" /> Print / Pakua PDF (Zote)
@@ -381,9 +388,15 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
                           </div>
                         )}
 
-                        <div className="flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-dashed divide-white/20">
+                        <div className={selectedOrientation === 'portrait'
+                          ? "flex flex-col divide-y divide-dashed divide-white/20 animate-fade-in"
+                          : "flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-dashed divide-white/20 animate-fade-in"
+                        }>
                           {/* Left: Main Ticket Body */}
-                          <div className="flex-1 lg:pr-8 pb-6 lg:pb-0 space-y-6">
+                          <div className={selectedOrientation === 'portrait'
+                            ? "flex-1 pb-6 space-y-6"
+                            : "flex-1 lg:pr-8 pb-6 lg:pb-0 space-y-6"
+                          }>
                             <div className="flex justify-between items-start">
                               <div>
                                 <div className="flex items-center gap-2">
@@ -461,7 +474,10 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
                           </div>
 
                           {/* Right: Passenger Stub */}
-                          <div className="lg:w-72 lg:pl-8 pt-6 lg:pt-0 flex flex-col justify-between items-center space-y-6">
+                          <div className={selectedOrientation === 'portrait'
+                            ? "pt-6 flex flex-col justify-between items-center space-y-6 w-full"
+                            : "lg:w-72 lg:pl-8 pt-6 lg:pt-0 flex flex-col justify-between items-center space-y-6"
+                          }>
                             <div className="text-center w-full">
                               <span className="text-[9px] font-black text-white/50 uppercase tracking-widest">Kipande cha Abiria</span>
                               <h4 className="text-sm font-black text-white uppercase italic tracking-tighter">PASSENGER STUB</h4>
@@ -495,7 +511,10 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
 
                             <div className="w-full flex gap-2 print:hidden justify-center mt-4 text-[10px]">
                               <Button 
-                                onClick={() => handleDownloadTicket(cardId)}
+                                onClick={() => {
+                                  setPendingAction({ type: 'download', elementId: cardId });
+                                  setOrientationModalOpen(true);
+                                }}
                                 disabled={downloading}
                                 className="bg-orange-600 hover:bg-orange-700 h-10 px-3 rounded-xl font-black uppercase tracking-wider text-white flex-1 flex items-center justify-center gap-1.5 shadow-md shadow-orange-950/20"
                               >
@@ -863,6 +882,175 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
           </div>
         </div>
       </div>
+
+      {/* ORIENTATION SELECTION & PREVIEW MODAL */}
+      {orientationModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-all animate-fade-in print:hidden">
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-[2.5rem] shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto p-6 md:p-8 space-y-6 relative">
+            <button 
+              onClick={() => setOrientationModalOpen(false)}
+              className="absolute top-6 right-6 p-2 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-205 transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            
+            <div className="text-center space-y-2">
+              <h3 className="text-xl md:text-2xl font-black italic uppercase tracking-tighter text-neutral-900 dark:text-white">
+                Chagua Mwelekeo wa Tiketi (Ticket Orientation)
+              </h3>
+              <p className="text-xs md:text-sm text-neutral-500 dark:text-neutral-400 font-medium font-sans">
+                Hakiki muonekano wa tiketi yako ya safari kabla ya kuchapa (Print) au kupakua (Download).
+              </p>
+            </div>
+
+            {/* Dynamic visual preview cards for Portrait and Landscape */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+              {/* Portrait Selector Card */}
+              <div 
+                onClick={() => setSelectedOrientation('portrait')}
+                className={`border-2 rounded-[2rem] p-5 cursor-pointer transition-all flex flex-col items-center space-y-4 hover:border-orange-500/50 bg-neutral-50 dark:bg-neutral-950/40 relative group ${
+                  selectedOrientation === 'portrait' ? 'border-orange-600 ring-4 ring-orange-600/10' : 'border-neutral-200 dark:border-neutral-800'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${selectedOrientation === 'portrait' ? 'border-orange-600' : 'border-[#8e8e8e]'}`}>
+                    {selectedOrientation === 'portrait' && <span className="w-1.5 h-1.5 rounded-full bg-orange-600" />}
+                  </span>
+                  <span className="font-extrabold text-sm text-neutral-900 dark:text-white uppercase">Wima (Portrait Orientation)</span>
+                </div>
+                
+                {/* Visual Portrait Representative Simulation */}
+                <div className="w-[180px] h-[260px] border border-dashed border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 rounded-2xl shadow-md p-3 space-y-3 relative overflow-hidden flex flex-col justify-between">
+                  {/* Top main body mock */}
+                  <div className="space-y-1.5">
+                    <div className="bg-orange-600 h-2 rounded w-full"></div>
+                    <div className="bg-neutral-200 dark:bg-neutral-800 h-3 rounded w-11/12"></div>
+                    <div className="grid grid-cols-2 gap-1.5 pt-1">
+                      <div className="bg-neutral-150 dark:bg-neutral-850 h-2 rounded w-full"></div>
+                      <div className="bg-neutral-150 dark:bg-neutral-850 h-2 rounded w-10/12"></div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <div className="bg-neutral-150 dark:bg-neutral-850 h-2 rounded w-9/12"></div>
+                      <div className="bg-neutral-150 dark:bg-neutral-850 h-2 rounded w-full"></div>
+                    </div>
+                  </div>
+                  {/* Dash Divider representing perforation line */}
+                  <div className="border-t border-dashed border-neutral-300 dark:border-neutral-700 w-full my-1"></div>
+                  {/* Bottom stub mock */}
+                  <div className="space-y-1.5 pb-1">
+                    <div className="bg-neutral-200 dark:bg-neutral-800 h-2 rounded w-1/2 mx-auto"></div>
+                    <div className="w-8 h-8 bg-neutral-200 dark:bg-neutral-800 mx-auto rounded-sm flex items-center justify-center">
+                      <span className="text-[6px]">▣</span>
+                    </div>
+                    <div className="bg-neutral-150 dark:bg-neutral-850 h-1 rounded w-3/4 mx-auto"></div>
+                  </div>
+                </div>
+                
+                <p className="text-[10px] text-center text-neutral-400 font-bold uppercase">
+                  Inapendekezwa kwa simu za mkononi na machapisho ya wima.
+                </p>
+              </div>
+
+              {/* Landscape Selector Card */}
+              <div 
+                onClick={() => setSelectedOrientation('landscape')}
+                className={`border-2 rounded-[2rem] p-5 cursor-pointer transition-all flex flex-col items-center space-y-4 hover:border-orange-500/50 bg-neutral-50 dark:bg-neutral-950/40 relative group ${
+                  selectedOrientation === 'landscape' ? 'border-orange-600 ring-4 ring-orange-600/10' : 'border-neutral-200 dark:border-neutral-800'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${selectedOrientation === 'landscape' ? 'border-orange-600' : 'border-[#8e8e8e]'}`}>
+                    {selectedOrientation === 'landscape' && <span className="w-1.5 h-1.5 rounded-full bg-orange-600" />}
+                  </span>
+                  <span className="font-extrabold text-sm text-neutral-900 dark:text-white uppercase">Mlalo (Landscape Orientation)</span>
+                </div>
+                
+                {/* Visual Landscape Representative Simulation */}
+                <div className="w-[320px] h-[180px] border border-dashed border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 rounded-2xl shadow-md p-3 flex gap-3 relative overflow-hidden items-stretch justify-between">
+                  {/* Left main body mock */}
+                  <div className="flex-1 space-y-2.5">
+                    <div className="bg-orange-600 h-2 rounded w-3/4"></div>
+                    <div className="bg-neutral-200 dark:bg-neutral-800 h-3 rounded w-11/12"></div>
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <div className="bg-neutral-150 dark:bg-neutral-850 h-2.5 rounded w-full"></div>
+                      <div className="bg-neutral-150 dark:bg-neutral-850 h-2.5 rounded w-10/12"></div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-neutral-150 dark:bg-neutral-850 h-2.5 rounded w-9/12"></div>
+                      <div className="bg-neutral-150 dark:bg-neutral-850 h-2.5 rounded w-full"></div>
+                    </div>
+                  </div>
+                  
+                  {/* Vertical Dash Divider */}
+                  <div className="border-l border-dashed border-neutral-300 dark:border-neutral-700 h-full mx-1"></div>
+                  
+                  {/* Right stub mock */}
+                  <div className="w-24 flex flex-col justify-between items-center py-1">
+                    <div className="bg-neutral-200 dark:bg-neutral-800 h-2 rounded w-3/4 animate-pulse"></div>
+                    <div className="w-11 h-11 bg-neutral-200 dark:bg-neutral-800 rounded-sm flex items-center justify-center">
+                      <span className="text-[10px]">▣</span>
+                    </div>
+                    <div className="bg-neutral-150 dark:bg-neutral-850 h-1 rounded w-1/2"></div>
+                  </div>
+                </div>
+                
+                <p className="text-[10px] text-center text-neutral-400 font-bold uppercase">
+                  Inapendekezwa kwa makadi ya printa na kukata makombora ya tiketi.
+                </p>
+              </div>
+            </div>
+
+            {/* Dynamic style tag that forces browser print settings based on selection */}
+            <style dangerouslySetInnerHTML={{ __html: `
+              @media print {
+                @page {
+                  size: ${selectedOrientation === 'portrait' ? 'portrait' : 'landscape'};
+                  margin: 10mm;
+                }
+              }
+            `}} />
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t border-neutral-100 dark:border-neutral-800 font-sans">
+              <Button 
+                onClick={() => {
+                  setOrientationModalOpen(false);
+                  if (pendingAction) {
+                    if (pendingAction.type === 'print') {
+                      setTimeout(() => {
+                        window.print();
+                      }, 250);
+                    } else if (pendingAction.type === 'download' && pendingAction.elementId) {
+                      setTimeout(() => {
+                        handleDownloadTicket(pendingAction.elementId!);
+                      }, 250);
+                    }
+                  }
+                }}
+                className="flex-1 bg-orange-600 hover:bg-orange-700 text-white font-black h-12 rounded-2xl text-xs uppercase tracking-widest shadow-xl flex items-center justify-center gap-2 border-none cursor-pointer"
+              >
+                {pendingAction?.type === 'print' ? (
+                  <>
+                    <Printer className="w-4 h-4" /> THIBITISHA & CHAPA (PRINT)
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4" /> THIBITISHA & PAKUA IMAGE
+                  </>
+                )}
+              </Button>
+              
+              <Button 
+                variant="outline"
+                onClick={() => setOrientationModalOpen(false)}
+                className="sm:w-36 border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 font-bold h-12 rounded-2xl text-xs uppercase hover:bg-neutral-50 dark:hover:bg-neutral-950"
+              >
+                GHAIRI
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

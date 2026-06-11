@@ -29,10 +29,49 @@ export default function MabasiMaarufuFlow({ product, vendor, onBackToTripSelecti
   const [step, setStep] = useState<number>(1);
   const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
   const [activeDeck, setActiveDeck] = useState<'lower' | 'upper'>('lower');
-  const [couponCode, setCouponCode] = useState<string>('MABASI2GESPA');
-  const [isCouponApplied, setIsCouponApplied] = useState<boolean>(true);
+  const [couponCode, setCouponCode] = useState<string>('');
+  const [isCouponApplied, setIsCouponApplied] = useState<boolean>(false);
+  const [appliedCoupon, setAppliedCoupon] = useState<any | null>(null);
+  const [dbCoupons, setDbCoupons] = useState<any[]>([]);
+  const [availableCoupons, setAvailableCoupons] = useState<any[]>([]);
   const [useWallet, setUseWallet] = useState<boolean>(false);
   const [paymentMethod, setPaymentMethod] = useState<string>('mpesa');
+
+  // Real database coupon synchronize hook
+  useEffect(() => {
+    if (!db) return;
+    const q = collection(db, 'coupons');
+    const unsub = onSnapshot(q, (snap) => {
+      const all: any[] = [];
+      snap.docs.forEach(docSnap => {
+        all.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      setDbCoupons(all);
+    }, (err) => {
+      console.warn("Error fetching coupons:", err);
+    });
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    if (!dbCoupons) return;
+    const currentVendorId = product?.vendorId || vendor?.id || '';
+    const currentProductId = product?.id || '';
+    
+    const eligible = dbCoupons.filter(c => {
+      if (c.status !== 'active') return false;
+      
+      const isVendorMatch = c.vendorId && (c.vendorId === currentVendorId);
+      const isAdminCoupon = c.createdBy === 'admin' || !c.vendorId;
+      
+      if (!isVendorMatch && !isAdminCoupon) return false;
+      
+      if (c.productId && c.productId !== currentProductId) return false;
+      
+      return true;
+    });
+    setAvailableCoupons(eligible);
+  }, [dbCoupons, product?.vendorId, vendor?.id, product?.id]);
   
   // Passenger state
   const [passengers, setPassengers] = useState<any[]>([]);
@@ -184,7 +223,11 @@ export default function MabasiMaarufuFlow({ product, vendor, onBackToTripSelecti
 
   const basePricePerSeat = product?.price || 35000;
   const originalTotalPrice = selectedSeats.length * basePricePerSeat;
-  const couponDiscount = isCouponApplied ? 14000 : 0;
+  const couponDiscount = isCouponApplied && appliedCoupon
+    ? (appliedCoupon.discountType === 'percentage'
+        ? (originalTotalPrice * appliedCoupon.discountValue) / 100
+        : appliedCoupon.discountValue)
+    : 0;
   const walletDeduction = useWallet ? 15000 : 0;
   const serviceFee = 2500;
   const finalTotalAmount = Math.max(0, originalTotalPrice - couponDiscount - walletDeduction + serviceFee);
@@ -227,11 +270,23 @@ export default function MabasiMaarufuFlow({ product, vendor, onBackToTripSelecti
   };
 
   const handleApplyCoupon = () => {
-    if (couponCode.trim() === 'MABASI20' || couponCode.trim() === 'MABASI2GESPA' || couponCode.trim().length > 3) {
+    const codeToSearch = couponCode.trim().toUpperCase();
+    if (!codeToSearch) {
+      toast.error('Tafadhali ingiza namba au jina la kuponi!');
+      return;
+    }
+    const found = availableCoupons.find(c => c.code.trim().toUpperCase() === codeToSearch);
+    if (found) {
+      setAppliedCoupon(found);
       setIsCouponApplied(true);
-      toast.success('Punguzo Limekubaliwa! Imeshuka TZS 14,000');
+      const calculatedDisc = found.discountType === 'percentage'
+        ? (originalTotalPrice * found.discountValue) / 100
+        : found.discountValue;
+      toast.success(`Kuponi imekubaliwa! Umepata punguzo la TZS ${calculatedDisc.toLocaleString()}`);
     } else {
-      toast.error('Kuponi hii haipo au imeshaisha muda.');
+      setAppliedCoupon(null);
+      setIsCouponApplied(false);
+      toast.error('Kuponi hii haipo, imekwisha muda wake au si ya mtoa huduma huyu.');
     }
   };
 
@@ -1903,31 +1958,33 @@ export function useFirebaseBooking(tripId: string) {
                   </div>
 
                   {/* Promo coupon input and validation feedback */}
-                  <div className="space-y-1.5 font-sans">
-                    <label className="text-[9px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-widest leading-none block">Weka Kuponi la Punguzo (Coupon Code)</label>
-                    <div className="flex gap-2">
-                      <input 
-                        type="text" 
-                        className="flex-1 h-11 bg-neutral-50 dark:bg-neutral-950 px-3.5 rounded-xl border border-neutral-200 dark:border-neutral-800 text-xs font-black text-neutral-955 dark:text-neutral-100 uppercase tracking-widest"
-                        placeholder="Mf. MABASI20"
-                        value={couponCode}
-                        onChange={(e) => setCouponCode(e.target.value)}
-                      />
-                      <button 
-                        type="button"
-                        onClick={handleApplyCoupon}
-                        className="px-4.5 bg-neutral-900 dark:bg-neutral-800 hover:bg-violet-605 dark:hover:bg-violet-600 text-white rounded-xl text-xs font-black uppercase transition-colors"
-                      >
-                        Sajili
-                      </button>
-                    </div>
-                    {isCouponApplied && (
-                      <div className="bg-green-50/50 dark:bg-green-950/20 border border-green-200/50 dark:border-green-800/50 p-2.5 rounded-xl flex items-center justify-between text-green-700 dark:text-green-400">
-                        <span className="text-[10px] font-bold">✓ Punguzo Limesajiliwa vyema</span>
-                        <span className="text-[10px] font-black">-TZS 14,000 Saved</span>
+                  {availableCoupons.length > 0 && (
+                    <div className="space-y-1.5 font-sans">
+                      <label className="text-[9px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-widest leading-none block">Weka Kuponi la Punguzo (Coupon Code)</label>
+                      <div className="flex gap-2">
+                        <input 
+                          type="text" 
+                          className="flex-1 h-11 bg-neutral-50 dark:bg-neutral-950 px-3.5 rounded-xl border border-neutral-200 dark:border-neutral-800 text-xs font-black text-neutral-955 dark:text-neutral-100 uppercase tracking-widest"
+                          placeholder="Mf. MABASI20"
+                          value={couponCode}
+                          onChange={(e) => setCouponCode(e.target.value)}
+                        />
+                        <button 
+                          type="button"
+                          onClick={handleApplyCoupon}
+                          className="px-4.5 bg-neutral-900 dark:bg-neutral-800 hover:bg-violet-605 dark:hover:bg-violet-600 text-white rounded-xl text-xs font-black uppercase transition-colors"
+                        >
+                          Sajili
+                        </button>
                       </div>
-                    )}
-                  </div>
+                      {isCouponApplied && appliedCoupon && (
+                        <div className="bg-green-50/50 dark:bg-green-950/20 border border-green-200/50 dark:border-green-800/50 p-2.5 rounded-xl flex items-center justify-between text-green-700 dark:text-green-400">
+                          <span className="text-[10px] font-bold">✓ Punguzo Limesajiliwa ({appliedCoupon.code})</span>
+                          <span className="text-[10px] font-black">-TZS {couponDiscount.toLocaleString()} Saved</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Invoice breakdown table */}
                   <div className="space-y-2.5 border-t border-neutral-100 dark:border-neutral-805 pt-4">
@@ -2681,37 +2738,39 @@ export function useFirebaseBooking(tripId: string) {
                     </div>
 
                     {/* Coupon promotion application section */}
-                    <div className="bg-white p-4 rounded-2xl border border-neutral-250/50 shadow-sm space-y-3">
-                      <p className="text-[10px] font-black uppercase text-neutral-400 tracking-widest leading-none">Apply Coupon Code</p>
-                      
-                      <div className="flex gap-2">
-                        <input 
-                          type="text" 
-                          className="flex-1 h-11 bg-neutral-50 px-3.5 rounded-xl border border-neutral-200 text-xs font-extrabold text-neutral-950 uppercase tracking-widest"
-                          placeholder="Mf. MABASI20"
-                          value={couponCode}
-                          onChange={(e) => setCouponCode(e.target.value)}
-                        />
-                        <button 
-                          type="button"
-                          onClick={handleApplyCoupon}
-                          className="px-4 bg-neutral-900 text-white rounded-xl text-xs font-black uppercase hover:bg-violet-600 transition-colors"
-                        >
-                          Apply
-                        </button>
-                      </div>
-
-                      {isCouponApplied && (
-                        <div className="bg-green-50 border border-green-200 p-2.5 rounded-xl flex items-center justify-between text-green-700">
-                          <span className="text-[10px] font-black uppercase flex items-center gap-1">
-                            ✓ Kuponi Imekubaliwa!
-                          </span>
-                          <span className="text-[10px] font-black text-green-800">
-                            Saved TZS 14,000
-                          </span>
+                    {availableCoupons.length > 0 && (
+                      <div className="bg-white p-4 rounded-2xl border border-neutral-250/50 shadow-sm space-y-3">
+                        <p className="text-[10px] font-black uppercase text-neutral-400 tracking-widest leading-none">Apply Coupon Code</p>
+                        
+                        <div className="flex gap-2">
+                          <input 
+                            type="text" 
+                            className="flex-1 h-11 bg-neutral-50 px-3.5 rounded-xl border border-neutral-200 text-xs font-extrabold text-neutral-955 uppercase tracking-widest"
+                            placeholder="Mf. MABASI20"
+                            value={couponCode}
+                            onChange={(e) => setCouponCode(e.target.value)}
+                          />
+                          <button 
+                            type="button"
+                            onClick={handleApplyCoupon}
+                            className="px-4 bg-neutral-900 text-white rounded-xl text-xs font-black uppercase hover:bg-violet-605 transition-colors"
+                          >
+                            Apply
+                          </button>
                         </div>
-                      )}
-                    </div>
+
+                        {isCouponApplied && appliedCoupon && (
+                          <div className="bg-green-50 border border-green-200 p-2.5 rounded-xl flex items-center justify-between text-green-700">
+                            <span className="text-[10px] font-black uppercase flex items-center gap-1">
+                              ✓ Kuponi Imekubaliwa! ({appliedCoupon.code})
+                            </span>
+                            <span className="text-[10px] font-black text-green-850">
+                              Saved TZS {couponDiscount.toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Simulated Tigo Pesa Wallet deduction toggle */}
                     <div className="bg-white p-4 rounded-2xl border border-neutral-200/50 shadow-md flex items-center justify-between">
