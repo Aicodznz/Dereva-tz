@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../AuthContext';
 import { db } from '../firebase';
-import { collection, query, where, orderBy, onSnapshot, getDocs } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, getDocs, doc, getDoc } from 'firebase/firestore';
 import { Order } from '../types';
 import { useLanguage } from '../LanguageContext';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -76,9 +76,49 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
   const [trackingOrder, setTrackingOrder] = useState<Order | null>(null);
   const [isPaying, setIsPaying] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [selectedVendorProfile, setSelectedVendorProfile] = useState<any>(null);
 
-  const handleDownloadTicket = async () => {
-    const el = document.getElementById('passenger-ticket-card');
+  useEffect(() => {
+    if (!selectedOrder || !selectedOrder.vendorId) {
+      setSelectedVendorProfile(null);
+      return;
+    }
+    const fetchVendor = async () => {
+      try {
+        const docRef = doc(db, 'vendors', selectedOrder.vendorId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setSelectedVendorProfile({ id: docSnap.id, ...docSnap.data() });
+        }
+      } catch (error) {
+        console.error("Error fetching ticket vendor profile:", error);
+      }
+    };
+    fetchVendor();
+  }, [selectedOrder]);
+
+  const getPresetColors = (preset?: string, primaryColor?: string, secondaryColor?: string) => {
+    switch (preset) {
+      case 'midnight-ocean':
+        return { primary: '#1e3a8a', secondary: '#06b6d4', text: '#ffffff', accent: '#22d3ee' };
+      case 'emerald-luxe':
+        return { primary: '#064e3b', secondary: '#10b981', text: '#ffffff', accent: '#34d399' };
+      case 'sunset-glow':
+        return { primary: '#c2410c', secondary: '#eab308', text: '#ffffff', accent: '#fde047' };
+      case 'charcoal-gold':
+        return { primary: '#171717', secondary: '#d97706', text: '#ffffff', accent: '#fbbf24' };
+      case 'royal-crimson':
+        return { primary: '#991b1b', secondary: '#ec4899', text: '#ffffff', accent: '#f472b6' };
+      case 'custom':
+        return { primary: primaryColor || '#7c3aed', secondary: secondaryColor || '#d946ef', text: '#ffffff', accent: '#ffffff' };
+      case 'classic-purple':
+      default:
+        return { primary: '#7c3aed', secondary: '#d946ef', text: '#ffffff', accent: '#fdf4ff' };
+    }
+  };
+
+  const handleDownloadTicket = async (elementId: string) => {
+    const el = document.getElementById(elementId);
     if (!el) {
       toast.error('Imeshindwa kupata kadi ya tiketi.');
       return;
@@ -271,149 +311,217 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
 
         <div className="printable-receipt space-y-8">
           {isBusOrder(selectedOrder) ? (
-            <div className="max-w-4xl mx-auto space-y-6">
-              <div id="passenger-ticket-card" className="bg-neutral-900 border border-neutral-800 p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden text-white">
-                {/* Background bus logo overlay */}
-                <div className="absolute -right-16 -bottom-16 opacity-5 pointer-events-none">
-                  <Package className="w-96 h-96" />
+            <div className="max-w-4xl mx-auto space-y-8">
+              {/* Controller for Multi-Ticket Operations */}
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white dark:bg-neutral-900 p-6 rounded-[2rem] border border-neutral-100 dark:border-neutral-800 shadow-xl gap-4 print:hidden">
+                <div>
+                  <h3 className="text-sm font-black text-neutral-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                    <Ticket className="w-5 h-5 text-orange-600" />
+                    TIKETI ZA ABIRIA ({(() => {
+                      const ticketSeats = order.selectedSeats || (order.items && order.items[0]?.selectedSeats) || [];
+                      const list = order.passengers && order.passengers.length > 0 ? order.passengers : ticketSeats;
+                      return list.length;
+                    })()})
+                  </h3>
+                  <p className="text-xs text-neutral-500 font-medium">Kila msafiri (ikiwemo mtoto au mtu mwingine) ana kadi yake ya kujitegemea.</p>
                 </div>
-
-                <div className="flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-dashed divide-neutral-750">
-                  {/* Left: Main Ticket Body */}
-                  <div className="flex-1 lg:pr-8 pb-6 lg:pb-0 space-y-6">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full bg-orange-500 animate-pulse" />
-                          <h3 className="text-xs font-black text-orange-400 uppercase tracking-widest">{order.vendorName || "KILIMANJARO EXPRESS"}</h3>
-                        </div>
-                        <h2 className="text-xl lg:text-2xl font-black uppercase italic tracking-tighter mt-1 text-white">TIKETI YA SAFARI YA MIKOA</h2>
-                        <span className="text-[9px] font-mono text-neutral-500 uppercase">Tanzania Intercity Passenger Ticket</span>
-                      </div>
-                      
-                      <div className="text-right">
-                        <span className="text-[10px] font-bold text-neutral-400 uppercase">Ticket Number</span>
-                        <div className="text-lg font-mono font-black text-orange-500">#{selectedOrder.id?.slice(-8).toUpperCase()}</div>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-y-4 gap-x-6 p-4 bg-neutral-950/60 rounded-3xl border border-neutral-800">
-                      <div>
-                        <span className="text-[9px] font-black text-neutral-500 uppercase">Jina la Abiria</span>
-                        <p className="text-xs font-bold text-white leading-tight">{order.customerName || "Abiria"}</p>
-                      </div>
-                      <div>
-                        <span className="text-[9px] font-black text-neutral-500 uppercase">Namba ya Simu</span>
-                        <p className="text-xs font-mono font-bold text-white leading-tight">{order.customerPhone || "-"}</p>
-                      </div>
-                      <div>
-                        <span className="text-[9px] font-black text-neutral-500 uppercase">Namba ya Basi</span>
-                        <p className="text-xs font-bold text-white leading-tight">{(selectedOrder.items[0] as any)?.registration || "T 123 ABC"}</p>
-                      </div>
-                      <div>
-                        <span className="text-[9px] font-black text-neutral-500 uppercase">Darasa / Class</span>
-                        <p className="text-xs font-bold text-orange-400 leading-tight">{(selectedOrder.items[0] as any)?.class || "Luxury"}</p>
-                      </div>
-                      <div>
-                        <span className="text-[9px] font-black text-neutral-500 uppercase">Njia / Route</span>
-                        <p className="text-xs font-bold text-white leading-tight">
-                          {(selectedOrder.items[0] as any)?.origin || "Kutoka"} ➔ {(selectedOrder.items[0] as any)?.destination || "Kwenda"}
-                        </p>
-                      </div>
-                      <div>
-                        <span className="text-[9px] font-black text-neutral-500 uppercase">Viti / Seat Number</span>
-                        <p className="text-xs font-mono font-black text-orange-500 leading-tight">
-                          {Array.isArray(order.selectedSeats) ? order.selectedSeats.join(", ") : (selectedOrder as any).tableNumber || "A2"}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                      <div className="p-3 bg-neutral-950 rounded-2xl border border-neutral-800 text-center">
-                        <span className="text-[8px] font-black text-neutral-500 uppercase">Tarehe ya Safari</span>
-                        <p className="text-xs font-black text-white mt-0.5">{(selectedOrder.items[0] as any)?.departureDate || "Leo"}</p>
-                      </div>
-                      <div className="p-3 bg-neutral-950 rounded-2xl border border-neutral-800 text-center">
-                        <span className="text-[8px] font-black text-neutral-500 uppercase">Saa ya Safari</span>
-                        <p className="text-xs font-black text-white mt-0.5">{(selectedOrder.items[0] as any)?.departureTime || "06:00 AM"}</p>
-                      </div>
-                      <div className="p-3 bg-neutral-950 rounded-2xl border border-neutral-800 text-center">
-                        <span className="text-[8px] font-black text-neutral-500 uppercase">Boarding Point</span>
-                        <p className="text-xs font-black text-white mt-0.5">{(selectedOrder.items[0] as any)?.boardingPoint || "Main Terminal"}</p>
-                      </div>
-                      <div className="p-3 bg-neutral-950 rounded-2xl border border-neutral-800 text-center">
-                        <span className="text-[8px] font-black text-neutral-500 uppercase">Nauli / Total Fare</span>
-                        <p className="text-xs font-black text-orange-400 mt-0.5">TZS {selectedOrder.totalAmount.toLocaleString()}</p>
-                      </div>
-                    </div>
-
-                    <div className="pt-4 flex justify-between items-center text-[10px] text-neutral-400 border-t border-neutral-800">
-                      <div>
-                        Status ya Tiketi: <span className={`font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${['delivered', 'completed', 'used'].includes(selectedOrder.status) ? 'bg-red-900/40 text-red-400' : 'bg-green-900/40 text-green-400'}`}>
-                          {['delivered', 'completed', 'used'].includes(selectedOrder.status) ? 'USED / IMEKATWA' : 'VALID / HAIJAKATWA'}
-                        </span>
-                      </div>
-                      <p className="text-[8px] italic text-neutral-500 font-bold">Inamilikiwa na Simba-Pay Ticketing Engine © 2026</p>
-                    </div>
-                  </div>
-
-                  {/* Right: Passenger Stub */}
-                  <div className="lg:w-72 lg:pl-8 pt-6 lg:pt-0 flex flex-col justify-between items-center space-y-6">
-                    <div className="text-center w-full">
-                      <span className="text-[9px] font-black text-neutral-500 uppercase tracking-widest">Kipande cha Abiria</span>
-                      <h4 className="text-sm font-black text-white uppercase italic tracking-tighter">PASSENGER STUB</h4>
-                      <div className="mt-2 border border-dashed border-neutral-800 p-2 rounded-2xl bg-white w-[130px] h-[130px] mx-auto flex items-center justify-center">
-                        <img 
-                          src={`https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${selectedOrder.id}`} 
-                          alt="Ticket QR Code" 
-                          referrerPolicy="no-referrer"
-                          className="w-full h-full animate-fade-in"
-                        />
-                      </div>
-                      <p className="text-[8px] text-neutral-500 font-mono mt-1">Scan boarding QR Code</p>
-                    </div>
-
-                    <div className="w-full space-y-2 p-3 bg-neutral-950 rounded-2xl border border-neutral-800 text-xs text-neutral-300">
-                      <div className="flex justify-between">
-                        <span className="text-[8px] font-bold text-neutral-500 uppercase">Abiria:</span>
-                        <span className="font-bold text-white truncate max-w-[120px]">{order.customerName || "Abiria"}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-[8px] font-bold text-neutral-500 uppercase">Safari:</span>
-                        <span className="font-bold text-white truncate max-w-[120px]">{(selectedOrder.items[0] as any)?.origin || "Kutoka"} - {(selectedOrder.items[0] as any)?.destination || "Kwenda"}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-[8px] font-bold text-neutral-500 uppercase">Tarehe / Kiti:</span>
-                        <span className="font-bold text-white">
-                          {(selectedOrder.items[0] as any)?.departureDate || "Leo"} | #{Array.isArray(order.selectedSeats) ? order.selectedSeats[0] : (selectedOrder as any).tableNumber || "A2"}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="w-full flex flex-col sm:flex-row gap-2 print:hidden justify-center mt-4">
-                      <Button 
-                        onClick={() => window.print()}
-                        className="bg-neutral-800 hover:bg-neutral-700 h-10 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider text-white border border-neutral-750 flex-1 flex items-center justify-center gap-1.5"
-                      >
-                        <Printer className="w-3.5 h-3.5 text-orange-500" />
-                        Print Tiketi
-                      </Button>
-                      <Button 
-                        onClick={handleDownloadTicket}
-                        disabled={downloading}
-                        className="bg-orange-600 hover:bg-orange-700 h-10 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider text-white flex-1 flex items-center justify-center gap-1.5 shadow-md shadow-orange-950/20"
-                      >
-                        {downloading ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
-                        ) : (
-                          <Download className="w-3.5 h-3.5 text-white" />
-                        )}
-                        Pakua PNG
-                      </Button>
-                    </div>
-                  </div>
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <Button 
+                    onClick={() => window.print()}
+                    className="bg-orange-600 hover:bg-orange-700 text-white font-black h-12 rounded-2xl px-6 gap-2 w-full sm:w-auto shadow-xl shadow-orange-900/10"
+                  >
+                    <Printer className="w-4 h-4" /> Print / Pakua PDF (Zote)
+                  </Button>
                 </div>
               </div>
+
+              {(() => {
+                const ticketSeats = order.selectedSeats || (order.items && order.items[0]?.selectedSeats) || [];
+                const passengersList = order.passengers && order.passengers.length > 0 
+                  ? order.passengers 
+                  : ticketSeats.map((seatNum: string, idx: number) => ({
+                      fullName: idx === 0 ? (order.customerName || "Abiria") : `Abiria wa ziada (Kiti ${seatNum})`,
+                      seat: seatNum,
+                      age: '',
+                      gender: 'male',
+                      nationality: 'Tanzanian'
+                    }));
+
+                return passengersList.map((passenger: any, pIdx: number) => {
+                  const cardId = `passenger-ticket-card-${passenger.seat}`;
+                  const tc = selectedVendorProfile?.ticketConfig || { bgPreset: 'classic-purple' };
+                  const colors = getPresetColors(tc.bgPreset, tc.primaryColor, tc.secondaryColor);
+                  const ticketNumber = `${selectedOrder.id?.slice(-8).toUpperCase()}-${passenger.seat}`;
+                  
+                  return (
+                    <div 
+                      key={`passenger-card-item-${pIdx}`} 
+                      className="bg-white dark:bg-neutral-950 p-4 rounded-[2.5rem] border border-neutral-100 dark:border-neutral-850 shadow-lg space-y-4 print:p-0 print:border-none print:shadow-none print:bg-white print:break-after-page"
+                      style={{ pageBreakAfter: 'always', pageBreakInside: 'avoid' }}
+                    >
+                      <div className="flex items-center justify-between px-4 print:hidden">
+                        <span className="text-[10px] bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 font-black px-3 py-1 rounded-full uppercase">
+                          👤 Msafiri {pIdx + 1} • Kiti: {passenger.seat} {passenger.age ? `• Umri: ${passenger.age}` : ''}
+                        </span>
+                      </div>
+
+                      <div 
+                        id={cardId} 
+                        className="border border-neutral-805 p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden text-white"
+                        style={{ background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.secondary} 100%)` }}
+                      >
+                        {/* Background watermark overlay */}
+                        {tc.watermarkIcon !== 'none' && (
+                          <div className="absolute -right-8 -bottom-8 opacity-10 pointer-events-none select-none">
+                            {tc.watermarkIcon === 'bus' && <Bus className="w-80 h-80" />}
+                            {tc.watermarkIcon === 'shield' && <CheckCircle2 className="w-80 h-80" />}
+                            {tc.watermarkIcon === 'ticket' && <Ticket className="w-80 h-80" />}
+                            {tc.watermarkIcon === 'star' && <Package className="w-80 h-80" />}
+                            {tc.watermarkIcon === 'globe' && <Navigation className="w-80 h-80" />}
+                          </div>
+                        )}
+
+                        <div className="flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-dashed divide-white/20">
+                          {/* Left: Main Ticket Body */}
+                          <div className="flex-1 lg:pr-8 pb-6 lg:pb-0 space-y-6">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="w-2.5 h-2.5 rounded-full bg-orange-500 animate-pulse" />
+                                  <h3 className="text-xs font-black text-white/90 uppercase tracking-widest">{order.vendorName || "KILIMANJARO EXPRESS"}</h3>
+                                </div>
+                                <h2 className="text-xl lg:text-2xl font-black uppercase italic tracking-tighter mt-1 text-white">TIKETI YA SAFARI YA MIKOA</h2>
+                                <span className="text-[9px] font-mono text-white/60 uppercase">Tanzania Intercity Passenger Ticket</span>
+                              </div>
+                              
+                              <div className="text-right">
+                                <span className="text-[10px] font-bold text-white/70 uppercase">Ticket Number</span>
+                                <div className="text-lg font-mono font-black text-amber-300">#{ticketNumber}</div>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-y-4 gap-x-6 p-4 bg-black/30 rounded-3xl border border-white/10">
+                              <div>
+                                <span className="text-[9px] font-black text-white/50 uppercase">Jina la Abiria</span>
+                                <p className="text-xs font-bold text-white leading-tight uppercase">{passenger.fullName || "Abiria"}</p>
+                              </div>
+                              <div>
+                                <span className="text-[9px] font-black text-white/50 uppercase">Namba ya Simu</span>
+                                <p className="text-xs font-mono font-bold text-white leading-tight">{order.customerPhone || "-"}</p>
+                              </div>
+                              <div>
+                                <span className="text-[9px] font-black text-white/50 uppercase">Namba ya Basi</span>
+                                <p className="text-xs font-bold text-white leading-tight">{(selectedOrder.items[0] as any)?.registration || "T 124 ABC"}</p>
+                              </div>
+                              <div>
+                                <span className="text-[9px] font-black text-white/50 uppercase">Darasa / Class</span>
+                                <p className="text-xs font-bold text-orange-200 leading-tight">{(selectedOrder.items[0] as any)?.class || "Luxury"}</p>
+                              </div>
+                              <div>
+                                <span className="text-[9px] font-black text-white/50 uppercase">Njia / Route</span>
+                                <p className="text-xs font-bold text-white leading-tight">
+                                  {(selectedOrder.items[0] as any)?.origin || "Kutoka"} ➔ {(selectedOrder.items[0] as any)?.destination || "Kwenda"}
+                                </p>
+                              </div>
+                              <div>
+                                <span className="text-[9px] font-black text-white/50 uppercase">Kiti / Seat Number</span>
+                                <p className="text-xs font-mono font-black text-orange-300 leading-tight">
+                                  #{passenger.seat}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                              <div className="p-3 bg-black/40 rounded-2xl border border-white/5 text-center">
+                                <span className="text-[8px] font-black text-white/50 uppercase">Tarehe ya Safari</span>
+                                <p className="text-xs font-black text-white mt-0.5">{(selectedOrder.items[0] as any)?.departureDate || "Leo"}</p>
+                              </div>
+                              <div className="p-3 bg-black/40 rounded-2xl border border-white/5 text-center">
+                                <span className="text-[8px] font-black text-white/50 uppercase">Saa ya Safari</span>
+                                <p className="text-xs font-black text-white mt-0.5">{(selectedOrder.items[0] as any)?.departureTime || "06:00 AM"}</p>
+                              </div>
+                              <div className="p-3 bg-black/40 rounded-2xl border border-white/5 text-center">
+                                <span className="text-[8px] font-black text-white/50 uppercase">Boarding Point</span>
+                                <p className="text-xs font-black text-white mt-0.5">{(selectedOrder.items[0] as any)?.boardingPoint || "Main Terminal"}</p>
+                              </div>
+                              <div className="p-3 bg-black/40 rounded-2xl border border-white/5 text-center">
+                                <span className="text-[8px] font-black text-white/50 uppercase">Nauli / Total Fare</span>
+                                <p className="text-xs font-black text-orange-200 mt-0.5">TZS {(selectedOrder.totalAmount / passengersList.length).toLocaleString()}</p>
+                              </div>
+                            </div>
+
+                            <div className="pt-4 flex justify-between items-center text-[10px] text-white/70 border-t border-white/10">
+                              <div>
+                                Status ya Tiketi: <span className={`font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${['delivered', 'completed', 'used'].includes(selectedOrder.status) ? 'bg-red-900/40 text-red-350' : 'bg-green-900/40 text-green-300'}`}>
+                                  {['delivered', 'completed', 'used'].includes(selectedOrder.status) ? 'USED / IMEKATWA' : 'VALID / HAIJAKATWA'}
+                                </span>
+                              </div>
+                              <p className="text-[8px] italic text-white/50 font-bold">Inamilikiwa na Simba-Pay Ticketing Engine © 2026</p>
+                            </div>
+                          </div>
+
+                          {/* Right: Passenger Stub */}
+                          <div className="lg:w-72 lg:pl-8 pt-6 lg:pt-0 flex flex-col justify-between items-center space-y-6">
+                            <div className="text-center w-full">
+                              <span className="text-[9px] font-black text-white/50 uppercase tracking-widest">Kipande cha Abiria</span>
+                              <h4 className="text-sm font-black text-white uppercase italic tracking-tighter">PASSENGER STUB</h4>
+                              <div className="mt-2 border border-dashed border-white/10 p-2 rounded-2xl bg-white w-[130px] h-[130px] mx-auto flex items-center justify-center select-none">
+                                <img 
+                                  src={`https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${ticketNumber}`} 
+                                  alt="Ticket QR Code" 
+                                  referrerPolicy="no-referrer"
+                                  className="w-full h-full animate-fade-in"
+                                />
+                              </div>
+                              <p className="text-[8px] text-white/60 font-mono mt-1">Scan boarding QR Code</p>
+                            </div>
+
+                            <div className="w-full space-y-2 p-3 bg-black/30 rounded-2xl border border-white/10 text-xs text-white/80">
+                              <div className="flex justify-between">
+                                <span className="text-[8px] font-bold text-white/50 uppercase">Abiria:</span>
+                                <span className="font-bold text-white truncate max-w-[120px] uppercase">{passenger.fullName || "Abiria"}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-[8px] font-bold text-white/50 uppercase">Safari:</span>
+                                <span className="font-bold text-white truncate max-w-[120px]">{(selectedOrder.items[0] as any)?.origin || "Kutoka"} - {(selectedOrder.items[0] as any)?.destination || "Kwenda"}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-[8px] font-bold text-white/50 uppercase">Tarehe / Kiti:</span>
+                                <span className="font-bold text-white">
+                                  {(selectedOrder.items[0] as any)?.departureDate || "Leo"} | #{passenger.seat}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="w-full flex gap-2 print:hidden justify-center mt-4 text-[10px]">
+                              <Button 
+                                onClick={() => handleDownloadTicket(cardId)}
+                                disabled={downloading}
+                                className="bg-orange-600 hover:bg-orange-700 h-10 px-3 rounded-xl font-black uppercase tracking-wider text-white flex-1 flex items-center justify-center gap-1.5 shadow-md shadow-orange-950/20"
+                              >
+                                {downloading ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
+                                ) : (
+                                  <Download className="w-3.5 h-3.5 text-white" />
+                                )}
+                                Pakua PNG
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Terms and rules customized by the vendor */}
+                        <div className="mt-4 pt-3 border-t border-white/15 flex flex-col sm:flex-row justify-between items-center text-[8px] font-bold text-white/70 tracking-wider gap-2">
+                          <p className="uppercase truncate max-w-[400px]">
+                            {tc.rulesText || '⚠️ HAKUNA KURUDISHA NAULI • MASHARTS YANAZINGATIWA • KUPITIA PAPO HAPO'}
+                          </p>
+                          <span>Msaada wa Wateja: {selectedVendorProfile?.phoneNumber || '+255 711 123 456'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

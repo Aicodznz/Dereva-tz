@@ -88,6 +88,13 @@ export interface VendorProfile {
   };
   country?: string;
   city?: string;
+  ticketConfig?: {
+    bgPreset: string;
+    primaryColor?: string;
+    secondaryColor?: string;
+    watermarkIcon?: 'none' | 'bus' | 'shield' | 'ticket' | 'star' | 'globe' | string;
+    rulesText?: string;
+  };
 }
 
 export interface Product {

@@ -662,7 +662,15 @@ export default function VendorDashboard() {
         orderInstructions: vendorProfile.orderInstructions || '',
         hotelStatus: vendorProfile.hotelStatus || 'Available',
         numberOfRooms: vendorProfile.numberOfRooms || 0,
-        roomPricing: vendorProfile.roomPricing || { single: 0, double: 0, vip: 0 }
+        roomPricing: vendorProfile.roomPricing || { single: 0, double: 0, vip: 0 },
+        socialLinks: vendorProfile.socialLinks || {},
+        ticketConfig: vendorProfile.ticketConfig || {
+          bgPreset: 'classic-purple',
+          primaryColor: '#7c3aed',
+          secondaryColor: '#d946ef',
+          watermarkIcon: 'bus',
+          rulesText: '⚠️ HAKUNA KURUDISHA NAULI • MASHARTS YANAZINGATIWA • KUPITIA PAPO HAPO'
+        }
       });
     }
   }, [vendorProfile]);
@@ -4985,6 +4993,130 @@ export default function VendorDashboard() {
                            />
                         </div>
                       </div>
+                    </Card>
+
+                    {/* CUSTOM TICKET APPEARANCE AND BRANDING & RULES SECTION */}
+                    <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 rounded-[2.5rem] overflow-hidden p-8 space-y-6 transition-colors">
+                      <div className="flex items-center gap-4 text-orange-600">
+                        <Palette className="w-6 h-6" />
+                        <div>
+                          <h3 className="font-black text-xl text-neutral-900 dark:text-white transition-colors">Muonekano wa Tiketi za Abiria</h3>
+                          <p className="text-[10px] text-neutral-500 font-medium">Buni na weka staili maalum ya rangi, nembo, na herufi za tiketi mteja anazopakua au kuchapa.</p>
+                        </div>
+                      </div>
+
+                      {(() => {
+                        const tc = updatedProfile.ticketConfig || {
+                          bgPreset: 'classic-purple',
+                          primaryColor: '#7c3aed',
+                          secondaryColor: '#d946ef',
+                          watermarkIcon: 'bus',
+                          rulesText: '⚠️ HAKUNA KURUDISHA NAULI • MASHARTS YANAZINGATIWA • KUPITIA PAPO HAPO'
+                        };
+
+                        const setTC = (newTc: any) => {
+                          setUpdatedProfile({
+                            ...updatedProfile,
+                            ticketConfig: { ...tc, ...newTc }
+                          });
+                        };
+
+                        return (
+                          <div className="space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              {/* Background Preset select */}
+                              <div className="space-y-2">
+                                <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Rangi & Mavazi ya Tiketi (Theme Preset)</label>
+                                <select
+                                  value={tc.bgPreset}
+                                  onChange={e => setTC({ bgPreset: e.target.value })}
+                                  className="w-full bg-neutral-100 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 h-14 rounded-2xl text-sm font-medium px-4 focus:ring-2 focus:ring-orange-500"
+                                >
+                                  <option value="classic-purple">Royal Purple (Classic)</option>
+                                  <option value="midnight-ocean">Midnight Ocean (Sky Blue)</option>
+                                  <option value="emerald-luxe">Emerald Luxe (Green/Teal)</option>
+                                  <option value="sunset-glow">Sunset Glow (Orange/Yellow)</option>
+                                  <option value="charcoal-gold">Charcoal Gold (Black/Amber)</option>
+                                  <option value="royal-crimson">Royal Crimson (Red/Pink)</option>
+                                  <option value="custom">Custom Hex (Customize Below)</option>
+                                </select>
+                              </div>
+
+                              {/* Watermark Selector */}
+                              <div className="space-y-2">
+                                <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Alama ya Alama-maji (Watermark Logo)</label>
+                                <select
+                                  value={tc.watermarkIcon}
+                                  onChange={e => setTC({ watermarkIcon: e.target.value })}
+                                  className="w-full bg-neutral-100 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 h-14 rounded-2xl text-sm font-medium px-4 focus:ring-2 focus:ring-orange-500"
+                                >
+                                  <option value="bus">Bus Icon (🚌)</option>
+                                  <option value="shield">Shield Verified (🛡️)</option>
+                                  <option value="ticket">Ticket Stub (🎟️)</option>
+                                  <option value="star">Star Banner (⭐)</option>
+                                  <option value="globe">Globe Navigation (🌐)</option>
+                                  <option value="none">Empty / Bila Alama</option>
+                                </select>
+                              </div>
+                            </div>
+
+                            {/* Color customization if bgPreset === 'custom' */}
+                            {tc.bgPreset === 'custom' && (
+                              <div className="p-5 bg-neutral-50 dark:bg-neutral-950 rounded-3xl border border-neutral-150 dark:border-neutral-800/40 space-y-4">
+                                <span className="text-[10px] font-black text-orange-600 uppercase tracking-widest">Customize Hex Gradients</span>
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="space-y-2">
+                                    <label className="text-[10px] font-bold text-neutral-500 block">Rangi ya Kwanza (Primary Col)</label>
+                                    <div className="flex gap-2">
+                                      <input 
+                                        type="color" 
+                                        value={tc.primaryColor || '#7c3aed'} 
+                                        onChange={e => setTC({ primaryColor: e.target.value })}
+                                        className="w-10 h-10 rounded-xl cursor-pointer bg-transparent border-0"
+                                      />
+                                      <input 
+                                        type="text" 
+                                        value={tc.primaryColor || '#7c3aed'} 
+                                        onChange={e => setTC({ primaryColor: e.target.value })}
+                                        className="flex-1 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl px-3 text-sm font-semibold h-10 uppercase font-mono"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <label className="text-[10px] font-bold text-neutral-500 block">Rangi ya Pili (Secondary Col)</label>
+                                    <div className="flex gap-2">
+                                      <input 
+                                        type="color" 
+                                        value={tc.secondaryColor || '#d946ef'} 
+                                        onChange={e => setTC({ secondaryColor: e.target.value })}
+                                        className="w-10 h-10 rounded-xl cursor-pointer bg-transparent border-0"
+                                      />
+                                      <input 
+                                        type="text" 
+                                        value={tc.secondaryColor || '#d946ef'} 
+                                        onChange={e => setTC({ secondaryColor: e.target.value })}
+                                        className="flex-1 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl px-3 text-sm font-semibold h-10 uppercase font-mono"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Ticket Rules/T&C */}
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Masharti ya tiketi chini (Ticket Terms Footer)</label>
+                              <Input
+                                value={tc.rulesText}
+                                onChange={e => setTC({ rulesText: e.target.value })}
+                                className="bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 h-14 rounded-2xl text-sm font-medium"
+                                placeholder="Mfano: ⚠️ HAKUNA KURUDISHA NAULI • MASHARTS YANAZINGATIWA"
+                              />
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </Card>
 
                     <Card className="bg-red-500/5 border-red-500/10 rounded-[2.5rem] overflow-hidden p-8 space-y-6">

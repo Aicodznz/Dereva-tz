@@ -288,6 +288,7 @@ export default function MabasiMaarufuFlow({ product, vendor, onBackToTripSelecti
           destination: destination
         }],
         selectedSeats: selectedSeats,
+        passengers: passengers, // Save passengers details!
         departureDate: travelDate,
         type: 'bus_ticket',
         orderType: 'booking', // represented as Booking
