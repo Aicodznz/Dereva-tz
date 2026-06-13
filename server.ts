@@ -399,8 +399,8 @@ async function startServer() {
          const parts = pair.split(",");
          return [parseFloat(parts[0]), parseFloat(parts[1])]; // [lng, lat]
       });
-    } catch (e) {
-      console.warn("[Proxy] Failed to parse coords pairs:", e);
+    } catch (e: any) {
+      console.log("[Proxy] Info: Parsing coords pair skipped:", e?.message || e);
     }
 
     if (coordsPairs.length < 2) {
@@ -541,8 +541,8 @@ async function startServer() {
               return res.json(brouterFallbackData);
             }
           }
-        } catch (errBrouter) {
-          console.warn(`[Proxy] BRouter fallback failed too:`, errBrouter);
+        } catch (errBrouter: any) {
+          console.log(`[Proxy] Info: BRouter fallback not active or timed out (${errBrouter?.message || errBrouter})`);
         }
       }
 
@@ -559,8 +559,8 @@ async function startServer() {
           console.log(`[Proxy] Secondary Profile OSRM success: ${winner.source}`);
           routeCache.set(cacheKey, winner.data);
           return res.json(winner.data);
-        } catch (errAlt) {
-          console.warn(`[Proxy] Secondary profiles failed:`, errAlt);
+        } catch (errAlt: any) {
+          console.log(`[Proxy] Info: Secondary profiles not active or timed out (${errAlt?.message || errAlt})`);
         }
       }
 
