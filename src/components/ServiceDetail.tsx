@@ -212,12 +212,23 @@ export default function ServiceDetail() {
             <h1 className="text-xl font-black italic uppercase tracking-tighter">
               {t(config.labelKey) || config.labelKey}
             </h1>
-            <p className="text-[10px] uppercase font-bold text-neutral-400 tracking-widest">
-              {id === 'all-stores' 
-                ? `Explore our complete collection of ${vendors.length} Stores`
-                : `${vendors.length} Businesses • ${matchedProducts.length} Items`
-              }
-            </p>
+            {id === 'saluni' ? (
+              (selectedSubCategory || showAllSalonOnce) ? (
+                <p className="text-[10px] uppercase font-bold text-pink-600 tracking-widest animate-fade-in">
+                  {selectedSubCategory 
+                    ? `${SALON_SUB_CATEGORIES.find(s => s.id === selectedSubCategory)?.label || ''}: ${filteredVendors.length} Saluni` 
+                    : `Saluni Zote: ${filteredVendors.length} Saluni`
+                  }
+                </p>
+              ) : null
+            ) : (
+              <p className="text-[10px] uppercase font-bold text-neutral-400 tracking-widest">
+                {id === 'all-stores' 
+                  ? `Explore our complete collection of ${vendors.length} Stores`
+                  : `${vendors.length} Businesses • ${matchedProducts.length} Items`
+                }
+              </p>
+            )}
           </div>
         </div>
         {config.category === 'bus_ticket' ? (
