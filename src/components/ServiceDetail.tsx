@@ -200,61 +200,81 @@ export default function ServiceDetail() {
   return (
     <div className="pb-20 space-y-4 px-1 sm:px-4">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md pt-4 pb-2 -mx-1 px-2 mb-4 border-b border-neutral-100 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={() => navigate(-1)}
-            className="p-2 hover:bg-neutral-100 rounded-full transition-colors"
-          >
-            <ChevronLeft className="w-6 h-6" />
-          </button>
-          <div>
-            <h1 className="text-xl font-black italic uppercase tracking-tighter">
-              {t(config.labelKey) || config.labelKey}
-            </h1>
-            {id === 'saluni' ? (
-              (selectedSubCategory || showAllSalonOnce) ? (
-                <p className="text-[10px] uppercase font-bold text-pink-600 tracking-widest animate-fade-in">
-                  {selectedSubCategory 
-                    ? `${SALON_SUB_CATEGORIES.find(s => s.id === selectedSubCategory)?.label || ''}: ${filteredVendors.length} Saluni` 
-                    : `Saluni Zote: ${filteredVendors.length} Saluni`
+      {!(id === 'saluni' && !selectedSubCategory && !showAllSalonOnce) && (
+        <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md pt-4 pb-2 -mx-1 px-2 mb-4 border-b border-neutral-100 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => {
+                if (id === 'saluni' && (selectedSubCategory || showAllSalonOnce)) {
+                  setSelectedSubCategory(null);
+                  setShowAllSalonOnce(false);
+                } else {
+                  navigate(-1);
+                }
+              }}
+              className="p-2 hover:bg-neutral-100 rounded-full transition-colors"
+            >
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+            <div>
+              <h1 className="text-xl font-black italic uppercase tracking-tighter">
+                {t(config.labelKey) || config.labelKey}
+              </h1>
+              {id === 'saluni' ? (
+                (selectedSubCategory || showAllSalonOnce) ? (
+                  <p className="text-[10px] uppercase font-bold text-pink-600 tracking-widest animate-fade-in">
+                    {selectedSubCategory 
+                      ? `${SALON_SUB_CATEGORIES.find(s => s.id === selectedSubCategory)?.label || ''}: ${filteredVendors.length} Saluni` 
+                      : `Saluni Zote: ${filteredVendors.length} Saluni`
+                    }
+                  </p>
+                ) : null
+              ) : (
+                <p className="text-[10px] uppercase font-bold text-neutral-400 tracking-widest">
+                  {id === 'all-stores' 
+                    ? `Explore our complete collection of ${vendors.length} Stores`
+                    : `${vendors.length} Businesses • ${matchedProducts.length} Items`
                   }
                 </p>
-              ) : null
-            ) : (
-              <p className="text-[10px] uppercase font-bold text-neutral-400 tracking-widest">
-                {id === 'all-stores' 
-                  ? `Explore our complete collection of ${vendors.length} Stores`
-                  : `${vendors.length} Businesses • ${matchedProducts.length} Items`
-                }
-              </p>
-            )}
-          </div>
-        </div>
-        {config.category === 'bus_ticket' ? (
-          <button 
-            id="btn-tiketi-zangu"
-            onClick={() => navigate('/my-orders')}
-            className={`p-2.5 px-3.5 rounded-2xl text-white shadow-lg ${config.color} hover:brightness-110 active:scale-95 transition-all flex items-center gap-2 cursor-pointer border border-white/20`}
-            title="Angalia Tiketi Zangu / View My Tickets"
-          >
-            <div className="flex flex-col items-end text-right leading-none">
-              <span className="text-[8px] font-black uppercase tracking-widest text-orange-200 opacity-90">Tiketi</span>
-              <span className="text-[11px] font-black uppercase italic tracking-tight text-white">Zangu</span>
+              )}
             </div>
-            <config.icon className="w-5 h-5" />
-          </button>
-        ) : (
-          <div className={`p-3 rounded-2xl text-white shadow-lg ${config.color}`}>
-            <config.icon className="w-6 h-6" />
           </div>
-        )}
-      </div>
+          {config.category === 'bus_ticket' ? (
+            <button 
+              id="btn-tiketi-zangu"
+              onClick={() => navigate('/my-orders')}
+              className={`p-2.5 px-3.5 rounded-2xl text-white shadow-lg ${config.color} hover:brightness-110 active:scale-95 transition-all flex items-center gap-2 cursor-pointer border border-white/20`}
+              title="Angalia Tiketi Zangu / View My Tickets"
+            >
+              <div className="flex flex-col items-end text-right leading-none">
+                <span className="text-[8px] font-black uppercase tracking-widest text-orange-200 opacity-90">Tiketi</span>
+                <span className="text-[11px] font-black uppercase italic tracking-tight text-white">Zangu</span>
+              </div>
+              <config.icon className="w-5 h-5" />
+            </button>
+          ) : (
+            <div className={`p-3 rounded-2xl text-white shadow-lg ${config.color}`}>
+              <config.icon className="w-6 h-6" />
+            </div>
+          )}
+        </div>
+      )}
 
       {config.category === 'bus_ticket' ? (
         <BusBooking vendors={vendors} products={matchedProducts} />
       ) : id === 'saluni' && !selectedSubCategory && !showAllSalonOnce ? (
         <div className="flex flex-col items-center justify-center py-6 px-3 text-center space-y-6 animate-fade-in font-sans">
+          {/* Top Custom Back to Dashboard button */}
+          <div className="w-full flex justify-start mb-2 px-1">
+            <button
+              onClick={() => navigate(-1)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-900 dark:hover:bg-neutral-805 text-neutral-800 dark:text-neutral-200 font-black text-xs uppercase tracking-widest transition-all active:scale-95 duration-200 shadow-sm"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span>Rudi Nyumbani</span>
+            </button>
+          </div>
+
           <div className="space-y-2 mt-4 animate-in fade-in slide-in-from-top-4 duration-500">
             <span className="text-pink-600 font-extrabold text-xs uppercase tracking-widest block font-display">Welcome</span>
             <h2 className="text-2xl min-[400px]:text-3xl font-black text-neutral-900 dark:text-white tracking-tight uppercase italic leading-none">
