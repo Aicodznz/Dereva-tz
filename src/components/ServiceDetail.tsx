@@ -200,7 +200,7 @@ export default function ServiceDetail() {
   return (
     <div className="pb-20 space-y-4 px-1 sm:px-4">
       {/* Header */}
-      {!(id === 'saluni' && !selectedSubCategory && !showAllSalonOnce) && (
+      {id !== 'saluni' && (
         <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md pt-4 pb-2 -mx-1 px-2 mb-4 border-b border-neutral-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button 
@@ -335,7 +335,17 @@ export default function ServiceDetail() {
         <>
           {/* Salon Horizontal Sub-category Switcher */}
           {id === 'saluni' && (selectedSubCategory || showAllSalonOnce) && (
-            <div className="flex gap-2 items-center overflow-x-auto pb-4 pt-1 -mx-1 px-1 scrollbar-none sticky top-[4.5rem] z-20 bg-white/95 dark:bg-neutral-950/95 backdrop-blur-md">
+            <div className="flex gap-2 items-center overflow-x-auto pb-4 pt-1 -mx-1 px-1 scrollbar-none sticky top-0 z-20 bg-white/95 dark:bg-neutral-950/95 backdrop-blur-md">
+              <button
+                onClick={() => {
+                  setSelectedSubCategory(null);
+                  setShowAllSalonOnce(false);
+                }}
+                className="px-4 py-2.5 rounded-full text-xs font-black uppercase tracking-wider transition-all duration-300 flex items-center gap-1.5 whitespace-nowrap border bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-900 border-neutral-200 dark:border-white/5 text-neutral-800 dark:text-neutral-200 active:scale-95 duration-200"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                <span>Rudi nyuma</span>
+              </button>
               <button
                 onClick={() => {
                   setSelectedSubCategory(null);
