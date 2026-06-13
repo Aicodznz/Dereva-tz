@@ -654,9 +654,10 @@ export default function TaxiBooking() {
 
   const handleCurrentLocation = async (isInitial = false) => {
     let fallbackCalled = false;
+    let gpsResolved = false;
     
     const triggerIpFallback = async () => {
-      if (fallbackCalled) return;
+      if (gpsResolved || fallbackCalled) return;
       fallbackCalled = true;
       console.log("[TaxiBooking] Attempting IP-based geolocation fallback...");
       
@@ -676,7 +677,9 @@ export default function TaxiBooking() {
             } else {
               setPickup(getNearestPopularPlace(lat, lng));
             }
-            toast.success(`Eneo lako limetambuliwa kiotomatiki (${ipData.cityName || 'Karibu nawe'}) 📍`);
+            if (!isInitial) {
+              toast.success(`Eneo lako limetambuliwa (${ipData.cityName || 'Karibu nawe'}) 📍`);
+            }
             return;
           }
         }
@@ -700,7 +703,9 @@ export default function TaxiBooking() {
             } else {
               setPickup(getNearestPopularPlace(lat, lng));
             }
-            toast.success(`Eneo lako limetambuliwa kiotomatiki (${ipData.city || 'Karibu nawe'}) 📍`);
+            if (!isInitial) {
+              toast.success(`Eneo lako limetambuliwa (${ipData.city || 'Karibu nawe'}) 📍`);
+            }
             return;
           }
         }
@@ -724,7 +729,9 @@ export default function TaxiBooking() {
             } else {
               setPickup(getNearestPopularPlace(lat, lng));
             }
-            toast.success(`Eneo lako limetambuliwa kiotomatiki (${ipData.city || 'Karibu nawe'}) 📍`);
+            if (!isInitial) {
+              toast.success(`Eneo lako limetambuliwa (${ipData.city || 'Karibu nawe'}) 📍`);
+            }
             return;
           }
         }
@@ -751,13 +758,22 @@ export default function TaxiBooking() {
     };
 
     if ("geolocation" in navigator) {
-      const timer = setTimeout(() => {
-        triggerIpFallback();
-      }, 4000);
+      let timer: any = null;
+      if (isInitial) {
+        // Non-blocking timer to guarantee rapid interface initialization on slow mobile connections
+        timer = setTimeout(() => {
+          triggerIpFallback();
+        }, 3500);
+      } else {
+        toast.loading("Inatafuta mahali ulipo sahihi kwa GPS... 📡", { id: "gps-loading" });
+      }
 
       navigator.geolocation.getCurrentPosition(
         async (position) => {
-          clearTimeout(timer);
+          gpsResolved = true;
+          if (timer) clearTimeout(timer);
+          if (!isInitial) toast.dismiss("gps-loading");
+          
           const lat = position.coords.latitude;
           const lng = position.coords.longitude;
           if (lat && lng) {
@@ -769,21 +785,47 @@ export default function TaxiBooking() {
             } else {
               setPickup(getNearestPopularPlace(lat, lng));
             }
-            if (isInTanzania(lat, lng)) {
-              toast.success("Eneo lako la sasa limepatikana kupitia GPS! 📍");
-            } else {
-              toast.success("Eneo lako la sasa limepatikana! 📍");
-            }
+            toast.success("Eneo lako la sasa limepatikana kupitia GPS! 📍");
           } else {
             await triggerIpFallback();
           }
         },
         async (error) => {
-          clearTimeout(timer);
-          console.error("Geolocation error:", error);
-          await triggerIpFallback();
+          console.warn("High accuracy GPS timed out, attempting fast cellular triangulation...", error);
+          
+          // Fall back gracefully to low-accuracy cellular/WiFi position (extremely fast indoors)
+          navigator.geolocation.getCurrentPosition(
+            async (positionLow) => {
+              gpsResolved = true;
+              if (timer) clearTimeout(timer);
+              if (!isInitial) toast.dismiss("gps-loading");
+              
+              const lat = positionLow.coords.latitude;
+              const lng = positionLow.coords.longitude;
+              if (lat && lng) {
+                setPickupPos([lat, lng]);
+                setSettingMode("pickup");
+                const addr = await reverseGeocode(lat, lng);
+                if (addr && addr !== "Unknown Area" && addr !== "Eneo Halijapatikana" && addr !== "Unknown Location") {
+                  setPickup(addr);
+                } else {
+                  setPickup(getNearestPopularPlace(lat, lng));
+                }
+                toast.success("Eneo lako limegunduliwa! 📍");
+              } else {
+                await triggerIpFallback();
+              }
+            },
+            async (errorLow) => {
+              if (timer) clearTimeout(timer);
+              if (!isInitial) toast.dismiss("gps-loading");
+              console.error("Triangulation failed, falling back to IP:", errorLow);
+              await triggerIpFallback();
+            },
+            { enableHighAccuracy: false, timeout: 6000, maximumAge: 60000 }
+          );
         },
-        { enableHighAccuracy: true, timeout: 5000, maximumAge: 300000 },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 },
       );
     } else {
       triggerIpFallback();
