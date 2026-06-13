@@ -8,7 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
   ChevronLeft, Star, Search, Filter, MapPin, ChevronRight,
-  Utensils, ShoppingCart, Pill, Package, Car, Scissors, Hotel, ShoppingBag, Bus, Plus 
+  Utensils, ShoppingCart, Pill, Package, Car, Scissors, Hotel, ShoppingBag, Bus, Plus,
+  Sparkles, Flower, Droplet, User, Smile
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage } from '../LanguageContext';
@@ -29,6 +30,24 @@ const serviceMapping: Record<string, { category: VendorCategory, labelKey: strin
   'all-stores': { category: 'all' as any, labelKey: 'all_stores', icon: ShoppingBag, color: 'bg-orange-600' },
 };
 
+const SALON_SUB_CATEGORIES = [
+  { id: 'hair', label: 'Saluni ya Nywele', subLabel: 'Hair salons', icon: Scissors, color: 'text-pink-600', border: 'border-pink-200 hover:border-pink-500 bg-pink-50/20 dark:bg-pink-950/10 dark:border-pink-900/30', iconBg: 'bg-pink-100 dark:bg-pink-900/30' },
+  { id: 'nails', label: 'Matunzo ya Kucha', subLabel: 'Nail salons', icon: Sparkles, color: 'text-amber-600', border: 'border-amber-200 hover:border-amber-500 bg-amber-50/20 dark:bg-amber-950/10 dark:border-amber-900/30', iconBg: 'bg-amber-100 dark:bg-amber-900/30' },
+  { id: 'makeup', label: 'Urembo na Makeup', subLabel: 'Makeup', icon: Smile, color: 'text-rose-600', border: 'border-rose-200 hover:border-rose-500 bg-rose-50/20 dark:bg-rose-950/10 dark:border-rose-900/30', iconBg: 'bg-rose-100 dark:bg-rose-900/30' },
+  { id: 'skin', label: 'Matunzo ya Ngozi', subLabel: 'Skin care', icon: Droplet, color: 'text-emerald-500', border: 'border-emerald-200 hover:border-emerald-500 bg-emerald-50/20 dark:bg-emerald-950/10 dark:border-emerald-900/30', iconBg: 'bg-emerald-100 dark:bg-emerald-900/30' },
+  { id: 'spa', label: 'Spa na Massage', subLabel: 'Spa', icon: Flower, color: 'text-teal-600', border: 'border-teal-200 hover:border-teal-500 bg-teal-50/20 dark:bg-teal-950/10 dark:border-teal-900/30', iconBg: 'bg-teal-100 dark:bg-teal-900/30' },
+  { id: 'body', label: 'Urembo wa Mwili', subLabel: 'Body beauty', icon: User, color: 'text-indigo-600', border: 'border-indigo-200 hover:border-indigo-500 bg-indigo-50/20 dark:bg-indigo-950/10 dark:border-indigo-900/30', iconBg: 'bg-indigo-100 dark:bg-indigo-900/30' }
+];
+
+const subCategoryKeywords: Record<string, string[]> = {
+  hair: ['hair', 'nywele', 'kinyozi', 'shave', 'cut', 'style', 'kusuka', 'weaving', 'braids', 'piko', 'wig', 'dreadlocks'],
+  nails: ['nail', 'kucha', 'manicure', 'pedicure', 'polish', 'gel', 'acrylic', 'tips'],
+  makeup: ['makeup', 'urembo', 'eyebrow', 'eyelash', 'foundation', 'wanja', 'poda', 'makeup', 'lipstick', 'mascara'],
+  skin: ['skin', 'ngozi', 'facial', 'scrub', 'mask', 'acne', 'cleansing', 'lotion', 'face wash'],
+  spa: ['spa', 'massage', 'relax', 'arotherapy', 'body massage', 'therapist', 'steam'],
+  body: ['body', 'mwili', 'wax', 'waxing', 'tattoo', 'piercing', 'henna', 'body scrub']
+};
+
 export default function ServiceDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -37,6 +56,8 @@ export default function ServiceDetail() {
   const [vendors, setVendors] = useState<VendorProfile[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [viewMode, setViewMode] = useState<'products' | 'vendors'>(id === 'all-stores' ? 'vendors' : 'products');
+  const [selectedSubCategory, setSelectedSubCategory] = useState<string | null>(null);
+  const [showAllSalonOnce, setShowAllSalonOnce] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [location] = useState(() => {
@@ -127,20 +148,54 @@ export default function ServiceDetail() {
     );
   }
 
-  const matchedProducts = products.filter(p => 
-    (config.category as any) === 'all' ||
-    p.vendorCategory === config.category || 
-    vendors.some(v => v.id === p.vendorId)
-  );
+  const matchedProducts = products.filter(p => {
+    const isSalon = p.vendorCategory === 'salon' || p.category === 'salon' || vendors.some(v => v.id === p.vendorId);
+    if (config.category === 'salon') {
+      if (!isSalon) return false;
+      if (selectedSubCategory) {
+        const keywords = subCategoryKeywords[selectedSubCategory] || [];
+        const matchesKeyword = keywords.some(kw => 
+          p.name.toLowerCase().includes(kw) || 
+          p.description.toLowerCase().includes(kw) || 
+          (p.category || '').toLowerCase().includes(kw)
+        );
+        return matchesKeyword;
+      }
+      return true;
+    }
+    return (
+      (config.category as any) === 'all' ||
+      p.vendorCategory === config.category || 
+      vendors.some(v => v.id === p.vendorId)
+    );
+  });
 
   const filteredProducts = matchedProducts.filter(p => 
     p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const filteredVendors = vendors.filter(v => 
-    v.businessName.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredVendors = vendors.filter(v => {
+    const matchesSearch = v.businessName.toLowerCase().includes(searchQuery.toLowerCase());
+    if (!matchesSearch) return false;
+    
+    if (config.category === 'salon' && selectedSubCategory) {
+      const keywords = subCategoryKeywords[selectedSubCategory] || [];
+      const hasMatchingProduct = products.some(p => 
+        p.vendorId === v.id && 
+        keywords.some(kw => 
+          p.name.toLowerCase().includes(kw) || 
+          (p.category || '').toLowerCase().includes(kw)
+        )
+      );
+      const matchesVendorText = keywords.some(kw => 
+        v.businessName.toLowerCase().includes(kw) || 
+        v.description.toLowerCase().includes(kw)
+      );
+      return hasMatchingProduct || matchesVendorText;
+    }
+    return true;
+  });
 
   return (
     <div className="pb-20 space-y-4 px-1 sm:px-4">
@@ -187,8 +242,106 @@ export default function ServiceDetail() {
 
       {config.category === 'bus_ticket' ? (
         <BusBooking vendors={vendors} products={matchedProducts} />
+      ) : id === 'saluni' && !selectedSubCategory && !showAllSalonOnce ? (
+        <div className="flex flex-col items-center justify-center py-6 px-3 text-center space-y-6 animate-fade-in font-sans">
+          <div className="space-y-2 mt-4 animate-in fade-in slide-in-from-top-4 duration-500">
+            <span className="text-pink-600 font-extrabold text-xs uppercase tracking-widest block font-display">Welcome</span>
+            <h2 className="text-2xl min-[400px]:text-3xl font-black text-neutral-900 dark:text-white tracking-tight uppercase italic leading-none">
+              What are you looking for?
+            </h2>
+            <p className="text-[10px] min-[400px]:text-xs text-neutral-500 max-w-sm mx-auto font-bold uppercase tracking-wide">
+              Chagua huduma unayotaka ili kupata wataalamu wa saluni karibu nawe
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 max-w-xl w-full">
+            {SALON_SUB_CATEGORIES.map((sub, i) => {
+              const IconComponent = sub.icon;
+              return (
+                <motion.button
+                  key={sub.id}
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.05 * i }}
+                  whileHover={{ y: -4, scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    setSelectedSubCategory(sub.id);
+                    setViewMode('vendors'); // Default to salons for the subcategory
+                  }}
+                  className={`p-4 min-[420px]:p-5 rounded-[2rem] border-2 bg-white dark:bg-neutral-900 transition-all flex flex-col items-center justify-center text-center space-y-3 shadow-sm min-h-[140px] h-full ${sub.border} group`}
+                >
+                  <div className={`p-3 rounded-2xl ${sub.iconBg} transition-transform group-hover:scale-110 duration-300`}>
+                    <IconComponent className={`w-6 h-6 ${sub.color}`} />
+                  </div>
+                  <div className="space-y-0.5">
+                    <h4 className="font-black text-xs min-[400px]:text-sm text-neutral-950 dark:text-white tracking-tight uppercase italic leading-none truncate w-full">
+                      {sub.label}
+                    </h4>
+                    <span className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider block">
+                      {sub.subLabel}
+                    </span>
+                  </div>
+                </motion.button>
+              );
+            })}
+          </div>
+
+          <div className="pt-2 animate-in fade-in duration-700">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowAllSalonOnce(true);
+                setViewMode('vendors');
+              }}
+              className="text-pink-600 border-pink-200 hover:bg-pink-50 hover:text-pink-700 font-extrabold text-xs uppercase tracking-widest gap-2 rounded-[20px] dark:border-pink-900/30 dark:hover:bg-pink-950/20"
+            >
+              Angalia Saluni Zote / View All Salons <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
       ) : (
         <>
+          {/* Salon Horizontal Sub-category Switcher */}
+          {id === 'saluni' && (selectedSubCategory || showAllSalonOnce) && (
+            <div className="flex gap-2 items-center overflow-x-auto pb-4 pt-1 -mx-1 px-1 scrollbar-none sticky top-[4.5rem] z-20 bg-white/95 dark:bg-neutral-950/95 backdrop-blur-md">
+              <button
+                onClick={() => {
+                  setSelectedSubCategory(null);
+                  setShowAllSalonOnce(true);
+                }}
+                className={`px-4 py-2.5 rounded-full text-xs font-black uppercase tracking-wider transition-all duration-300 whitespace-nowrap border ${
+                  !selectedSubCategory
+                    ? 'bg-pink-600 border-pink-600 text-white shadow-lg shadow-pink-600/20 font-black'
+                    : 'bg-neutral-50 border-neutral-200 dark:bg-neutral-900 dark:border-white/5 text-neutral-600 dark:text-neutral-400 hover:border-pink-500/50'
+                }`}
+              >
+                Zote (All Salons)
+              </button>
+              {SALON_SUB_CATEGORIES.map((sub) => {
+                const IconComponent = sub.icon;
+                const isSelected = selectedSubCategory === sub.id;
+                return (
+                  <button
+                    key={`switcher-${sub.id}`}
+                    onClick={() => {
+                      setSelectedSubCategory(sub.id);
+                      setShowAllSalonOnce(false);
+                    }}
+                    className={`px-4 py-2.5 rounded-full text-xs font-black uppercase tracking-wider transition-all duration-300 flex items-center gap-2 whitespace-nowrap border ${
+                      isSelected
+                        ? 'bg-pink-600 border-pink-600 text-white shadow-lg shadow-pink-600/20 font-black'
+                        : 'bg-neutral-50 border-neutral-200 dark:bg-neutral-900 dark:border-white/5 text-neutral-600 dark:text-neutral-400 hover:border-pink-500/50'
+                    }`}
+                  >
+                    <IconComponent className="w-3.5 h-3.5" />
+                    <span>{sub.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           {/* Search & Filter */}
           <div className="flex gap-2">
             <div className="relative flex-1">
@@ -196,7 +349,7 @@ export default function ServiceDetail() {
               <input 
                 type="text"
                 placeholder={t('search_placeholder') || "Search..."}
-                className="w-full h-11 pl-10 pr-4 bg-neutral-100 border-none rounded-xl text-sm focus:ring-2 focus:ring-orange-500"
+                className="w-full h-11 pl-10 pr-4 bg-neutral-100 dark:bg-neutral-900 border-none rounded-xl text-sm focus:ring-2 focus:ring-orange-500"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -204,18 +357,27 @@ export default function ServiceDetail() {
           </div>
 
           {id !== 'all-stores' && (
-            <div className="flex p-1 bg-neutral-100 rounded-2xl relative">
+            <div className="flex p-1 bg-neutral-105 dark:bg-neutral-900 border border-neutral-100 dark:border-white/5 rounded-2xl relative">
               <button
-                onClick={() => setViewMode('vendors')}
-                className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all relative z-10 ${
-                  viewMode === 'vendors' ? 'text-orange-600' : 'text-neutral-500'
+                onClick={() => setViewMode('products')}
+                className={`flex-1 py-3 text-[10px] min-[360px]:text-xs font-black uppercase tracking-widest rounded-xl transition-all relative z-10 ${
+                  viewMode === 'products' ? 'text-pink-600 font-extrabold' : 'text-neutral-500'
                 }`}
               >
-                {t('businesses') || 'Businesses'}
+                {id === 'saluni' ? 'Huduma (Services)' : (t('products') || 'Products')}
+              </button>
+              <button
+                onClick={() => setViewMode('vendors')}
+                className={`flex-1 py-3 text-[10px] min-[360px]:text-xs font-black uppercase tracking-widest rounded-xl transition-all relative z-10 ${
+                  viewMode === 'vendors' ? 'text-pink-600 font-extrabold' : 'text-neutral-500'
+                }`}
+              >
+                {id === 'saluni' ? 'Saluni (Salons)' : (t('businesses') || 'Businesses')}
               </button>
               <motion.div
-                animate={{ x: '0%' }}
-                className="absolute top-1 left-1 bottom-1 w-[calc(100%-8px)] bg-white rounded-xl shadow-sm border border-neutral-200"
+                animate={{ x: viewMode === 'products' ? '0%' : '100%' }}
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                className="absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] bg-white dark:bg-neutral-800 rounded-xl shadow-sm border border-neutral-200 dark:border-white/5"
               />
             </div>
           )}
