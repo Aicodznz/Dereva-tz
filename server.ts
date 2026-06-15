@@ -3,6 +3,9 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
+import admin from "firebase-admin";
+import fs from "fs";
+import { handleSMSInput } from "./src/lib/smsBot";
 
 dotenv.config();
 
@@ -16,6 +19,76 @@ async function startServer() {
   const PORT = 3000;
 
   app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
+
+  // Initialize Firebase Admin dynamically to avoid any startup crash
+  let dbAdmin: admin.firestore.Firestore | null = null;
+  try {
+    const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
+    if (fs.existsSync(configPath)) {
+      const configRaw = fs.readFileSync(configPath, 'utf8');
+      const appletConfig = JSON.parse(configRaw);
+      if (appletConfig && appletConfig.projectId) {
+        if (admin.apps.length === 0) {
+          admin.initializeApp({
+            projectId: appletConfig.projectId
+          });
+        }
+        dbAdmin = admin.firestore();
+        console.log(`[Firebase Admin] Successfully initialized Firestore with Project ID: ${appletConfig.projectId}`);
+      }
+    } else {
+      console.warn("[Firebase Admin] Configuration file not found, running mock persistent mode.");
+    }
+  } catch (err) {
+    console.error("[Firebase Admin] Error initializing:", err);
+  }
+
+  // Twilio incoming Webhook (receives URL-encoded POST with Form params 'From' and 'Body')
+  app.post("/api/twilio/sms", async (req, res) => {
+    const fromPhone = req.body.From || req.body.from || "unknown";
+    const textBody = req.body.Body || req.body.body || "";
+    
+    console.log(`[Twilio Webhook] Received message from ${fromPhone}: "${textBody}"`);
+    
+    try {
+      const replyMessage = await handleSMSInput(fromPhone, textBody, dbAdmin);
+      
+      const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Message>${replyMessage}</Message>
+</Response>`;
+      
+      res.type('text/xml');
+      res.send(twiml);
+    } catch (error) {
+      console.error("[Twilio Hook] Failed to process SMS:", error);
+      const errorTwiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Message>Mfumo una hitilafu kidogo, tafadhali jaribu tena baadae.</Message>
+</Response>`;
+      res.type('text/xml');
+      res.send(errorTwiml);
+    }
+  });
+
+  // Twilio SMS Simulation endpoint for vendor dashboard
+  app.post("/api/twilio/simulate", async (req, res) => {
+    const { phone, message } = req.body;
+    if (!phone || !message) {
+      return res.status(400).json({ error: "phone and message parameters are required" });
+    }
+    
+    console.log(`[Twilio Simulator] Message from ${phone}: "${message}"`);
+    
+    try {
+      const reply = await handleSMSInput(phone, message, dbAdmin);
+      res.json({ reply });
+    } catch (error: any) {
+      console.error("[Twilio Simulator] Failed to process:", error);
+      res.status(500).json({ error: "Failed to simulate SMS response", details: error.message });
+    }
+  });
 
   // Mongike Payment Initiation Proxy
   app.post("/api/payments/initiate", async (req, res) => {

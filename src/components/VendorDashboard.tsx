@@ -121,7 +121,7 @@ import {
 } from 'recharts';
 import { format } from 'date-fns';
 
-type TabType = 'overview' | 'orders' | 'products' | 'pos' | 'inventory_stats' | 'customers' | 'coupons' | 'staff' | 'settings' | 'tables' | 'market_pulse' | 'freshness' | 'messages' | 'branches';
+type TabType = 'overview' | 'orders' | 'products' | 'pos' | 'inventory_stats' | 'customers' | 'coupons' | 'staff' | 'settings' | 'tables' | 'market_pulse' | 'freshness' | 'messages' | 'branches' | 'twilio_responder';
 
 const chartData = [
   { name: 'Mon', sales: 4000, orders: 24 },
@@ -137,6 +137,7 @@ import { useLanguage } from '../LanguageContext';
 import { useBusinessConfig } from '../BusinessConfigContext';
 import LocationPicker from './LocationPicker';
 import Chat from './Chat';
+import { TwilioResponderTab } from './TwilioResponderTab';
 
 interface MiniQrProps {
   data: string;
@@ -872,6 +873,7 @@ export default function VendorDashboard() {
       { id: 'inventory_stats', label: 'Analytics', icon: BarChart3 },
       { id: 'coupons', label: 'Promotions', icon: Tag },
       { id: 'customers', label: 'CRM', icon: Users },
+      { id: 'twilio_responder', label: 'SMS Auto Responder', icon: MessageCircle },
       { id: 'staff', label: 'Staff', icon: UserCog },
       { id: 'settings', label: t('settings') || 'Settings', icon: Settings },
     ];
@@ -4535,6 +4537,18 @@ export default function VendorDashboard() {
                     </div>
                   ))}
                 </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'twilio_responder' && (
+              <motion.div
+                key="twilio_responder"
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                className="max-w-6xl mx-auto space-y-8"
+              >
+                <TwilioResponderTab vendorId={vendorProfile?.id || 'papo-hapo-express'} vendorCategory={vendorProfile?.category || 'bus_ticket'} />
               </motion.div>
             )}
 
