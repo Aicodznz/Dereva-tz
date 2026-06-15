@@ -2,13 +2,29 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { handleSMSInput } from '../../src/lib/smsBot';
+import fs from 'fs';
+import path from 'path';
 
-// Lazily initialize Firebase Admin for serverless execution environment
-if (!getApps().length) {
-  initializeApp();
+let dbAdmin: any = null;
+
+try {
+  const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
+  if (fs.existsSync(configPath)) {
+    const configRaw = fs.readFileSync(configPath, 'utf8');
+    const appletConfig = JSON.parse(configRaw);
+    if (appletConfig && appletConfig.projectId) {
+      if (!getApps().length) {
+        initializeApp({
+          projectId: appletConfig.projectId
+        });
+      }
+      dbAdmin = getFirestore();
+      console.log(`[Firebase Admin Vercel] Initialized Webhook Firestore with Project ID: ${appletConfig.projectId}`);
+    }
+  }
+} catch (err) {
+  console.error("[Firebase Admin Vercel] Initialization error in webhook:", err);
 }
-
-const dbAdmin = getFirestore();
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
