@@ -11,7 +11,21 @@ import {
   orderBy 
 } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
-import { Utensils, Bell, Clock, ChefHat, CheckCircle2, Volume2, Calendar, Sparkles, AlertTriangle } from 'lucide-react';
+import { 
+  Utensils, 
+  Bell, 
+  Clock, 
+  ChefHat, 
+  CheckCircle2, 
+  Volume2, 
+  Calendar, 
+  Sparkles, 
+  AlertTriangle,
+  Sun,
+  Moon,
+  Maximize2,
+  Minimize2
+} from 'lucide-react';
 import { Order } from '../types';
 
 export default function PublicStatusDisplay() {
@@ -20,6 +34,8 @@ export default function PublicStatusDisplay() {
   const [vendorName, setVendorName] = useState('');
   const [loading, setLoading] = useState(true);
   const [time, setTime] = useState(new Date());
+  const [isNightMode, setIsNightMode] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   
   // Rotating/Sliding announcements list in Swahili
   const announcements = [
@@ -30,6 +46,30 @@ export default function PublicStatusDisplay() {
     "Sasa unaweza kuagiza vinywaji baridi na vishawishi vya ziada bila kuondoka kwenye kiti chako."
   ];
   const [announcementIndex, setAnnouncementIndex] = useState(0);
+
+  // Toggle Fullscreen
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch((err) => {
+        console.warn(`Error attempting to enable fullscreen: ${err.message}`);
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  };
+
+  useEffect(() => {
+    // Listen for fullscreen change events to sync state icon
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
 
   useEffect(() => {
     // Interlaced clock interval
@@ -113,46 +153,97 @@ export default function PublicStatusDisplay() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-white p-6 font-sans flex flex-col justify-between overflow-hidden">
+    <div className={`min-h-screen transition-colors duration-500 p-6 font-sans flex flex-col justify-between overflow-hidden ${
+      isNightMode ? 'bg-neutral-950 text-white' : 'bg-stone-150 text-stone-900'
+    }`}>
       <div>
-        {/* Header with ticking clock and date */}
-        <header className="flex justify-between items-center mb-6 border-b border-white/10 pb-5">
+        {/* Header with ticking clock, date, and functional mode/fullscreen capsule panel */}
+        <header className={`flex justify-between items-center mb-6 border-b pb-5 transition-colors duration-500 ${
+          isNightMode ? 'border-white/10' : 'border-stone-250'
+        }`}>
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 bg-gradient-to-tr from-orange-600 to-amber-500 rounded-3xl flex items-center justify-center shadow-lg shadow-orange-950/20 relative overflow-hidden">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.2),transparent)]" />
               <Utensils className="w-8 h-8 text-white relative z-10" />
             </div>
             <div>
-              <h1 className="text-4xl font-black italic uppercase tracking-tighter leading-none bg-gradient-to-r from-white via-white to-neutral-400 bg-clip-text text-transparent">
+              <h1 className={`text-4xl font-black italic uppercase tracking-tighter leading-none bg-gradient-to-r bg-clip-text text-transparent transition-all duration-500 ${
+                isNightMode ? 'from-white via-white to-neutral-400' : 'from-stone-900 via-stone-800 to-stone-700'
+              }`}>
                 {vendorName || 'RESTAURANT KISINIA'}
               </h1>
               <div className="flex items-center gap-2 mt-1">
-                <span className="text-orange-500 font-extrabold uppercase tracking-[0.25em] text-[10px]">TV ORDER STATUS PRESENTATION</span>
+                <span className={`${isNightMode ? 'text-orange-500' : 'text-orange-600'} font-extrabold uppercase tracking-[0.25em] text-[10px]`}>
+                  TV ORDER STATUS PRESENTATION
+                </span>
                 <span className="w-1.5 h-1.5 bg-[#00E5A0] rounded-full animate-ping" />
                 <span className="text-[#00E5A0] text-[9px] font-black uppercase tracking-widest">LIVE</span>
               </div>
             </div>
           </div>
 
-          {/* Time & Date Display */}
-          <div className="flex gap-4">
+          {/* Time, Date, and control panel buttons */}
+          <div className="flex gap-4 items-center">
             {/* Elegant Calendar Element */}
-            <div className="bg-neutral-900 px-5 py-3.5 rounded-2xl border border-white/5 flex items-center gap-3 shadow-inner">
+            <div className={`px-5 py-3.5 rounded-2xl border flex items-center gap-3 transition-all duration-300 ${
+              isNightMode 
+                ? 'bg-neutral-900 border-white/5 shadow-inner' 
+                : 'bg-white border-stone-200/80 shadow-md text-stone-850'
+            }`}>
               <Calendar className="w-5 h-5 text-orange-500" />
               <div className="flex flex-col items-start leading-none gap-0.5">
-                <span className="text-[9px] font-black text-neutral-500 uppercase tracking-widest">LEO</span>
-                <span className="text-xs font-black uppercase text-neutral-200">{formattedDate}</span>
+                <span className={`text-[9px] font-black uppercase tracking-widest ${isNightMode ? 'text-neutral-500' : 'text-stone-400'}`}>LEO</span>
+                <span className="text-xs font-black uppercase">{formattedDate}</span>
               </div>
             </div>
 
             {/* Live Ticking Clock */}
-            <div className="bg-neutral-900 px-6 py-3.5 rounded-2xl border border-white/5 flex items-center gap-3 relative shadow-inner">
+            <div className={`px-6 py-3.5 rounded-2xl border flex items-center gap-3 relative transition-all duration-300 ${
+              isNightMode 
+                ? 'bg-neutral-900 border-white/5 shadow-inner' 
+                : 'bg-white border-stone-200/80 shadow-md text-stone-850'
+            }`}>
               <div className="absolute top-1 right-2 w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
               <Clock className="w-5 h-5 text-orange-500 animate-pulse" />
               <div className="flex flex-col items-start leading-none gap-0.5">
-                <span className="text-[9px] font-black text-neutral-500 uppercase tracking-widest">SAWA SASA</span>
-                <span className="text-xl font-mono font-black text-white">{formattedTime}</span>
+                <span className={`text-[9px] font-black uppercase tracking-widest ${isNightMode ? 'text-neutral-500' : 'text-stone-400'}`}>SAWA SASA</span>
+                <span className="text-xl font-mono font-black">{formattedTime}</span>
               </div>
+            </div>
+
+            {/* Action Buttons Capsule */}
+            <div className={`flex items-center gap-1 p-1 rounded-2xl border transition-all duration-300 ${
+              isNightMode 
+                ? 'bg-neutral-900 border-white/5 shadow-inner' 
+                : 'bg-white border-stone-200/80 shadow-md'
+            }`}>
+              {/* Light/Night Mode Toggle */}
+              <button
+                onClick={() => setIsNightMode(!isNightMode)}
+                title={isNightMode ? "Light Mode" : "Night Mode"}
+                className={`p-2.5 rounded-xl transition-all duration-200 flex items-center justify-center ${
+                  isNightMode 
+                    ? 'text-neutral-400 hover:text-orange-400 hover:bg-neutral-800' 
+                    : 'text-stone-600 hover:text-orange-600 hover:bg-stone-100'
+                }`}
+              >
+                {isNightMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              </button>
+
+              <div className={`h-6 w-[1.5px] ${isNightMode ? 'bg-white/10' : 'bg-stone-150'}`} />
+
+              {/* Fullscreen Toggle */}
+              <button
+                onClick={toggleFullscreen}
+                title={isFullscreen ? "Exit Fullscreen" : "Fullscreen Mode"}
+                className={`p-2.5 rounded-xl transition-all duration-200 flex items-center justify-center ${
+                  isNightMode 
+                    ? 'text-neutral-400 hover:text-orange-400 hover:bg-neutral-800' 
+                    : 'text-stone-600 hover:text-orange-600 hover:bg-stone-100'
+                }`}
+              >
+                {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
+              </button>
             </div>
           </div>
         </header>
@@ -160,7 +251,9 @@ export default function PublicStatusDisplay() {
         {/* Outer Split Columns Layout */}
         <div className="grid grid-cols-2 gap-8 h-[calc(100vh-210px)] min-h-[480px]">
           {/* Cooking Column Section */}
-          <div className="bg-neutral-900/40 rounded-[2.5rem] border border-white/5 p-8 flex flex-col relative overflow-hidden">
+          <div className={`rounded-[2.5rem] border p-8 flex flex-col relative overflow-hidden transition-all duration-300 ${
+            isNightMode ? 'bg-neutral-900/40 border-white/5' : 'bg-white border-stone-200 shadow-sm'
+          }`}>
             {/* Faint Background Logo */}
             <div className="absolute top-0 right-0 p-8 opacity-[0.03] select-none pointer-events-none">
               <ChefHat className="w-[28rem] h-[28rem] rotate-12" />
@@ -172,9 +265,13 @@ export default function PublicStatusDisplay() {
               </div>
               <div className="flex flex-col leading-none gap-0.5">
                 <h2 className="text-3xl font-black italic uppercase tracking-tight text-amber-500">INAPIKWA / COOKING</h2>
-                <span className="text-[9px] font-black uppercase tracking-widest text-neutral-500">Oda zinazoandaliwa jikoni sasa</span>
+                <span className={`text-[9px] font-black uppercase tracking-widest ${isNightMode ? 'text-neutral-500' : 'text-stone-400'}`}>
+                  Oda zinazoandaliwa jikoni sasa
+                </span>
               </div>
-              <span className="ml-auto bg-neutral-800 border border-white/5 px-4 py-2 rounded-2xl text-lg font-mono font-black text-amber-500">
+              <span className={`ml-auto border px-4 py-2 rounded-2xl text-lg font-mono font-black transition-all ${
+                isNightMode ? 'bg-neutral-800 border-white/5 text-amber-500' : 'bg-amber-50 border-amber-200/50 text-amber-600'
+              }`}>
                 {cookingOrders.length}
               </span>
             </div>
@@ -190,28 +287,40 @@ export default function PublicStatusDisplay() {
                       initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.95, x: 120 }}
-                      className="bg-neutral-950/40 border border-neutral-800/80 p-5 rounded-[2rem] flex flex-col justify-between h-36 hover:border-amber-500/30 transition-all shadow-md group"
+                      className={`p-5 rounded-[2rem] flex flex-col justify-between h-38 border transition-all shadow-md group ${
+                        isNightMode 
+                          ? 'bg-neutral-950/40 border-neutral-800/80 hover:border-amber-500/35' 
+                          : 'bg-stone-50 border-stone-200/90 hover:border-amber-500/50 hover:shadow-lg'
+                      }`}
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex flex-col leading-none">
                           <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-1">Oda Namba</span>
-                          <span className="text-3xl font-mono font-black text-white italic group-hover:text-amber-400 transition-colors">
+                          <span className={`text-3xl font-mono font-black italic group-hover:text-amber-500 transition-colors ${
+                            isNightMode ? 'text-white' : 'text-stone-900'
+                          }`}>
                             #{order.id?.slice(-4).toUpperCase()}
                           </span>
                         </div>
                         {order.tableNumber ? (
-                          <span className="bg-amber-500/10 border border-amber-500/20 text-amber-500 px-3 py-1 rounded-full text-[9px] font-black uppercase">
+                          <span className={`border px-3 py-1 rounded-full text-[9px] font-black uppercase ${
+                            isNightMode ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' : 'bg-amber-50 border-amber-200/65 text-amber-700'
+                          }`}>
                             Meza {order.tableNumber}
                           </span>
                         ) : (
-                          <span className="bg-neutral-850 border border-white/5 text-neutral-400 px-3 py-1 rounded-full text-[9px] font-black uppercase">
+                          <span className={`border px-3 py-1 rounded-full text-[9px] font-black uppercase ${
+                            isNightMode ? 'bg-neutral-850 border-white/5 text-neutral-400' : 'bg-stone-200/85 border-stone-300 text-stone-600'
+                          }`}>
                             Chukua
                           </span>
                         )}
                       </div>
 
-                      <div className="border-t border-neutral-850 pt-3 flex flex-col gap-1">
-                        <p className="text-neutral-450 text-[11px] font-bold truncate">
+                      <div className={`border-t pt-3 flex flex-col gap-1 ${
+                        isNightMode ? 'border-neutral-850' : 'border-stone-200/70'
+                      }`}>
+                        <p className={`text-[11px] font-bold truncate ${isNightMode ? 'text-neutral-400' : 'text-stone-600'}`}>
                           {order.items.map(i => `${i.quantity}x ${i.name}`).join(', ')}
                         </p>
                         <div className="flex items-center justify-between mt-1">
@@ -220,7 +329,11 @@ export default function PublicStatusDisplay() {
                               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
                               <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
                             </span>
-                            <span className="text-[9px] font-black uppercase tracking-widest text-neutral-550 leading-none">Inaliwa Hivi Karibuni</span>
+                            <span className={`text-[9px] font-black uppercase tracking-widest leading-none ${
+                              isNightMode ? 'text-neutral-550' : 'text-stone-400'
+                            }`}>
+                              Inasubiriwa Hivi Karibuni
+                            </span>
                           </div>
                           {order.prepTime && (
                             <div className="flex items-center gap-1 text-amber-500 bg-amber-500/5 px-2 py-0.5 rounded-lg border border-amber-500/10">
@@ -236,12 +349,22 @@ export default function PublicStatusDisplay() {
               </div>
 
               {cookingOrders.length === 0 && (
-                <div className="h-full min-h-[290px] flex flex-col items-center justify-center opacity-40 bg-neutral-950/20 rounded-[2rem] border border-dashed border-white/5 p-10">
-                  <div className="w-16 h-16 bg-neutral-900 border border-neutral-800 rounded-3xl flex items-center justify-center mb-4">
-                    <ChefHat className="w-8 h-8 text-neutral-500" />
+                <div className={`h-full min-h-[290px] flex flex-col items-center justify-center rounded-[2rem] border border-dashed p-10 ${
+                  isNightMode 
+                    ? 'opacity-40 bg-neutral-950/20 border-white/5' 
+                    : 'bg-stone-50/50 border-stone-200/70'
+                }`}>
+                  <div className={`w-16 h-16 border rounded-3xl flex items-center justify-center mb-4 ${
+                    isNightMode ? 'bg-neutral-900 border-neutral-800' : 'bg-white border-stone-200'
+                  }`}>
+                    <ChefHat className={`w-8 h-8 ${isNightMode ? 'text-neutral-500' : 'text-stone-400'}`} />
                   </div>
-                  <h3 className="font-black text-sm uppercase tracking-widest text-neutral-400">Hakuna Oda Zinazopikwa</h3>
-                  <p className="text-[10px] text-neutral-500 font-bold max-w-xs text-center mt-1">Kwa sasa jiko lipo tayari kupokea oda mpya.</p>
+                  <h3 className={`font-black text-sm uppercase tracking-widest ${isNightMode ? 'text-neutral-400' : 'text-stone-600'}`}>
+                    Hakuna Oda Zinazopikwa
+                  </h3>
+                  <p className={`text-[10px] font-bold max-w-xs text-center mt-1.5 ${isNightMode ? 'text-neutral-550' : 'text-stone-500'}`}>
+                    Kwa sasa jiko lipo tayari kupokea oda mpya.
+                  </p>
                 </div>
               )}
             </div>
@@ -332,9 +455,17 @@ export default function PublicStatusDisplay() {
 
       {/* Decorative Sliding Announcement Bar Footer */}
       <footer className="mt-6 select-none relative z-20">
-        <div className="relative h-14 bg-neutral-900 rounded-2xl border border-white/5 overflow-hidden flex items-center px-6">
+        <div className={`relative h-14 overflow-hidden flex items-center px-6 rounded-2xl border transition-all duration-300 ${
+          isNightMode 
+            ? 'bg-neutral-900 border-white/5' 
+            : 'bg-white border-stone-200 shadow-sm'
+        }`}>
           {/* Static Title Box Badge */}
-          <div className="bg-orange-600/10 border border-orange-600/30 text-orange-500 px-4 py-1.5 rounded-xl flex items-center gap-2 mr-6 shrink-0 shadow-sm">
+          <div className={`px-4 py-1.5 rounded-xl flex items-center gap-2 mr-6 shrink-0 shadow-xs border ${
+            isNightMode 
+              ? 'bg-orange-600/10 border-orange-600/30 text-orange-500' 
+              : 'bg-orange-50 border-orange-200/40 text-orange-600'
+          }`}>
             <Volume2 className="w-4 h-4 animate-bounce" />
             <span className="text-[10px] font-black uppercase tracking-widest">Matangazo / Info</span>
           </div>
@@ -348,9 +479,11 @@ export default function PublicStatusDisplay() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -12 }}
                 transition={{ duration: 0.35, ease: "easeInOut" }}
-                className="absolute text-xs font-semibold text-neutral-300 flex items-center gap-2 pl-2"
+                className={`absolute text-xs font-semibold flex items-center gap-2 pl-2 ${
+                  isNightMode ? 'text-neutral-300' : 'text-stone-700'
+                }`}
               >
-                <Sparkles className="w-3.5 h-3.5 text-orange-400 shrink-0 select-none" />
+                <Sparkles className="w-3.5 h-3.5 text-orange-500 shrink-0 select-none" />
                 <span className="truncate pr-4">{announcements[announcementIndex]}</span>
               </motion.div>
             </AnimatePresence>
@@ -362,7 +495,9 @@ export default function PublicStatusDisplay() {
               <div 
                 key={`dot-adv-${idx}`}
                 className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
-                  idx === announcementIndex ? 'bg-orange-500 w-3' : 'bg-neutral-800'
+                  idx === announcementIndex 
+                    ? 'bg-orange-500 w-3' 
+                    : isNightMode ? 'bg-neutral-800' : 'bg-stone-200'
                 }`}
               />
             ))}
@@ -378,11 +513,11 @@ export default function PublicStatusDisplay() {
           background: transparent;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.08);
+          background: ${isNightMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)'};
           border-radius: 99px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(255, 255, 255, 0.15);
+          background: ${isNightMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)'};
         }
       `}} />
     </div>
