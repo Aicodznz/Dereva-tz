@@ -591,7 +591,7 @@ export default function VendorDashboard() {
   const [vendorRiderDetails, setVendorRiderDetails] = useState({ name: '', phone: '', fee: 0 });
 
   // Restaurant Extended States (Table Map, Kitchen Inventory, Expenses, Reports)
-  const [tableSubTab, setTableSubTab] = useState<'visual' | 'list'>('visual');
+  const [tableSubTab, setTableSubTab] = useState<'visual' | 'list' | 'analytics'>('visual');
   const [restInventory, setRestInventory] = useState<any[]>([]);
   const [isAddInvOpen, setIsAddInvOpen] = useState(false);
   const [isEditingInv, setIsEditingInv] = useState<any>(null);
@@ -3828,7 +3828,7 @@ export default function VendorDashboard() {
 
                 {/* Sub Tab Selection Bar for Restaurants */}
                 {vendorProfile?.category === 'restaurant' && (
-                  <div className="flex bg-neutral-950 p-1.5 rounded-2xl border border-neutral-800 w-fit gap-2">
+                  <div className="flex flex-wrap bg-neutral-950 p-1.5 rounded-2xl border border-neutral-800 w-fit gap-2">
                     <button
                       type="button"
                       onClick={() => setTableSubTab('visual')}
@@ -3846,6 +3846,15 @@ export default function VendorDashboard() {
                       }`}
                     >
                       <Layers className="w-4 h-4" /> Orodha ya Meza (List Grid)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTableSubTab('analytics')}
+                      className={`px-5 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all gap-2 flex items-center ${
+                        tableSubTab === 'analytics' ? 'bg-orange-600 text-white shadow-lg' : 'text-neutral-500 hover:text-white'
+                      }`}
+                    >
+                      <TrendingUp className="w-4 h-4" /> Ripoti ya Meza (Table Traffic)
                     </button>
                   </div>
                 )}
@@ -4067,25 +4076,82 @@ export default function VendorDashboard() {
 
                               {/* Stat Selector - ONLY for tables */}
                               {!isSectionInfra ? (
-                                <div className="space-y-2">
-                                  <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Hali (Occupancy Status)</label>
-                                  <Select 
-                                    value={selectedSection.status || 'available'} 
-                                    onValueChange={(val) => {
-                                      updateTableStatus(selectedSection.id, val);
-                                      setSelectedSection({...selectedSection, status: val});
-                                    }}
-                                  >
-                                    <SelectTrigger className="bg-neutral-950 border-neutral-800 h-12 rounded-xl text-xs font-bold text-white">
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent className="bg-neutral-900 border-neutral-800 text-white rounded-xl">
-                                      <SelectItem value="available">✓ Inapatikana (Available)</SelectItem>
-                                      <SelectItem value="occupied">! Ameketi Mteja (Occupied)</SelectItem>
-                                      <SelectItem value="reserved">★ Imewekewa Uhifadhi (Reserved)</SelectItem>
-                                      <SelectItem value="cleaning">∞ Inasafishwa (Cleaning)</SelectItem>
-                                    </SelectContent>
-                                  </Select>
+                                <div className="space-y-4">
+                                  <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Hali (Occupancy Status)</label>
+                                    <Select 
+                                      value={selectedSection.status || 'available'} 
+                                      onValueChange={(val) => {
+                                        updateTableStatus(selectedSection.id, val);
+                                        setSelectedSection({...selectedSection, status: val});
+                                      }}
+                                    >
+                                      <SelectTrigger className="bg-neutral-950 border-neutral-800 h-12 rounded-xl text-xs font-bold text-white">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent className="bg-neutral-900 border-neutral-800 text-white rounded-xl">
+                                        <SelectItem value="available">✓ Inapatikana (Available)</SelectItem>
+                                        <SelectItem value="occupied">! Ameketi Mteja (Occupied)</SelectItem>
+                                        <SelectItem value="reserved">★ Imewekewa Uhifadhi (Reserved)</SelectItem>
+                                        <SelectItem value="cleaning">∞ Inasafishwa (Cleaning)</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+
+                                  {/* Live Active Dining Orders on this table */}
+                                  {(() => {
+                                    const activeTableOrders = orders.filter(o => 
+                                      o.tableNumber === selectedSection.number && 
+                                      ['pending', 'preparing', 'prepared', 'serving'].includes(o.status)
+                                    );
+                                    
+                                    // Live Table statistics summaries
+                                    const tableOrders = orders.filter(o => o.tableNumber === selectedSection.number);
+                                    const totalTableRev = tableOrders.reduce((acc, current) => acc + (current.totalAmount || 0), 0);
+                                    
+                                    return (
+                                      <div className="space-y-3">
+                                        <div className="p-4 bg-neutral-950 border border-neutral-800 rounded-2xl space-y-3">
+                                          <span className="text-[8.5px] font-black text-[#00E5A0] uppercase tracking-widest flex items-center gap-1.5 leading-none">
+                                            <span className="w-1.5 h-1.5 bg-[#00E5A0] rounded-full animate-ping" /> Oda Zinazoendelea ({activeTableOrders.length})
+                                          </span>
+
+                                          {activeTableOrders.length === 0 ? (
+                                            <p className="text-[9.5px] text-neutral-500 font-bold leading-normal">
+                                              Meza hii kwa sasa haina oda zinazoendelea (No active orders right now).
+                                            </p>
+                                          ) : (
+                                            <div className="space-y-2 max-h-[140px] overflow-y-auto pr-1 no-scrollbar">
+                                              {activeTableOrders.map((ord: any) => (
+                                                <div 
+                                                  key={`active-tbl-order-${ord.id}`} 
+                                                  onClick={() => {
+                                                    setSelectedOrder(ord);
+                                                    setActiveTab('orders');
+                                                  }}
+                                                  className="p-2.5 bg-neutral-900 border border-neutral-800/80 hover:border-orange-500/50 rounded-xl flex items-center justify-between text-[10px] cursor-pointer transition-all active:scale-98"
+                                                >
+                                                  <div className="flex flex-col gap-0.5 min-w-0 flex-1 mr-2 text-left">
+                                                    <span className="font-mono font-black text-white truncate">#{ord.id.slice(-6).toUpperCase()}</span>
+                                                    <span className="text-neutral-500 font-semibold">TZS {ord.totalAmount?.toLocaleString()}</span>
+                                                  </div>
+                                                  <span className="bg-orange-600/10 border border-orange-500/20 text-orange-500 px-2 py-0.5 rounded uppercase text-[8px] font-black text-center whitespace-nowrap">
+                                                    {ord.status}
+                                                  </span>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
+
+                                        {/* Table live metrics */}
+                                        <div className="p-3 bg-neutral-950/40 border border-neutral-800/40 rounded-xl flex items-center justify-between text-[8px] font-bold text-neutral-400 uppercase tracking-widest">
+                                          <span>Mapato ya Meza:</span>
+                                          <span className="text-white font-mono font-black">TZS {totalTableRev.toLocaleString()}</span>
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
                                 </div>
                               ) : (
                                 <div className="p-4 bg-orange-950/15 border border-orange-500/20 rounded-2xl">
@@ -4237,6 +4303,140 @@ export default function VendorDashboard() {
                       })()}
                     </div>
                   </div>
+                ) : tableSubTab === 'analytics' ? (
+                  /* TABLE TRAFFIC ANALYTICS VIEW */
+                  (() => {
+                    const walkInOrders = orders.filter(o => o.tableNumber);
+                    
+                    // Calculate revenue per table
+                    const revenuePerTable: Record<string, number> = {};
+                    const freqPerTable: Record<string, number> = {};
+                    const busiestTimePerTable: Record<string, {morning: number, afternoon: number, evening: number}> = {};
+                    
+                    sections.forEach(s => {
+                      if (!['entrance', 'reception', 'kitchen_window', 'bar_counter', 'restroom', 'indoor_plant', 'structure_divider'].includes(s.shape)) {
+                        revenuePerTable[s.number] = 0;
+                        freqPerTable[s.number] = 0;
+                        busiestTimePerTable[s.number] = { morning: 0, afternoon: 0, evening: 0 };
+                      }
+                    });
+                    
+                    walkInOrders.forEach(o => {
+                      const tNo = o.tableNumber;
+                      if (tNo) {
+                        revenuePerTable[tNo] = (revenuePerTable[tNo] || 0) + (o.totalAmount || 0);
+                        freqPerTable[tNo] = (freqPerTable[tNo] || 0) + 1;
+                        
+                        const ts = o.createdAt;
+                        if (ts) {
+                          const date = ts.toDate ? ts.toDate() : (ts.seconds ? new Date(ts.seconds * 1050) : new Date(ts));
+                          const h = date.getHours();
+                          if (!busiestTimePerTable[tNo]) {
+                            busiestTimePerTable[tNo] = { morning: 0, afternoon: 0, evening: 0 };
+                          }
+                          if (h >= 5 && h < 12) busiestTimePerTable[tNo].morning++;
+                          else if (h >= 12 && h < 17) busiestTimePerTable[tNo].afternoon++;
+                          else busiestTimePerTable[tNo].evening++;
+                        }
+                      }
+                    });
+                    
+                    // Find most popular table
+                    const sortedTablesByFreq = Object.entries(freqPerTable).sort((a,b) => b[1] - a[1]);
+                    const mostPopularTable = sortedTablesByFreq[0] ? `Meza ${sortedTablesByFreq[0][0]} (${sortedTablesByFreq[0][1]} oda)` : 'Hakuna data';
+                    
+                    // Find highest earning table
+                    const sortedTablesByRevenue = Object.entries(revenuePerTable).sort((a,b) => b[1] - a[1]);
+                    const highestEarningTable = sortedTablesByRevenue[0] ? `Meza ${sortedTablesByRevenue[0][0]} (TZS ${sortedTablesByRevenue[0][1].toLocaleString()})` : 'Hakuna data';
+                    
+                    // Total walk-in table traffic
+                    const totalTableRevenue = Object.values(revenuePerTable).reduce((a,b) => a+b, 0);
+                    
+                    return (
+                      <div className="space-y-8 select-none">
+                        {/* Traffic KPI Summary Bento Cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                          <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-[2rem]">
+                            <span className="text-[9px] font-black text-neutral-400 uppercase tracking-widest leading-none">MAPATO YOTE YA MEZA</span>
+                            <h3 className="text-2xl font-black italic text-orange-500 tracking-tighter mt-1">TZS {totalTableRevenue.toLocaleString()}</h3>
+                            <p className="text-[8.5px] text-neutral-500 font-bold mt-2 uppercase">Kutokana na walk-in QR dining</p>
+                          </div>
+                          
+                          <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-[2rem]">
+                            <span className="text-[9px] font-black text-neutral-400 uppercase tracking-widest leading-none">MEZA INAYOPENDWA ZAIDI</span>
+                            <h3 className="text-lg font-black uppercase text-white tracking-tight mt-1.5 truncate">{mostPopularTable}</h3>
+                            <p className="text-[8.5px] text-[#00E5A0] font-bold mt-2 uppercase">✓ Kituo chenye wateja wengi zaidi</p>
+                          </div>
+
+                          <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-[2rem]">
+                            <span className="text-[9px] font-black text-neutral-400 uppercase tracking-widest leading-none">MEZA INAYOINGIZA MKWANJA</span>
+                            <h3 className="text-lg font-black uppercase text-white tracking-tight mt-1.5 truncate">{highestEarningTable}</h3>
+                            <p className="text-[8.5px] text-[#00E5A0] font-bold mt-2 uppercase">★ Mapato ya juu kabisa (Top Earner)</p>
+                          </div>
+
+                          <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-[2rem]">
+                            <span className="text-[9px] font-black text-neutral-400 uppercase tracking-widest leading-none">JUMLA YA ODA ZA MEZA</span>
+                            <h3 className="text-2xl font-black italic text-[#00E5A0] tracking-tighter mt-1">{walkInOrders.length} Oda</h3>
+                            <p className="text-[8.5px] text-neutral-500 font-bold mt-2 uppercase">Historical check-ins verified</p>
+                          </div>
+                        </div>
+
+                        {/* Detailed Table Performance Analytics Spreadsheet Report */}
+                        <div className="bg-neutral-900 border border-neutral-800 rounded-[2.5rem] p-8">
+                          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
+                            <div>
+                              <h3 className="text-lg font-black text-white uppercase italic tracking-tight">Orodha na Mchanganuo wa Meza zote</h3>
+                              <p className="text-xs text-neutral-500 font-bold">Kila meza inayoingiza oda inapokea takwimu hizi kwa kila sekunde.</p>
+                            </div>
+                            <span className="px-3 py-1 bg-[#00E5A0]/10 border border-[#00E5A0]/20 text-[#00E5A0] text-[9px] font-black rounded-full uppercase tracking-widest">LIVE REPORT</span>
+                          </div>
+
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left">
+                              <thead>
+                                <tr className="border-b border-neutral-800 text-[9px] font-black text-neutral-400 uppercase tracking-widest">
+                                  <th className="py-4">Namba ya Meza</th>
+                                  <th className="py-4">Viti (Capacity)</th>
+                                  <th className="py-4">Jumla ya Oda</th>
+                                  <th className="py-4">Muda wa Trafiki Kuu (Peak Time)</th>
+                                  <th className="py-4 text-right">Jumla ya Mapato</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-neutral-800">
+                                {sections.filter(s => !['entrance', 'reception', 'kitchen_window', 'bar_counter', 'restroom', 'indoor_plant', 'structure_divider'].includes(s.shape)).map((section) => {
+                                  const tableNum = section.number;
+                                  const rev = revenuePerTable[tableNum] || 0;
+                                  const freq = freqPerTable[tableNum] || 0;
+                                  
+                                  const hours = busiestTimePerTable[tableNum] || { morning: 0, afternoon: 0, evening: 0 };
+                                  let peakLabel = 'N/A';
+                                  if (freq > 0) {
+                                    const mx = Math.max(hours.morning, hours.afternoon, hours.evening);
+                                    if (mx === hours.morning) peakLabel = '☀️ Asubuhi (07:00 - 11:00)';
+                                    else if (mx === hours.afternoon) peakLabel = '🌤️ Mchana (12:00 - 16:00)';
+                                    else peakLabel = '🌙 Jioni/Usiku (18:00 - 22:00)';
+                                  }
+
+                                  return (
+                                    <tr key={`table-analytics-record-${section.id}`} className="hover:bg-white/5 transition-all text-xs font-bold text-neutral-300">
+                                      <td className="py-4 flex items-center gap-2">
+                                        <span className="w-6 h-6 rounded bg-orange-600/10 text-orange-500 font-mono font-black border border-orange-500/20 flex items-center justify-center text-[10px]">{tableNum}</span>
+                                        <span className="uppercase text-[11px] font-black">Meza {tableNum}</span>
+                                      </td>
+                                      <td className="py-4 text-neutral-400 font-mono">{section.capacity || 4} Viti</td>
+                                      <td className="py-4 font-mono text-[#00E5A0]">{freq} check-ins</td>
+                                      <td className="py-4 text-neutral-400">{peakLabel}</td>
+                                      <td className="py-4 text-right font-mono text-white">TZS {rev.toLocaleString()}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()
                 ) : (
                   /* LIST GRID VIEW (STANDARD) */
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">

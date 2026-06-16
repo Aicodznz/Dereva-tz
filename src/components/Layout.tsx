@@ -21,7 +21,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const { isRTL, t } = useLanguage();
 
   const [isNavVisible, setIsNavVisible] = useState(true);
+  const [badgeAnimateKey, setBadgeAnimateKey] = useState(0);
   const { scrollY } = useScroll();
+
+  useEffect(() => {
+    const handleCartAdded = () => {
+      setBadgeAnimateKey(prev => prev + 1);
+    };
+    window.addEventListener('cart-item-added', handleCartAdded);
+    return () => window.removeEventListener('cart-item-added', handleCartAdded);
+  }, []);
 
   useMotionValueEvent(scrollY, "change", (latest) => {
     const previous = scrollY.getPrevious() || 0;
@@ -112,8 +121,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <ShoppingCart className="w-6 h-6 relative z-10 group-active:scale-110 transition-transform" />
                 {cartCount > 0 && (
                   <motion.span 
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
+                    key={`nav-badge-${badgeAnimateKey}`}
+                    initial={{ scale: 0.5 }}
+                    animate={{ scale: [1, 1.45, 0.85, 1.15, 1], rotate: [0, 15, -15, 10, 0] }}
+                    transition={{ duration: 0.5, ease: "easeOut" }}
                     className="absolute -top-2 -right-2 w-5 h-5 bg-orange-600 text-white text-[9px] font-black flex items-center justify-center rounded-full border-2 border-neutral-900 shadow-lg z-20"
                   >
                     {cartCount}
@@ -163,12 +174,20 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             onClick={() => setIsCartOpen(true)}
             className="fixed bottom-24 right-6 z-[160] w-16 h-16 bg-neutral-900 text-white rounded-2xl flex items-center justify-center shadow-2xl border-2 border-orange-600 group active:scale-95"
           >
-            <div className="relative">
+            <motion.div 
+              key={`float-badge-${badgeAnimateKey}`}
+              animate={{ 
+                scale: [1, 1.35, 0.9, 1.15, 1],
+                rotate: [0, 10, -10, 5, 0]
+              }}
+              transition={{ duration: 0.45 }}
+              className="relative"
+            >
               <ShoppingCart className="w-7 h-7 group-hover:rotate-12 transition-transform" />
               <span className="absolute -top-3 -right-3 w-7 h-7 bg-orange-600 text-white text-xs font-black flex items-center justify-center rounded-full border-4 border-neutral-900 shadow-lg">
                 {cartCount}
               </span>
-            </div>
+            </motion.div>
             <div className="absolute -left-32 top-1/2 -translate-y-1/2 bg-neutral-900 border border-white/10 px-4 py-2 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none hidden md:block">
                <p className="text-[10px] font-black uppercase tracking-widest whitespace-nowrap">Agiza Kilichopo ({cartCount})</p>
             </div>

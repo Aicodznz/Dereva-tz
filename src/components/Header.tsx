@@ -16,6 +16,8 @@ export default function Header() {
   const { profile, logout, user } = useAuth();
   const routerLocation = useLocation();
   const [showLangMenu, setShowLangMenu] = React.useState(false);
+  const [isChangingLanguage, setIsChangingLanguage] = useState(false);
+  const [targetLangName, setTargetLangName] = useState('');
   
   const { scrollY } = useScroll();
   const [hidden, setHidden] = useState(false);
@@ -114,8 +116,13 @@ export default function Header() {
                     <button
                       key={lang.code}
                       onClick={() => {
+                        setTargetLangName(lang.label);
+                        setIsChangingLanguage(true);
                         setLanguage(lang.code as any);
                         setShowLangMenu(false);
+                        setTimeout(() => {
+                          setIsChangingLanguage(false);
+                        }, 750);
                       }}
                       className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm transition-all ${
                         language === lang.code 
@@ -219,6 +226,37 @@ export default function Header() {
       </div>
 
       {/* Mobile Search Row Removed as per user request */}
+      
+      {/* Dynamic Screen Language Change Overlay */}
+      <AnimatePresence>
+        {isChangingLanguage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[99999] bg-[#0A0C14]/90 backdrop-blur-xl flex flex-col items-center justify-center text-center pointer-events-auto"
+          >
+            <motion.div
+              initial={{ scale: 0.8, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.8, y: 20 }}
+              className="space-y-4"
+            >
+              <div className="w-16 h-16 bg-orange-600/10 border border-orange-500/20 rounded-full flex items-center justify-center mx-auto text-3xl animate-bounce">
+                🌐
+              </div>
+              <div>
+                <h4 className="text-xl font-black text-white uppercase tracking-tight italic">
+                  {targetLangName === 'English' ? 'Switching Language...' : 'Inabadilisha Lugha...'}
+                </h4>
+                <p className="text-sm text-orange-600 font-bold uppercase tracking-widest mt-1">
+                  {targetLangName === 'English' ? 'Setting to English En' : 'Inaweka Kiswahili Sw'}
+                </p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.nav>
   );
 }

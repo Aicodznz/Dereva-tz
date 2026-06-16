@@ -175,31 +175,95 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
                   </h3>
                </div>
             </div>
+            {/* Trip Status Steps Progress Bar with Animating Scenic Road Waypoints */}
+            <div className="mb-6 select-none pointer-events-auto">
+              {/* Simulated Scenic Road Progress Map (motion/react animations) */}
+              <div className="relative h-16 bg-neutral-950/60 rounded-2xl border border-white/5 overflow-hidden p-3 flex flex-col justify-end">
+                {/* Scenic Details (Floating Trees & Skyscrapers) */}
+                <div className="absolute inset-x-0 top-1 h-6 opacity-30 flex justify-between px-4 select-none pointer-events-none text-xs">
+                  <span>🏢</span>
+                  <span>🌳</span>
+                  <span>🏢</span>
+                  <span>🌳</span>
+                  <span>🌴</span>
+                  <span>🏠</span>
+                </div>
 
-            {/* Trip Status Steps Progress Bar */}
-            <div className="flex justify-between items-center mb-6 px-1 select-none">
-              {[
-                { label: 'SEARCH', active: true },
-                { label: 'FOUND', active: !!ride.driverId },
-                { label: 'ON TRIP', active: ride.status === 'on_trip' },
-                { label: 'ARRIVED', active: ride.status === 'completed' }
-              ].map((s, i, arr) => (
-                <React.Fragment key={s.label}>
-                  <div className="flex flex-col items-center gap-1">
-                    <div className={`w-3.5 h-3.5 rounded-full border-2 transition-all duration-500 ${s.active ? 'bg-[#00E5A0] border-[#00E5A0] shadow-[0_0_12px_#00E5A0]' : 'bg-white/5 border-white/10'}`} />
-                    <span className={`text-[6.5px] font-black uppercase tracking-[0.15em] ${s.active ? 'text-white' : 'text-[#8A8FA8]'}`}>{s.label}</span>
+                {/* The Animated Road Line */}
+                <div className="w-full h-1.5 bg-neutral-800 rounded-full relative overflow-visible flex items-center">
+                  
+                  {/* Origin Point Flag */}
+                  <div className="absolute left-0 -translate-x-1/2 -top-3.5 text-xs font-black z-10 filter drop-shadow">
+                    📍
                   </div>
-                  {i < arr.length - 1 && (
-                    <div className="flex-1 h-[2px] mb-3 mx-2 bg-white/5 rounded-full overflow-hidden">
+
+                  {/* Destination Point Flag */}
+                  <div className="absolute right-0 translate-x-1/2 -top-3.5 text-xs font-black z-10 filter drop-shadow">
+                    🏁
+                  </div>
+
+                  {/* Red/Green route progress highlight line */}
+                  <div 
+                    className="absolute left-0 h-full bg-gradient-to-r from-orange-500 to-[#00E5A0] rounded-full" 
+                    style={{ width: `${progress}%` }} 
+                  />
+
+                  {/* Hand-guided animating vehicle marker icon */}
+                  <motion.div 
+                    className="absolute -top-5 h-8 w-8 z-20 flex flex-col items-center justify-center select-none"
+                    style={{ left: `calc(${progress}% - 16px)` }}
+                    animate={{ 
+                      y: [0, -1.5, 0],
+                      scale: [1, 1.02, 1]
+                    }}
+                    transition={{ 
+                      y: { repeat: Infinity, duration: 0.28, ease: "easeInOut" },
+                      scale: { repeat: Infinity, duration: 0.38, ease: "easeInOut" }
+                    }}
+                  >
+                    {ride.vehicleType === 'bike' ? (
+                      <span className="text-xl filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]">🏍️</span>
+                    ) : ride.vehicleType === 'bajaj' ? (
+                      <span className="text-xl filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]">🛺</span>
+                    ) : (
+                      <span className="text-lg filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]">🚗</span>
+                    )}
+
+                    {/* Back smoke puff emissions if transit speed is nonzero */}
+                    {progress > 0 && progress < 100 && (
                       <motion.div 
-                        initial={{ width: 0 }}
-                        animate={{ width: arr[i+1].active ? '100%' : '0%' }}
-                        className="h-full bg-[#00E5A0]"
+                        className="w-1.5 h-1.5 bg-white/20 rounded-full blur-[1px] absolute -left-1 bottom-1.5"
+                        animate={{ scale: [1, 2.2, 0], opacity: [0.65, 0.2, 0], x: [-2, -8] }}
+                        transition={{ repeat: Infinity, duration: 0.35 }}
                       />
-                    </div>
-                  )}
-                </React.Fragment>
-              ))}
+                    )}
+                  </motion.div>
+                </div>
+
+                {/* Swahili Translation HUD updates info */}
+                <div className="flex justify-between items-center mt-2 font-bold text-[8px] uppercase tracking-wider text-neutral-400">
+                  <span>{isArriving ? 'Kituo cha Dereva' : 'Mwanzo'}</span>
+                  <span className="text-[#00E5A0] font-black font-mono bg-[#00E5A0]/10 px-1.5 py-0.5 rounded border border-[#00E5A0]/20">
+                    {progress}% ya Safari
+                  </span>
+                  <span>{isArriving ? 'Kituo chako' : 'Mwisho'}</span>
+                </div>
+              </div>
+
+              {/* Status checkpoint steps badges */}
+              <div className="flex justify-between items-center px-1">
+                {[
+                  { label: 'TAFUTA', active: true },
+                  { label: 'PATA', active: !!ride.driverId },
+                  { label: 'PO MAP', active: ride.status === 'on_trip' },
+                  { label: 'FIKA', active: ride.status === 'completed' }
+                ].map((s) => (
+                  <div key={s.label} className="flex flex-col items-center gap-0.5">
+                    <div className={`w-2 h-2 rounded-full border transition-all duration-500 ${s.active ? 'bg-[#00E5A0] border-[#00E5A0] shadow-[0_0_8px_#00E5A0]' : 'bg-white/5 border-white/10'}`} />
+                    <span className={`text-[6px] font-black uppercase tracking-widest ${s.active ? 'text-white' : 'text-[#8A8FA8]'}`}>{s.label}</span>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* Unified Quick Actions & Distance Panel Footer */}

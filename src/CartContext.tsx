@@ -53,6 +53,14 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const addItem = (product: any) => {
     const amountToAdd = product.quantity || 1;
+    
+    // Dispatch custom window event for nice micro-interactions
+    try {
+      window.dispatchEvent(new CustomEvent('cart-item-added', { detail: { ...product, quantity: amountToAdd } }));
+    } catch (e) {
+      console.warn('Failed to dispatch cart-item-added event', e);
+    }
+
     setCartItems(prevItems => {
       const existingItem = prevItems.find(item => 
         item.id === product.id && 

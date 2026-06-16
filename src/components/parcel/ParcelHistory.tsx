@@ -228,6 +228,82 @@ const ParcelHistory: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* 🏍️ Scenic Live Transit tracking simulator box (motion) */}
+                  {selectedParcel.status !== 'cancelled' && (
+                    <div className="relative h-20 bg-neutral-950/90 dark:bg-neutral-950/60 rounded-[2rem] border border-neutral-800 p-3.5 flex flex-col justify-end overflow-hidden">
+                      {/* Interactive clouds or scenery */}
+                      <div className="absolute inset-x-0 top-1.5 opacity-20 flex justify-between px-6 text-xs select-none pointer-events-none">
+                        <span>☁️</span>
+                        <span>🌲</span>
+                        <span>🏠</span>
+                        <span>☁️</span>
+                        <span>🌲</span>
+                      </div>
+
+                      {/* Animated scenic road strip */}
+                      {selectedParcel.status !== 'delivered' && (
+                        <div 
+                          className="absolute inset-0 opacity-5 pointer-events-none select-none bg-[radial-gradient(#ffffff_1px,transparent_1px)] bg-[size:16px_16px]" 
+                          style={{ animation: 'shimmer 4s linear infinite' }} 
+                        />
+                      )}
+
+                      {/* Linear road tracking progression */}
+                      {(() => {
+                        const score = selectedParcel.status === 'pending' ? 15 : selectedParcel.status === 'accepted' ? 42 : selectedParcel.status === 'picked_up' ? 74 : selectedParcel.status === 'delivered' ? 100 : 0;
+                        const label = selectedParcel.status === 'pending' ? 'Kutafuta msafirishaji...' : selectedParcel.status === 'accepted' ? 'Rider anafuata mzigo' : selectedParcel.status === 'picked_up' ? 'Mzigo upo njiani sasa!' : 'Uwasilishaji Umekamilika 🎉';
+                        return (
+                          <div className="w-full space-y-3">
+                            <div className="h-1 bg-neutral-800 rounded-full relative overflow-visible flex items-center">
+                              {/* Left origin point Pin */}
+                              <div className="absolute left-0 -translate-x-1/2 -top-4 text-xs">
+                                📦
+                              </div>
+
+                              {/* Right destination point Flag */}
+                              <div className="absolute right-0 translate-x-1/2 -top-4 text-xs">
+                                🏠
+                              </div>
+
+                              {/* Highlight road progression */}
+                              <div 
+                                className="absolute left-0 h-full bg-gradient-to-r from-orange-600 to-emerald-500 rounded-full"
+                                style={{ width: `${score}%` }}
+                              />
+
+                              {/* Animating dynamic delivery agent */}
+                              <motion.div 
+                                className="absolute -top-[1.35rem] w-8 h-8 flex items-center justify-center text-xl select-none"
+                                style={{ left: `calc(${score}% - 16px)` }}
+                                animate={selectedParcel.status !== 'delivered' ? {
+                                  y: [0, -1.5, 0],
+                                  scale: [1, 1.05, 1]
+                                } : {}}
+                                transition={{ repeat: Infinity, duration: 0.32 }}
+                              >
+                                {selectedParcel.category?.toLowerCase() === 'vip' ? '🚗' : '🏍️'}
+                                
+                                {selectedParcel.status !== 'delivered' && (
+                                  <motion.div 
+                                    className="absolute -left-1 bottom-2 w-1.5 h-1.5 bg-orange-600/35 rounded-full blur-[1px]"
+                                    animate={{ scale: [1, 2, 0], opacity: [0.7, 0.2, 0] }}
+                                    transition={{ repeat: Infinity, duration: 0.4 }}
+                                  />
+                                )}
+                              </motion.div>
+                            </div>
+
+                            {/* Human state labeling in Swahili */}
+                            <div className="flex items-center justify-between text-[8px] font-black uppercase tracking-widest text-neutral-400">
+                              <span className="text-[#ea580c]">{label}</span>
+                              <span className="font-mono bg-white/5 border border-white/10 px-1.5 py-0.5 rounded text-white">{score}%</span>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+
                   <div className="space-y-4">
                     <div className="flex gap-4">
                       <div className="w-10 h-10 bg-neutral-100 dark:bg-neutral-800 rounded-2xl flex items-center justify-center shrink-0">

@@ -30,7 +30,7 @@ export default function CustomerDashboard() {
   const { config: businessConfig } = useBusinessConfig();
   const [vendors, setVendors] = useState<VendorProfile[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [banners, setBanners] = useState<{id: string, title: string, sub: string, img: string}[]>([]);
+  const [banners, setBanners] = useState<{id: string, title: string, sub: string, img: string, category?: string}[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
   const [isMapViewOnly, setIsMapViewOnly] = useState(false);
@@ -261,15 +261,36 @@ export default function CustomerDashboard() {
         const bSnap = await getDocs(query(bannersRef, where('active', '==', true)));
         const fetchedBanners = bSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
         
-        // If no banners from DB, use default dynamic ones
-        if (fetchedBanners.length === 0) {
-          setBanners([
-            { id: '1', title: 'Food Delivery', sub: 'Agiza chakula sasa upate ofa!', img: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=2070&auto=format&fit=crop' },
-            { id: '2', title: 'Grocery', sub: 'Bidhaa safi kutoka shambani', img: 'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=2026&auto=format&fit=crop' },
-            { id: '3', title: 'Pharmacy', sub: 'Dawa na vifaa vya tiba', img: 'https://images.unsplash.com/photo-1587854692152-cbe660dbbb88?q=80&w=2069&auto=format&fit=crop' }
-          ]);
+        // Use custom time-of-day dynamic banners for rich and personalized Swahili experiences
+        const currentHour = new Date().getHours();
+        let defaultTimeBanners = [];
+        if (currentHour >= 5 && currentHour < 12) {
+          // Asubuhi: Breakfast, fresh groceries, morning rides
+          defaultTimeBanners = [
+            { id: 'm1', title: 'Vitafunwa & Chai Moto 🍳', sub: 'Muda wa Chai! Agiza kifungua kinywa safi sasa hivi na ujaze nguvu.', img: 'https://images.unsplash.com/photo-1533089860892-a7c6f0a88666?q=80&w=2070&auto=format&fit=crop', category: 'restaurant' },
+            { id: 'm2', title: 'Safari za Asubuhi Haraka 🚕', sub: 'Saa za kazi! Usichelewe, agiza taksi yako ya kuaminika sasa.', img: 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?q=80&w=2070&auto=format&fit=crop', category: 'taxi' },
+            { id: 'm3', title: 'Sokoni Mapema Asubuhi 🛒', sub: 'Gundua mboga na matunda mapya kabisa yaliyofika asubuhi ya leo!', img: 'https://images.unsplash.com/photo-1488459718432-36af5016d6da?q=80&w=2070&auto=format&fit=crop', category: 'grocery' }
+          ];
+        } else if (currentHour >= 12 && currentHour < 17) {
+          // Mchana: Lunch, parcel, hair salon/service
+          defaultTimeBanners = [
+            { id: 'a1', title: 'Chakula cha Mchana Moto 🍲', sub: 'Njaa ya mchana? Ofa ya chakula kitamu cha mchana na punguzo la 15%!', img: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=2070&auto=format&fit=crop', category: 'restaurant' },
+            { id: 'a2', title: 'Umetulia? Letewe Sokoni 📦', sub: 'Vifurushi na mizigo ya mchana inatufikia kwa haraka sasa hivi.', img: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=2070&auto=format&fit=crop', category: 'parcel' },
+            { id: 'a3', title: 'Huduma Safi za Saluni 💇‍♀️', sub: 'Urembo na kunyoa mchana huu. Weka miadi yako na saluni maarufu.', img: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?q=80&w=2074&auto=format&fit=crop', category: 'salon' }
+          ];
         } else {
-          setBanners(fetchedBanners);
+          // Jioni/Usiku: Dinner, safe late-night ride, urgent pharmacy
+          defaultTimeBanners = [
+            { id: 'e1', title: 'Chakula cha Jioni Kitamu 🍕', sub: 'Tulia baada ya kazi na uagize chakula cha jioni kizuri cha usiku!', img: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?q=80&w=2070&auto=format&fit=crop', category: 'restaurant' },
+            { id: 'e2', title: 'Safari Salama ya Usiku 🚕', sub: 'Rudi nyumbani salama na madereva wetu wa usiku waliohakikiwa.', img: 'https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?q=80&w=2049&auto=format&fit=crop', category: 'taxi' },
+            { id: 'e3', title: 'Duka la Dawa la Dharura 💊', sub: 'Dawa zako hapa usiku kucha. Huduma ipo wazi saa 24 kwa ajili yako.', img: 'https://images.unsplash.com/photo-1587854692152-cbe660dbbb88?q=80&w=2069&auto=format&fit=crop', category: 'pharmacy' }
+          ];
+        }
+
+        if (fetchedBanners.length === 0) {
+          setBanners(defaultTimeBanners);
+        } else {
+          setBanners([...fetchedBanners, ...defaultTimeBanners]);
         }
       } catch (error) {
         console.error("Error fetching initial data:", error);
@@ -425,6 +446,15 @@ export default function CustomerDashboard() {
               animate={{ opacity: 1, scale: 1, x: 0 }}
               transition={{ delay: 0.1 * idx, ease: [0.22, 1, 0.36, 1] }}
               whileHover={{ y: -8 }}
+              onClick={() => {
+                if (banner.category) {
+                  setSelectedCategory(banner.category);
+                  setTimeout(() => {
+                    storeScrollRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }, 100);
+                  toast.info(`Inatafuta maduka ya: ${banner.category.toUpperCase()} 🛒✨`);
+                }
+              }}
               className="min-w-[85%] md:min-w-[40%] lg:min-w-[30%] xl:min-w-[20%] [@media(min-width:1800px)]:min-w-[15%] h-56 md:h-80 rounded-[3rem] overflow-hidden relative snap-center shadow-2xl shadow-neutral-900/10 group cursor-pointer border border-white/20"
             >
               <img 
@@ -439,7 +469,7 @@ export default function CustomerDashboard() {
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent flex flex-col justify-end p-8 md:p-10 text-white">
                 <div className="absolute top-6 left-6 flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
                    <Sparkles className="w-3 h-3 text-orange-400" />
-                   <span className="text-[8px] font-black uppercase tracking-widest">Special Deal</span>
+                   <span className="text-[8px] font-black uppercase tracking-widest">Ofa Maalum</span>
                 </div>
                 <motion.h3 
                   initial={{ y: 20, opacity: 0 }}
@@ -453,7 +483,7 @@ export default function CustomerDashboard() {
                   whileHover={{ x: 5 }}
                   className="mt-6 flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-orange-500"
                 >
-                  <span>{t('order_now') || 'Order Now'}</span>
+                  <span>{t('order_now') || 'Agiza Sasa'}</span>
                   <ChevronRight className="w-4 h-4" />
                 </motion.div>
               </div>
