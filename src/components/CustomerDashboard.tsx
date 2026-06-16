@@ -358,9 +358,9 @@ export default function CustomerDashboard() {
   };
 
   return (
-    <div className={`pb-10 space-y-4 md:space-y-6 lg:space-y-8 ${isRTL ? 'text-right' : 'text-left'}`}>
-      <div className="px-1 pt-2">
-         <div className="flex items-center justify-between mb-4 px-2">
+    <div className={`pb-10 space-y-2 md:space-y-3 lg:space-y-4 ${isRTL ? 'text-right' : 'text-left'}`}>
+      <div className="px-1 pt-1">
+         <div className="flex items-center justify-between mb-2 px-2">
             <div className="flex items-center gap-3">
                <div className="w-12 h-12 rounded-2xl bg-orange-600/20 border border-orange-600/30 flex items-center justify-center overflow-hidden shrink-0">
                   {profile?.photoURL ? (
@@ -432,7 +432,7 @@ export default function CustomerDashboard() {
       {/* 1. Promotional Carousel (Banners) */}
       <div 
         ref={bannerScrollRef}
-        className="flex gap-6 overflow-x-auto pb-6 no-scrollbar snap-x py-4 px-2"
+        className="flex gap-4 md:gap-6 overflow-x-auto pb-3 no-scrollbar snap-x py-2 px-2"
       >
         {isLoading ? (
           Array(3).fill(0).map((_, i) => (
@@ -492,8 +492,8 @@ export default function CustomerDashboard() {
         }
       </div>
 
-      <section className="mt-8 md:mt-12">
-        <div className="flex items-center justify-between mb-4 md:mb-8 px-2">
+      <section className="mt-1 md:mt-2">
+        <div className="flex items-center justify-between mb-2.5 px-2">
           <div className="flex flex-col gap-1.5">
             <h3 className="text-lg md:text-2xl font-black text-neutral-900 dark:text-white uppercase italic tracking-tighter font-display leading-none">
                {t('nearby_stores') || 'Nearby Stores'} 
@@ -504,7 +504,7 @@ export default function CustomerDashboard() {
         </div>
         
         {/* Category Filters for Nearby Stores */}
-        <div className="flex gap-2 overflow-x-auto pb-4 no-scrollbar px-2">
+        <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar px-2">
           <button
             onClick={() => setSelectedCategory(null)}
             className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
@@ -529,7 +529,7 @@ export default function CustomerDashboard() {
 
         <div 
           ref={storeScrollRef}
-          className="flex flex-nowrap overflow-x-auto gap-4 sm:gap-6 md:gap-8 pb-4 no-scrollbar -mx-4 px-4 snap-x snap-mandatory"
+          className="flex flex-nowrap overflow-x-auto gap-4 sm:gap-6 md:gap-8 pb-2 no-scrollbar -mx-4 px-4 snap-x snap-mandatory"
         >
           {isLoading ? (
             Array(4).fill(0).map((_, i) => (
@@ -651,8 +651,8 @@ export default function CustomerDashboard() {
         </div>
       </section>
 
-      <section className="px-2 mt-8 md:mt-16">
-        <div className="flex items-center justify-between mb-4 md:mb-6">
+      <section className="px-2 mt-1 md:mt-2">
+        <div className="flex items-center justify-between mb-2 md:mb-3">
           <div className="space-y-1">
             <h3 className="text-xl md:text-2xl font-black text-neutral-900 dark:text-white uppercase italic tracking-tighter font-display leading-none">
                {t('explore_services') || 'Explore Services'}
@@ -708,8 +708,8 @@ export default function CustomerDashboard() {
       </section>
 
       {/* 4. Bidhaa Maarufu (Popular Products) */}
-      <section className="px-2 mt-8 md:mt-12">
-        <div className="flex items-center justify-between mb-4 md:mb-6">
+      <section className="px-2 mt-1 md:mt-2">
+        <div className="flex items-center justify-between mb-2">
           <h3 className="text-xl md:text-2xl font-black text-neutral-900 dark:text-white uppercase italic tracking-tighter font-display leading-none">{t('popular_products') || 'Bidhaa Maarufu'}</h3>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 [@media(min-width:1800px)]:grid-cols-10 gap-3 md:gap-8 lg:gap-10">
