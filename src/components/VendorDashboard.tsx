@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { initiatePayment } from '../services/paymentService';
 import QRCodeStyling, { DotType, CornerSquareType, CornerDotType } from "qr-code-styling";
 import { toPng } from 'html-to-image';
@@ -108,7 +108,8 @@ import {
   Map,
   Landmark,
   Activity,
-  PieChart as LucidePieChart
+  PieChart as LucidePieChart,
+  DoorOpen
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence, useScroll, useMotionValueEvent } from 'motion/react';
@@ -575,6 +576,14 @@ export default function VendorDashboard() {
   const [isAddSectionOpen, setIsAddSectionOpen] = useState(false);
   const [newSection, setNewSection] = useState({ number: '', capacity: 4, allowSharing: false, shape: 'square', section: 'Indoor', x: 50, y: 50 });
   const [selectedSection, setSelectedSection] = useState<any>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const draggingIdRef = useRef<string | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+
+  const updateDraggingId = (id: string | null) => {
+    setDraggingId(id);
+    draggingIdRef.current = id;
+  };
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orderToPrint, setOrderToPrint] = useState<Order | null>(null);
   const [prepTime, setPrepTime] = useState('');
@@ -1383,7 +1392,18 @@ export default function VendorDashboard() {
     const unsubs = [
       onSnapshot(query(collection(db, 'orders'), where('vendorId', '==', vendorProfile.id)), () => fetchOrders(), errorHandler('orders')),
       onSnapshot(query(collection(db, 'products'), where('vendorId', '==', vendorProfile.id)), () => fetchProducts(), errorHandler('products')),
-      onSnapshot(query(collection(db, 'tables'), where('vendorId', '==', vendorProfile.id)), () => fetchSections(), errorHandler('tables')),
+      onSnapshot(collection(db, 'vendors', vendorProfile.id, 'sections'), (snap) => {
+        const incoming = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setSections(prev => {
+          return incoming.map(inc => {
+            const activeDrag = prev.find(p => p.id === inc.id);
+            if (activeDrag && inc.id === draggingIdRef.current) {
+              return { ...inc, x: activeDrag.x, y: activeDrag.y };
+            }
+            return inc;
+          });
+        });
+      }, errorHandler('sections')),
       onSnapshot(
         query(collection(db, 'reviews'), where('targetId', '==', vendorProfile.id), where('targetType', '==', 'vendor')), 
         () => fetchReviews(),
@@ -2017,6 +2037,69 @@ export default function VendorDashboard() {
       console.error(error);
     }
   };
+
+  const handleDragStart = (e: React.MouseEvent | React.TouchEvent, table: any) => {
+    if (e.type === 'mousedown' && (e as React.MouseEvent).button !== 0) return;
+    updateDraggingId(table.id);
+    setSelectedSection(table);
+  };
+
+  useEffect(() => {
+    if (!draggingId || !vendorProfile?.id) return;
+
+    const handlePointerMove = (e: MouseEvent | TouchEvent) => {
+      if (!mapContainerRef.current) return;
+      const rect = mapContainerRef.current.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+      const relativeX = clientX - rect.left;
+      const relativeY = clientY - rect.top;
+
+      let pctX = Math.round((relativeX / rect.width) * 100);
+      let pctY = Math.round((relativeY / rect.height) * 100);
+
+      pctX = Math.max(1, Math.min(99, pctX));
+      pctY = Math.max(1, Math.min(99, pctY));
+
+      setSections(prev =>
+        prev.map(s => s.id === draggingId ? { ...s, x: pctX, y: pctY } : s)
+      );
+    };
+
+    const handlePointerUp = async () => {
+      if (!vendorProfile?.id || !draggingId) {
+        updateDraggingId(null);
+        return;
+      }
+      const draggedTable = sections.find(s => s.id === draggingId);
+      if (draggedTable && typeof draggedTable.x === 'number' && typeof draggedTable.y === 'number') {
+        try {
+          await updateDoc(doc(db, 'vendors', vendorProfile.id, 'sections', draggingId), {
+            x: draggedTable.x,
+            y: draggedTable.y
+          });
+        } catch (err) {
+          console.error("Error updating dragged table position:", err);
+        }
+      }
+      updateDraggingId(null);
+    };
+
+    window.addEventListener('mousemove', handlePointerMove);
+    window.addEventListener('mouseup', handlePointerUp);
+    window.addEventListener('touchmove', handlePointerMove, { passive: false });
+    window.addEventListener('touchend', handlePointerUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handlePointerMove);
+      window.removeEventListener('mouseup', handlePointerUp);
+      window.removeEventListener('touchmove', handlePointerMove);
+      window.removeEventListener('touchend', handlePointerUp);
+    };
+  }, [draggingId, sections, vendorProfile?.id]);
 
   if (loading) return (
     <div className="p-6 md:p-10 space-y-10">
@@ -3771,10 +3854,14 @@ export default function VendorDashboard() {
                 {vendorProfile?.category === 'restaurant' && tableSubTab === 'visual' ? (
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     {/* Left Hand: Interactive Floor Map Canvas */}
-                    <div className="lg:col-span-2 relative bg-neutral-950/80 rounded-[2.5rem] border border-neutral-800 h-[560px] p-6 overflow-hidden shadow-inner flex flex-col justify-between">
-                      {/* Grid overlay */}
-                      <div className="absolute inset-0 bg-[linear-gradient(to_right,#1f293708_1px,transparent_1px),linear-gradient(to_bottom,#1f293708_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none opacity-50" />
-                      
+                    <div 
+                      ref={mapContainerRef} 
+                      className="lg:col-span-2 relative bg-neutral-950 border border-neutral-800 h-[560px] rounded-[2.5rem] overflow-hidden shadow-inner flex flex-col justify-between select-none"
+                      style={{ 
+                        backgroundImage: 'radial-gradient(rgba(249, 115, 22, 0.08) 1.5px, transparent 1.5px)', 
+                        backgroundSize: '24px 24px' 
+                      }}
+                    >
                       {/* Zone Highlights */}
                       <div className="absolute top-4 right-4 bg-yellow-500/5 border border-dashed border-yellow-500/20 px-4 py-2 rounded-xl text-[8px] font-bold text-yellow-500/50 uppercase tracking-widest pointer-events-none">
                         JIKO (KITCHEN & POS AREA)
@@ -3789,12 +3876,7 @@ export default function VendorDashboard() {
                         KAUNTA (BAR AREA)
                       </div>
 
-                      {/* Main Entrance Marker */}
-                      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-32 h-1 bg-neutral-800 flex justify-center items-end">
-                        <span className="text-[7.5px] font-black text-neutral-500 uppercase tracking-widest mb-1.5 whitespace-nowrap">MLANGO MKUU (MAIN INPUT)</span>
-                      </div>
-
-                      {/* Rendering Tables on Visual Coordinates */}
+                      {/* Rendering Tables & Infrastructure on Visual Coordinates */}
                       <div className="absolute inset-8">
                         {sections.map((section, idx) => {
                           const tableStatus = section.status || 'available';
@@ -3802,17 +3884,64 @@ export default function VendorDashboard() {
                           const y = typeof section.y === 'number' ? section.y : (20 + Math.floor(idx / 3) * 30);
                           const shape = section.shape || 'square';
                           const isSelected = selectedSection?.id === section.id;
-                          
-                          // Style table according to its shape and status
-                          let shapeClasses = "w-16 h-16 rounded-[1.2rem]"; // default square
-                          if (shape === 'round') shapeClasses = "w-16 h-16 rounded-full";
-                          else if (shape === 'sofa') shapeClasses = "w-24 h-16 rounded-[1.8rem]";
-                          else if (shape === 'bar_stool') shapeClasses = "w-12 h-12 rounded-full border-2 border-neutral-700";
+                          const isDraggingThis = draggingId === section.id;
 
+                          // Differentiate Static Architectural items from interactive Tables
+                          const isInfra = ['entrance', 'reception', 'kitchen_window', 'bar_counter', 'restroom', 'indoor_plant', 'structure_divider'].includes(shape);
+                          
+                          // Custom Dimension definitions for architectural realism
+                          let shapeClasses = "w-16 h-16 rounded-[1.2rem]"; // default square
+                          let elementIcon = null;
+                          let elementLabel = section.number || `Meza ${idx + 1}`;
+
+                          if (shape === 'round') {
+                            shapeClasses = "w-16 h-16 rounded-full";
+                          } else if (shape === 'sofa') {
+                            shapeClasses = "w-24 h-16 rounded-[1.6rem]";
+                          } else if (shape === 'bar_stool') {
+                            shapeClasses = "w-12 h-12 rounded-full";
+                          } else if (shape === 'entrance') {
+                            shapeClasses = "w-20 h-10 rounded-xl border-orange-500/30 bg-orange-950/20 text-orange-400";
+                            elementIcon = <DoorOpen className="w-5 h-5 text-orange-500 animate-pulse" />;
+                            elementLabel = section.number || "MLANGO";
+                          } else if (shape === 'reception') {
+                            shapeClasses = "w-24 h-14 rounded-2xl border-purple-500/30 bg-purple-950/20 text-purple-400";
+                            elementIcon = <Users className="w-4 h-4 text-purple-400" />;
+                            elementLabel = section.number || "MAPOKEZI";
+                          } else if (shape === 'kitchen_window') {
+                            shapeClasses = "w-28 h-14 rounded-2xl border-red-500/30 bg-red-950/20 text-red-400";
+                            elementIcon = <ChefHat className="w-4 h-4 text-red-500" />;
+                            elementLabel = section.number || "JIKONI (GATE)";
+                          } else if (shape === 'bar_counter') {
+                            shapeClasses = "w-32 h-14 rounded-2xl border-amber-500/30 bg-amber-950/20 text-amber-400";
+                            elementIcon = <Beer className="w-4 h-4 text-amber-500" />;
+                            elementLabel = section.number || "KAUNTA / BAR";
+                          } else if (shape === 'restroom') {
+                            shapeClasses = "w-14 h-14 rounded-xl border-blue-500/30 bg-blue-950/20 text-blue-400";
+                            elementIcon = <Users className="w-4 h-4 text-blue-400" />;
+                            elementLabel = section.number || "CHOO (WC)";
+                          } else if (shape === 'indoor_plant') {
+                            shapeClasses = "w-12 h-12 rounded-full border-emerald-500/30 bg-emerald-950/20 text-emerald-400";
+                            elementIcon = <Compass className="w-4 h-4 text-emerald-400 rotate-45" />;
+                            elementLabel = section.number || "MMEA";
+                          } else if (shape === 'structure_divider') {
+                            shapeClasses = "w-28 h-6 rounded-md border-dashed border-neutral-700 bg-neutral-900/40 text-neutral-400";
+                            elementLabel = section.number || "KITALU";
+                          }
+
+                          // Seating styling or status-based styles
                           let statusBg = "bg-green-600/10 text-green-500 border-green-500/30 shadow-[0_4px_20px_-5px_rgba(16,185,129,0.3)]";
-                          if (tableStatus === 'occupied') statusBg = "bg-red-500/10 text-red-500 border-red-500/30 shadow-[0_4px_20px_-5px_rgba(239,68,68,0.3)]";
-                          else if (tableStatus === 'reserved') statusBg = "bg-yellow-500/10 text-yellow-500 border-yellow-500/30 shadow-[0_4px_20px_-5px_rgba(234,179,8,0.3)]";
-                          else if (tableStatus === 'cleaning') statusBg = "bg-blue-500/10 text-blue-500 border-blue-500/30 shadow-[0_4px_20px_-5px_rgba(59,130,246,0.3)]";
+                          if (!isInfra) {
+                            if (tableStatus === 'occupied') {
+                              statusBg = "bg-red-500/10 text-red-500 border-red-500/30 shadow-[0_4px_20px_-5px_rgba(239,68,68,0.3)]";
+                            } else if (tableStatus === 'reserved') {
+                              statusBg = "bg-yellow-500/10 text-yellow-500 border-yellow-500/30 shadow-[0_4px_20px_-5px_rgba(234,179,8,0.3)]";
+                            } else if (tableStatus === 'cleaning') {
+                              statusBg = "bg-blue-500/10 text-blue-500 border-blue-500/30 shadow-[0_4px_20px_-5px_rgba(59,130,246,0.3)]";
+                            }
+                          } else {
+                            statusBg = ""; // classes mapped directly based on shape type
+                          }
 
                           return (
                             <motion.button
@@ -3820,10 +3949,12 @@ export default function VendorDashboard() {
                               whileTap={{ scale: 0.95 }}
                               type="button"
                               key={`visual-table-${section.id || idx}`}
+                              onMouseDown={(e) => handleDragStart(e, section)}
+                              onTouchStart={(e) => handleDragStart(e, section)}
                               onClick={() => setSelectedSection(section)}
-                              className={`absolute border flex flex-col items-center justify-center cursor-pointer transition-all ${shapeClasses} ${statusBg} ${
-                                isSelected ? 'ring-4 ring-orange-600 ring-offset-2 ring-offset-neutral-950 border-orange-500' : ''
-                              }`}
+                              className={`absolute border flex flex-col items-center justify-center cursor-grab transition-all select-none ${shapeClasses} ${statusBg} ${
+                                isSelected ? 'ring-4 ring-orange-600 ring-offset-2 ring-offset-neutral-950 border-orange-500 z-50' : ''
+                              } ${isDraggingThis ? 'opacity-70 cursor-grabbing border-orange-400 ring-2 ring-orange-500/50 scale-108 z-50' : 'z-20'}`}
                               style={{ 
                                 left: `${x}%`, 
                                 top: `${y}%`,
@@ -3831,9 +3962,36 @@ export default function VendorDashboard() {
                                 position: 'absolute'
                               }}
                             >
-                              <span className="font-mono font-black text-sm tracking-tighter">{section.number}</span>
-                              <span className="text-[7.5px] font-bold opacity-60 mt-0.5">{section.capacity || 4}p</span>
-                              {tableStatus === 'occupied' && (
+                              {/* Blueprint CAD seated configurations */}
+                              {!isInfra && shape === 'round' && (
+                                <div className="absolute inset-0 w-full h-full pointer-events-none rounded-full border border-orange-500/5">
+                                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-neutral-900 border border-neutral-800 rounded-full" />
+                                  <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-neutral-900 border border-neutral-800 rounded-full" />
+                                  <div className="absolute left-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-neutral-900 border border-neutral-800 rounded-full" />
+                                  <div className="absolute right-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-neutral-900 border border-neutral-800 rounded-full" />
+                                </div>
+                              )}
+                              {!isInfra && shape === 'square' && (
+                                <div className="absolute inset-x-0 inset-y-0 w-full h-full pointer-events-none">
+                                  <div className="absolute -top-1 left-2 w-3.5 h-1 bg-neutral-900 border-t border-x border-neutral-800 rounded-t-[2px]" />
+                                  <div className="absolute -top-1 right-2 w-3.5 h-1 bg-neutral-900 border-t border-x border-neutral-800 rounded-t-[2px]" />
+                                  <div className="absolute -bottom-1 left-2 w-3.5 h-1 bg-neutral-900 border-b border-x border-neutral-800 rounded-b-[2px]" />
+                                  <div className="absolute -bottom-1 right-2 w-3.5 h-1 bg-neutral-900 border-b border-x border-neutral-800 rounded-b-[2px]" />
+                                </div>
+                              )}
+                              {!isInfra && shape === 'sofa' && (
+                                <div className="absolute inset-x-0 inset-y-0 w-full h-full pointer-events-none flex justify-between px-1.5 items-center">
+                                  <span className="text-[7px]">🛋️</span>
+                                  <span className="text-[7px]">🛋️</span>
+                                </div>
+                              )}
+
+                              {elementIcon}
+                              <span className="font-mono font-black text-xs tracking-tighter truncate max-w-[90%]">{elementLabel}</span>
+                              {!isInfra && (
+                                <span className="text-[7.5px] font-bold opacity-60 mt-0.5">{section.capacity || 4}p</span>
+                              )}
+                              {tableStatus === 'occupied' && !isInfra && (
                                 <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse border-2 border-neutral-950" />
                               )}
                             </motion.button>
@@ -3848,186 +4006,235 @@ export default function VendorDashboard() {
                         )}
                       </div>
 
-                      {/* Map info bar */}
-                      <div className="relative z-10 p-3 bg-neutral-900/60 backdrop-blur-md rounded-2xl border border-neutral-800 flex items-center justify-between gap-4 mt-auto">
+                      {/* Map info bar with modern dragging guide */}
+                      <div className="relative z-10 p-3 bg-neutral-900/90 backdrop-blur-md rounded-2xl border border-neutral-800/80 flex flex-col md:flex-row items-center justify-between gap-4 mt-auto">
                         <div className="flex items-center gap-4 text-[9px] font-black uppercase tracking-wider text-neutral-400">
                           <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-green-500 rounded-full" /> AVAILABLE</span>
                           <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-red-500 rounded-full" /> OCCUPIED</span>
                           <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-yellow-500 rounded-full" /> RESERVED</span>
                           <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-blue-500 rounded-full" /> CLEANING</span>
                         </div>
-                        <span className="text-[8px] font-black text-orange-600 uppercase tracking-tighter">Bofya Meza upange/isogeze (Interaktiv)</span>
+                        <span className="text-[9px] font-bold text-orange-500 uppercase tracking-tight flex items-center gap-1.5 animate-pulse">
+                          <span className="w-2 h-2 rounded-full bg-orange-500" /> Buruza & Achia (Drag & Drop) meza, milango au mimea popote!
+                        </span>
                       </div>
                     </div>
 
                     {/* Right Hand: Selected Table Inspector & Placement Controls */}
                     <div className="bg-neutral-900 border border-neutral-800 rounded-[2.5rem] p-6 flex flex-col justify-between">
-                      {selectedSection ? (
-                        <div className="space-y-6">
-                          <div>
-                            <span className="text-[9px] font-bold text-orange-600 uppercase tracking-widest">Kihariri cha Meza (Table Inspector)</span>
-                            <h3 className="text-2xl font-black text-white italic uppercase tracking-tight mt-1 flex items-center gap-2">
-                              Meza au Kibanda: {selectedSection.number}
-                            </h3>
-                            <p className="text-xs text-neutral-500 font-bold uppercase">{selectedSection.section || 'Indoor Floor'} Area</p>
-                          </div>
-
-                          {/* Stat Selector */}
-                          <div className="space-y-2">
-                            <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Hali (Occupancy Status)</label>
-                            <Select 
-                              value={selectedSection.status || 'available'} 
-                              onValueChange={(val) => {
-                                updateTableStatus(selectedSection.id, val);
-                                setSelectedSection({...selectedSection, status: val});
-                              }}
-                            >
-                              <SelectTrigger className="bg-neutral-950 border-neutral-800 h-12 rounded-xl text-xs font-bold text-white">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent className="bg-neutral-900 border-neutral-800 text-white rounded-xl">
-                                <SelectItem value="available">✓ Inapatikana (Available)</SelectItem>
-                                <SelectItem value="occupied">! Ameketi Mteja (Occupied)</SelectItem>
-                                <SelectItem value="reserved">★ Imewekewa Uhifadhi (Reserved)</SelectItem>
-                                <SelectItem value="cleaning">∞ Inasafishwa (Cleaning)</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          {/* Seating Space & Shape */}
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">Aina ya Meza</label>
-                              <Select 
-                                value={selectedSection.shape || 'square'} 
-                                onValueChange={(val) => {
-                                  updateTableField(selectedSection.id, 'shape', val);
-                                  setSelectedSection({...selectedSection, shape: val});
-                                }}
-                              >
-                                <SelectTrigger className="bg-neutral-950 border-neutral-800 h-11 rounded-xl text-[10px] text-white uppercase font-bold">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent className="bg-neutral-900 border-neutral-800 text-white rounded-xl">
-                                  <SelectItem value="square">Mstatili</SelectItem>
-                                  <SelectItem value="round">Duara</SelectItem>
-                                  <SelectItem value="sofa">Sofa Booth</SelectItem>
-                                  <SelectItem value="bar_stool">Bar Stool</SelectItem>
-                                </SelectContent>
-                              </Select>
+                      {(() => {
+                        if (!selectedSection) {
+                          return (
+                            <div className="flex-1 flex flex-col items-center justify-center text-center p-8 opacity-60">
+                              <Compass className="w-12 h-12 text-neutral-600 mb-4 animate-spin-slow" />
+                              <h4 className="text-sm font-black text-white uppercase tracking-wider mb-1">Inspector Passive</h4>
+                              <p className="text-[11px] text-neutral-500 font-bold">Chagua meza au muundo wowote Kushoto kuuhariri, au kuuburuza moja kwa moja (drag & drop)!</p>
                             </div>
+                          );
+                        }
 
-                            <div className="space-y-2">
-                              <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">Viti (Capacity)</label>
-                              <Input 
-                                type="number" 
-                                className="bg-neutral-950 border-neutral-800 h-11 rounded-xl text-white font-mono"
-                                value={selectedSection.capacity || 4}
-                                onChange={(e) => {
-                                  const val = parseInt(e.target.value) || 2;
-                                  updateTableField(selectedSection.id, 'capacity', val);
-                                  setSelectedSection({...selectedSection, capacity: val});
-                                }}
-                              />
-                            </div>
-                          </div>
+                        const isSectionInfra = ['entrance', 'reception', 'kitchen_window', 'bar_counter', 'restroom', 'indoor_plant', 'structure_divider'].includes(selectedSection.shape);
 
-                          {/* Direction Pad Positioner (Shift) */}
-                          <div className="p-4 bg-neutral-950 rounded-2xl border border-neutral-800 space-y-4">
-                            <div className="text-center">
-                              <span className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">Sogeza / Panga Coordinates</span>
-                              <p className="text-[9px] text-neutral-600 mt-0.5 font-bold">X: {selectedSection.x || 50}% | Y: {selectedSection.y || 50}%</p>
-                            </div>
-                            
-                            <div className="flex flex-col items-center gap-2">
-                              {/* UP Button */}
-                              <button 
-                                onClick={() => shiftTable(selectedSection.id, 0, -5)} 
-                                className="w-10 h-10 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-white rounded-lg flex items-center justify-center transition-all active:scale-90"
-                              >
-                                ▲
-                              </button>
-                              
-                              <div className="flex items-center gap-4">
-                                {/* LEFT Button */}
-                                <button 
-                                  onClick={() => shiftTable(selectedSection.id, -5, 0)} 
-                                  className="w-10 h-10 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-white rounded-lg flex items-center justify-center transition-all active:scale-90"
-                                >
-                                  ◀
-                                </button>
-                                
-                                <div className="w-8 h-8 rounded-full border border-neutral-800 bg-neutral-950 flex items-center justify-center">
-                                  <Move className="w-3.5 h-3.5 text-orange-600" />
-                                </div>
-
-                                {/* RIGHT Button */}
-                                <button 
-                                  onClick={() => shiftTable(selectedSection.id, 5, 0)} 
-                                  className="w-10 h-10 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-white rounded-lg flex items-center justify-center transition-all active:scale-90"
-                                >
-                                  ▶
-                                </button>
+                        return (
+                          <div className="flex flex-col justify-between h-full w-full">
+                            <div className="space-y-6">
+                              <div>
+                                <span className="text-[9px] font-bold text-orange-600 uppercase tracking-widest">
+                                  {isSectionInfra ? 'Kielezo cha Miundo (Structure Inspector)' : 'Kihariri cha Meza (Table Inspector)'}
+                                </span>
+                                <h3 className="text-2xl font-black text-white italic uppercase tracking-tight mt-1 flex items-center gap-2">
+                                  {isSectionInfra ? selectedSection.number || 'Kitu cha Muundo' : `Meza au Kibanda: ${selectedSection.number}`}
+                                </h3>
+                                <p className="text-xs text-neutral-500 font-bold uppercase">{selectedSection.section || 'Indoor Floor'} Area</p>
                               </div>
 
-                              {/* DOWN Button */}
-                              <button 
-                                onClick={() => shiftTable(selectedSection.id, 0, 5)} 
-                                className="w-10 h-10 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-white rounded-lg flex items-center justify-center transition-all active:scale-90"
+                              {/* Label Editor for both Tables and structures */}
+                              <div className="space-y-2">
+                                <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">
+                                  {isSectionInfra ? 'Jina la Kielelezo (Element Label)' : 'Namba / Jina la Meza (Table Label)'}
+                                </label>
+                                <Input 
+                                  className="bg-neutral-950 border-neutral-800 h-11 rounded-xl text-white font-bold text-xs"
+                                  value={selectedSection.number || ''}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    updateTableField(selectedSection.id, 'number', val);
+                                    setSelectedSection({...selectedSection, number: val});
+                                  }}
+                                  placeholder={isSectionInfra ? "e.g. Mlango Kuu" : "e.g. Meza 5"}
+                                />
+                              </div>
+
+                              {/* Stat Selector - ONLY for tables */}
+                              {!isSectionInfra ? (
+                                <div className="space-y-2">
+                                  <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Hali (Occupancy Status)</label>
+                                  <Select 
+                                    value={selectedSection.status || 'available'} 
+                                    onValueChange={(val) => {
+                                      updateTableStatus(selectedSection.id, val);
+                                      setSelectedSection({...selectedSection, status: val});
+                                    }}
+                                  >
+                                    <SelectTrigger className="bg-neutral-950 border-neutral-800 h-12 rounded-xl text-xs font-bold text-white">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-neutral-900 border-neutral-800 text-white rounded-xl">
+                                      <SelectItem value="available">✓ Inapatikana (Available)</SelectItem>
+                                      <SelectItem value="occupied">! Ameketi Mteja (Occupied)</SelectItem>
+                                      <SelectItem value="reserved">★ Imewekewa Uhifadhi (Reserved)</SelectItem>
+                                      <SelectItem value="cleaning">∞ Inasafishwa (Cleaning)</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              ) : (
+                                <div className="p-4 bg-orange-950/15 border border-orange-500/20 rounded-2xl">
+                                  <span className="text-[9px] font-black text-orange-400 uppercase tracking-widest flex items-center gap-1.5">
+                                    <span className="w-2 h-2 bg-orange-500 rounded-full animate-ping" /> STATIC INFRASTRUCTURE
+                                  </span>
+                                  <p className="text-[10px] text-neutral-400 mt-1 lines-spaced font-medium">
+                                    Objekti hii inafanya kazi kama kielelezo na mwongozo wa muundo kwenye ramani yako. Sogeza popote kupamba ukumbi!
+                                  </p>
+                                </div>
+                              )}
+
+                              {/* Seating Space & Shape - ONLY for tables */}
+                              {!isSectionInfra && (
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">Aina ya Meza</label>
+                                    <Select 
+                                      value={selectedSection.shape || 'square'} 
+                                      onValueChange={(val) => {
+                                        updateTableField(selectedSection.id, 'shape', val);
+                                        setSelectedSection({...selectedSection, shape: val});
+                                      }}
+                                    >
+                                      <SelectTrigger className="bg-neutral-950 border-neutral-800 h-11 rounded-xl text-[10px] text-white uppercase font-bold">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent className="bg-neutral-900 border-neutral-800 text-white rounded-xl">
+                                        <SelectItem value="square">Mstatili</SelectItem>
+                                        <SelectItem value="round">Duara</SelectItem>
+                                        <SelectItem value="sofa">Sofa Booth</SelectItem>
+                                        <SelectItem value="bar_stool">Bar Stool</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">Viti (Capacity)</label>
+                                    <Input 
+                                      type="number" 
+                                      className="bg-neutral-950 border-neutral-800 h-11 rounded-xl text-white font-mono"
+                                      value={selectedSection.capacity || 4}
+                                      onChange={(e) => {
+                                        const val = parseInt(e.target.value) || 2;
+                                        updateTableField(selectedSection.id, 'capacity', val);
+                                        setSelectedSection({...selectedSection, capacity: val});
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Direction Pad Positioner (Shift) */}
+                              <div className="p-4 bg-neutral-950 rounded-2xl border border-neutral-800 space-y-4">
+                                <div className="text-center">
+                                  <span className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">Sogeza kwa Usahihi (%)</span>
+                                  <p className="text-[9px] text-neutral-600 mt-0.5 font-bold">X: {selectedSection.x || 50}% | Y: {selectedSection.y || 50}%</p>
+                                </div>
+                                
+                                <div className="flex flex-col items-center gap-2">
+                                  {/* UP Button */}
+                                  <button 
+                                    onClick={() => shiftTable(selectedSection.id, 0, -5)} 
+                                    className="w-10 h-10 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-white rounded-lg flex items-center justify-center transition-all active:scale-90"
+                                  >
+                                    ▲
+                                  </button>
+                                  
+                                  <div className="flex items-center gap-4">
+                                    {/* LEFT Button */}
+                                    <button 
+                                      onClick={() => shiftTable(selectedSection.id, -5, 0)} 
+                                      className="w-10 h-10 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-white rounded-lg flex items-center justify-center transition-all active:scale-90"
+                                    >
+                                      ◀
+                                    </button>
+                                    
+                                    <div className="w-8 h-8 rounded-full border border-neutral-800 bg-neutral-950 flex items-center justify-center">
+                                      <Move className="w-3.5 h-3.5 text-orange-600" />
+                                    </div>
+
+                                    {/* RIGHT Button */}
+                                    <button 
+                                      onClick={() => shiftTable(selectedSection.id, 5, 0)} 
+                                      className="w-10 h-10 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-white rounded-lg flex items-center justify-center transition-all active:scale-90"
+                                    >
+                                      ▶
+                                    </button>
+                                  </div>
+
+                                  {/* DOWN Button */}
+                                  <button 
+                                    onClick={() => shiftTable(selectedSection.id, 0, 5)} 
+                                    className="w-10 h-10 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-white rounded-lg flex items-center justify-center transition-all active:scale-90"
+                                  >
+                                    ▼
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Direct POS Link - Only show for actual interactive tables */}
+                              {!isSectionInfra && (staffProfile?.role === 'waiter' || !staffProfile) && (
+                                <Button 
+                                  onClick={() => {
+                                    setTableNumber(selectedSection.number);
+                                    setActiveTab('pos');
+                                    setOrderType('walk_in');
+                                  }}
+                                  className="w-full h-12 bg-orange-600 hover:bg-orange-700 text-white font-black uppercase tracking-widest text-[10px] rounded-xl flex items-center justify-center gap-2 mt-4"
+                                >
+                                  <ShoppingCart className="w-4 h-4" /> Fungua Risiti / Pokea Oda
+                                </Button>
+                              )}
+                            </div>
+
+                            {/* Utility Action row */}
+                            <div className="pt-6 border-t border-neutral-800 flex gap-2 w-full mt-6">
+                              {/* Only show QR code generator for actual dining tables */}
+                              {!['entrance', 'reception', 'kitchen_window', 'bar_counter', 'restroom', 'indoor_plant', 'structure_divider'].includes(selectedSection.shape) ? (
+                                <Button 
+                                  variant="outline" 
+                                  className="flex-1 h-12 bg-neutral-950 border-neutral-800 text-[10px] font-black uppercase text-white rounded-xl gap-2 hover:border-orange-500/50"
+                                  onClick={() => {
+                                    setQrOptions({ ...qrOptions, data: `${window.location.origin}/table/${vendorProfile?.id}/${selectedSection.number}` });
+                                    setIsQrBuilderOpen(true);
+                                  }}
+                                >
+                                  <QrCode className="w-4 h-4" /> Jenga QR Code
+                                </Button>
+                              ) : (
+                                <div className="flex-1 text-[10px] text-neutral-600 font-bold uppercase flex items-center justify-center border border-dashed border-neutral-800 rounded-xl">
+                                  No QR Code
+                                </div>
+                              )}
+                              <Button 
+                                className="bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white h-12 px-4 rounded-xl transition-all"
+                                onClick={async () => {
+                                  if (confirm('Futa kitu hiki kabisa?')) {
+                                    await handleDeleteSection(selectedSection.id);
+                                    setSelectedSection(null);
+                                  }
+                                }}
                               >
-                                ▼
-                              </button>
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
                             </div>
                           </div>
-
-                          {/* Direct POS Link */}
-                          {(staffProfile?.role === 'waiter' || !staffProfile) && (
-                            <Button 
-                              onClick={() => {
-                                setTableNumber(selectedSection.number);
-                                setActiveTab('pos');
-                                setOrderType('walk_in');
-                              }}
-                              className="w-full h-12 bg-orange-600 hover:bg-orange-700 text-white font-black uppercase tracking-widest text-[10px] rounded-xl flex items-center justify-center gap-2 mt-4"
-                            >
-                              <ShoppingCart className="w-4 h-4" /> Fungua Risiti / Pokea Oda
-                            </Button>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="flex-1 flex flex-col items-center justify-center text-center p-8 opacity-60">
-                          <Compass className="w-12 h-12 text-neutral-600 mb-4 animate-spin-slow" />
-                          <h4 className="text-sm font-black text-white uppercase tracking-wider mb-1">Inspector Passive</h4>
-                          <p className="text-[11px] text-neutral-500 font-bold">Chagua meza yoyote Kushoto ili kuona kihariri chake, au kuisogeza visual coordinates!</p>
-                        </div>
-                      )}
-
-                      {/* Utility Action row */}
-                      {selectedSection && (
-                        <div className="pt-6 border-t border-neutral-800 flex gap-2 w-full mt-6">
-                          <Button 
-                            variant="outline" 
-                            className="flex-1 h-12 bg-neutral-950 border-neutral-800 text-[9px] font-black uppercase text-white rounded-xl gap-2 hover:border-orange-500/50"
-                            onClick={() => {
-                              setQrOptions({ ...qrOptions, data: `${window.location.origin}/table/${vendorProfile?.id}/${selectedSection.number}` });
-                              setIsQrBuilderOpen(true);
-                            }}
-                          >
-                            <QrCode className="w-3.5 h-3.5" /> Jenga QR Code
-                          </Button>
-                          <Button 
-                            className="bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white h-12 px-4 rounded-xl"
-                            onClick={async () => {
-                              if (confirm('Futa meza hii kabisa?')) {
-                                await handleDeleteSection(selectedSection.id);
-                                setSelectedSection(null);
-                              }
-                            }}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      )}
+                        );
+                      })()}
                     </div>
                   </div>
                 ) : (
@@ -8058,11 +8265,21 @@ export default function VendorDashboard() {
                         <SelectTrigger className="bg-neutral-800 border-none h-11 rounded-xl text-xs text-white">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent className="bg-neutral-900 border-neutral-800 text-white rounded-xl">
+                        <SelectContent className="bg-neutral-900 border-neutral-800 text-white rounded-xl max-h-[220px] overflow-y-auto">
+                          <div className="text-[9px] font-black text-neutral-500 uppercase tracking-widest px-2.5 py-1.5 border-b border-neutral-800/40">MEZA NA VITI / DINING</div>
                           <SelectItem value="square">Mstatili / Square Table</SelectItem>
                           <SelectItem value="round">Duara / Round Table</SelectItem>
-                          <SelectItem value="sofa">Sofa / Booth</SelectItem>
+                          <SelectItem value="sofa">Sofa / Booth Setup</SelectItem>
                           <SelectItem value="bar_stool">Kiti Kirefu / Bar Stool</SelectItem>
+                          
+                          <div className="text-[9px] font-black text-neutral-500 uppercase tracking-widest px-2.5 py-1.5 border-t border-b border-neutral-800/40 mt-1">MIUNDOMBINU / ARCHITECTURE</div>
+                          <SelectItem value="entrance">🚪 Mlango Mkuu / Main Entrance</SelectItem>
+                          <SelectItem value="reception">🛎️ Mapokezi / Reception Desk</SelectItem>
+                          <SelectItem value="kitchen_window">👨‍🍳 Dirisha la Jikoni / Kitchen Gate</SelectItem>
+                          <SelectItem value="bar_counter">☕ Kaunta ya Baa / Bar Counter</SelectItem>
+                          <SelectItem value="restroom">🚻 Choo / Restroom (WC)</SelectItem>
+                          <SelectItem value="indoor_plant">🌿 Mmea wa Maua / Decorative Plant</SelectItem>
+                          <SelectItem value="structure_divider">🔲 Kitalu / Dividing Partition</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
