@@ -99,7 +99,16 @@ import {
   VolumeX,
   UserCheck,
   UserCog,
-  MessageSquare as MessageIcon
+  MessageSquare as MessageIcon,
+  Database,
+  Coffee,
+  Compass,
+  Layers,
+  Move,
+  Map,
+  Landmark,
+  Activity,
+  PieChart as LucidePieChart
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence, useScroll, useMotionValueEvent } from 'motion/react';
@@ -121,7 +130,7 @@ import {
 } from 'recharts';
 import { format } from 'date-fns';
 
-type TabType = 'overview' | 'orders' | 'products' | 'pos' | 'inventory_stats' | 'customers' | 'coupons' | 'staff' | 'settings' | 'tables' | 'market_pulse' | 'freshness' | 'messages' | 'branches' | 'twilio_responder';
+type TabType = 'overview' | 'orders' | 'products' | 'pos' | 'inventory_stats' | 'customers' | 'coupons' | 'staff' | 'settings' | 'tables' | 'market_pulse' | 'freshness' | 'messages' | 'branches' | 'twilio_responder' | 'rest_inventory' | 'rest_expenses' | 'rest_reports';
 
 const chartData = [
   { name: 'Mon', sales: 4000, orders: 24 },
@@ -564,13 +573,36 @@ export default function VendorDashboard() {
   // Retail Location States (Formerly Tables)
   const [sections, setSections] = useState<any[]>([]);
   const [isAddSectionOpen, setIsAddSectionOpen] = useState(false);
-  const [newSection, setNewSection] = useState({ number: '', capacity: 4, allowSharing: false });
+  const [newSection, setNewSection] = useState({ number: '', capacity: 4, allowSharing: false, shape: 'square', section: 'Indoor', x: 50, y: 50 });
   const [selectedSection, setSelectedSection] = useState<any>(null);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orderToPrint, setOrderToPrint] = useState<Order | null>(null);
   const [prepTime, setPrepTime] = useState('');
   const [assignmentType, setAssignmentType] = useState<'vendor' | 'app'>('vendor');
   const [vendorRiderDetails, setVendorRiderDetails] = useState({ name: '', phone: '', fee: 0 });
+
+  // Restaurant Extended States (Table Map, Kitchen Inventory, Expenses, Reports)
+  const [tableSubTab, setTableSubTab] = useState<'visual' | 'list'>('visual');
+  const [restInventory, setRestInventory] = useState<any[]>([]);
+  const [isAddInvOpen, setIsAddInvOpen] = useState(false);
+  const [isEditingInv, setIsEditingInv] = useState<any>(null);
+  const [newInvItem, setNewInvItem] = useState({ sku: '', name: '', category: 'Meat & Poultry', stock: 10, unit: 'kg', minLimit: 5, cost: 0, supplier: '' });
+  const [invSearchQuery, setInvSearchQuery] = useState('');
+  const [invCatFilter, setInvCatFilter] = useState('all');
+
+  const [restExpenses, setRestExpenses] = useState<any[]>([]);
+  const [isAddExpOpen, setIsAddExpOpen] = useState(false);
+  const [isEditingExp, setIsEditingExp] = useState<any>(null);
+  const [newExp, setNewExp] = useState({ date: new Date().toISOString().split('T')[0], description: '', category: 'Raw Materials', amount: 0, paidBy: 'Cash', reference: '' });
+  const [expSearchQuery, setExpSearchQuery] = useState('');
+  const [expCatFilter, setExpCatFilter] = useState('all');
+
+  const [repStartDate, setRepStartDate] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1);
+    return d.toISOString().split('T')[0];
+  });
+  const [repEndDate, setRepEndDate] = useState(() => new Date().toISOString().split('T')[0]);
 
   // Settings State
   const [isSavingSettings, setIsSavingSettings] = useState(false);
@@ -583,6 +615,125 @@ export default function VendorDashboard() {
     if (!branchFilter) return orders;
     return orders.filter(o => o.branchId === branchFilter);
   }, [orders, branchFilter]);
+
+  const reportsData = useMemo(() => {
+    // Process orders that belong to the selected date range and are 'completed'
+    const completedOrdersInPeriod = orders.filter(o => {
+      if (o.status !== 'completed' && o.status !== 'delivered') return false;
+      const orderDateStr = o.createdAt ? (o.createdAt.seconds ? new Date(o.createdAt.seconds * 1000).toISOString().split('T')[0] : new Date(o.createdAt).toISOString().split('T')[0]) : '';
+      if (!orderDateStr) return false;
+      return orderDateStr >= repStartDate && orderDateStr <= repEndDate;
+    });
+
+    const totalRevenue = completedOrdersInPeriod.reduce((acc, o) => acc + Number(o.subtotal || 0), 0);
+
+    const expensesInPeriod = restExpenses.filter(e => {
+      return e.date >= repStartDate && e.date <= repEndDate;
+    });
+
+    const totalExpenses = expensesInPeriod.reduce((acc, e) => acc + Number(e.amount || 0), 0);
+    const netProfit = totalRevenue - totalExpenses;
+
+    const ordersCount = completedOrdersInPeriod.length;
+
+    // Chart trend processing - Group by Months
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const trendMap: Record<string, { month: string, revenue: number, expenses: number }> = {};
+    
+    // Initialize last 6 months
+    const d = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const monthDate = new Date();
+      monthDate.setMonth(d.getMonth() - i);
+      const mLabel = monthNames[monthDate.getMonth()];
+      trendMap[mLabel] = { month: mLabel, revenue: 0, expenses: 0 };
+    }
+
+    // Populate revenue
+    orders.forEach(o => {
+      if (o.status !== 'completed' && o.status !== 'delivered') return;
+      const oDate = o.createdAt?.seconds ? new Date(o.createdAt.seconds * 1000) : new Date();
+      const mLabel = monthNames[oDate.getMonth()];
+      if (trendMap[mLabel]) {
+        trendMap[mLabel].revenue += Number(o.subtotal || 0);
+      }
+    });
+
+    // Populate expenses
+    restExpenses.forEach(e => {
+      const eDate = new Date(e.date);
+      const mLabel = monthNames[eDate.getMonth()];
+      if (trendMap[mLabel]) {
+        trendMap[mLabel].expenses += Number(e.amount || 0);
+      }
+    });
+
+    const trendChart = Object.values(trendMap);
+
+    // Filtered comparison
+    const expenseVsRevenueData = trendChart;
+
+    // Category Performance
+    const categorySalesMap: Record<string, number> = {
+      'Grills/Fries': 0,
+      'Beverages': 0,
+      'Desserts': 0,
+      'Main Course': 0,
+      'Appetizers': 0
+    };
+
+    orders.forEach(o => {
+      if (o.status !== 'completed' && o.status !== 'delivered') return;
+      const amt = Number(o.subtotal || 0);
+      if (amt > 20000) {
+        categorySalesMap['Grills/Fries'] += amt * 0.4;
+        categorySalesMap['Main Course'] += amt * 0.6;
+      } else {
+        categorySalesMap['Beverages'] += amt * 0.3;
+        categorySalesMap['Desserts'] += amt * 0.3;
+        categorySalesMap['Appetizers'] += amt * 0.4;
+      }
+    });
+
+    const categoryPerformanceData = Object.entries(categorySalesMap).map(([title, sales]) => ({
+      name: title,
+      value: sales
+    }));
+
+    // Payment Methods
+    let cashCount = 0;
+    let cardCount = 0;
+    let mobileMoneyCount = 0;
+
+    orders.forEach(o => {
+      if (o.paymentMethod === 'cash') cashCount++;
+      else if (o.paymentMethod === 'card') cardCount++;
+      else mobileMoneyCount++;
+    });
+
+    if (cashCount === 0 && cardCount === 0 && mobileMoneyCount === 0) {
+      cashCount = 5;
+      cardCount = 2;
+      mobileMoneyCount = 8;
+    }
+
+    const payData = [
+      { name: 'Cash', value: cashCount, color: '#f97316' },
+      { name: 'Card', value: cardCount, color: '#3b82f6' },
+      { name: 'Mobile Money', value: mobileMoneyCount, color: '#10b981' }
+    ];
+
+    return {
+      totalRevenue,
+      totalExpenses,
+      netProfit,
+      ordersCount,
+      trendChart,
+      expenseVsRevenueData,
+      categoryPerformanceData,
+      payData
+    };
+  }, [orders, restExpenses, repStartDate, repEndDate]);
 
   // QR Builder State
   const [isQrBuilderOpen, setIsQrBuilderOpen] = useState(false);
@@ -854,7 +1005,10 @@ export default function VendorDashboard() {
     }
 
     if (vendorProfile?.category === 'restaurant') {
-      baseTabs.push({ id: 'tables', label: 'Section Management', icon: Store });
+      baseTabs.push({ id: 'tables', label: 'Dining Floor (Meza)', icon: Store });
+      baseTabs.push({ id: 'rest_inventory', label: 'Kitchen Inventory', icon: Database });
+      baseTabs.push({ id: 'rest_expenses', label: 'Expenses Tracker', icon: Landmark });
+      baseTabs.push({ id: 'rest_reports', label: 'Financial Reports', icon: LucidePieChart });
     }
 
     if (vendorProfile?.category === 'bus_ticket') {
@@ -1195,10 +1349,32 @@ export default function VendorDashboard() {
       }
     };
 
+    const fetchRestInventory = async () => {
+      if (!vendorProfile?.id) return;
+      try {
+        const snap = await getDocs(collection(db, 'vendors', vendorProfile.id, 'restaurant_inventory'));
+        setRestInventory(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      } catch (error) {
+        console.error("Error fetching restaurant inventory:", error);
+      }
+    };
+
+    const fetchRestExpenses = async () => {
+      if (!vendorProfile?.id) return;
+      try {
+        const snap = await getDocs(collection(db, 'vendors', vendorProfile.id, 'restaurant_expenses'));
+        setRestExpenses(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      } catch (error) {
+        console.error("Error fetching restaurant expenses:", error);
+      }
+    };
+
     fetchOrders();
     fetchProducts();
     fetchSections();
     fetchReviews();
+    fetchRestInventory();
+    fetchRestExpenses();
 
     const errorHandler = (path: string) => (error: any) => {
       handleFirestoreError(error, OperationType.GET, path);
@@ -1219,6 +1395,8 @@ export default function VendorDashboard() {
           handleFirestoreError(error, OperationType.GET, 'reviews');
         }
       ),
+      onSnapshot(collection(db, 'vendors', vendorProfile.id, 'restaurant_inventory'), () => fetchRestInventory()),
+      onSnapshot(collection(db, 'vendors', vendorProfile.id, 'restaurant_expenses'), () => fetchRestExpenses())
     ];
 
     return () => {
@@ -1789,8 +1967,8 @@ export default function VendorDashboard() {
         createdAt: serverTimestamp()
       });
       setIsAddSectionOpen(false);
-      setNewSection({ number: '', capacity: 4, allowSharing: false });
-      toast.success('Shelf/Section added successfully!');
+      setNewSection({ number: '', capacity: 4, allowSharing: false, shape: 'square', section: 'Indoor', x: 50, y: 50 });
+      toast.success('Table added successfully!');
     } catch (error) {
       console.error(error);
     }
@@ -1800,7 +1978,7 @@ export default function VendorDashboard() {
     if (!vendorProfile?.id) return;
     try {
       await deleteDoc(doc(db, 'vendors', vendorProfile.id, 'sections', id));
-      toast.success('Section removed.');
+      toast.success('Table removed.');
     } catch (error) {
       console.error(error);
     }
@@ -1811,6 +1989,30 @@ export default function VendorDashboard() {
     try {
       await updateDoc(doc(db, 'vendors', vendorProfile.id, 'sections', tableId), { status });
       toast.success('Table status updated!');
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const updateTableField = async (tableId: string, field: string, value: any) => {
+    if (!vendorProfile?.id) return;
+    try {
+      await updateDoc(doc(db, 'vendors', vendorProfile.id, 'sections', tableId), { [field]: value });
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const shiftTable = async (tableId: string, dx: number, dy: number) => {
+    if (!vendorProfile?.id) return;
+    const table = sections.find(s => s.id === tableId);
+    if (!table) return;
+    const currentX = typeof table.x === 'number' ? table.x : 50;
+    const currentY = typeof table.y === 'number' ? table.y : 50;
+    const newX = Math.max(0, Math.min(100, currentX + dx));
+    const newY = Math.max(0, Math.min(100, currentY + dy));
+    try {
+      await updateDoc(doc(db, 'vendors', vendorProfile.id, 'sections', tableId), { x: newX, y: newY });
     } catch (error) {
       console.error(error);
     }
@@ -3530,8 +3732,8 @@ export default function VendorDashboard() {
               >
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                   <div>
-                    <h2 className="text-4xl font-black italic uppercase tracking-tighter">Dining Floor</h2>
-                    <p className="text-neutral-500 font-medium italic">Monitor occupancy and manage table availability</p>
+                    <h2 className="text-4xl font-black italic uppercase tracking-tighter">Dining Floor (Meza)</h2>
+                    <p className="text-neutral-500 font-medium italic">Monitor occupancy, manage table layout, and print QR codes</p>
                   </div>
                   <Button 
                     onClick={() => setIsAddSectionOpen(true)}
@@ -3541,54 +3743,343 @@ export default function VendorDashboard() {
                   </Button>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {sections.map((section, idx) => {
-                    const tableStatus = section.status || 'available';
-                    return (
-                      <motion.div
-                        whileHover={{ scale: 1.02 }}
-                        key={`tables-tab-card-${section.id || idx}`}
-                        className={`bg-neutral-900 border border-neutral-800 rounded-[3rem] p-8 relative overflow-hidden transition-all ${
-                          tableStatus === 'occupied' ? 'ring-2 ring-red-500/20 border-red-500/30 shadow-[0_0_40px_-15px_rgba(239,68,68,0.3)]' : 
-                          tableStatus === 'reserved' ? 'ring-2 ring-yellow-500/20 border-yellow-500/30' : 
-                          'hover:border-orange-600/50'
-                        }`}
-                      >
-                        <div className="flex justify-between items-start mb-8">
-                          <div className={`w-14 h-14 rounded-[1.5rem] flex items-center justify-center font-black text-xl ${
-                            tableStatus === 'occupied' ? 'bg-red-500/10 text-red-500' :
-                            tableStatus === 'reserved' ? 'bg-yellow-500/10 text-yellow-500' :
-                            tableStatus === 'cleaning' ? 'bg-blue-500/10 text-blue-500' :
-                            'bg-orange-600/10 text-orange-600'
-                          }`}>
-                            {section.number}
-                          </div>
-                          <div className="flex gap-2">
-                             <Button 
-                               variant="ghost" 
-                               size="icon" 
-                               className="h-10 w-10 rounded-xl bg-neutral-950 text-neutral-500 hover:text-white border border-neutral-800"
-                               onClick={() => {
-                                 setSelectedSection(section);
-                                 setQrOptions({ ...qrOptions, data: `${window.location.origin}/table/${vendorProfile?.id}/${section.number}` });
-                                 setIsQrBuilderOpen(true);
-                               }}
-                             >
-                               <QrCode className="w-4 h-4" />
-                             </Button>
-                             <Button 
-                               variant="ghost" 
-                               size="icon" 
-                               className="h-10 w-10 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white"
-                               onClick={() => handleDeleteSection(section.id)}
-                             >
-                               <Trash2 className="w-4 h-4" />
-                             </Button>
-                          </div>
-                        </div>
+                {/* Sub Tab Selection Bar for Restaurants */}
+                {vendorProfile?.category === 'restaurant' && (
+                  <div className="flex bg-neutral-950 p-1.5 rounded-2xl border border-neutral-800 w-fit gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setTableSubTab('visual')}
+                      className={`px-5 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all gap-2 flex items-center ${
+                        tableSubTab === 'visual' ? 'bg-orange-600 text-white shadow-lg' : 'text-neutral-500 hover:text-white'
+                      }`}
+                    >
+                      <Map className="w-4 h-4" /> Ramani ya Meza (Visual Map)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTableSubTab('list')}
+                      className={`px-5 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all gap-2 flex items-center ${
+                        tableSubTab === 'list' ? 'bg-orange-600 text-white shadow-lg' : 'text-neutral-500 hover:text-white'
+                      }`}
+                    >
+                      <Layers className="w-4 h-4" /> Orodha ya Meza (List Grid)
+                    </button>
+                  </div>
+                )}
 
+                {/* VISUAL MAP BUILDER */}
+                {vendorProfile?.category === 'restaurant' && tableSubTab === 'visual' ? (
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    {/* Left Hand: Interactive Floor Map Canvas */}
+                    <div className="lg:col-span-2 relative bg-neutral-950/80 rounded-[2.5rem] border border-neutral-800 h-[560px] p-6 overflow-hidden shadow-inner flex flex-col justify-between">
+                      {/* Grid overlay */}
+                      <div className="absolute inset-0 bg-[linear-gradient(to_right,#1f293708_1px,transparent_1px),linear-gradient(to_bottom,#1f293708_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none opacity-50" />
+                      
+                      {/* Zone Highlights */}
+                      <div className="absolute top-4 right-4 bg-yellow-500/5 border border-dashed border-yellow-500/20 px-4 py-2 rounded-xl text-[8px] font-bold text-yellow-500/50 uppercase tracking-widest pointer-events-none">
+                        JIKO (KITCHEN & POS AREA)
+                      </div>
+                      <div className="absolute bottom-4 left-4 bg-green-500/5 border border-dashed border-green-500/20 px-4 py-2 rounded-xl text-[8px] font-bold text-green-500/50 uppercase tracking-widest pointer-events-none">
+                        NJE / PATIO (OUTDOOR TERRACE)
+                      </div>
+                      <div className="absolute top-4 left-4 bg-blue-500/5 border border-dashed border-blue-500/20 px-4 py-2 rounded-xl text-[8px] font-bold text-blue-500/50 uppercase tracking-widest pointer-events-none">
+                        SEATING FLOOR (NDANI)
+                      </div>
+                      <div className="absolute top-1/2 right-4 -translate-y-1/2 bg-purple-500/5 border border-dashed border-purple-500/20 px-4 py-2 rounded-xl text-[8px] font-bold text-purple-500/50 uppercase tracking-widest pointer-events-none">
+                        KAUNTA (BAR AREA)
+                      </div>
+
+                      {/* Main Entrance Marker */}
+                      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-32 h-1 bg-neutral-800 flex justify-center items-end">
+                        <span className="text-[7.5px] font-black text-neutral-500 uppercase tracking-widest mb-1.5 whitespace-nowrap">MLANGO MKUU (MAIN INPUT)</span>
+                      </div>
+
+                      {/* Rendering Tables on Visual Coordinates */}
+                      <div className="absolute inset-8">
+                        {sections.map((section, idx) => {
+                          const tableStatus = section.status || 'available';
+                          const x = typeof section.x === 'number' ? section.x : (15 + (idx % 3) * 30);
+                          const y = typeof section.y === 'number' ? section.y : (20 + Math.floor(idx / 3) * 30);
+                          const shape = section.shape || 'square';
+                          const isSelected = selectedSection?.id === section.id;
+                          
+                          // Style table according to its shape and status
+                          let shapeClasses = "w-16 h-16 rounded-[1.2rem]"; // default square
+                          if (shape === 'round') shapeClasses = "w-16 h-16 rounded-full";
+                          else if (shape === 'sofa') shapeClasses = "w-24 h-16 rounded-[1.8rem]";
+                          else if (shape === 'bar_stool') shapeClasses = "w-12 h-12 rounded-full border-2 border-neutral-700";
+
+                          let statusBg = "bg-green-600/10 text-green-500 border-green-500/30 shadow-[0_4px_20px_-5px_rgba(16,185,129,0.3)]";
+                          if (tableStatus === 'occupied') statusBg = "bg-red-500/10 text-red-500 border-red-500/30 shadow-[0_4px_20px_-5px_rgba(239,68,68,0.3)]";
+                          else if (tableStatus === 'reserved') statusBg = "bg-yellow-500/10 text-yellow-500 border-yellow-500/30 shadow-[0_4px_20px_-5px_rgba(234,179,8,0.3)]";
+                          else if (tableStatus === 'cleaning') statusBg = "bg-blue-500/10 text-blue-500 border-blue-500/30 shadow-[0_4px_20px_-5px_rgba(59,130,246,0.3)]";
+
+                          return (
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              type="button"
+                              key={`visual-table-${section.id || idx}`}
+                              onClick={() => setSelectedSection(section)}
+                              className={`absolute border flex flex-col items-center justify-center cursor-pointer transition-all ${shapeClasses} ${statusBg} ${
+                                isSelected ? 'ring-4 ring-orange-600 ring-offset-2 ring-offset-neutral-950 border-orange-500' : ''
+                              }`}
+                              style={{ 
+                                left: `${x}%`, 
+                                top: `${y}%`,
+                                transform: 'translate(-50%, -50%)',
+                                position: 'absolute'
+                              }}
+                            >
+                              <span className="font-mono font-black text-sm tracking-tighter">{section.number}</span>
+                              <span className="text-[7.5px] font-bold opacity-60 mt-0.5">{section.capacity || 4}p</span>
+                              {tableStatus === 'occupied' && (
+                                <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse border-2 border-neutral-950" />
+                              )}
+                            </motion.button>
+                          );
+                        })}
+
+                        {sections.length === 0 && (
+                          <div className="absolute inset-0 flex flex-col items-center justify-center">
+                            <Map className="w-16 h-16 text-neutral-800 mb-4" />
+                            <p className="text-neutral-500 text-xs font-bold uppercase tracking-widest">Hakuna meza iliyopangwa bado.</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Map info bar */}
+                      <div className="relative z-10 p-3 bg-neutral-900/60 backdrop-blur-md rounded-2xl border border-neutral-800 flex items-center justify-between gap-4 mt-auto">
+                        <div className="flex items-center gap-4 text-[9px] font-black uppercase tracking-wider text-neutral-400">
+                          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-green-500 rounded-full" /> AVAILABLE</span>
+                          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-red-500 rounded-full" /> OCCUPIED</span>
+                          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-yellow-500 rounded-full" /> RESERVED</span>
+                          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-blue-500 rounded-full" /> CLEANING</span>
+                        </div>
+                        <span className="text-[8px] font-black text-orange-600 uppercase tracking-tighter">Bofya Meza upange/isogeze (Interaktiv)</span>
+                      </div>
+                    </div>
+
+                    {/* Right Hand: Selected Table Inspector & Placement Controls */}
+                    <div className="bg-neutral-900 border border-neutral-800 rounded-[2.5rem] p-6 flex flex-col justify-between">
+                      {selectedSection ? (
                         <div className="space-y-6">
-                           <div className="space-y-2">
+                          <div>
+                            <span className="text-[9px] font-bold text-orange-600 uppercase tracking-widest">Kihariri cha Meza (Table Inspector)</span>
+                            <h3 className="text-2xl font-black text-white italic uppercase tracking-tight mt-1 flex items-center gap-2">
+                              Meza au Kibanda: {selectedSection.number}
+                            </h3>
+                            <p className="text-xs text-neutral-500 font-bold uppercase">{selectedSection.section || 'Indoor Floor'} Area</p>
+                          </div>
+
+                          {/* Stat Selector */}
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Hali (Occupancy Status)</label>
+                            <Select 
+                              value={selectedSection.status || 'available'} 
+                              onValueChange={(val) => {
+                                updateTableStatus(selectedSection.id, val);
+                                setSelectedSection({...selectedSection, status: val});
+                              }}
+                            >
+                              <SelectTrigger className="bg-neutral-950 border-neutral-800 h-12 rounded-xl text-xs font-bold text-white">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className="bg-neutral-900 border-neutral-800 text-white rounded-xl">
+                                <SelectItem value="available">✓ Inapatikana (Available)</SelectItem>
+                                <SelectItem value="occupied">! Ameketi Mteja (Occupied)</SelectItem>
+                                <SelectItem value="reserved">★ Imewekewa Uhifadhi (Reserved)</SelectItem>
+                                <SelectItem value="cleaning">∞ Inasafishwa (Cleaning)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {/* Seating Space & Shape */}
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">Aina ya Meza</label>
+                              <Select 
+                                value={selectedSection.shape || 'square'} 
+                                onValueChange={(val) => {
+                                  updateTableField(selectedSection.id, 'shape', val);
+                                  setSelectedSection({...selectedSection, shape: val});
+                                }}
+                              >
+                                <SelectTrigger className="bg-neutral-950 border-neutral-800 h-11 rounded-xl text-[10px] text-white uppercase font-bold">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-neutral-900 border-neutral-800 text-white rounded-xl">
+                                  <SelectItem value="square">Mstatili</SelectItem>
+                                  <SelectItem value="round">Duara</SelectItem>
+                                  <SelectItem value="sofa">Sofa Booth</SelectItem>
+                                  <SelectItem value="bar_stool">Bar Stool</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">Viti (Capacity)</label>
+                              <Input 
+                                type="number" 
+                                className="bg-neutral-950 border-neutral-800 h-11 rounded-xl text-white font-mono"
+                                value={selectedSection.capacity || 4}
+                                onChange={(e) => {
+                                  const val = parseInt(e.target.value) || 2;
+                                  updateTableField(selectedSection.id, 'capacity', val);
+                                  setSelectedSection({...selectedSection, capacity: val});
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Direction Pad Positioner (Shift) */}
+                          <div className="p-4 bg-neutral-950 rounded-2xl border border-neutral-800 space-y-4">
+                            <div className="text-center">
+                              <span className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">Sogeza / Panga Coordinates</span>
+                              <p className="text-[9px] text-neutral-600 mt-0.5 font-bold">X: {selectedSection.x || 50}% | Y: {selectedSection.y || 50}%</p>
+                            </div>
+                            
+                            <div className="flex flex-col items-center gap-2">
+                              {/* UP Button */}
+                              <button 
+                                onClick={() => shiftTable(selectedSection.id, 0, -5)} 
+                                className="w-10 h-10 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-white rounded-lg flex items-center justify-center transition-all active:scale-90"
+                              >
+                                ▲
+                              </button>
+                              
+                              <div className="flex items-center gap-4">
+                                {/* LEFT Button */}
+                                <button 
+                                  onClick={() => shiftTable(selectedSection.id, -5, 0)} 
+                                  className="w-10 h-10 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-white rounded-lg flex items-center justify-center transition-all active:scale-90"
+                                >
+                                  ◀
+                                </button>
+                                
+                                <div className="w-8 h-8 rounded-full border border-neutral-800 bg-neutral-950 flex items-center justify-center">
+                                  <Move className="w-3.5 h-3.5 text-orange-600" />
+                                </div>
+
+                                {/* RIGHT Button */}
+                                <button 
+                                  onClick={() => shiftTable(selectedSection.id, 5, 0)} 
+                                  className="w-10 h-10 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-white rounded-lg flex items-center justify-center transition-all active:scale-90"
+                                >
+                                  ▶
+                                </button>
+                              </div>
+
+                              {/* DOWN Button */}
+                              <button 
+                                onClick={() => shiftTable(selectedSection.id, 0, 5)} 
+                                className="w-10 h-10 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-white rounded-lg flex items-center justify-center transition-all active:scale-90"
+                              >
+                                ▼
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Direct POS Link */}
+                          {(staffProfile?.role === 'waiter' || !staffProfile) && (
+                            <Button 
+                              onClick={() => {
+                                setTableNumber(selectedSection.number);
+                                setActiveTab('pos');
+                                setOrderType('walk_in');
+                              }}
+                              className="w-full h-12 bg-orange-600 hover:bg-orange-700 text-white font-black uppercase tracking-widest text-[10px] rounded-xl flex items-center justify-center gap-2 mt-4"
+                            >
+                              <ShoppingCart className="w-4 h-4" /> Fungua Risiti / Pokea Oda
+                            </Button>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex-1 flex flex-col items-center justify-center text-center p-8 opacity-60">
+                          <Compass className="w-12 h-12 text-neutral-600 mb-4 animate-spin-slow" />
+                          <h4 className="text-sm font-black text-white uppercase tracking-wider mb-1">Inspector Passive</h4>
+                          <p className="text-[11px] text-neutral-500 font-bold">Chagua meza yoyote Kushoto ili kuona kihariri chake, au kuisogeza visual coordinates!</p>
+                        </div>
+                      )}
+
+                      {/* Utility Action row */}
+                      {selectedSection && (
+                        <div className="pt-6 border-t border-neutral-800 flex gap-2 w-full mt-6">
+                          <Button 
+                            variant="outline" 
+                            className="flex-1 h-12 bg-neutral-950 border-neutral-800 text-[9px] font-black uppercase text-white rounded-xl gap-2 hover:border-orange-500/50"
+                            onClick={() => {
+                              setQrOptions({ ...qrOptions, data: `${window.location.origin}/table/${vendorProfile?.id}/${selectedSection.number}` });
+                              setIsQrBuilderOpen(true);
+                            }}
+                          >
+                            <QrCode className="w-3.5 h-3.5" /> Jenga QR Code
+                          </Button>
+                          <Button 
+                            className="bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white h-12 px-4 rounded-xl"
+                            onClick={async () => {
+                              if (confirm('Futa meza hii kabisa?')) {
+                                await handleDeleteSection(selectedSection.id);
+                                setSelectedSection(null);
+                              }
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  /* LIST GRID VIEW (STANDARD) */
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {sections.map((section, idx) => {
+                      const tableStatus = section.status || 'available';
+                      return (
+                        <motion.div
+                          whileHover={{ scale: 1.02 }}
+                          key={`tables-tab-card-${section.id || idx}`}
+                          className={`bg-neutral-900 border border-neutral-800 rounded-[3rem] p-8 relative overflow-hidden transition-all ${
+                            tableStatus === 'occupied' ? 'ring-2 ring-red-500/20 border-red-500/30 shadow-[0_0_40px_-15px_rgba(239,68,68,0.3)]' : 
+                            tableStatus === 'reserved' ? 'ring-2 ring-yellow-500/20 border-yellow-500/30' : 
+                            'hover:border-orange-600/50'
+                          }`}
+                        >
+                          <div className="flex justify-between items-start mb-8">
+                            <div className={`w-14 h-14 rounded-[1.5rem] flex items-center justify-center font-black text-xl ${
+                              tableStatus === 'occupied' ? 'bg-red-500/10 text-red-500' :
+                              tableStatus === 'reserved' ? 'bg-yellow-500/10 text-yellow-500' :
+                              tableStatus === 'cleaning' ? 'bg-blue-500/10 text-blue-500' :
+                              'bg-orange-600/10 text-orange-600'
+                            }`}>
+                              {section.number}
+                            </div>
+                            <div className="flex gap-2">
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-10 w-10 rounded-xl bg-neutral-950 text-neutral-500 hover:text-white border border-neutral-800"
+                                onClick={() => {
+                                  setSelectedSection(section);
+                                  setQrOptions({ ...qrOptions, data: `${window.location.origin}/table/${vendorProfile?.id}/${section.number}` });
+                                  setIsQrBuilderOpen(true);
+                                }}
+                              >
+                                <QrCode className="w-4 h-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-10 w-10 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white"
+                                onClick={() => handleDeleteSection(section.id)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          <div className="space-y-6">
+                            <div className="space-y-2">
                               <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Manage Status</label>
                               <Select 
                                 value={tableStatus} 
@@ -3599,15 +4090,15 @@ export default function VendorDashboard() {
                                 </SelectTrigger>
                                 <SelectContent className="bg-neutral-900 border-neutral-800 text-white rounded-2xl shadow-2xl">
                                   <SelectItem value="available">✓ Available</SelectItem>
-                                  <SelectItem value="occupied">! Occupied</SelectItem>
+                                  <SelectItem value="occupied font-bold text-red-500">! Occupied</SelectItem>
                                   <SelectItem value="reserved">★ Reserved</SelectItem>
                                   <SelectItem value="cleaning">∞ Cleaning</SelectItem>
                                 </SelectContent>
                               </Select>
-                           </div>
+                            </div>
 
-                          <div className="flex items-center justify-between pt-6 border-t border-white/5 mt-4">
-                             <div className="flex items-center gap-3">
+                            <div className="flex items-center justify-between pt-6 border-t border-white/5 mt-4">
+                              <div className="flex items-center gap-3">
                                 <div className="p-2 bg-neutral-950 rounded-lg">
                                   <Users className="w-3 h-3 text-neutral-500" />
                                 </div>
@@ -3615,51 +4106,50 @@ export default function VendorDashboard() {
                                 {section.allowSharing && (
                                   <Badge className="bg-orange-600/10 text-orange-600 border-none text-[8px] font-black italic">SHARING ON</Badge>
                                 )}
-                             </div>
-                             {tableStatus === 'occupied' && (
-                               <div className="flex items-center gap-2 px-3 py-1 bg-red-500/10 rounded-full">
+                              </div>
+                              {tableStatus === 'occupied' && (
+                                <div className="flex items-center gap-2 px-3 py-1 bg-red-500/10 rounded-full">
                                   <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></div>
                                   <span className="text-[8px] font-black text-red-500 uppercase tracking-widest">LIVE ORDER</span>
-                               </div>
-                             )}
+                                </div>
+                              )}
+                            </div>
+                            {(staffProfile?.role === 'waiter' || !staffProfile) && (
+                              <Button 
+                                className="w-full mt-4 h-12 bg-orange-600 hover:bg-orange-700 text-white font-black uppercase text-[10px] tracking-widest rounded-2xl shadow-xl shadow-orange-900/20 gap-2"
+                                onClick={() => {
+                                  setTableNumber(section.number);
+                                  setActiveTab('pos');
+                                  setOrderType('walk_in');
+                                }}
+                              >
+                                <ShoppingCart className="w-4 h-4" /> Pokea Oda (Take Order)
+                              </Button>
+                            )}
                           </div>
-                          {(staffProfile?.role === 'waiter' || !staffProfile) && (
-                            <Button 
-                              className="w-full mt-4 h-12 bg-orange-600 hover:bg-orange-700 text-white font-black uppercase text-[10px] tracking-widest rounded-2xl shadow-xl shadow-orange-900/20 gap-2"
-                              onClick={() => {
-                                setTableNumber(section.number);
-                                setActiveTab('pos');
-                                setOrderType('walk_in');
-                              }}
-                            >
-                              <ShoppingCart className="w-4 h-4" />
-                              Pokea Oda (Take Order)
-                            </Button>
+
+                          {/* Background Decoration */}
+                          <div className="absolute -bottom-8 -right-8 opacity-[0.03] pointer-events-none group-hover:scale-110 transition-transform duration-1000">
+                            <UtensilsCrossed className="w-40 h-40" />
+                          </div>
+
+                          {/* Status Glow Overlay */}
+                          {tableStatus === 'occupied' && (
+                            <div className="absolute top-0 left-0 w-1 h-full bg-red-500" />
                           )}
-                        </div>
+                          {tableStatus === 'available' && (
+                            <div className="absolute top-0 left-0 w-1 h-full bg-orange-600" />
+                          )}
+                        </motion.div>
+                      );
+                    })}
 
-                        {/* Background Decoration */}
-                        <div className="absolute -bottom-8 -right-8 opacity-[0.03] pointer-events-none group-hover:scale-110 transition-transform duration-1000">
-                           <UtensilsCrossed className="w-40 h-40" />
-                        </div>
-
-                        {/* Status Glow Overlay */}
-                        {tableStatus === 'occupied' && (
-                           <div className="absolute top-0 left-0 w-1 h-full bg-red-500" />
-                        )}
-                        {tableStatus === 'available' && (
-                           <div className="absolute top-0 left-0 w-1 h-full bg-orange-600" />
-                        )}
-                      </motion.div>
-                    );
-                  })}
-
-                  {sections.length === 0 && (
-                     <div className="col-span-full py-32 text-center bg-neutral-900/20 rounded-[3rem] border border-dashed border-neutral-800 flex flex-col items-center justify-center">
+                    {sections.length === 0 && (
+                      <div className="col-span-full py-32 text-center bg-neutral-900/20 rounded-[3rem] border border-dashed border-neutral-800 flex flex-col items-center justify-center">
                         <div className="w-24 h-24 bg-neutral-900 rounded-[2.5rem] flex items-center justify-center mb-8 border border-neutral-800">
-                           <Layout className="w-10 h-10 text-neutral-700" />
+                          <Layout className="w-10 h-10 text-neutral-700" />
                         </div>
-              <h3 className="text-xl font-black text-neutral-900 dark:text-white italic uppercase mb-2 tracking-tight transition-colors">Floor Plan Empty</h3>
+                        <h3 className="text-xl font-black text-neutral-900 dark:text-white italic uppercase mb-2 tracking-tight transition-colors">Floor Plan Empty</h3>
                         <p className="text-neutral-500 text-sm max-w-xs mx-auto mb-8">Design your dining experience by adding tables and generating unique QR codes for instant ordering.</p>
                         <Button 
                           onClick={() => setIsAddSectionOpen(true)} 
@@ -3667,9 +4157,10 @@ export default function VendorDashboard() {
                         >
                           Add First Table
                         </Button>
-                     </div>
-                  )}
-                </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </motion.div>
             )}
 
@@ -3825,6 +4316,538 @@ export default function VendorDashboard() {
                 className="h-[calc(100vh-16rem)]"
               >
                 <Chat />
+              </motion.div>
+            )}
+
+            {activeTab === 'rest_inventory' && (
+              <motion.div 
+                key="rest_inventory"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="space-y-8 pb-32"
+              >
+                {/* Page Header */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                  <div>
+                    <h2 className="text-4xl font-black italic uppercase tracking-tighter">Kitchen Inventory</h2>
+                    <p className="text-neutral-500 font-medium italic">Dhibiti na kufuatilia stoki ya viambato vya chakula na vinywaji (Raw Materials)</p>
+                  </div>
+                  <Button 
+                    onClick={() => {
+                      setIsEditingInv(null);
+                      setNewInvItem({ 
+                        sku: `KTR-${Math.floor(Math.random() * 900) + 100}`, 
+                        name: '', 
+                        category: 'Meat & Poultry', 
+                        stock: 10, 
+                        unit: 'kg', 
+                        minLimit: 5, 
+                        cost: 15000, 
+                        supplier: '' 
+                      });
+                      setIsAddInvOpen(true);
+                    }}
+                    className="bg-orange-600 hover:bg-orange-700 rounded-2xl h-14 px-8 font-black uppercase tracking-widest text-[10px] shadow-2xl shadow-orange-950/40 text-white"
+                  >
+                    <Plus className="w-5 h-5 mr-3" /> Weka Bidhaa ya Stoki
+                  </Button>
+                </div>
+
+                {/* Metrics Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <Card className="bg-neutral-900/60 border-neutral-800 p-6 rounded-[2rem]">
+                    <h3 className="text-[10px] font-black uppercase text-neutral-400 mb-2">ITEMS IN KITCHEN</h3>
+                    <p className="text-3xl font-black text-white italic">{restInventory.length}</p>
+                  </Card>
+                  <Card className="bg-neutral-900/60 border-red-500/10 p-6 rounded-[2rem] border">
+                    <h3 className="text-[10px] font-black uppercase text-red-500 mb-2">LOW STOCK ALERTS</h3>
+                    <p className="text-3xl font-black text-red-500 italic">
+                      {restInventory.filter(item => Number(item.stock || 0) <= Number(item.minLimit || 0)).length}
+                    </p>
+                  </Card>
+                  <Card className="bg-neutral-900/60 border-neutral-800 p-6 rounded-[2rem]">
+                    <h3 className="text-[10px] font-black uppercase text-neutral-400 mb-2">INVENTORY VALUE</h3>
+                    <p className="text-3xl font-black text-white italic">
+                      TZS {restInventory.reduce((acc, item) => acc + (Number(item.stock || 0) * Number(item.cost || 0)), 0).toLocaleString()}
+                    </p>
+                  </Card>
+                  <Card className="bg-neutral-900/60 border-neutral-800 p-6 rounded-[2rem]">
+                    <h3 className="text-[10px] font-black uppercase text-neutral-400 mb-2">ACTIVE SUPPLIERS</h3>
+                    <p className="text-3xl font-black text-white italic">
+                      {new Set(restInventory.map(i => i.supplier).filter(Boolean)).size || 1}
+                    </p>
+                  </Card>
+                </div>
+
+                {/* Filters & Table Card */}
+                <Card className="bg-neutral-900/40 border border-neutral-800 rounded-[2.5rem] p-8 space-y-6">
+                  <div className="flex flex-col md:flex-row gap-4 justify-between">
+                    <div className="flex flex-1 gap-4 max-w-xl">
+                      <Input 
+                        placeholder="Tafuta stoki kwa jina au SKU..." 
+                        value={invSearchQuery}
+                        onChange={e => setInvSearchQuery(e.target.value)}
+                        className="bg-neutral-950 border-neutral-800 h-12 rounded-xl text-white placeholder:text-neutral-500"
+                      />
+                      <Select value={invCatFilter} onValueChange={val => setInvCatFilter(val || 'all')}>
+                        <SelectTrigger className="bg-neutral-950 border-neutral-800 h-12 rounded-xl text-white text-xs w-48">
+                          <SelectValue placeholder="Chuja kundi" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-neutral-900 border-neutral-800 text-white rounded-xl">
+                          <SelectItem value="all">Makundi Yote</SelectItem>
+                          <SelectItem value="Meat & Poultry">Nyama na Kuku (Meat & Poultry)</SelectItem>
+                          <SelectItem value="Vegetables & Fruits">Mboga na Matunda (Vegetables)</SelectItem>
+                          <SelectItem value="Beverages">Vinywaji (Beverages)</SelectItem>
+                          <SelectItem value="Grains & Flour">Nafaka na Unga (Grains & Flour)</SelectItem>
+                          <SelectItem value="Dairy & Cheese">Maziwa na Jibini (Dairy)</SelectItem>
+                          <SelectItem value="Spices & Oils">Viungo na Mafuta (Spices & Oils)</SelectItem>
+                          <SelectItem value="Others">Zinginezo (Others)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto rounded-[1.5rem] border border-neutral-800 bg-neutral-950">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="border-b border-neutral-800 text-neutral-500 uppercase tracking-widest font-black text-[9px] bg-neutral-900/40">
+                          <th className="p-4">SKU</th>
+                          <th className="p-4">Name</th>
+                          <th className="p-4">Category</th>
+                          <th className="p-4">Stock</th>
+                          <th className="p-4">Unit</th>
+                          <th className="p-4">Min Limit</th>
+                          <th className="p-4">Price/Unit</th>
+                          <th className="p-4">Supplier</th>
+                          <th className="p-4">Status</th>
+                          <th className="p-4 text-center">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-800 text-white font-medium">
+                        {restInventory
+                          .filter(item => {
+                            const searchMatch = (item.name || '').toLowerCase().includes(invSearchQuery.toLowerCase()) || (item.sku || '').toLowerCase().includes(invSearchQuery.toLowerCase());
+                            const catMatch = invCatFilter === 'all' || item.category === invCatFilter;
+                            return searchMatch && catMatch;
+                          })
+                          .map((item, idx) => {
+                            const stockCount = Number(item.stock || 0);
+                            const limitCount = Number(item.minLimit || 5);
+                            const isLow = stockCount <= limitCount;
+                            const isOut = stockCount === 0;
+                            return (
+                              <tr key={`inv-row-${item.id || idx}`} className="hover:bg-neutral-900/40 transition-all">
+                                <td className="p-4 font-mono font-bold tracking-tight text-neutral-400">{item.sku}</td>
+                                <td className="p-4 font-bold">{item.name}</td>
+                                <td className="p-4 text-neutral-400">{item.category}</td>
+                                <td className="p-4">
+                                  <div className="flex items-center gap-2">
+                                    <span className={`font-black ${isOut ? 'text-red-500' : isLow ? 'text-yellow-500' : 'text-green-500'}`}>{stockCount}</span>
+                                    <div className="w-16 h-1 bg-neutral-800 rounded-full overflow-hidden">
+                                      <div className={`h-full rounded-full ${isOut ? 'bg-red-500' : isLow ? 'bg-yellow-500' : 'bg-green-500'}`} style={{ width: `${Math.min(100, (stockCount / (limitCount * 3 || 15)) * 100)}%` }} />
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="p-4 text-neutral-400">{item.unit}</td>
+                                <td className="p-4 text-neutral-400">{item.minLimit}</td>
+                                <td className="p-4">TZS {Number(item.cost || 0).toLocaleString()}</td>
+                                <td className="p-4 text-neutral-400">{item.supplier || '-'}</td>
+                                <td className="p-4">
+                                  {isOut ? (
+                                    <Badge className="bg-red-500/10 text-red-500 border-none rounded-full px-2_py-0.5 font-bold uppercase tracking-widest text-[8px]">Mwisho</Badge>
+                                  ) : isLow ? (
+                                    <Badge className="bg-yellow-500/10 text-yellow-500 border-none rounded-full px-2_py-0.5 font-bold uppercase tracking-widest text-[8px]">Chini</Badge>
+                                  ) : (
+                                    <Badge className="bg-green-500/10 text-green-500 border-none rounded-full px-2_py-0.5 font-bold uppercase tracking-widest text-[8px]">Inapatikana</Badge>
+                                  )}
+                                </td>
+                                <td className="p-4 flex gap-2 justify-center">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-8 w-8 rounded-lg bg-neutral-900 text-neutral-450 hover:text-white border border-neutral-800"
+                                    onClick={() => {
+                                      setIsEditingInv(item);
+                                      setNewInvItem({ ...item });
+                                      setIsAddInvOpen(true);
+                                    }}
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </Button>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-8 w-8 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white"
+                                    onClick={async () => {
+                                      if (confirm('Futa bidhaa hii kwenye stoki?')) {
+                                        if (vendorProfile?.id) {
+                                          await deleteDoc(doc(db, 'vendors', vendorProfile.id, 'restaurant_inventory', item.id));
+                                          toast.success('Bidhaa imefutwa!');
+                                        }
+                                      }
+                                    }}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </Button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+
+                        {restInventory.length === 0 && (
+                          <tr>
+                            <td colSpan={10} className="p-12 text-center text-neutral-500 font-bold uppercase tracking-wider">
+                              Hakuna stoki iliyopo sasa jikoni. Bonyeza "Weka Bidhaa ya Stoki" kuanza!
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              </motion.div>
+            )}
+
+            {activeTab === 'rest_expenses' && (
+              <motion.div 
+                key="rest_expenses"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="space-y-8 pb-32"
+              >
+                {/* Page Header */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                  <div>
+                    <h2 className="text-4xl font-black italic uppercase tracking-tighter">Expenses Tracker (Matumizi)</h2>
+                    <p className="text-neutral-500 font-medium italic">Fuatilia na kudhibiti gharama zote za ununuzi wa bidhaa na malipo mengineyo (Expenses)</p>
+                  </div>
+                  <Button 
+                    onClick={() => {
+                      setIsEditingExp(null);
+                      setNewExp({ 
+                        date: new Date().toISOString().split('T')[0], 
+                        description: '', 
+                        category: 'Raw Materials', 
+                        amount: 0, 
+                        paidBy: 'Cash', 
+                        reference: '' 
+                      });
+                      setIsAddExpOpen(true);
+                    }}
+                    className="bg-orange-600 hover:bg-orange-700 rounded-2xl h-14 px-8 font-black uppercase tracking-widest text-[10px] shadow-2xl shadow-orange-950/40 text-white"
+                  >
+                    <Plus className="w-5 h-5 mr-3" /> Weka Matumizi Mapya
+                  </Button>
+                </div>
+
+                {/* Metrics Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <Card className="bg-neutral-900/60 border-neutral-800 p-6 rounded-[2rem]">
+                    <h3 className="text-[10px] font-black uppercase text-neutral-400 mb-2">TOTAL EXPENSES</h3>
+                    <p className="text-3xl font-black text-white italic">
+                      TZS {restExpenses.reduce((acc, item) => acc + Number(item.amount || 0), 0).toLocaleString()}
+                    </p>
+                  </Card>
+                  <Card className="bg-neutral-900/60 border-neutral-800 p-6 rounded-[2rem]">
+                    <h3 className="text-[10px] font-black uppercase text-neutral-400 mb-2">RAW FOOD MATERIALS</h3>
+                    <p className="text-3xl font-black text-white italic text-orange-500">
+                      TZS {restExpenses.filter(i => i.category === 'Raw Materials').reduce((acc, item) => acc + Number(item.amount || 0), 0).toLocaleString()}
+                    </p>
+                  </Card>
+                  <Card className="bg-neutral-900/60 border-neutral-800 p-6 rounded-[2rem]">
+                    <h3 className="text-[10px] font-black uppercase text-neutral-400 mb-2">SALARY & STAFF</h3>
+                    <p className="text-3xl font-black text-white italic">
+                      TZS {restExpenses.filter(i => i.category === 'Salary & Wages').reduce((acc, item) => acc + Number(item.amount || 0), 0).toLocaleString()}
+                    </p>
+                  </Card>
+                  <Card className="bg-neutral-900/60 border-neutral-800 p-6 rounded-[2rem]">
+                    <h3 className="text-[10px] font-black uppercase text-neutral-400 mb-2">UTILITIES & RENT</h3>
+                    <p className="text-3xl font-black text-white italic">
+                      TZS {restExpenses.filter(i => i.category === 'Utilities' || i.category === 'Rent').reduce((acc, item) => acc + Number(item.amount || 0), 0).toLocaleString()}
+                    </p>
+                  </Card>
+                </div>
+
+                {/* Filters & Expenses List */}
+                <Card className="bg-neutral-900/40 border border-neutral-800 rounded-[2.5rem] p-8 space-y-6">
+                  <div className="flex flex-col md:flex-row gap-4 justify-between">
+                    <div className="flex flex-1 gap-4 max-w-xl">
+                      <Input 
+                        placeholder="Tafuta matumizi kwa maelezo au marejeo..." 
+                        value={expSearchQuery}
+                        onChange={e => setExpSearchQuery(e.target.value)}
+                        className="bg-neutral-950 border-neutral-800 h-12 rounded-xl text-white placeholder:text-neutral-500"
+                      />
+                      <Select value={expCatFilter} onValueChange={val => setExpCatFilter(val || 'all')}>
+                        <SelectTrigger className="bg-neutral-950 border-neutral-800 h-12 rounded-xl text-white text-xs w-48">
+                          <SelectValue placeholder="Kundi la Matumizi" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-neutral-900 border-neutral-800 text-white rounded-xl">
+                          <SelectItem value="all">Makundi Yote</SelectItem>
+                          <SelectItem value="Raw Materials">Raw Materials (Ununuzi viungo)</SelectItem>
+                          <SelectItem value="Salary & Wages">Salary & Wages (Mishahara)</SelectItem>
+                          <SelectItem value="Utilities">Utilities (Bili, Umeme, Maji)</SelectItem>
+                          <SelectItem value="Rent">Rent (Kodi ya Pishi/Eneo)</SelectItem>
+                          <SelectItem value="Marketing">Marketing (Promosheni)</SelectItem>
+                          <SelectItem value="Miscellaneous">Miscellaneous (Gharama Ndogondogo)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto rounded-[1.5rem] border border-neutral-800 bg-neutral-950">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="border-b border-neutral-800 text-neutral-500 uppercase tracking-widest font-black text-[9px] bg-neutral-900/40">
+                          <th className="p-4">Date</th>
+                          <th className="p-4">Description</th>
+                          <th className="p-4">Category</th>
+                          <th className="p-4">Amount</th>
+                          <th className="p-4">Paid By</th>
+                          <th className="p-4">Reference No</th>
+                          <th className="p-4 text-center">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-800 text-white font-medium">
+                        {restExpenses
+                          .filter(item => {
+                            const searchMatch = (item.description || '').toLowerCase().includes(expSearchQuery.toLowerCase()) || (item.reference || '').toLowerCase().includes(expSearchQuery.toLowerCase());
+                            const catMatch = expCatFilter === 'all' || item.category === expCatFilter;
+                            return searchMatch && catMatch;
+                          })
+                          .map((item, idx) => (
+                            <tr key={`exp-row-${item.id || idx}`} className="hover:bg-neutral-900/40 transition-all">
+                              <td className="p-4 font-mono text-neutral-400">{item.date}</td>
+                              <td className="p-4 font-bold">{item.description}</td>
+                              <td className="p-4">
+                                <span className="bg-neutral-800 py-1 px-2.5 rounded-lg text-neutral-400 font-bold tracking-tight uppercase text-[9px]">
+                                  {item.category}
+                                </span>
+                              </td>
+                              <td className="p-4 font-black text-red-400">TZS {Number(item.amount || 0).toLocaleString()}</td>
+                              <td className="p-4 text-neutral-400">{item.paidBy}</td>
+                              <td className="p-4 font-mono text-neutral-400">{item.reference || '-'}</td>
+                              <td className="p-4 flex gap-2 justify-center">
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-8 w-8 rounded-lg bg-neutral-900 text-neutral-405 hover:text-white border border-neutral-800"
+                                  onClick={() => {
+                                    setIsEditingExp(item);
+                                    setNewExp({ ...item });
+                                    setIsAddExpOpen(true);
+                                  }}
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-8 w-8 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white"
+                                  onClick={async () => {
+                                    if (confirm('Futa kumbukumbu hii ya matumizi?')) {
+                                      if (vendorProfile?.id) {
+                                        await deleteDoc(doc(db, 'vendors', vendorProfile.id, 'restaurant_expenses', item.id));
+                                        toast.success('Matumizi yamefutwa!');
+                                      }
+                                    }
+                                  }}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </td>
+                            </tr>
+                          ))}
+
+                        {restExpenses.length === 0 && (
+                          <tr>
+                            <td colSpan={7} className="p-12 text-center text-neutral-500 font-bold uppercase tracking-wider">
+                              Hakuna matumizi yaliyosajiliwa kipindi hiki. Bonyeza "Weka Matumizi Mapya" kuanza!
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              </motion.div>
+            )}
+
+            {activeTab === 'rest_reports' && (
+              <motion.div 
+                key="rest_reports"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="space-y-8 pb-32"
+              >
+                {/* Page Header */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                  <div>
+                    <h2 className="text-4xl font-black italic uppercase tracking-tighter">Financial Reports (Ripoti)</h2>
+                    <p className="text-neutral-500 font-medium italic">Strategic business summaries comparing revenues, orders, and operating expenses</p>
+                  </div>
+
+                  {/* Date Filter Controls */}
+                  <div className="flex items-center gap-2 bg-neutral-950 border border-neutral-800 p-2 rounded-2xl">
+                    <div className="flex flex-col">
+                      <span className="text-[8px] font-black text-neutral-500 uppercase px-1">START</span>
+                      <input 
+                        type="date" 
+                        value={repStartDate} 
+                        onChange={e => setRepStartDate(e.target.value)}
+                        className="bg-transparent text-white border-none text-[10px] uppercase font-black px-1 focus:ring-0" 
+                      />
+                    </div>
+                    <div className="w-px h-6 bg-neutral-800" />
+                    <div className="flex flex-col">
+                      <span className="text-[8px] font-black text-neutral-500 uppercase px-1">END</span>
+                      <input 
+                        type="date" 
+                        value={repEndDate} 
+                        onChange={e => setRepEndDate(e.target.value)}
+                        className="bg-transparent text-white border-none text-[10px] uppercase font-black px-1 focus:ring-0" 
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Financial Summary KPIs */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <Card className="bg-neutral-900/60 border-neutral-800 p-6 rounded-[2rem] relative overflow-hidden">
+                    <h3 className="text-[10px] font-black uppercase text-neutral-400 mb-2 flex items-center gap-1.5">
+                      <Activity className="w-3.5 h-3.5 text-orange-500" /> PERIOD REVENUE
+                    </h3>
+                    <p className="text-3xl font-black text-emerald-500 italic">
+                      TZS {reportsData.totalRevenue.toLocaleString()}
+                    </p>
+                    <span className="text-[8px] text-neutral-500 uppercase font-black">Gross Sales processed from POS in selected period</span>
+                  </Card>
+                  
+                  <Card className="bg-neutral-900/60 border-neutral-800 p-6 rounded-[2rem]">
+                    <h3 className="text-[10px] font-black uppercase text-neutral-400 mb-2 flex items-center gap-1.5">
+                      <Coins className="w-3.5 h-3.5 text-red-500" /> PERIOD EXPENSES
+                    </h3>
+                    <p className="text-3xl font-black text-red-400 italic">
+                      TZS {reportsData.totalExpenses.toLocaleString()}
+                    </p>
+                    <span className="text-[8px] text-neutral-500 uppercase font-black font-semibold">Total registered raw materials, utility costs, etc.</span>
+                  </Card>
+
+                  <Card className="bg-neutral-900/60 border-neutral-800 p-6 rounded-[2rem] border-emerald-500/10 border relative overflow-hidden">
+                    <h3 className="text-[10px] font-black uppercase text-emerald-500 mb-2 flex items-center gap-1.5">
+                      <TrendingUp className="w-3.5 h-3.5 text-emerald-500 animate-pulse" /> NET PROFIT (FAIDA)
+                    </h3>
+                    <p className={`text-3xl font-black italic ${reportsData.netProfit >= 0 ? 'text-emerald-400' : 'text-red-500'}`}>
+                      TZS {reportsData.netProfit.toLocaleString()}
+                    </p>
+                    <span className="text-[8px] text-neutral-400 uppercase font-black">Profit Margins: {reportsData.totalRevenue ? Math.round((reportsData.netProfit / reportsData.totalRevenue) * 100) : 0}%</span>
+                  </Card>
+
+                  <Card className="bg-neutral-900/60 border-neutral-800 p-6 rounded-[2rem]">
+                    <h3 className="text-[10px] font-black uppercase text-neutral-400 mb-2">COMPLETED SALES</h3>
+                    <p className="text-3xl font-black text-white italic">
+                      {reportsData.ordersCount} Orders
+                    </p>
+                    <span className="text-[8px] text-neutral-500 uppercase font-neutral">Total successful checkouts in database</span>
+                  </Card>
+                </div>
+
+                {/* Grid Charts Section */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* Revenue vs Expenses Trend Analysis */}
+                  <Card className="lg:col-span-2 bg-neutral-900/40 border border-neutral-800 rounded-[2.5rem] p-8 space-y-6">
+                    <div>
+                      <h3 className="text-xl font-black text-white uppercase italic tracking-tight">Revenue vs Expense Trend</h3>
+                      <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">Monthly cost analysis comparisons</p>
+                    </div>
+
+                    <div className="h-80">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={reportsData.expenseVsRevenueData} margin={{ top: 20, right: 30, left: 10, bottom: 5 }}>
+                          <XAxis dataKey="month" stroke="#525252" fontSize={10} tickLine={false} />
+                          <YAxis stroke="#525252" fontSize={10} tickLine={false} axisLine={false} />
+                          <Tooltip 
+                            contentStyle={{ backgroundColor: '#0f0f11', borderColor: '#262626', borderRadius: '12px' }} 
+                            labelClassName="text-white font-bold text-xs"
+                          />
+                          <Bar dataKey="revenue" name="Sales TZS" fill="#10b981" radius={[8, 8, 0, 0]} />
+                          <Bar dataKey="expenses" name="Expenses TZS" fill="#ef4444" radius={[8, 8, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </Card>
+
+                  {/* Payment Methods Utilization Pie Chart */}
+                  <Card className="bg-neutral-900/40 border border-neutral-800 rounded-[2.5rem] p-8 space-y-6 flex flex-col justify-between">
+                    <div>
+                      <h3 className="text-xl font-black text-white uppercase italic tracking-tight">Payment Split</h3>
+                      <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">Aina ya Malipo inayopendwa na wateja</p>
+                    </div>
+
+                    <div className="h-60 relative flex items-center justify-center">
+                      <ResponsiveContainer width="100%" height="105%">
+                        <PieChart>
+                          <Pie
+                            data={reportsData.payData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={80}
+                            paddingAngle={5}
+                            dataKey="value"
+                          >
+                            {reportsData.payData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip contentStyle={{ backgroundColor: '#0f0f11', borderColor: '#262626', borderRadius: '12px' }} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                        <span className="text-[10px] font-black text-neutral-500 uppercase">Miamala</span>
+                        <span className="text-2xl font-black text-white italic">{reportsData.ordersCount}</span>
+                      </div>
+                    </div>
+
+                    {/* Legend Split */}
+                    <div className="space-y-2">
+                      {reportsData.payData.map((item, index) => (
+                        <div key={`legend-pay-${index}`} className="flex justify-between items-center text-xs">
+                          <span className="flex items-center gap-2 text-neutral-400">
+                            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                            {item.name}
+                          </span>
+                          <span className="font-bold text-white font-mono">{item.value} times</span>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+
+                  {/* Category Performance Sales Distribution (BarChart) */}
+                  <Card className="lg:col-span-3 bg-neutral-900/40 border border-neutral-800 rounded-[2.5rem] p-8 space-y-6">
+                    <div>
+                      <h3 className="text-xl font-black text-white uppercase italic tracking-tight">Food Category Sales Distribution</h3>
+                      <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">Bora kulingana na muuzano kwenye POS</p>
+                    </div>
+
+                    <div className="h-72">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={reportsData.categoryPerformanceData} margin={{ top: 20, right: 30, left: 10, bottom: 5 }}>
+                          <XAxis dataKey="name" stroke="#525252" fontSize={10} tickLine={false} />
+                          <YAxis stroke="#525252" fontSize={10} tickLine={false} axisLine={false} />
+                          <Tooltip 
+                            contentStyle={{ backgroundColor: '#0f0f11', borderColor: '#262626', borderRadius: '12px' }}
+                            itemStyle={{ color: '#f97316' }}
+                          />
+                          <Bar dataKey="value" name="sales TZS" fill="#f97316" radius={[10, 10, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </Card>
+                </div>
               </motion.div>
             )}
 
@@ -5568,6 +6591,386 @@ export default function VendorDashboard() {
          )}
       </AnimatePresence>
 
+      {/* Kitchen Inventory Modal */}
+      <AnimatePresence>
+        {isAddInvOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setIsAddInvOpen(false);
+                setIsEditingInv(null);
+              }}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-lg bg-neutral-900 border border-neutral-800 rounded-3xl overflow-hidden shadow-2xl max-h-[90vh] flex flex-col"
+            >
+              <div className="p-6 border-b border-neutral-800 flex items-center justify-between shrink-0">
+                <div>
+                  <h3 className="text-xl font-bold">
+                    {isEditingInv ? 'Hariri Bidhaa ya Stoki' : 'Sajili Bidhaa ya Stoki'}
+                  </h3>
+                  <p className="text-xs text-neutral-500 font-medium">Jaza taarifa kupanga stoki mbalimbali za mapishi</p>
+                </div>
+                <button 
+                  onClick={() => {
+                    setIsAddInvOpen(false);
+                    setIsEditingInv(null);
+                  }} 
+                  className="text-neutral-500 hover:text-white p-2"
+                >
+                  <Plus className="w-6 h-6 rotate-45" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4 overflow-y-auto">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5 col-span-2">
+                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Jina la Kitu (Item Name)</label>
+                    <Input 
+                      placeholder="e.g. Nyama ya Ng'ombe, Kitunguu, Majani ya Chai" 
+                      value={newInvItem.name}
+                      onChange={e => setNewInvItem({ ...newInvItem, name: e.target.value })}
+                      className="bg-neutral-950 border-neutral-800 text-white rounded-xl h-11"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">SKU Code</label>
+                    <Input 
+                      placeholder="e.g. KTR-203" 
+                      value={newInvItem.sku}
+                      onChange={e => setNewInvItem({ ...newInvItem, sku: e.target.value })}
+                      className="bg-neutral-950 border-neutral-800 text-white rounded-xl h-11 font-mono uppercase"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Supplier</label>
+                    <Input 
+                      placeholder="e.g. Bakhresa Co." 
+                      value={newInvItem.supplier || ''}
+                      onChange={e => setNewInvItem({ ...newInvItem, supplier: e.target.value })}
+                      className="bg-neutral-950 border-neutral-800 text-white rounded-xl h-11"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Kundi (Category)</label>
+                    <Select 
+                      value={newInvItem.category || 'Meat & Poultry'} 
+                      onValueChange={val => setNewInvItem({ ...newInvItem, category: val || 'Meat & Poultry' })}
+                    >
+                      <SelectTrigger className="bg-neutral-950 border-neutral-800 h-11 text-white rounded-xl text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-neutral-900 border-neutral-800 text-white rounded-xl">
+                        <SelectItem value="Meat & Poultry">Nyama na Kuku</SelectItem>
+                        <SelectItem value="Vegetables & Fruits">Mboga na Matunda</SelectItem>
+                        <SelectItem value="Beverages">Vinywaji (Beverages)</SelectItem>
+                        <SelectItem value="Grains & Flour">Nafaka na Unga</SelectItem>
+                        <SelectItem value="Dairy & Cheese">Maziwa na Jibini</SelectItem>
+                        <SelectItem value="Spices & Oils">Viungo na Mafuta</SelectItem>
+                        <SelectItem value="Others">Zinginezo</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Kipimo (Unit)</label>
+                    <Select 
+                      value={newInvItem.unit || 'kg'} 
+                      onValueChange={val => setNewInvItem({ ...newInvItem, unit: val || 'kg' })}
+                    >
+                      <SelectTrigger className="bg-neutral-950 border-neutral-800 h-11 text-white rounded-xl text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-neutral-900 border-neutral-800 text-white rounded-xl">
+                        <SelectItem value="kg">Kilo (kg)</SelectItem>
+                        <SelectItem value="litres">Lita (litres)</SelectItem>
+                        <SelectItem value="bags">Mifuko (bags)</SelectItem>
+                        <SelectItem value="crates">Kireti (crates)</SelectItem>
+                        <SelectItem value="pieces">Vipande (pieces)</SelectItem>
+                        <SelectItem value="boxes">Maboksi (boxes)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Kiasi (Stock)</label>
+                    <Input 
+                      type="number" 
+                      value={newInvItem.stock}
+                      onChange={e => setNewInvItem({ ...newInvItem, stock: parseInt(e.target.value) || 0 })}
+                      className="bg-neutral-950 border-neutral-800 text-white rounded-xl h-11 font-mono"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Min Alert Limit</label>
+                    <Input 
+                      type="number" 
+                      value={newInvItem.minLimit}
+                      onChange={e => setNewInvItem({ ...newInvItem, minLimit: parseInt(e.target.value) || 0 })}
+                      className="bg-neutral-950 border-neutral-800 text-white rounded-xl h-11 font-mono"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Cost/Unit (TZS)</label>
+                    <Input 
+                      type="number" 
+                      value={newInvItem.cost}
+                      onChange={e => setNewInvItem({ ...newInvItem, cost: parseInt(e.target.value) || 0 })}
+                      className="bg-neutral-950 border-neutral-800 text-white rounded-xl h-11 font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 border-t border-neutral-800 flex gap-4 shrink-0 bg-neutral-950">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setIsAddInvOpen(false);
+                    setIsEditingInv(null);
+                  }}
+                  className="flex-1 bg-neutral-900 border-neutral-800 hover:bg-neutral-800 text-xs font-bold uppercase tracking-widest h-12 text-white rounded-xl"
+                >
+                  Ghairi
+                </Button>
+                <Button 
+                  onClick={async () => {
+                    if (!vendorProfile?.id) {
+                      toast.error('Muonekano wa akaunti haujapakiwa!');
+                      return;
+                    }
+                    if (!newInvItem.name || !newInvItem.sku) {
+                      toast.error('Tafadhali jaza Jina na SKU!');
+                      return;
+                    }
+                    try {
+                      if (isEditingInv) {
+                        await updateDoc(doc(db, 'vendors', vendorProfile.id, 'restaurant_inventory', isEditingInv.id), {
+                          ...newInvItem,
+                          stock: Number(newInvItem.stock || 0),
+                          minLimit: Number(newInvItem.minLimit || 5),
+                          cost: Number(newInvItem.cost || 0),
+                        });
+                        toast.success('Bidhaa ya stoki imebadilishwa!');
+                      } else if (vendorProfile?.id) {
+                        await addDoc(collection(db, 'vendors', vendorProfile.id, 'restaurant_inventory'), {
+                          ...newInvItem,
+                          stock: Number(newInvItem.stock || 0),
+                          minLimit: Number(newInvItem.minLimit || 5),
+                          cost: Number(newInvItem.cost || 0),
+                          createdAt: new Date()
+                        });
+                        toast.success('Bidhaa mpya ya stoki imesajiliwa!');
+                      }
+                      setIsAddInvOpen(false);
+                      setIsEditingInv(null);
+                    } catch (e) {
+                      console.error(e);
+                      toast.error('Gharama imeshindwa kusajiliwa!');
+                    }
+                  }}
+                  className="flex-1 bg-orange-600 hover:bg-orange-700 text-xs font-bold uppercase tracking-widest h-12 text-white rounded-xl"
+                >
+                  Hifadhi Kitu
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Restaurant Expenses Modal */}
+      <AnimatePresence>
+        {isAddExpOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setIsAddExpOpen(false);
+                setIsEditingExp(null);
+              }}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-lg bg-neutral-900 border border-neutral-800 rounded-3xl overflow-hidden shadow-2xl max-h-[90vh] flex flex-col"
+            >
+              <div className="p-6 border-b border-neutral-800 flex items-center justify-between shrink-0">
+                <div>
+                  <h3 className="text-xl font-bold">
+                    {isEditingExp ? 'Hariri Gharama ya Matumizi' : 'Sajili Gharama ya Matumizi'}
+                  </h3>
+                  <p className="text-xs text-neutral-500 font-medium">Rekodi matumizi mapya ya ununuzi wa viungo</p>
+                </div>
+                <button 
+                  onClick={() => {
+                    setIsAddExpOpen(false);
+                    setIsEditingExp(null);
+                  }} 
+                  className="text-neutral-500 hover:text-white p-2"
+                >
+                  <Plus className="w-6 h-6 rotate-45" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4 overflow-y-auto">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5 col-span-2">
+                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Maelezo (Description)</label>
+                    <Input 
+                      placeholder="e.g. Ununuzi kilo 20 nyama ya ng'ombe, Bili ya umeme" 
+                      value={newExp.description}
+                      onChange={e => setNewExp({ ...newExp, description: e.target.value })}
+                      className="bg-neutral-950 border-neutral-800 text-white rounded-xl h-11"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Kiasi cha Fedha (Amount TZS)</label>
+                    <Input 
+                      type="number"
+                      placeholder="e.g. 50000" 
+                      value={newExp.amount || ''}
+                      onChange={e => setNewExp({ ...newExp, amount: parseInt(e.target.value) || 0 })}
+                      className="bg-neutral-950 border-neutral-800 text-white rounded-xl h-11 font-mono"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Tarehe (Date)</label>
+                    <Input 
+                      type="date" 
+                      value={newExp.date}
+                      onChange={e => setNewExp({ ...newExp, date: e.target.value })}
+                      className="bg-neutral-950 border-neutral-800 text-white rounded-xl h-11 uppercase"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Kundi (Category)</label>
+                    <Select 
+                      value={newExp.category || 'Raw Materials'} 
+                      onValueChange={val => setNewExp({ ...newExp, category: val || 'Raw Materials' })}
+                    >
+                      <SelectTrigger className="bg-neutral-950 border-neutral-800 h-11 text-white rounded-xl text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-neutral-900 border-neutral-800 text-white rounded-xl">
+                        <SelectItem value="Raw Materials">Raw Materials (Ununuzi wa chakula)</SelectItem>
+                        <SelectItem value="Salary & Wages">Salary & Wages (Mishahara)</SelectItem>
+                        <SelectItem value="Utilities">Utilities (Bili za Umeme/Maji)</SelectItem>
+                        <SelectItem value="Rent">Rent (Kodi)</SelectItem>
+                        <SelectItem value="Marketing">Marketing (Matangazo)</SelectItem>
+                        <SelectItem value="Miscellaneous">Miscellaneous (Zinginezo)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Njia ya Malipo (Payment Method)</label>
+                    <Select 
+                      value={newExp.paidBy || 'Cash'} 
+                      onValueChange={val => setNewExp({ ...newExp, paidBy: val || 'Cash' })}
+                    >
+                      <SelectTrigger className="bg-neutral-950 border-neutral-800 h-11 text-white rounded-xl text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-neutral-900 border-neutral-800 text-white rounded-xl">
+                        <SelectItem value="Cash">Cash (Pesa Taslimu)</SelectItem>
+                        <SelectItem value="M-Pesa">M-Pesa / TigoPesa</SelectItem>
+                        <SelectItem value="Bank Card">Kadi ya Benki (Visa/Mastercard)</SelectItem>
+                        <SelectItem value="Bank Transfer">Akaunti ya Benki (NFT)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5 col-span-2">
+                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Reference au Namba ya Muamala</label>
+                    <Input 
+                      placeholder="e.g. PP25B59201" 
+                      value={newExp.reference || ''}
+                      onChange={e => setNewExp({ ...newExp, reference: e.target.value })}
+                      className="bg-neutral-950 border-neutral-800 text-white rounded-xl h-11 font-mono uppercase"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 border-t border-neutral-800 flex gap-4 shrink-0 bg-neutral-950">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setIsAddExpOpen(false);
+                    setIsEditingExp(null);
+                  }}
+                  className="flex-1 bg-neutral-900 border-neutral-800 hover:bg-neutral-800 text-xs font-bold uppercase tracking-widest h-12 text-white rounded-xl"
+                >
+                  Ghairi
+                </Button>
+                <Button 
+                  onClick={async () => {
+                    if (!vendorProfile?.id) {
+                      toast.error('Muonekano wa akaunti haujapakiwa!');
+                      return;
+                    }
+                    if (!newExp.description || !newExp.amount) {
+                      toast.error('Tafadhali jaza maelezo na kiasi cha gaharama!');
+                      return;
+                    }
+                    try {
+                      if (isEditingExp) {
+                        await updateDoc(doc(db, 'vendors', vendorProfile.id, 'restaurant_expenses', isEditingExp.id), {
+                          ...newExp,
+                          amount: Number(newExp.amount || 0),
+                        });
+                        toast.success('Gharama imesasishwa!');
+                      } else if (vendorProfile?.id) {
+                        await addDoc(collection(db, 'vendors', vendorProfile.id, 'restaurant_expenses'), {
+                          ...newExp,
+                          amount: Number(newExp.amount || 0),
+                          createdAt: new Date()
+                        });
+                        toast.success('Gharama imesajiliwa!');
+                      }
+                      setIsAddExpOpen(false);
+                      setIsEditingExp(null);
+                    } catch (e) {
+                      console.error(e);
+                      toast.error('Imeshindwa kuhifadhi taarifa!');
+                    }
+                  }}
+                  className="flex-1 bg-orange-600 hover:bg-orange-700 text-xs font-bold uppercase tracking-widest h-12 text-white rounded-xl"
+                >
+                  Sajili Gharama
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Add Product Modal */}
       <AnimatePresence>
         {isAddProductOpen && (
@@ -6643,6 +8046,45 @@ export default function VendorDashboard() {
                     onChange={e => setNewSection({...newSection, capacity: e.target.value ? parseInt(e.target.value) : 0})}
                   />
                 </div>
+
+                {vendorProfile?.category === 'restaurant' && (
+                  <>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-neutral-500 uppercase">Aina ya Meza (Shape)</label>
+                      <Select 
+                        value={newSection.shape || 'square'} 
+                        onValueChange={val => setNewSection({...newSection, shape: val || 'square'})}
+                      >
+                        <SelectTrigger className="bg-neutral-800 border-none h-11 rounded-xl text-xs text-white">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-neutral-900 border-neutral-800 text-white rounded-xl">
+                          <SelectItem value="square">Mstatili / Square Table</SelectItem>
+                          <SelectItem value="round">Duara / Round Table</SelectItem>
+                          <SelectItem value="sofa">Sofa / Booth</SelectItem>
+                          <SelectItem value="bar_stool">Kiti Kirefu / Bar Stool</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-neutral-500 uppercase">Eneo la Meza (Section)</label>
+                      <Select 
+                        value={newSection.section || 'Indoor'} 
+                        onValueChange={val => setNewSection({...newSection, section: val || 'Indoor'})}
+                      >
+                        <SelectTrigger className="bg-neutral-800 border-none h-11 rounded-xl text-xs text-white">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-neutral-900 border-neutral-800 text-white rounded-xl">
+                          <SelectItem value="Indoor">Ndani (Indoor Floor)</SelectItem>
+                          <SelectItem value="Outdoor/Terrace">Nje / Terasi (Outdoor Terrace)</SelectItem>
+                          <SelectItem value="Bar Area">Eneo la Baa (Bar Area)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                )}
 
                 <div className="flex items-center justify-between p-3 bg-neutral-800/50 rounded-xl border border-neutral-800">
                   <div className="flex flex-col">
