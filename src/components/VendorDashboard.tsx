@@ -8718,13 +8718,21 @@ export default function VendorDashboard() {
                       value={qrOptions.image ? 'image' : 'none'}
                       onValueChange={(val) => {
                         if (val === 'image') {
+                          const logoSrc = vendorProfile?.logoUrl 
+                            ? getProxiedImageUrl(vendorProfile.logoUrl) 
+                            : `https://api.dicebear.com/7.x/initials/svg?seed=${vendorProfile?.businessName || 'Vendor'}`;
                           setQrOptions((prev: any) => ({ 
                             ...prev, 
-                            image: vendorProfile?.logoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${vendorProfile?.businessName || 'Vendor'}`,
-                            imageOptions: { ...prev.imageOptions, hideBackgroundDots: true, imageSize: 0.35, margin: 5 }
+                            image: logoSrc,
+                            qrOptions: { ...prev.qrOptions, errorCorrectionLevel: 'H' },
+                            imageOptions: { ...prev.imageOptions, hideBackgroundDots: true, imageSize: 0.35, margin: 4 }
                           }));
                         } else {
-                          setQrOptions((prev: any) => ({ ...prev, image: '' }));
+                          setQrOptions((prev: any) => ({ 
+                            ...prev, 
+                            image: '',
+                            qrOptions: { ...prev.qrOptions, errorCorrectionLevel: 'Q' }
+                          }));
                         }
                       }}
                     >
@@ -8736,6 +8744,54 @@ export default function VendorDashboard() {
                         <SelectItem value="image">Business Logo</SelectItem>
                       </SelectContent>
                     </Select>
+
+                    {qrOptions.image && (
+                      <div className="space-y-4 p-4 rounded-2xl bg-neutral-950 border border-white/5 shadow-inner mt-2">
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center text-[9px] uppercase font-black tracking-widest text-neutral-400 leading-none">
+                            <span>Ukubwa wa Nembo / Logo Size</span>
+                            <span className="text-orange-500 font-mono text-xs font-black">{Math.round((qrOptions.imageOptions?.imageSize || 0.35) * 100)}%</span>
+                          </div>
+                          <input 
+                            type="range"
+                            min="0.1"
+                            max="0.5"
+                            step="0.05"
+                            value={qrOptions.imageOptions?.imageSize || 0.35}
+                            onChange={(e) => {
+                              const size = parseFloat(e.target.value);
+                              setQrOptions((prev: any) => ({
+                                ...prev,
+                                imageOptions: { ...prev.imageOptions, imageSize: size }
+                              }));
+                            }}
+                            className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-orange-600 focus:outline-none"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center text-[9px] uppercase font-black tracking-widest text-neutral-400 leading-none">
+                            <span>Nafasi ya Nembo / Logo Margin</span>
+                            <span className="text-orange-500 font-mono text-xs font-black">{(qrOptions.imageOptions?.margin !== undefined ? qrOptions.imageOptions.margin : 4)}px</span>
+                          </div>
+                          <input 
+                            type="range"
+                            min="0"
+                            max="15"
+                            step="1"
+                            value={qrOptions.imageOptions?.margin !== undefined ? qrOptions.imageOptions.margin : 4}
+                            onChange={(e) => {
+                              const marg = parseInt(e.target.value, 10);
+                              setQrOptions((prev: any) => ({
+                                ...prev,
+                                imageOptions: { ...prev.imageOptions, margin: marg }
+                              }));
+                            }}
+                            className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-orange-600 focus:outline-none"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Print Customization */}
@@ -9404,50 +9460,76 @@ export default function VendorDashboard() {
                     {printDetails.isPrintMode && (
                       <>
                         {/* Dark Header Section */}
-                        <div 
-                          className="p-5 flex flex-col items-center justify-center text-center relative overflow-hidden shrink-0 min-h-[110px]"
-                          style={{ backgroundColor: printDetails.headerBg }}
-                        >
-                          {/* Subtle Pattern overlay */}
-                          <div className="absolute inset-0 opacity-5 pointer-events-none flex flex-wrap gap-4 p-2">
-                             {Array.from({length: 12}).map((_, i) => <Zap key={`stand-zap-${i}`} className="w-8 h-8 rotate-12" />)}
-                          </div>
+                        {(() => {
+                          const bg = printDetails.headerBg || '';
+                          const hex = bg.replace('#', '').toLowerCase();
+                          let isHeaderBgLight = false;
+                          if (['ffffff', 'f8fafc', 'f1f5f9', 'e2e8f0', 'fff7ed', 'fef3c7', 'f0fdf4'].includes(hex)) {
+                            isHeaderBgLight = true;
+                          } else if (hex.length === 6) {
+                            const r = parseInt(hex.substring(0, 2), 16);
+                            const g = parseInt(hex.substring(2, 4), 16);
+                            const b = parseInt(hex.substring(4, 6), 16);
+                            isHeaderBgLight = (r * 0.299 + g * 0.587 + b * 0.114) > 180;
+                          }
                           
-                          {vendorProfile?.logoUrl && printDetails.showLogo && (
-                            <div className="w-12 h-12 mb-1.5 rounded-xl border border-white/10 overflow-hidden relative z-10 bg-white p-1">
-                              <img 
-                                src={getProxiedImageUrl(vendorProfile.logoUrl)} 
-                                alt="Logo" 
-                                className="w-full h-full object-contain" 
-                                crossOrigin="anonymous"
-                                referrerPolicy="no-referrer" 
-                                onError={(e) => {
-                                  const target = e.target as HTMLImageElement;
-                                  target.removeAttribute('crossOrigin');
-                                  if (target.src.includes('/api/proxy-image')) {
-                                    target.src = vendorProfile?.logoUrl || '';
-                                  } else {
-                                    target.src = `https://api.dicebear.com/7.x/initials/svg?seed=${vendorProfile?.businessName}`;
-                                  }
-                                }}
-                              />
+                          return (
+                            <div 
+                              className="p-5 flex flex-col items-center justify-center text-center relative overflow-hidden shrink-0 min-h-[110px]"
+                              style={{ backgroundColor: printDetails.headerBg }}
+                            >
+                              {/* Subtle Pattern overlay */}
+                              <div 
+                                className="absolute inset-0 opacity-[0.03] pointer-events-none flex flex-wrap gap-4 p-2 overflow-hidden"
+                                style={{ color: isHeaderBgLight ? '#000000' : '#ffffff' }}
+                              >
+                                 {Array.from({length: 12}).map((_, i) => (
+                                   <Zap 
+                                     key={`stand-zap-${i}`} 
+                                     className="w-8 h-8 rotate-12 text-current" 
+                                     strokeWidth={1}
+                                     style={{ border: 'none', background: 'transparent', outline: 'none', boxShadow: 'none' }} 
+                                   />
+                                 ))}
+                              </div>
+                              
+                              {vendorProfile?.logoUrl && printDetails.showLogo && (
+                                <div className="w-12 h-12 mb-1.5 rounded-xl border border-white/10 overflow-hidden relative z-10 bg-white p-1">
+                                  <img 
+                                    src={getProxiedImageUrl(vendorProfile.logoUrl)} 
+                                    alt="Logo" 
+                                    className="w-full h-full object-contain" 
+                                    crossOrigin="anonymous"
+                                    referrerPolicy="no-referrer" 
+                                    onError={(e) => {
+                                      const target = e.target as HTMLImageElement;
+                                      target.removeAttribute('crossOrigin');
+                                      if (target.src.includes('/api/proxy-image')) {
+                                        target.src = vendorProfile?.logoUrl || '';
+                                      } else {
+                                        target.src = `https://api.dicebear.com/7.x/initials/svg?seed=${vendorProfile?.businessName}`;
+                                      }
+                                    }}
+                                  />
+                                </div>
+                              )}
+                              <h2 
+                                className="stand-title text-lg font-black uppercase tracking-tight leading-tight relative z-10"
+                                style={{ color: isHeaderBgLight ? '#121212' : '#ffffff' }}
+                              >
+                                {printDetails.header || vendorProfile?.businessName || 'MY RESTAURANT'}
+                              </h2>
+                              <div 
+                                className="w-8 h-0.5 mt-1.5 relative z-10"
+                                style={{ backgroundColor: printDetails.accentColor }}
+                              ></div>
+                              <p 
+                                className="stand-subtitle text-[7.5px] font-black uppercase tracking-[0.2em] mt-1.5 relative z-10"
+                                style={{ color: printDetails.accentColor }}
+                              >{printDetails.subHeader || 'ORODHA YA KIDIJITALI'}</p>
                             </div>
-                          )}
-                          <h2 
-                            className="text-lg font-black uppercase tracking-tight leading-tight relative z-10"
-                            style={{ color: printDetails.headerBg === '#ffffff' || printDetails.headerBg === '#E2E8F0' ? '#000000' : '#ffffff' }}
-                          >
-                            {printDetails.header}
-                          </h2>
-                          <div 
-                            className="w-8 h-0.5 mt-1.5 relative z-10"
-                            style={{ backgroundColor: printDetails.accentColor }}
-                          ></div>
-                          <p 
-                            className="text-[7.5px] font-black uppercase tracking-[0.2em] mt-1.5 relative z-10"
-                            style={{ color: printDetails.accentColor }}
-                          >{printDetails.subHeader}</p>
-                        </div>
+                          );
+                        })()}
 
                         {/* Content Section */}
                 <div 
@@ -10376,12 +10458,14 @@ export default function VendorDashboard() {
           #order-receipt p, #order-receipt span, #order-receipt div {
               line-height: 1.4 !important;
           }
-          #printable-stand h2 {
-            font-size: 28pt !important;
-            margin-bottom: 5pt !important;
+          #printable-stand h2.stand-title {
+            font-size: 24pt !important;
+            margin-bottom: 4pt !important;
+            line-height: 1.1 !important;
           }
-          #printable-stand p {
-            font-size: 10pt !important;
+          #printable-stand p.stand-subtitle {
+            font-size: 9pt !important;
+            line-height: 1.2 !important;
           }
           #printable-stand #main-qr-card {
             width: 200px !important;
