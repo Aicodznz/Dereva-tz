@@ -9478,20 +9478,7 @@ export default function VendorDashboard() {
                               className="p-5 flex flex-col items-center justify-center text-center relative overflow-hidden shrink-0 min-h-[110px]"
                               style={{ backgroundColor: printDetails.headerBg }}
                             >
-                              {/* Subtle Pattern overlay */}
-                              <div 
-                                className="absolute inset-0 opacity-[0.03] pointer-events-none flex flex-wrap gap-4 p-2 overflow-hidden"
-                                style={{ color: isHeaderBgLight ? '#000000' : '#ffffff' }}
-                              >
-                                 {Array.from({length: 12}).map((_, i) => (
-                                   <Zap 
-                                     key={`stand-zap-${i}`} 
-                                     className="w-8 h-8 rotate-12 text-current" 
-                                     strokeWidth={1}
-                                     style={{ border: 'none', background: 'transparent', outline: 'none', boxShadow: 'none' }} 
-                                   />
-                                 ))}
-                              </div>
+
                               
                               {vendorProfile?.logoUrl && printDetails.showLogo && (
                                 <div className="w-12 h-12 mb-1.5 rounded-xl border border-white/10 overflow-hidden relative z-10 bg-white p-1">
