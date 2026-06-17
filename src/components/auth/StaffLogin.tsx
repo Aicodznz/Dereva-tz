@@ -34,11 +34,14 @@ export default function StaffLogin() {
       navigate('/');
     } catch (error: any) {
       console.error('Staff Login error:', error);
-      const errorMessage = error.message || '';
+      const errorMessage = error.message || error.code || String(error);
       if (errorMessage.includes('Namba ya simu au Password si sahihi')) {
         toast.error(errorMessage);
       } else {
-        toast.error('Kuna tatizo la kiufundi. Tafadhali jaribu tena.');
+        toast.error('Kuna tatizo la kiufundi. Tafadhali jaribu tena.', {
+          description: errorMessage,
+          duration: 6000
+        });
       }
     } finally {
       setLoading(false);

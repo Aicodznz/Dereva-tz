@@ -48,48 +48,73 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     const path = `users/${user.uid}`;
     
-    // Subscribe to driver/passenger profile with live updates
+    // 1. Subscribe to staff updates for this user UID
+    const staffQ = query(collection(db, 'staff'), where('uid', '==', user.uid), limit(1));
+    const unsubStaff = onSnapshot(staffQ, (staffSnap) => {
+      if (!staffSnap.empty) {
+        const staffDoc = staffSnap.docs[0];
+        const staffData = staffDoc.data();
+        setStaffProfile({ id: staffDoc.id, ...staffData });
+        setProfile({
+          uid: user.uid,
+          role: 'vendor',
+          email: '',
+          fullName: staffData.name,
+          displayName: staffData.name
+        } as any);
+        setLoading(false);
+      }
+    }, (error) => {
+      console.warn("Live staff profile sync warning:", error);
+    });
+
+    // 2. Subscribe to driver/passenger profile with live updates
     const unsubProfile = onSnapshot(doc(db, 'users', user.uid), async (docSnap) => {
       try {
+        const activeStaffQ = query(collection(db, 'staff'), where('uid', '==', user.uid), limit(1));
+        const activeStaffSnap = await getDocs(activeStaffQ);
+
+        if (!activeStaffSnap.empty) {
+          // Keep staff profile active
+          const staffDoc = activeStaffSnap.docs[0];
+          const staffData = staffDoc.data();
+          setStaffProfile({ id: staffDoc.id, ...staffData });
+          setProfile({
+            uid: user.uid,
+            role: 'vendor',
+            email: '',
+            fullName: staffData.name,
+            displayName: staffData.name
+          } as any);
+          setLoading(false);
+          return;
+        }
+
         if (docSnap.exists()) {
           setProfile(docSnap.data() as UserProfile);
           setStaffProfile(null);
           setLoading(false);
         } else {
-          // Check staff collection
-          const staffQ = query(collection(db, 'staff'), where('uid', '==', user.uid), limit(1));
-          const staffSnap = await getDocs(staffQ);
+          // Profile does not exist, check if we should create it
+          const currentUser = auth.currentUser;
+          if (currentUser) {
+            const isAdminEmail = currentUser.email === 'aicodtznation@gmail.com';
+            const newProfile: any = {
+              uid: currentUser.uid,
+              email: currentUser.email || '',
+              displayName: currentUser.displayName || (isAdminEmail ? 'Super Admin' : ''),
+              fullName: currentUser.displayName || (isAdminEmail ? 'Super Admin' : ''),
+              photoURL: currentUser.photoURL || '',
+              role: isAdminEmail ? 'admin' : 'customer',
+              walletBalance: 0,
+              points: 0,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            };
 
-          if (!staffSnap.empty) {
-            const staffData = staffSnap.docs[0].data();
-            setStaffProfile({ id: staffSnap.docs[0].id, ...staffData });
-            setProfile({
-              uid: user.uid,
-              role: 'vendor',
-              email: '',
-            } as any);
-          } else {
-            // Profile does not exist, check if we should create it
-            const currentUser = auth.currentUser;
-            if (currentUser) {
-              const isAdminEmail = currentUser.email === 'aicodtznation@gmail.com';
-              const newProfile: any = {
-                uid: currentUser.uid,
-                email: currentUser.email || '',
-                displayName: currentUser.displayName || (isAdminEmail ? 'Super Admin' : ''),
-                fullName: currentUser.displayName || (isAdminEmail ? 'Super Admin' : ''),
-                photoURL: currentUser.photoURL || '',
-                role: isAdminEmail ? 'admin' : 'customer',
-                walletBalance: 0,
-                points: 0,
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
-              };
-
-              await setDoc(doc(db, 'users', currentUser.uid), newProfile);
-              setProfile(newProfile);
-              setStaffProfile(null);
-            }
+            await setDoc(doc(db, 'users', currentUser.uid), newProfile);
+            setProfile(newProfile);
+            setStaffProfile(null);
           }
         }
       } catch (error) {
@@ -107,7 +132,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     });
 
-    return () => unsubProfile();
+    return () => {
+      unsubStaff();
+      unsubProfile();
+    };
   }, [user]);
 
   const signIn = async () => {
@@ -240,16 +268,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         currentUser = userCredential.user;
       }
 
-      // 2. Search for staff member in Firestore
-      const staffQ = query(
-        collection(db, 'staff'), 
-        where('phone', '==', phone), 
-        where('password', '==', pass),
-        limit(1)
-      );
-      const staffSnap = await getDocs(staffQ);
+      // Generate normalized phone variations to support both international and local inputs in East Africa
+      const digits = phone.replace(/\D/g, '');
+      const variations: string[] = [phone, phone.trim()];
+      if (digits) {
+        variations.push(digits);
+        let base9 = digits;
+        if (digits.startsWith('255') && digits.length === 12) {
+          base9 = digits.slice(3);
+        } else if (digits.startsWith('0') && digits.length === 10) {
+          base9 = digits.slice(1);
+        }
+        if (base9.length === 9) {
+          variations.push(base9);
+          variations.push(`0${base9}`);
+          variations.push(`255${base9}`);
+          variations.push(`+255${base9}`);
+        }
+      }
+      const uniqueVariations = Array.from(new Set(variations));
 
-      if (staffSnap.empty) {
+      let staffSnap = null;
+      try {
+        // Query to match any of the phone number variations and password
+        const staffQ = query(
+          collection(db, 'staff'), 
+          where('phone', 'in', uniqueVariations), 
+          where('password', '==', pass),
+          limit(1)
+        );
+        staffSnap = await getDocs(staffQ);
+      } catch (err) {
+        console.warn('IN query failed, trying fallback exact match query:', err);
+        const staffQ = query(
+          collection(db, 'staff'),
+          where('phone', '==', phone),
+          where('password', '==', pass),
+          limit(1)
+        );
+        staffSnap = await getDocs(staffQ);
+      }
+
+      if (!staffSnap || staffSnap.empty) {
         // If query failed and this anonymous user was newly created in this run, sign out to be safe and clean
         if (currentUser.isAnonymous) {
           await auth.signOut();
@@ -264,6 +324,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await updateDoc(doc(db, 'staff', staffDoc.id), {
         uid: currentUser.uid
       });
+
+      // Manually update local cache states to guarantee instant state update
+      setStaffProfile({ id: staffDoc.id, ...staffData, uid: currentUser.uid });
+      setProfile({
+        uid: currentUser.uid,
+        role: 'vendor',
+        email: '',
+        fullName: staffData.name,
+        displayName: staffData.name
+      } as any);
 
       toast.success(`Karibu ${staffData.name}!`);
     } catch (error: any) {
