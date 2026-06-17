@@ -16,7 +16,9 @@ import {
   CheckCircle2,
   Package,
   Truck,
-  ShieldCheck
+  ShieldCheck,
+  Utensils,
+  ChefHat
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -109,6 +111,239 @@ export default function OrderTracker({ order, onBack }: OrderTrackerProps) {
       if (center) map.flyTo(center, 15);
     }, [center]);
     return null;
+  }
+
+  const isDelivery = order.orderType === 'delivery';
+
+  if (!isDelivery) {
+    // Non-delivery tracking screen (for table orders, dine-in walk-ins, and pickups)
+    return (
+      <div className="fixed inset-0 z-[200] bg-zinc-50 dark:bg-neutral-950 flex flex-col md:flex-row transition-colors duration-500 overflow-hidden">
+        {/* Left Side: Order status indicators and summaries */}
+        <div className="w-full md:w-[420px] bg-white dark:bg-neutral-900 border-r border-neutral-150 dark:border-neutral-800 flex flex-col z-[210] shadow-xl shrink-0">
+          <div className="p-6 border-b border-neutral-100 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+            <button 
+              onClick={onBack}
+              className="flex items-center gap-2 text-orange-600 font-extrabold uppercase tracking-widest text-[10px] mb-6 hover:translate-x-[-4px] transition-transform"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Rudi Kwenye Oda / Back
+            </button>
+            
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-[10px] font-black uppercase text-neutral-400 tracking-widest mb-1.5">Aina ya Huduma</p>
+                <h2 className="text-xl font-black text-neutral-900 dark:text-white uppercase italic tracking-tight">
+                  {order.tableNumber ? `Meza / Kiti #${order.tableNumber}` : order.orderType === 'pickup' ? 'Kuchukua Kaunta / Pickup' : 'Huduma ya Ndani'}
+                </h2>
+                <p className="text-[10px] font-mono font-bold text-neutral-500 mt-1">Oda ID: #{order.id?.slice(-8).toUpperCase()}</p>
+              </div>
+              <div className="w-12 h-12 bg-orange-50 dark:bg-orange-950/20 rounded-2xl flex items-center justify-center text-orange-600">
+                <Utensils className="w-6 h-6" />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-6 space-y-6 no-scrollbar">
+            {/* Steps Progress */}
+            <div className="bg-neutral-50 dark:bg-neutral-850/30 rounded-[2rem] p-6 border border-neutral-100 dark:border-neutral-800 space-y-6">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-neutral-400">MAENDELEO YA CHAKULA</h3>
+              
+              {[
+                { 
+                  label: 'Oda Imepokelewa', 
+                  desc: 'Imefika jikoni na inafanyiwa kazi.', 
+                  done: true, 
+                  icon: CheckCircle2 
+                },
+                { 
+                  label: 'Kinaandaliwa Jikoni', 
+                  desc: 'Chakula kinatayarishwa na wapishi wako.', 
+                  done: ['accepted', 'preparing', 'prepared', 'delivered', 'completed'].includes(order.status), 
+                  current: ['pending', 'accepted', 'preparing'].includes(order.status),
+                  icon: ChefHat 
+                },
+                { 
+                  label: order.orderType === 'pickup' ? 'Tayari Kaunta' : 'Kimeletwa Mezani', 
+                  desc: order.orderType === 'pickup' ? 'Oda ipo tayari kuja kuchukuliwa.' : 'Chakula kimefika kwenye meza yako.', 
+                  done: ['prepared', 'delivered', 'completed'].includes(order.status), 
+                  current: order.status === 'prepared',
+                  icon: Utensils 
+                },
+              ].map((step, idx) => (
+                <div key={idx} className="flex gap-4 relative group">
+                  {idx < 2 && (
+                    <div className={`absolute left-4 top-8 bottom-[-24px] w-0.5 ${step.done ? 'bg-orange-600' : 'bg-neutral-200 dark:bg-neutral-800'}`} />
+                  )}
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 z-10 transition-colors ${
+                    step.done 
+                      ? 'bg-orange-600 text-white' 
+                      : step.current 
+                        ? 'bg-amber-500 text-white ring-4 ring-amber-500/20' 
+                        : 'bg-neutral-100 dark:bg-neutral-850 text-neutral-400'
+                  }`}>
+                    <step.icon className="w-4 h-4" />
+                  </div>
+                  <div className="pt-0.5 min-w-0">
+                    <p className={`text-xs font-black uppercase tracking-wider ${step.done ? 'text-neutral-900 dark:text-white' : step.current ? 'text-amber-500' : 'text-neutral-400'}`}>{step.label}</p>
+                    <p className="text-[10px] font-medium text-neutral-500 mt-0.5 leading-relaxed">{step.desc}</p>
+                    {step.current && <span className="inline-block mt-1 text-[8.5px] font-black uppercase bg-orange-600/10 text-orange-600 px-2 py-0.5 rounded">Inafanyika sasa</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Items Summary Card */}
+            <div className="bg-neutral-50 dark:bg-neutral-800/40 p-5 rounded-[2rem] border border-neutral-150/60 dark:border-neutral-800 space-y-4">
+              <h4 className="text-[10px] font-black uppercase text-neutral-400 tracking-widest">Vyakula Ulivyoagiza</h4>
+              <div className="space-y-3 max-h-48 overflow-y-auto pr-1">
+                {order.items?.map((item: any, idx: number) => (
+                  <div key={idx} className="flex justify-between items-start text-xs font-bold text-neutral-800 dark:text-neutral-200 gap-4">
+                    <span className="truncate">{item.quantity}x {item.name}</span>
+                    <span className="font-mono text-neutral-900 dark:text-neutral-300">TZS {((item.price || 0) * (item.quantity || 1)).toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="border-t border-dashed border-neutral-200 dark:border-neutral-700 pt-3 flex justify-between text-sm font-black text-neutral-900 dark:text-white uppercase tracking-tight">
+                <span>JUMLA:</span>
+                <span className="text-orange-600 font-mono text-base font-black">TZS {(order.totalAmount || 0).toLocaleString()}</span>
+              </div>
+            </div>
+
+            {/* Payment Details Card */}
+            <div className={`p-5 rounded-[2rem] flex flex-col gap-1.5 border leading-tight ${
+              order.paymentStatus === 'paid' 
+                ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-250/20 text-emerald-800 dark:text-emerald-400' 
+                : 'bg-amber-50 dark:bg-amber-950/25 border-amber-250/20 text-amber-800 dark:text-amber-500'
+            }`}>
+              <span className="text-[9px] font-black uppercase tracking-widest opacity-80">Hali ya Malipo</span>
+              <div className="flex justify-between items-center mt-0.5">
+                <span className="text-xs font-black uppercase tracking-tight italic">
+                  {order.paymentStatus === 'paid' ? 'Malipo Yamekamilika!' : 'Unalipia Mezani (At Table/Counter)'}
+                </span>
+                <span className="text-[9px] font-black leading-none px-2 py-0.5 rounded-full uppercase bg-white/70 dark:bg-black/30">
+                  {order.paymentMethod || 'CASH'}
+                </span>
+              </div>
+              <p className="text-[10px] leading-relaxed font-semibold opacity-85 mt-1">
+                {order.paymentStatus === 'paid' 
+                  ? 'Malipo yako yamehakikiwa salama. Tunakuandalia chakula chako hapa.' 
+                  : 'Umechagua kulipa baadae. Unaweza kukabidhi pesa taslimu au kufanya miamala na mhudumu wetu pindi anapokuhudumia.'
+                }
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Side: High-fidelity interactive central boarding simulator (No driver map needed!) */}
+        <div className="flex-1 bg-white dark:bg-neutral-900 flex flex-col items-center justify-center p-8 relative overflow-hidden">
+          {/* Custom Ambient Graphic Background */}
+          <div className="absolute inset-0 opacity-[0.02] dark:opacity-[0.03] select-none pointer-events-none">
+            <Utensils className="w-[45rem] h-[45rem] absolute top-12 left-12 rotate-[-12deg]" />
+            <ChefHat className="w-[45rem] h-[45rem] absolute bottom-12 right-12 rotate-[12deg]" />
+          </div>
+
+          <AnimatePresence mode="wait">
+            {order.status === 'pending' && (
+              <motion.div 
+                key="pending"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="max-w-md text-center flex flex-col items-center relative z-10"
+              >
+                <div className="w-24 h-24 bg-amber-500/10 rounded-[2.5rem] flex items-center justify-center border border-amber-500/25 shadow-xl relative mb-8">
+                  <Clock className="w-10 h-10 text-amber-500 animate-pulse" />
+                  <span className="absolute -bottom-1.5 bg-amber-500 text-[8px] font-black text-white px-3 py-1 rounded-full uppercase tracking-widest shadow">Inapokelewa</span>
+                </div>
+                <h3 className="text-2xl font-black text-neutral-900 dark:text-white uppercase tracking-tight italic">
+                  Oda Inasubiri Kuthibitishwa
+                </h3>
+                <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 mt-4 leading-relaxed max-w-sm">
+                  Oda yako imesajiliwa kikamilifu kutoka kwenye meza/kiti chako. Jiko inatambua maombi yako na wanaithibitisha kuanza kuandaliwa hivi punde!
+                </p>
+                <div className="mt-8 bg-amber-500/5 px-4 py-2 rounded-2xl border border-amber-500/15 flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-ping" />
+                  <span className="text-[10px] font-black uppercase text-amber-600 tracking-wider">Subiri Jiko Lithibitishe</span>
+                </div>
+              </motion.div>
+            )}
+
+            {['accepted', 'preparing'].includes(order.status) && (
+              <motion.div 
+                key="preparing"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="max-w-md text-center flex flex-col items-center relative z-10"
+              >
+                <div className="w-24 h-24 bg-orange-600/10 rounded-[2.5rem] flex items-center justify-center border border-orange-600/25 shadow-xl relative mb-8">
+                  <ChefHat className="w-10 h-10 text-orange-600 animate-bounce" />
+                  <span className="absolute -bottom-1.5 bg-orange-600 text-[8px] font-black text-white px-3 py-1 rounded-full uppercase tracking-widest shadow">Inapikwa</span>
+                </div>
+                <h3 className="text-2xl font-black text-neutral-900 dark:text-white uppercase tracking-tight italic">
+                  Chakula Chako Kinapikwa Sasa
+                </h3>
+                <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 mt-4 leading-relaxed max-w-sm">
+                  Wapishi wetu wako jikoni wanaandaa vyakula vyako vyote kwa viambato vipya kabisa, kwa makini, upendo, na usafi wa kiwango cha juu.
+                </p>
+                {order.prepTime && (
+                  <div className="mt-8 bg-orange-600/5 px-4 py-2.5 rounded-2xl border border-orange-600/15 flex items-center gap-2">
+                    <Clock className="w-3.5 h-3.5 text-orange-500" />
+                    <span className="text-[10px] font-black uppercase text-orange-600 tracking-wider">Muda uliobaki: takriban dk {order.prepTime}</span>
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {order.status === 'prepared' && (
+              <motion.div 
+                key="prepared"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="max-w-md text-center flex flex-col items-center relative z-10"
+              >
+                <div className="w-24 h-24 bg-emerald-500/10 rounded-[2.5rem] flex items-center justify-center border border-emerald-500/25 shadow-xl relative mb-8">
+                  <Utensils className="w-10 h-10 text-emerald-500 animate-bounce" />
+                  <span className="absolute -bottom-1.5 bg-emerald-500 text-[8px] font-black text-white px-3 py-1 rounded-full uppercase tracking-widest shadow animate-pulse">Kimeiva / Ready</span>
+                </div>
+                <h3 className="text-2xl font-black text-neutral-900 dark:text-white uppercase tracking-tight italic">
+                  TAYARI MEZANI / KAUNTA! 🎉
+                </h3>
+                <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 mt-4 leading-relaxed max-w-sm">
+                  {order.orderType === 'pickup' 
+                    ? 'Chakula chako kimekamilika na kipo tayari kabisa kaunta kwa ajili ya kukabidhiwa kwako. Karibu uchukue na enjoy!' 
+                    : 'Chakula chako kimekamilika na kimepelekwa kwenye meza yako sasa hivi. Karibu ufurahie mlo wako mtamu!'
+                  }
+                </p>
+              </motion.div>
+            )}
+
+            {['delivered', 'completed'].includes(order.status) && (
+              <motion.div 
+                key="completed"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="max-w-md text-center flex flex-col items-center relative z-10"
+              >
+                <div className="w-24 h-24 bg-emerald-500/10 rounded-[2.5rem] flex items-center justify-center border border-emerald-500/25 shadow-xl relative mb-8">
+                  <CheckCircle2 className="w-10 h-10 text-emerald-500" />
+                  <span className="absolute -bottom-1.5 bg-emerald-500 text-[8px] font-black text-white px-3 py-1 rounded-full uppercase tracking-widest shadow">Imekabidhiwa</span>
+                </div>
+                <h3 className="text-2xl font-black text-neutral-900 dark:text-white uppercase tracking-tight italic">
+                  Umehudumiwa Kikamilifu! 🌟
+                </h3>
+                <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 mt-4 leading-relaxed max-w-sm">
+                  Tumefurahi sana kukuhudumia chakula safi na kitamu leo! Tunakutakia mlo mwema na tunakukaribisha tena wakati mwingine pindi unapokuwa na njaa.
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+    );
   }
 
   return (

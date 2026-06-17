@@ -165,7 +165,7 @@ export default function PublicStatusDisplay() {
     const q = query(
       collection(db, 'orders'),
       where('vendorId', '==', vendorId),
-      where('status', 'in', ['accepted', 'preparing', 'prepared']),
+      where('status', 'in', ['pending', 'accepted', 'preparing', 'prepared']),
       orderBy('createdAt', 'desc')
     );
 
@@ -185,7 +185,7 @@ export default function PublicStatusDisplay() {
   }, [vendorId]);
 
   const readyOrders = orders.filter(o => o.status === 'prepared');
-  const cookingOrders = orders.filter(o => ['accepted', 'preparing'].includes(o.status));
+  const cookingOrders = orders.filter(o => ['pending', 'accepted', 'preparing'].includes(o.status));
 
   // Trigger audio announcements when orders transition to 'prepared'
   useEffect(() => {
