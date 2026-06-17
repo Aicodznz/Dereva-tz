@@ -10081,7 +10081,7 @@ export default function VendorDashboard() {
                       <div className="flex-1 px-4">
                          <p className="uppercase leading-tight">{item.name}</p>
                          <p className="text-[9px] text-neutral-500 font-bold mt-1 uppercase italic">
-                           Size: {item.variation || 'Regular'}
+                           Size: {typeof item.variation === 'object' ? ((item.variation as any)?.name || 'Regular') : (item.variation || 'Regular')}
                            {item.addOns && item.addOns.length > 0 && ` • Extras: ${item.addOns.map((a: any) => a.name).join(', ')}`}
                          </p>
                       </div>
