@@ -386,37 +386,68 @@ export default function VendorStore() {
                           to={product.vendorCategory === 'bus_ticket' || product.category === 'bus_ticket' || product.name.toLowerCase().includes('bus ticket') ? `/product/${product.id}?booking=true` : `/product/${product.id}`}
                           className="group block h-full"
                         >
-                          <div className="relative h-full bg-white dark:bg-neutral-900 rounded-[1.5rem] md:rounded-[3.5rem] border border-neutral-100 dark:border-white/5 shadow-[0_15px_40px_rgba(0,0,0,0.04)] hover:shadow-[0_30px_60px_rgba(234,88,12,0.18)] transition-all duration-700 overflow-hidden group/card">
-                            <div className="aspect-[3/4] relative overflow-hidden bg-neutral-50 dark:bg-neutral-800 m-1.5 md:m-3 rounded-[1.2rem] md:rounded-[2.8rem]">
-                              <img 
-                                src={product.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80'} 
-                                alt={product.name} 
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" 
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80';
-                                }}
-                                referrerPolicy="no-referrer"
-                              />
-                              
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                              
-                              <div className="absolute top-4 left-4">
-                                <Badge className="bg-white/90 dark:bg-black/80 backdrop-blur-md text-neutral-900 dark:text-white border-none px-3 py-1 text-[9px] font-black uppercase tracking-[0.2em] rounded-full">
-                                  {product.category || 'Standard'}
-                                </Badge>
-                              </div>
+                          <div className="relative h-full bg-white dark:bg-neutral-900 rounded-[1.5rem] md:rounded-[3.2rem] border border-neutral-100 dark:border-white/5 shadow-[0_15px_40px_rgba(0,0,0,0.03)] hover:shadow-[0_25px_50px_rgba(234,88,12,0.12)] transition-all duration-550 overflow-hidden group/card flex flex-col justify-between">
+                            <div>
+                              <div className="aspect-[3/4] relative overflow-hidden bg-neutral-50 dark:bg-neutral-800 m-1.5 md:m-3 rounded-[1.2rem] md:rounded-[2.6rem]">
+                                <img 
+                                  src={product.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80'} 
+                                  alt={product.name} 
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" 
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80';
+                                  }}
+                                  referrerPolicy="no-referrer"
+                                />
+                                
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                                
+                                <div className="absolute top-4 left-4">
+                                  <Badge className="bg-white/90 dark:bg-black/80 backdrop-blur-md text-neutral-900 dark:text-white border-none px-3 py-1 text-[9px] font-black uppercase tracking-[0.2em] rounded-full">
+                                    {product.category || 'Standard'}
+                                  </Badge>
+                                </div>
 
-                              {product?.model3dUrl && businessConfig?.enableAR && (
-                                <div className="absolute top-4 right-4 animate-pulse">
-                                  <div className="bg-orange-600 text-white p-2 rounded-full shadow-lg shadow-orange-600/40 border border-white/20">
-                                    <Box className="w-3.5 h-3.5" />
+                                {product?.model3dUrl && businessConfig?.enableAR && (
+                                  <div className="absolute top-4 right-4 animate-pulse">
+                                    <div className="bg-orange-600 text-white p-2 rounded-full shadow-lg shadow-orange-600/40 border border-white/20">
+                                      <Box className="w-3.5 h-3.5" />
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              
+                              <div className="p-3 md:p-8 pt-1 md:pt-2 space-y-1.5 md:space-y-3">
+                                <div className="space-y-0.5 md:space-y-1">
+                                  <h4 className="font-[900] text-sm md:text-lg text-neutral-900 dark:text-white group-hover/card:text-orange-600 transition-colors uppercase italic tracking-tighter leading-snug line-clamp-1">{product.name}</h4>
+                                  <p className="text-[9px] md:text-[11px] text-neutral-400 font-bold uppercase tracking-[0.2em] line-clamp-1 italic">{product.description || 'Verified Quality'}</p>
+                                </div>
+
+                                <div className="flex items-center justify-between pt-2 md:pt-3 border-t border-neutral-100 dark:border-white/5">
+                                  <div className="space-y-0.5">
+                                    {product.discountPrice ? (
+                                      <div className="flex flex-col leading-tight">
+                                        <span className="text-[8px] md:text-[10px] text-neutral-400 line-through font-bold">TZS {product.price.toLocaleString()}</span>
+                                        <span className="text-xs md:text-base font-[900] text-orange-600 italic tracking-tighter">
+                                          TZS {product.discountPrice.toLocaleString()}
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <p className="text-xs md:text-base font-[900] text-orange-600 italic tracking-tighter">
+                                        TZS {product.price.toLocaleString()}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <div className="bg-orange-50 dark:bg-orange-900/10 px-2.5 py-0.5 rounded-full text-[7px] md:text-[8px] font-black text-orange-600 uppercase tracking-widest leading-none shrink-0">
+                                    In Stock
                                   </div>
                                 </div>
-                              )}
+                              </div>
+                            </div>
 
+                            {/* Tactile, mobile-friendly Add to Cart button */}
+                            <div className="p-3 md:p-8 pt-0 pb-3 md:pb-6">
                               <motion.button 
-                                whileHover={{ scale: 1.1, rotate: 90 }}
-                                whileTap={{ scale: 0.9 }}
+                                whileTap={{ scale: 0.95 }}
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
@@ -426,37 +457,11 @@ export default function VendorStore() {
                                     className: 'font-black uppercase text-[10px] tracking-widest'
                                   });
                                 }}
-                                className="absolute bottom-2 right-2 md:bottom-5 md:right-5 w-8 h-8 md:w-14 md:h-14 bg-orange-600 text-white rounded-lg md:rounded-2xl shadow-2xl flex items-center justify-center hover:bg-orange-700 transition-all transform z-10"
+                                className="w-full py-2.5 md:py-3.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl md:rounded-2xl shadow-lg shadow-orange-600/10 flex items-center justify-center gap-1.5 text-[9px] md:text-xs font-black uppercase tracking-wider transition-all"
                               >
-                                <Plus className="w-4 h-4 md:w-7 md:h-7" />
+                                <Plus className="w-3 md:w-4.5 h-3 md:h-4.5 stroke-[3px]" />
+                                <span>Agiza Sasa</span>
                               </motion.button>
-                            </div>
-                            
-                            <div className="p-3 md:p-8 pt-2 md:pt-4 space-y-2 md:space-y-4">
-                              <div className="space-y-0.5 md:space-y-1.5">
-                                <h4 className="font-[900] text-sm md:text-xl text-neutral-900 dark:text-white group-hover/card:text-orange-600 transition-colors uppercase italic tracking-tighter leading-none line-clamp-1 md:line-clamp-none">{product.name}</h4>
-                                <p className="text-[9px] md:text-[11px] text-neutral-400 font-bold uppercase tracking-[0.2em] line-clamp-1 italic">{product.description || 'Verified Quality'}</p>
-                              </div>
-
-                              <div className="flex items-center justify-between pt-2 md:pt-4 border-t border-neutral-100 dark:border-white/5">
-                                <div className="space-y-0.5">
-                                  {product.discountPrice ? (
-                                    <div className="flex flex-col">
-                                      <span className="text-[8px] md:text-[11px] text-neutral-400 line-through font-bold">TZS {product.price.toLocaleString()}</span>
-                                      <span className="text-sm md:text-xl font-[900] text-orange-600 italic tracking-tighter">
-                                        TZS {product.discountPrice.toLocaleString()}
-                                      </span>
-                                    </div>
-                                  ) : (
-                                    <p className="text-sm md:text-xl font-[900] text-orange-600 italic tracking-tighter">
-                                      TZS {product.price.toLocaleString()}
-                                    </p>
-                                  )}
-                                </div>
-                                <div className="hidden xs:block bg-orange-50 dark:bg-orange-900/10 px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[7px] md:text-[9px] font-black text-orange-600 uppercase tracking-widest">
-                                  In Stock
-                                </div>
-                              </div>
                             </div>
                           </div>
                         </Link>

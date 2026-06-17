@@ -674,85 +674,183 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
             </div>
 
             <div className="space-y-6">
-              <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white dark:bg-neutral-900">
-                <CardHeader className="bg-neutral-50/50 dark:bg-neutral-800/50 border-b border-neutral-100 dark:border-neutral-800 transition-colors">
-                  <h3 className="font-bold text-lg text-neutral-900 dark:text-white">{t('order_details')}</h3>
-                </CardHeader>
-                <CardContent className="p-6 space-y-6">
-                  <div className="space-y-4">
-                    {selectedOrder.items.map((item, idx) => (
-                      <div key={`order-item-${selectedOrder.id}-${idx}`} className="flex gap-4">
-                        <div className="w-16 h-16 bg-neutral-100 dark:bg-neutral-800 rounded-2xl overflow-hidden relative shrink-0">
-                          <img 
-                            src={item.imageUrl || "https://picsum.photos/seed/food/200"} 
-                            alt={item.name} 
-                            className="w-full h-full object-cover" 
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=200&q=80';
-                            }}
-                          />
-                          <div className="absolute top-0 left-0 bg-neutral-900 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-br-lg">
-                            {item.quantity}
-                          </div>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h5 className="font-bold text-sm truncate text-neutral-900 dark:text-white">{item.name}</h5>
-                          {item.variation && <p className="text-[10px] text-neutral-500">Size: {item.variation.name}</p>}
-                          <p className="text-sm font-bold text-orange-600 mt-1">TZS {item.price.toLocaleString()}</p>
-                        </div>
+              {/* Aesthetic Digital Thermal Receipt wrapper (What gets downloaded/captured) */}
+              <div 
+                id="aesthetic-customer-receipt"
+                className="bg-white text-neutral-900 p-8 rounded-[2rem] border border-neutral-200 shadow-2xl relative overflow-hidden select-none font-sans"
+                style={{ backgroundColor: '#ffffff', color: '#171717' }}
+              >
+                {/* Decorative cut thermal receipt wavy top pattern */}
+                <div className="absolute top-0 inset-x-0 h-1.5 flex gap-1 justify-between overflow-hidden opacity-30">
+                  {Array.from({ length: 30 }).map((_, i) => (
+                    <div key={`zigzag-${i}`} className="w-3 h-3 bg-neutral-300 rotate-45 transform -translate-y-1.5 shrink-0" />
+                  ))}
+                </div>
+
+                <div className="text-center space-y-2 mt-4">
+                  {/* Store Name & Branding */}
+                  <h3 className="font-[905] text-xl tracking-tight uppercase italic leading-none text-neutral-900">
+                    {(selectedOrder as any).vendorName || selectedVendorProfile?.businessName || "RESTAURANT KISINIA"}
+                  </h3>
+                  <p className="text-[9px] font-black text-neutral-400 uppercase tracking-widest text-center mt-1">
+                    Orodha ya Kidijitali ya PAPO HAPO
+                  </p>
+                  
+                  {/* Address and Contact info */}
+                  <div className="text-[10px] font-mono text-neutral-500 leading-tight space-y-0.5 pt-1">
+                    <p>Mwanza, Tanzania</p>
+                    <p>Simu: {selectedVendorProfile?.phoneNumber || "+255 711 123 456"}</p>
+                    <p>Meza: {selectedOrder.tableNumber ? `#${selectedOrder.tableNumber}` : "Chukua / Parcel"}</p>
+                  </div>
+                </div>
+
+                {/* Decorative Separator */}
+                <div className="border-t border-dashed border-neutral-300 my-5" />
+
+                {/* Metadata details */}
+                <div className="grid grid-cols-2 gap-y-1.5 text-[11px] font-mono text-neutral-600 pb-4">
+                  <div>RISITI NA:</div>
+                  <div className="text-right font-black text-neutral-900">#{selectedOrder.id?.slice(-8).toUpperCase()}</div>
+                  
+                  <div>TAREHE:</div>
+                  <div className="text-right">
+                    {selectedOrder.createdAt ? getSafeDate(selectedOrder.createdAt).toLocaleDateString('sw-TZ', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}
+                  </div>
+                  
+                  <div>MUDA:</div>
+                  <div className="text-right">
+                    {selectedOrder.createdAt ? getSafeDate(selectedOrder.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                  </div>
+
+                  <div>MALIPO:</div>
+                  <div className="text-right uppercase font-black text-neutral-900">
+                    {selectedOrder.paymentMethod || "KASH / CASH"}
+                  </div>
+
+                  <div>STATUS:</div>
+                  <div className="text-right uppercase font-black text-emerald-600">
+                    {selectedOrder.paymentStatus === 'paid' ? 'IMELIPWA / PAID ✓' : 'HAIJALIPWA'}
+                  </div>
+                </div>
+
+                {/* Column Headers */}
+                <div className="border-t border-neutral-200 pt-3 pb-1 flex justify-between text-[10px] font-bold tracking-wider text-neutral-400 uppercase">
+                  <span>Bidhaa (Qty)</span>
+                  <span>Jumla TZS</span>
+                </div>
+
+                {/* Items breakdown */}
+                <div className="space-y-2.5 pb-4">
+                  {selectedOrder.items.map((item: any, idx: number) => (
+                    <div key={`receipt-item-${idx}`} className="flex justify-between items-start text-xs font-mono text-neutral-800">
+                      <div className="flex-1 pr-4">
+                        <span className="font-bold text-neutral-950">{item.quantity}x</span> {item.name}
+                        {item.variation && <p className="text-[9px] text-neutral-400 mt-0.5">({item.variation.name})</p>}
                       </div>
-                    ))}
-                  </div>
+                      <span className="font-black text-neutral-955 text-right">
+                        {(item.price * item.quantity).toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
 
-                  <div className="pt-6 border-t border-neutral-100 dark:border-neutral-800 space-y-3">
-                    <div className="flex justify-between text-sm text-neutral-600 dark:text-neutral-400">
-                      <span>{t('subtotal')}</span>
-                      <span>TZS {selectedOrder.totalAmount.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between text-sm text-neutral-600 dark:text-neutral-400">
-                      <span>{t('discount')}</span>
-                      <span>TZS 0</span>
-                    </div>
-                    <div className="flex justify-between text-sm text-green-600 dark:text-green-400 font-medium">
-                      <span>{t('delivery_charge')}</span>
-                      <span>TZS 0</span>
-                    </div>
-                    <div className="flex justify-between text-lg font-black text-neutral-900 dark:text-white pt-2 border-t border-dashed border-neutral-200 dark:border-neutral-800">
-                      <span>{t('total')}</span>
-                      <span>TZS {selectedOrder.totalAmount.toLocaleString()}</span>
-                    </div>
-                  </div>
+                <div className="border-t border-dashed border-neutral-300 my-4" />
 
-                  <div className="pt-6 space-y-3 print:hidden">
-                    {['out_for_delivery', 'preparing', 'accepted'].includes(selectedOrder.status) && (
-                      <Button 
-                        onClick={() => setTrackingOrder(selectedOrder)}
-                        className="w-full h-14 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl font-bold gap-2 shadow-lg shadow-orange-600/20"
-                      >
-                        <Navigation className="w-5 h-5" />
-                        Fuatilia Oda Yako
-                      </Button>
-                    )}
+                {/* Calculations summary */}
+                <div className="space-y-1.5 text-xs text-neutral-600 font-mono pb-2">
+                  <div className="flex justify-between">
+                    <span>Subtotal:</span>
+                    <span>TZS {selectedOrder.totalAmount.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-neutral-500">
+                    <span>Kodi / VAT (0%):</span>
+                    <span>TZS 0</span>
+                  </div>
+                  <div className="flex justify-between text-neutral-500">
+                    <span>Usafiri:</span>
+                    <span>TZS 0</span>
+                  </div>
+                </div>
+
+                <div className="border-t border-double border-neutral-200 pt-3 flex justify-between items-center text-sm font-black text-neutral-900 uppercase">
+                  <span>Jumla / Total:</span>
+                  <span className="text-base font-black">TZS {selectedOrder.totalAmount.toLocaleString()}</span>
+                </div>
+
+                <div className="border-t border-dashed border-neutral-300 my-5" />
+
+                {/* QR Code and digital seal verification */}
+                <div className="flex flex-col items-center justify-center space-y-2 pb-2">
+                  <div className="p-2 border border-neutral-100 rounded-2xl bg-white shadow-sm inline-block">
+                    <img 
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=https://papo-hapo.com/verify-receipt/${selectedOrder.id}`} 
+                      alt="Verification QR" 
+                      referrerPolicy="no-referrer"
+                      className="w-18 h-18 opacity-90 mx-auto"
+                    />
+                  </div>
+                  <p className="text-[8px] font-black uppercase text-neutral-400 tracking-widest text-center mt-1">
+                    RISITI YA KIDIJITALI YA PAPO HAPO
+                  </p>
+                  <p className="text-[7px] text-neutral-400 tracking-tight font-mono text-center">
+                    Scan kuthibitisha uasili wa maagizo.
+                  </p>
+                </div>
+
+                {/* Decorative cut thermal receipt wavy bottom pattern */}
+                <div className="absolute bottom-0 inset-x-0 h-1.5 flex gap-1 justify-between overflow-hidden opacity-30">
+                  {Array.from({ length: 30 }).map((_, i) => (
+                    <div key={`zigzag-bot-${i}`} className="w-3 h-3 bg-neutral-300 rotate-45 transform translate-y-1.5 shrink-0" />
+                  ))}
+                </div>
+              </div>
+
+              {/* Action operations capsule directly below the beautiful receipt */}
+              <div className="space-y-3.5 pt-2 print:hidden">
+                <Button 
+                  onClick={() => handleDownloadTicket('aesthetic-customer-receipt')}
+                  disabled={downloading}
+                  className="w-full h-14 bg-gradient-to-r from-orange-600 to-amber-500 text-white rounded-2xl font-black uppercase tracking-wider text-xs gap-3 shadow-xl shadow-orange-600/15"
+                >
+                  {downloading ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  ) : (
+                    <Download className="w-4 h-4 text-white" />
+                  )}
+                  Pakua Risiti Kwenye Simu (Image)
+                </Button>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <Button 
+                    onClick={() => window.print()}
+                    className="h-12 bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 hover:text-orange-600 hover:bg-neutral-200 dark:hover:bg-neutral-750 rounded-2xl font-bold gap-2 text-xs border border-neutral-200 dark:border-white/5 transition-colors"
+                  >
+                    <Printer className="w-4 h-4" />
+                    {t('print_invoice')}
+                  </Button>
+
+                  {['out_for_delivery', 'preparing', 'accepted', 'pending'].includes(selectedOrder.status) && (
                     <Button 
-                      onClick={() => window.print()}
-                      className="w-full h-14 bg-green-500 hover:bg-green-600 text-white rounded-2xl font-bold gap-2"
+                      onClick={() => setTrackingOrder(selectedOrder)}
+                      className="h-12 bg-orange-600/10 border border-orange-600/20 text-orange-600 hover:bg-orange-600/20 rounded-2xl font-bold gap-2 text-xs transition-colors"
                     >
-                      <Printer className="w-5 h-5" />
-                      {t('print_invoice')}
+                      <Navigation className="w-4 h-4" />
+                      Fuatilia Oda
                     </Button>
-                    {selectedOrder.paymentStatus !== 'paid' && (
-                      <Button 
-                        onClick={() => handlePayNow(selectedOrder)}
-                        disabled={isPaying}
-                        className="w-full h-14 bg-teal-500 hover:bg-teal-600 text-white rounded-2xl font-bold gap-2"
-                      >
-                        {isPaying ? <Loader2 className="w-5 h-5 animate-spin" /> : <CreditCard className="w-5 h-5" />}
-                        {t('pay_now')}
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+                  )}
+                </div>
+
+                {selectedOrder.paymentStatus !== 'paid' && (
+                  <Button 
+                    onClick={() => handlePayNow(selectedOrder)}
+                    disabled={isPaying}
+                    className="w-full h-14 bg-teal-500 hover:bg-teal-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs gap-2"
+                  >
+                    {isPaying ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
+                    {t('pay_now')}
+                  </Button>
+                )}
+              </div>
             </div>
             </div>
           )}

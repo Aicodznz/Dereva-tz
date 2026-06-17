@@ -18,6 +18,7 @@ import {
   ChefHat, 
   CheckCircle2, 
   Volume2, 
+  VolumeX,
   Calendar, 
   Sparkles, 
   AlertTriangle,
@@ -36,6 +37,66 @@ export default function PublicStatusDisplay() {
   const [time, setTime] = useState(new Date());
   const [isNightMode, setIsNightMode] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isAudioEnabled, setIsAudioEnabled] = useState(false);
+  
+  // Track announced orders to prevent repetitive voicing of old ready orders
+  const announcedOrderIds = useRef<Set<string>>(new Set());
+  const isInitialMount = useRef(true);
+
+  // High-fidelity synthesized Web Audio dual chime ("Ding!")
+  const playChime = () => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      
+      // Tone 1: Crystal-clear sine sweep
+      const osc1 = audioCtx.createOscillator();
+      const gain1 = audioCtx.createGain();
+      osc1.connect(gain1);
+      gain1.connect(audioCtx.destination);
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5 principal note
+      gain1.gain.setValueAtTime(0.2, audioCtx.currentTime);
+      gain1.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.2);
+      osc1.start(audioCtx.currentTime);
+      osc1.stop(audioCtx.currentTime + 1.2);
+
+      // Tone 2: Warm backing major third harmonizer for elite feedback
+      const osc2 = audioCtx.createOscillator();
+      const gain2 = audioCtx.createGain();
+      osc2.connect(gain2);
+      gain2.connect(audioCtx.destination);
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.15); // E5 chord note
+      gain2.gain.setValueAtTime(0, audioCtx.currentTime);
+      gain2.gain.setValueAtTime(0.2, audioCtx.currentTime + 0.15);
+      gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.35);
+      osc2.start(audioCtx.currentTime + 0.15);
+      osc2.stop(audioCtx.currentTime + 1.35);
+    } catch (err) {
+      console.warn("Web Audio chime failed: ", err);
+    }
+  };
+
+  // Swahili TTS Synthesis using native SpeechSynthesis Engine
+  const speakSwahili = (text: string) => {
+    if (!('speechSynthesis' in window)) return;
+    try {
+      window.speechSynthesis.cancel(); // Stop any pending speech to prevent queuing lag
+      const utterance = new SpeechSynthesisUtterance(text);
+      const voices = window.speechSynthesis.getVoices();
+      
+      // Prioritize high-quality East African Swahili speaker if present
+      const swVoice = voices.find(v => v.lang.startsWith('sw') || v.lang.toLowerCase().includes('swahili'));
+      if (swVoice) {
+        utterance.voice = swVoice;
+      }
+      utterance.rate = 0.88; // Comfortably measured rate for Swahili phonemes
+      utterance.pitch = 1.02; // Warm, inviting pitch
+      window.speechSynthesis.speak(utterance);
+    } catch (err) {
+      console.warn("SpeechSynthesis playback failed: ", err);
+    }
+  };
   
   // Rotating/Sliding announcements list in Swahili
   const announcements = [
@@ -126,6 +187,57 @@ export default function PublicStatusDisplay() {
   const readyOrders = orders.filter(o => o.status === 'prepared');
   const cookingOrders = orders.filter(o => ['accepted', 'preparing'].includes(o.status));
 
+  // Trigger audio announcements when orders transition to 'prepared'
+  useEffect(() => {
+    if (loading) return;
+    const currentPrepared = orders.filter(o => o.status === 'prepared');
+    
+    if (isInitialMount.current) {
+      // Record initial ready orders so we don't speak them all out immediately on page load
+      currentPrepared.forEach(o => {
+        if (o.id) announcedOrderIds.current.add(o.id);
+      });
+      isInitialMount.current = false;
+      return;
+    }
+
+    // Capture newly prepared orders
+    const newCount = currentPrepared.filter(o => o.id && !announcedOrderIds.current.has(o.id));
+    if (newCount.length > 0) {
+      newCount.forEach(o => {
+        if (o.id) {
+          announcedOrderIds.current.add(o.id);
+          if (isAudioEnabled) {
+            playChime();
+            
+            setTimeout(() => {
+              const code = o.id?.slice(-4).toUpperCase() || '';
+              // Convert to a spoken list of letters and digits for Swahili clarity
+              const spokenChars = code.split('').map(char => {
+                if (char === '0') return 'Sifuri';
+                if (char === '1') return 'Moja';
+                if (char === '2') return 'Mbili';
+                if (char === '3') return 'Tatu';
+                if (char === '4') return 'Nne';
+                if (char === '5') return 'Tano';
+                if (char === '6') return 'Sita';
+                if (char === '7') return 'Saba';
+                if (char === '8') return 'Nane';
+                if (char === '9') return 'Tisa';
+                return char;
+              }).join(' ');
+
+              const tableText = o.tableNumber ? ` wa meza namba ${o.tableNumber}` : '';
+              const customerText = o.customerName ? ` ya ${o.customerName}` : '';
+              const swahiliAlert = `Oda namba ${spokenChars}${customerText}${tableText} ipo tayari. Tafadhali karibu kaunta kuchukua chakula chako.`;
+              speakSwahili(swahiliAlert);
+            }, 800);
+          }
+        }
+      });
+    }
+  }, [orders, loading, isAudioEnabled]);
+
   // Elegant Date formatting in Swahili/Universal format
   const formattedDate = time.toLocaleDateString('sw-TZ', { 
     weekday: 'long', 
@@ -212,11 +324,49 @@ export default function PublicStatusDisplay() {
             </div>
 
             {/* Action Buttons Capsule */}
-            <div className={`flex items-center gap-1 p-1 rounded-2xl border transition-all duration-300 ${
+            <div className={`flex items-center gap-2 p-1.5 rounded-2xl border transition-all duration-300 ${
               isNightMode 
                 ? 'bg-neutral-900 border-white/5 shadow-inner' 
                 : 'bg-white border-stone-200/80 shadow-md'
             }`}>
+              {/* Audio Alerts Toggle */}
+              <button
+                onClick={() => {
+                  const speakTest = !isAudioEnabled;
+                  setIsAudioEnabled(speakTest);
+                  if (speakTest) {
+                    playChime();
+                    setTimeout(() => {
+                      speakSwahili("Sauti ya matangazo ime washwa kikamilifu!");
+                    }, 800);
+                  }
+                }}
+                title={isAudioEnabled ? "Zima Sauti" : "Washa Sauti ya Matangazo"}
+                className={`px-4 py-2.5 rounded-xl transition-all duration-300 flex items-center gap-2 text-xs font-black uppercase tracking-wider ${
+                  isAudioEnabled 
+                    ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20' 
+                    : 'bg-orange-500/10 border border-orange-500/20 text-orange-500 hover:bg-orange-500/20 animate-pulse'
+                }`}
+              >
+                {isAudioEnabled ? (
+                  <>
+                    <span className="flex h-1.5 w-1.5 relative">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                    </span>
+                    <Volume2 className="w-4 h-4 text-emerald-500" />
+                    <span className="hidden sm:inline text-emerald-500">SAUTI: IMEWASHWA</span>
+                  </>
+                ) : (
+                  <>
+                    <VolumeX className="w-4 h-4 text-orange-500" />
+                    <span className="text-orange-600 font-extrabold text-[10px]">WASHA KENGELI YA SAUTI</span>
+                  </>
+                )}
+              </button>
+
+              <div className={`h-6 w-[1.5px] ${isNightMode ? 'bg-white/10' : 'bg-stone-150'}`} />
+
               {/* Light/Night Mode Toggle */}
               <button
                 onClick={() => setIsNightMode(!isNightMode)}
@@ -238,7 +388,7 @@ export default function PublicStatusDisplay() {
                 title={isFullscreen ? "Exit Fullscreen" : "Fullscreen Mode"}
                 className={`p-2.5 rounded-xl transition-all duration-200 flex items-center justify-center ${
                   isNightMode 
-                    ? 'text-neutral-400 hover:text-orange-400 hover:bg-neutral-800' 
+                    ? 'text-neutral-400 hover:text-orange-400 hover:bg-neutral-805' 
                     : 'text-stone-600 hover:text-orange-600 hover:bg-stone-100'
                 }`}
               >
