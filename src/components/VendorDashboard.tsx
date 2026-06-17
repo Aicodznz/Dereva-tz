@@ -173,7 +173,7 @@ const MiniQrCode: React.FC<MiniQrProps> = ({
         const qr = new QRCodeStyling({
           width: size * 2,
           height: size * 2,
-          type: 'canvas',
+          type: 'svg',
           data: data || 'https://papo-hapo.com',
           dotsOptions: {
             color: dotsColor || '#000000',
@@ -9819,7 +9819,7 @@ export default function VendorDashboard() {
         )}
       </AnimatePresence>
 
-      <div id="order-receipt" className="hidden fixed left-0 top-0 bg-white text-black font-sans">
+      <div id="order-receipt" className="fixed left-0 top-0 bg-white text-black font-sans">
         {orderToPrint && (() => {
           const isBusReceipt = orderToPrint.type === 'bus_ticket' || vendorProfile?.category === 'bus_ticket';
           if (isBusReceipt) {
@@ -9958,7 +9958,7 @@ export default function VendorDashboard() {
                           <div key={idx} className="bg-black h-full" style={{ width: `${w}px` }}></div>
                         ))}
                       </div>
-                      <span className="text-[6px] text-neutral-500 font-mono tracking-tighter mt-1 leading-none">TKT-{orderToPrint.id?.slice(-8).toUpperCase()}</span>
+                      <span className="text-[6px] text-neutral-500 font-mono tracking-tighter mt-1 leading-none">TKT-{orderToPrint.id ? orderToPrint.id.slice(-8).toUpperCase() : 'N/A'}</span>
                     </div>
                   </div>
                 </div>
@@ -9986,7 +9986,7 @@ export default function VendorDashboard() {
                   <div className="space-y-1.5 mt-2.5 px-0.5 text-[8px] font-extrabold text-neutral-600 leading-none">
                     <div className="flex justify-between items-center border-b border-neutral-100 pb-1 leading-none">
                       <span className="text-neutral-400">TICKET NUMBER:</span>
-                      <span className="text-neutral-905 font-mono font-black">{orderToPrint.id?.slice(-8).toUpperCase() || 'GVCBLNQO'}</span>
+                      <span className="text-neutral-905 font-mono font-black">{orderToPrint.id ? orderToPrint.id.slice(-8).toUpperCase() : 'GVCBLNQO'}</span>
                     </div>
                     <div className="flex justify-between items-center border-b border-neutral-100 pb-1 leading-none">
                       <span className="text-neutral-400">ABIRIA (NAME):</span>
@@ -10053,7 +10053,7 @@ export default function VendorDashboard() {
 
               {/* Order Basics */}
               <div className="space-y-1 mb-4">
-                 <p className="text-[11px] font-bold text-neutral-900">Order #{orderToPrint.id?.slice(-8).toUpperCase()}</p>
+                 <p className="text-[11px] font-bold text-neutral-900">Order #{orderToPrint.id ? orderToPrint.id.slice(-8).toUpperCase() : 'N/A'}</p>
                  <div className="flex justify-between items-center text-[10px] font-bold text-neutral-600">
                     <span>{format(getSafeDate(orderToPrint.createdAt), 'dd-MM-yyyy')}</span>
                     <span>{format(getSafeDate(orderToPrint.createdAt), 'HH:mm A')}</span>
@@ -10075,7 +10075,7 @@ export default function VendorDashboard() {
 
               {/* Items List */}
               <div className="space-y-4 mb-6">
-                 {orderToPrint.items.map((item, idx) => (
+                 {(orderToPrint.items || []).map((item, idx) => (
                    <div key={`print-item-${orderToPrint.id}-${idx}`} className="flex justify-between items-start text-[11px] font-bold text-neutral-900">
                       <span className="w-8 shrink-0">{item.quantity}</span>
                       <div className="flex-1 px-4">
@@ -10085,7 +10085,7 @@ export default function VendorDashboard() {
                            {item.addOns && item.addOns.length > 0 && ` • Extras: ${item.addOns.map((a: any) => a.name).join(', ')}`}
                          </p>
                       </div>
-                      <span className="w-20 text-right shrink-0">TZS {(item.price * item.quantity).toLocaleString()}</span>
+                      <span className="w-20 text-right shrink-0">TZS {((item.price || 0) * (item.quantity || 1)).toLocaleString()}</span>
                    </div>
                  ))}
               </div>
@@ -10094,7 +10094,7 @@ export default function VendorDashboard() {
               <div className="w-full border-t border-dashed border-neutral-300 pt-4 space-y-2 mb-6">
                  <div className="flex justify-between items-center text-[10px] font-bold text-neutral-600 uppercase tracking-widest">
                     <span>SUBTOTAL:</span>
-                    <span>TZS {orderToPrint.totalAmount.toLocaleString()}</span>
+                    <span>TZS {(orderToPrint.totalAmount || 0).toLocaleString()}</span>
                  </div>
                  <div className="flex justify-between items-center text-[10px] font-bold text-neutral-600 uppercase tracking-widest">
                     <span>TOTAL TAX:</span>
@@ -10110,7 +10110,7 @@ export default function VendorDashboard() {
                  </div>
                  <div className="flex justify-between items-center pt-3 mt-1 border-t border-neutral-900">
                     <span className="text-sm font-black uppercase tracking-tighter text-neutral-900">TOTAL:</span>
-                    <span className="text-lg font-black text-neutral-900 tracking-tighter italic">TZS {orderToPrint.totalAmount.toLocaleString()}</span>
+                    <span className="text-lg font-black text-neutral-900 tracking-tighter italic">TZS {(orderToPrint.totalAmount || 0).toLocaleString()}</span>
                  </div>
               </div>
 
@@ -10330,6 +10330,10 @@ export default function VendorDashboard() {
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
           background: #f97316;
+        }
+
+        #order-receipt {
+          display: none !important;
         }
 
         @media print {
