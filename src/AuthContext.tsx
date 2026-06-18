@@ -261,15 +261,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const staffLogin = async (phone: string, pass: string) => {
     try {
-      // 1. Ensure the user is signed in (anonymously) first to satisfy raw Firestore read security rules for staff
-      let currentUser = auth.currentUser;
-      if (!currentUser) {
-        const userCredential = await signInAnonymously(auth);
-        currentUser = userCredential.user;
+      const digits = phone.replace(/\D/g, '');
+      if (!digits || digits.length < 5) {
+        throw new Error("Samahani, tafadhali weka namba sahihi ya simu.");
       }
+      const staffEmail = `staff_${digits}@mabasi.com`;
 
       // Generate normalized phone variations to support both international and local inputs in East Africa
-      const digits = phone.replace(/\D/g, '');
       const variations: string[] = [phone, phone.trim()];
       if (digits) {
         variations.push(digits);
@@ -288,54 +286,162 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       const uniqueVariations = Array.from(new Set(variations));
 
-      let staffSnap = null;
+      let userCredential = null;
+      let loginSuccess = false;
+
+      // 1. Try signing in directly to check if they already have an email/password account
       try {
-        // Query to match any of the phone number variations and password
-        const staffQ = query(
-          collection(db, 'staff'), 
-          where('phone', 'in', uniqueVariations), 
-          where('password', '==', pass),
-          limit(1)
-        );
-        staffSnap = await getDocs(staffQ);
-      } catch (err) {
-        console.warn('IN query failed, trying fallback exact match query:', err);
-        const staffQ = query(
-          collection(db, 'staff'),
-          where('phone', '==', phone),
-          where('password', '==', pass),
-          limit(1)
-        );
-        staffSnap = await getDocs(staffQ);
-      }
-
-      if (!staffSnap || staffSnap.empty) {
-        // If query failed and this anonymous user was newly created in this run, sign out to be safe and clean
-        if (currentUser.isAnonymous) {
-          await auth.signOut();
+        userCredential = await signInWithEmailAndPassword(auth, staffEmail, pass);
+        loginSuccess = true;
+      } catch (loginError: any) {
+        const errCode = loginError.code;
+        // If wrong password, throw immediately so they can correct it
+        if (errCode === 'auth/wrong-password') {
+          throw new Error("Samahani, Namba ya simu au Password si sahihi.");
         }
-        throw new Error("Samahani, Namba ya simu au Password si sahihi.");
+        
+        // If user not found (not registered yet in Auth, only in Firestore), we proceed with registration flow
+        if (errCode === 'auth/user-not-found' || errCode === 'auth/invalid-credential') {
+          // Continue to register on-demand
+        } else {
+          throw loginError;
+        }
       }
 
-      const staffDoc = staffSnap.docs[0];
-      const staffData = staffDoc.data();
+      // 2. If login failed because Firebase Auth account doesn't exist, search Firestore and register them
+      if (!loginSuccess) {
+        // We need to query the database. Since Firestore rules require isSignedIn(), sign in with a safe shared guest account first
+        const guestEmail = 'guest_staff@mabasi.com';
+        const guestPass = 'GuestStaff123!';
+        
+        try {
+          await signInWithEmailAndPassword(auth, guestEmail, guestPass);
+        } catch (guestErr: any) {
+          if (guestErr.code === 'auth/user-not-found' || guestErr.code === 'auth/invalid-credential') {
+            try {
+              await createUserWithEmailAndPassword(auth, guestEmail, guestPass);
+            } catch (createGuestErr) {
+              console.error("Failed to create guest reader:", createGuestErr);
+            }
+          }
+        }
 
-      // 3. Link this UID to the staff record so VendorDashboard can find it
-      await updateDoc(doc(db, 'staff', staffDoc.id), {
-        uid: currentUser.uid
-      });
+        // Search for staff member in Firestore
+        let staffSnap = null;
+        try {
+          const staffQ = query(
+            collection(db, 'staff'), 
+            where('phone', 'in', uniqueVariations), 
+            where('password', '==', pass),
+            limit(1)
+          );
+          staffSnap = await getDocs(staffQ);
+        } catch (err) {
+          console.warn('IN query failed, trying exact match query:', err);
+          const staffQ = query(
+            collection(db, 'staff'),
+            where('phone', '==', phone),
+            where('password', '==', pass),
+            limit(1)
+          );
+          staffSnap = await getDocs(staffQ);
+        }
 
-      // Manually update local cache states to guarantee instant state update
-      setStaffProfile({ id: staffDoc.id, ...staffData, uid: currentUser.uid });
-      setProfile({
-        uid: currentUser.uid,
-        role: 'vendor',
-        email: '',
-        fullName: staffData.name,
-        displayName: staffData.name
-      } as any);
+        if (!staffSnap || staffSnap.empty) {
+          await auth.signOut();
+          throw new Error("Samahani, Namba ya simu au Password si sahihi.");
+        }
 
-      toast.success(`Karibu ${staffData.name}!`);
+        const staffDoc = staffSnap.docs[0];
+        const staffData = staffDoc.data();
+
+        // Sign out guest before registering new user
+        await auth.signOut();
+
+        // Create the dedicated Auth user dynamically
+        try {
+          userCredential = await createUserWithEmailAndPassword(auth, staffEmail, pass);
+          
+          // Link this new UID to the staff record in Firestore
+          await updateDoc(doc(db, 'staff', staffDoc.id), {
+            uid: userCredential.user.uid
+          });
+
+          setStaffProfile({ id: staffDoc.id, ...staffData, uid: userCredential.user.uid });
+          setProfile({
+            uid: userCredential.user.uid,
+            role: 'vendor',
+            email: '',
+            fullName: staffData.name,
+            displayName: staffData.name
+          } as any);
+
+          toast.success(`Karibu ${staffData.name}!`);
+          return;
+        } catch (createErr: any) {
+          if (createErr.code === 'auth/email-already-in-use') {
+            // Means credentials mismatch against existing user in Auth
+            throw new Error("Samahani, Namba ya simu au Password si sahihi.");
+          } else {
+            throw createErr;
+          }
+        }
+      }
+
+      // 3. Direct Sign-in Succeeded, now recover and load their profile
+      if (userCredential && userCredential.user) {
+        let staffSnap = null;
+        try {
+          const staffQ = query(
+            collection(db, 'staff'),
+            where('uid', '==', userCredential.user.uid),
+            limit(1)
+          );
+          staffSnap = await getDocs(staffQ);
+        } catch (e) {
+          console.error("Failed fetching staff by UID:", e);
+        }
+
+        if (staffSnap && !staffSnap.empty) {
+          const staffDoc = staffSnap.docs[0];
+          const staffData = staffDoc.data();
+          setStaffProfile({ id: staffDoc.id, ...staffData });
+          setProfile({
+            uid: userCredential.user.uid,
+            role: 'vendor',
+            email: '',
+            fullName: staffData.name,
+            displayName: staffData.name
+          } as any);
+          toast.success(`Karibu ${staffData.name}!`);
+        } else {
+          // Sync recovery: Search by phone to re-link UID
+          const staffQ = query(
+            collection(db, 'staff'),
+            where('phone', 'in', uniqueVariations),
+            limit(1)
+          );
+          const fallbackSnap = await getDocs(staffQ);
+          if (!fallbackSnap.empty) {
+            const staffDoc = fallbackSnap.docs[0];
+            const staffData = staffDoc.data();
+            await updateDoc(doc(db, 'staff', staffDoc.id), {
+              uid: userCredential.user.uid
+            });
+            setStaffProfile({ id: staffDoc.id, ...staffData, uid: userCredential.user.uid });
+            setProfile({
+              uid: userCredential.user.uid,
+              role: 'vendor',
+              email: '',
+              fullName: staffData.name,
+              displayName: staffData.name
+            } as any);
+            toast.success(`Karibu ${staffData.name}!`);
+          } else {
+            throw new Error("Hujasajiliwa kama staff wa restaurant hii.");
+          }
+        }
+      }
     } catch (error: any) {
       console.error('Staff login error:', error);
       throw error;
