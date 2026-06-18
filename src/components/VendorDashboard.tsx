@@ -1008,8 +1008,24 @@ export default function VendorDashboard() {
         return [
           { id: 'overview', label: 'Daily Sales', icon: LayoutDashboard },
           { id: 'pos', label: 'Billing / POS', icon: Banknote },
-          { id: 'orders', label: vendorContext.ordersLabel, icon: vendorContext.ordersIcon },
+          { id: 'orders', label: vendorContext.ordersLabel, icon: vendorContext.ordersIcon, badge: orders.length > 0 ? orders.length : null },
         ];
+      }
+      if (role === 'manager') {
+        const mgrTabs = [
+          { id: 'overview', label: 'Management Overview', icon: LayoutDashboard },
+          { id: 'orders', label: 'Kitchen & Delivery', icon: ChefHat, badge: orders.length > 0 ? orders.length : null },
+          { id: 'products', label: 'Menu & Prices', icon: Utensils },
+          { id: 'pos', label: 'Billing / POS', icon: Banknote },
+        ];
+        if (vendorProfile?.category === 'restaurant') {
+          mgrTabs.push({ id: 'tables', label: 'Dining Floor (Meza)', icon: Store });
+          mgrTabs.push({ id: 'rest_inventory', label: 'Kitchen Inventory', icon: Database });
+          mgrTabs.push({ id: 'rest_expenses', label: 'Expenses Tracker', icon: Landmark });
+          mgrTabs.push({ id: 'rest_reports', label: 'Financial Reports', icon: LucidePieChart });
+        }
+        mgrTabs.push({ id: 'staff', label: 'Manage Staff', icon: UserCog });
+        return mgrTabs;
       }
     }
 
@@ -1293,6 +1309,16 @@ export default function VendorDashboard() {
 
     return () => unsub();
   }, [user?.uid]);
+
+  // Restrict staff active tab to their explicitly allowed tabs
+  useEffect(() => {
+    if (staffProfile) {
+      const allowedTabIds = tabs.map(t => t.id);
+      if (!allowedTabIds.includes(activeTab) && allowedTabIds.length > 0) {
+        setActiveTab(allowedTabIds[0] as TabType);
+      }
+    }
+  }, [staffProfile, tabs, activeTab]);
 
   useEffect(() => {
     if (!vendorProfile?.id || !user) return;
@@ -3065,12 +3091,14 @@ export default function VendorDashboard() {
               </Button>
             </Link>
             <div className="h-8 w-px bg-neutral-200 dark:bg-neutral-800 mx-2 hidden md:block"></div>
-            <Button 
-              onClick={() => setIsAddProductOpen(true)}
-              className="bg-orange-600 hover:bg-orange-700 gap-2 h-10 rounded-xl px-4 font-bold hidden md:flex"
-            >
-              <Plus className="w-4 h-4" /> Add Product
-            </Button>
+            {(!staffProfile || staffProfile.role === 'manager') && (
+              <Button 
+                onClick={() => setIsAddProductOpen(true)}
+                className="bg-orange-600 hover:bg-orange-700 gap-2 h-10 rounded-xl px-4 font-bold hidden md:flex"
+              >
+                <Plus className="w-4 h-4" /> Add Product
+              </Button>
+            )}
             <div className="h-8 w-px bg-neutral-200 dark:bg-neutral-800 mx-2 hidden md:block transition-colors"></div>
             <button className="p-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800/50 text-neutral-500 dark:text-neutral-400 hover:text-orange-600 dark:hover:text-white transition-all relative">
               <Bell className="w-5 h-5" />
@@ -3079,8 +3107,12 @@ export default function VendorDashboard() {
             <div className="h-8 w-px bg-neutral-200 dark:bg-neutral-800 mx-2 transition-colors"></div>
             <div className="flex items-center gap-3">
               <div className="text-right hidden sm:block">
-                <p className="text-xs font-bold text-neutral-900 dark:text-white">{profile?.displayName}</p>
-                <p className="text-[10px] text-neutral-500 uppercase tracking-tighter">Owner</p>
+                <p className="text-xs font-bold text-neutral-900 dark:text-white">
+                  {staffProfile ? staffProfile.name : (profile?.displayName || 'Merchant')}
+                </p>
+                <p className="text-[10px] text-orange-600 font-extrabold uppercase tracking-widest">
+                  {staffProfile ? `${staffProfile.role}` : 'Owner'}
+                </p>
               </div>
               <div className="w-10 h-10 rounded-xl bg-orange-600/20 border border-orange-600/30 flex items-center justify-center text-orange-600 font-bold overflow-hidden">
                 {profile?.photoURL ? (
@@ -3157,13 +3189,16 @@ export default function VendorDashboard() {
                 {/* Quick Actions */}
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                   {[
-                    { label: "Add Item", icon: Plus, action: () => { setActiveTab('products'); setIsAddProductOpen(true); }, color: "bg-orange-600" },
-                    { label: "New Order", icon: ShoppingBag, action: () => setActiveTab('pos'), color: "bg-blue-600" },
-                    { label: "Stock Stats", icon: BarChart3, action: () => setActiveTab('inventory_stats'), color: "bg-purple-600" },
-                    { label: "Customers", icon: Users, action: () => setActiveTab('customers'), color: "bg-emerald-600" },
-                    { label: "Coupons", icon: Tag, action: () => setActiveTab('coupons'), color: "bg-pink-600" },
-                    { label: "Help", icon: AlertCircle, action: () => toast.info('Support team contacted.'), color: "bg-neutral-800" },
-                  ].map((action, i) => (
+                    { label: "Add Item", id: "products", icon: Plus, action: () => { setActiveTab('products'); setIsAddProductOpen(true); }, color: "bg-orange-600" },
+                    { label: "New Order", id: "pos", icon: ShoppingBag, action: () => setActiveTab('pos'), color: "bg-blue-600" },
+                    { label: "Stock Stats", id: "inventory_stats", icon: BarChart3, action: () => setActiveTab('inventory_stats'), color: "bg-purple-600" },
+                    { label: "Customers", id: "customers", icon: Users, action: () => setActiveTab('customers'), color: "bg-emerald-600" },
+                    { label: "Coupons", id: "coupons", icon: Tag, action: () => setActiveTab('coupons'), color: "bg-pink-600" },
+                    { label: "Help", id: "help", icon: AlertCircle, action: () => toast.info('Support team contacted.'), color: "bg-neutral-800" },
+                  ].filter(action => {
+                    if (action.id === 'help') return true;
+                    return tabs.some(t => t.id === action.id);
+                  }).map((action, i) => (
                     <motion.button
                       key={`quick-action-${action.label}-${i}`}
                       whileHover={{ y: -4, scale: 1.02 }}
@@ -5572,12 +5607,14 @@ export default function VendorDashboard() {
                         : 'Manage roles for chefs, waiters, and managers'}
                     </p>
                   </div>
-                  <Button 
-                    onClick={() => setIsAddStaffOpen(true)}
-                    className="bg-orange-600 hover:bg-orange-700 rounded-2xl h-14 px-8 font-black uppercase tracking-widest text-[10px] shadow-2xl shadow-orange-950/40 text-white"
-                  >
-                    <UserPlus className="w-5 h-5 mr-3" /> Add Team Member
-                  </Button>
+                  {(!staffProfile || staffProfile.role === 'manager') && (
+                    <Button 
+                      onClick={() => setIsAddStaffOpen(true)}
+                      className="bg-orange-600 hover:bg-orange-700 rounded-2xl h-14 px-8 font-black uppercase tracking-widest text-[10px] shadow-2xl shadow-orange-950/40 text-white"
+                    >
+                      <UserPlus className="w-5 h-5 mr-3" /> Add Team Member
+                    </Button>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -5587,11 +5624,13 @@ export default function VendorDashboard() {
                       whileHover={{ scale: 1.02 }}
                       className="bg-neutral-900 border border-neutral-800 rounded-[3rem] p-8 relative group overflow-hidden"
                     >
-                      <div className="absolute top-0 right-0 p-6 opacity-0 group-hover:opacity-100 transition-opacity">
-                         <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white" onClick={() => deleteStaff(member.id)}>
-                            <Trash2 className="w-4 h-4" />
-                         </Button>
-                      </div>
+                      {(!staffProfile || staffProfile.role === 'manager') && (
+                        <div className="absolute top-0 right-0 p-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                           <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white" onClick={() => deleteStaff(member.id)}>
+                              <Trash2 className="w-4 h-4" />
+                           </Button>
+                        </div>
+                      )}
 
                       <div className="flex flex-col items-center text-center space-y-4 mb-8">
                          <div className="w-20 h-20 rounded-[2rem] bg-orange-600/10 flex items-center justify-center border-2 border-dashed border-orange-600/20 group-hover:bg-orange-600/20 transition-all">
@@ -6744,13 +6783,15 @@ export default function VendorDashboard() {
                     >
                       <Download className="w-4 h-4 mr-2" /> Bulk Export
                     </Button>
-                    <Button 
-                      onClick={() => setIsAddProductOpen(true)}
-                      className="bg-orange-600 hover:bg-orange-700 rounded-2xl h-12 px-6 font-black uppercase tracking-widest text-[10px] shadow-xl shadow-orange-900/30 text-white"
-                    >
-                      <Plus className="w-4 h-4 mr-2" /> 
-                      {vendorProfile?.category === 'hotel' ? 'Sajili Chumba' : 'Add New Item'}
-                    </Button>
+                    {(!staffProfile || staffProfile.role === 'manager') && (
+                      <Button 
+                        onClick={() => setIsAddProductOpen(true)}
+                        className="bg-orange-600 hover:bg-orange-700 rounded-2xl h-12 px-6 font-black uppercase tracking-widest text-[10px] shadow-xl shadow-orange-900/30 text-white"
+                      >
+                        <Plus className="w-4 h-4 mr-2" /> 
+                        {vendorProfile?.category === 'hotel' ? 'Sajili Chumba' : 'Add New Item'}
+                      </Button>
+                    )}
                   </div>
                 </div>
 
@@ -6860,12 +6901,20 @@ export default function VendorDashboard() {
                             </td>
                             <td className="px-8 py-6 text-right">
                                <div className="flex items-center justify-end gap-2">
-                                  <Button variant="ghost" size="icon" className="h-10 w-10 bg-neutral-900 rounded-xl text-neutral-400 hover:text-white" onClick={() => handleEditProduct(product)}>
-                                     <Edit2 className="w-4 h-4" />
-                                  </Button>
-                                  <Button variant="ghost" size="icon" className="h-10 w-10 bg-neutral-950/50 rounded-xl text-neutral-600 hover:text-red-500 hover:bg-neutral-900" onClick={() => handleDeleteProduct(product.id!)}>
-                                     <Trash2 className="w-4 h-4" />
-                                  </Button>
+                                  {(!staffProfile || staffProfile.role === 'manager') ? (
+                                    <>
+                                      <Button variant="ghost" size="icon" className="h-10 w-10 bg-neutral-900 rounded-xl text-neutral-400 hover:text-white" onClick={() => handleEditProduct(product)}>
+                                         <Edit2 className="w-4 h-4" />
+                                      </Button>
+                                      <Button variant="ghost" size="icon" className="h-10 w-10 bg-neutral-950/50 rounded-xl text-neutral-600 hover:text-red-500 hover:bg-neutral-900" onClick={() => handleDeleteProduct(product.id!)}>
+                                         <Trash2 className="w-4 h-4" />
+                                      </Button>
+                                    </>
+                                  ) : (
+                                    <span className="text-[9px] text-neutral-500 font-extrabold uppercase tracking-widest bg-neutral-800/50 px-3 py-1.5 rounded-xl">
+                                      View Only
+                                    </span>
+                                  )}
                                </div>
                             </td>
                           </tr>
