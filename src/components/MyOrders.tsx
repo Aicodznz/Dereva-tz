@@ -1213,8 +1213,10 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
               <h3 className="text-xl font-black italic uppercase tracking-tighter text-amber-600">
                 LIPA UFIKAPO (CASH)
               </h3>
-              <p className="text-sm text-neutral-700 dark:text-neutral-300 font-bold leading-relaxed font-sans bg-amber-50 dark:bg-amber-950/20 p-4 border border-amber-500/10 rounded-2xl">
-                Umechagua kulipa baadaye. Unaweza kukabidhi pesa taslimu au kufanya miamala na mhudumu wetu pindi anapokuhudumia mezani kwako au kaunta.
+              <p className="text-sm text-neutral-700 dark:text-neutral-300 font-bold leading-relaxed font-sans bg-amber-50 dark:bg-amber-950/20 p-4 border border-amber-500/10 rounded-2xl text-left">
+                ⚠️ <span className="text-red-500 font-extrabold">MUHIMU:</span> Ili kuzuia ucheleweshaji na foleni, **chakula chako kitaanza kupikwa pindi utakapokamilisha malipo**.
+                <br /><br />
+                Tafadhali fika kwenye **Kaunta ya Malipo (Cashier)** au kabidhi pesa taslimu kwa **Mhudumu (Waiter)** aliyeko karibu nawe na umuombe asajili malipo yako sasa ili oda yako ipelekwe jikoni haraka!
               </p>
             </div>
 

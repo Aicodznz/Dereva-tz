@@ -2367,7 +2367,7 @@ export default function VendorDashboard() {
                       {vendorProfile?.category === 'bus_ticket' ? `TKT-${order.id?.slice(-4).toUpperCase()}` : `#${order.id?.slice(-6).toUpperCase()}`}
                     </p>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 items-center">
                     {order.orderType === 'walk_in' && (
                       <Badge className="bg-orange-600 text-white border-none text-[8px] font-black uppercase">
                         {vendorProfile?.category === 'bus_ticket' ? 'Counter' : 'Soko/In-Store'}
@@ -2376,6 +2376,15 @@ export default function VendorDashboard() {
                     {order.orderType === 'delivery' && (
                       <Badge className="bg-blue-600 text-white border-none text-[8px] font-black uppercase">
                         {vendorProfile?.category === 'bus_ticket' ? 'Booking' : 'Delivery'}
+                      </Badge>
+                    )}
+                    {order.paymentStatus === 'paid' ? (
+                      <Badge className="bg-emerald-600/10 text-emerald-600 border border-emerald-500/10 text-[8px] font-black uppercase">
+                        ✓ PAID
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-rose-500/10 text-rose-500 border border-rose-500/10 text-[8px] font-black uppercase animate-pulse animate-duration-1000">
+                        ⚠️ HAJALIPA ({order.paymentMethod?.toUpperCase() || 'CASH'})
                       </Badge>
                     )}
                   </div>
@@ -2402,6 +2411,28 @@ export default function VendorDashboard() {
                       <span className="text-[10px] font-bold">{order.createdAt ? format(getSafeDate(order.createdAt), 'HH:mm') : 'Now'}</span>
                    </div>
                    <div className="flex gap-2">
+                      {order.paymentStatus !== 'paid' && (
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          className="border-emerald-500/35 hover:bg-emerald-600/10 text-emerald-600 dark:text-emerald-500 h-8 rounded-lg text-[10px] font-bold uppercase cursor-pointer"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            const toastId = toast.loading('Nasasisha malipo...');
+                            try {
+                              await updateDoc(doc(db, 'orders', order.id!), {
+                                paymentStatus: 'paid',
+                                updatedAt: serverTimestamp()
+                              });
+                              toast.success('Oda imewekwa kama IMELIPWA!', { id: toastId });
+                            } catch (error) {
+                              toast.error('Imeshindwa kusasisha malipo.', { id: toastId });
+                            }
+                          }}
+                        >
+                          LIPWA / PAID
+                        </Button>
+                      )}
                       {order.status === 'pending' && (
                         <Button 
                           size="sm" 
@@ -2790,6 +2821,37 @@ export default function VendorDashboard() {
                           <span className="text-[9px] font-black uppercase tracking-widest">Watu / People</span>
                        </div>
                        <p className="font-black italic text-sm">{selectedOrder.peopleCount || 1} Person(s)</p>
+                    </div>
+                    <div className={`p-5 rounded-[1.5rem] border space-y-2 ${selectedOrder.paymentStatus === 'paid' ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-500/20' : 'bg-rose-50 dark:bg-rose-950/20 border-rose-500/20 animate-pulse animate-duration-1000'}`}>
+                       <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 text-neutral-400">
+                             <CreditCard className="w-3.5 h-3.5 text-orange-600" />
+                             <span className="text-[9px] font-black uppercase tracking-widest">Malipo</span>
+                          </div>
+                          {selectedOrder.paymentStatus !== 'paid' && (
+                             <button
+                               onClick={async () => {
+                                 const toastId = toast.loading('Nasasisha malipo...');
+                                 try {
+                                   await updateDoc(doc(db, 'orders', selectedOrder.id!), {
+                                     paymentStatus: 'paid',
+                                     updatedAt: serverTimestamp()
+                                   });
+                                   setSelectedOrder({ ...selectedOrder, paymentStatus: 'paid' });
+                                   toast.success('Malipo yamethibitishwa!', { id: toastId });
+                                 } catch (error) {
+                                   toast.error('Imeshindwa kusasisha malipo.', { id: toastId });
+                                 }
+                               }}
+                               className="px-2.5 py-1 text-[8px] font-black uppercase bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors cursor-pointer"
+                             >
+                               Weka Imelipwa
+                             </button>
+                          )}
+                       </div>
+                       <p className={`font-black italic text-[11px] uppercase ${selectedOrder.paymentStatus === 'paid' ? 'text-emerald-600' : 'text-rose-500'}`}>
+                          {selectedOrder.paymentStatus === 'paid' ? '✓ IMELIPWA / PAID' : `⚠️ HAIJALIPWA (${selectedOrder.paymentMethod?.toUpperCase() || 'CASH'})`}
+                       </p>
                     </div>
                  </div>
 

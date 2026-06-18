@@ -194,9 +194,20 @@ export default function PublicStatusDisplay() {
         }) as any[];
 
         // Filter active statuses in-memory and sort by createdAtMs descending
+        // Ensure that pending orders are only shown if they are already paid or verified, which prevents dine-and-dash orders from cluttering the kitchen screen before checkout completion.
         const activeStatuses = ['pending', 'accepted', 'preparing', 'prepared'];
         const filteredAndSorted = rawOrders
-          .filter(o => activeStatuses.includes(o.status))
+          .filter(o => {
+            const hasActiveStatus = activeStatuses.includes(o.status);
+            if (!hasActiveStatus) return false;
+            
+            // If the order is pending, only show on TV if paid.
+            // If status is accepted/preparing/prepared, it means the merchant has explicitly approved and started the order.
+            if (o.status === 'pending') {
+              return o.paymentStatus === 'paid';
+            }
+            return true;
+          })
           .sort((a, b) => b.createdAtMs - a.createdAtMs);
 
         setOrders(filteredAndSorted);
