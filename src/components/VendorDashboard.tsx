@@ -987,8 +987,46 @@ export default function VendorDashboard() {
       { id: 'messages', label: 'Messages', icon: MessageIcon },
     ];
 
-    // Role-based filtering
+    // Role-based filtering or custom permissions based filtering
     if (staffProfile) {
+      if (staffProfile.hasCustomPermissions && staffProfile.customPermissions) {
+        const perms = staffProfile.customPermissions;
+        const customTabs = [];
+        if (perms.canViewSales) {
+          customTabs.push({ id: 'overview', label: 'Daily Sales', icon: LayoutDashboard });
+        }
+        if (perms.canManageOrders) {
+          customTabs.push({ id: 'orders', label: 'Orders & Kitchen', icon: ChefHat, badge: orders.length > 0 ? orders.length : null });
+        }
+        if (perms.canManageMenu) {
+          customTabs.push({ id: 'products', label: 'Menu & Prices', icon: Utensils });
+        }
+        if (perms.canManagePOS) {
+          customTabs.push({ id: 'pos', label: 'Billing / POS', icon: Banknote });
+        }
+        if (perms.canManageTables && vendorProfile?.category === 'restaurant') {
+          customTabs.push({ id: 'tables', label: 'Dining Floor (Meza)', icon: Store });
+        }
+        if (perms.canManageInventory && vendorProfile?.category === 'restaurant') {
+          customTabs.push({ id: 'rest_inventory', label: 'Kitchen Inventory', icon: Database });
+        }
+        if (perms.canManageExpenses && vendorProfile?.category === 'restaurant') {
+          customTabs.push({ id: 'rest_expenses', label: 'Expenses Tracker', icon: Landmark });
+        }
+        if (perms.canManageReports && vendorProfile?.category === 'restaurant') {
+          customTabs.push({ id: 'rest_reports', label: 'Financial Reports', icon: LucidePieChart });
+        }
+        if (perms.canManageStaff) {
+          customTabs.push({ id: 'staff', label: 'Manage Staff', icon: UserCog });
+        }
+        
+        // Force fallback if none selected so they can use something
+        if (customTabs.length === 0) {
+          customTabs.push({ id: 'orders', label: 'Orders & Kitchen', icon: ChefHat, badge: orders.length > 0 ? orders.length : null });
+        }
+        return customTabs;
+      }
+
       const role = staffProfile.role;
       if (role === 'chef') {
         return [
@@ -1123,6 +1161,122 @@ export default function VendorDashboard() {
   const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
   const [newStaffPassword, setNewStaffPassword] = useState('');
   const [newBranch, setNewBranch] = useState({ name: '', address: '', phone: '', type: 'office' });
+
+  // Detailed staff custom permissions & payments manager
+  const [isDetailStaffOpen, setIsDetailStaffOpen] = useState(false);
+  const [selectedStaff, setSelectedStaff] = useState<any>(null);
+  const [detailStaffTab, setDetailStaffTab] = useState<'info' | 'permissions' | 'payments'>('info');
+  const [staffSalaryAmount, setStaffSalaryAmount] = useState<string>('');
+  const [staffSalaryType, setStaffSalaryType] = useState<string>('monthly'); // 'daily' | 'weekly' | 'monthly'
+  const [payoutAmount, setPayoutAmount] = useState<string>('');
+  const [payoutPaidBy, setPayoutPaidBy] = useState<string>('Cash');
+  const [payoutReference, setPayoutReference] = useState<string>('');
+  const [payoutNotes, setPayoutNotes] = useState<string>('');
+  const [payoutLogs, setPayoutLogs] = useState<any[]>([]);
+
+  // Track and live-sync payments for selected staff member
+  useEffect(() => {
+    if (!vendorProfile?.id || !selectedStaff?.id) {
+      setPayoutLogs([]);
+      return;
+    }
+    const q = query(
+      collection(db, 'vendors', vendorProfile.id, 'staff_payments'),
+      where('staffId', '==', selectedStaff.id)
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      const sorted = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      sorted.sort((a: any, b: any) => {
+        const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
+        const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+        return dateB.getTime() - dateA.getTime();
+      });
+      setPayoutLogs(sorted);
+    }, (error) => {
+      console.warn("Error live-syncing staff payments:", error);
+    });
+    return () => unsub();
+  }, [vendorProfile?.id, selectedStaff?.id]);
+
+  const handleSaveStaffDetails = async () => {
+    if (!selectedStaff || !vendorProfile?.id) return;
+    try {
+      const staffRef = doc(db, 'staff', selectedStaff.id);
+      
+      const permissions = selectedStaff.customPermissions || {
+        canViewSales: false,
+        canManageOrders: false,
+        canManageMenu: false,
+        canManagePOS: false,
+        canManageTables: false,
+        canManageInventory: false,
+        canManageExpenses: false,
+        canManageReports: false,
+        canManageStaff: false,
+      };
+
+      await updateDoc(staffRef, {
+        name: selectedStaff.name || '',
+        phone: selectedStaff.phone || '',
+        password: selectedStaff.password || '',
+        role: selectedStaff.role || 'waiter',
+        branchId: selectedStaff.branchId || '',
+        salaryAmount: Number(staffSalaryAmount || 0),
+        salaryType: staffSalaryType || 'monthly',
+        hasCustomPermissions: selectedStaff.hasCustomPermissions || false,
+        customPermissions: permissions
+      });
+      
+      toast.success('Taarifa na majukumu ya ' + selectedStaff.name + ' zimesasishwa!');
+      setIsDetailStaffOpen(false);
+      setSelectedStaff(null);
+    } catch (error) {
+      console.error("Error updating staff details:", error);
+      toast.error('Imeshindwa kusasisha taarifa za mfanyakazi!');
+    }
+  };
+
+  const handleRecordPayout = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedStaff || !vendorProfile?.id || !payoutAmount || Number(payoutAmount) <= 0) {
+      toast.error('Tafadhali jaza kiasi cha fedha halali!');
+      return;
+    }
+    try {
+      const amountNum = Number(payoutAmount);
+      
+      // 1. Save payment payout log
+      const payRef = await addDoc(collection(db, 'vendors', vendorProfile.id, 'staff_payments'), {
+        staffId: selectedStaff.id,
+        staffName: selectedStaff.name,
+        amount: amountNum,
+        paidBy: payoutPaidBy,
+        reference: payoutReference || '',
+        notes: payoutNotes || '',
+        createdAt: new Date(),
+      });
+
+      // 2. Automatically register this payment as a restaurant expense!
+      await addDoc(collection(db, 'vendors', vendorProfile.id, 'restaurant_expenses'), {
+        amount: amountNum,
+        category: 'Salaries & Wages',
+        date: new Date().toISOString().split('T')[0],
+        description: `Malipo ya ${selectedStaff.name} (${selectedStaff.role})`,
+        paidBy: payoutPaidBy,
+        reference: payoutReference || `PAY-${payRef.id.substring(0, 6).toUpperCase()}`,
+        notes: payoutNotes || 'Kupitia Udhibiti wa Wafanyakazi',
+        createdAt: new Date()
+      });
+
+      toast.success(`TZS ${amountNum.toLocaleString()} imelipwa kwa ${selectedStaff.name} na kusajiliwa kwenye Matumizi (Expenses)!`);
+      setPayoutAmount('');
+      setPayoutReference('');
+      setPayoutNotes('');
+    } catch (error) {
+      console.error("Error saving payout:", error);
+      toast.error('Imeshindwa kurekodi malipo ya mfanyakazi!');
+    }
+  };
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const prevOrdersCount = React.useRef(orders.length);
@@ -5716,9 +5870,45 @@ export default function VendorDashboard() {
                                </a>
                             </div>
 
-                            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest pt-2 border-t border-white/5">
-                               <span className="text-neutral-600">Operations</span>
-                               <span className="text-green-500">Live</span>
+                            {member.salaryAmount ? (
+                               <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest pt-2 border-t border-white/5">
+                                  <span className="text-neutral-600">Rate / Mshahara</span>
+                                  <span className="text-orange-500 font-extrabold">TZS {member.salaryAmount.toLocaleString()} / {member.salaryType === 'daily' ? 'siku' : member.salaryType === 'weekly' ? 'wiki' : 'mwezi'}</span>
+                               </div>
+                            ) : (
+                               <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest pt-2 border-t border-white/5">
+                                  <span className="text-neutral-600">Rate / Mshahara</span>
+                                  <span className="text-neutral-500 font-bold italic">Bado haijawekwa</span>
+                                </div>
+                            )}
+
+                            <div className="pt-3 border-t border-white/5">
+                               <Button 
+                                  onClick={() => {
+                                     setSelectedStaff({
+                                        ...member,
+                                        customPermissions: member.customPermissions || {
+                                           canViewSales: false,
+                                           canManageOrders: false,
+                                           canManageMenu: false,
+                                           canManagePOS: false,
+                                           canManageTables: false,
+                                           canManageInventory: false,
+                                           canManageExpenses: false,
+                                           canManageReports: false,
+                                           canManageStaff: false,
+                                        }
+                                     });
+                                     setStaffSalaryAmount(member.salaryAmount ? String(member.salaryAmount) : '');
+                                     setStaffSalaryType(member.salaryType || 'monthly');
+                                     setDetailStaffTab('info');
+                                     setIsDetailStaffOpen(true);
+                                  }}
+                                  className="w-full bg-orange-600/10 hover:bg-orange-600 text-orange-500 hover:text-white rounded-xl h-10 text-[9px] font-black uppercase tracking-widest transition-all animate-none"
+                               >
+                                  <ShieldCheck className="w-3.5 h-3.5 mr-2" />
+                                  Majukumu & Malipo
+                               </Button>
                             </div>
                          </div>
                       </div>
@@ -8339,6 +8529,597 @@ export default function VendorDashboard() {
                   {vendorProfile?.category === 'bus_ticket' ? 'Onboard Staff / Sajili' : 'Onboard Member'}
                 </Button>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Staff Details, Duties & Payments Comprehensive Modal */}
+      <AnimatePresence>
+        {isDetailStaffOpen && selectedStaff && (
+          <div className="fixed inset-0 z-[140] flex items-center justify-center p-4">
+            <motion.div 
+               initial={{ opacity: 0 }}
+               animate={{ opacity: 1 }}
+               exit={{ opacity: 0 }}
+               onClick={() => {
+                  setIsDetailStaffOpen(false);
+                  setSelectedStaff(null);
+               }}
+               className="absolute inset-0 bg-black/85 backdrop-blur-md"
+            />
+            <motion.div 
+               initial={{ opacity: 0, scale: 0.95, y: 20 }}
+               animate={{ opacity: 1, scale: 1, y: 0 }}
+               exit={{ opacity: 0, scale: 0.95, y: 20 }}
+               className="relative w-full max-w-2xl bg-neutral-900 border border-neutral-800 rounded-[3rem] overflow-hidden shadow-2xl p-8 max-h-[90vh] flex flex-col"
+            >
+               {/* Modal Header */}
+               <div className="flex justify-between items-center pb-6 border-b border-white/5 shrink-0">
+                  <div>
+                     <h3 className="text-2xl font-black italic uppercase tracking-tighter text-white flex items-center gap-3">
+                        <UserCog className="w-6 h-6 text-orange-600" />
+                        {selectedStaff.name}
+                     </h3>
+                     <p className="text-[10px] text-neutral-500 font-extrabold uppercase tracking-widest mt-0.5">
+                        Role ya kawaida: <span className="text-orange-500">{selectedStaff.role}</span>
+                     </p>
+                  </div>
+                  <button 
+                     onClick={() => {
+                        setIsDetailStaffOpen(false);
+                        setSelectedStaff(null);
+                     }} 
+                     className="text-neutral-500 hover:text-white bg-white/5 hover:bg-white/10 p-2.5 rounded-xl transition-all"
+                  >
+                     <X className="w-5 h-5" />
+                  </button>
+               </div>
+
+               {/* Tabs Selector */}
+               <div className="flex gap-2 p-1 bg-neutral-950/80 rounded-2xl border border-white/5 my-6 shrink-0">
+                  <button
+                     onClick={() => setDetailStaffTab('info')}
+                     className={`flex-1 py-3 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all ${detailStaffTab === 'info' ? 'bg-orange-600 text-white shadow-lg' : 'text-neutral-400 hover:text-white'}`}
+                  >
+                     Taarifa & Paswedi
+                  </button>
+                  <button
+                     onClick={() => setDetailStaffTab('permissions')}
+                     className={`flex-1 py-3 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all ${detailStaffTab === 'permissions' ? 'bg-orange-600 text-white shadow-lg' : 'text-neutral-400 hover:text-white'}`}
+                  >
+                     Majukumu (Permissions)
+                  </button>
+                  <button
+                     onClick={() => setDetailStaffTab('payments')}
+                     className={`flex-1 py-3 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all ${detailStaffTab === 'payments' ? 'bg-orange-600 text-white shadow-lg' : 'text-neutral-400 hover:text-white'}`}
+                  >
+                     Mshahara & Payouts
+                  </button>
+               </div>
+
+               {/* Modal Core Scrollable Content */}
+               <div className="flex-1 overflow-y-auto pr-2 space-y-6">
+                  
+                  {/* TAB 1: BASIC INFO */}
+                  {detailStaffTab === 'info' && (
+                     <div className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                           <div className="space-y-2">
+                              <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest px-1">Full Name / Jina Kamili</label>
+                              <Input 
+                                 placeholder="Jina la Mfanyakazi" 
+                                 className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl font-bold text-white italic"
+                                 value={selectedStaff.name || ''}
+                                 onChange={e => setSelectedStaff({...selectedStaff, name: e.target.value})}
+                              />
+                           </div>
+                           <div className="space-y-2">
+                              <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest px-1">Phone Number / Simu</label>
+                              <Input 
+                                 placeholder="e.g. +255..." 
+                                 className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl font-bold text-white"
+                                 value={selectedStaff.phone || ''}
+                                 onChange={e => setSelectedStaff({...selectedStaff, phone: e.target.value})}
+                              />
+                           </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                           <div className="space-y-2">
+                              <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest px-1">Default App Role</label>
+                              <Select 
+                                 value={selectedStaff.role} 
+                                 onValueChange={val => setSelectedStaff({...selectedStaff, role: val || 'waiter'})}
+                              >
+                                 <SelectTrigger className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl font-bold text-white">
+                                    <SelectValue />
+                                 </SelectTrigger>
+                                 <SelectContent className="bg-neutral-900 border-neutral-800 text-white shadow-2xl rounded-2xl">
+                                    <SelectItem value="chef">Chef / Mpishi</SelectItem>
+                                    <SelectItem value="waiter">Waiter / WaitRESS</SelectItem>
+                                    <SelectItem value="cashier">Cashier / Mhasibu</SelectItem>
+                                    <SelectItem value="manager">Manager / Meneja</SelectItem>
+                                 </SelectContent>
+                              </Select>
+                           </div>
+                           <div className="space-y-2">
+                              <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest px-1">Branch / Kituo</label>
+                              <Select 
+                                 value={selectedStaff.branchId || ''} 
+                                 onValueChange={val => setSelectedStaff({...selectedStaff, branchId: val || ''})}
+                              >
+                                 <SelectTrigger className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl font-bold text-white">
+                                    <SelectValue placeholder="Branch (Optional)" />
+                                 </SelectTrigger>
+                                 <SelectContent className="bg-neutral-900 border-neutral-800 text-white shadow-2xl rounded-2xl">
+                                    <SelectItem value="">Hakuna Kituo (Default)</SelectItem>
+                                    {branches.map(b => (
+                                       <SelectItem key={`detail-branch-${b.id}`} value={b.id || ''}>{b.name}</SelectItem>
+                                    ))}
+                                 </SelectContent>
+                              </Select>
+                           </div>
+                        </div>
+
+                        <div className="space-y-2 bg-neutral-950/40 p-6 rounded-3xl border border-white/5">
+                           <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest px-1">Login Password / Paswedi</label>
+                           <Input 
+                              placeholder="Unganisha paswedi..." 
+                              className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl font-bold text-white tracking-wider"
+                              value={selectedStaff.password || ''}
+                              onChange={e => setSelectedStaff({...selectedStaff, password: e.target.value})}
+                           />
+                           <p className="text-[9px] text-neutral-500 font-medium italic mt-2">Nenosiri hili litamruhusu mfanyakazi wako kulogin kwenye portal kupitia simu au kompyuta.</p>
+                        </div>
+
+                        <div className="pt-4 border-t border-white/5 flex justify-end">
+                           <Button 
+                              onClick={handleSaveStaffDetails}
+                              className="bg-orange-600 hover:bg-orange-700 h-14 px-8 rounded-2xl font-black uppercase tracking-widest text-[10px] text-white"
+                           >
+                              Hifadhi Taarifa (Save Basic Data)
+                           </Button>
+                        </div>
+                     </div>
+                  )}
+
+                  {/* TAB 2: POWERFUL CUSTOM RESPONSIBILITIES (MAJUKUMU) */}
+                  {detailStaffTab === 'permissions' && (
+                     <div className="space-y-6">
+                        <div className="bg-gradient-to-tr from-orange-600/10 to-transparent border border-orange-600/20 p-6 rounded-[2rem] flex items-start gap-4">
+                           <div className="bg-orange-600/20 p-3 rounded-2xl">
+                              <ShieldCheck className="w-5 h-5 text-orange-600" />
+                           </div>
+                           <div className="flex-1 space-y-1">
+                              <p className="text-xs font-black text-white uppercase tracking-wider">Weka Majukumu Maalum (Custom Duties)</p>
+                              <p className="text-[10px] text-neutral-400 font-medium leading-relaxed">Kubadilisha majukumu ya sasa ya mfanyakazi badala ya kufuata makuu ya Default Role yake. Unaweza kumtaka waitRESS aweze kuandika stoka au kusimamilisha menu kabisa!</p>
+                           </div>
+                        </div>
+
+                        {/* Enable Custom Toggles Switch */}
+                        <div className="flex justify-between items-center bg-neutral-950/60 p-6 rounded-3xl border border-neutral-800">
+                           <div>
+                              <p className="text-xs font-black text-white uppercase tracking-wide">Amilisha Majukumu Maalum</p>
+                              <p className="text-[9px] text-neutral-500 font-bold uppercase tracking-wider">Use custom duty permissions overrides</p>
+                           </div>
+                           <input 
+                              type="checkbox"
+                              className="w-10 h-6 bg-neutral-800 rounded-full appearance-none checked:bg-orange-600 cursor-pointer relative before:content-[''] before:absolute before:w-4 before:h-4 before:bg-white before:rounded-full before:top-1 before:left-1 checked:before:translate-x-4 before:transition-all outline-none"
+                              checked={selectedStaff.hasCustomPermissions || false}
+                              onChange={e => setSelectedStaff({...selectedStaff, hasCustomPermissions: e.target.checked})}
+                           />
+                        </div>
+
+                        {/* Custom Core Toggles Grid */}
+                        <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 transition-all duration-300 ${(!selectedStaff.hasCustomPermissions) ? 'opacity-30 pointer-events-none' : 'opacity-100'}`}>
+                           
+                           {/* canViewSales Toggle */}
+                           <div className="bg-neutral-950/40 p-5 rounded-[2rem] border border-white/5 flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                 <LayoutGrid className="w-4 h-4 text-orange-600 shrink-0" />
+                                 <div>
+                                    <p className="text-[10px] font-black text-neutral-200 uppercase tracking-widest leading-none">Angalia Mauzo & Dashboard</p>
+                                    <p className="text-[8px] text-neutral-500 font-bold mt-1">View Sales & Dashboard</p>
+                                 </div>
+                              </div>
+                              <input 
+                                 type="checkbox"
+                                 className="w-8 h-5 bg-neutral-800 rounded-full appearance-none checked:bg-orange-600 cursor-pointer relative before:content-[''] before:absolute before:w-3 before:h-3 before:bg-white before:rounded-full before:top-1 before:left-1 checked:before:translate-x-3 before:transition-all outline-none"
+                                 checked={selectedStaff.customPermissions?.canViewSales || false}
+                                 onChange={e => setSelectedStaff({
+                                    ...selectedStaff, 
+                                    customPermissions: {
+                                       ...(selectedStaff.customPermissions || {}),
+                                       canViewSales: e.target.checked
+                                    }
+                                 })}
+                              />
+                           </div>
+
+                           {/* canManageOrders Toggle */}
+                           <div className="bg-neutral-950/40 p-5 rounded-[2rem] border border-white/5 flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                 <ChefHat className="w-4 h-4 text-orange-600 shrink-0" />
+                                 <div>
+                                    <p className="text-[10px] font-black text-neutral-200 uppercase tracking-widest leading-none">Oda & Jiko (KDS Display)</p>
+                                    <p className="text-[8px] text-neutral-500 font-bold mt-1">Manage Orders & Kitchen</p>
+                                 </div>
+                              </div>
+                              <input 
+                                 type="checkbox"
+                                 className="w-8 h-5 bg-neutral-800 rounded-full appearance-none checked:bg-orange-600 cursor-pointer relative before:content-[''] before:absolute before:w-3 before:h-3 before:bg-white before:rounded-full before:top-1 before:left-1 checked:before:translate-x-3 before:transition-all outline-none"
+                                 checked={selectedStaff.customPermissions?.canManageOrders || false}
+                                 onChange={e => setSelectedStaff({
+                                    ...selectedStaff, 
+                                    customPermissions: {
+                                       ...(selectedStaff.customPermissions || {}),
+                                       canManageOrders: e.target.checked
+                                    }
+                                 })}
+                              />
+                           </div>
+
+                           {/* canManageMenu Toggle */}
+                           <div className="bg-neutral-950/40 p-5 rounded-[2rem] border border-white/5 flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                 <Utensils className="w-4 h-4 text-orange-600 shrink-0" />
+                                 <div>
+                                    <p className="text-[10px] font-black text-neutral-200 uppercase tracking-widest leading-none">Kusimamia Menu & Bei</p>
+                                    <p className="text-[8px] text-neutral-500 font-bold mt-1">Manage Foods & Prices</p>
+                                 </div>
+                              </div>
+                              <input 
+                                 type="checkbox"
+                                 className="w-8 h-5 bg-neutral-800 rounded-full appearance-none checked:bg-orange-600 cursor-pointer relative before:content-[''] before:absolute before:w-3 before:h-3 before:bg-white before:rounded-full before:top-1 before:left-1 checked:before:translate-x-3 before:transition-all outline-none"
+                                 checked={selectedStaff.customPermissions?.canManageMenu || false}
+                                 onChange={e => setSelectedStaff({
+                                    ...selectedStaff, 
+                                    customPermissions: {
+                                       ...(selectedStaff.customPermissions || {}),
+                                       canManageMenu: e.target.checked
+                                    }
+                                 })}
+                              />
+                           </div>
+
+                           {/* canManagePOS Toggle */}
+                           <div className="bg-neutral-950/40 p-5 rounded-[2rem] border border-white/5 flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                 <Banknote className="w-4 h-4 text-orange-600 shrink-0" />
+                                 <div>
+                                    <p className="text-[10px] font-black text-neutral-200 uppercase tracking-widest leading-none">Tengeneza Bili & Malipo (POS)</p>
+                                    <p className="text-[8px] text-neutral-500 font-bold mt-1">Take Billing & POS Orders</p>
+                                 </div>
+                              </div>
+                              <input 
+                                 type="checkbox"
+                                 className="w-8 h-5 bg-neutral-800 rounded-full appearance-none checked:bg-orange-600 cursor-pointer relative before:content-[''] before:absolute before:w-3 before:h-3 before:bg-white before:rounded-full before:top-1 before:left-1 checked:before:translate-x-3 before:transition-all outline-none"
+                                 checked={selectedStaff.customPermissions?.canManagePOS || false}
+                                 onChange={e => setSelectedStaff({
+                                    ...selectedStaff, 
+                                    customPermissions: {
+                                       ...(selectedStaff.customPermissions || {}),
+                                       canManagePOS: e.target.checked
+                                    }
+                                 })}
+                              />
+                           </div>
+
+                           {/* canManageTables Toggle */}
+                           <div className="bg-neutral-950/40 p-5 rounded-[2rem] border border-white/5 flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                 <Store className="w-4 h-4 text-orange-600 shrink-0" />
+                                 <div>
+                                    <p className="text-[10px] font-black text-neutral-200 uppercase tracking-widest leading-none">Meneji Meza za Dining</p>
+                                    <p className="text-[8px] text-neutral-500 font-bold mt-1">Manage Dining Tables</p>
+                                 </div>
+                              </div>
+                              <input 
+                                 type="checkbox"
+                                 className="w-8 h-5 bg-neutral-800 rounded-full appearance-none checked:bg-orange-600 cursor-pointer relative before:content-[''] before:absolute before:w-3 before:h-3 before:bg-white before:rounded-full before:top-1 before:left-1 checked:before:translate-x-3 before:transition-all outline-none"
+                                 checked={selectedStaff.customPermissions?.canManageTables || false}
+                                 onChange={e => setSelectedStaff({
+                                    ...selectedStaff, 
+                                    customPermissions: {
+                                       ...(selectedStaff.customPermissions || {}),
+                                       canManageTables: e.target.checked
+                                    }
+                                 })}
+                              />
+                           </div>
+
+                           {/* canManageInventory Toggle */}
+                           <div className="bg-neutral-950/40 p-5 rounded-[2rem] border border-white/5 flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                 <Database className="w-4 h-4 text-orange-600 shrink-0" />
+                                 <div>
+                                    <p className="text-[10px] font-black text-neutral-200 uppercase tracking-widest leading-none">Meneji Stoo & Stoka ya Jiko</p>
+                                    <p className="text-[8px] text-neutral-500 font-bold mt-1">Manage Kitchen Inventory</p>
+                                 </div>
+                              </div>
+                              <input 
+                                 type="checkbox"
+                                 className="w-8 h-5 bg-neutral-800 rounded-full appearance-none checked:bg-orange-600 cursor-pointer relative before:content-[''] before:absolute before:w-3 before:h-3 before:bg-white before:rounded-full before:top-1 before:left-1 checked:before:translate-x-3 before:transition-all outline-none"
+                                 checked={selectedStaff.customPermissions?.canManageInventory || false}
+                                 onChange={e => setSelectedStaff({
+                                    ...selectedStaff, 
+                                    customPermissions: {
+                                       ...(selectedStaff.customPermissions || {}),
+                                       canManageInventory: e.target.checked
+                                    }
+                                 })}
+                              />
+                           </div>
+
+                           {/* canManageExpenses Toggle */}
+                           <div className="bg-neutral-950/40 p-5 rounded-[2rem] border border-white/5 flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                 <Landmark className="w-4 h-4 text-orange-600 shrink-0" />
+                                 <div>
+                                    <p className="text-[10px] font-black text-neutral-200 uppercase tracking-widest leading-none">Meneji Matumizi (Expenses)</p>
+                                    <p className="text-[8px] text-neutral-500 font-bold mt-1">Manage Business Expenses</p>
+                                 </div>
+                              </div>
+                              <input 
+                                 type="checkbox"
+                                 className="w-8 h-5 bg-neutral-800 rounded-full appearance-none checked:bg-orange-600 cursor-pointer relative before:content-[''] before:absolute before:w-3 before:h-3 before:bg-white before:rounded-full before:top-1 before:left-1 checked:before:translate-x-3 before:transition-all outline-none"
+                                 checked={selectedStaff.customPermissions?.canManageExpenses || false}
+                                 onChange={e => setSelectedStaff({
+                                    ...selectedStaff, 
+                                    customPermissions: {
+                                       ...(selectedStaff.customPermissions || {}),
+                                       canManageExpenses: e.target.checked
+                                    }
+                                 })}
+                              />
+                           </div>
+
+                           {/* canManageReports Toggle */}
+                           <div className="bg-neutral-950/40 p-5 rounded-[2rem] border border-white/5 flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                 <LucidePieChart className="w-4 h-4 text-orange-600 shrink-0" />
+                                 <div>
+                                    <p className="text-[10px] font-black text-neutral-200 uppercase tracking-widest leading-none">Ripoti na Makao ya Fedha</p>
+                                    <p className="text-[8px] text-neutral-500 font-bold mt-1">View Financial Reports</p>
+                                 </div>
+                              </div>
+                              <input 
+                                 type="checkbox"
+                                 className="w-8 h-5 bg-neutral-800 rounded-full appearance-none checked:bg-orange-600 cursor-pointer relative before:content-[''] before:absolute before:w-3 before:h-3 before:bg-white before:rounded-full before:top-1 before:left-1 checked:before:translate-x-3 before:transition-all outline-none"
+                                 checked={selectedStaff.customPermissions?.canManageReports || false}
+                                 onChange={e => setSelectedStaff({
+                                    ...selectedStaff, 
+                                    customPermissions: {
+                                       ...(selectedStaff.customPermissions || {}),
+                                       canManageReports: e.target.checked
+                                    }
+                                 })}
+                              />
+                           </div>
+
+                           {/* canManageStaff Toggle */}
+                           <div className="bg-neutral-950/40 p-5 rounded-[2rem] border border-white/5 flex items-center justify-between sm:col-span-2">
+                              <div className="flex items-center gap-3">
+                                 <Users className="w-4 h-4 text-orange-600 shrink-0" />
+                                 <div>
+                                    <p className="text-[10px] font-black text-neutral-200 uppercase tracking-widest leading-none">Kusajili na Kusimamia Wafanyakazi Wengine</p>
+                                    <p className="text-[8px] text-neutral-500 font-bold mt-1">Manage and Edit Other Team Members</p>
+                                 </div>
+                              </div>
+                              <input 
+                                 type="checkbox"
+                                 className="w-8 h-5 bg-neutral-800 rounded-full appearance-none checked:bg-orange-600 cursor-pointer relative before:content-[''] before:absolute before:w-3 before:h-3 before:bg-white before:rounded-full before:top-1 before:left-1 checked:before:translate-x-3 before:transition-all outline-none"
+                                 checked={selectedStaff.customPermissions?.canManageStaff || false}
+                                 onChange={e => setSelectedStaff({
+                                    ...selectedStaff, 
+                                    customPermissions: {
+                                       ...(selectedStaff.customPermissions || {}),
+                                       canManageStaff: e.target.checked
+                                    }
+                                 })}
+                              />
+                           </div>
+
+                        </div>
+
+                        <div className="pt-4 border-t border-white/5 flex justify-end">
+                           <Button 
+                              onClick={handleSaveStaffDetails}
+                              className="bg-orange-600 hover:bg-orange-700 h-14 px-8 rounded-2xl font-black uppercase tracking-widest text-[10px] text-white"
+                           >
+                              Hifadhi Majukumu (Save Custom Duties)
+                           </Button>
+                        </div>
+                     </div>
+                  )}
+
+                  {/* TAB 3: SALARIES, PAYOUTS & HISTORIA YA MALIPO */}
+                  {detailStaffTab === 'payments' && (
+                     <div className="space-y-6">
+                        
+                        {/* Part 1: Salary Definition Form */}
+                        <div className="bg-neutral-950/40 p-6 rounded-[2.5rem] border border-white/5 space-y-4">
+                           <h4 className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-2">
+                              <Coins className="w-4 h-4 text-orange-600" />
+                              Sanidi Mkataba wa Mshahara (Contract Salary Rate)
+                           </h4>
+                           
+                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="space-y-1.5">
+                                 <label className="text-[9px] font-black text-neutral-500 uppercase tracking-widest px-1">Kiasi cha Mshahara (Amount TZS)</label>
+                                 <Input 
+                                    type="number" 
+                                    placeholder="e.g. 350000" 
+                                    className="bg-neutral-950 border-neutral-800 h-12 rounded-xl text-xs font-bold text-white italic"
+                                    value={staffSalaryAmount}
+                                    onChange={e => setStaffSalaryAmount(e.target.value)}
+                                 />
+                              </div>
+
+                              <div className="space-y-1.5">
+                                 <label className="text-[9px] font-black text-neutral-500 uppercase tracking-widest px-1">Aina ya Kufunga (Interval / Type)</label>
+                                 <Select value={staffSalaryType} onValueChange={val => setStaffSalaryType(val || 'monthly')}>
+                                    <SelectTrigger className="bg-neutral-950 border-neutral-800 h-12 rounded-xl text-xs font-bold text-white">
+                                       <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-neutral-950 border-neutral-800 text-white rounded-xl">
+                                       <SelectItem value="daily">Kwa Siku (Daily Wage)</SelectItem>
+                                       <SelectItem value="weekly">Kwa Wiki (Weekly Wage)</SelectItem>
+                                       <SelectItem value="monthly">Kwa Mwezi (Monthly Salary)</SelectItem>
+                                    </SelectContent>
+                                 </Select>
+                              </div>
+                           </div>
+
+                           <div className="flex justify-end pt-2">
+                              <Button 
+                                 onClick={handleSaveStaffDetails}
+                                 className="bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 h-10 px-6 rounded-xl font-black uppercase tracking-wider text-[8px] text-white"
+                              >
+                                 Sasisha Kipato (Update Rate)
+                              </Button>
+                           </div>
+                        </div>
+
+                        {/* Part 2: Quick Payout Recorder */}
+                        <form onSubmit={handleRecordPayout} className="bg-neutral-950/80 p-6 rounded-[2.5rem] border border-orange-600/10 space-y-4">
+                           <h4 className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-2">
+                              <Banknote className="w-4 h-4 text-orange-600" />
+                              Sajili Malipo Mapya (Pay & Record Payout)
+                           </h4>
+
+                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              <div className="space-y-1.5">
+                                 <label className="text-[9px] font-black text-neutral-500 uppercase tracking-widest px-1">Kiasi Kilicholipwa (Amount TZS)</label>
+                                 <Input 
+                                    required
+                                    type="number" 
+                                    placeholder="e.g. 15000" 
+                                    className="bg-neutral-950 border-neutral-800 h-12 rounded-xl text-xs font-bold text-white italic"
+                                    value={payoutAmount}
+                                    onChange={e => setPayoutAmount(e.target.value)}
+                                 />
+                              </div>
+
+                              <div className="space-y-1.5">
+                                 <label className="text-[9px] font-black text-neutral-500 uppercase tracking-widest px-1">Njia ya malipo (Paid By)</label>
+                                 <Select value={payoutPaidBy} onValueChange={val => setPayoutPaidBy(val || 'Cash')}>
+                                    <SelectTrigger className="bg-neutral-950 border-neutral-800 h-12 rounded-xl text-xs font-bold text-white">
+                                       <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-neutral-950 border-neutral-800 text-white rounded-xl">
+                                       <SelectItem value="Cash">Cash (Pesa Taslimu)</SelectItem>
+                                       <SelectItem value="M-Pesa">M-Pesa</SelectItem>
+                                       <SelectItem value="Tigo Pesa">Tigo Pesa</SelectItem>
+                                       <SelectItem value="Airtel Money">Airtel Money</SelectItem>
+                                       <SelectItem value="Halopesa">Halopesa</SelectItem>
+                                       <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                                    </SelectContent>
+                                 </Select>
+                              </div>
+
+                              <div className="space-y-1.5">
+                                 <label className="text-[9px] font-black text-neutral-500 uppercase tracking-widest px-1">Namba ya kumbukumbu (Ref)</label>
+                                 <Input 
+                                    placeholder="Kumbukumbu / Simu" 
+                                    className="bg-neutral-950 border-neutral-800 h-12 rounded-xl text-xs font-bold text-white uppercase"
+                                    value={payoutReference}
+                                    onChange={e => setPayoutReference(e.target.value)}
+                                 />
+                              </div>
+                           </div>
+
+                           <div className="space-y-1.5">
+                              <label className="text-[9px] font-black text-neutral-500 uppercase tracking-widest px-1">Maelezo (Notes / Reason)</label>
+                              <Input 
+                                 placeholder="e.g. Malipo ya wiki ijumaa, msaidizi mnyoofu" 
+                                 className="bg-neutral-950 border-neutral-800 h-12 rounded-xl text-xs font-bold text-white italic"
+                                 value={payoutNotes}
+                                 onChange={e => setPayoutNotes(e.target.value)}
+                              />
+                           </div>
+
+                           <div className="flex justify-end pt-2">
+                              <Button 
+                                 type="submit"
+                                 className="bg-orange-600 hover:bg-orange-700 h-12 px-8 rounded-xl font-black uppercase tracking-wider text-[9px] text-white shadow-lg"
+                              >
+                                 Lipa & weka Kwenye Expenses (Record Payout)
+                              </Button>
+                           </div>
+                        </form>
+
+                        {/* Part 3: HISTORIA YA MALIPO (PAYMENT HISTORIES LOG) */}
+                        <div className="space-y-3">
+                           <h4 className="text-xs font-black text-white uppercase tracking-wider">Historia ya Malipo ya {selectedStaff.name}</h4>
+                           
+                           <div className="bg-neutral-950/40 border border-white/5 rounded-3xl overflow-hidden">
+                              <div className="max-h-[200px] overflow-y-auto">
+                                 <table className="w-full text-left border-collapse">
+                                    <thead>
+                                       <tr className="bg-neutral-950 text-neutral-400 text-[8px] font-black uppercase tracking-widest border-b border-white/5">
+                                          <th className="px-4 py-3">Tarehe (Date)</th>
+                                          <th className="px-4 py-3">Kiasi (Amount)</th>
+                                          <th className="px-4 py-3">Njia (Method)</th>
+                                          <th className="px-4 py-3">Maelezo (Notes)</th>
+                                       </tr>
+                                    </thead>
+                                    <tbody>
+                                       {payoutLogs.map((log, idx) => {
+                                          const d = log.createdAt?.toDate ? log.createdAt.toDate() : new Date(log.createdAt);
+                                          const displayDate = d.toLocaleDateString('sw-TZ', { day: 'numeric', month: 'short', year: 'numeric' });
+                                          return (
+                                             <tr key={`payout-log-${log.id || idx}`} className="border-b border-white/5 hover:bg-white/[0.02] text-[10px] text-neutral-200">
+                                                <td className="px-4 py-3 font-mono text-[9px] text-neutral-400">{displayDate}</td>
+                                                <td className="px-4 py-3 font-bold text-white">TZS {Number(log.amount || 0).toLocaleString()}</td>
+                                                <td className="px-4 py-3">
+                                                   <span className="px-1.5 py-0.5 bg-orange-600/10 text-orange-400 rounded-md font-extrabold uppercase text-[8px]">{log.paidBy}</span>
+                                                </td>
+                                                <td className="px-4 py-3 text-neutral-400 italic max-w-[150px] truncate" title={log.notes || 'No description'}>
+                                                   {log.notes || '—'}
+                                                </td>
+                                             </tr>
+                                          );
+                                       })}
+
+                                       {payoutLogs.length === 0 && (
+                                          <tr>
+                                             <td colSpan={4} className="px-4 py-8 text-center text-[10px] text-neutral-500 italic uppercase font-bold tracking-wider">
+                                                Hakuna rekodi za malipo zilizowahi kufanyika bado.
+                                             </td>
+                                          </tr>
+                                       )}
+                                    </tbody>
+                                 </table>
+                              </div>
+                           </div>
+                        </div>
+
+                     </div>
+                  )}
+
+               </div>
+
+               {/* Modal Footer */}
+               <div className="pt-6 border-t border-white/5 flex justify-between shrink-0">
+                  <div className="text-left">
+                     <p className="text-[10px] text-neutral-500 uppercase font-black">Mshahara wa sasa</p>
+                     <p className="text-md font-black text-white italic tracking-tighter">
+                        {selectedStaff.salaryAmount ? `TZS ${Number(selectedStaff.salaryAmount).toLocaleString()}` : 'Bado unset'}
+                        {selectedStaff.salaryAmount && <span className="text-[10px] font-normal text-neutral-400"> / {selectedStaff.salaryType || 'mwezi'}</span>}
+                     </p>
+                  </div>
+                  <Button 
+                     onClick={() => {
+                        setIsDetailStaffOpen(false);
+                        setSelectedStaff(null);
+                     }}
+                     className="bg-neutral-800 hover:bg-neutral-700 rounded-xl h-11 px-6 font-black uppercase text-[9px] tracking-wider text-neutral-300"
+                  >
+                     Funga Panel (Close)
+                  </Button>
+               </div>
             </motion.div>
           </div>
         )}
