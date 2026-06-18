@@ -566,6 +566,7 @@ export default function VendorDashboard() {
   // POS Enhanced States
   const [orderType, setOrderType] = useState<'walk_in' | 'pickup' | 'delivery'>('walk_in');
   const [tableNumber, setTableNumber] = useState('');
+  const [specialNotes, setSpecialNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'mobile_money'>('cash');
   const [isAddCustomerModalOpen, setIsAddCustomerModalOpen] = useState(false);
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', email: '' });
@@ -2103,6 +2104,7 @@ export default function VendorDashboard() {
         orderType: orderType,
         tableNumber: (orderType === 'walk_in' || orderType === 'pickup') ? tableNumber : null,
         paymentMethod: paymentMethod,
+        notes: specialNotes || '',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         deliveryAddress: orderType === 'delivery' ? (posCustomer?.address || 'POS Delivery') : 'In-Store POS',
@@ -2146,6 +2148,7 @@ export default function VendorDashboard() {
       setCart([]);
       setPosCustomer(null);
       setTableNumber('');
+      setSpecialNotes('');
       setOrderType('walk_in');
       setActiveTab('orders');
     } catch (error) {
@@ -2215,6 +2218,88 @@ export default function VendorDashboard() {
       await updateDoc(doc(db, 'vendors', vendorProfile.id, 'sections', tableId), { x: newX, y: newY });
     } catch (error) {
       console.error(error);
+    }
+  };
+
+  const handleRequestBill = async (tableNum: string) => {
+    try {
+      const activeTableOrders = orders.filter(o => 
+        o.tableNumber === tableNum && 
+        ['pending', 'preparing', 'prepared', 'serving'].includes(o.status)
+      );
+      if (activeTableOrders.length === 0) {
+        toast.info("Hakuna oda inayofanya kazi kwenye meza hii kwa sasa.");
+        return;
+      }
+      for (const ord of activeTableOrders) {
+        if (ord.id) {
+          await updateDoc(doc(db, 'orders', ord.id), { billRequested: true });
+        }
+      }
+      toast.success(`Bili imeombwa kwa ajili ya Meza ${tableNum}! Ombi limetumwa kwa Mhasibu.`);
+    } catch (err) {
+      console.error(err);
+      toast.error("Imeshindwa kutuma ombi la bili.");
+    }
+  };
+
+  const handleTransferTable = async (sourceTable: string, targetTable: string) => {
+    if (!vendorProfile?.id) return;
+    try {
+      const activeTableOrders = orders.filter(o => 
+        o.tableNumber === sourceTable && 
+        ['pending', 'preparing', 'prepared', 'serving'].includes(o.status)
+      );
+      if (activeTableOrders.length === 0) {
+        toast.info("Hakuna oda inayofanya kazi kwenye meza hii.");
+        return;
+      }
+      // Update all active orders to target table
+      for (const ord of activeTableOrders) {
+        if (ord.id) {
+          await updateDoc(doc(db, 'orders', ord.id), { tableNumber: targetTable });
+        }
+      }
+      // Update table statuses in Firestore/state
+      const sourceSec = sections.find(s => s.number === sourceTable);
+      const targetSec = sections.find(s => s.number === targetTable);
+      if (sourceSec) await updateTableStatus(sourceSec.id, 'available');
+      if (targetSec) await updateTableStatus(targetSec.id, 'occupied');
+      
+      toast.success(`Oda zote zimehamishwa vizuri kutoka Meza ${sourceTable} kwenda Meza ${targetTable}!`);
+      if (targetSec) setSelectedSection(targetSec);
+    } catch (err) {
+      console.error(err);
+      toast.error("Imeshindwa kuhamisha meza.");
+    }
+  };
+
+  const handleMergeTable = async (sourceTable: string, targetTable: string) => {
+    if (!vendorProfile?.id) return;
+    try {
+      const sourceOrders = orders.filter(o => 
+        o.tableNumber === sourceTable && 
+        ['pending', 'preparing', 'prepared', 'serving'].includes(o.status)
+      );
+      if (sourceOrders.length === 0) {
+        toast.info(`Hakuna oda kwenye Meza ${sourceTable} za kuunganisha.`);
+        return;
+      }
+      for (const ord of sourceOrders) {
+        if (ord.id) {
+          await updateDoc(doc(db, 'orders', ord.id), { tableNumber: targetTable });
+        }
+      }
+      const sourceSec = sections.find(s => s.number === sourceTable);
+      const targetSec = sections.find(s => s.number === targetTable);
+      if (sourceSec) await updateTableStatus(sourceSec.id, 'available');
+      if (targetSec) await updateTableStatus(targetSec.id, 'occupied');
+      
+      toast.success(`Meza zimeunganishwa! Oda kutoka Meza ${sourceTable} sasa ziko kwenye Meza ${targetTable}.`);
+      if (targetSec) setSelectedSection(targetSec);
+    } catch (err) {
+      console.error(err);
+      toast.error("Imeshindwa kuunganisha meza.");
     }
   };
 
@@ -2583,6 +2668,25 @@ export default function VendorDashboard() {
                         </div>
                      </div>
                    ))}
+                </div>
+
+                {/* Table Number & Special Notes */}
+                <div className="flex flex-col gap-1.5 text-[11px] font-bold">
+                   {order.tableNumber && (
+                     <span className="text-orange-500 uppercase tracking-wider flex items-center gap-1">
+                        📍 Meza: {order.tableNumber}
+                     </span>
+                   )}
+                   {order.notes && (
+                     <span className="text-neutral-500 dark:text-neutral-400 bg-neutral-150 dark:bg-neutral-900/60 border border-neutral-200 dark:border-neutral-800/80 px-2.5 py-1 rounded-xl text-[10px] italic font-medium">
+                        ✍️ Maelekezo: "{order.notes}"
+                     </span>
+                   )}
+                   {order.billRequested && (
+                     <span className="bg-yellow-500/15 border border-yellow-500/30 text-yellow-600 dark:text-yellow-500 px-2.5 py-1.5 rounded-xl text-[10px] flex items-center gap-1 animate-pulse uppercase font-black">
+                        🔔 Ombi la Bili (BILL REQ)
+                     </span>
+                   )}
                 </div>
 
                 <div className="pt-4 border-t border-neutral-100 dark:border-neutral-950 flex items-center justify-between transition-colors">
@@ -3034,6 +3138,18 @@ export default function VendorDashboard() {
                        </p>
                     </div>
                  </div>
+
+                  {selectedOrder.notes && (
+                     <div className="p-5 rounded-[1.5rem] bg-orange-600/5 dark:bg-neutral-950/50 border border-orange-500/10 dark:border-neutral-800 space-y-2 mb-4">
+                        <div className="flex items-center gap-2 text-neutral-400">
+                           <FileText className="w-4 h-4 text-orange-600" />
+                           <span className="text-[9px] font-black uppercase tracking-widest">Maelekezo Maalum (Special Notes)</span>
+                        </div>
+                        <p className="font-bold text-neutral-800 dark:text-neutral-300 italic text-xs">
+                           "{selectedOrder.notes}"
+                        </p>
+                     </div>
+                  )}
 
                  {/* Confirmation Logic - Only if Pending */}
                  {selectedOrder.status === 'pending' && (
@@ -3948,6 +4064,20 @@ export default function VendorDashboard() {
                            />
                         </motion.div>
                       )}
+
+                      <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="pt-2"
+                      >
+                         <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1 block mb-2">Maelekezo Maalum (Extra Notes)</label>
+                         <Input 
+                            placeholder="Mf. Asiweke pilipili, nk." 
+                            value={specialNotes} 
+                            onChange={(e) => setSpecialNotes(e.target.value)}
+                            className="bg-neutral-900 border-neutral-800 h-12 rounded-xl text-xs font-bold text-white placeholder-neutral-600"
+                         />
+                      </motion.div>
                     </div>
                   </div>
 
@@ -4393,6 +4523,54 @@ export default function VendorDashboard() {
                                               ))}
                                             </div>
                                           )}
+
+                                          {activeTableOrders.length > 0 && (
+                                            <div className="pt-3 border-t border-neutral-800/60 space-y-2 mt-2">
+                                              <span className="text-[8px] font-black text-orange-500 uppercase tracking-widest block">Majukumu ya Meza (Table Operations)</span>
+                                              <div className="grid grid-cols-2 gap-2">
+                                                <Button 
+                                                  size="sm" 
+                                                  variant="outline" 
+                                                  className="w-full bg-yellow-600/10 hover:bg-yellow-600/25 text-yellow-500 border-yellow-500/20 text-[9px] font-black uppercase rounded-lg py-2 h-auto cursor-pointer"
+                                                  onClick={() => handleRequestBill(selectedSection.number as string)}
+                                                >
+                                                  🔔 Omba Bili
+                                                </Button>
+ 
+                                                <Select onValueChange={(val) => handleTransferTable(selectedSection.number as string, val)}>
+                                                  <SelectTrigger className="w-full bg-neutral-900 border-neutral-800 text-[9px] text-orange-500 uppercase font-black h-8 rounded-lg">
+                                                    <SelectValue placeholder="Hamisha Oda" />
+                                                  </SelectTrigger>
+                                                  <SelectContent className="bg-neutral-900 border-neutral-800 text-white rounded-xl">
+                                                    {sections
+                                                      .filter(s => String(s.number) !== String(selectedSection.number) && !['entrance', 'reception', 'kitchen_window', 'bar_counter', 'restroom', 'indoor_plant', 'structure_divider'].includes(s.shape))
+                                                      .map(s => (
+                                                        <SelectItem key={`transfer-opt-${s.id}`} value={String(s.number)}>
+                                                          Sogeza kwenye Meza {s.number}
+                                                        </SelectItem>
+                                                      ))
+                                                    }
+                                                  </SelectContent>
+                                                </Select>
+ 
+                                                <Select onValueChange={(val) => handleMergeTable(val, selectedSection.number as string)}>
+                                                  <SelectTrigger className="w-full bg-neutral-900 border-neutral-800 text-[9px] text-emerald-500 uppercase font-black col-span-2 h-8 rounded-lg">
+                                                    <SelectValue placeholder="Unganisha na Meza nyingine..." />
+                                                  </SelectTrigger>
+                                                  <SelectContent className="bg-neutral-900 border-neutral-800 text-white rounded-xl">
+                                                    {sections
+                                                      .filter(s => String(s.number) !== String(selectedSection.number) && !['entrance', 'reception', 'kitchen_window', 'bar_counter', 'restroom', 'indoor_plant', 'structure_divider'].includes(s.shape))
+                                                      .map(s => (
+                                                        <SelectItem key={`merge-opt-${s.id}`} value={String(s.number)}>
+                                                          Chukua kutoka Meza {s.number}
+                                                        </SelectItem>
+                                                      ))
+                                                    }
+                                                  </SelectContent>
+                                                </Select>
+                                              </div>
+                                            </div>
+                                          )}
                                         </div>
 
                                         {/* Table live metrics */}
@@ -4504,7 +4682,7 @@ export default function VendorDashboard() {
                               </div>
 
                               {/* Direct POS Link - Only show for actual interactive tables */}
-                              {!isSectionInfra && (staffProfile?.role === 'waiter' || !staffProfile) && (
+                              {!isSectionInfra && (staffProfile?.role === 'waiter' || staffProfile?.role === 'cashier' || staffProfile?.role === 'manager' || !staffProfile) && (
                                 <Button 
                                   onClick={() => {
                                     setTableNumber(selectedSection.number);
@@ -7064,11 +7242,11 @@ export default function VendorDashboard() {
                             </td>
                             <td className="px-8 py-6">
                                <div className="flex flex-col items-center gap-2">
-                                  {staffProfile?.role === 'chef' && (
+                                  {(!staffProfile || staffProfile.role === 'chef' || staffProfile.role === 'manager' || staffProfile.customPermissions?.canManageMenu) && (
                                     <Button 
                                       size="sm" 
                                       variant={product.stock > 0 ? "outline" : "destructive"}
-                                      className="h-8 text-[9px] font-black uppercase rounded-lg border-2"
+                                      className="h-8 text-[9px] font-black uppercase rounded-lg border-2 cursor-pointer"
                                       onClick={() => handleToggleStock(product)}
                                     >
                                       {product.stock > 0 ? "Imeisha?" : "Ipo Tena?"}

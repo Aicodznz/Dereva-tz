@@ -164,6 +164,7 @@ export interface Order {
   notes?: string;
   paymentMethod?: string;
   paymentStatus?: 'pending' | 'paid' | 'failed';
+  billRequested?: boolean;
   createdAt: any;
   updatedAt: any;
   // Hotel specific
