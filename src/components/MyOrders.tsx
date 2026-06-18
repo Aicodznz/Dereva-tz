@@ -81,6 +81,9 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
   const [selectedOrientation, setSelectedOrientation] = useState<'portrait' | 'landscape'>('landscape');
   const [orientationModalOpen, setOrientationModalOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<{ type: 'print' | 'download'; elementId?: string } | null>(null);
+  const [showCashPaymentModal, setShowCashPaymentModal] = useState(false);
+  const [cashOrderRefForPay, setCashOrderRefForPay] = useState<Order | null>(null);
+  const [alternativePhoneNumber, setAlternativePhoneNumber] = useState('');
 
   useEffect(() => {
     if (!selectedOrder || !selectedOrder.vendorId) {
@@ -165,6 +168,13 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
   };
 
   const handlePayNow = async (order: Order) => {
+    if (order.paymentMethod === 'cash') {
+      setCashOrderRefForPay(order);
+      setAlternativePhoneNumber((order.customerPhone || user?.phoneNumber || profile?.phoneNumber || '').replace(/[^0-9]/g, ''));
+      setShowCashPaymentModal(true);
+      return;
+    }
+
     const userPhone = user?.phoneNumber || profile?.phoneNumber || '';
     if (!userPhone && !order.customerPhone) {
       toast.error("Tafadhali weka namba ya simu kwenye profile yako kwanza.");
@@ -188,6 +198,41 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
     } catch (error) {
       console.error("Payment failed:", error);
       toast.error("Hitilafu imetokea wakati wa kulipia. Jaribu tena.");
+    } finally {
+      setIsPaying(false);
+    }
+  };
+
+  const handleInitiateCashAlternativePayment = async () => {
+    if (!cashOrderRefForPay) return;
+    if (!alternativePhoneNumber.trim()) {
+      toast.error("Tafadhali weka namba ya simu ya kufanyia malipo.");
+      return;
+    }
+
+    setIsPaying(true);
+    const toastId = toast.loading("Inatuma ombi la malipo ya simu...");
+    try {
+      const formattedPhone = alternativePhoneNumber.startsWith('0')
+        ? '255' + alternativePhoneNumber.substring(1)
+        : alternativePhoneNumber.replace('+', '');
+
+      const response = await initiatePayment({
+        order_id: cashOrderRefForPay.id!,
+        amount: cashOrderRefForPay.totalAmount,
+        buyer_phone: formattedPhone.replace(/[^0-9]/g, ''),
+        fee_payer: 'MERCHANT'
+      });
+
+      if (response.status === 'success') {
+        toast.success("Ombi la malipo limetumwa kwenye simu yako ya mkononi. Tafadhali weka namba yako ya siri.", { id: toastId });
+        setShowCashPaymentModal(false);
+      } else {
+        toast.error(response.message || "Imeshindikana kuanzisha malipo.", { id: toastId });
+      }
+    } catch (error) {
+      console.error("Alternative payment initiation failed:", error);
+      toast.error("Hitilafu imetokea wakati wa kuanzisha malipo ya simu. Jaribu tena.", { id: toastId });
     } finally {
       setIsPaying(false);
     }
@@ -1145,6 +1190,68 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
               >
                 GHAIRI
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CASH PAYMENT EXPLANATORY & ALTERNATIVE MOBILE MONEY MODAL */}
+      {showCashPaymentModal && cashOrderRefForPay && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-all animate-fade-in print:hidden">
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-[2rem] shadow-2xl w-full max-w-lg p-6 md:p-8 space-y-6 relative">
+            <button 
+              onClick={() => setShowCashPaymentModal(false)}
+              className="absolute top-6 right-6 p-2 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            
+            <div className="text-center space-y-3">
+              <div className="w-12 h-12 bg-amber-100 dark:bg-amber-950/40 rounded-full flex items-center justify-center mx-auto text-amber-600">
+                <CheckCircle2 className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-black italic uppercase tracking-tighter text-amber-600">
+                LIPA UFIKAPO (CASH)
+              </h3>
+              <p className="text-sm text-neutral-700 dark:text-neutral-300 font-bold leading-relaxed font-sans bg-amber-50 dark:bg-amber-950/20 p-4 border border-amber-500/10 rounded-2xl">
+                Umechagua kulipa baadaye. Unaweza kukabidhi pesa taslimu au kufanya miamala na mhudumu wetu pindi anapokuhudumia mezani kwako au kaunta.
+              </p>
+            </div>
+
+            <div className="border-t border-neutral-100 dark:border-neutral-800 pt-5 space-y-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500">
+                  Je, ungependa kubadilisha na kulipia sasa hivi kwa Simu (Mobile Money)?
+                </label>
+                <div className="relative">
+                  <input
+                    type="tel"
+                    placeholder="Weka namba ya Simu: mfam. 07XXXXXXXX"
+                    value={alternativePhoneNumber}
+                    onChange={(e) => setAlternativePhoneNumber(e.target.value)}
+                    className="w-full h-12 px-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 text-sm font-bold font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2.5">
+                <Button 
+                  onClick={handleInitiateCashAlternativePayment}
+                  disabled={isPaying}
+                  className="w-full h-12 bg-teal-500 hover:bg-teal-600 text-white font-black text-xs uppercase tracking-wider rounded-2xl gap-2 shadow-md transition-all cursor-pointer"
+                >
+                  {isPaying ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
+                  LIPA SASA KWA SIMU
+                </Button>
+
+                <Button 
+                  variant="outline"
+                  onClick={() => setShowCashPaymentModal(false)}
+                  className="w-full h-12 border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 font-bold text-xs uppercase rounded-2xl hover:bg-neutral-50 dark:hover:bg-neutral-950 transition-colors cursor-pointer"
+                >
+                  Nitamlipa Mhudumu (Cash)
+                </Button>
+              </div>
             </div>
           </div>
         </div>
