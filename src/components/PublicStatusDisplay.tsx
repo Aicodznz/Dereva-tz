@@ -164,18 +164,47 @@ export default function PublicStatusDisplay() {
     // Listen to active orders
     const q = query(
       collection(db, 'orders'),
-      where('vendorId', '==', vendorId),
-      where('status', 'in', ['pending', 'accepted', 'preparing', 'prepared']),
-      orderBy('createdAt', 'desc')
+      where('vendorId', '==', vendorId)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const ordersData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Order[];
-      setOrders(ordersData);
-      setLoading(false);
+      try {
+        const rawOrders = snapshot.docs.map(doc => {
+          const data = doc.data();
+          // Safe Conversion of createdAt timestamp/date for sorting in-memory
+          let createdAtMs = 0;
+          if (data.createdAt) {
+            if (typeof data.createdAt.toMillis === 'function') {
+              createdAtMs = data.createdAt.toMillis();
+            } else if (data.createdAt.seconds) {
+              createdAtMs = data.createdAt.seconds * 1000;
+            } else {
+              createdAtMs = new Date(data.createdAt).getTime();
+            }
+          }
+          if (!createdAtMs || isNaN(createdAtMs)) {
+            createdAtMs = Date.now();
+          }
+
+          return {
+            id: doc.id,
+            ...data,
+            createdAtMs
+          };
+        }) as any[];
+
+        // Filter active statuses in-memory and sort by createdAtMs descending
+        const activeStatuses = ['pending', 'accepted', 'preparing', 'prepared'];
+        const filteredAndSorted = rawOrders
+          .filter(o => activeStatuses.includes(o.status))
+          .sort((a, b) => b.createdAtMs - a.createdAtMs);
+
+        setOrders(filteredAndSorted);
+        setLoading(false);
+      } catch (err: any) {
+        console.error("Error parsing orders:", err);
+        setLoading(false);
+      }
     }, (error) => {
       console.warn("Restricted access or error listening to public orders display:", error.message);
       setLoading(false);
