@@ -282,6 +282,98 @@ const getSafeDate = (val: any): Date => {
   }
 };
 
+interface CustomIconProps {
+  className?: string;
+  size?: number;
+}
+
+const TableCustomIcon: React.FC<CustomIconProps> = ({ className, size = 26 }) => (
+  <svg 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="1.8" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className} 
+    style={{ width: size, height: size }}
+  >
+    <ellipse cx="12" cy="7.5" rx="6.5" ry="2.2" />
+    <path d="M12 9.7v3.5" />
+    <path d="M9 18.5c1.5-2 4.5-2 6 0" />
+    <path d="M10 13.2h4" />
+    <path d="M10 13.2c-1 2-1 4.5-1 5.3" />
+    <path d="M14 13.2c1 2 1 4.5 1 5.3" />
+    <circle cx="12" cy="21.5" r="1.2" fill="currentColor" />
+  </svg>
+);
+
+const OrdersCustomIcon: React.FC<CustomIconProps> = ({ className, size = 26 }) => (
+  <svg 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2.2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+    style={{ width: size, height: size }}
+  >
+    <path d="M5 3l1.7 1 1.7-1 1.6 1 1.7-1 1.7 1 1.6-1 1.7 1 1.7-1v18l-1.7-1-1.7 1-1.6-1-1.7 1-1.7-1-1.6 1-1.7-1-1.7 1V3z" />
+    <path d="M9 8h6M9 12h4M9 16h6" strokeWidth="2" />
+  </svg>
+);
+
+const MenuCustomIcon: React.FC<CustomIconProps> = ({ className, size = 26 }) => (
+  <svg 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+    style={{ width: size, height: size }}
+  >
+    <path d="M12 20V5a1 1 0 0 0-1-1H4v13c0 1.2 1.5 1.2 2.5 1.5s3.5 .5 5.5 1" />
+    <path d="M12 20V5a1 1 0 0 1 1-1h7v13c0 1.2-1.5 1.2-2.5 1.5s-3.5 .5-5.5 1" />
+    <path d="M6.5 8h2.5M6.5 11h2.5M6.5 14h2.5" strokeWidth="1.8" />
+    <path d="M15 8h2.5M15 11h2.5M15 14h2.5" strokeWidth="1.8" />
+  </svg>
+);
+
+const AlertsCustomIcon: React.FC<CustomIconProps> = ({ className, size = 26 }) => (
+  <svg 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2.2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+    style={{ width: size, height: size }}
+  >
+    <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+  </svg>
+);
+
+const ProfileCustomIcon: React.FC<CustomIconProps> = ({ className, size = 26 }) => (
+  <svg 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2.2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+    style={{ width: size, height: size }}
+  >
+    <circle cx="12" cy="7" r="4" />
+    <path d="M5.5 21a8.5 8.5 0 0 1 13 0" />
+  </svg>
+);
+
 export default function VendorDashboard() {
   const { profile, user } = useAuth();
   const navigate = useNavigate();
@@ -4532,12 +4624,12 @@ export default function VendorDashboard() {
                                                   size="sm" 
                                                   variant="outline" 
                                                   className="w-full bg-yellow-600/10 hover:bg-yellow-600/25 text-yellow-500 border-yellow-500/20 text-[9px] font-black uppercase rounded-lg py-2 h-auto cursor-pointer"
-                                                  onClick={() => handleRequestBill(selectedSection.number as string)}
+                                                  onClick={() => handleRequestBill(String(selectedSection?.number || ''))}
                                                 >
                                                   🔔 Omba Bili
                                                 </Button>
  
-                                                <Select onValueChange={(val) => handleTransferTable(selectedSection.number as string, val)}>
+                                                <Select onValueChange={(val: string | null) => { if (val) handleTransferTable(String(selectedSection?.number || ''), val); }}>
                                                   <SelectTrigger className="w-full bg-neutral-900 border-neutral-800 text-[9px] text-orange-500 uppercase font-black h-8 rounded-lg">
                                                     <SelectValue placeholder="Hamisha Oda" />
                                                   </SelectTrigger>
@@ -4553,7 +4645,7 @@ export default function VendorDashboard() {
                                                   </SelectContent>
                                                 </Select>
  
-                                                <Select onValueChange={(val) => handleMergeTable(val, selectedSection.number as string)}>
+                                                <Select onValueChange={(val: string | null) => { if (val) handleMergeTable(val, String(selectedSection?.number || '')); }}>
                                                   <SelectTrigger className="w-full bg-neutral-900 border-neutral-800 text-[9px] text-emerald-500 uppercase font-black col-span-2 h-8 rounded-lg">
                                                     <SelectValue placeholder="Unganisha na Meza nyingine..." />
                                                   </SelectTrigger>
@@ -7372,46 +7464,145 @@ export default function VendorDashboard() {
         initial={{ y: 0 }}
         animate={{ y: isNavVisible ? 0 : 100 }}
         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-        className="lg:hidden fixed bottom-0 left-0 right-0 z-[100] h-20 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl border-t border-neutral-200 dark:border-neutral-800 transition-colors duration-300 shadow-[0_-10px_25px_rgba(0,0,0,0.05)]"
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-[100] h-[85px] bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl border-t border-neutral-200/80 dark:border-neutral-800 transition-colors duration-300 shadow-[0_-10px_30px_rgba(0,0,0,0.06)] pb-2"
       >
         <motion.div 
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="h-full px-2 flex justify-around items-center max-w-md mx-auto"
+          className="h-full px-2 flex justify-around items-end max-w-md mx-auto relative"
         >
-          {[
-            { id: 'overview', label: 'Home', icon: BarChart3 },
-            { id: 'orders', label: 'Orders', icon: ShoppingBag },
-            { id: 'pos', label: 'POS', icon: Plus },
-            { id: 'products', label: 'Store', icon: Store },
-          ].map((item) => (
-            <button
-              key={`mobile-nav-${item.id}`}
-              onClick={() => {
-                setActiveTab(item.id as TabType);
-                setIsMobileMenuOpen(false);
-              }}
-              className={`flex flex-col items-center justify-center gap-1.5 flex-1 transition-all duration-300 ${
-                activeTab === item.id ? 'text-orange-600' : 'text-neutral-500'
-              }`}
-            >
-              <div className={`p-2 rounded-2xl transition-all ${activeTab === item.id ? 'bg-orange-600/10' : ''}`}>
-                <item.icon className="w-5 h-5" />
+          {staffProfile?.role === 'waiter' ? (
+            <>
+              {/* Tables */}
+              <button
+                onClick={() => {
+                  setActiveTab('tables');
+                  setIsMobileMenuOpen(false);
+                }}
+                className="flex flex-col items-center justify-center pb-2 flex-1 transition-all relative h-full group"
+              >
+                <div className={`transition-all duration-300 ${activeTab === 'tables' ? 'text-neutral-900 dark:text-orange-500 scale-110' : 'text-neutral-400 dark:text-neutral-500 hover:text-neutral-600'}`}>
+                  <TableCustomIcon size={25} />
+                </div>
+                {activeTab === 'tables' && (
+                  <motion.div layoutId="activeDot" className="w-[5px] h-[5px] rounded-full bg-neutral-900 dark:bg-orange-500 mt-1" />
+                )}
+                <span className={`text-[10px] font-bold mt-1 tracking-wider ${activeTab === 'tables' ? 'text-neutral-900 dark:text-orange-500 font-extrabold' : 'text-neutral-400 dark:text-neutral-500'}`}>
+                  Tables
+                </span>
+              </button>
+
+              {/* Orders */}
+              <button
+                onClick={() => {
+                  setActiveTab('orders');
+                  setIsMobileMenuOpen(false);
+                }}
+                className="flex flex-col items-center justify-center pb-2 flex-1 transition-all relative h-full group"
+              >
+                <div className={`transition-all duration-300 ${activeTab === 'orders' ? 'text-neutral-900 dark:text-orange-500 scale-110' : 'text-neutral-400 dark:text-neutral-500 hover:text-neutral-600'}`}>
+                  <OrdersCustomIcon size={25} />
+                </div>
+                {activeTab === 'orders' && (
+                  <motion.div layoutId="activeDot" className="w-[5px] h-[5px] rounded-full bg-neutral-900 dark:bg-orange-500 mt-1" />
+                )}
+                <span className={`text-[10px] font-bold mt-1 tracking-wider ${activeTab === 'orders' ? 'text-neutral-900 dark:text-orange-500 font-extrabold' : 'text-neutral-400 dark:text-neutral-500'}`}>
+                  Orders
+                </span>
+              </button>
+
+              {/* Menu (Large Orange FAB) */}
+              <div className="flex-1 flex flex-col items-center justify-center relative h-full pb-1">
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => {
+                    setActiveTab('pos');
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="w-[60px] h-[60px] rounded-full bg-gradient-to-br from-amber-400 to-orange-500 hover:from-amber-400 hover:to-orange-500 flex items-center justify-center shadow-[0_6px_20px_rgba(253,176,34,0.4)] border-4 border-white dark:border-neutral-900 absolute -top-5 z-[101]"
+                >
+                  <MenuCustomIcon size={26} className="text-[#1e1103] dark:text-neutral-950 font-black" />
+                </motion.button>
+                <span className={`text-[10px] font-bold tracking-wider mb-1 z-[100] ${activeTab === 'pos' ? 'text-neutral-900 dark:text-orange-500 font-black' : 'text-neutral-400 dark:text-neutral-500'}`}>
+                  Menu
+                </span>
               </div>
-              <span className={`text-[10px] font-black uppercase tracking-widest ${activeTab === item.id ? 'opacity-100' : 'opacity-60'}`}>
-                {item.label}
-              </span>
-            </button>
-          ))}
-          <button
-            onClick={() => setIsMobileMenuOpen(true)}
-            className={`flex flex-col items-center justify-center gap-1.5 flex-1 transition-all ${isMobileMenuOpen ? 'text-orange-600' : 'text-neutral-400'}`}
-          >
-            <div className={`p-2 rounded-2xl transition-all ${isMobileMenuOpen ? 'bg-orange-600/10' : ''}`}>
-              <Menu className="w-5 h-5" />
-            </div>
-            <span className="text-[10px] font-black uppercase tracking-widest opacity-60">More</span>
-          </button>
+
+              {/* Alerts (Messages) */}
+              <button
+                onClick={() => {
+                  setActiveTab('messages');
+                  setIsMobileMenuOpen(false);
+                }}
+                className="flex flex-col items-center justify-center pb-2 flex-1 transition-all relative h-full group"
+              >
+                <div className="relative">
+                  <div className={`transition-all duration-300 ${activeTab === 'messages' ? 'text-neutral-900 dark:text-orange-500 scale-110' : 'text-neutral-400 dark:text-neutral-500 hover:text-neutral-600'}`}>
+                    <AlertsCustomIcon size={25} />
+                  </div>
+                  <div className="absolute -top-0.5 -right-0.5 w-[9px] h-[9px] bg-red-600 rounded-full border border-white dark:border-neutral-900" />
+                </div>
+                {activeTab === 'messages' && (
+                  <motion.div layoutId="activeDot" className="w-[5px] h-[5px] rounded-full bg-neutral-900 dark:bg-orange-500 mt-1" />
+                )}
+                <span className={`text-[10px] font-bold mt-1 tracking-wider ${activeTab === 'messages' ? 'text-neutral-900 dark:text-orange-500 font-extrabold' : 'text-neutral-400 dark:text-neutral-500'}`}>
+                  Alerts
+                </span>
+              </button>
+
+              {/* Profile */}
+              <button
+                onClick={() => {
+                  navigate('/profile');
+                  setIsMobileMenuOpen(false);
+                }}
+                className="flex flex-col items-center justify-center pb-2 flex-1 transition-all relative h-full group"
+              >
+                <div className="text-neutral-400 dark:text-neutral-500 hover:text-neutral-600">
+                  <ProfileCustomIcon size={25} />
+                </div>
+                <span className="text-[10px] font-bold mt-1 tracking-wider text-neutral-400 dark:text-neutral-500">
+                  Profile
+                </span>
+              </button>
+            </>
+          ) : (
+            <>
+              {[
+                { id: 'overview', label: 'Home', icon: BarChart3 },
+                { id: 'orders', label: 'Orders', icon: ShoppingBag },
+                { id: 'pos', label: 'POS', icon: Plus },
+                { id: 'products', label: 'Store', icon: Store },
+              ].map((item) => (
+                <button
+                  key={`mobile-nav-${item.id}`}
+                  onClick={() => {
+                    setActiveTab(item.id as TabType);
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className={`flex flex-col items-center justify-center gap-1.5 flex-1 transition-all duration-300 ${
+                    activeTab === item.id ? 'text-orange-600' : 'text-neutral-500'
+                  }`}
+                >
+                  <div className={`p-2 rounded-2xl transition-all ${activeTab === item.id ? 'bg-orange-600/10' : ''}`}>
+                    <item.icon className="w-5 h-5" />
+                  </div>
+                  <span className={`text-[10px] font-black uppercase tracking-widest ${activeTab === item.id ? 'opacity-100' : 'opacity-60'}`}>
+                    {item.label}
+                  </span>
+                </button>
+              ))}
+              <button
+                onClick={() => setIsMobileMenuOpen(true)}
+                className={`flex flex-col items-center justify-center gap-1.5 flex-1 transition-all ${isMobileMenuOpen ? 'text-orange-600' : 'text-neutral-400'}`}
+              >
+                <div className={`p-2 rounded-2xl transition-all ${isMobileMenuOpen ? 'bg-orange-600/10' : ''}`}>
+                  <Menu className="w-5 h-5" />
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-widest opacity-60">More</span>
+              </button>
+            </>
+          )}
         </motion.div>
       </motion.nav>
 
