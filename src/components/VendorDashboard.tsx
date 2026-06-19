@@ -714,9 +714,15 @@ export default function VendorDashboard() {
   const [branchFilter, setBranchFilter] = useState<string | null>(null);
 
   const filteredOrders = useMemo(() => {
-    if (!branchFilter) return orders;
-    return orders.filter(o => o.branchId === branchFilter);
-  }, [orders, branchFilter]);
+    let filtered = orders;
+    if (branchFilter) {
+      filtered = filtered.filter(o => o.branchId === branchFilter);
+    }
+    if (staffProfile?.role === 'waiter') {
+      filtered = filtered.filter(o => o.orderSource === 'pos' || o.orderSource === 'reception');
+    }
+    return filtered;
+  }, [orders, branchFilter, staffProfile]);
 
   const reportsData = useMemo(() => {
     // Process orders that belong to the selected date range and are 'completed'
@@ -2396,6 +2402,10 @@ export default function VendorDashboard() {
   };
 
   const handleDragStart = (e: React.MouseEvent | React.TouchEvent, table: any) => {
+    if (staffProfile?.role === 'waiter') {
+      setSelectedSection(table);
+      return;
+    }
     if (e.type === 'mousedown' && (e as React.MouseEvent).button !== 0) return;
     updateDraggingId(table.id);
     setSelectedSection(table);
@@ -2636,6 +2646,18 @@ export default function VendorDashboard() {
 
   const updateOrderStatus = async (orderId: string, newStatus: OrderStatus) => {
     try {
+      const currentOrder = orders.find(o => o.id === orderId);
+      if (staffProfile?.role === 'waiter') {
+        if (!currentOrder || currentOrder.status !== 'prepared') {
+          toast.error("Huna ruhusa ya kubadilisha hali ya oda hii.");
+          return;
+        }
+        if (newStatus !== 'completed' && newStatus !== 'delivered') {
+          toast.error("Ruhusa yako ni kukamilisha oda zilizopikwa tu.");
+          return;
+        }
+      }
+
       await updateDoc(doc(db, 'orders', orderId), {
         status: newStatus,
         updatedAt: serverTimestamp()
@@ -2649,6 +2671,10 @@ export default function VendorDashboard() {
 
   const handleConfirmOrder = async () => {
     if (!selectedOrder) return;
+    if (staffProfile?.role === 'waiter') {
+      toast.error("Huna ruhusa ya kuthibitisha au kusasisha oda hii.");
+      return;
+    }
     try {
       const updateData: any = {
         status: 'preparing',
@@ -2809,7 +2835,7 @@ export default function VendorDashboard() {
                           LIPWA / PAID
                         </Button>
                       )}
-                      {order.status === 'pending' && (
+                      {order.status === 'pending' && staffProfile?.role !== 'waiter' && (
                         <Button 
                           size="sm" 
                           className="bg-orange-600 hover:bg-orange-700 h-8 rounded-lg text-[10px] font-black uppercase"
@@ -2818,7 +2844,7 @@ export default function VendorDashboard() {
                           {vendorProfile?.category === 'bus_ticket' ? 'Verify Ticket' : 'Accept Order'}
                         </Button>
                       )}
-                      {order.status === 'preparing' && (
+                      {order.status === 'preparing' && staffProfile?.role !== 'waiter' && (
                         <Button 
                           size="sm" 
                           className="bg-green-600 hover:bg-green-700 h-8 rounded-lg text-[10px] font-black uppercase"
@@ -2830,10 +2856,10 @@ export default function VendorDashboard() {
                        {order.status === 'prepared' && (
                         <Button 
                           size="sm" 
-                          className="bg-blue-600 hover:bg-blue-700 h-8 rounded-lg text-[10px] font-black uppercase"
+                          className="bg-blue-600 hover:bg-blue-700 h-8 rounded-lg text-[10px] font-black uppercase text-white"
                           onClick={() => updateOrderStatus(order.id!, 'completed')}
                         >
-                          {vendorProfile?.category === 'bus_ticket' ? 'Departed' : 'Finish'}
+                          {staffProfile?.role === 'waiter' ? 'Chukua & Peleka' : (vendorProfile?.category === 'bus_ticket' ? 'Departed' : 'Finish')}
                         </Button>
                       )}
                       <Button
@@ -3324,7 +3350,7 @@ export default function VendorDashboard() {
               </div>
 
               <div className="p-8 border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-950/50 flex gap-3">
-                 {selectedOrder.status === 'pending' ? (
+                 {selectedOrder.status === 'pending' && staffProfile?.role !== 'waiter' ? (
                    <>
                       <Button variant="ghost" className="flex-1 h-14 rounded-2xl font-black uppercase tracking-widest text-[10px] text-red-500 hover:bg-red-500/10" onClick={() => updateOrderStatus(selectedOrder.id!, 'cancelled')}>Kataa Oda</Button>
                       <Button className="flex-[2] h-14 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-orange-900/20" onClick={handleConfirmOrder}>Thibitisha Oda</Button>
@@ -4103,7 +4129,12 @@ export default function VendorDashboard() {
                           { id: 'walk_in', label: vendorProfile?.category === 'bus_ticket' ? 'Standard' : (vendorContext.type === 'restaurant' ? 'Dine In' : 'Soko (In-Store)'), icon: vendorProfile?.category === 'bus_ticket' ? Bus : Store },
                           { id: 'pickup', label: vendorProfile?.category === 'bus_ticket' ? 'V.I.P' : 'Pickup', icon: vendorProfile?.category === 'bus_ticket' ? Star : ShoppingBag },
                           { id: 'delivery', label: vendorProfile?.category === 'bus_ticket' ? 'Booking' : 'Delivery', icon: vendorProfile?.category === 'bus_ticket' ? Ticket : Truck },
-                        ].map((type, idx) => (
+                        ].filter(type => {
+                          if (staffProfile?.role === 'waiter') {
+                            return type.id === 'walk_in';
+                          }
+                          return true;
+                        }).map((type, idx) => (
                           <button
                             key={`ot-${type.id}-${idx}`}
                             onClick={() => setOrderType(type.id as any)}
@@ -4434,7 +4465,7 @@ export default function VendorDashboard() {
                               onMouseDown={(e) => handleDragStart(e, section)}
                               onTouchStart={(e) => handleDragStart(e, section)}
                               onClick={() => setSelectedSection(section)}
-                              className={`absolute border flex flex-col items-center justify-center cursor-grab transition-all select-none ${shapeClasses} ${statusBg} ${
+                              className={`absolute border flex flex-col items-center justify-center ${staffProfile?.role === 'waiter' ? 'cursor-pointer' : 'cursor-grab'} transition-all select-none ${shapeClasses} ${statusBg} ${
                                 isSelected ? 'ring-4 ring-orange-600 ring-offset-2 ring-offset-neutral-950 border-orange-500 z-50' : ''
                               } ${isDraggingThis ? 'opacity-70 cursor-grabbing border-orange-400 ring-2 ring-orange-500/50 scale-108 z-50' : 'z-20'}`}
                               style={{ 
@@ -4536,6 +4567,7 @@ export default function VendorDashboard() {
                                   {isSectionInfra ? 'Jina la Kielelezo (Element Label)' : 'Namba / Jina la Meza (Table Label)'}
                                 </label>
                                 <Input 
+                                  disabled={staffProfile?.role === 'waiter'}
                                   className="bg-neutral-950 border-neutral-800 h-11 rounded-xl text-white font-bold text-xs"
                                   value={selectedSection.number || ''}
                                   onChange={(e) => {
@@ -4686,7 +4718,7 @@ export default function VendorDashboard() {
                               )}
 
                               {/* Seating Space & Shape - ONLY for tables */}
-                              {!isSectionInfra && (
+                              {staffProfile?.role !== 'waiter' && !isSectionInfra && (
                                 <div className="grid grid-cols-2 gap-4">
                                   <div className="space-y-2">
                                     <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">Aina ya Meza</label>
@@ -4726,52 +4758,54 @@ export default function VendorDashboard() {
                               )}
 
                               {/* Direction Pad Positioner (Shift) */}
-                              <div className="p-4 bg-neutral-950 rounded-2xl border border-neutral-800 space-y-4">
-                                <div className="text-center">
-                                  <span className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">Sogeza kwa Usahihi (%)</span>
-                                  <p className="text-[9px] text-neutral-600 mt-0.5 font-bold">X: {selectedSection.x || 50}% | Y: {selectedSection.y || 50}%</p>
-                                </div>
-                                
-                                <div className="flex flex-col items-center gap-2">
-                                  {/* UP Button */}
-                                  <button 
-                                    onClick={() => shiftTable(selectedSection.id, 0, -5)} 
-                                    className="w-10 h-10 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-white rounded-lg flex items-center justify-center transition-all active:scale-90"
-                                  >
-                                    ▲
-                                  </button>
+                              {staffProfile?.role !== 'waiter' && (
+                                <div className="p-4 bg-neutral-950 rounded-2xl border border-neutral-800 space-y-4">
+                                  <div className="text-center">
+                                    <span className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">Sogeza kwa Usahihi (%)</span>
+                                    <p className="text-[9px] text-neutral-600 mt-0.5 font-bold">X: {selectedSection.x || 50}% | Y: {selectedSection.y || 50}%</p>
+                                  </div>
                                   
-                                  <div className="flex items-center gap-4">
-                                    {/* LEFT Button */}
+                                  <div className="flex flex-col items-center gap-2">
+                                    {/* UP Button */}
                                     <button 
-                                      onClick={() => shiftTable(selectedSection.id, -5, 0)} 
+                                      onClick={() => shiftTable(selectedSection.id, 0, -5)} 
                                       className="w-10 h-10 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-white rounded-lg flex items-center justify-center transition-all active:scale-90"
                                     >
-                                      ◀
+                                      ▲
                                     </button>
                                     
-                                    <div className="w-8 h-8 rounded-full border border-neutral-800 bg-neutral-950 flex items-center justify-center">
-                                      <Move className="w-3.5 h-3.5 text-orange-600" />
+                                    <div className="flex items-center gap-4">
+                                      {/* LEFT Button */}
+                                      <button 
+                                        onClick={() => shiftTable(selectedSection.id, -5, 0)} 
+                                        className="w-10 h-10 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-white rounded-lg flex items-center justify-center transition-all active:scale-90"
+                                      >
+                                        ◀
+                                      </button>
+                                      
+                                      <div className="w-8 h-8 rounded-full border border-neutral-800 bg-neutral-950 flex items-center justify-center">
+                                        <Move className="w-3.5 h-3.5 text-orange-600" />
+                                      </div>
+
+                                      {/* RIGHT Button */}
+                                      <button 
+                                        onClick={() => shiftTable(selectedSection.id, 5, 0)} 
+                                        className="w-10 h-10 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-white rounded-lg flex items-center justify-center transition-all active:scale-90"
+                                      >
+                                        ▶
+                                      </button>
                                     </div>
 
-                                    {/* RIGHT Button */}
+                                    {/* DOWN Button */}
                                     <button 
-                                      onClick={() => shiftTable(selectedSection.id, 5, 0)} 
+                                      onClick={() => shiftTable(selectedSection.id, 0, 5)} 
                                       className="w-10 h-10 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-white rounded-lg flex items-center justify-center transition-all active:scale-90"
                                     >
-                                      ▶
+                                      ▼
                                     </button>
                                   </div>
-
-                                  {/* DOWN Button */}
-                                  <button 
-                                    onClick={() => shiftTable(selectedSection.id, 0, 5)} 
-                                    className="w-10 h-10 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-white rounded-lg flex items-center justify-center transition-all active:scale-90"
-                                  >
-                                    ▼
-                                  </button>
                                 </div>
-                              </div>
+                              )}
 
                               {/* Direct POS Link - Only show for actual interactive tables */}
                               {!isSectionInfra && (staffProfile?.role === 'waiter' || staffProfile?.role === 'cashier' || staffProfile?.role === 'manager' || !staffProfile) && (
@@ -4807,17 +4841,19 @@ export default function VendorDashboard() {
                                   No QR Code
                                 </div>
                               )}
-                              <Button 
-                                className="bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white h-12 px-4 rounded-xl transition-all"
-                                onClick={async () => {
-                                  if (confirm('Futa kitu hiki kabisa?')) {
-                                    await handleDeleteSection(selectedSection.id);
-                                    setSelectedSection(null);
-                                  }
-                                }}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
+                              {staffProfile?.role !== 'waiter' && (
+                                <Button 
+                                  className="bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white h-12 px-4 rounded-xl transition-all"
+                                  onClick={async () => {
+                                    if (confirm('Futa kitu hiki kabisa?')) {
+                                      await handleDeleteSection(selectedSection.id);
+                                      setSelectedSection(null);
+                                    }
+                                  }}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              )}
                             </div>
                           </div>
                         );
@@ -9826,7 +9862,16 @@ export default function VendorDashboard() {
 
               <div className="flex-1 overflow-hidden flex flex-col lg:flex-row">
                 {/* Options Panel */}
-                <div className="flex-1 overflow-y-auto p-8 space-y-10 custom-scrollbar border-r border-white/5 bg-black/40">
+                {staffProfile?.role === 'waiter' ? (
+                  <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-black/40 border-r border-white/5 min-h-[400px]">
+                    <QrCode className="w-16 h-16 text-orange-600/40 mb-4" />
+                    <h4 className="text-sm font-black text-white uppercase tracking-wider mb-2">QR Customizer Locked</h4>
+                    <p className="text-xs text-neutral-500 font-bold max-w-xs leading-normal">
+                      Mhudumu (Waiter) hawezi kubadilisha mwonekano wa QR code kulingana na majukumu ya kazi. Tafadhali tumia panel ya kulia kufanya Preview na Kuchapa (Print) stand ya meza hii.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex-1 overflow-y-auto p-8 space-y-10 custom-scrollbar border-r border-white/5 bg-black/40">
                   
                   {/* QR Data Preview */}
                   <div className="space-y-4">
@@ -10702,6 +10747,7 @@ export default function VendorDashboard() {
                     )}
                   </div>
                 </div>
+                )}
 
                 {/* Preview Panel */}
                 <div className="lg:w-[480px] bg-[#0c0c0e] p-6 sm:p-10 flex flex-col items-center justify-start gap-8 relative overflow-y-auto custom-scrollbar min-h-[600px] lg:min-h-0">
