@@ -169,9 +169,27 @@ export default function Profile() {
   if (view === 'chat') return <Chat onBack={() => setView('menu')} />;
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 pb-20">
-      {/* Header Section - ENHANCED BOMBA LOOK */}
-      <div className="relative pt-12 pb-8">
+    <div className="max-w-6xl mx-auto space-y-6 pb-20 px-4">
+      {/* Top Navigation Bar / Breadcrumb */}
+      <div className="flex items-center justify-between pt-4">
+        <Link 
+          to="/" 
+          className="flex items-center gap-2 text-neutral-500 dark:text-neutral-400 hover:text-orange-600 dark:hover:text-orange-500 transition-colors font-black uppercase text-xs tracking-widest bg-white dark:bg-neutral-900 px-4 py-2.5 rounded-2xl shadow-sm border border-neutral-100 dark:border-neutral-800"
+        >
+          <ChevronLeft className="w-4 h-4 text-orange-600" />
+          <span>Rudi Nyumbani</span>
+        </Link>
+        
+        <div className="text-xs text-neutral-400 dark:text-neutral-500 font-bold uppercase tracking-wider hidden sm:block">
+          Wasifu Wa Mtumiaji
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* Left Column: Header Info */}
+        <div className="lg:col-span-5 w-full">
+          {/* Header Section - ENHANCED BOMBA LOOK */}
+          <div className="relative pt-12 pb-8">
         <div className="absolute top-0 left-0 right-0 h-40 bg-gradient-to-br from-orange-400 via-orange-600 to-orange-800 rounded-b-[4rem] shadow-xl" />
         
         <div className="relative z-10 px-6">
@@ -245,7 +263,11 @@ export default function Profile() {
         />
       </div>
 
-      {view === 'menu' && (
+        </div>
+
+      {/* Right Column: Menu & Edit Subviews */}
+      <div className="lg:col-span-7 w-full space-y-6">
+        {view === 'menu' && (
         <div className="space-y-4">
           <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white dark:bg-neutral-900 transition-colors">
             <CardContent className="p-2">
@@ -557,6 +579,8 @@ export default function Profile() {
           </CardContent>
         </Card>
       )}
+      </div>
+    </div>
     </div>
   );
 }
