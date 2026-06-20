@@ -231,8 +231,8 @@ function AppContent() {
                 </AnimatePresence>
                 <div className={`absolute inset-0 transition-opacity duration-300 ${
                   slides[currentSlideIndex].hideText 
-                    ? "bg-gradient-to-t from-black/60 via-transparent to-black/35" 
-                    : "bg-gradient-to-t from-black/95 via-black/60 to-black/80"
+                    ? "bg-gradient-to-t from-black/60 to-transparent" 
+                    : "bg-gradient-to-t from-black/90 via-black/40 to-transparent"
                 }`} />
               </div>
             )}
