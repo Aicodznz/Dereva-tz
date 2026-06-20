@@ -130,7 +130,7 @@
   }
   body {
     @apply bg-background text-foreground;
-    background-color: var(--bg-primary);
+    background-color: var(--background);
   }
   html {
     @apply font-sans;

@@ -175,11 +175,13 @@ function AppContent() {
             initial={{ opacity: 1 }}
             exit={{ opacity: 0, scale: 1.05 }}
             transition={{ duration: 0.5, ease: 'easeInOut' }}
-            className="fixed inset-0 z-[9999] flex flex-col justify-between p-6 select-none overflow-hidden"
+            className="fixed inset-0 z-[9999] flex flex-col justify-between px-6 select-none overflow-hidden"
             style={{ 
               backgroundColor: hasSlides && slides[currentSlideIndex] 
                 ? (slides[currentSlideIndex].color || '#0c0c0e') 
-                : activeSplash.color 
+                : activeSplash.color,
+              paddingTop: 'calc(1.5rem + env(safe-area-inset-top, 0px))',
+              paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))'
             }}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}

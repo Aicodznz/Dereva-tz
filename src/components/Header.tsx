@@ -65,6 +65,9 @@ export default function Header() {
       animate={hidden ? 'hidden' : 'visible'}
       transition={{ duration: 0.35, ease: 'easeInOut' }}
       className="sticky top-0 z-[150] bg-background/80 backdrop-blur-md border-b border-border shadow-sm"
+      style={{
+        paddingTop: 'env(safe-area-inset-top, 0px)'
+      }}
     >
       <div className={`${isFullscreen ? 'w-full px-4 md:px-6' : 'max-w-[2400px] mx-auto px-4 md:px-6'} h-16 md:h-20 flex items-center justify-between gap-2 md:gap-4 flex-shrink-0`}>
         
