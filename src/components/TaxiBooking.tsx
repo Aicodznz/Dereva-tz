@@ -26,6 +26,7 @@ import {
   Activity,
   ShieldCheck,
   User,
+  Users,
   CheckCircle2,
   DollarSign,
   Zap,
@@ -412,6 +413,7 @@ interface RideOption {
   vehicleType: "mini" | "bajaj" | "bike";
   discount?: string;
   imageUrl?: string;
+  capacity?: number;
 }
 
 // --- MAIN COMPONENT ---
@@ -1959,11 +1961,12 @@ export default function TaxiBooking() {
       icon: Car,
       sub: config?.vehicles?.mini?.sub || "Max 4 Siti",
       price: config?.vehicles?.mini?.price !== undefined ? Number(config.vehicles.mini.price) : 2800,
-      eta: "4",
+      eta: "3",
       vehicleType: "mini",
       image: config?.vehicles?.mini?.image || "🚗",
       imageUrl: config?.vehicles?.mini?.imageUrl || "",
       discount: "PUNGUZO 3K",
+      capacity: 4,
     },
     {
       id: "bajaj",
@@ -1971,10 +1974,11 @@ export default function TaxiBooking() {
       icon: BajajSVG,
       sub: config?.vehicles?.bajaj?.sub || "3 Siti",
       price: config?.vehicles?.bajaj?.price !== undefined ? Number(config.vehicles.bajaj.price) : 1500,
-      eta: "5",
+      eta: "4",
       vehicleType: "bajaj",
       image: config?.vehicles?.bajaj?.image || "🛺",
       imageUrl: config?.vehicles?.bajaj?.imageUrl || "",
+      capacity: 3,
     },
     {
       id: "bike",
@@ -1982,10 +1986,11 @@ export default function TaxiBooking() {
       icon: BikeSVG,
       sub: config?.vehicles?.bike?.sub || "Usafiri Salama",
       price: config?.vehicles?.bike?.price !== undefined ? Number(config.vehicles.bike.price) : 800,
-      eta: "3",
+      eta: "2",
       vehicleType: "bike",
       image: config?.vehicles?.bike?.image || "🏍️",
       imageUrl: config?.vehicles?.bike?.imageUrl || "",
+      capacity: 1,
     },
   ];
 
@@ -2746,7 +2751,7 @@ export default function TaxiBooking() {
                       <button
                         key={ride.id}
                         onClick={() => setSelectedRide(ride)}
-                        className={`shrink-0 w-32 p-5 rounded-3xl border-2 transition-all duration-300 flex flex-col items-center gap-3 relative overflow-hidden group ${
+                        className={`shrink-0 w-36 p-4 rounded-3xl border-2 transition-all duration-300 flex flex-col items-center gap-2 relative overflow-hidden group ${
                           selectedRide?.id === ride.id
                             ? "bg-[#7F77DD]/10 border-[#7F77DD] shadow-[0_0_20px_rgba(127,119,221,0.2)]"
                             : "bg-[#111118] border-white/5 opacity-60 hover:opacity-100 hover:border-white/10"
@@ -2767,7 +2772,7 @@ export default function TaxiBooking() {
                             <span className="text-4xl">{ride.image}</span>
                           )}
                         </div>
-                        <div className="text-center">
+                        <div className="text-center w-full">
                           <h4
                             className={`text-[10px] font-black uppercase tracking-wider ${selectedRide?.id === ride.id ? "text-[#7F77DD]" : "text-[#6b6b8a]"}`}
                           >
@@ -2776,6 +2781,18 @@ export default function TaxiBooking() {
                           <h3 className="text-xs font-black text-white italic mt-1">
                             TZS {ride.price.toLocaleString()}
                           </h3>
+                        </div>
+                        
+                        {/* Information of capacity and ETA */}
+                        <div className="w-full flex flex-col gap-1 border-t border-white/5 pt-2 mt-1">
+                          <div className="flex items-center justify-center gap-1.5 text-[9px] font-bold text-neutral-300">
+                            <Users className="w-3 h-3 text-[#7F77DD] shrink-0" />
+                            <span>Abiria {ride.capacity}</span>
+                          </div>
+                          <div className="flex items-center justify-center gap-1.5 text-[9px] font-bold text-neutral-400">
+                            <Clock className="w-3 h-3 text-emerald-400 shrink-0 animate-pulse" />
+                            <span>Fika: {ride.eta} min</span>
+                          </div>
                         </div>
                       </button>
                     ))}
