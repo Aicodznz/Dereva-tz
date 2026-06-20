@@ -2722,26 +2722,36 @@ export default function TaxiBooking() {
                     </div>
 
                     {suggestions.length > 0 && (
-                      <div className="absolute left-0 right-0 top-full mt-2 z-[100] bg-[#111118]/95 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl overflow-hidden max-h-[300px] overflow-y-auto">
-                        {suggestions.map((s, i) => (
-                          <button
-                            key={`suggest-${s.display_name}-${i}`}
-                            onClick={() => selectSuggestion(s)}
-                            className="w-full text-left p-4 hover:bg-white/5 flex items-center gap-4 border-b border-white/5 last:border-0 group"
-                          >
-                            <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-[#7f77dd] group-hover:bg-[#7f77dd]/20 transition-colors">
-                              <MapPin className="w-4 h-4" />
-                            </div>
-                            <div className="flex-1 overflow-hidden">
-                              <p className="text-sm font-bold text-white truncate">
-                                {s.display_name}
-                              </p>
-                              <p className="text-[10px] text-[#6b6b8a] truncate mt-0.5">
-                                Andika hapa kuchagua eneo hili
-                              </p>
-                            </div>
-                          </button>
-                        ))}
+                      <div className="absolute left-0 right-0 top-full mt-2 z-[100] bg-[#14141f] border-2 border-[#7f77dd]/30 rounded-3xl shadow-2xl overflow-hidden max-h-[300px] overflow-y-auto">
+                        <div className="px-4 py-2.5 bg-[#1b1b29] border-b border-white/5 text-[9px] font-black uppercase text-[#8a8ab0] tracking-wider">
+                          Maeneo Yaliyopatikana
+                        </div>
+                        {suggestions.map((s, i) => {
+                          const displayName = s.display_name || "";
+                          const parts = displayName.split(",");
+                          const mainName = parts[0] || "Eneo Lisilojulikana";
+                          const subName = parts.slice(1).join(",").trim() || "Chagua eneo hili";
+                          
+                          return (
+                            <button
+                              key={`suggest-${displayName}-${i}`}
+                              onClick={() => selectSuggestion(s)}
+                              className="w-full text-left p-4 hover:bg-white/5 active:bg-white/10 flex items-center gap-4 border-b border-white/5 last:border-0 group transition-all"
+                            >
+                              <div className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center text-[#7f77dd] group-hover:bg-[#7f77dd]/20 group-hover:scale-105 transition-all">
+                                <MapPin className="w-4 h-4" />
+                              </div>
+                              <div className="flex-1 overflow-hidden">
+                                <p className="text-sm font-bold text-white truncate group-hover:text-[#7f77dd] transition-colors">
+                                  {mainName}
+                                </p>
+                                <p className="text-[11px] text-[#8a8ab0] truncate mt-0.5">
+                                  {subName}
+                                </p>
+                              </div>
+                            </button>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
