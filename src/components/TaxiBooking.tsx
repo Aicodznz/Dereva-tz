@@ -658,6 +658,7 @@ export default function TaxiBooking() {
   const handleCurrentLocation = async (isInitial = false) => {
     let fallbackCalled = false;
     let gpsResolved = false;
+    const inIframe = window.self !== window.top;
     
     const triggerIpFallback = async () => {
       if (gpsResolved || fallbackCalled) return;
@@ -672,18 +673,23 @@ export default function TaxiBooking() {
           if (ipData && typeof ipData.latitude === 'number' && typeof ipData.longitude === 'number' && ipData.latitude !== 0) {
             const lat = ipData.latitude;
             const lng = ipData.longitude;
-            setPickupPos([lat, lng]);
-            setSettingMode("pickup");
-            const addr = await reverseGeocode(lat, lng);
-            if (addr && addr !== "Unknown Area" && addr !== "Eneo Halijapatikana" && addr !== "Unknown Location") {
-              setPickup(addr);
+            
+            if (isInTanzania(lat, lng)) {
+              setPickupPos([lat, lng]);
+              setSettingMode("pickup");
+              const addr = await reverseGeocode(lat, lng);
+              if (addr && addr !== "Unknown Area" && addr !== "Eneo Halijapatikana" && addr !== "Unknown Location") {
+                setPickup(addr);
+              } else {
+                setPickup(getNearestPopularPlace(lat, lng));
+              }
+              if (!isInitial) {
+                toast.success(`Eneo lako limetambuliwa (${ipData.cityName || 'Kabla nawe'}) 📍`);
+              }
+              return;
             } else {
-              setPickup(getNearestPopularPlace(lat, lng));
+              console.warn("[TaxiBooking] freeipapi returned coordinates outside Tanzania:", lat, lng);
             }
-            if (!isInitial) {
-              toast.success(`Eneo lako limetambuliwa (${ipData.cityName || 'Karibu nawe'}) 📍`);
-            }
-            return;
           }
         }
       } catch (err) {
@@ -698,18 +704,23 @@ export default function TaxiBooking() {
           if (ipData && ipData.success && typeof ipData.latitude === 'number' && typeof ipData.longitude === 'number') {
             const lat = ipData.latitude;
             const lng = ipData.longitude;
-            setPickupPos([lat, lng]);
-            setSettingMode("pickup");
-            const addr = await reverseGeocode(lat, lng);
-            if (addr && addr !== "Unknown Area" && addr !== "Eneo Halijapatikana" && addr !== "Unknown Location") {
-              setPickup(addr);
+            
+            if (isInTanzania(lat, lng)) {
+              setPickupPos([lat, lng]);
+              setSettingMode("pickup");
+              const addr = await reverseGeocode(lat, lng);
+              if (addr && addr !== "Unknown Area" && addr !== "Eneo Halijapatikana" && addr !== "Unknown Location") {
+                setPickup(addr);
+              } else {
+                setPickup(getNearestPopularPlace(lat, lng));
+              }
+              if (!isInitial) {
+                toast.success(`Eneo lako limetambuliwa Swahili (${ipData.city || 'Karibu nawe'}) 📍`);
+              }
+              return;
             } else {
-              setPickup(getNearestPopularPlace(lat, lng));
+              console.warn("[TaxiBooking] ipwho.is returned coordinates outside Tanzania:", lat, lng);
             }
-            if (!isInitial) {
-              toast.success(`Eneo lako limetambuliwa (${ipData.city || 'Karibu nawe'}) 📍`);
-            }
-            return;
           }
         }
       } catch (err) {
@@ -724,28 +735,33 @@ export default function TaxiBooking() {
           if (ipData && typeof ipData.latitude === 'number' && typeof ipData.longitude === 'number') {
             const lat = ipData.latitude;
             const lng = ipData.longitude;
-            setPickupPos([lat, lng]);
-            setSettingMode("pickup");
-            const addr = await reverseGeocode(lat, lng);
-            if (addr && addr !== "Unknown Area" && addr !== "Eneo Halijapatikana" && addr !== "Unknown Location") {
-              setPickup(addr);
+            
+            if (isInTanzania(lat, lng)) {
+              setPickupPos([lat, lng]);
+              setSettingMode("pickup");
+              const addr = await reverseGeocode(lat, lng);
+              if (addr && addr !== "Unknown Area" && addr !== "Eneo Halijapatikana" && addr !== "Unknown Location") {
+                setPickup(addr);
+              } else {
+                setPickup(getNearestPopularPlace(lat, lng));
+              }
+              if (!isInitial) {
+                toast.success(`Eneo lako limetambuliwa (${ipData.city || 'Karibu nawe'}) 📍`);
+              }
+              return;
             } else {
-              setPickup(getNearestPopularPlace(lat, lng));
+              console.warn("[TaxiBooking] ipapi.co returned coordinates outside Tanzania:", lat, lng);
             }
-            if (!isInitial) {
-              toast.success(`Eneo lako limetambuliwa (${ipData.city || 'Karibu nawe'}) 📍`);
-            }
-            return;
           }
         }
       } catch (err) {
         console.warn("[TaxiBooking] ipapi.co fallback failed:", err);
       }
 
-      // If all fallbacks fail, set the default coordinates
-      console.log("[TaxiBooking] All geolocation attempts failed. Falling back to default Dar es Salaam.");
-      const defLat = -6.7721;
-      const defLng = 39.2326;
+      // If all fallbacks fail or return locations outside of TZ, set default coordinates (Mwenge, Dar es Salaam)
+      console.log("[TaxiBooking] Geolocation failed or coordinates are outside Tanzania. Using default Dar es Salaam.");
+      const defLat = -6.7681;
+      const defLng = 39.2274;
       setPickupPos([defLat, defLng]);
       setSettingMode("pickup");
       try {
@@ -753,10 +769,18 @@ export default function TaxiBooking() {
         if (startAddr && startAddr !== "Eneo Halijapatikana" && startAddr !== "Unknown Area" && startAddr !== "Unknown Location") {
           setPickup(startAddr);
         } else {
-          setPickup(getNearestPopularPlace(defLat, defLng));
+          setPickup("Mwenge, Dar es Salaam");
         }
       } catch (e) {
-        setPickup(getNearestPopularPlace(defLat, defLng));
+        setPickup("Mwenge, Dar es Salaam");
+      }
+      
+      if (!isInitial) {
+        if (inIframe) {
+          toast.error("Imeshindwa kupata GPS sahihi kwenye Preview. Bofya alama ya 'Fungua katika Tab Mpya' juu kulia kupata GPS kamili! 📍", { duration: 8000 });
+        } else {
+          toast.error("Imeshindwa kukupata ki-GPS (Nje ya nchi au umezima location). Tumekuweka Mwenge, Dar es Salaam! 📍", { duration: 6000 });
+        }
       }
     };
 
@@ -779,7 +803,8 @@ export default function TaxiBooking() {
           
           const lat = position.coords.latitude;
           const lng = position.coords.longitude;
-          if (lat && lng) {
+          
+          if (lat && lng && isInTanzania(lat, lng)) {
             setPickupPos([lat, lng]);
             setSettingMode("pickup");
             const addr = await reverseGeocode(lat, lng);
@@ -788,8 +813,11 @@ export default function TaxiBooking() {
             } else {
               setPickup(getNearestPopularPlace(lat, lng));
             }
-            toast.success("Eneo lako la sasa limepatikana kupitia GPS! 📍");
+            if (!isInitial) {
+              toast.success("Eneo lako la sasa limepatikana kupitia GPS! 📍");
+            }
           } else {
+            console.warn("[TaxiBooking] GPS returned coordinates outside Tanzania or empty:", lat, lng);
             await triggerIpFallback();
           }
         },
@@ -805,7 +833,8 @@ export default function TaxiBooking() {
               
               const lat = positionLow.coords.latitude;
               const lng = positionLow.coords.longitude;
-              if (lat && lng) {
+              
+              if (lat && lng && isInTanzania(lat, lng)) {
                 setPickupPos([lat, lng]);
                 setSettingMode("pickup");
                 const addr = await reverseGeocode(lat, lng);
@@ -814,8 +843,11 @@ export default function TaxiBooking() {
                 } else {
                   setPickup(getNearestPopularPlace(lat, lng));
                 }
-                toast.success("Eneo lako limegunduliwa! 📍");
+                if (!isInitial) {
+                  toast.success("Eneo lako limegunduliwa! 📍");
+                }
               } else {
+                console.warn("[TaxiBooking] Low-accuracy GPS returned coordinates outside Tanzania or empty:", lat, lng);
                 await triggerIpFallback();
               }
             },
@@ -2772,59 +2804,67 @@ export default function TaxiBooking() {
                     )}
                   </div>
 
-                  <div className={`flex gap-4 overflow-x-auto no-scrollbar py-2 transition-all duration-200 ${suggestions.length > 0 ? "pointer-events-none opacity-20 grayscale select-none" : ""}`}>
-                    {rideOptions.map((ride) => (
-                      <button
-                        key={ride.id}
-                        onClick={() => {
-                          if (justSelectedRef.current) return;
-                          setSelectedRide(ride);
-                        }}
-                        className={`shrink-0 w-36 p-4 rounded-3xl border-2 transition-all duration-300 flex flex-col items-center gap-2 relative overflow-hidden group ${
-                          selectedRide?.id === ride.id
-                            ? "bg-[#7F77DD]/10 border-[#7F77DD] shadow-[0_0_20px_rgba(127,119,221,0.2)]"
-                            : "bg-[#111118] border-white/5 opacity-60 hover:opacity-100 hover:border-white/10"
-                        }`}
-                      >
-                        {selectedRide?.id === ride.id && (
-                          <motion.div
-                            layoutId="active-bg"
-                            className="absolute inset-0 bg-[#7F77DD]/10 pointer-events-none"
-                          />
-                        )}
-                        <div
-                          className={`flex items-center justify-center transition-transform duration-300 ${selectedRide?.id === ride.id ? "scale-110 drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]" : "group-hover:scale-105"}`}
+                  <div className={`grid grid-cols-3 gap-2.5 w-full py-3 transition-all duration-200 ${suggestions.length > 0 ? "pointer-events-none opacity-20 grayscale select-none" : ""}`}>
+                    {rideOptions.map((ride) => {
+                      const isSelected = selectedRide?.id === ride.id;
+                      return (
+                        <button
+                          key={ride.id}
+                          onClick={() => {
+                            if (justSelectedRef.current) return;
+                            setSelectedRide(ride);
+                          }}
+                          className={`w-full p-3.5 rounded-[24px] border-2 transition-all duration-300 flex flex-col items-center gap-2.5 relative overflow-hidden group ${
+                            isSelected
+                              ? "bg-[#7F77DD]/15 border-[#7F77DD] shadow-[0_0_25px_rgba(127,119,221,0.25)] scale-[1.02]"
+                              : "bg-[#141420] border-white/5 hover:border-white/10 hover:bg-[#181828]"
+                          }`}
                         >
-                          {ride.imageUrl ? (
-                            <img src={ride.imageUrl} className="w-12 h-12 object-contain" referrerPolicy="no-referrer" />
-                          ) : (
-                            <span className="text-4xl">{ride.image}</span>
+                          {isSelected && (
+                            <motion.div
+                              layoutId="active-bg"
+                              className="absolute inset-0 bg-[#7F77DD]/5 pointer-events-none"
+                            />
                           )}
-                        </div>
-                        <div className="text-center w-full">
-                          <h4
-                            className={`text-[10px] font-black uppercase tracking-wider ${selectedRide?.id === ride.id ? "text-[#7F77DD]" : "text-[#6b6b8a]"}`}
+                          
+                          {/* Active state small indicator point */}
+                          <div className={`absolute top-2 right-2 w-1.5 h-1.5 rounded-full transition-all duration-300 ${isSelected ? "bg-[#7F77DD] scale-100 shadow-[0_0_8px_#7F77DD]" : "bg-transparent scale-0"}`} />
+
+                          <div
+                            className={`flex items-center justify-center transition-transform duration-300 ${isSelected ? "scale-105 drop-shadow-[0_4px_12px_rgba(127,119,221,0.4)]" : "group-hover:scale-105"}`}
                           >
-                            {ride.name}
-                          </h4>
-                          <h3 className="text-xs font-black text-white italic mt-1">
-                            TZS {ride.price.toLocaleString()}
-                          </h3>
-                        </div>
-                        
-                        {/* Information of capacity and ETA */}
-                        <div className="w-full flex flex-col gap-1 border-t border-white/5 pt-2 mt-1">
-                          <div className="flex items-center justify-center gap-1.5 text-[9px] font-bold text-neutral-300">
-                            <Users className="w-3 h-3 text-[#7F77DD] shrink-0" />
-                            <span>Abiria {ride.capacity}</span>
+                            {ride.imageUrl ? (
+                              <img src={ride.imageUrl} className="w-11 h-11 object-contain" referrerPolicy="no-referrer" />
+                            ) : (
+                              <span className="text-3.5xl">{ride.image}</span>
+                            )}
                           </div>
-                          <div className="flex items-center justify-center gap-1.5 text-[9px] font-bold text-neutral-400">
-                            <Clock className="w-3 h-3 text-emerald-400 shrink-0 animate-pulse" />
-                            <span>Fika: {ride.eta} min</span>
+                          
+                          <div className="text-center w-full">
+                            <h4
+                              className={`text-[9px] font-black uppercase tracking-wider ${isSelected ? "text-[#7F77DD]" : "text-[#8a8ab0]"}`}
+                            >
+                              {ride.name}
+                            </h4>
+                            <h3 className={`text-[11px] font-black italic mt-0.5 transition-colors ${isSelected ? "text-white" : "text-neutral-200"}`}>
+                              TZS {ride.price.toLocaleString()}
+                            </h3>
                           </div>
-                        </div>
-                      </button>
-                    ))}
+                          
+                          {/* Information of capacity and ETA */}
+                          <div className="w-full flex flex-col gap-1 border-t border-white/5 pt-2 mt-0.5">
+                            <div className="flex items-center justify-center gap-1 text-[8.5px] font-bold text-neutral-300">
+                              <Users className="w-2.5 h-2.5 text-[#7F77DD] shrink-0" />
+                              <span>Abiria {ride.capacity}</span>
+                            </div>
+                            <div className="flex items-center justify-center gap-1 text-[8.5px] font-bold text-neutral-400">
+                              <Clock className="w-2.5 h-2.5 text-emerald-400 shrink-0 animate-pulse" />
+                              <span>Fika: {ride.eta} min</span>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
 
                   <button
