@@ -435,6 +435,7 @@ export default function TaxiBooking() {
   );
   const [selectedRide, setSelectedRide] = useState<RideOption | null>(null);
   const [secondsOffset, setSecondsOffset] = useState<number>(0);
+  const justSelectedRef = useRef(false);
 
   const [rideId, setRideId] = useState<string | null>(null);
   const { ride: activeRide, cancelRide, deleteRide } = useTripFlow(rideId);
@@ -1688,6 +1689,13 @@ export default function TaxiBooking() {
       setDestPos(pos);
       setDestination(suggestion.display_name);
     }
+    
+    // Set a flag that we just selected a suggestion to block any ghost-clicks for 400ms
+    justSelectedRef.current = true;
+    setTimeout(() => {
+      justSelectedRef.current = false;
+    }, 450);
+
     setSuggestions([]);
   };
 
@@ -2735,7 +2743,15 @@ export default function TaxiBooking() {
                           return (
                             <button
                               key={`suggest-${displayName}-${i}`}
-                              onClick={() => selectSuggestion(s)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                selectSuggestion(s);
+                              }}
+                              onMouseDown={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                              }}
                               className="w-full text-left p-4 hover:bg-white/5 active:bg-white/10 flex items-center gap-4 border-b border-white/5 last:border-0 group transition-all"
                             >
                               <div className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center text-[#7f77dd] group-hover:bg-[#7f77dd]/20 group-hover:scale-105 transition-all">
@@ -2756,11 +2772,14 @@ export default function TaxiBooking() {
                     )}
                   </div>
 
-                  <div className="flex gap-4 overflow-x-auto no-scrollbar py-2">
+                  <div className={`flex gap-4 overflow-x-auto no-scrollbar py-2 transition-all duration-200 ${suggestions.length > 0 ? "pointer-events-none opacity-20 grayscale select-none" : ""}`}>
                     {rideOptions.map((ride) => (
                       <button
                         key={ride.id}
-                        onClick={() => setSelectedRide(ride)}
+                        onClick={() => {
+                          if (justSelectedRef.current) return;
+                          setSelectedRide(ride);
+                        }}
                         className={`shrink-0 w-36 p-4 rounded-3xl border-2 transition-all duration-300 flex flex-col items-center gap-2 relative overflow-hidden group ${
                           selectedRide?.id === ride.id
                             ? "bg-[#7F77DD]/10 border-[#7F77DD] shadow-[0_0_20px_rgba(127,119,221,0.2)]"
@@ -2810,10 +2829,11 @@ export default function TaxiBooking() {
 
                   <button
                     onClick={() => {
+                      if (justSelectedRef.current) return;
                       console.log("Confirm button click");
                       confirmBooking();
                     }}
-                    disabled={isCreatingRide || !destination}
+                    disabled={isCreatingRide || !destination || suggestions.length > 0}
                     className="w-full h-16 bg-white text-[#0a0a0f] rounded-3xl font-black italic uppercase text-xs tracking-[0.2em] flex items-center justify-between px-10 disabled:opacity-30 disabled:grayscale transition-all active:scale-95 shadow-2xl relative overflow-hidden group"
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
