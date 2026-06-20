@@ -64,6 +64,41 @@ function AppContent() {
   const slides = config.splashSlides || [];
   const hasSlides = slides.length > 0;
 
+  const getSplashConfig = () => {
+    const role = profile?.role as string | undefined;
+    const driverType = profile?.driverType as string | undefined;
+
+    if (role === 'rider' && driverType === 'taxi') {
+      return {
+        logo: config.driverAppLogo || config.appLogo || 'https://cdn-icons-png.flaticon.com/512/5717/5717387.png',
+        text: config.driverSplashText || 'Usafiri wa Haraka, Salama na Uhakika (Dereva)',
+        color: config.driverSplashColor || '#121214',
+      };
+    }
+    if (role === 'rider' && driverType === 'delivery') {
+      return {
+        logo: config.deliveryAppLogo || config.appLogo || 'https://cdn-icons-png.flaticon.com/512/5717/5717387.png',
+        text: config.deliverySplashText || 'Uwasilishaji Haraka wa Vifurushi na Chakula',
+        color: config.deliverySplashColor || '#0a1a0f',
+      };
+    }
+    if (role === 'vendor') {
+      return {
+        logo: config.vendorAppLogo || config.appLogo || 'https://cdn-icons-png.flaticon.com/512/5717/5717387.png',
+        text: config.vendorSplashText || 'Sanidi Duka Lako Uweze Kuuza wepesi',
+        color: config.vendorSplashColor || '#0b161e',
+      };
+    }
+    // Default to Customer splash
+    return {
+      logo: config.customerAppLogo || config.appLogo || 'https://cdn-icons-png.flaticon.com/512/5717/5717387.png',
+      text: config.customerSplashText || config.splashText || 'Usafiri wa Haraka, Salama na Uhakika',
+      color: config.customerSplashColor || config.splashColor || '#0c0c0e',
+    };
+  };
+
+  const activeSplash = getSplashConfig();
+
   React.useEffect(() => {
     const checkMobile = () => {
       // Only show splash on mobile screen size (< 768px Width) - meaning inside "the App", not the desktop website
@@ -85,6 +120,33 @@ function AppContent() {
       return () => clearTimeout(timer);
     }
   }, [showSplash, hasSlides]);
+
+  React.useEffect(() => {
+    let activeColor = '#ffffff';
+    if (showSplash && isMobile) {
+      if (hasSlides && slides[currentSlideIndex]) {
+        activeColor = slides[currentSlideIndex].color || '#0c0c0e';
+      } else {
+        activeColor = activeSplash?.color || '#0c0c0e';
+      }
+    } else {
+      const isDarkMode = document.documentElement.classList.contains('dark') || 
+                         window.matchMedia('(prefers-color-scheme: dark)').matches;
+      activeColor = isDarkMode ? '#0a0a0f' : '#ffffff';
+    }
+
+    const metaTags = document.querySelectorAll('meta[name="theme-color"]');
+    if (metaTags.length > 0) {
+      metaTags.forEach(tag => {
+        tag.setAttribute('content', activeColor);
+      });
+    } else {
+      const meta = document.createElement('meta');
+      meta.name = 'theme-color';
+      meta.content = activeColor;
+      document.head.appendChild(meta);
+    }
+  }, [showSplash, isMobile, currentSlideIndex, hasSlides, slides, activeSplash?.color]);
 
   const handleSkip = () => {
     setShowSplash(false);
@@ -131,41 +193,6 @@ function AppContent() {
     setTouchStart(null);
     setTouchEnd(null);
   };
-
-  const getSplashConfig = () => {
-    const role = profile?.role as string | undefined;
-    const driverType = profile?.driverType as string | undefined;
-
-    if (role === 'rider' && driverType === 'taxi') {
-      return {
-        logo: config.driverAppLogo || config.appLogo || 'https://cdn-icons-png.flaticon.com/512/5717/5717387.png',
-        text: config.driverSplashText || 'Usafiri wa Haraka, Salama na Uhakika (Dereva)',
-        color: config.driverSplashColor || '#121214',
-      };
-    }
-    if (role === 'rider' && driverType === 'delivery') {
-      return {
-        logo: config.deliveryAppLogo || config.appLogo || 'https://cdn-icons-png.flaticon.com/512/5717/5717387.png',
-        text: config.deliverySplashText || 'Uwasilishaji Haraka wa Vifurushi na Chakula',
-        color: config.deliverySplashColor || '#0a1a0f',
-      };
-    }
-    if (role === 'vendor') {
-      return {
-        logo: config.vendorAppLogo || config.appLogo || 'https://cdn-icons-png.flaticon.com/512/5717/5717387.png',
-        text: config.vendorSplashText || 'Sanidi Duka Lako Uweze Kuuza wepesi',
-        color: config.vendorSplashColor || '#0b161e',
-      };
-    }
-    // Default to Customer splash
-    return {
-      logo: config.customerAppLogo || config.appLogo || 'https://cdn-icons-png.flaticon.com/512/5717/5717387.png',
-      text: config.customerSplashText || config.splashText || 'Usafiri wa Haraka, Salama na Uhakika',
-      color: config.customerSplashColor || config.splashColor || '#0c0c0e',
-    };
-  };
-
-  const activeSplash = getSplashConfig();
 
   return (
     <>
