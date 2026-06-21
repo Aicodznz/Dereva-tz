@@ -2008,6 +2008,95 @@ export default function TaxiBooking() {
     }
   };
 
+  // Get Pricing Rules dynamically from the Admin config with deep default fallbacks
+  const getPricingRules = () => {
+    const rawRules = config?.pricingRules;
+    const defaultRules: Record<string, any> = {
+      "Dar es Salaam": {
+        name: "Dar es Salaam",
+        active: true,
+        serviceStart: "05:00 AM",
+        serviceEnd: "11:59 PM",
+        nightMultiplier: 1.15,
+        nightStart: "10:00 PM",
+        nightEnd: "05:00 AM",
+        taxName: "VAT",
+        taxRate: 15,
+        taxActive: true,
+        rates: {
+          mini: { baseFare: 1000, pricePerKm: 800, pricePerMin: 100, waitingRate: 120, surgeRush: 1.25, surgeRain: 1.5 },
+          bajaj: { baseFare: 500, pricePerKm: 500, pricePerMin: 0, waitingRate: 50, surgeRush: 1.15, surgeRain: 1.3 },
+          bike: { baseFare: 300, pricePerKm: 350, pricePerMin: 0, waitingRate: 30, surgeRush: 1.1, surgeRain: 1.2 }
+        }
+      },
+      "Arusha": {
+        name: "Arusha",
+        active: true,
+        serviceStart: "05:00 AM",
+        serviceEnd: "11:00 PM",
+        nightMultiplier: 1.20,
+        nightStart: "10:00 PM",
+        nightEnd: "06:00 AM",
+        taxName: "Tourism Development Tax",
+        taxRate: 5,
+        taxActive: true,
+        rates: {
+          mini: { baseFare: 1200, pricePerKm: 880, pricePerMin: 110, waitingRate: 130, surgeRush: 1.3, surgeRain: 1.6 },
+          bajaj: { baseFare: 600, pricePerKm: 550, pricePerMin: 0, waitingRate: 55, surgeRush: 1.2, surgeRain: 1.4 },
+          bike: { baseFare: 400, pricePerKm: 385, pricePerMin: 0, waitingRate: 35, surgeRush: 1.15, surgeRain: 1.3 }
+        }
+      },
+      "Dodoma": {
+        name: "Dodoma",
+        active: true,
+        serviceStart: "06:00 AM",
+        serviceEnd: "10:30 PM",
+        nightMultiplier: 1.10,
+        nightStart: "10:00 PM",
+        nightEnd: "06:00 AM",
+        taxName: "Municipal Levy",
+        taxRate: 2,
+        taxActive: false,
+        rates: {
+          mini: { baseFare: 900, pricePerKm: 720, pricePerMin: 90, waitingRate: 100, surgeRush: 1.2, surgeRain: 1.4 },
+          bajaj: { baseFare: 450, pricePerKm: 450, pricePerMin: 0, waitingRate: 40, surgeRush: 1.1, surgeRain: 1.2 },
+          bike: { baseFare: 270, pricePerKm: 315, pricePerMin: 0, waitingRate: 25, surgeRush: 1.05, surgeRain: 1.15 }
+        }
+      },
+      "Mwanza": {
+        name: "Mwanza",
+        active: true,
+        serviceStart: "05:00 AM",
+        serviceEnd: "11:00 PM",
+        nightMultiplier: 1.15,
+        nightStart: "10:00 PM",
+        nightEnd: "05:30 AM",
+        taxName: "Lakefront Service Tax",
+        taxRate: 3,
+        taxActive: true,
+        rates: {
+          mini: { baseFare: 1000, pricePerKm: 760, pricePerMin: 95, waitingRate: 110, surgeRush: 1.25, surgeRain: 1.45 },
+          bajaj: { baseFare: 500, pricePerKm: 475, pricePerMin: 0, waitingRate: 45, surgeRush: 1.15, surgeRain: 1.3 },
+          bike: { baseFare: 300, pricePerKm: 332, pricePerMin: 0, waitingRate: 28, surgeRush: 1.1, surgeRain: 1.2 }
+        }
+      }
+    };
+
+    if (!rawRules) return defaultRules;
+    const merged = { ...defaultRules };
+    Object.keys(rawRules).forEach(key => {
+      merged[key] = {
+        ...defaultRules[key],
+        ...rawRules[key],
+        rates: {
+          ...(defaultRules[key]?.rates || {}),
+          ...(rawRules[key]?.rates || {})
+        }
+      };
+    });
+    return merged;
+  };
+
   const getDynamicPrice = (vehicleId: string, vehicleConfig: any) => {
     // Standard fallbacks if no destination or route is loaded
     const isPreRoute = !destination || !totalDistance || totalDistance <= 0;
@@ -2016,46 +2105,56 @@ export default function TaxiBooking() {
     const distKm = isPreRoute ? 3.0 : totalDistance / 1000;
     const durMins = isPreRoute ? 10 : Math.ceil((totalDuration || 300) / 60) || 1;
 
-    // Retrieve configs from admin dashboard or use precise Swahili fallbacks
-    let baseFare = vehicleConfig?.baseFare !== undefined ? Number(vehicleConfig.baseFare) : (vehicleId === 'mini' ? 1000 : vehicleId === 'bajaj' ? 500 : 300);
-    let pricePerKm = vehicleConfig?.pricePerKm !== undefined ? Number(vehicleConfig.pricePerKm) : (vehicleId === 'mini' ? 800 : vehicleId === 'bajaj' ? 500 : 350);
-    // Bajaji & Bodaboda don't charge in traffic (0 TZS/min) by default unless customized, Cars charge TZS 100/min
-    let pricePerMin = vehicleConfig?.pricePerMin !== undefined ? Number(vehicleConfig.pricePerMin) : (vehicleId === 'mini' ? 100 : 0);
+    // Load dynamic pricing rules for the selected city
+    const rules = getPricingRules();
+    const cityData = rules[selectedCity] || rules["Dar es Salaam"];
 
-    // City-specific tariff adjustments
-    if (selectedCity === "Arusha") {
-      // Arusha has hilly terrain & tourism factor: 10% extra on base and KM
-      pricePerKm = pricePerKm * 1.10;
-      baseFare = baseFare + 200;
-    } else if (selectedCity === "Dodoma") {
-      // Dodoma is flat & fast-flowing, less fuel usage, -10% on KM
-      pricePerKm = pricePerKm * 0.90;
-    } else if (selectedCity === "Mwanza") {
-      // Mwanza has medium hills, -5% on KM
-      pricePerKm = pricePerKm * 0.95;
-    }
+    // Base rates matching city/vehicle configs
+    const rId = vehicleId === "bike" ? "bike" : vehicleId === "bajaj" ? "bajaj" : "mini";
+    const cityRates = cityData?.rates?.[rId] || {
+      baseFare: rId === 'mini' ? 1000 : rId === 'bajaj' ? 500 : 300,
+      pricePerKm: rId === 'mini' ? 800 : rId === 'bajaj' ? 500 : 350,
+      pricePerMin: rId === 'mini' ? 100 : 0,
+      waitingRate: rId === 'mini' ? 120 : rId === 'bajaj' ? 50 : 30,
+      surgeRush: 1.25,
+      surgeRain: 1.5
+    };
+
+    const baseFare = cityRates.baseFare;
+    const pricePerKm = cityRates.pricePerKm;
+    const pricePerMin = cityRates.pricePerMin;
 
     // Core trip distance & duration cost
     const distanceCost = distKm * pricePerKm;
     const durationCost = durMins * pricePerMin;
 
-    // Waiting Time Settle (Muda wa Subira - customizable by rider/driver)
-    const waitingRate = vehicleId === "mini" ? 120 : vehicleId === "bajaj" ? 50 : 30; // TZS per min
+    // Waiting Time Settle
+    const waitingRate = cityRates.waitingRate !== undefined ? cityRates.waitingRate : (rId === "mini" ? 120 : rId === "bajaj" ? 50 : 30);
     const waitingCost = waitingTime * waitingRate;
 
     let subTotal = baseFare + distanceCost + durationCost + waitingCost;
 
-    // 15% Night Surcharge if enabled
+    // Night Surcharge if enabled (using city's specific night multiplier)
     if (isNightSurcharge) {
-      subTotal = subTotal * 1.15;
+      const nm = cityData?.nightMultiplier !== undefined ? Number(cityData.nightMultiplier) : 1.15;
+      subTotal = subTotal * nm;
     }
 
     // Dynamic Surcharges (Surge level)
     let surgeMultiplier = 1.0;
-    if (surgeLevel === "rush") surgeMultiplier = 1.25;
-    if (surgeLevel === "rain") surgeMultiplier = 1.5;
+    if (surgeLevel === "rush") {
+      surgeMultiplier = cityRates.surgeRush !== undefined ? cityRates.surgeRush : 1.25;
+    } else if (surgeLevel === "rain") {
+      surgeMultiplier = cityRates.surgeRain !== undefined ? cityRates.surgeRain : 1.5;
+    }
     
     subTotal = subTotal * surgeMultiplier;
+
+    // City Tax additions
+    if (cityData?.taxActive !== false && cityData?.taxRate > 0) {
+      const taxRateFactor = 1 + (Number(cityData.taxRate) / 100);
+      subTotal = subTotal * taxRateFactor;
+    }
     
     // Round to nearest 100 TZS for payment convenience
     const rounded = Math.ceil(subTotal / 100) * 100;
@@ -2893,10 +2992,15 @@ export default function TaxiBooking() {
                           onChange={(e) => setSelectedCity(e.target.value)}
                           className="w-full h-9 rounded-xl bg-[#0f0f18] text-xs font-bold text-white border border-white/10 px-2.5 outline-none focus:border-[#7F77DD]"
                         >
-                          <option value="Dar es Salaam">Dar es Salaam (Kawaida)</option>
-                          <option value="Arusha">Arusha (+10% Kilometa)</option>
-                          <option value="Dodoma">Dodoma (-10% Kilometa)</option>
-                          <option value="Mwanza">Mwanza (-5% Kilometa)</option>
+                          {Object.keys(getPricingRules()).filter(k => getPricingRules()[k]?.active !== false).map((cityName) => {
+                            const c = getPricingRules()[cityName];
+                            const label = cityName + (c?.taxActive && c?.taxRate ? ` (+${c.taxRate}% Kodi)` : ' (Kawaida)');
+                            return (
+                              <option key={cityName} value={cityName}>
+                                {label}
+                              </option>
+                            );
+                          })}
                         </select>
                       </div>
 
@@ -3373,30 +3477,41 @@ export default function TaxiBooking() {
                   const distKm = isPreRoute ? 3.0 : totalDistance / 1000;
                   const durMins = isPreRoute ? 10 : Math.ceil((totalDuration || 300) / 60) || 1;
 
-                  let baseFare = vehicleConfig?.baseFare !== undefined ? Number(vehicleConfig.baseFare) : (id === 'mini' ? 1000 : id === 'bajaj' ? 500 : 300);
-                  let pricePerKm = vehicleConfig?.pricePerKm !== undefined ? Number(vehicleConfig.pricePerKm) : (id === 'mini' ? 800 : id === 'bajaj' ? 500 : 350);
-                  let pricePerMin = vehicleConfig?.pricePerMin !== undefined ? Number(vehicleConfig.pricePerMin) : (id === 'mini' ? 100 : 0);
+                  // Load dynamic pricing rules for the selected city
+                  const rules = getPricingRules();
+                  const cityData = rules[selectedCity] || rules["Dar es Salaam"];
 
-                  // City adjustments
-                  if (selectedCity === "Arusha") {
-                    pricePerKm = pricePerKm * 1.10;
-                    baseFare = baseFare + 200;
-                  } else if (selectedCity === "Dodoma") {
-                    pricePerKm = pricePerKm * 0.90;
-                  } else if (selectedCity === "Mwanza") {
-                    pricePerKm = pricePerKm * 0.95;
-                  }
+                  // Base rates matching city/vehicle configs
+                  const rId = id === "bike" ? "bike" : id === "bajaj" ? "bajaj" : "mini";
+                  const cityRates = cityData?.rates?.[rId] || {
+                    baseFare: rId === 'mini' ? 1000 : rId === 'bajaj' ? 500 : 300,
+                    pricePerKm: rId === 'mini' ? 800 : rId === 'bajaj' ? 500 : 350,
+                    pricePerMin: rId === 'mini' ? 100 : 0,
+                    waitingRate: rId === 'mini' ? 120 : rId === 'bajaj' ? 50 : 30,
+                    surgeRush: 1.25,
+                    surgeRain: 1.5
+                  };
+
+                  const baseFare = cityRates.baseFare;
+                  const pricePerKm = cityRates.pricePerKm;
+                  const pricePerMin = cityRates.pricePerMin;
 
                   const kmCost = distKm * pricePerKm;
                   const minCost = durMins * pricePerMin;
 
-                  const waitingRate = id === "mini" ? 120 : id === "bajaj" ? 50 : 30;
+                  const waitingRate = cityRates.waitingRate !== undefined ? cityRates.waitingRate : (rId === "mini" ? 120 : rId === "bajaj" ? 50 : 30);
                   const waitingCost = waitingTime * waitingRate;
 
                   // Surge factor
                   let surgeMultiplier = 1.0;
-                  if (surgeLevel === "rush") surgeMultiplier = 1.25;
-                  if (surgeLevel === "rain") surgeMultiplier = 1.5;
+                  if (surgeLevel === "rush") {
+                    surgeMultiplier = cityRates.surgeRush !== undefined ? cityRates.surgeRush : 1.25;
+                  } else if (surgeLevel === "rain") {
+                    surgeMultiplier = cityRates.surgeRain !== undefined ? cityRates.surgeRain : 1.5;
+                  }
+
+                  const nm = cityData?.nightMultiplier !== undefined ? Number(cityData.nightMultiplier) : 1.15;
+                  const taxRate = cityData?.taxActive !== false && cityData?.taxRate > 0 ? Number(cityData.taxRate) : 0;
 
                   return (
                     <div 
@@ -3409,7 +3524,7 @@ export default function TaxiBooking() {
                     >
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
-                          <span className="text-xl">{ride.image}</span>
+                          <span className="text-xl">{ride.image || (id === 'mini' ? '🚗' : id === 'bajaj' ? '🛺' : '🏍️')}</span>
                           <div>
                             <h4 className="text-xs font-black uppercase tracking-wide">{ride.name}</h4>
                             <p className="text-[8px] text-neutral-400 font-bold uppercase">{ride.sub}</p>
@@ -3457,11 +3572,19 @@ export default function TaxiBooking() {
                           </div>
                         )}
 
+                        {/* Code for City Taxes */}
+                        {taxRate > 0 && (
+                          <div className="flex justify-between items-center bg-emerald-500/5 p-1.5 rounded-lg text-emerald-400">
+                            <span>Tozo/Kodi ({cityData.taxName || "Kodi"} - {taxRate}%):</span>
+                            <span>Imijumuishwa kwenye jumla</span>
+                          </div>
+                        )}
+
                         {/* Surcharges info row */}
                         <div className="flex flex-wrap gap-1.5 pt-1">
                           {isNightSurcharge && (
                             <span className="text-[8px] text-[#7F77DD] bg-[#7F77DD]/10 px-2 py-0.5 rounded-full font-black uppercase tracking-wider">
-                              Usiku (+15%)
+                              Usiku ({nm}x Nomino)
                             </span>
                           )}
                           {surgeLevel !== "normal" && (

@@ -20,7 +20,7 @@ import {
   Bell, Plus, Trash2, Send, LayoutDashboard, Megaphone, Home,
   Users, ShoppingBag, DollarSign, MessageCircle, AlertTriangle,
   ExternalLink, Search, Ban, History, BarChart3, Settings, Info, CreditCard, Star, Key,
-  Package, Undo2, Bike, Trophy, Wallet, MessageSquare, Globe, Clock, Coins, Loader2, Zap,
+  Package, Undo2, Bike, Trophy, Wallet, MessageSquare, Globe, Clock, Coins, Moon, Loader2, Zap,
   Bed, Wifi, Wind, Monitor, Car, Waves, MapPin, Mail, Phone, PhoneCall, FileText, User, Camera,
   Menu, MoreHorizontal, MoreVertical, LayoutGrid, LogOut, ArrowUp, ArrowDown
 } from 'lucide-react';
@@ -121,6 +121,97 @@ interface Coupon {
   createdBy: string;
   createdAt?: any;
 }
+
+const DEFAULT_PRICING_RULES: Record<string, any> = {
+  "Dar es Salaam": {
+    name: "Dar es Salaam",
+    state: "Coast",
+    country: "Tanzania",
+    lat: -6.7924,
+    lng: 39.2083,
+    active: true,
+    serviceStart: "05:00 AM",
+    serviceEnd: "11:59 PM",
+    nightMultiplier: 1.15,
+    nightStart: "10:00 PM",
+    nightEnd: "05:00 AM",
+    taxName: "VAT",
+    taxRate: 15,
+    taxDescription: "Kodi ya Ongezeko la Thamani",
+    taxActive: true,
+    rates: {
+      mini: { baseFare: 1000, pricePerKm: 800, pricePerMin: 100, waitingRate: 120, surgeRush: 1.25, surgeRain: 1.5 },
+      bajaj: { baseFare: 500, pricePerKm: 500, pricePerMin: 0, waitingRate: 50, surgeRush: 1.15, surgeRain: 1.3 },
+      bike: { baseFare: 300, pricePerKm: 350, pricePerMin: 0, waitingRate: 30, surgeRush: 1.1, surgeRain: 1.2 }
+    }
+  },
+  "Arusha": {
+    name: "Arusha",
+    state: "Arusha Rural",
+    country: "Tanzania",
+    lat: -3.3731,
+    lng: 36.6853,
+    active: true,
+    serviceStart: "05:00 AM",
+    serviceEnd: "11:00 PM",
+    nightMultiplier: 1.20,
+    nightStart: "10:00 PM",
+    nightEnd: "06:00 AM",
+    taxName: "Tourism Development Tax",
+    taxRate: 5,
+    taxDescription: "Kodi ya Huduma ya Utalii",
+    taxActive: true,
+    rates: {
+      mini: { baseFare: 1200, pricePerKm: 880, pricePerMin: 110, waitingRate: 130, surgeRush: 1.3, surgeRain: 1.6 },
+      bajaj: { baseFare: 600, pricePerKm: 550, pricePerMin: 0, waitingRate: 55, surgeRush: 1.2, surgeRain: 1.4 },
+      bike: { baseFare: 400, pricePerKm: 385, pricePerMin: 0, waitingRate: 35, surgeRush: 1.15, surgeRain: 1.3 }
+    }
+  },
+  "Dodoma": {
+    name: "Dodoma",
+    state: "Dodoma Urban",
+    country: "Tanzania",
+    lat: -6.1731,
+    lng: 35.7419,
+    active: true,
+    serviceStart: "06:00 AM",
+    serviceEnd: "10:30 PM",
+    nightMultiplier: 1.10,
+    nightStart: "10:00 PM",
+    nightEnd: "06:00 AM",
+    taxName: "Municipal Levy",
+    taxRate: 2,
+    taxDescription: "Kodi ya Maendeleo ya Halmashauri Ya Jiji",
+    taxActive: false,
+    rates: {
+      mini: { baseFare: 900, pricePerKm: 720, pricePerMin: 90, waitingRate: 100, surgeRush: 1.2, surgeRain: 1.4 },
+      bajaj: { baseFare: 450, pricePerKm: 450, pricePerMin: 0, waitingRate: 40, surgeRush: 1.1, surgeRain: 1.2 },
+      bike: { baseFare: 270, pricePerKm: 315, pricePerMin: 0, waitingRate: 25, surgeRush: 1.05, surgeRain: 1.15 }
+    }
+  },
+  "Mwanza": {
+    name: "Mwanza",
+    state: "Nyamagana",
+    country: "Tanzania",
+    lat: -2.5164,
+    lng: 32.9009,
+    active: true,
+    serviceStart: "05:00 AM",
+    serviceEnd: "11:00 PM",
+    nightMultiplier: 1.15,
+    nightStart: "10:00 PM",
+    nightEnd: "05:30 AM",
+    taxName: "Lakefront Service Tax",
+    taxRate: 3,
+    taxDescription: "Usajili na Kodi ya Huduma ya Bandari/Ziwa",
+    taxActive: true,
+    rates: {
+      mini: { baseFare: 1000, pricePerKm: 760, pricePerMin: 95, waitingRate: 110, surgeRush: 1.25, surgeRain: 1.45 },
+      bajaj: { baseFare: 500, pricePerKm: 475, pricePerMin: 0, waitingRate: 45, surgeRush: 1.15, surgeRain: 1.3 },
+      bike: { baseFare: 300, pricePerKm: 332, pricePerMin: 0, waitingRate: 28, surgeRush: 1.1, surgeRain: 1.2 }
+    }
+  }
+};
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -225,6 +316,10 @@ export default function AdminDashboard() {
     }
   };
   const [selectedAppProfile, setSelectedAppProfile] = useState<'customer' | 'driver' | 'vendor' | 'deliveryman'>('customer');
+  const [selectedPricingCity, setSelectedPricingCity] = useState("Dar es Salaam");
+  const [pricingSubTab, setPricingSubTab] = useState<'basic_info' | 'service_hours' | 'night_charges' | 'tariffs' | 'tax'>('basic_info');
+  const [isAddingCity, setIsAddingCity] = useState(false);
+  const [newCityName, setNewCityName] = useState("");
   const [businessConfig, setBusinessConfig] = useState<any>({
     name: 'M-Duka Platform',
     email: 'admin@mduka.com',
@@ -1838,6 +1933,7 @@ export default function AdminDashboard() {
                 { id: 'business_info', label: t('admin_settings_business_info'), icon: Info },
                 { id: 'app_design', label: t('admin_settings_app_design'), icon: Monitor },
                 { id: 'vehicles', label: 'Usafiri (Vehicles)', icon: Car },
+                { id: 'pricing_rules', label: 'Miji & Bei (Tariffs/Pricing)', icon: Coins },
                 { id: 'payment', label: t('admin_settings_payment'), icon: CreditCard },
                 { id: 'vendor', label: t('admin_settings_vendor'), icon: Store },
                 { id: 'order', label: t('admin_settings_order'), icon: Package },
@@ -3388,6 +3484,577 @@ export default function AdminDashboard() {
                     Hifadhi Mabadiliko (Save Vehicles Settings)
                   </Button>
                 </div>
+              </div>
+            )}
+
+            {activeSettingsTab === 'pricing_rules' && (
+              <div className="space-y-8 animate-in fade-in-50 duration-200">
+                {/* Description Card */}
+                <Card className="rounded-[3rem] border-none shadow-2xl p-8 bg-gradient-to-br from-neutral-900 to-indigo-950/40 border border-indigo-900/30 text-white space-y-4">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                      <h3 className="text-xl font-black uppercase italic tracking-tight flex items-center gap-2">
+                        <Coins className="w-6 h-6 text-orange-500 animate-pulse" />
+                        Meneja wa Ushuru na Bei za Safari (City Pricing & Tariffs)
+                      </h3>
+                      <p className="text-xs text-indigo-200/80 font-medium">
+                        Mfumo huu unakuruhusu kupanga bei ya kuanza safari (Base fare), malipo kwa kila Kilometa (Distance charges), ada ya kusubiri (Waiting fees), kodi za kila mji, ada za usiku (Night charges), na bei ya kuongezeka kwa uhitaji (Surge logic) kwa kila aina ya safari na mji.
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+
+                {/* City Selection Top Bar */}
+                <div className="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-neutral-900 p-4 rounded-3xl border border-neutral-100 dark:border-neutral-800">
+                  <div className="flex flex-wrap gap-2">
+                    {Object.keys(businessConfig.pricingRules || DEFAULT_PRICING_RULES).map((cityName) => {
+                      const cityData = (businessConfig.pricingRules || DEFAULT_PRICING_RULES)[cityName];
+                      const isActive = cityData?.active;
+                      return (
+                        <button
+                          key={cityName}
+                          onClick={() => setSelectedPricingCity(cityName)}
+                          className={`px-5 py-2.5 rounded-2xl text-xs font-black uppercase transition-all flex items-center gap-2 ${
+                            selectedPricingCity === cityName
+                              ? 'bg-orange-600 text-white shadow-md'
+                              : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200'
+                          }`}
+                        >
+                          <MapPin className="w-3.5 h-3.5" />
+                          <span>{cityName}</span>
+                          <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {isAddingCity ? (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={newCityName}
+                          placeholder="Jina la Mji Mpya"
+                          onChange={(e) => setNewCityName(e.target.value)}
+                          className="h-10 text-xs rounded-xl bg-neutral-100 dark:bg-neutral-850"
+                        />
+                        <Button
+                          size="sm"
+                          className="bg-emerald-600 text-white hover:bg-emerald-700 font-bold"
+                          onClick={() => {
+                            if (!newCityName.trim()) {
+                              toast.error("Tafadhali weka jina la mji!");
+                              return;
+                            }
+                            const name = newCityName.trim();
+                            const rules = businessConfig.pricingRules || DEFAULT_PRICING_RULES;
+                            if (rules[name]) {
+                              toast.error("Mji huu tayari upo!");
+                              return;
+                            }
+                            const updated = {
+                              ...rules,
+                              [name]: {
+                                name: name,
+                                state: "Mkoa mpya",
+                                country: "Tanzania",
+                                lat: -6.7924,
+                                lng: 39.2083,
+                                active: true,
+                                serviceStart: "05:00 AM",
+                                serviceEnd: "11:00 PM",
+                                nightMultiplier: 1.15,
+                                nightStart: "10:00 PM",
+                                nightEnd: "06:00 AM",
+                                taxName: "VAT",
+                                taxRate: 15,
+                                taxDescription: "Kodi ya Ongezeko la Thamani",
+                                taxActive: true,
+                                rates: {
+                                  mini: { baseFare: 1000, pricePerKm: 800, pricePerMin: 100, waitingRate: 120, surgeRush: 1.25, surgeRain: 1.5 },
+                                  bajaj: { baseFare: 500, pricePerKm: 500, pricePerMin: 0, waitingRate: 50, surgeRush: 1.15, surgeRain: 1.3 },
+                                  bike: { baseFare: 300, pricePerKm: 350, pricePerMin: 0, waitingRate: 30, surgeRush: 1.1, surgeRain: 1.2 }
+                                }
+                              }
+                            };
+                            setBusinessConfig({ ...businessConfig, pricingRules: updated });
+                            setSelectedPricingCity(name);
+                            setNewCityName("");
+                            setIsAddingCity(false);
+                            toast.success(`Mji wa ${name} umeongezwa!`);
+                          }}
+                        >
+                          Ongeza
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="font-bold text-xs"
+                          onClick={() => setIsAddingCity(false)}
+                        >
+                          Futa
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        onClick={() => setIsAddingCity(true)}
+                        className="bg-neutral-900 hover:bg-neutral-900/90 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-white font-bold text-xs uppercase flex items-center gap-2 rounded-xl"
+                        size="sm"
+                      >
+                        <Plus className="w-4 h-4" />
+                        + Ongeza Mji
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Actual Form for Selected City */}
+                {(() => {
+                  const rules = businessConfig.pricingRules || DEFAULT_PRICING_RULES;
+                  const city = rules[selectedPricingCity];
+                  if (!city) {
+                    return (
+                      <div className="bg-white dark:bg-neutral-950 p-12 rounded-3xl text-center border">
+                        <MapPin className="w-12 h-12 text-neutral-300 mx-auto mb-3" />
+                        <p className="text-neutral-400 font-bold uppercase text-xs">Mji huu ulikua umechaguliwa lakini haupo kwenye vigezo. Tafadhali chagua mwingine.</p>
+                      </div>
+                    );
+                  }
+
+                  const updateCityField = (field: string, value: any) => {
+                    const updatedCity = { ...city, [field]: value };
+                    const updatedPricing = { ...rules, [selectedPricingCity]: updatedCity };
+                    setBusinessConfig({ ...businessConfig, pricingRules: updatedPricing });
+                  };
+
+                  const updateRideRate = (rideId: string, rateField: string, value: number) => {
+                    const currentRates = city.rates || {
+                      mini: { baseFare: 1000, pricePerKm: 800, pricePerMin: 100, waitingRate: 120, surgeRush: 1.25, surgeRain: 1.5 },
+                      bajaj: { baseFare: 500, pricePerKm: 500, pricePerMin: 0, waitingRate: 50, surgeRush: 1.15, surgeRain: 1.3 },
+                      bike: { baseFare: 300, pricePerKm: 350, pricePerMin: 0, waitingRate: 30, surgeRush: 1.1, surgeRain: 1.2 }
+                    };
+                    const updatedRideRates = {
+                      ...currentRates,
+                      [rideId]: {
+                        ...currentRates[rideId],
+                        [rateField]: value
+                      }
+                    };
+                    updateCityField('rates', updatedRideRates);
+                  };
+
+                  return (
+                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                      {/* Subtabs Vertical menu */}
+                      <div className="lg:col-span-1 space-y-2">
+                        {[
+                          { id: 'basic_info', label: 'Taarifa za Msingi', sub: 'Basic Location & Active State' },
+                          { id: 'service_hours', label: 'Masaa ya Huduma', sub: 'Operating Service Window' },
+                          { id: 'night_charges', label: 'Ada za Usiku (Night)', sub: 'Night Surcharges & Hours' },
+                          { id: 'tariffs', label: 'Bei ya Kila Chombo', sub: 'Base & Distances Charges' },
+                          { id: 'tax', label: 'Kodi za Mji (Tax Rules)', sub: 'GST / VAT / Service Levies' },
+                        ].map((sub) => (
+                          <button
+                            key={sub.id}
+                            type="button"
+                            onClick={() => setPricingSubTab(sub.id as any)}
+                            className={`w-full text-left p-4 rounded-3xl transition-all border ${
+                              pricingSubTab === sub.id
+                                ? 'bg-orange-600 text-white border-orange-600 shadow-lg shadow-orange-100/50 dark:shadow-none'
+                                : 'bg-white dark:bg-neutral-900 text-neutral-800 dark:text-neutral-200 border-neutral-100 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800/50'
+                            }`}
+                          >
+                            <div className="font-extrabold text-xs uppercase tracking-tight">{sub.label}</div>
+                            <div className={`text-[9px] font-medium mt-0.5 ${pricingSubTab === sub.id ? 'text-orange-100/80' : 'text-neutral-400'}`}>{sub.sub}</div>
+                          </button>
+                        ))}
+
+                        {/* Delete City Option */}
+                        {selectedPricingCity !== "Dar es Salaam" && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (confirm(`Je, una uhakika unataka kuondoa kabisa mji wa ${selectedPricingCity}?`)) {
+                                const clonedRules = { ...rules };
+                                delete clonedRules[selectedPricingCity];
+                                setBusinessConfig({ ...businessConfig, pricingRules: clonedRules });
+                                setSelectedPricingCity("Dar es Salaam");
+                                toast.success("Mji umeondolewa kutoka kwenye mfumo!");
+                              }
+                            }}
+                            className="w-full text-left p-4 rounded-3xl bg-red-550/10 hover:bg-red-500/15 border border-red-500/20 text-red-600 transition-all flex items-center justify-between"
+                          >
+                            <div>
+                              <div className="font-extrabold text-xs uppercase tracking-tight">Ondoa Mji</div>
+                              <div className="text-[9px] opacity-85 font-semibold mt-0.5">Futa herufi na bei za mji huu</div>
+                            </div>
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Form Editor content container */}
+                      <div className="lg:col-span-3">
+                        <Card className="rounded-[2.5rem] border border-neutral-100 dark:border-neutral-800 p-8 space-y-6 bg-white dark:bg-neutral-900">
+                          
+                          {/* Basic Info Tab */}
+                          {pricingSubTab === 'basic_info' && (
+                            <div className="space-y-6">
+                              <div>
+                                <h4 className="text-sm font-black uppercase tracking-wider text-neutral-800 dark:text-white">Hatua ya 1: Taarifa ya Eneo & Upatikanaji</h4>
+                                <p className="text-[11px] text-neutral-400 font-medium mt-1">Hapa unaweka jina la mji, mkoa wake, na viwango vya kijiografia vya katikati ya mji huu kwa huduma za usafiri.</p>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                  <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Jina la Mji (City Name)*</Label>
+                                  <Input
+                                    value={city.name || ""}
+                                    disabled={selectedPricingCity === "Dar es Salaam"}
+                                    onChange={(e) => updateCityField('name', e.target.value)}
+                                    className="h-11 rounded-xl border bg-neutral-50 dark:bg-neutral-950 text-neutral-805 dark:text-white"
+                                  />
+                                </div>
+
+                                <div className="space-y-2">
+                                  <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Mkoa/Jimbo (State/Province)</Label>
+                                  <Input
+                                    value={city.state || ""}
+                                    onChange={(e) => updateCityField('state', e.target.value)}
+                                    className="h-11 rounded-xl border bg-neutral-50 dark:bg-neutral-950 text-neutral-808 dark:text-white"
+                                  />
+                                </div>
+
+                                <div className="space-y-2">
+                                  <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Nchi (Country)*</Label>
+                                  <Input
+                                    value={city.country || ""}
+                                    onChange={(e) => updateCityField('country', e.target.value)}
+                                    className="h-11 rounded-xl border bg-neutral-50 dark:bg-neutral-950 text-neutral-800 dark:text-white"
+                                  />
+                                </div>
+
+                                <div className="space-y-2">
+                                  <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Hali ya Utumishi (Status/Active)*</Label>
+                                  <div className="flex items-center justify-between h-11 bg-neutral-50 dark:bg-neutral-950 px-4 rounded-xl border">
+                                    <span className="text-xs font-semibold text-neutral-400">Ruhusu huduma mji huu</span>
+                                    <Switch
+                                      checked={city.active !== false}
+                                      onCheckedChange={(checked) => updateCityField('active', checked)}
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4 md:col-span-2">
+                                  <div className="space-y-2">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Latitude (Lat)*</Label>
+                                    <Input
+                                      type="number"
+                                      step="0.0001"
+                                      value={city.lat || ""}
+                                      onChange={(e) => updateCityField('lat', Number(e.target.value))}
+                                      className="h-11 rounded-xl border bg-neutral-50 dark:bg-neutral-950"
+                                    />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Longitude (Lng)*</Label>
+                                    <Input
+                                      type="number"
+                                      step="0.0001"
+                                      value={city.lng || ""}
+                                      onChange={(e) => updateCityField('lng', Number(e.target.value))}
+                                      className="h-11 rounded-xl border bg-neutral-50 dark:bg-neutral-950"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Service Hours Tab */}
+                          {pricingSubTab === 'service_hours' && (
+                            <div className="space-y-6">
+                              <div>
+                                <h4 className="text-sm font-black uppercase tracking-wider text-neutral-800 dark:text-white">Hatua ya 2: Masaa ya Huduma (Service Hours)</h4>
+                                <p className="text-[11px] text-neutral-400 font-medium mt-1">Ufafanuzi wa muda kuanzia asubuhi hadi usiku ambapo wateja wanaweza kuagiza gari, bajaji au pikipiki mji huu.</p>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                  <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500 flex items-center gap-1.5">
+                                    <Clock className="w-3.5 h-3.5 text-orange-500" />
+                                    Muda wa Kuanza Huduma (Service Start Time)*
+                                  </Label>
+                                  <Input
+                                    value={city.serviceStart || "05:00 AM"}
+                                    placeholder="Mifano: 05:00 AM au 06:00 AM"
+                                    onChange={(e) => updateCityField('serviceStart', e.target.value)}
+                                    className="h-11 rounded-xl border bg-neutral-50 dark:bg-neutral-950 text-neutral-800 dark:text-white font-bold"
+                                  />
+                                  <span className="text-[9px] text-neutral-400 font-semibold uppercase">Muda utakaofungua upatikanaji</span>
+                                </div>
+
+                                <div className="space-y-2">
+                                  <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500 flex items-center gap-1.5">
+                                    <Clock className="w-3.5 h-3.5 text-red-550" />
+                                    Muda wa Kufunga Huduma (Service End Time)*
+                                  </Label>
+                                  <Input
+                                    value={city.serviceEnd || "11:50 PM"}
+                                    placeholder="Mifano: 11:59 PM au 11:00 PM"
+                                    onChange={(e) => updateCityField('serviceEnd', e.target.value)}
+                                    className="h-11 rounded-xl border bg-neutral-50 dark:bg-neutral-950 text-neutral-800 dark:text-white font-bold"
+                                  />
+                                  <span className="text-[9px] text-neutral-400 font-semibold uppercase">Muda wa kuzima maombi ya usafiri</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Night Charges Tab */}
+                          {pricingSubTab === 'night_charges' && (
+                            <div className="space-y-6">
+                              <div>
+                                <h4 className="text-sm font-black uppercase tracking-wider text-neutral-800 dark:text-white">Hatua ya 3: Ada na Masaa ya Usiku (Night Surcharges)</h4>
+                                <p className="text-[11px] text-neutral-400 font-medium mt-1">Usiku huletea changamoto kubwa na upungufu wa madereva. Customize nyongeza ya bei ya usiku (mfano nyongeza ya 1.15 ifanane na +15%, au 1.50 kwa +50%) na masaa husika.</p>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div className="space-y-2">
+                                  <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500 flex items-center gap-1">
+                                    <Zap className="w-3.5 h-3.5 text-indigo-500 animate-pulse" />
+                                    Kiwango cha Nyongeza (Multiplier)*
+                                  </Label>
+                                  <Input
+                                    type="number"
+                                    step="0.05"
+                                    value={city.nightMultiplier || 1.15}
+                                    onChange={(e) => updateCityField('nightMultiplier', Number(e.target.value))}
+                                    className="h-11 rounded-xl border bg-neutral-50 dark:bg-neutral-950 text-indigo-500 dark:text-indigo-400 font-extrabold text-center"
+                                  />
+                                  <span className="text-[9px] text-neutral-450 font-semibold block uppercase">Mifano: 1.15 inamaanisha nyongeza ya salama ya 15%</span>
+                                </div>
+
+                                <div className="space-y-2">
+                                  <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500 flex items-center gap-1">
+                                    <Moon className="w-3.5 h-3.5 text-indigo-500" />
+                                    Saa ya Kuanza (Start Time)*
+                                  </Label>
+                                  <Input
+                                    value={city.nightStart || "10:00 PM"}
+                                    onChange={(e) => updateCityField('nightStart', e.target.value)}
+                                    className="h-11 rounded-xl border bg-neutral-50 dark:bg-neutral-950 font-bold"
+                                  />
+                                </div>
+
+                                <div className="space-y-2">
+                                  <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500 flex items-center gap-1">
+                                    <Moon className="w-3.5 h-3.5 text-indigo-505" />
+                                    Saa ya Kuisha (End Time)*
+                                  </Label>
+                                  <Input
+                                    value={city.nightEnd || "05:00 AM"}
+                                    onChange={(e) => updateCityField('nightEnd', e.target.value)}
+                                    className="h-11 rounded-xl border bg-neutral-50 dark:bg-neutral-950 font-bold"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Tariffs / Rates Tab */}
+                          {pricingSubTab === 'tariffs' && (
+                            <div className="space-y-6">
+                              <div>
+                                <h4 className="text-sm font-black uppercase tracking-wider text-neutral-800 dark:text-white">Hatua ya 4: Ada za Kila Aina ya Chombo (Tariffs & Surge per Ride Type)</h4>
+                                <p className="text-[11px] text-neutral-400 font-medium mt-1">Ukurasa wa kuweka viwango halisi vya nauli ambavyo vitahesabiwa kwa mji ulioteuliwa ({selectedPricingCity}) kwa kila chombo.</p>
+                              </div>
+
+                              <div className="space-y-8 divide-y divide-neutral-100 dark:divide-neutral-800">
+                                {[
+                                  { id: 'mini', name: 'Gari / Taxi (🚗)', defBase: 1000, defKm: 800, defMin: 100, defWait: 120 },
+                                  { id: 'bajaj', name: 'Bajaji (🛺)', defBase: 500, defKm: 500, defMin: 0, defWait: 50 },
+                                  { id: 'bike', name: 'Pikipiki / Boda (🏍️)', defBase: 300, defKm: 350, defMin: 0, defWait: 30 },
+                                ].map((vt, vIdx) => {
+                                  const rates = city.rates || {};
+                                  const vRate = rates[vt.id] || {
+                                    baseFare: vt.defBase,
+                                    pricePerKm: vt.defKm,
+                                    pricePerMin: vt.defMin,
+                                    waitingRate: vt.defWait,
+                                    surgeRush: 1.25,
+                                    surgeRain: 1.5
+                                  };
+
+                                  return (
+                                    <div key={vt.id} className={`pt-6 ${vIdx === 0 ? 'pt-0' : ''} space-y-4`}>
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-xs font-black uppercase tracking-wider text-orange-600 dark:text-orange-400 bg-orange-600/5 dark:bg-orange-600/10 px-3.5 py-1.5 rounded-full flex items-center gap-1.5">
+                                          <span>{vt.name}</span>
+                                        </span>
+                                        <span className="text-[9px] text-neutral-400 uppercase font-black tracking-widest">Usanidi wa Viwango</span>
+                                      </div>
+
+                                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                        {/* Base Fare */}
+                                        <div className="space-y-1.5">
+                                          <Label className="text-[9px] font-black uppercase tracking-wider text-neutral-500">Base Fare (TZS)*</Label>
+                                          <Input
+                                            type="number"
+                                            value={vRate.baseFare}
+                                            onChange={(e) => updateRideRate(vt.id, 'baseFare', Number(e.target.value))}
+                                            className="h-10 rounded-xl border bg-neutral-50 dark:bg-neutral-950 font-bold text-xs"
+                                          />
+                                        </div>
+
+                                        {/* Distance Rate */}
+                                        <div className="space-y-1.5">
+                                          <Label className="text-[9px] font-black uppercase tracking-wider text-neutral-500">Kila KM (TZS)*</Label>
+                                          <Input
+                                            type="number"
+                                            value={vRate.pricePerKm}
+                                            onChange={(e) => updateRideRate(vt.id, 'pricePerKm', Number(e.target.value))}
+                                            className="h-10 rounded-xl border bg-neutral-50 dark:bg-neutral-950 font-bold text-xs"
+                                          />
+                                        </div>
+
+                                        {/* Traffic Rate */}
+                                        <div className="space-y-1.5">
+                                          <Label className="text-[9px] font-black uppercase tracking-wider text-neutral-500">Kila Dk Safari (TZS)*</Label>
+                                          <Input
+                                            type="number"
+                                            value={vRate.pricePerMin}
+                                            onChange={(e) => updateRideRate(vt.id, 'pricePerMin', Number(e.target.value))}
+                                            className="h-10 rounded-xl border bg-neutral-50 dark:bg-neutral-950 font-bold text-xs"
+                                          />
+                                        </div>
+
+                                        {/* Waiting Rate */}
+                                        <div className="space-y-1.5">
+                                          <Label className="text-[9px] font-black uppercase tracking-wider text-neutral-505">Kila Dk Subira/Waiting (TZS)*</Label>
+                                          <Input
+                                            type="number"
+                                            value={vRate.waitingRate !== undefined ? vRate.waitingRate : vt.defWait}
+                                            onChange={(e) => updateRideRate(vt.id, 'waitingRate', Number(e.target.value))}
+                                            className="h-10 rounded-xl border bg-neutral-50 dark:bg-neutral-950 font-bold text-xs"
+                                          />
+                                        </div>
+                                      </div>
+
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                                        {/* Surge Rush hour multiplier */}
+                                        <div className="space-y-1.5">
+                                          <Label className="text-[8.5px] font-black uppercase tracking-wider text-neutral-500 flex items-center gap-1">
+                                            <Zap className="w-3 h-3 text-amber-500 animate-pulse" /> 
+                                            Rush Hour Multiplier (Nyakati za kazi, mfano 1.25)*
+                                          </Label>
+                                          <Input
+                                            type="number"
+                                            step="0.05"
+                                            value={vRate.surgeRush !== undefined ? vRate.surgeRush : 1.25}
+                                            onChange={(e) => updateRideRate(vt.id, 'surgeRush', Number(e.target.value))}
+                                            className="h-10 rounded-xl border bg-neutral-50 dark:bg-neutral-950 font-extrabold text-xs text-amber-500"
+                                          />
+                                        </div>
+                                        
+                                        {/* Surge Rain multiplier */}
+                                        <div className="space-y-1.5">
+                                          <Label className="text-[8.5px] font-black uppercase tracking-wider text-neutral-500 flex items-center gap-1">
+                                            <Zap className="w-3 h-3 text-emerald-500 animate-pulse" /> 
+                                            Rain/Mvua Surge Multiplier (Mfano 1.50)*
+                                          </Label>
+                                          <Input
+                                            type="number"
+                                            step="0.05"
+                                            value={vRate.surgeRain !== undefined ? vRate.surgeRain : 1.50}
+                                            onChange={(e) => updateRideRate(vt.id, 'surgeRain', Number(e.target.value))}
+                                            className="h-10 rounded-xl border bg-neutral-50 dark:bg-neutral-950 font-extrabold text-xs text-emerald-500"
+                                          />
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Tax Tab */}
+                          {pricingSubTab === 'tax' && (
+                            <div className="space-y-6">
+                              <div>
+                                <h4 className="text-sm font-black uppercase tracking-wider text-neutral-800 dark:text-white">Hatua ya 5: Kodi ya Jiji na Udhibiti wa Mapato (City Tax Rules)</h4>
+                                <p className="text-[11px] text-neutral-400 font-medium mt-1">Hapa unaweza kupanda kodi au tozo ya mji inayojumuishwa moja kwa moja wakati wa kuunganisha nauli kwa ajili ya serikali ya mji husika au huduma ya mkoa.</p>
+                              </div>
+
+                              <div className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div className="space-y-2">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Jina la Kodi / Tozo (Tax Name)*</Label>
+                                    <Input
+                                      placeholder="Mifano: VAT, GST, Tozo la Jiji"
+                                      value={city.taxName || ""}
+                                      onChange={(e) => updateCityField('taxName', e.target.value)}
+                                      className="h-11 rounded-xl border bg-neutral-50 dark:bg-neutral-950 text-neutral-800 dark:text-white font-black text-xs"
+                                    />
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Kiwango cha Kodi (Tax Rate - %)*</Label>
+                                    <div className="relative">
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        placeholder="Mfano: 15"
+                                        value={city.taxRate !== undefined ? city.taxRate : 15}
+                                        onChange={(e) => updateCityField('taxRate', Number(e.target.value))}
+                                        className="h-11 rounded-xl border bg-neutral-50 dark:bg-neutral-950 text-neutral-800 dark:text-white font-extrabold text-xs pr-10"
+                                      />
+                                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 font-black text-xs">%</span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                  <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Maelezo (Description)</Label>
+                                  <Textarea
+                                    placeholder="Ufafanuzi wa tozo hii..."
+                                    value={city.taxDescription || ""}
+                                    onChange={(e) => updateCityField('taxDescription', e.target.value)}
+                                    className="rounded-2xl border bg-neutral-50 dark:bg-neutral-950 text-neutral-800 dark:text-white text-xs max-h-24 font-semibold"
+                                  />
+                                </div>
+
+                                <div className="space-y-2">
+                                  <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Kodi Inafanya Kazi (Active Status)</Label>
+                                  <div className="flex items-center justify-between h-11 bg-neutral-50 dark:bg-neutral-950 px-4 rounded-xl border w-fit gap-4">
+                                    <span className="text-xs font-semibold text-neutral-400">Ruhusu kodi hii kukatwa kwenye nauli</span>
+                                    <Switch
+                                      checked={city.taxActive !== false}
+                                      onCheckedChange={(checked) => updateCityField('taxActive', checked)}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Explicit save trigger at bottom of form card */}
+                          <div className="flex justify-end pt-4 border-t border-neutral-100 dark:border-neutral-800">
+                            <Button
+                              onClick={handleSaveSettings}
+                              className="h-12 px-8 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-black uppercase tracking-widest text-[10px] flex items-center gap-2"
+                            >
+                              <Check className="w-4 h-4" />
+                              Hifadhi Vigezo vya {selectedPricingCity}
+                            </Button>
+                          </div>
+
+                        </Card>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
 
