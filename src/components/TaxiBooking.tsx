@@ -7,6 +7,8 @@ import {
   Polyline,
   useMap,
   useMapEvents,
+  Circle,
+  Polygon,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
@@ -1774,6 +1776,54 @@ export default function TaxiBooking() {
       return;
     }
 
+    // Check geofence restrictions before launching search
+    const rules = getPricingRules();
+    const cityData = rules[selectedCity] || rules["Dar es Salaam"];
+    if (cityData && cityData.geofenceActive === true) {
+      const pLat = pickupPos[0];
+      const pLng = pickupPos[1];
+      const gfType = cityData.geofenceType || 'circle';
+
+      if (gfType === 'circle') {
+        const gfCenterObj = cityData.geofenceCenter || { lat: cityData.lat, lng: cityData.lng };
+        const gfCenterLat = gfCenterObj.lat || cityData.lat;
+        const gfCenterLng = gfCenterObj.lng || cityData.lng;
+        const radius = cityData.geofenceRadius || 15000;
+
+        // Haversine distance in meters
+        const R = 6371000;
+        const dLat = (pLat - gfCenterLat) * Math.PI / 180;
+        const dLng = (pLng - gfCenterLng) * Math.PI / 180;
+        const a = 
+          Math.sin(dLat/2) * Math.sin(dLat/2) +
+          Math.cos(gfCenterLat * Math.PI / 180) * Math.cos(pLat * Math.PI / 180) * 
+          Math.sin(dLng/2) * Math.sin(dLng/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        const distance = R * c;
+
+        if (distance > radius) {
+          toast.error(`Kituo chako cha kuanzia kiko nje ya eneo la huduma la ${selectedCity}! Mipaka ya sasa ya Geofence ni kilomita ${Math.round(radius/1000)}.`);
+          return;
+        }
+      } else if (gfType === 'polygon' && cityData.geofencePolygon && cityData.geofencePolygon.length >= 3) {
+        // Ray-casting inside polygon test
+        let inside = false;
+        const pts = cityData.geofencePolygon;
+        for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+          const xi = pts[i][0], yi = pts[i][1];
+          const xj = pts[j][0], yj = pts[j][1];
+          const intersect = ((yi > pLng) !== (yj > pLng))
+              && (pLat < (xj - xi) * (pLng - yi) / (yj - yi) + xi);
+          if (intersect) inside = !inside;
+        }
+
+        if (!inside) {
+          toast.error(`Kituo chako cha kuanzia kiko nje ya mipaka ya kipekee ya huduma (Polygon) ya mji wa ${selectedCity}.`);
+          return;
+        }
+      }
+    }
+
     try {
       setStep("searching");
       console.log("Starting ride creation flow...");
@@ -2697,6 +2747,47 @@ export default function TaxiBooking() {
                         )
                       )
                     )}
+
+                    {/* Render Geofence Boundary Layer for Selected City */}
+                    {(() => {
+                      const rules = getPricingRules();
+                      const cityData = rules[selectedCity] || rules["Dar es Salaam"];
+                      if (!cityData || cityData.geofenceActive === false) return null;
+
+                      const type = cityData.geofenceType || 'circle';
+
+                      if (type === 'circle') {
+                        const gfCenterObj = cityData.geofenceCenter || { lat: cityData.lat, lng: cityData.lng };
+                        const gfCenter: [number, number] = [gfCenterObj.lat || cityData.lat, gfCenterObj.lng || cityData.lng];
+                        const gfRadius = cityData.geofenceRadius || 15000;
+                        return (
+                          <Circle
+                            center={gfCenter}
+                            radius={gfRadius}
+                            pathOptions={{
+                              color: '#F97316',
+                              fillColor: '#F97316',
+                              fillOpacity: 0.1,
+                              weight: 1.5,
+                              dashArray: '4, 4'
+                            }}
+                          />
+                        );
+                      } else if (type === 'polygon' && cityData.geofencePolygon && cityData.geofencePolygon.length >= 3) {
+                        return (
+                          <Polygon
+                            positions={cityData.geofencePolygon}
+                            pathOptions={{
+                              color: '#F97316',
+                              fillColor: '#F97316',
+                              fillOpacity: 0.1,
+                              weight: 2
+                            }}
+                          />
+                        );
+                      }
+                      return null;
+                    })()}
                   </MapContainer>
 
                   {/* Floating locate button inside the map area */}

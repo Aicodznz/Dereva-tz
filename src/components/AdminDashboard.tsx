@@ -30,7 +30,7 @@ import { motion, AnimatePresence, useScroll, useMotionValueEvent } from 'motion/
 import { useLanguage } from '../LanguageContext';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents, Circle, Polygon } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { 
@@ -120,6 +120,136 @@ interface Coupon {
   validUntil?: any;
   createdBy: string;
   createdAt?: any;
+}
+
+function GeofenceMapSelector({
+  center,
+  radius,
+  active,
+  type,
+  polygonPoints,
+  onCenterChange,
+  onPolygonAddPoint,
+  onPolygonRemovePoint,
+  onPolygonUpdatePoint
+}: {
+  center: [number, number];
+  radius: number;
+  active: boolean;
+  type: 'circle' | 'polygon';
+  polygonPoints: [number, number][];
+  onCenterChange: (pos: [number, number]) => void;
+  onPolygonAddPoint: (pos: [number, number]) => void;
+  onPolygonRemovePoint: (index: number) => void;
+  onPolygonUpdatePoint: (index: number, pos: [number, number]) => void;
+}) {
+  const map = useMap();
+
+  useMapEvents({
+    click(e: any) {
+      if (type === 'circle') {
+        onCenterChange([e.latlng.lat, e.latlng.lng]);
+      } else {
+        onPolygonAddPoint([e.latlng.lat, e.latlng.lng]);
+      }
+    }
+  });
+
+  const lat = center[0];
+  const lng = center[1];
+
+  useEffect(() => {
+    map.setView([lat, lng], map.getZoom());
+  }, [lat, lng]);
+
+  return (
+    <>
+      {type === 'circle' && (
+        <>
+          <Marker 
+            position={center} 
+            draggable={true} 
+            eventHandlers={{
+              dragend(e: any) {
+                const marker = e.target;
+                if (marker != null) {
+                  const pos = marker.getLatLng();
+                  onCenterChange([pos.lat, pos.lng]);
+                }
+              }
+            }}
+          >
+            <Popup>
+              <div className="p-1 text-center">
+                <span className="font-extrabold text-[10px] text-orange-600 block uppercase">KATIKATI YA HUDUMA</span>
+                <span className="text-[9px] text-neutral-450 font-medium">Unaweza kunidrag!</span>
+              </div>
+            </Popup>
+          </Marker>
+          <Circle
+            center={center}
+            radius={radius}
+            pathOptions={{
+              color: active ? '#f97316' : '#9ca3af',
+              fillColor: active ? '#f97316' : '#9ca3af',
+              fillOpacity: 0.18,
+              weight: 2,
+              dashArray: '5, 5'
+            }}
+          />
+        </>
+      )}
+
+      {type === 'polygon' && (
+        <>
+          {polygonPoints.map((pt, idx) => (
+            <Marker
+              key={`poly-marker-${idx}`}
+              position={pt}
+              draggable={true}
+              eventHandlers={{
+                dragend(e: any) {
+                  const marker = e.target;
+                  if (marker != null) {
+                    const pos = marker.getLatLng();
+                    onPolygonUpdatePoint(idx, [pos.lat, pos.lng]);
+                  }
+                }
+              }}
+            >
+              <Popup>
+                <div className="p-1 text-center">
+                  <p className="text-[10px] font-black uppercase text-neutral-400">Pointi #{idx + 1}</p>
+                  <p className="text-[8px] opacity-70">Unaweza kuiburuza ili kubadili umbo</p>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onPolygonRemovePoint(idx);
+                    }}
+                    className="mt-2 px-2.5 py-1 text-[9px] bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold"
+                  >
+                    Futa Pointi
+                  </button>
+                </div>
+              </Popup>
+            </Marker>
+          ))}
+          {polygonPoints.length >= 3 && (
+            <Polygon
+              positions={polygonPoints}
+              pathOptions={{
+                color: active ? '#f97316' : '#9ca3af',
+                fillColor: active ? '#f97316' : '#9ca3af',
+                fillOpacity: 0.22,
+                weight: 2
+              }}
+            />
+          )}
+        </>
+      )}
+    </>
+  );
 }
 
 const DEFAULT_PRICING_RULES: Record<string, any> = {
@@ -317,7 +447,7 @@ export default function AdminDashboard() {
   };
   const [selectedAppProfile, setSelectedAppProfile] = useState<'customer' | 'driver' | 'vendor' | 'deliveryman'>('customer');
   const [selectedPricingCity, setSelectedPricingCity] = useState("Dar es Salaam");
-  const [pricingSubTab, setPricingSubTab] = useState<'basic_info' | 'service_hours' | 'night_charges' | 'tariffs' | 'tax'>('basic_info');
+  const [pricingSubTab, setPricingSubTab] = useState<'basic_info' | 'service_hours' | 'night_charges' | 'tariffs' | 'tax' | 'geofence'>('basic_info');
   const [isAddingCity, setIsAddingCity] = useState(false);
   const [newCityName, setNewCityName] = useState("");
   const [businessConfig, setBusinessConfig] = useState<any>({
@@ -3652,6 +3782,7 @@ export default function AdminDashboard() {
                           { id: 'night_charges', label: 'Ada za Usiku (Night)', sub: 'Night Surcharges & Hours' },
                           { id: 'tariffs', label: 'Bei ya Kila Chombo', sub: 'Base & Distances Charges' },
                           { id: 'tax', label: 'Kodi za Mji (Tax Rules)', sub: 'GST / VAT / Service Levies' },
+                          { id: 'geofence', label: 'Mipaka ya Eneo (Geofence)', sub: 'Tengeneza Mipaka na Kanda za Ramani' },
                         ].map((sub) => (
                           <button
                             key={sub.id}
@@ -4033,6 +4164,222 @@ export default function AdminDashboard() {
                                       checked={city.taxActive !== false}
                                       onCheckedChange={(checked) => updateCityField('taxActive', checked)}
                                     />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Geofence Tab */}
+                          {pricingSubTab === 'geofence' && (
+                            <div className="space-y-6">
+                              <div>
+                                <h4 className="text-sm font-black uppercase tracking-wider text-neutral-800 dark:text-white flex items-center gap-2">
+                                  <MapPin className="w-4 h-4 text-orange-500 animate-bounce" />
+                                  Hatua ya 6: Mipaka ya Eneo la Huduma (Geofencing Boundary)
+                                </h4>
+                                <p className="text-[11px] text-neutral-400 font-medium mt-1">
+                                  Weka mipaka halisi ya kijiografia ya mji huo. Maombi yanayotoka au kuelekea nje ya mipaka hii yatazuiliwa na kuonyesha onyo kwa mteja.
+                                </p>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-4">
+                                  {/* Geofence Active Switch */}
+                                  <div className="space-y-2">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Udhibiti wa Mpaka (Geofence Restriction)</Label>
+                                    <div className="flex items-center justify-between h-11 bg-neutral-50 dark:bg-neutral-950 px-4 rounded-xl border">
+                                      <span className="text-xs font-semibold text-neutral-400">Amilisha Kizuizi cha Mpaka mji huu</span>
+                                      <Switch
+                                        checked={city.geofenceActive !== false}
+                                        onCheckedChange={(checked) => updateCityField('geofenceActive', checked)}
+                                      />
+                                    </div>
+                                  </div>
+
+                                  {/* Geofence Type Selection */}
+                                  <div className="space-y-2">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Aina ya Mpaka (Shape Type)</Label>
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => updateCityField('geofenceType', 'circle')}
+                                        className={`px-4 py-2.5 rounded-xl border text-xs font-black uppercase transition-all ${
+                                          (city.geofenceType || 'circle') === 'circle'
+                                            ? 'bg-orange-600 border-orange-600 text-white'
+                                            : 'bg-neutral-50 dark:bg-neutral-950 border-neutral-100 dark:border-neutral-800 text-neutral-500'
+                                        }`}
+                                      >
+                                        Mduara (Circle Radius)
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => updateCityField('geofenceType', 'polygon')}
+                                        className={`px-4 py-2.5 rounded-xl border text-xs font-black uppercase transition-all ${
+                                          (city.geofenceType || 'circle') === 'polygon'
+                                            ? 'bg-orange-600 border-orange-600 text-white'
+                                            : 'bg-neutral-50 dark:bg-neutral-950 border-neutral-100 dark:border-neutral-800 text-neutral-500'
+                                        }`}
+                                      >
+                                        Mchoro (Custom Polygon)
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {/* Conditional Radius selection */}
+                                  {(city.geofenceType || 'circle') === 'circle' ? (
+                                    <div className="space-y-2.5">
+                                      <div className="flex justify-between items-center">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Mduara wa Huduma (Radius)</Label>
+                                        <span className="text-xs font-black text-orange-500 bg-orange-500/5 px-2.5 py-0.5 rounded-full">
+                                          {Math.round((city.geofenceRadius || 15000) / 1000)} Km ({city.geofenceRadius || 15000} m)
+                                        </span>
+                                      </div>
+                                      <input
+                                        type="range"
+                                        min="1000"
+                                        max="100000"
+                                        step="500"
+                                        value={city.geofenceRadius || 15000}
+                                        onChange={(e) => updateCityField('geofenceRadius', Number(e.target.value))}
+                                        className="w-full accent-orange-600 h-2 bg-neutral-100 dark:bg-neutral-800 rounded-lg appearance-none cursor-pointer"
+                                      />
+                                      <p className="text-[10px] text-neutral-400 font-medium">Buruza slider hapo juu kubadilisha upana wa mduara wa mji. (Kiwango cha sasa hapa ni kutoka 1km hadi 100km).</p>
+                                    </div>
+                                  ) : (
+                                    <div className="space-y-3">
+                                      <div className="flex justify-between items-center">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Viwango vya Pointi (Polygon Vertices)</Label>
+                                        <span className="text-[10px] font-black text-orange-500 bg-orange-605/5 px-2.5 py-0.5 rounded-full">
+                                          {(city.geofencePolygon || []).length} Pointi zilizopo
+                                        </span>
+                                      </div>
+                                      <div className="flex flex-wrap gap-2">
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="text-[9px] font-black uppercase py-1 border-dashed"
+                                          onClick={() => {
+                                            const lat_c = city.lat || -6.7924;
+                                            const lng_c = city.lng || 39.2083;
+                                            const box: [number, number][] = [
+                                              [lat_c + 0.05, lng_c - 0.05],
+                                              [lat_c + 0.05, lng_c + 0.05],
+                                              [lat_c - 0.05, lng_c + 0.05],
+                                              [lat_c - 0.05, lng_c - 0.05],
+                                            ];
+                                            updateCityField('geofencePolygon', box);
+                                            toast.info("Mstatili wa kuanzia umetengenezwa karibu na mji!");
+                                          }}
+                                        >
+                                          Tengeneza Mstatili wa Kuanzia
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="text-[9px] font-black uppercase py-1 text-red-500 border-red-500/30 hover:bg-red-500/5"
+                                          onClick={() => {
+                                            updateCityField('geofencePolygon', []);
+                                            toast.success("Pointi zote za mchoro zimefutwa!");
+                                          }}
+                                        >
+                                          Masihisha Zote (Clear All)
+                                        </Button>
+                                      </div>
+                                      <p className="text-[10px] text-neutral-400 font-semibold uppercase tracking-tight">Viwango vya Kijiografia vya sasa:</p>
+                                      <div className="max-h-24 overflow-y-auto space-y-1 pr-1 bg-neutral-50 dark:bg-neutral-950 p-2.5 rounded-xl border">
+                                        {((city.geofencePolygon || []) as [number, number][]).length === 0 ? (
+                                          <p className="text-[10px] text-neutral-400 font-bold text-center py-2 uppercase">Hakuna pointi zilizochorwa. Bonyeza kwenye ramani ili upate pointi ya kwanza!</p>
+                                        ) : (
+                                          ((city.geofencePolygon || []) as [number, number][]).map((pt: [number, number], idx: number) => (
+                                            <div key={`cord-${idx}`} className="flex justify-between items-center text-[9px] font-mono font-bold bg-white dark:bg-neutral-900 border px-2 py-1 rounded-lg">
+                                              <span>Pointi #{idx + 1}: {pt[0].toFixed(5)}, {pt[1].toFixed(5)}</span>
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  const cloned = [...(city.geofencePolygon || [])];
+                                                  cloned.splice(idx, 1);
+                                                  updateCityField('geofencePolygon', cloned);
+                                                }}
+                                                className="text-red-500 hover:text-red-700 font-bold uppercase text-[8px]"
+                                              >
+                                                Ondoa
+                                              </button>
+                                            </div>
+                                          ))
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Display instructions */}
+                                  <div className="bg-orange-600/5 border border-orange-500/10 p-4 rounded-2xl flex gap-2.5">
+                                    <Info className="w-4 h-4 text-orange-500 shrink-0" />
+                                    <div className="space-y-1">
+                                      <p className="font-extrabold text-[10px] uppercase text-orange-600 dark:text-orange-400">Jinsi ya Kutumia:</p>
+                                      <p className="text-[10px] text-neutral-400 font-semibold leading-relaxed">
+                                        {(city.geofenceType || 'circle') === 'circle' 
+                                          ? "Bofya popote kwenye ramani ya kulia ili kuweka alama ya kuanzia (City Center). Unaweza also kumburuta mchezo wa marker uliopo ili kuhamisha katikati ya mji wetu."
+                                          : "Bonyeza mara kadhaa kwenye ramani ya kulia ili kupanda vertices za mchoro mpya wa huduma. Pointi 3 au zaidi zinajenga eneo lililofungwa kikamilifu kuzuia matumizi."
+                                        }
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                  <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Maingiliano na Ramani (Interactive Geofence Map)</Label>
+                                  <div className="h-[28rem] rounded-[2rem] overflow-hidden border border-neutral-100 dark:border-neutral-800 z-0 relative">
+                                    {(() => {
+                                      const centerCoords: [number, number] = city.geofenceCenter 
+                                        ? [city.geofenceCenter.lat, city.geofenceCenter.lng] 
+                                        : [city.lat || -6.7924, city.lng || 39.2083];
+                                      
+                                      const radiusVal = city.geofenceRadius || 15000;
+                                      const activeVal = city.geofenceActive !== false;
+                                      const typeVal = city.geofenceType || 'circle';
+                                      const polyPts: [number, number][] = city.geofencePolygon || [];
+
+                                      return (
+                                        <MapContainer
+                                          center={centerCoords}
+                                          zoom={11}
+                                          className="w-full h-full"
+                                        >
+                                          <TileLayer
+                                            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                                            maxZoom={20}
+                                          />
+                                          <GeofenceMapSelector
+                                            center={centerCoords}
+                                            radius={radiusVal}
+                                            active={activeVal}
+                                            type={typeVal}
+                                            polygonPoints={polyPts}
+                                            onCenterChange={(newCenter) => {
+                                              updateCityField('geofenceCenter', { lat: newCenter[0], lng: newCenter[1] });
+                                              updateCityField('lat', newCenter[0]);
+                                              updateCityField('lng', newCenter[1]);
+                                            }}
+                                            onPolygonAddPoint={(newPt) => {
+                                              const pts = [...polyPts];
+                                              pts.push(newPt);
+                                              updateCityField('geofencePolygon', pts);
+                                            }}
+                                            onPolygonRemovePoint={(idx) => {
+                                              const pts = [...polyPts];
+                                              pts.splice(idx, 1);
+                                              updateCityField('geofencePolygon', pts);
+                                            }}
+                                            onPolygonUpdatePoint={(idx, newPt) => {
+                                              const pts = [...polyPts];
+                                              pts[idx] = newPt;
+                                              updateCityField('geofencePolygon', pts);
+                                            }}
+                                          />
+                                        </MapContainer>
+                                      );
+                                    })()}
                                   </div>
                                 </div>
                               </div>
