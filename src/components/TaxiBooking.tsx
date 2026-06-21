@@ -445,13 +445,7 @@ export default function TaxiBooking() {
   const [secondsOffset, setSecondsOffset] = useState<number>(0);
   const justSelectedRef = useRef(false);
 
-  // Zima upendo wa kiotomatiki wa usiku kulingana na saa
-  useEffect(() => {
-    const hours = new Date().getHours();
-    if (hours >= 22 || hours < 5) {
-      setIsNightSurcharge(true);
-    }
-  }, []);
+
 
   const [rideId, setRideId] = useState<string | null>(null);
   const { ride: activeRide, cancelRide, deleteRide } = useTripFlow(rideId);
@@ -553,6 +547,95 @@ export default function TaxiBooking() {
   const [destPos, setDestPos] = useState<[number, number]>([-6.8235, 39.2695]);
   const [pickup, setPickup] = useState("Mwenge, Dar es Salaam");
   const [destination, setDestination] = useState("");
+
+  // Automatic pricing conditions & city detection based on location and time
+  useEffect(() => {
+    if (!pickupPos || pickupPos.length < 2) return;
+    const rules = getPricingRules();
+    const cityKeys = Object.keys(rules).filter(k => rules[k]?.active !== false);
+    if (cityKeys.length === 0) return;
+
+    let detectedCity = "Dar es Salaam";
+    const addressLower = (pickup || "").toLowerCase();
+
+    // 1. Try finding a direct name match in the address string
+    const textMatched = cityKeys.find(key => addressLower.includes(key.toLowerCase()));
+    if (textMatched) {
+      detectedCity = textMatched;
+    } else {
+      // 2. Fallback to coordinate-based distance detection
+      let minDistance = Infinity;
+      cityKeys.forEach(key => {
+        const cityData = rules[key];
+        const cityLat = cityData?.lat || CITY_FALLBACK_COORDINATES[key]?.lat || -6.7924;
+        const cityLng = cityData?.lng || CITY_FALLBACK_COORDINATES[key]?.lng || 39.2083;
+
+        // Haversine distance
+        const R = 6371; // km
+        const dLat = (pickupPos[0] - cityLat) * Math.PI / 180;
+        const dLng = (pickupPos[1] - cityLng) * Math.PI / 180;
+        const a = 
+          Math.sin(dLat/2) * Math.sin(dLat/2) +
+          Math.cos(cityLat * Math.PI / 180) * Math.cos(pickupPos[0] * Math.PI / 180) * 
+          Math.sin(dLng/2) * Math.sin(dLng/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        const distance = R * c;
+
+        if (distance < minDistance) {
+          minDistance = distance;
+          detectedCity = key;
+        }
+      });
+    }
+
+    if (detectedCity !== selectedCity) {
+      setSelectedCity(detectedCity);
+      console.log(`[TaxiBooking] Automatically switched city to ${detectedCity} based on pickup location.`);
+    }
+
+    // 3. Automatic time-based features (Night surcharge & Rush hour surge)
+    const now = new Date();
+    const hour = now.getHours();
+
+    // Night surcharge hours (typically 10 PM to 6 / 5:30 AM based on city rule, default 22:00 - 06:00)
+    const cityRule = rules[detectedCity] || rules["Dar es Salaam"];
+    let nightStartHour = 22;
+    let nightEndHour = 6;
+    if (cityRule?.nightStart) {
+      const match = cityRule.nightStart.match(/(\d+):(\d+)\s*(AM|PM)/i);
+      if (match) {
+        let hr = parseInt(match[1]);
+        const isPM = match[3].toUpperCase() === "PM";
+        if (isPM && hr < 12) hr += 12;
+        if (!isPM && hr === 12) hr = 0;
+        nightStartHour = hr;
+      }
+    }
+    if (cityRule?.nightEnd) {
+      const match = cityRule.nightEnd.match(/(\d+):(\d+)\s*(AM|PM)/i);
+      if (match) {
+        let hr = parseInt(match[1]);
+        const isPM = match[3].toUpperCase() === "PM";
+        if (isPM && hr < 12) hr += 12;
+        if (!isPM && hr === 12) hr = 0;
+        nightEndHour = hr;
+      }
+    }
+
+    const isNight = hour >= nightStartHour || hour < nightEndHour;
+    if (isNightSurcharge !== isNight) {
+      setIsNightSurcharge(isNight);
+    }
+
+    // Auto-detect Rush hour (7:00 - 10:00 AM & 4:00 - 8:00 PM)
+    const isMorningRush = (hour >= 7 && hour < 10);
+    const isEveningRush = (hour >= 16 && hour < 20);
+    const isRush = isMorningRush || isEveningRush;
+    const expectedSurge = isRush ? "rush" : "normal";
+    if (surgeLevel !== expectedSurge) {
+      setSurgeLevel(expectedSurge);
+    }
+  }, [pickupPos, pickup, config]);
 
   const isInTanzania = (lat: number, lng: number) => {
     return lat >= -12.0 && lat <= -1.0 && lng >= 29.0 && lng <= 41.5;
@@ -3078,96 +3161,7 @@ export default function TaxiBooking() {
                     )}
                   </div>
 
-                  {/* Trip Pricing Conditions Simulator/Config (Mazingira ya Safari) */}
-                  <div className={`w-full bg-[#141420]/75 border border-white/5 rounded-3xl p-3.5 space-y-3 transition-all duration-200 ${suggestions.length > 0 ? "pointer-events-none opacity-20 grayscale select-none" : ""}`}>
-                    {/* Header */}
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-[#7F77DD]">Mazingira na Kanuni za Nauli</span>
-                      <span className="text-[8.5px] font-black uppercase tracking-wider text-neutral-400 bg-white/5 px-2.5 py-0.5 rounded-full">Kila Mji & Surcharges</span>
-                    </div>
 
-                    <div className="grid grid-cols-2 gap-2">
-                      {/* select city */}
-                      <div className="space-y-1.5">
-                        <label className="text-[8.5px] font-black uppercase tracking-wider text-neutral-400 block">Teua Mji (City Rate)</label>
-                        <select
-                          value={selectedCity}
-                          onChange={(e) => setSelectedCity(e.target.value)}
-                          className="w-full h-9 rounded-xl bg-[#0f0f18] text-xs font-bold text-white border border-white/10 px-2.5 outline-none focus:border-[#7F77DD]"
-                        >
-                          {Object.keys(getPricingRules()).filter(k => getPricingRules()[k]?.active !== false).map((cityName) => {
-                            const c = getPricingRules()[cityName];
-                            const label = cityName + (c?.taxActive && c?.taxRate ? ` (+${c.taxRate}% Kodi)` : ' (Kawaida)');
-                            return (
-                              <option key={cityName} value={cityName}>
-                                {label}
-                              </option>
-                            );
-                          })}
-                        </select>
-                      </div>
-
-                      {/* Surge options */}
-                      <div className="space-y-1.5">
-                        <label className="text-[8.5px] font-black uppercase tracking-wider text-neutral-400 block">Uhitaji (Surge Logic)</label>
-                        <select
-                          value={surgeLevel}
-                          onChange={(e) => setSurgeLevel(e.target.value)}
-                          className="w-full h-9 rounded-xl bg-[#0f0f18] text-xs font-bold text-white border border-white/10 px-2.5 outline-none focus:border-[#7F77DD]"
-                        >
-                          <option value="normal">Muda Kawaida (1.0x)</option>
-                          <option value="rush">Saa za Kazi / Peak (1.25x)</option>
-                          <option value="rain">Mvua kubwa / Surge (1.5x)</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 pt-1">
-                      {/* Night charge toggle */}
-                      <button
-                        onClick={() => setIsNightSurcharge(!isNightSurcharge)}
-                        className={`h-9 px-3 rounded-xl border flex items-center justify-between text-[11px] font-bold transition-all ${
-                          isNightSurcharge 
-                            ? "bg-[#7F77DD]/10 border-[#7F77DD] text-[#7F77DD]" 
-                            : "bg-[#0f0f18] border-white/10 text-neutral-400"
-                        }`}
-                      >
-                        <span className="flex items-center gap-1.5">
-                          <Moon className="w-3.5 h-3.5" />
-                          Ada ya Usiku (+15%)
-                        </span>
-                        <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center border ${
-                          isNightSurcharge ? "border-[#7F77DD] bg-[#7F77DD]" : "border-neutral-700 bg-transparent"
-                        }`}>
-                          {isNightSurcharge && <span className="text-[8px] text-white">✓</span>}
-                        </div>
-                      </button>
-
-                      {/* Waiting time controller */}
-                      <div className="h-9 px-2.5 bg-[#0f0f18] border border-white/10 rounded-xl flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-neutral-400 flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5 text-neutral-500 animate-pulse" />
-                          Kusubiri:
-                        </span>
-                        <div className="flex items-center gap-1.5">
-                          <button 
-                            disabled={waitingTime <= 0}
-                            onClick={() => setWaitingTime(prev => Math.max(0, prev - 2))}
-                            className="w-4.5 h-4.5 rounded-md bg-white/5 disabled:opacity-30 flex items-center justify-center font-black text-white hover:bg-white/10 text-xs active:scale-95"
-                          >
-                            -
-                          </button>
-                          <span className="text-xs font-black text-white min-w-4 text-center">{waitingTime}m</span>
-                          <button 
-                            onClick={() => setWaitingTime(prev => Math.min(30, prev + 2))}
-                            className="w-4.5 h-4.5 rounded-md bg-white/5 flex items-center justify-center font-black text-white hover:bg-white/10 text-xs active:scale-95"
-                          >
-                            +
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
 
                   <div className={`grid grid-cols-3 gap-2.5 w-full py-3 transition-all duration-200 ${suggestions.length > 0 ? "pointer-events-none opacity-20 grayscale select-none" : ""}`}>
                     {rideOptions.map((ride) => {
