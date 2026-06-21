@@ -53,14 +53,30 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
   const [showShareModal, setShowShareModal] = React.useState(false);
   const showDetails = !isMinimized && !isCollapsed;
 
-  // Active viewer calculations
-  const activeViewersCount = useMemo(() => {
+  // Active viewer calculations (supporting both legacy timestamps and modern name objects)
+  const { activeViewersCount, activeViewerNames } = useMemo(() => {
     const viewersMap = (ride as any).viewers || {};
     const now = Date.now();
-    const active = Object.entries(viewersMap).filter(([_, timestamp]) => {
-      return typeof timestamp === 'number' && (now - timestamp) < 35000;
+    const names: string[] = [];
+
+    Object.entries(viewersMap).forEach(([_, val]) => {
+      if (typeof val === 'number') {
+        if ((now - val) < 35000) {
+          names.push("Mgeni");
+        }
+      } else if (val && typeof val === 'object') {
+        const lastActive = (val as any).lastActive;
+        const name = (val as any).name;
+        if (typeof lastActive === 'number' && (now - lastActive) < 35000) {
+          names.push(name || "Mgeni");
+        }
+      }
     });
-    return active.length;
+
+    return {
+      activeViewersCount: names.length,
+      activeViewerNames: names,
+    };
   }, [ride]);
 
   // Progress calculation
@@ -111,11 +127,18 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
                 </div>
 
                 {activeViewersCount > 0 && (
-                  <div className="bg-blue-500/10 text-blue-400 border border-blue-400/20 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-[0_0_12px_rgba(59,130,246,0.15)] animate-bounce-subtle">
+                  <div 
+                    title={activeViewerNames.join(", ")}
+                    className="relative group bg-blue-500/10 text-blue-400 border border-blue-400/20 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-[0_0_12px_rgba(59,130,246,0.15)] cursor-help"
+                  >
                     <span className="text-[10px] leading-none">👁️</span>
                     <span className="text-[9.5px] font-black uppercase tracking-wider leading-none">
                       {activeViewersCount} {activeViewersCount === 1 ? 'Anatazama' : 'Wanatazama'}
                     </span>
+                    {/* Floating elegant tooltip on hover to see exact Swahili Names */}
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-[#111118]/95 backdrop-blur-md border border-white/10 rounded-xl px-3 py-2 text-[10px] font-medium text-white whitespace-nowrap shadow-2xl z-50">
+                      Inatazamwa na: <span className="text-[#00E5A0] font-bold">{activeViewerNames.join(", ")}</span>
+                    </div>
                   </div>
                 )}
               </div>

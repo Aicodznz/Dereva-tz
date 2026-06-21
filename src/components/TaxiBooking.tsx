@@ -482,12 +482,35 @@ export default function TaxiBooking() {
       sessionStorage.setItem(`ride_viewer_${rideId}`, viewerId);
     }
 
+    let viewerName = sessionStorage.getItem(`ride_viewer_name_${rideId}`);
+    if (!viewerName) {
+      if (user && !user.isAnonymous) {
+        viewerName = user.displayName || user.email?.split('@')[0] || "Mshiriki";
+      } else {
+        const swahiliTitles = [
+          "Rafiki", "Ndugu", "Mlinzi", "Msindikizaji", "Mshiriki", 
+          "Mzee", "Mdau", "Karibu", "Mfuatiliaji", "Mshauri"
+        ];
+        const swahiliAdjectives = [
+          "Machachari", "Mpole", "Makini", "Hodari", "Mwema", 
+          "Mwaminifu", "Mkuu", "Shupavu", "Mcheshi", "Mkimya"
+        ];
+        const randomTitle = swahiliTitles[Math.floor(Math.random() * swahiliTitles.length)];
+        const randomAdj = swahiliAdjectives[Math.floor(Math.random() * swahiliAdjectives.length)];
+        viewerName = `${randomTitle} ${randomAdj}`;
+      }
+      sessionStorage.setItem(`ride_viewer_name_${rideId}`, viewerName);
+    }
+
     const docRef = doc(db, "rides", rideId);
 
     const ping = async () => {
       try {
         await updateDoc(docRef, {
-          [`viewers.${viewerId}`]: Date.now()
+          [`viewers.${viewerId}`]: {
+            lastActive: Date.now(),
+            name: viewerName
+          }
         });
       } catch (e) {
         console.error("Spectator ping failed:", e);
@@ -510,7 +533,7 @@ export default function TaxiBooking() {
       };
       cleanUp();
     };
-  }, [isSpectator, rideId]);
+  }, [isSpectator, rideId, user]);
 
   // Keep step in sync with the active ride of the shared link
   useEffect(() => {
@@ -1272,25 +1295,28 @@ export default function TaxiBooking() {
           "[TaxiBooking] Syncing driver location from ride doc:",
           activeRide.driverLocation,
         );
-        if (
-          !driverLivePos ||
-          L.latLng(
-            activeRide.driverLocation.lat,
-            activeRide.driverLocation.lng,
-          ).distanceTo(L.latLng(driverLivePos.lat, driverLivePos.lng)) > 3
-        ) {
-          setDriverLivePos(activeRide.driverLocation);
-        }
+        const loc = activeRide.driverLocation;
+        setDriverLivePos((prev) => {
+          if (!prev) return loc;
+          const dist = L.latLng(loc.lat, loc.lng).distanceTo(L.latLng(prev.lat, prev.lng));
+          const headingDiff = Math.abs(((loc as any).heading ?? 0) - ((prev as any).heading ?? 0));
+          if (dist > 1 || headingDiff > 5) {
+            return loc;
+          }
+          return prev;
+        });
 
         const target =
           activeRide.status === "on_trip"
             ? activeRide.destination
             : activeRide.pickup;
-        const dist = L.latLng(
-          activeRide.driverLocation.lat,
-          activeRide.driverLocation.lng,
-        ).distanceTo(L.latLng(target.lat, target.lng));
-        setLiveDistance(dist / 1000); // km
+        if (target && target.lat && target.lng) {
+          const dist = L.latLng(
+            loc.lat,
+            loc.lng,
+          ).distanceTo(L.latLng(target.lat, target.lng));
+          setLiveDistance(dist / 1000); // km
+        }
       } else if (activeRide?.status === "completed") {
         setStep("rating");
       }
@@ -1298,6 +1324,7 @@ export default function TaxiBooking() {
   }, [
     activeRide?.driverLocation?.lat,
     activeRide?.driverLocation?.lng,
+    (activeRide?.driverLocation as any)?.heading,
     activeRide?.status,
     activeRide?.pickup?.lat,
     activeRide?.destination?.lat,
@@ -1317,20 +1344,16 @@ export default function TaxiBooking() {
           if (docSnap.exists()) {
             const data = docSnap.data();
             const pos = data.location || data.currentPosition;
-            if (
-              pos &&
-              (!driverLivePos ||
-                pos.lat !== driverLivePos.lat ||
-                pos.lng !== driverLivePos.lng)
-            ) {
-              if (
-                !driverLivePos ||
-                L.latLng(pos.lat, pos.lng).distanceTo(
-                  L.latLng(driverLivePos.lat, driverLivePos.lng),
-                ) > 3
-              ) {
-                setDriverLivePos(pos);
-              }
+            if (pos) {
+              setDriverLivePos((prev) => {
+                if (!prev) return pos;
+                const dist = L.latLng(pos.lat, pos.lng).distanceTo(L.latLng(prev.lat, prev.lng));
+                const headingDiff = Math.abs((pos.heading ?? 0) - (prev.heading ?? 0));
+                if (dist > 1 || headingDiff > 5) {
+                  return pos;
+                }
+                return prev;
+              });
             }
           }
         },
@@ -1511,91 +1534,114 @@ export default function TaxiBooking() {
     const rotation = typeof dbHeading === "number" ? dbHeading : getDriverBearing(driverId, lat, lng);
     const customVehicle = config?.vehicles?.[type];
 
-    let markerHtml = "";
+    // Check if it is a custom image (which are usually side-profile pictures, e.g. of a motorcycle/car)
     if (customVehicle?.mapMarkerUrl) {
+      // For custom image side-profile photos, 360-deg rotation makes them go upside-down or crash.
+      // Instead we keep them horizontal/upright and flip them horizontally based on direction of travel (East vs West)
+      const isMovingEast = rotation > 0 && rotation < 180;
+      const flipTransform = isMovingEast ? "scaleX(-1)" : "scaleX(1)";
+
+      return L.divIcon({
+        className: "driver-marker-icon-clean-custom",
+        html: `
+          <div class="relative flex items-center justify-center transition-all duration-300" style="width: 44px; height: 44px;">
+            <!-- Gentle surrounding sonar/pulse for high premium visibility -->
+            <div class="absolute w-10 h-10 rounded-full bg-[#7F77DD]/10 animate-ping pointer-events-none"></div>
+            <div class="absolute w-8 h-8 rounded-full bg-[#7F77DD]/5 pointer-events-none"></div>
+            
+            <img 
+              src="${customVehicle.mapMarkerUrl}" 
+              class="w-11 h-11 object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.35)] transition-transform duration-300 ease-out" 
+              style="transform: ${flipTransform};"
+              referrerPolicy="no-referrer" 
+            />
+          </div>
+        `,
+        iconSize: [44, 44],
+        iconAnchor: [22, 22],
+      });
+    }
+
+    // Default top-down vectors remain rotatable 360 degrees
+    let markerHtml = "";
+    if (type === "bike") {
       markerHtml = `
-        <img src="${customVehicle.mapMarkerUrl}" class="w-7 h-7 object-contain transition-all duration-300" referrerPolicy="no-referrer" />
+        <svg viewBox="0 0 100 100" class="w-8 h-8 drop-shadow-[0_2px_4px_rgba(0,0,0,0.35)] transition-all duration-300">
+          <!-- Scooter / Motorcycle chassis -->
+          <rect x="42" y="15" width="16" height="70" rx="6" fill="#1e1b4b" />
+          <!-- Front wheel fender -->
+          <rect x="44" y="5" width="12" height="20" rx="4" fill="#111827" />
+          <!-- Handlebars -->
+          <rect x="25" y="27" width="50" height="6" rx="3" fill="#374151" />
+          <!-- Yellow handlebar grips -->
+          <rect x="23" y="25" width="6" height="10" rx="1.5" fill="#f59e0b" />
+          <rect x="71" y="25" width="6" height="10" rx="1.5" fill="#f59e0b" />
+          <!-- Red main body -->
+          <path d="M38,35 C38,32 62,32 62,35 L58,68 C58,74 42,74 42,68 Z" fill="#ef4444" />
+          <rect x="44" y="38" width="12" height="24" rx="4" fill="#b91c1c" />
+          <!-- Black seat -->
+          <rect x="43" y="44" width="14" height="28" rx="7" fill="#111827" />
+          <!-- Rear luggage box/carrier -->
+          <rect x="41" y="74" width="18" height="16" rx="4" fill="#374151" />
+          <!-- Rider Head (Helmet) in the middle -->
+          <circle cx="50" cy="46" r="11" fill="#f97316" /> <!-- Orange helmet -->
+          <path d="M43,44 C45,39 55,39 57,44" fill="#111827" /> <!-- Visor -->
+          <rect x="46" y="86" width="8" height="12" rx="2" fill="#ef4444" /> <!-- Tail light -->
+        </svg>
+      `;
+    } else if (type === "bajaj") {
+      markerHtml = `
+        <svg viewBox="0 0 100 100" class="w-8 h-8 drop-shadow-[0_3px_5px_rgba(0,0,0,0.35)] transition-all duration-300">
+          <!-- Black Wheels -->
+          <rect x="18" y="20" width="10" height="20" rx="3" fill="#111827" />
+          <rect x="72" y="20" width="10" height="20" rx="3" fill="#111827" />
+          <rect x="45" y="75" width="10" height="18" rx="3" fill="#111827" />
+          <!-- Yellow Chassis main outer body -->
+          <path d="M22,25 C22,12 78,12 78,25 L75,72 C75,78 25,78 25,72 Z" fill="#facc15" />
+          <!-- Inside floor cabin black -->
+          <rect x="28" y="22" width="44" height="42" rx="4" fill="#1f2937" />
+          <!-- Black hard top roof -->
+          <path d="M25,28 C25,23 75,23 75,28 L71,64 C71,68 29,68 29,64 Z" fill="#111827" />
+          <!-- Front windshield nose -->
+          <path d="M35,76 L40,86 C42,90 58,90 60,86 L65,76 Z" fill="#eab308" />
+          <rect x="38" y="71" width="24" height="4" rx="2" fill="#e2e8f0" />
+          <!-- Side mirrors -->
+          <rect x="14" y="65" width="8" height="4" rx="1.5" fill="#374151" />
+          <rect x="78" y="65" width="8" height="4" rx="1.5" fill="#374151" />
+          <!-- Tail brake lights -->
+          <rect x="29" y="16" width="8" height="5" rx="1" fill="#ef4444" />
+          <rect x="63" y="16" width="8" height="5" rx="1" fill="#ef4444" />
+        </svg>
       `;
     } else {
-      if (type === "bike") {
-        markerHtml = `
-          <svg viewBox="0 0 100 100" class="w-8 h-8 drop-shadow-[0_2px_4px_rgba(0,0,0,0.35)] transition-all duration-300">
-            <!-- Scooter / Motorcycle chassis -->
-            <rect x="42" y="15" width="16" height="70" rx="6" fill="#1e1b4b" />
-            <!-- Front wheel fender -->
-            <rect x="44" y="5" width="12" height="20" rx="4" fill="#111827" />
-            <!-- Handlebars -->
-            <rect x="25" y="27" width="50" height="6" rx="3" fill="#374151" />
-            <!-- Yellow handlebar grips -->
-            <rect x="23" y="25" width="6" height="10" rx="1.5" fill="#f59e0b" />
-            <rect x="71" y="25" width="6" height="10" rx="1.5" fill="#f59e0b" />
-            <!-- Red main body -->
-            <path d="M38,35 C38,32 62,32 62,35 L58,68 C58,74 42,74 42,68 Z" fill="#ef4444" />
-            <rect x="44" y="38" width="12" height="24" rx="4" fill="#b91c1c" />
-            <!-- Black seat -->
-            <rect x="43" y="44" width="14" height="28" rx="7" fill="#111827" />
-            <!-- Rear luggage box/carrier -->
-            <rect x="41" y="74" width="18" height="16" rx="4" fill="#374151" />
-            <!-- Rider Head (Helmet) in the middle -->
-            <circle cx="50" cy="46" r="11" fill="#f97316" /> <!-- Orange helmet -->
-            <path d="M43,44 C45,39 55,39 57,44" fill="#111827" /> <!-- Visor -->
-            <rect x="46" y="86" width="8" height="12" rx="2" fill="#ef4444" /> <!-- Tail light -->
-          </svg>
-        `;
-      } else if (type === "bajaj") {
-        markerHtml = `
-          <svg viewBox="0 0 100 100" class="w-8 h-8 drop-shadow-[0_3px_5px_rgba(0,0,0,0.35)] transition-all duration-300">
-            <!-- Black Wheels -->
-            <rect x="18" y="20" width="10" height="20" rx="3" fill="#111827" />
-            <rect x="72" y="20" width="10" height="20" rx="3" fill="#111827" />
-            <rect x="45" y="75" width="10" height="18" rx="3" fill="#111827" />
-            <!-- Yellow Chassis main outer body -->
-            <path d="M22,25 C22,12 78,12 78,25 L75,72 C75,78 25,78 25,72 Z" fill="#facc15" />
-            <!-- Inside floor cabin black -->
-            <rect x="28" y="22" width="44" height="42" rx="4" fill="#1f2937" />
-            <!-- Black hard top roof -->
-            <path d="M25,28 C25,23 75,23 75,28 L71,64 C71,68 29,68 29,64 Z" fill="#111827" />
-            <!-- Front windshield nose -->
-            <path d="M35,76 L40,86 C42,90 58,90 60,86 L65,76 Z" fill="#eab308" />
-            <rect x="38" y="71" width="24" height="4" rx="2" fill="#e2e8f0" />
-            <!-- Side mirrors -->
-            <rect x="14" y="65" width="8" height="4" rx="1.5" fill="#374151" />
-            <rect x="78" y="65" width="8" height="4" rx="1.5" fill="#374151" />
-            <!-- Tail brake lights -->
-            <rect x="29" y="16" width="8" height="5" rx="1" fill="#ef4444" />
-            <rect x="63" y="16" width="8" height="5" rx="1" fill="#ef4444" />
-          </svg>
-        `;
-      } else {
-        markerHtml = `
-          <svg viewBox="0 0 100 100" class="w-8 h-8 drop-shadow-[0_4px_6px_rgba(0,0,0,0.35)] transition-all duration-300">
-            <!-- Side mirrors -->
-            <rect x="18" y="42" width="6" height="12" rx="2.5" fill="#94a3b8" />
-            <rect x="76" y="42" width="6" height="12" rx="2.5" fill="#94a3b8" />
-            <!-- Wheels under the car -->
-            <rect x="20" y="20" width="8" height="16" rx="3.5" fill="#111827" />
-            <rect x="72" y="20" width="8" height="16" rx="3.5" fill="#111827" />
-            <rect x="20" y="66" width="8" height="16" rx="3.5" fill="#111827" />
-            <rect x="72" y="66" width="8" height="16" rx="3.5" fill="#111827" />
-            <!-- Car body (Silver Slate color) -->
-            <rect x="24" y="8" width="52" height="84" rx="25" fill="#cbd5e1" />
-            <!-- Glossy metallic highlights -->
-            <path d="M28,24 L72,24 M28,76 L72,76" stroke="#94a3b8" stroke-width="2" />
-            <!-- Front Windshield -->
-            <path d="M30,34 C30,30 70,30 70,34 L68,44 C68,44 32,44 32,44 Z" fill="#1e293b" />
-            <!-- Rear Windshield -->
-            <path d="M32,68 C32,71 68,71 68,68 L66,75 L34,75 Z" fill="#1e293b" />
-            <!-- Black Glass Roof Panel -->
-            <rect x="33" y="47" width="34" height="18" rx="2" fill="#0f172a" />
-            <!-- Shiny yellow headlights -->
-            <rect x="29" y="5" width="8" height="4" rx="1.5" fill="#fef08a" />
-            <rect x="63" y="5" width="8" height="4" rx="1.5" fill="#fef08a" />
-            <!-- Red break tail lights -->
-            <rect x="28" y="91" width="10" height="4" rx="1" fill="#ef4444" />
-            <rect x="62" y="91" width="10" height="4" rx="1" fill="#ef4444" />
-          </svg>
-        `;
-      }
+      markerHtml = `
+        <svg viewBox="0 0 100 100" class="w-8 h-8 drop-shadow-[0_4px_6px_rgba(0,0,0,0.35)] transition-all duration-300">
+          <!-- Side mirrors -->
+          <rect x="18" y="42" width="6" height="12" rx="2.5" fill="#94a3b8" />
+          <rect x="76" y="42" width="6" height="12" rx="2.5" fill="#94a3b8" />
+          <!-- Wheels under the car -->
+          <rect x="20" y="20" width="8" height="16" rx="3.5" fill="#111827" />
+          <rect x="72" y="20" width="8" height="16" rx="3.5" fill="#111827" />
+          <rect x="20" y="66" width="8" height="16" rx="3.5" fill="#111827" />
+          <rect x="72" y="66" width="8" height="16" rx="3.5" fill="#111827" />
+          <!-- Car body (Silver Slate color) -->
+          <rect x="24" y="8" width="52" height="84" rx="25" fill="#cbd5e1" />
+          <!-- Glossy metallic highlights -->
+          <path d="M28,24 L72,24 M28,76 L72,76" stroke="#94a3b8" stroke-width="2" />
+          <!-- Front Windshield -->
+          <path d="M30,34 C30,30 70,30 70,34 L68,44 C68,44 32,44 32,44 Z" fill="#1e293b" />
+          <!-- Rear Windshield -->
+          <path d="M32,68 C32,71 68,71 68,68 L66,75 L34,75 Z" fill="#1e293b" />
+          <!-- Black Glass Roof Panel -->
+          <rect x="33" y="47" width="34" height="18" rx="2" fill="#0f172a" />
+          <!-- Shiny yellow headlights -->
+          <rect x="29" y="5" width="8" height="4" rx="1.5" fill="#fef08a" />
+          <rect x="63" y="5" width="8" height="4" rx="1.5" fill="#fef08a" />
+          <!-- Red break tail lights -->
+          <rect x="28" y="91" width="10" height="4" rx="1" fill="#ef4444" />
+          <rect x="62" y="91" width="10" height="4" rx="1" fill="#ef4444" />
+        </svg>
+      `;
     }
 
     return L.divIcon({
