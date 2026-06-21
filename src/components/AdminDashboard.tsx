@@ -3162,7 +3162,7 @@ export default function AdminDashboard() {
 
                         {/* Price */}
                         <div className="space-y-2">
-                          <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Bei (TZS)</Label>
+                          <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Bei Kawaida / Chini kabisa (Flat / Min Price - TZS)</Label>
                           <Input
                             type="number"
                             value={v.price === undefined ? '' : v.price}
@@ -3175,6 +3175,77 @@ export default function AdminDashboard() {
                             }}
                             className="h-11 rounded-xl border-none bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white font-bold"
                           />
+                        </div>
+
+                        {/* Transparent/Dynamic Pricing Breakdown Configuration */}
+                        <div className="space-y-3.5 border-t border-neutral-100 dark:border-neutral-800 pt-4">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[9px] font-black tracking-widest text-[#7F77DD] uppercase bg-[#7F77DD]/10 px-2.5 py-1 rounded-md">Nauli ya Uwazi (Dynamic Formula)</span>
+                          </div>
+                          
+                          <div className="grid grid-cols-3 gap-2">
+                            {/* Base Fare */}
+                            <div className="space-y-1">
+                              <Label className="text-[8px] font-black uppercase tracking-wider text-neutral-400 block truncate">Kuanza (Fungua Mlango)</Label>
+                              <Input
+                                type="number"
+                                placeholder={id === 'mini' ? '1000' : id === 'bajaj' ? '500' : '300'}
+                                value={v.baseFare === undefined ? '' : v.baseFare}
+                                onChange={(e) => {
+                                  const val = e.target.value === '' ? 0 : Number(e.target.value);
+                                  const updated = {
+                                    ...businessConfig.vehicles,
+                                    [id]: { ...v, baseFare: val }
+                                  };
+                                  setBusinessConfig({ ...businessConfig, vehicles: updated });
+                                }}
+                                className="h-9 rounded-lg border-none bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white font-bold text-center text-xs"
+                              />
+                            </div>
+
+                            {/* Price per KM */}
+                            <div className="space-y-1">
+                              <Label className="text-[8px] font-black uppercase tracking-wider text-neutral-400 block truncate">Kila KM (Umbali)</Label>
+                              <Input
+                                type="number"
+                                placeholder={id === 'mini' ? '800' : id === 'bajaj' ? '500' : '350'}
+                                value={v.pricePerKm === undefined ? '' : v.pricePerKm}
+                                onChange={(e) => {
+                                  const val = e.target.value === '' ? 0 : Number(e.target.value);
+                                  const updated = {
+                                    ...businessConfig.vehicles,
+                                    [id]: { ...v, pricePerKm: val }
+                                  };
+                                  setBusinessConfig({ ...businessConfig, vehicles: updated });
+                                }}
+                                className="h-9 rounded-lg border-none bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white font-bold text-center text-xs"
+                              />
+                            </div>
+
+                            {/* Price per Min */}
+                            <div className="space-y-1">
+                              <Label className="text-[8px] font-black uppercase tracking-wider text-neutral-400 block truncate">Kila Dk (Muda)</Label>
+                              <Input
+                                type="number"
+                                placeholder={id === 'mini' ? '100' : '0'}
+                                value={v.pricePerMin === undefined ? '' : v.pricePerMin}
+                                onChange={(e) => {
+                                  const val = e.target.value === '' ? 0 : Number(e.target.value);
+                                  const updated = {
+                                    ...businessConfig.vehicles,
+                                    [id]: { ...v, pricePerMin: val }
+                                  };
+                                  setBusinessConfig({ ...businessConfig, vehicles: updated });
+                                }}
+                                className="h-9 rounded-lg border-none bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white font-bold text-center text-xs"
+                              />
+                            </div>
+                          </div>
+                          
+                          <p className="text-[8px] text-neutral-400 leading-snug">
+                            Kanuni: <code className="text-[#7F77DD] font-bold">Kuanza + (KM * Bei ya KM) + (Dakika * Bei ya Dakika)</code>.
+                            {id !== 'mini' && ' (Pikipiki na Bajaji zina faida ya kutoshtakiwa foleni - weka Kila Dk kuwa 0!)'}
+                          </p>
                         </div>
 
                         {/* Image Source Toggle */}

@@ -39,6 +39,7 @@ import {
   Moon,
   Trash2,
   Loader2,
+  Calculator,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import Chat from "./Chat";
@@ -434,6 +435,7 @@ export default function TaxiBooking() {
     "pickup",
   );
   const [selectedRide, setSelectedRide] = useState<RideOption | null>(null);
+  const [showBreakdownModal, setShowBreakdownModal] = useState(false);
   const [secondsOffset, setSecondsOffset] = useState<number>(0);
   const justSelectedRef = useRef(false);
 
@@ -1820,7 +1822,7 @@ export default function TaxiBooking() {
         { lat: pickupPos[0], lng: pickupPos[1], address: pickup },
         { lat: destPos[0], lng: destPos[1], address: destination },
         selectedRide.id as any,
-        selectedRide.price,
+        rideOptions.find((r) => r.id === selectedRide.id)?.price || selectedRide.price,
         totalDistance / 1000,
         Math.ceil(totalDuration / 60),
         formattedCoords,
@@ -1994,13 +1996,40 @@ export default function TaxiBooking() {
     }
   };
 
+  const getDynamicPrice = (vehicleId: string, vehicleConfig: any) => {
+    // Standard fallbacks if no destination or route is loaded
+    if (!destination || !totalDistance || totalDistance <= 0) {
+      if (vehicleConfig?.price !== undefined) return Number(vehicleConfig.price);
+      return vehicleId === "mini" ? 2800 : vehicleId === "bajaj" ? 1500 : 800;
+    }
+
+    const distKm = totalDistance / 1000;
+    const durMins = Math.ceil((totalDuration || 300) / 60) || 1;
+
+    // Retrieve configs from admin dashboard or use precise Swahili fallbacks
+    const baseFare = vehicleConfig?.baseFare !== undefined ? Number(vehicleConfig.baseFare) : (vehicleId === 'mini' ? 1000 : vehicleId === 'bajaj' ? 500 : 300);
+    const pricePerKm = vehicleConfig?.pricePerKm !== undefined ? Number(vehicleConfig.pricePerKm) : (vehicleId === 'mini' ? 800 : vehicleId === 'bajaj' ? 500 : 350);
+    // Bajaji & Bodaboda don't charge in traffic (0 TZS/min), Cars charge TZS 100/min
+    const pricePerMin = vehicleConfig?.pricePerMin !== undefined ? Number(vehicleConfig.pricePerMin) : (vehicleId === 'mini' ? 100 : 0);
+
+    const calculated = baseFare + (distKm * pricePerKm) + (durMins * pricePerMin);
+    
+    // Round to nearest 100 TZS for payment convenience
+    const rounded = Math.ceil(calculated / 100) * 100;
+
+    // Ensure it's not below the base rate
+    const minPrice = vehicleConfig?.price !== undefined ? Number(vehicleConfig.price) : (vehicleId === 'mini' ? 1500 : vehicleId === 'bajaj' ? 800 : 500);
+    
+    return Math.max(minPrice, rounded);
+  };
+
   const rideOptions: RideOption[] = [
     {
       id: "mini",
       name: config?.vehicles?.mini?.name || "Gari",
       icon: Car,
       sub: config?.vehicles?.mini?.sub || "Max 4 Siti",
-      price: config?.vehicles?.mini?.price !== undefined ? Number(config.vehicles.mini.price) : 2800,
+      price: getDynamicPrice("mini", config?.vehicles?.mini),
       eta: "3",
       vehicleType: "mini",
       image: config?.vehicles?.mini?.image || "🚗",
@@ -2013,7 +2042,7 @@ export default function TaxiBooking() {
       name: config?.vehicles?.bajaj?.name || "Bajaji",
       icon: BajajSVG,
       sub: config?.vehicles?.bajaj?.sub || "3 Siti",
-      price: config?.vehicles?.bajaj?.price !== undefined ? Number(config.vehicles.bajaj.price) : 1500,
+      price: getDynamicPrice("bajaj", config?.vehicles?.bajaj),
       eta: "4",
       vehicleType: "bajaj",
       image: config?.vehicles?.bajaj?.image || "🛺",
@@ -2025,7 +2054,7 @@ export default function TaxiBooking() {
       name: config?.vehicles?.bike?.name || "Pikipiki",
       icon: BikeSVG,
       sub: config?.vehicles?.bike?.sub || "Usafiri Salama",
-      price: config?.vehicles?.bike?.price !== undefined ? Number(config.vehicles.bike.price) : 800,
+      price: getDynamicPrice("bike", config?.vehicles?.bike),
       eta: "2",
       vehicleType: "bike",
       image: config?.vehicles?.bike?.image || "🏍️",
@@ -2866,7 +2895,20 @@ export default function TaxiBooking() {
                       );
                     })}
                   </div>
-
+                  
+                  {/* Dynamic transparent pricing explanation trigger */}
+                  {destination && totalDistance > 0 && (
+                    <div className="w-full flex justify-center py-1">
+                      <button
+                        onClick={() => setShowBreakdownModal(true)}
+                        className="text-[9.5px] font-black tracking-widest text-[#7F77DD] hover:text-[#9c95ff] bg-[#7F77DD]/10 hover:bg-[#7F77DD]/15 px-4 py-2 rounded-full uppercase flex items-center gap-1.5 transition-all shadow-sm border border-[#7F77DD]/25 active:scale-95"
+                      >
+                        <Calculator className="w-3 h-3 text-[#7F77DD]" />
+                        <span>Gharama ya Uwazi (Breakdown)</span>
+                      </button>
+                    </div>
+                  )}
+                  
                   <button
                     onClick={() => {
                       if (justSelectedRef.current) return;
@@ -3141,6 +3183,126 @@ export default function TaxiBooking() {
             </button>
             <Chat onBack={() => setIsChatOpen(false)} />
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Gharama ya Uwazi Breakdown Modal */}
+      <AnimatePresence>
+        {showBreakdownModal && (
+          <div className="absolute inset-0 z-[250] flex items-end justify-center bg-black/80 backdrop-blur-sm p-4">
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              className="w-full max-w-sm bg-[#0E0E18] border border-white/10 rounded-[32px] p-6 text-white overflow-y-auto max-h-[85vh] shadow-[0_-10px_40px_rgba(0,0,0,0.8)] no-scrollbar space-y-5"
+            >
+              <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                <div className="flex items-center gap-2">
+                  <Calculator className="w-5 h-5 text-[#7F77DD]" />
+                  <h3 className="text-sm font-black uppercase tracking-wider text-white">Gharama ya Uwazi</h3>
+                </div>
+                <button
+                  onClick={() => setShowBreakdownModal(false)}
+                  className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-neutral-400 hover:text-white"
+                >
+                  <CloseX className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* General Trip Info */}
+              <div className="bg-[#141424] p-3.5 rounded-2xl flex justify-around text-center border border-white/5">
+                <div>
+                  <p className="text-[9px] text-[#8a8ab0] uppercase font-black tracking-wider">Kadirio la Umbali</p>
+                  <p className="text-base font-black text-white mt-0.5">{(totalDistance / 1000).toFixed(1)} KM</p>
+                </div>
+                <div className="w-[1px] bg-white/5" />
+                <div>
+                  <p className="text-[9px] text-[#8a8ab0] uppercase font-black tracking-wider">Muda Utakaotumika</p>
+                  <p className="text-base font-black text-white mt-0.5">{Math.ceil(totalDuration / 60)} DK</p>
+                </div>
+              </div>
+
+              {/* Ride Options Breakdowns */}
+              <div className="space-y-4">
+                {rideOptions.map((ride) => {
+                  const id = ride.id;
+                  const vehicleConfig = config?.vehicles?.[id];
+                  
+                  const baseFare = vehicleConfig?.baseFare !== undefined ? Number(vehicleConfig.baseFare) : (id === 'mini' ? 1000 : id === 'bajaj' ? 500 : 300);
+                  const pricePerKm = vehicleConfig?.pricePerKm !== undefined ? Number(vehicleConfig.pricePerKm) : (id === 'mini' ? 800 : id === 'bajaj' ? 500 : 350);
+                  const pricePerMin = vehicleConfig?.pricePerMin !== undefined ? Number(vehicleConfig.pricePerMin) : (id === 'mini' ? 100 : 0);
+
+                  const kmCost = (totalDistance / 1000) * pricePerKm;
+                  const minCost = Math.ceil(totalDuration / 60) * pricePerMin;
+                  
+                  return (
+                    <div 
+                      key={ride.id} 
+                      className={`p-4 rounded-3xl border transition-all ${
+                        selectedRide?.id === ride.id 
+                          ? 'bg-[#7F77DD]/10 border-[#7F77DD] shadow-[0_0_15px_rgba(127,119,221,0.15)]' 
+                          : 'bg-[#12121e]/50 border-white/5'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">{ride.image}</span>
+                          <div>
+                            <h4 className="text-xs font-black uppercase tracking-wide">{ride.name}</h4>
+                            <p className="text-[8px] text-neutral-400 font-bold uppercase">{ride.sub}</p>
+                          </div>
+                        </div>
+                        <span className="text-xs font-black text-[#7F77DD]">
+                          TZS {ride.price.toLocaleString()}
+                        </span>
+                      </div>
+
+                      <div className="space-y-2 text-[10px] text-neutral-300 font-medium animate-in fade-in-50">
+                        {/* Base Fare */}
+                        <div className="flex justify-between items-center bg-white/[0.02] p-1.5 rounded-lg">
+                          <span className="text-neutral-400">1. Kuanza (Fungua Mlango):</span>
+                          <span>TZS {baseFare.toLocaleString()}</span>
+                        </div>
+
+                        {/* Distance Cost */}
+                        <div className="flex justify-between items-center bg-white/[0.02] p-1.5 rounded-lg">
+                          <span className="text-neutral-400">2. Umbali ({(totalDistance / 1000).toFixed(1)} KM × {pricePerKm} TZS):</span>
+                          <span>TZS {Math.round(kmCost).toLocaleString()}</span>
+                        </div>
+
+                        {/* Minute Cost */}
+                        <div className="flex justify-between items-center bg-white/[0.02] p-1.5 rounded-lg">
+                          <span className="text-neutral-400">3. Muda ({Math.ceil(totalDuration / 60)} Dk × {pricePerMin} TZS):</span>
+                          {pricePerMin === 0 ? (
+                            <span className="text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-md text-[8px] font-black uppercase tracking-wider animate-pulse">
+                              FREE TRAFFIC! 🎉
+                            </span>
+                          ) : (
+                            <span>TZS {Math.round(minCost).toLocaleString()}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Informative Swahili explanation of why it is different */}
+              <div className="bg-emerald-500/5 border border-emerald-500/10 p-4 rounded-2.5xl space-y-1.5">
+                <h4 className="text-[10px] font-black text-emerald-400 uppercase tracking-wide">💡 KWANINI SISI NI TOFAUTI?</h4>
+                <p className="text-[9px] text-neutral-200 leading-relaxed font-semibold">
+                  Mifumo mingine inakutoza bei kubwa inayozidi kuhesabiwa unapokwama kwenye foleni. Sisi tumeweka <strong>"FREE TRAFFIC" (Muda = TZS 0)</strong> kwa Bajaji na Pikipiki zako! Hata pakiwa na foleni nzito, nauli yako inabaki ile ile ya kilometa tu kwani pikipiki/bajaji hupita kirahisi na hazikwami!
+                </p>
+              </div>
+
+              <button
+                onClick={() => setShowBreakdownModal(false)}
+                className="w-full py-4 bg-white text-[#0a0a0f] rounded-2.5xl text-xs font-black uppercase tracking-wider shadow-lg active:scale-95 transition-all hover:bg-neutral-100"
+              >
+                NIMEFAHAMU, ASANTE!
+              </button>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
