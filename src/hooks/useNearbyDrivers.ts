@@ -8,6 +8,7 @@ export interface DriverMarker {
   lng: number;
   vehicleType: 'mini' | 'bajaj' | 'bike';
   name: string;
+  heading?: number;
 }
 
 export function useNearbyDrivers() {
@@ -52,7 +53,8 @@ export function useNearbyDrivers() {
           lat: d.location.lat,
           lng: d.location.lng,
           vehicleType: d.vehicleType || 'mini',
-          name: d.name || 'Dereva'
+          name: d.name || 'Dereva',
+          heading: d.location.heading || d.bearing || d.heading || 0
         }));
       setDrivers(driverList);
     }, (error) => {
