@@ -436,8 +436,20 @@ export default function TaxiBooking() {
   );
   const [selectedRide, setSelectedRide] = useState<RideOption | null>(null);
   const [showBreakdownModal, setShowBreakdownModal] = useState(false);
+  const [selectedCity, setSelectedCity] = useState("Dar es Salaam");
+  const [isNightSurcharge, setIsNightSurcharge] = useState(false);
+  const [surgeLevel, setSurgeLevel] = useState("normal"); // "normal", "rush", "rain"
+  const [waitingTime, setWaitingTime] = useState(0); // minutes
   const [secondsOffset, setSecondsOffset] = useState<number>(0);
   const justSelectedRef = useRef(false);
+
+  // Zima upendo wa kiotomatiki wa usiku kulingana na saa
+  useEffect(() => {
+    const hours = new Date().getHours();
+    if (hours >= 22 || hours < 5) {
+      setIsNightSurcharge(true);
+    }
+  }, []);
 
   const [rideId, setRideId] = useState<string | null>(null);
   const { ride: activeRide, cancelRide, deleteRide } = useTripFlow(rideId);
@@ -1998,26 +2010,57 @@ export default function TaxiBooking() {
 
   const getDynamicPrice = (vehicleId: string, vehicleConfig: any) => {
     // Standard fallbacks if no destination or route is loaded
-    if (!destination || !totalDistance || totalDistance <= 0) {
-      if (vehicleConfig?.price !== undefined) return Number(vehicleConfig.price);
-      return vehicleId === "mini" ? 2800 : vehicleId === "bajaj" ? 1500 : 800;
-    }
-
-    const distKm = totalDistance / 1000;
-    const durMins = Math.ceil((totalDuration || 300) / 60) || 1;
+    const isPreRoute = !destination || !totalDistance || totalDistance <= 0;
+    
+    // Simulate standard reference trip if showing initial prices on opening
+    const distKm = isPreRoute ? 3.0 : totalDistance / 1000;
+    const durMins = isPreRoute ? 10 : Math.ceil((totalDuration || 300) / 60) || 1;
 
     // Retrieve configs from admin dashboard or use precise Swahili fallbacks
-    const baseFare = vehicleConfig?.baseFare !== undefined ? Number(vehicleConfig.baseFare) : (vehicleId === 'mini' ? 1000 : vehicleId === 'bajaj' ? 500 : 300);
-    const pricePerKm = vehicleConfig?.pricePerKm !== undefined ? Number(vehicleConfig.pricePerKm) : (vehicleId === 'mini' ? 800 : vehicleId === 'bajaj' ? 500 : 350);
-    // Bajaji & Bodaboda don't charge in traffic (0 TZS/min), Cars charge TZS 100/min
-    const pricePerMin = vehicleConfig?.pricePerMin !== undefined ? Number(vehicleConfig.pricePerMin) : (vehicleId === 'mini' ? 100 : 0);
+    let baseFare = vehicleConfig?.baseFare !== undefined ? Number(vehicleConfig.baseFare) : (vehicleId === 'mini' ? 1000 : vehicleId === 'bajaj' ? 500 : 300);
+    let pricePerKm = vehicleConfig?.pricePerKm !== undefined ? Number(vehicleConfig.pricePerKm) : (vehicleId === 'mini' ? 800 : vehicleId === 'bajaj' ? 500 : 350);
+    // Bajaji & Bodaboda don't charge in traffic (0 TZS/min) by default unless customized, Cars charge TZS 100/min
+    let pricePerMin = vehicleConfig?.pricePerMin !== undefined ? Number(vehicleConfig.pricePerMin) : (vehicleId === 'mini' ? 100 : 0);
 
-    const calculated = baseFare + (distKm * pricePerKm) + (durMins * pricePerMin);
+    // City-specific tariff adjustments
+    if (selectedCity === "Arusha") {
+      // Arusha has hilly terrain & tourism factor: 10% extra on base and KM
+      pricePerKm = pricePerKm * 1.10;
+      baseFare = baseFare + 200;
+    } else if (selectedCity === "Dodoma") {
+      // Dodoma is flat & fast-flowing, less fuel usage, -10% on KM
+      pricePerKm = pricePerKm * 0.90;
+    } else if (selectedCity === "Mwanza") {
+      // Mwanza has medium hills, -5% on KM
+      pricePerKm = pricePerKm * 0.95;
+    }
+
+    // Core trip distance & duration cost
+    const distanceCost = distKm * pricePerKm;
+    const durationCost = durMins * pricePerMin;
+
+    // Waiting Time Settle (Muda wa Subira - customizable by rider/driver)
+    const waitingRate = vehicleId === "mini" ? 120 : vehicleId === "bajaj" ? 50 : 30; // TZS per min
+    const waitingCost = waitingTime * waitingRate;
+
+    let subTotal = baseFare + distanceCost + durationCost + waitingCost;
+
+    // 15% Night Surcharge if enabled
+    if (isNightSurcharge) {
+      subTotal = subTotal * 1.15;
+    }
+
+    // Dynamic Surcharges (Surge level)
+    let surgeMultiplier = 1.0;
+    if (surgeLevel === "rush") surgeMultiplier = 1.25;
+    if (surgeLevel === "rain") surgeMultiplier = 1.5;
+    
+    subTotal = subTotal * surgeMultiplier;
     
     // Round to nearest 100 TZS for payment convenience
-    const rounded = Math.ceil(calculated / 100) * 100;
+    const rounded = Math.ceil(subTotal / 100) * 100;
 
-    // Ensure it's not below the base rate
+    // Ensure it's not below the base rate specified by admin or fallback minimum
     const minPrice = vehicleConfig?.price !== undefined ? Number(vehicleConfig.price) : (vehicleId === 'mini' ? 1500 : vehicleId === 'bajaj' ? 800 : 500);
     
     return Math.max(minPrice, rounded);
@@ -2833,6 +2876,92 @@ export default function TaxiBooking() {
                     )}
                   </div>
 
+                  {/* Trip Pricing Conditions Simulator/Config (Mazingira ya Safari) */}
+                  <div className={`w-full bg-[#141420]/75 border border-white/5 rounded-3xl p-3.5 space-y-3 transition-all duration-200 ${suggestions.length > 0 ? "pointer-events-none opacity-20 grayscale select-none" : ""}`}>
+                    {/* Header */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-[#7F77DD]">Mazingira na Kanuni za Nauli</span>
+                      <span className="text-[8.5px] font-black uppercase tracking-wider text-neutral-400 bg-white/5 px-2.5 py-0.5 rounded-full">Kila Mji & Surcharges</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      {/* select city */}
+                      <div className="space-y-1.5">
+                        <label className="text-[8.5px] font-black uppercase tracking-wider text-neutral-400 block">Teua Mji (City Rate)</label>
+                        <select
+                          value={selectedCity}
+                          onChange={(e) => setSelectedCity(e.target.value)}
+                          className="w-full h-9 rounded-xl bg-[#0f0f18] text-xs font-bold text-white border border-white/10 px-2.5 outline-none focus:border-[#7F77DD]"
+                        >
+                          <option value="Dar es Salaam">Dar es Salaam (Kawaida)</option>
+                          <option value="Arusha">Arusha (+10% Kilometa)</option>
+                          <option value="Dodoma">Dodoma (-10% Kilometa)</option>
+                          <option value="Mwanza">Mwanza (-5% Kilometa)</option>
+                        </select>
+                      </div>
+
+                      {/* Surge options */}
+                      <div className="space-y-1.5">
+                        <label className="text-[8.5px] font-black uppercase tracking-wider text-neutral-400 block">Uhitaji (Surge Logic)</label>
+                        <select
+                          value={surgeLevel}
+                          onChange={(e) => setSurgeLevel(e.target.value)}
+                          className="w-full h-9 rounded-xl bg-[#0f0f18] text-xs font-bold text-white border border-white/10 px-2.5 outline-none focus:border-[#7F77DD]"
+                        >
+                          <option value="normal">Muda Kawaida (1.0x)</option>
+                          <option value="rush">Saa za Kazi / Peak (1.25x)</option>
+                          <option value="rain">Mvua kubwa / Surge (1.5x)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      {/* Night charge toggle */}
+                      <button
+                        onClick={() => setIsNightSurcharge(!isNightSurcharge)}
+                        className={`h-9 px-3 rounded-xl border flex items-center justify-between text-[11px] font-bold transition-all ${
+                          isNightSurcharge 
+                            ? "bg-[#7F77DD]/10 border-[#7F77DD] text-[#7F77DD]" 
+                            : "bg-[#0f0f18] border-white/10 text-neutral-400"
+                        }`}
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <Moon className="w-3.5 h-3.5" />
+                          Ada ya Usiku (+15%)
+                        </span>
+                        <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center border ${
+                          isNightSurcharge ? "border-[#7F77DD] bg-[#7F77DD]" : "border-neutral-700 bg-transparent"
+                        }`}>
+                          {isNightSurcharge && <span className="text-[8px] text-white">✓</span>}
+                        </div>
+                      </button>
+
+                      {/* Waiting time controller */}
+                      <div className="h-9 px-2.5 bg-[#0f0f18] border border-white/10 rounded-xl flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-neutral-400 flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5 text-neutral-500 animate-pulse" />
+                          Kusubiri:
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <button 
+                            disabled={waitingTime <= 0}
+                            onClick={() => setWaitingTime(prev => Math.max(0, prev - 2))}
+                            className="w-4.5 h-4.5 rounded-md bg-white/5 disabled:opacity-30 flex items-center justify-center font-black text-white hover:bg-white/10 text-xs active:scale-95"
+                          >
+                            -
+                          </button>
+                          <span className="text-xs font-black text-white min-w-4 text-center">{waitingTime}m</span>
+                          <button 
+                            onClick={() => setWaitingTime(prev => Math.min(30, prev + 2))}
+                            className="w-4.5 h-4.5 rounded-md bg-white/5 flex items-center justify-center font-black text-white hover:bg-white/10 text-xs active:scale-95"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className={`grid grid-cols-3 gap-2.5 w-full py-3 transition-all duration-200 ${suggestions.length > 0 ? "pointer-events-none opacity-20 grayscale select-none" : ""}`}>
                     {rideOptions.map((ride) => {
                       const isSelected = selectedRide?.id === ride.id;
@@ -3212,14 +3341,25 @@ export default function TaxiBooking() {
               {/* General Trip Info */}
               <div className="bg-[#141424] p-3.5 rounded-2xl flex justify-around text-center border border-white/5">
                 <div>
-                  <p className="text-[9px] text-[#8a8ab0] uppercase font-black tracking-wider">Kadirio la Umbali</p>
-                  <p className="text-base font-black text-white mt-0.5">{(totalDistance / 1000).toFixed(1)} KM</p>
+                  <p className="text-[9px] text-[#8a8ab0] uppercase font-black tracking-wider">Mji & Vigezo</p>
+                  <p className="text-xs font-black text-[#7F77DD] mt-1 uppercase">{selectedCity}</p>
                 </div>
                 <div className="w-[1px] bg-white/5" />
                 <div>
-                  <p className="text-[9px] text-[#8a8ab0] uppercase font-black tracking-wider">Muda Utakaotumika</p>
-                  <p className="text-base font-black text-white mt-0.5">{Math.ceil(totalDuration / 60)} DK</p>
+                  <p className="text-[9px] text-[#8a8ab0] uppercase font-black tracking-wider">Muda wa Safari</p>
+                  <p className="text-xs font-black text-white mt-1">
+                    {destination ? `${Math.ceil((totalDuration || 300) / 60)} DK` : "Simulasi (10 DK)"}
+                  </p>
                 </div>
+                {waitingTime > 0 && (
+                  <>
+                    <div className="w-[1px] bg-white/5" />
+                    <div>
+                      <p className="text-[9px] text-amber-400 uppercase font-black tracking-wider">Subira</p>
+                      <p className="text-xs font-black text-amber-400 mt-1">{waitingTime} DK</p>
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Ride Options Breakdowns */}
@@ -3228,13 +3368,36 @@ export default function TaxiBooking() {
                   const id = ride.id;
                   const vehicleConfig = config?.vehicles?.[id];
                   
-                  const baseFare = vehicleConfig?.baseFare !== undefined ? Number(vehicleConfig.baseFare) : (id === 'mini' ? 1000 : id === 'bajaj' ? 500 : 300);
-                  const pricePerKm = vehicleConfig?.pricePerKm !== undefined ? Number(vehicleConfig.pricePerKm) : (id === 'mini' ? 800 : id === 'bajaj' ? 500 : 350);
-                  const pricePerMin = vehicleConfig?.pricePerMin !== undefined ? Number(vehicleConfig.pricePerMin) : (id === 'mini' ? 100 : 0);
+                  // Same pricing computation as getDynamicPrice
+                  const isPreRoute = !destination || !totalDistance || totalDistance <= 0;
+                  const distKm = isPreRoute ? 3.0 : totalDistance / 1000;
+                  const durMins = isPreRoute ? 10 : Math.ceil((totalDuration || 300) / 60) || 1;
 
-                  const kmCost = (totalDistance / 1000) * pricePerKm;
-                  const minCost = Math.ceil(totalDuration / 60) * pricePerMin;
-                  
+                  let baseFare = vehicleConfig?.baseFare !== undefined ? Number(vehicleConfig.baseFare) : (id === 'mini' ? 1000 : id === 'bajaj' ? 500 : 300);
+                  let pricePerKm = vehicleConfig?.pricePerKm !== undefined ? Number(vehicleConfig.pricePerKm) : (id === 'mini' ? 800 : id === 'bajaj' ? 500 : 350);
+                  let pricePerMin = vehicleConfig?.pricePerMin !== undefined ? Number(vehicleConfig.pricePerMin) : (id === 'mini' ? 100 : 0);
+
+                  // City adjustments
+                  if (selectedCity === "Arusha") {
+                    pricePerKm = pricePerKm * 1.10;
+                    baseFare = baseFare + 200;
+                  } else if (selectedCity === "Dodoma") {
+                    pricePerKm = pricePerKm * 0.90;
+                  } else if (selectedCity === "Mwanza") {
+                    pricePerKm = pricePerKm * 0.95;
+                  }
+
+                  const kmCost = distKm * pricePerKm;
+                  const minCost = durMins * pricePerMin;
+
+                  const waitingRate = id === "mini" ? 120 : id === "bajaj" ? 50 : 30;
+                  const waitingCost = waitingTime * waitingRate;
+
+                  // Surge factor
+                  let surgeMultiplier = 1.0;
+                  if (surgeLevel === "rush") surgeMultiplier = 1.25;
+                  if (surgeLevel === "rain") surgeMultiplier = 1.5;
+
                   return (
                     <div 
                       key={ride.id} 
@@ -3257,29 +3420,58 @@ export default function TaxiBooking() {
                         </span>
                       </div>
 
-                      <div className="space-y-2 text-[10px] text-neutral-300 font-medium animate-in fade-in-50">
+                      <div className="space-y-2 text-[10px] text-neutral-300 font-medium">
                         {/* Base Fare */}
                         <div className="flex justify-between items-center bg-white/[0.02] p-1.5 rounded-lg">
-                          <span className="text-neutral-400">1. Kuanza (Fungua Mlango):</span>
-                          <span>TZS {baseFare.toLocaleString()}</span>
+                          <span className="text-neutral-400">1. Kuanza Safari:</span>
+                          <span>TZS {Math.round(baseFare).toLocaleString()}</span>
                         </div>
 
                         {/* Distance Cost */}
                         <div className="flex justify-between items-center bg-white/[0.02] p-1.5 rounded-lg">
-                          <span className="text-neutral-400">2. Umbali ({(totalDistance / 1000).toFixed(1)} KM × {pricePerKm} TZS):</span>
+                          <span className="text-neutral-400">
+                            2. Kilometa ({distKm.toFixed(1)} KM × {Math.round(pricePerKm)} TZS):
+                          </span>
                           <span>TZS {Math.round(kmCost).toLocaleString()}</span>
                         </div>
 
-                        {/* Minute Cost */}
+                        {/* Duration Cost */}
                         <div className="flex justify-between items-center bg-white/[0.02] p-1.5 rounded-lg">
-                          <span className="text-neutral-400">3. Muda ({Math.ceil(totalDuration / 60)} Dk × {pricePerMin} TZS):</span>
+                          <span className="text-neutral-400">
+                            3. Muda njiani ({durMins} Dk × {pricePerMin} TZS):
+                          </span>
                           {pricePerMin === 0 ? (
-                            <span className="text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-md text-[8px] font-black uppercase tracking-wider animate-pulse">
-                              FREE TRAFFIC! 🎉
+                            <span className="text-[8px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded font-black uppercase">
+                              Trafiki Bure 🎉
                             </span>
                           ) : (
                             <span>TZS {Math.round(minCost).toLocaleString()}</span>
                           )}
+                        </div>
+
+                        {/* Waiting Time Cost (Muda wa Subira) */}
+                        {waitingTime > 0 && (
+                          <div className="flex justify-between items-center bg-amber-500/5 p-1.5 rounded-lg text-amber-400">
+                            <span>4. Subira ({waitingTime} Dk × {waitingRate} TZS):</span>
+                            <span>+ TZS {waitingCost.toLocaleString()}</span>
+                          </div>
+                        )}
+
+                        {/* Surcharges info row */}
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          {isNightSurcharge && (
+                            <span className="text-[8px] text-[#7F77DD] bg-[#7F77DD]/10 px-2 py-0.5 rounded-full font-black uppercase tracking-wider">
+                              Usiku (+15%)
+                            </span>
+                          )}
+                          {surgeLevel !== "normal" && (
+                            <span className="text-[8px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full font-black uppercase tracking-wider">
+                              Uhitaji Surcharge ({surgeMultiplier}x)
+                            </span>
+                          )}
+                          <span className="text-[8px] text-neutral-400 bg-white/5 px-2 py-0.5 rounded-full font-black uppercase tracking-wider">
+                            Mji: {selectedCity}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -3288,16 +3480,16 @@ export default function TaxiBooking() {
               </div>
 
               {/* Informative Swahili explanation of why it is different */}
-              <div className="bg-emerald-500/5 border border-emerald-500/10 p-4 rounded-2.5xl space-y-1.5">
-                <h4 className="text-[10px] font-black text-emerald-400 uppercase tracking-wide">💡 KWANINI SISI NI TOFAUTI?</h4>
-                <p className="text-[9px] text-neutral-200 leading-relaxed font-semibold">
-                  Mifumo mingine inakutoza bei kubwa inayozidi kuhesabiwa unapokwama kwenye foleni. Sisi tumeweka <strong>"FREE TRAFFIC" (Muda = TZS 0)</strong> kwa Bajaji na Pikipiki zako! Hata pakiwa na foleni nzito, nauli yako inabaki ile ile ya kilometa tu kwani pikipiki/bajaji hupita kirahisi na hazikwami!
+              <div className="bg-[#141424] border border-[#7F77DD]/20 p-4 rounded-2.5xl space-y-1.5">
+                <h4 className="text-[10px] font-black text-[#7F77DD] uppercase tracking-wide">💡 TOFAUTI yetu ya Kipekee:</h4>
+                <p className="text-[9.2px] text-neutral-200 leading-relaxed font-semibold">
+                  Sisi ni waigizaji kulingana na miji mbalimbali nchini Tanzania. <strong>Dar es Salaam</strong> ina nauli ya kawaida, <strong>Arusha</strong> imeongezwa kutokana na milima, huku miji ya <strong>Dodoma</strong> na <strong>Mwanza</strong> ikileta unafuu zaidi! Pia kwa Pikipiki na Bajaji, <strong>hutoizwi hela ya foleni</strong> hata kidogo!
                 </p>
               </div>
 
               <button
                 onClick={() => setShowBreakdownModal(false)}
-                className="w-full py-4 bg-white text-[#0a0a0f] rounded-2.5xl text-xs font-black uppercase tracking-wider shadow-lg active:scale-95 transition-all hover:bg-neutral-100"
+                className="w-full py-4 bg-gradient-to-r from-[#7F77DD] to-[#6056d6] text-white rounded-2.5xl text-xs font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all"
               >
                 NIMEFAHAMU, ASANTE!
               </button>
