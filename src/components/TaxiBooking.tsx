@@ -2643,7 +2643,42 @@ export default function TaxiBooking() {
                   </div>
                 )}
 
-                <style>{`.leaflet-container { height: 100% !important; width: 100% !important; background: ${theme === 'dark' ? '#0a0a0f' : '#ffffff'} !important; } .custom-div-icon { background: none; border: none; } .animate-spin-slow { animation: spin 3s linear infinite; } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+                <style>{`
+                  .leaflet-container { 
+                    height: 100% !important; 
+                    width: 100% !important; 
+                    background: ${theme === 'dark' ? '#0a0a0f' : '#ffffff'} !important; 
+                  } 
+                  .custom-div-icon { 
+                    background: none; 
+                    border: none; 
+                  } 
+                  .animate-spin-slow { 
+                    animation: spin 3s linear infinite; 
+                  } 
+                  @keyframes spin { 
+                    from { transform: rotate(0deg); } 
+                    to { transform: rotate(360deg); } 
+                  }
+                  /* Position Zoom control safely below the Top-Left Home Button */
+                  .leaflet-left .leaflet-control-zoom {
+                    margin-top: 70px !important;
+                    border: 1px solid ${theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'} !important;
+                    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3) !important;
+                    border-radius: 12px !important;
+                    overflow: hidden;
+                  }
+                  .leaflet-control-zoom-in, .leaflet-control-zoom-out {
+                    background-color: ${theme === 'dark' ? '#111118' : '#ffffff'} !important;
+                    color: ${theme === 'dark' ? '#f0eeff' : '#0f0f18'} !important;
+                    border-bottom: 1px solid ${theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'} !important;
+                    transition: all 0.2s ease !important;
+                  }
+                  .leaflet-control-zoom-in:hover, .leaflet-control-zoom-out:hover {
+                    background-color: #7F77DD !important;
+                    color: white !important;
+                  }
+                `}</style>
                 <div
                   style={{
                     borderRadius: "16px",
