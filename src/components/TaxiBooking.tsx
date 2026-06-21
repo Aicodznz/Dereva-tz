@@ -1786,8 +1786,9 @@ export default function TaxiBooking() {
 
       if (gfType === 'circle') {
         const gfCenterObj = cityData.geofenceCenter || { lat: cityData.lat, lng: cityData.lng };
-        const gfCenterLat = gfCenterObj.lat || cityData.lat;
-        const gfCenterLng = gfCenterObj.lng || cityData.lng;
+        const fallbacks = CITY_FALLBACK_COORDINATES[selectedCity] || CITY_FALLBACK_COORDINATES["Dar es Salaam"];
+        const gfCenterLat = gfCenterObj.lat || cityData.lat || fallbacks.lat;
+        const gfCenterLng = gfCenterObj.lng || cityData.lng || fallbacks.lng;
         const radius = cityData.geofenceRadius || 15000;
 
         // Haversine distance in meters
@@ -2056,6 +2057,13 @@ export default function TaxiBooking() {
       console.error(err);
       navigate("/");
     }
+  };
+
+  const CITY_FALLBACK_COORDINATES: Record<string, { lat: number, lng: number }> = {
+    "Dar es Salaam": { lat: -6.7924, lng: 39.2083 },
+    "Arusha": { lat: -3.3731, lng: 36.6857 },
+    "Dodoma": { lat: -6.1722, lng: 35.7481 },
+    "Mwanza": { lat: -2.5164, lng: 32.9018 }
   };
 
   // Get Pricing Rules dynamically from the Admin config with deep default fallbacks
@@ -2752,14 +2760,18 @@ export default function TaxiBooking() {
                     {(() => {
                       const rules = getPricingRules();
                       const cityData = rules[selectedCity] || rules["Dar es Salaam"];
-                      if (!cityData || cityData.geofenceActive === false) return null;
+                      if (!cityData || cityData.geofenceActive !== true) return null;
 
                       const type = cityData.geofenceType || 'circle';
 
                       if (type === 'circle') {
                         const gfCenterObj = cityData.geofenceCenter || { lat: cityData.lat, lng: cityData.lng };
-                        const gfCenter: [number, number] = [gfCenterObj.lat || cityData.lat, gfCenterObj.lng || cityData.lng];
+                        const fallbacks = CITY_FALLBACK_COORDINATES[selectedCity] || CITY_FALLBACK_COORDINATES["Dar es Salaam"];
+                        const gfCenterLat = gfCenterObj.lat || cityData.lat || fallbacks.lat;
+                        const gfCenterLng = gfCenterObj.lng || cityData.lng || fallbacks.lng;
+                        const gfCenter: [number, number] = [gfCenterLat, gfCenterLng];
                         const gfRadius = cityData.geofenceRadius || 15000;
+                        if (isNaN(gfCenterLat) || isNaN(gfCenterLng)) return null;
                         return (
                           <Circle
                             center={gfCenter}
