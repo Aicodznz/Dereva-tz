@@ -462,6 +462,7 @@ export default function AdminDashboard() {
   const [pricingSubTab, setPricingSubTab] = useState<'basic_info' | 'service_hours' | 'night_charges' | 'tariffs' | 'tax' | 'geofence'>('basic_info');
   const [isAddingCity, setIsAddingCity] = useState(false);
   const [newCityName, setNewCityName] = useState("");
+  const [deleteConfirmCity, setDeleteConfirmCity] = useState<string | null>(null);
   const [businessConfig, setBusinessConfig] = useState<any>({
     name: 'M-Duka Platform',
     email: 'admin@mduka.com',
@@ -4203,25 +4204,58 @@ export default function AdminDashboard() {
 
                         {/* Delete City Option */}
                         {selectedPricingCity !== "Dar es Salaam" && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (confirm(`Je, una uhakika unataka kuondoa kabisa mji wa ${selectedPricingCity}?`)) {
-                                const clonedRules = { ...rules };
-                                delete clonedRules[selectedPricingCity];
-                                setBusinessConfig({ ...businessConfig, pricingRules: clonedRules });
-                                setSelectedPricingCity("Dar es Salaam");
-                                toast.success("Mji umeondolewa kutoka kwenye mfumo!");
-                              }
-                            }}
-                            className="w-full text-left p-4 rounded-3xl bg-red-550/10 hover:bg-red-500/15 border border-red-500/20 text-red-600 transition-all flex items-center justify-between"
-                          >
-                            <div>
-                              <div className="font-extrabold text-xs uppercase tracking-tight">Ondoa Mji</div>
-                              <div className="text-[9px] opacity-85 font-semibold mt-0.5">Futa herufi na bei za mji huu</div>
+                          deleteConfirmCity === selectedPricingCity ? (
+                            <div className="w-full text-left p-4 rounded-3xl bg-red-50 dark:bg-red-950/20 border border-red-500/30 text-red-600 dark:text-red-400 space-y-3">
+                              <div>
+                                <div className="font-extrabold text-xs uppercase tracking-tight">Ondoa {selectedPricingCity}?</div>
+                                <div className="text-[9px] opacity-85 font-semibold mt-0.5">Je, una uhakika unataka kuondoa kabisa mji huu na kufuta bei zake zote?</div>
+                              </div>
+                              <div className="flex gap-2 justify-end">
+                                <button
+                                  type="button"
+                                  onClick={() => setDeleteConfirmCity(null)}
+                                  className="px-3 py-1.5 rounded-xl bg-neutral-200 hover:bg-neutral-300 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-white text-[10px] font-black uppercase tracking-wider"
+                                >
+                                  Hapana
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    const clonedRules = { ...rules };
+                                    delete clonedRules[selectedPricingCity];
+                                    
+                                    try {
+                                      const updatedConfig = { ...businessConfig, pricingRules: clonedRules };
+                                      setBusinessConfig(updatedConfig);
+                                      await setDoc(doc(db, 'config', 'business'), { ...updatedConfig, updatedAt: serverTimestamp() });
+                                      setSelectedPricingCity("Dar es Salaam");
+                                      setDeleteConfirmCity(null);
+                                      toast.success(`Mji wa ${selectedPricingCity} umeondolewa successfully!`);
+                                    } catch (err) {
+                                      toast.error("Imeshindwa kuondoa mji: " + (err as any).message);
+                                    }
+                                  }}
+                                  className="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-[10px] font-black uppercase tracking-wider"
+                                >
+                                  Ndio, Futa!
+                                </button>
+                              </div>
                             </div>
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDeleteConfirmCity(selectedPricingCity);
+                              }}
+                              className="w-full text-left p-4 rounded-3xl bg-red-500/10 hover:bg-red-500/15 border border-red-500/20 text-red-600 transition-all flex items-center justify-between"
+                            >
+                              <div>
+                                <div className="font-extrabold text-xs uppercase tracking-tight">Ondoa Mji</div>
+                                <div className="text-[9px] opacity-85 font-semibold mt-0.5">Futa herufi na bei za mji huu</div>
+                              </div>
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )
                         )}
                       </div>
 
