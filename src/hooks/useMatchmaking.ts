@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { db } from '../firebase';
 import { doc, updateDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { Ride } from '../types/trip.types';
-import { generateSimulatedRoads } from './useRouting';
+import { generateSimulatedRoads, interpolatePoints } from './useRouting';
 
 export function useMatchmaking(ride: Ride | null) {
   const [isSearching, setIsSearching] = useState(false);
@@ -159,7 +159,8 @@ export function useMatchmaking(ride: Ride | null) {
               );
               if (coords.length > 0) {
                 console.log("[Simulation] Successfully fetched real roads for driver approach route!");
-                runSimulation(coords);
+                const interpolated = interpolatePoints(coords);
+                runSimulation(interpolated);
                 return;
               }
             }
@@ -221,11 +222,13 @@ export function useMatchmaking(ride: Ride | null) {
         );
       }
 
+      const interpolatedTripCoords = interpolatePoints(tripCoords);
+
       let currentIdx = 0;
       if (ride.driverLocation) {
         let minD = Infinity;
-        for (let i = 0; i < tripCoords.length; i++) {
-          const d = Math.hypot(tripCoords[i][0] - ride.driverLocation.lat, tripCoords[i][1] - ride.driverLocation.lng);
+        for (let i = 0; i < interpolatedTripCoords.length; i++) {
+          const d = Math.hypot(interpolatedTripCoords[i][0] - ride.driverLocation.lat, interpolatedTripCoords[i][1] - ride.driverLocation.lng);
           if (d < minD) {
             minD = d;
             currentIdx = i;
@@ -233,11 +236,11 @@ export function useMatchmaking(ride: Ride | null) {
         }
       }
 
-      console.log(`[Simulation] Active trip started. Steps: ${tripCoords.length}. Resuming index: ${currentIdx}`);
+      console.log(`[Simulation] Active trip started. Steps: ${interpolatedTripCoords.length}. Resuming index: ${currentIdx}`);
 
       simulationIntervalRef.current = setInterval(async () => {
-        if (currentIdx < tripCoords.length) {
-          const nextCoord = tripCoords[currentIdx];
+        if (currentIdx < interpolatedTripCoords.length) {
+          const nextCoord = interpolatedTripCoords[currentIdx];
 
           await updateDoc(doc(db, 'rides', rideId), {
             driverLocation: { lat: nextCoord[0], lng: nextCoord[1] },

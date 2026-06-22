@@ -85,6 +85,66 @@ export function generateSimulatedRoads(start: [number, number], end: [number, nu
   return route;
 }
 
+export function interpolatePoints(coords: [number, number][], intervalMeters = 15): [number, number][] {
+  if (!coords || coords.length < 2) return coords;
+
+  const result: [number, number][] = [];
+  result.push(coords[0]);
+
+  const getDistMeters = (p1: [number, number], p2: [number, number]) => {
+    const R = 6371000; // meters
+    const dLat = ((p2[0] - p1[0]) * Math.PI) / 180;
+    const dLon = ((p2[1] - p1[1]) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((p1[0] * Math.PI) / 180) *
+        Math.cos((p2[0] * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  for (let i = 0; i < coords.length - 1; i++) {
+    const start = coords[i];
+    const end = coords[i + 1];
+
+    const dist = getDistMeters(start, end);
+    if (dist <= intervalMeters) {
+      result.push(end);
+      continue;
+    }
+
+    const numSteps = Math.max(2, Math.floor(dist / intervalMeters));
+    const latDiff = end[0] - start[0];
+    const lngDiff = end[1] - start[1];
+
+    for (let k = 1; k < numSteps; k++) {
+      const r = k / numSteps;
+      result.push([
+        start[0] + latDiff * r,
+        start[1] + lngDiff * r
+      ]);
+    }
+    result.push(end);
+  }
+
+  // Deduplicate consecutive coordinates
+  const uniqueResult: [number, number][] = [];
+  for (const c of result) {
+    if (uniqueResult.length === 0) {
+      uniqueResult.push(c);
+    } else {
+      const last = uniqueResult[uniqueResult.length - 1];
+      if (Math.abs(last[0] - c[0]) > 1e-7 || Math.abs(last[1] - c[1]) > 1e-7) {
+        uniqueResult.push(c);
+      }
+    }
+  }
+
+  return uniqueResult;
+}
+
 export function useRouting(pickup: [number, number], destination: [number, number], enableSlicing: boolean = false): RouteData {
   const [data, setData] = useState<RouteData>({
     routeCoords: [],
@@ -307,6 +367,8 @@ export function useRouting(pickup: [number, number], destination: [number, numbe
           }
         }
 
+        const interpolatedCoords = interpolatePoints(coords);
+
         // Process steps if available
         const steps: RouteStep[] = [];
         if (route.legs && route.legs[0] && route.legs[0].steps) {
@@ -321,7 +383,7 @@ export function useRouting(pickup: [number, number], destination: [number, numbe
         }
 
         const nextData: RouteData = {
-          routeCoords: coords,
+          routeCoords: interpolatedCoords,
           totalDistance: route.distance,
           totalDuration: route.duration,
           steps,
