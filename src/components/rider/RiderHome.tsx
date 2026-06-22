@@ -14,6 +14,7 @@ import {
 import { useTheme } from 'next-themes';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Chat from '../Chat';
+import ActiveRideChatPopup from '../ActiveRideChatPopup';
 import { motion, AnimatePresence } from 'motion/react';
 import { db, auth } from '../../firebase';
 import { doc, updateDoc, getDoc, setDoc, serverTimestamp, collection, query, where, limit, onSnapshot, addDoc, getDocs, deleteDoc } from 'firebase/firestore';
@@ -2535,6 +2536,17 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
               </form>
             </motion.div>
           </div>
+        )}
+        {/* Real-time Responsive Popup Chat for Active Ride */}
+        {activeRide && activeRide.customerId && (
+          <ActiveRideChatPopup
+            rideId={rideId || ""}
+            user={user}
+            recipientId={activeRide.customerId}
+            recipientName={activeRide.customerInfo?.name || "Mteja"}
+            recipientPhoto={activeRide.customerInfo?.avatar || ""}
+            isDriver={true}
+          />
         )}
       </AnimatePresence>
     </div>

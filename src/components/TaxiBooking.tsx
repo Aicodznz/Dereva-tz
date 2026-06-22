@@ -45,6 +45,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import Chat from "./Chat";
+import ActiveRideChatPopup from "./ActiveRideChatPopup";
 import { db, auth, handleFirestoreError, OperationType } from "../firebase";
 import {
   doc,
@@ -2980,6 +2981,18 @@ export default function TaxiBooking() {
                   >
                     <Navigation2 className="w-5 h-5 text-[#00E5A0]" />
                   </button>
+
+                  {/* Real-time Responsive Popup Chat for Active Ride */}
+                  {activeRide && activeRide.driverId && ["arriving", "on_trip", "found"].includes(step) && (
+                    <ActiveRideChatPopup
+                      rideId={rideId || ""}
+                      user={user}
+                      recipientId={activeRide.driverId}
+                      recipientName={activeRide.driverInfo?.name || "Dereva Swahili"}
+                      recipientPhoto={activeRide.driverInfo?.photo || ""}
+                      isDriver={false}
+                    />
+                  )}
                 </div>
               </motion.div>
             )}
