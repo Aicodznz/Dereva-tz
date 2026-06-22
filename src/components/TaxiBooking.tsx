@@ -3274,14 +3274,32 @@ export default function TaxiBooking() {
                           {/* Active state small indicator point */}
                           <div className={`absolute top-2 right-2 w-1.5 h-1.5 rounded-full transition-all duration-300 ${isSelected ? "bg-[#7F77DD] scale-100 shadow-[0_0_8px_#7F77DD]" : "bg-transparent scale-0"}`} />
 
-                          <div
-                            className={`flex items-center justify-center transition-transform duration-300 ${isSelected ? "scale-105 drop-shadow-[0_4px_12px_rgba(127,119,221,0.4)]" : "group-hover:scale-105"}`}
-                          >
-                            {ride.imageUrl ? (
-                              <img src={ride.imageUrl} className="w-11 h-11 object-contain" referrerPolicy="no-referrer" />
-                            ) : (
-                              <span className="text-3.5xl">{ride.image}</span>
-                            )}
+                          {/* Beautiful Custom-designed Vehicle Container with a 3D Glowing Podium/Shadow */}
+                          <div className="relative w-full aspect-[4/3] max-h-[72px] sm:max-h-[80px] flex items-center justify-center -mt-1 select-none">
+                            {/* Ambient dynamic glow under the vehicle */}
+                            <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-4/5 h-2.5 rounded-full transition-all duration-300 blur-md ${
+                              isSelected ? "bg-[#7F77DD]/50 scale-110" : "bg-neutral-900/50 group-hover:bg-[#7F77DD]/20"
+                            }`} />
+                            {/* Subtle elegant podium ellipse */}
+                            <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-2/3 h-1 rounded-full border border-white/5 transition-all duration-300 ${
+                              isSelected ? "bg-white/5 border-[#7F77DD]/30" : "bg-transparent"
+                            }`} />
+                            
+                            {/* Floating Vehicle container */}
+                            <div className={`relative z-10 transition-all duration-500 transform ${
+                              isSelected ? "-translate-y-1.5 scale-110 drop-shadow-[0_8px_16px_rgba(0,0,0,0.5)]" : "group-hover:-translate-y-1 group-hover:scale-105"
+                            }`}>
+                              {ride.imageUrl ? (
+                                <img 
+                                  src={ride.imageUrl} 
+                                  className="w-20 sm:w-24 h-12 sm:h-14 object-contain filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]" 
+                                  referrerPolicy="no-referrer" 
+                                  alt={ride.name}
+                                />
+                              ) : (
+                                <span className="text-3.5xl sm:text-4xl">{ride.image}</span>
+                              )}
+                            </div>
                           </div>
                           
                           <div className="text-center w-full">
@@ -3705,8 +3723,14 @@ export default function TaxiBooking() {
                       }`}
                     >
                       <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xl">{ride.image || (id === 'mini' ? '🚗' : id === 'bajaj' ? '🛺' : '🏍️')}</span>
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center overflow-hidden shrink-0">
+                            {ride.imageUrl ? (
+                              <img src={ride.imageUrl} className="w-7 h-7 object-contain" referrerPolicy="no-referrer" />
+                            ) : (
+                              <span className="text-sm">{ride.image || (id === 'mini' ? '🚗' : id === 'bajaj' ? '🛺' : '🏍️')}</span>
+                            )}
+                          </div>
                           <div>
                             <h4 className="text-xs font-black uppercase tracking-wide">{ride.name}</h4>
                             <p className="text-[8px] text-neutral-400 font-bold uppercase">{ride.sub}</p>
