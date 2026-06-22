@@ -414,10 +414,11 @@ interface RideOption {
   price: number;
   eta: string;
   image: string;
-  vehicleType: "mini" | "bajaj" | "bike";
+  vehicleType: string;
   discount?: string;
   imageUrl?: string;
   capacity?: number;
+  maintenance?: boolean;
 }
 
 // --- MAIN COMPONENT ---
@@ -445,8 +446,6 @@ export default function TaxiBooking() {
   const [waitingTime, setWaitingTime] = useState(0); // minutes
   const [secondsOffset, setSecondsOffset] = useState<number>(0);
   const justSelectedRef = useRef(false);
-
-
 
   const [rideId, setRideId] = useState<string | null>(null);
   const { ride: activeRide, cancelRide, deleteRide } = useTripFlow(rideId);
@@ -2340,12 +2339,14 @@ export default function TaxiBooking() {
     const rules = getPricingRules();
     const cityData = rules[selectedCity] || rules["Dar es Salaam"];
 
-    // Base rates matching city/vehicle configs
-    const rId = vehicleId === "bike" ? "bike" : vehicleId === "bajaj" ? "bajaj" : "mini";
+    // Base rates matching city/vehicle configs or using custom vehicle fields
+    const rId = vehicleId;
+    const isCustom = rId !== 'mini' && rId !== 'bajaj' && rId !== 'bike';
+    
     const cityRates = cityData?.rates?.[rId] || {
-      baseFare: rId === 'mini' ? 1000 : rId === 'bajaj' ? 500 : 300,
-      pricePerKm: rId === 'mini' ? 800 : rId === 'bajaj' ? 500 : 350,
-      pricePerMin: rId === 'mini' ? 100 : 0,
+      baseFare: vehicleConfig?.baseFare !== undefined ? Number(vehicleConfig.baseFare) : (rId === 'mini' ? 1000 : rId === 'bajaj' ? 500 : 300),
+      pricePerKm: vehicleConfig?.pricePerKm !== undefined ? Number(vehicleConfig.pricePerKm) : (rId === 'mini' ? 800 : rId === 'bajaj' ? 500 : 350),
+      pricePerMin: vehicleConfig?.pricePerMin !== undefined ? Number(vehicleConfig.pricePerMin) : (rId === 'mini' ? 100 : 0),
       waitingRate: rId === 'mini' ? 120 : rId === 'bajaj' ? 50 : 30,
       surgeRush: 1.25,
       surgeRain: 1.5
@@ -2396,45 +2397,57 @@ export default function TaxiBooking() {
     return Math.max(minPrice, rounded);
   };
 
-  const rideOptions: RideOption[] = [
-    {
-      id: "mini",
-      name: config?.vehicles?.mini?.name || "Gari",
-      icon: Car,
-      sub: config?.vehicles?.mini?.sub || "Max 4 Siti",
-      price: getDynamicPrice("mini", config?.vehicles?.mini),
-      eta: "3",
-      vehicleType: "mini",
-      image: config?.vehicles?.mini?.image || "🚗",
-      imageUrl: config?.vehicles?.mini?.imageUrl || "",
-      discount: "PUNGUZO 3K",
-      capacity: 4,
-    },
-    {
-      id: "bajaj",
-      name: config?.vehicles?.bajaj?.name || "Bajaji",
-      icon: BajajSVG,
-      sub: config?.vehicles?.bajaj?.sub || "3 Siti",
-      price: getDynamicPrice("bajaj", config?.vehicles?.bajaj),
-      eta: "4",
-      vehicleType: "bajaj",
-      image: config?.vehicles?.bajaj?.image || "🛺",
-      imageUrl: config?.vehicles?.bajaj?.imageUrl || "",
-      capacity: 3,
-    },
-    {
-      id: "bike",
-      name: config?.vehicles?.bike?.name || "Pikipiki",
-      icon: BikeSVG,
-      sub: config?.vehicles?.bike?.sub || "Usafiri Salama",
-      price: getDynamicPrice("bike", config?.vehicles?.bike),
-      eta: "2",
-      vehicleType: "bike",
-      image: config?.vehicles?.bike?.image || "🏍️",
-      imageUrl: config?.vehicles?.bike?.imageUrl || "",
-      capacity: 1,
-    },
-  ];
+  const rideOptions: RideOption[] = useMemo(() => {
+    const defaultVehicles = {
+      mini: { id: "mini", name: "Gari", price: 2800, sub: "Max 4 Siti", image: "🚗", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" },
+      bajaj: { id: "bajaj", name: "Bajaji", price: 1500, sub: "3 Siti", image: "🛺", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" },
+      bike: { id: "bike", name: "Pikipiki", price: 800, sub: "Usafiri Salama", image: "🏍️", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" }
+    };
+
+    const combinedVehicles = {
+      ...defaultVehicles,
+      ...(config?.vehicles || {})
+    };
+
+    return Object.entries(combinedVehicles)
+      // Hide completely if enabled is explicitly set to false (kuzuiya user asionekabisa)
+      .filter(([id, val]: [string, any]) => val?.enabled !== false)
+      .map(([id, val]: [string, any]) => {
+        let iconComponent: any = Car;
+        if (id === 'bajaj') iconComponent = BajajSVG;
+        else if (id === 'bike' || id.toLowerCase().includes('pikipiki') || id.toLowerCase().includes('bike') || id.toLowerCase().includes('boda')) {
+          iconComponent = BikeSVG;
+        }
+
+        const speedIndex = id === 'bike' ? 2 : id === 'mini' ? 3 : id === 'bajaj' ? 4 : 5;
+
+        return {
+          id: id,
+          name: val?.name || id,
+          icon: iconComponent,
+          sub: val?.sub || "",
+          price: getDynamicPrice(id, val),
+          eta: String(speedIndex),
+          vehicleType: id,
+          image: val?.image || "🚗",
+          imageUrl: val?.imageUrl || "",
+          capacity: val?.capacity !== undefined ? val.capacity : (id === 'mini' ? 4 : id === 'bajaj' ? 3 : 1),
+          maintenance: val?.maintenance === true,
+          discount: id === 'mini' ? "PUNGUZO 3K" : undefined
+        };
+      });
+  }, [config?.vehicles, pickupPos, destPos, totalDistance, totalDuration, selectedCity, isNightSurcharge, surgeLevel, waitingTime]);
+
+  const rideOptionsIds = (rideOptions || []).map(r => r.id).join(',');
+
+  useEffect(() => {
+    if (rideOptions.length > 0) {
+      if (!selectedRide || !rideOptions.some(r => r.id === selectedRide.id)) {
+        const available = rideOptions.find(r => !r.maintenance) || rideOptions[0];
+        setSelectedRide(available);
+      }
+    }
+  }, [rideOptionsIds, selectedRide?.id]);
 
   // Dynamic ETA & Travel Calculations
   const getDistanceLocal = (p1: [number, number], p2: [number, number]) => {
@@ -3276,14 +3289,25 @@ export default function TaxiBooking() {
                           key={ride.id}
                           onClick={() => {
                             if (justSelectedRef.current) return;
+                            if (ride.maintenance) {
+                              toast.error(`La hasha! Huduma ya ${ride.name} iko kwenye matengenezo kwa sasa. Tafadhali chagua usafiri mwingine.`);
+                              return;
+                            }
                             setSelectedRide(ride);
                           }}
                           className={`w-full p-3.5 rounded-[24px] border-2 transition-all duration-300 flex flex-col items-center gap-2.5 relative overflow-hidden group ${
+                            ride.maintenance ? "opacity-50 grayscale pointer-events-auto cursor-not-allowed border-amber-500/20 bg-amber-950/20" :
                             isSelected
                               ? "bg-[#7F77DD]/15 border-[#7F77DD] shadow-[0_0_25px_rgba(127,119,221,0.25)] scale-[1.02]"
                               : "bg-[#141420] border-white/5 hover:border-white/10 hover:bg-[#181828]"
                           }`}
                         >
+                          {ride.maintenance && (
+                            <div className="absolute top-0 inset-x-0 bg-amber-500 text-black font-black uppercase text-[6.5px] text-center tracking-widest py-0.5 z-20 leading-none">
+                              Matengenezo
+                            </div>
+                          )}
+
                           {isSelected && (
                             <motion.div
                               layoutId="active-bg"
@@ -3710,12 +3734,12 @@ export default function TaxiBooking() {
                   const rules = getPricingRules();
                   const cityData = rules[selectedCity] || rules["Dar es Salaam"];
 
-                  // Base rates matching city/vehicle configs
-                  const rId = id === "bike" ? "bike" : id === "bajaj" ? "bajaj" : "mini";
+                  // Base rates matching city/vehicle configs or custom fields
+                  const rId = id;
                   const cityRates = cityData?.rates?.[rId] || {
-                    baseFare: rId === 'mini' ? 1000 : rId === 'bajaj' ? 500 : 300,
-                    pricePerKm: rId === 'mini' ? 800 : rId === 'bajaj' ? 500 : 350,
-                    pricePerMin: rId === 'mini' ? 100 : 0,
+                    baseFare: vehicleConfig?.baseFare !== undefined ? Number(vehicleConfig.baseFare) : (rId === 'mini' ? 1000 : rId === 'bajaj' ? 500 : 300),
+                    pricePerKm: vehicleConfig?.pricePerKm !== undefined ? Number(vehicleConfig.pricePerKm) : (rId === 'mini' ? 800 : rId === 'bajaj' ? 500 : 350),
+                    pricePerMin: vehicleConfig?.pricePerMin !== undefined ? Number(vehicleConfig.pricePerMin) : (rId === 'mini' ? 100 : 0),
                     waitingRate: rId === 'mini' ? 120 : rId === 'bajaj' ? 50 : 30,
                     surgeRush: 1.25,
                     surgeRain: 1.5

@@ -353,6 +353,18 @@ export default function AdminDashboard() {
   const [uploadingType, setUploadingType] = useState<'imageUrl' | 'mapMarkerUrl' | null>(null);
   const [uploadingSlideId, setUploadingSlideId] = useState<string | null>(null);
 
+  const [showAddServiceForm, setShowAddServiceForm] = useState(false);
+  const [newServiceId, setNewServiceId] = useState("");
+  const [newServiceName, setNewServiceName] = useState("");
+  const [newServiceSub, setNewServiceSub] = useState("");
+  const [newServicePrice, setNewServicePrice] = useState(0);
+  const [newServiceBaseFare, setNewServiceBaseFare] = useState(0);
+  const [newServicePricePerKm, setNewServicePricePerKm] = useState(0);
+  const [newServicePricePerMin, setNewServicePricePerMin] = useState(0);
+  const [newServiceImage, setNewServiceImage] = useState("🚕");
+  const [newServiceImageType, setNewServiceImageType] = useState<'emoji' | 'url'>('emoji');
+  const [newServiceImageUrl, setNewServiceImageUrl] = useState("");
+
   const handleSlideImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, slideId: string) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -3342,8 +3354,22 @@ export default function AdminDashboard() {
                   }).map(([id, v]: [string, any]) => (
                     <Card key={id} className="rounded-[2.5rem] border-none shadow-xl bg-white dark:bg-neutral-900 overflow-hidden flex flex-col justify-between transition-colors">
                       <CardHeader className="p-6 pb-2 border-b border-neutral-100 dark:border-neutral-800 flex flex-row items-center justify-between">
-                        <div>
+                        <div className="flex flex-col gap-1.5 items-start">
                           <span className="text-[10px] font-black tracking-widest text-[#7F77DD] uppercase bg-[#7F77DD]/10 px-3 py-1.5 rounded-full">{id.toUpperCase()} TYPE</span>
+                          {id !== 'mini' && id !== 'bajaj' && id !== 'bike' && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = { ...businessConfig.vehicles };
+                                delete updated[id];
+                                setBusinessConfig({ ...businessConfig, vehicles: updated });
+                                toast.info("Huduma imefutwa kwenye rasimu, bofya 'Hifadhi Mabadiliko' kufanya iwe ya kudumu.");
+                              }}
+                              className="text-[8px] font-black text-red-500 hover:text-red-700 uppercase bg-red-500/10 hover:bg-red-500/15 px-2 py-0.5 rounded-md mt-1 transition-all"
+                            >
+                              Futa Huduma
+                            </button>
+                          )}
                         </div>
                         <div className="text-3xl">
                           {v.imageType === 'url' && v.imageUrl ? (
@@ -3401,6 +3427,63 @@ export default function AdminDashboard() {
                             }}
                             className="h-11 rounded-xl border-none bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white font-bold"
                           />
+                        </div>
+
+                        {/* Control Toggles: Visibility & Maintenance */}
+                        <div className="space-y-3 pt-3 border-t border-neutral-100 dark:border-neutral-800">
+                          <Label className="text-[10px] font-black uppercase tracking-widest text-[#7F77DD] block">Udhibiti wa Huduma (Service Status Control)</Label>
+                          
+                          <div className="flex flex-col gap-2 bg-neutral-50 dark:bg-neutral-800/20 p-2 rounded-xl border border-neutral-100 dark:border-neutral-800">
+                            {/* Toggle 1: Enabled / Disabled */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex flex-col">
+                                <span className="text-[10px] font-black text-neutral-800 dark:text-neutral-200 uppercase">Upatikanaji kwa Mteja</span>
+                                <span className="text-[7.5px] text-neutral-400">Ruhusu/Zuia mteja kuona</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = {
+                                    ...businessConfig.vehicles,
+                                    [id]: { ...v, enabled: v.enabled === false ? true : false }
+                                  };
+                                  setBusinessConfig({ ...businessConfig, vehicles: updated });
+                                }}
+                                className={`px-2.5 py-1 rounded-md text-[8px] font-black uppercase transition-all ${
+                                  v.enabled !== false
+                                    ? "bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20"
+                                    : "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20"
+                                }`}
+                              >
+                                {v.enabled !== false ? "Vipaji (Active)" : "Imezuiwa (Hidden)"}
+                              </button>
+                            </div>
+
+                            {/* Toggle 2: Maintenance Mode */}
+                            <div className="flex items-center justify-between border-t border-neutral-100 dark:border-neutral-800 pt-2 mt-1">
+                              <div className="flex flex-col">
+                                <span className="text-[10px] font-black text-neutral-800 dark:text-neutral-200 uppercase">Hali ya Matengenezo</span>
+                                <span className="text-[7.5px] text-neutral-400">Hali ya ukarabati</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = {
+                                    ...businessConfig.vehicles,
+                                    [id]: { ...v, maintenance: v.maintenance === true ? false : true }
+                                  };
+                                  setBusinessConfig({ ...businessConfig, vehicles: updated });
+                                }}
+                                className={`px-2.5 py-1 rounded-md text-[8px] font-black uppercase transition-all ${
+                                  v.maintenance === true
+                                    ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 animate-pulse"
+                                    : "bg-neutral-200 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-500 hover:text-neutral-600"
+                                }`}
+                              >
+                                {v.maintenance === true ? "Matengenezo ON" : "Matengenezo OFF"}
+                              </button>
+                            </div>
+                          </div>
                         </div>
 
                         {/* Transparent/Dynamic Pricing Breakdown Configuration */}
@@ -3681,6 +3764,216 @@ export default function AdminDashboard() {
                       </CardContent>
                     </Card>
                   ))}
+
+                  {/* Add New Service Card form / button */}
+                  <Card className="rounded-[2.5rem] border-none shadow-xl bg-violet-500/5 dark:bg-violet-950/10 border-2 border-dashed border-violet-500/20 p-6 flex flex-col justify-between min-h-[460px] relative overflow-hidden">
+                    {showAddServiceForm ? (
+                      <div className="space-y-3.5 flex-1 flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center justify-between border-b pb-2 border-violet-500/20 mb-2">
+                            <h4 className="text-[10px] font-black uppercase text-violet-600 dark:text-violet-400 tracking-wider">HUDUMA MPYA (NEW SERVICE)</h4>
+                            <button onClick={() => setShowAddServiceForm(false)} className="text-[9px] text-red-500 font-bold uppercase tracking-wider hover:underline">Ghairi</button>
+                          </div>
+                          
+                          <div className="space-y-3">
+                            <div className="space-y-1">
+                              <Label className="text-[8.5px] font-black uppercase text-neutral-400">ID ya Huduma (Herufi ndogo tu, mfano: xl, luxury)</Label>
+                              <Input
+                                placeholder="Mfano: xl, delivery, vip"
+                                value={newServiceId}
+                                onChange={(e) => setNewServiceId(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                                className="h-9 rounded-lg bg-white dark:bg-neutral-800 text-xs font-bold"
+                              />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="space-y-1">
+                                <Label className="text-[8.5px] font-black uppercase text-neutral-400">Jina la Huduma</Label>
+                                <Input
+                                  placeholder="Gari Kubwa (XL)"
+                                  value={newServiceName}
+                                  onChange={(e) => setNewServiceName(e.target.value)}
+                                  className="h-9 rounded-lg bg-white dark:bg-neutral-800 text-xs font-bold"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-[8.5px] font-black uppercase text-neutral-400">Maelezo/Siti</Label>
+                                <Input
+                                  placeholder="Mfano: Max 6 Siti"
+                                  value={newServiceSub}
+                                  onChange={(e) => setNewServiceSub(e.target.value)}
+                                  className="h-9 rounded-lg bg-white dark:bg-neutral-800 text-xs font-bold"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="space-y-1">
+                                <Label className="text-[8.5px] font-black uppercase text-neutral-400">Bei Ndogo (Flat - TZS)</Label>
+                                <Input
+                                  type="number"
+                                  placeholder="3000"
+                                  value={newServicePrice === 0 ? '' : newServicePrice}
+                                  onChange={(e) => setNewServicePrice(Number(e.target.value))}
+                                  className="h-9 rounded-lg bg-white dark:bg-neutral-800 text-xs font-bold text-center"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-[8.5px] font-black uppercase text-neutral-400">Kuanza (Base Fare)</Label>
+                                <Input
+                                  type="number"
+                                  placeholder="1200"
+                                  value={newServiceBaseFare === 0 ? '' : newServiceBaseFare}
+                                  onChange={(e) => setNewServiceBaseFare(Number(e.target.value))}
+                                  className="h-9 rounded-lg bg-white dark:bg-neutral-800 text-xs font-bold text-center"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="space-y-1">
+                                <Label className="text-[8.5px] font-black uppercase text-neutral-400">Bei kwa KM</Label>
+                                <Input
+                                  type="number"
+                                  placeholder="900"
+                                  value={newServicePricePerKm === 0 ? '' : newServicePricePerKm}
+                                  onChange={(e) => setNewServicePricePerKm(Number(e.target.value))}
+                                  className="h-9 rounded-lg bg-white dark:bg-neutral-800 text-xs font-bold text-center"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-[8.5px] font-black uppercase text-neutral-400">Bei kwa Dakika</Label>
+                                <Input
+                                  type="number"
+                                  placeholder="120"
+                                  value={newServicePricePerMin === 0 ? '' : newServicePricePerMin}
+                                  onChange={(e) => setNewServicePricePerMin(Number(e.target.value))}
+                                  className="h-9 rounded-lg bg-white dark:bg-neutral-800 text-xs font-bold text-center"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="space-y-1.5 pt-1">
+                              <Label className="text-[8.5px] font-black uppercase text-neutral-400">Mtindo wa Icon ya Orodha</Label>
+                              <div className="flex gap-2 p-1 bg-neutral-100 dark:bg-neutral-800 rounded-lg text-[8px]">
+                                {['emoji', 'url'].map((type) => (
+                                  <button
+                                    key={type}
+                                    type="button"
+                                    onClick={() => setNewServiceImageType(type as any)}
+                                    className={`flex-1 py-1 rounded text-center transition-all ${
+                                      newServiceImageType === type ? 'bg-white dark:bg-neutral-600 shadow-sm font-black text-neutral-900 dark:text-white' : 'text-neutral-400'
+                                    }`}
+                                  >
+                                    {type === 'emoji' ? 'EMOJI' : 'PICHA (URL)'}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            {newServiceImageType === 'emoji' ? (
+                              <div className="space-y-1">
+                                <Label className="text-[8.5px] font-black uppercase text-neutral-400">Weka Emoji (Mfano: 🏎️, 🚚, 🚜)</Label>
+                                <Input
+                                  placeholder="🏎️"
+                                  value={newServiceImage}
+                                  onChange={(e) => setNewServiceImage(e.target.value)}
+                                  className="h-9 rounded-lg bg-white dark:bg-neutral-800 text-center text-lg"
+                                />
+                              </div>
+                            ) : (
+                              <div className="space-y-1">
+                                <Label className="text-[8.5px] font-black uppercase text-neutral-400">Linki ya Picha (Direct Image URL)</Label>
+                                <Input
+                                  placeholder="https://..."
+                                  value={newServiceImageUrl}
+                                  onChange={(e) => setNewServiceImageUrl(e.target.value)}
+                                  className="h-9 rounded-lg bg-white dark:bg-neutral-800 text-xs font-medium"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <Button
+                          type="button"
+                          onClick={() => {
+                            if (!newServiceId || !newServiceName) {
+                              toast.error("Tafadhali jaza ID na Jina la Huduma!");
+                              return;
+                            }
+                            const existingVehicles = businessConfig.vehicles || {
+                              mini: { id: "mini", name: "Gari" },
+                              bajaj: { id: "bajaj", name: "Bajaji" },
+                              bike: { id: "bike", name: "Pikipiki" }
+                            };
+                            if (existingVehicles[newServiceId]) {
+                              toast.error("ID hii tayari ipo katika huduma nyingine!");
+                              return;
+                            }
+                            
+                            const updatedVehicles = {
+                              ...existingVehicles,
+                              [newServiceId]: {
+                                id: newServiceId,
+                                name: newServiceName,
+                                sub: newServiceSub,
+                                price: newServicePrice || 1000,
+                                baseFare: newServiceBaseFare || 500,
+                                pricePerKm: newServicePricePerKm || 400,
+                                pricePerMin: newServicePricePerMin || 0,
+                                imageType: newServiceImageType,
+                                image: newServiceImage || "🚕",
+                                imageUrl: newServiceImageUrl || "",
+                                mapMarkerLayout: "top_down",
+                                enabled: true,
+                                maintenance: false
+                              }
+                            };
+
+                            setBusinessConfig({
+                              ...businessConfig,
+                              vehicles: updatedVehicles
+                            });
+
+                            // Clear states
+                            setNewServiceId("");
+                            setNewServiceName("");
+                            setNewServiceSub("");
+                            setNewServicePrice(0);
+                            setNewServiceBaseFare(0);
+                            setNewServicePricePerKm(0);
+                            setNewServicePricePerMin(0);
+                            setNewServiceImage("🚕");
+                            setNewServiceImageType("emoji");
+                            setNewServiceImageUrl("");
+                            setShowAddServiceForm(false);
+                            toast.success("Huduma mpya iliyongezwa kwa ufanisi! Bofya 'Hifadhi Mabadiliko' hapo chini kuisave!");
+                          }}
+                          className="h-10 mt-2 w-full rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-black text-xs uppercase shadow-lg shadow-violet-200/40"
+                        >
+                          Thibitisha & Ongeza Huduma
+                        </Button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setShowAddServiceForm(true)}
+                        className="flex-1 flex flex-col items-center justify-center gap-4 text-neutral-400 hover:text-violet-500 hover:bg-violet-500/5 rounded-[2rem] transition-all py-10"
+                      >
+                        <div className="w-14 h-14 rounded-full border-2 border-dashed border-neutral-300 dark:border-neutral-700 flex items-center justify-center">
+                          <Plus className="w-7 h-7" />
+                        </div>
+                        <div className="text-center">
+                          <span className="text-xs font-black uppercase tracking-widest block text-neutral-700 dark:text-neutral-300">Weka Huduma Mpya</span>
+                          <span className="text-[10px] text-[#7F77DD] font-black uppercase tracking-wider block mt-1">Ongeza Aiana Mbadala za Usafiri</span>
+                        </div>
+                        <p className="text-[9px] text-neutral-400 max-w-[200px] text-center leading-relaxed">
+                          Madereva wanaweza kusajili chombo kipya kwenye mfumo, na wateja wataweza kuchagua huduma hii kulingana na nauli thabiti utakayopanga.
+                        </p>
+                      </button>
+                    )}
+                  </Card>
                 </div>
 
                 <div className="flex justify-end gap-4 pt-4">
