@@ -150,23 +150,7 @@ function MapController({ position, activeRide }: { position: [number, number], a
     }
   };
 
-  return (
-    <div className="leaflet-top leaflet-right" style={{ marginTop: '160px', marginRight: '16px' }}>
-      <div className="leaflet-control flex flex-col gap-2">
-        <button 
-          onClick={handleRecenter}
-          className={`w-12 h-12 rounded-2xl shadow-2xl flex items-center justify-center border transition-all duration-300 ${
-            autoFollow 
-              ? 'bg-[#00FF88] text-black border-[#00FF88] hover:bg-[#00E577]' 
-              : 'bg-white dark:bg-[#111118] text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-[#1e1e2e] active:scale-90 hover:bg-neutral-50 dark:hover:bg-[#161622]'
-          }`}
-          title={autoFollow ? "Auto-Follow Active" : "Enable Auto-Follow"}
-        >
-          <Navigation2 className={`w-6 h-6 ${autoFollow ? 'fill-black' : ''}`} />
-        </button>
-      </div>
-    </div>
-  );
+  return null;
 }
 
 function MapBoundsUpdater({ activeRide, position }: { activeRide: any, position: [number, number] }) {
@@ -1574,7 +1558,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
             initial={{ y: 100 }}
             animate={{ y: 0 }}
             exit={{ y: 100 }}
-            className="absolute bottom-4 inset-x-4 z-[9999] flex flex-col gap-3"
+            className="absolute bottom-4 inset-x-4 z-[9999] flex flex-col gap-3 pointer-events-none"
           >
             {/* Speed Indicator */}
             <div className="flex justify-center">
@@ -1585,34 +1569,6 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
                   <span className="text-[8px] font-black text-[#8B8BA0] uppercase">KM/H</span>
                 </div>
               </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="glass-morphism rounded-[20px] p-4 flex items-center gap-4">
-                <div className="w-10 h-10 bg-white/5 rounded-full flex items-center justify-center">
-                  <MapPin className="w-5 h-5 text-[#FF6B35]" />
-                </div>
-                <div>
-                   <p className="text-[10px] font-black text-[#8B8BA0] uppercase tracking-widest leading-none mb-1">MASAFA</p>
-                   <p className="text-xl font-black text-white italic tracking-tighter">
-                    {steps?.[0] ? (steps[0].distance / 1000).toFixed(1) : '0.0'} KM
-                   </p>
-                </div>
-              </div>
-
-              <motion.button 
-                whileTap={{ scale: 0.95 }}
-                onClick={() => toast.error("SOS DHARURA IMETUMWA!")}
-                className="bg-[#FF0000] rounded-[20px] p-4 flex items-center justify-center gap-2 sos-pulse border-2 border-white/20"
-              >
-                <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                   <div className="w-4 h-4 bg-white rounded-full animate-ping" />
-                </div>
-                <div className="text-left">
-                  <p className="text-[10px] font-black text-white uppercase tracking-widest leading-none mb-1">SOS</p>
-                  <p className="text-sm font-black text-white uppercase italic tracking-tighter leading-none">DHARURA</p>
-                </div>
-              </motion.button>
             </div>
           </motion.div>
         )}
