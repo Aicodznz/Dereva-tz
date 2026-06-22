@@ -3579,24 +3579,56 @@ export default function AdminDashboard() {
                                 />
                               </Label>
                               {v.mapMarkerUrl ? (
-                                <div className="flex items-center gap-2">
-                                  <img src={v.mapMarkerUrl} className="w-8 h-8 object-contain rounded-lg border bg-neutral-50 dark:bg-neutral-800" referrerPolicy="no-referrer" />
-                                  <button 
-                                    type="button" 
-                                    onClick={() => {
-                                      const updated = {
-                                        ...businessConfig.vehicles,
-                                        [id]: { ...v, mapMarkerUrl: '' }
-                                      };
-                                      setBusinessConfig({ ...businessConfig, vehicles: updated });
-                                    }}
-                                    className="text-[9px] text-red-500 font-bold uppercase hover:underline"
-                                  >
-                                    Ondoa
-                                  </button>
+                                <div className="flex flex-col gap-3 w-full">
+                                  <div className="flex items-center gap-2">
+                                    <img src={v.mapMarkerUrl} className="w-8 h-8 object-contain rounded-lg border bg-neutral-50 dark:bg-neutral-800" referrerPolicy="no-referrer" />
+                                    <button 
+                                      type="button" 
+                                      onClick={() => {
+                                        const updated = {
+                                          ...businessConfig.vehicles,
+                                          [id]: { ...v, mapMarkerUrl: '', mapMarkerLayout: 'top_down' }
+                                        };
+                                        setBusinessConfig({ ...businessConfig, vehicles: updated });
+                                      }}
+                                      className="text-[9px] text-red-500 font-bold uppercase hover:underline"
+                                    >
+                                      Ondoa
+                                    </button>
+                                  </div>
+
+                                  <div className="space-y-1.5 pt-2 border-t border-dashed border-neutral-200 dark:border-neutral-800">
+                                    <Label className="text-[9px] font-black uppercase tracking-widest text-[#7F77DD] block">Mtindo wa Ikoni ya Ramani (Map Marker Style)</Label>
+                                    <div className="flex gap-2 p-1 bg-neutral-100 dark:bg-neutral-800 rounded-xl">
+                                      {[
+                                        { id: 'top_down', label: 'Muonekano wa Juu (Top-Down SVG)' },
+                                        { id: 'custom', label: 'Picha Maalum (Custom Image)' }
+                                      ].map((style) => (
+                                        <button
+                                          key={style.id}
+                                          type="button"
+                                          onClick={() => {
+                                            const updated = {
+                                              ...businessConfig.vehicles,
+                                              [id]: { ...v, mapMarkerLayout: style.id }
+                                            };
+                                            setBusinessConfig({ ...businessConfig, vehicles: updated });
+                                          }}
+                                          className={`flex-1 py-1.5 px-2 rounded-lg text-[8px] font-black uppercase transition-all ${
+                                            (v.mapMarkerLayout || 'top_down') === style.id ? 'bg-white dark:bg-neutral-700 shadow-sm text-neutral-900 dark:text-white font-black' : 'text-neutral-400 hover:text-neutral-500'
+                                          }`}
+                                        >
+                                          {style.label}
+                                        </button>
+                                      ))}
+                                    </div>
+                                    <p className="text-[7.5px] text-neutral-400 leading-normal">
+                                      <b>Top-Down SVG:</b> Inazunguka 360° kufuata barabara. <b>Picha Maalum:</b> Inatumia picha uliyopakia (haiwezi kuzunguka barabarani yenyewe vizuri ikipakia kiupande).
+                                    </p>
+                                  </div>
                                 </div>
                               ) : (
-                                <span className="text-[9px] text-neutral-400 font-bold uppercase">Inatumia SVG ya asili</span>
+                                <span className="text-[9px] text-neutral-400 font-bold uppercase">Inatumia SVG ya asili (Top-Down)</span>
                               )}
                             </div>
                           </div>

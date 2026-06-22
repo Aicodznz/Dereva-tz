@@ -1536,7 +1536,10 @@ export default function TaxiBooking() {
     const customVehicle = config?.vehicles?.[type];
 
     // Check if it is a custom image (which are usually side-profile pictures, e.g. of a motorcycle/car)
-    if (customVehicle?.mapMarkerUrl) {
+    // We only use the custom image when mapMarkerLayout is explicitly set to 'custom'
+    const mapMarkerLayout = customVehicle?.mapMarkerLayout || 'top_down';
+
+    if (customVehicle?.mapMarkerUrl && mapMarkerLayout === 'custom') {
       // For custom image side-profile photos, 360-deg rotation makes them go upside-down or crash.
       // Instead we keep them horizontal/upright and flip them horizontally based on direction of travel (East vs West)
       const isMovingEast = rotation > 0 && rotation < 180;
