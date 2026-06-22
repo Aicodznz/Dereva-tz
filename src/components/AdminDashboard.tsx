@@ -3597,33 +3597,78 @@ export default function AdminDashboard() {
                                     </button>
                                   </div>
 
-                                  <div className="space-y-1.5 pt-2 border-t border-dashed border-neutral-200 dark:border-neutral-800">
+                                  <div className="space-y-2 pt-2 border-t border-dashed border-neutral-200 dark:border-neutral-800">
                                     <Label className="text-[9px] font-black uppercase tracking-widest text-[#7F77DD] block">Mtindo wa Ikoni ya Ramani (Map Marker Style)</Label>
-                                    <div className="flex gap-2 p-1 bg-neutral-100 dark:bg-neutral-800 rounded-xl">
+                                    <div className="flex flex-col gap-1.5 p-1 bg-neutral-100 dark:bg-neutral-800 rounded-xl">
                                       {[
-                                        { id: 'top_down', label: 'Muonekano wa Juu (Top-Down SVG)' },
-                                        { id: 'custom', label: 'Picha Maalum (Custom Image)' }
-                                      ].map((style) => (
-                                        <button
-                                          key={style.id}
-                                          type="button"
-                                          onClick={() => {
-                                            const updated = {
-                                              ...businessConfig.vehicles,
-                                              [id]: { ...v, mapMarkerLayout: style.id }
-                                            };
-                                            setBusinessConfig({ ...businessConfig, vehicles: updated });
-                                          }}
-                                          className={`flex-1 py-1.5 px-2 rounded-lg text-[8px] font-black uppercase transition-all ${
-                                            (v.mapMarkerLayout || 'top_down') === style.id ? 'bg-white dark:bg-neutral-700 shadow-sm text-neutral-900 dark:text-white font-black' : 'text-neutral-400 hover:text-neutral-500'
-                                          }`}
-                                        >
-                                          {style.label}
-                                        </button>
-                                      ))}
+                                        { id: 'top_down', label: '1. SVG ya Asili (Top-Down SVG)' },
+                                        { id: 'custom_side', label: '2. Picha ya Pembeni (Side profile - flips East/West)' },
+                                        { id: 'custom_top_down', label: '3. Picha ya Juu (Top-down - rotates 360°)' }
+                                      ].map((style) => {
+                                        const currentLayout = v.mapMarkerLayout || (v.mapMarkerLayout === 'custom' ? 'custom_side' : 'top_down');
+                                        const isSelected = (style.id === 'custom_side' && currentLayout === 'custom') || currentLayout === style.id;
+                                        return (
+                                          <button
+                                            key={style.id}
+                                            type="button"
+                                            onClick={() => {
+                                              const updated = {
+                                                ...businessConfig.vehicles,
+                                                [id]: { ...v, mapMarkerLayout: style.id }
+                                              };
+                                              setBusinessConfig({ ...businessConfig, vehicles: updated });
+                                            }}
+                                            className={`text-left py-1.5 px-3 rounded-lg text-[8.5px] font-black uppercase transition-all ${
+                                              isSelected ? 'bg-white dark:bg-neutral-700 shadow-sm text-neutral-900 dark:text-white font-black' : 'text-neutral-500 hover:text-neutral-700'
+                                            }`}
+                                          >
+                                            {style.label}
+                                          </button>
+                                        );
+                                      })}
                                     </div>
+
+                                    {/* Show Orientation option ONLY when custom_top_down is selected */}
+                                    {v.mapMarkerLayout === 'custom_top_down' && (
+                                      <div className="space-y-1.5 pl-2 border-l-2 border-[#7F77DD]/40 pt-1">
+                                        <Label className="text-[8.5px] font-black uppercase tracking-widest text-[#7F77DD] block">Mwelekeo wa Asili wa Picha (Image Original Facing)</Label>
+                                        <div className="grid grid-cols-2 gap-1 bg-neutral-150 dark:bg-neutral-800 p-1 rounded-xl">
+                                          {[
+                                            { id: 'left', label: 'Inaangalia Kushoto (e.g. Pikipiki)' },
+                                            { id: 'top', label: 'Inaangalia Juu' },
+                                            { id: 'right', label: 'Inaangalia Kulia' },
+                                            { id: 'bottom', label: 'Inaangalia Chini' }
+                                          ].map((orient) => {
+                                            const currentOrient = v.mapMarkerOrientation || 'left';
+                                            const isSelected = currentOrient === orient.id;
+                                            return (
+                                              <button
+                                                key={orient.id}
+                                                type="button"
+                                                onClick={() => {
+                                                  const updated = {
+                                                    ...businessConfig.vehicles,
+                                                    [id]: { ...v, mapMarkerOrientation: orient.id }
+                                                  };
+                                                  setBusinessConfig({ ...businessConfig, vehicles: updated });
+                                                }}
+                                                className={`py-1 px-1.5 rounded-lg text-[7.5px] font-black uppercase transition-all ${
+                                                  isSelected ? 'bg-white dark:bg-neutral-600 shadow-sm text-neutral-900 dark:text-white font-black' : 'text-neutral-400 hover:text-neutral-500'
+                                                }`}
+                                              >
+                                                {orient.label}
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                        <p className="text-[7px] text-neutral-400 leading-normal">
+                                          Teua uelekeo wa mbele ya chombo cha usafiri kwenye picha uliyopakia, ramani dhabiti itazungusha vizuri kulingana na barabara!
+                                        </p>
+                                      </div>
+                                    )}
+
                                     <p className="text-[7.5px] text-neutral-400 leading-normal">
-                                      <b>Top-Down SVG:</b> Inazunguka 360° kufuata barabara. <b>Picha Maalum:</b> Inatumia picha uliyopakia (haiwezi kuzunguka barabarani yenyewe vizuri ikipakia kiupande).
+                                      <b>Top-Down SVG:</b> Inazunguka 360° kufuata barabara. <b>Picha ya Pembeni:</b> Inageuka kushoto/kulia bila kuzunguka kiupinde. <b>Picha ya Juu:</b> Inazunguka 360° barabarani kulingana na barabara!
                                     </p>
                                   </div>
                                 </div>

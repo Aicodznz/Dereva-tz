@@ -1539,33 +1539,69 @@ export default function TaxiBooking() {
     // We only use the custom image when mapMarkerLayout is explicitly set to 'custom'
     const mapMarkerLayout = customVehicle?.mapMarkerLayout || 'top_down';
 
-    if (customVehicle?.mapMarkerUrl && mapMarkerLayout === 'custom') {
-      // For custom image side-profile photos, 360-deg rotation makes them go upside-down or crash.
-      // Instead we keep them horizontal/upright and flip them horizontally based on direction of travel (East vs West)
-      const isMovingEast = rotation > 0 && rotation < 180;
-      const flipTransform = isMovingEast ? "scaleX(-1)" : "scaleX(1)";
+    if (customVehicle?.mapMarkerUrl && (mapMarkerLayout === 'custom' || mapMarkerLayout === 'custom_side' || mapMarkerLayout === 'custom_top_down')) {
+      if (mapMarkerLayout === 'custom_top_down') {
+        // Compute final orientation offset
+        let finalRotation = rotation;
+        const orientation = customVehicle.mapMarkerOrientation || 'left';
+        if (orientation === 'left') {
+          finalRotation += 90;
+        } else if (orientation === 'right') {
+          finalRotation -= 90;
+        } else if (orientation === 'bottom') {
+          finalRotation += 180;
+        }
 
-      return L.divIcon({
-        className: "driver-marker-icon-clean-custom",
-        html: `
-          <div class="relative flex items-center justify-center transition-all duration-300" style="width: 34px; height: 34px;">
-            <!-- Gentle micro pulse for premium active visibility -->
-            <div class="absolute -inset-1.5 rounded-full bg-[#7F77DD]/10 animate-ping pointer-events-none"></div>
-            
-            <!-- Sleek 3D Glowing Podium/Shadow disk at the bottom to ground the vehicle -->
-            <div class="absolute bottom-0.5 w-6 h-1.5 rounded-full bg-black/45 blur-[1px] pointer-events-none"></div>
-            
-            <img 
-              src="${customVehicle.mapMarkerUrl}" 
-              class="w-8 h-8 object-contain drop-shadow-[0_2px_4.5px_rgba(0,0,0,0.35)] transition-transform duration-300 ease-out" 
-              style="transform: ${flipTransform};"
-              referrerPolicy="no-referrer" 
-            />
-          </div>
-        `,
-        iconSize: [34, 34],
-        iconAnchor: [17, 17],
-      });
+        return L.divIcon({
+          className: "driver-marker-icon-clean-custom-topdown",
+          html: `
+            <div class="relative flex items-center justify-center pointer-events-none" style="width: 44px; height: 44px;">
+              <!-- Gentle micro pulse for premium active visibility -->
+              <div class="absolute w-10 h-10 rounded-full bg-[#7F77DD]/10 animate-ping pointer-events-none"></div>
+              
+              <!-- Map Marker Glowing Halo -->
+              <div class="absolute w-8 h-8 rounded-full bg-black/15 blur-[2px] pointer-events-none"></div>
+              
+              <div class="relative transition-transform duration-500 ease-out" style="transform: rotate(${finalRotation}deg); width: 40px; height: 40px; display: flex; items-center: center; justify-content: center;">
+                <img 
+                  src="${customVehicle.mapMarkerUrl}" 
+                  class="w-10 h-10 object-contain drop-shadow-[0_2.5px_4px_rgba(0,0,0,0.4)]" 
+                  referrerPolicy="no-referrer" 
+                />
+              </div>
+            </div>
+          `,
+          iconSize: [44, 44],
+          iconAnchor: [22, 22],
+        });
+      } else {
+        // For custom image side-profile photos ('custom_side' or legacy 'custom'), 360-deg rotation makes them go upside-down.
+        // Instead we keep them horizontal/upright and flip them horizontally based on direction of travel (East vs West)
+        const isMovingEast = rotation > 0 && rotation < 180;
+        const flipTransform = isMovingEast ? "scaleX(-1)" : "scaleX(1)";
+
+        return L.divIcon({
+          className: "driver-marker-icon-clean-custom",
+          html: `
+            <div class="relative flex items-center justify-center transition-all duration-300" style="width: 34px; height: 34px;">
+              <!-- Gentle micro pulse for premium active visibility -->
+              <div class="absolute -inset-1.5 rounded-full bg-[#7F77DD]/10 animate-ping pointer-events-none"></div>
+              
+              <!-- Sleek 3D Glowing Podium/Shadow disk at the bottom to ground the vehicle -->
+              <div class="absolute bottom-0.5 w-6 h-1.5 rounded-full bg-black/45 blur-[1px] pointer-events-none"></div>
+              
+              <img 
+                src="${customVehicle.mapMarkerUrl}" 
+                class="w-8 h-8 object-contain drop-shadow-[0_2px_4.5px_rgba(0,0,0,0.35)] transition-transform duration-300 ease-out" 
+                style="transform: ${flipTransform};"
+                referrerPolicy="no-referrer" 
+              />
+            </div>
+          `,
+          iconSize: [34, 34],
+          iconAnchor: [17, 17],
+        });
+      }
     }
 
     // Default top-down vectors remain rotatable 360 degrees
