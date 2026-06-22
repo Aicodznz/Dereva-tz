@@ -2981,18 +2981,6 @@ export default function TaxiBooking() {
                   >
                     <Navigation2 className="w-5 h-5 text-[#00E5A0]" />
                   </button>
-
-                  {/* Real-time Responsive Popup Chat for Active Ride */}
-                  {activeRide && activeRide.driverId && ["arriving", "on_trip", "found"].includes(step) && (
-                    <ActiveRideChatPopup
-                      rideId={rideId || ""}
-                      user={user}
-                      recipientId={activeRide.driverId}
-                      recipientName={activeRide.driverInfo?.name || "Dereva Swahili"}
-                      recipientPhoto={activeRide.driverInfo?.photo || ""}
-                      isDriver={false}
-                    />
-                  )}
                 </div>
               </motion.div>
             )}
@@ -3814,6 +3802,18 @@ export default function TaxiBooking() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Real-time Responsive Popup Chat for Active Ride */}
+      {activeRide && activeRide.driverId && ["arriving", "on_trip", "found"].includes(step) && !isChatOpen && (
+        <ActiveRideChatPopup
+          rideId={rideId || ""}
+          user={user}
+          recipientId={activeRide.driverId}
+          recipientName={activeRide.driverInfo?.name || "Dereva Swahili"}
+          recipientPhoto={activeRide.driverInfo?.photo || ""}
+          isDriver={false}
+        />
+      )}
 
       <style>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }

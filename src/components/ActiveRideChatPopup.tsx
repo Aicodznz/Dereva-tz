@@ -163,7 +163,7 @@ export default function ActiveRideChatPopup({
   if (!chatId) return null;
 
   return (
-    <div className="absolute bottom-4 right-4 z-[300] flex flex-col items-end pointer-events-auto">
+    <div className="absolute bottom-24 sm:bottom-6 right-4 z-[100000] flex flex-col items-end pointer-events-auto">
       {/* 1. Speech Bubble Overlay/Toast (Screenshot style) */}
       <AnimatePresence>
         {showToast && latestMessage && !isExpanded && (

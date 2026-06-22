@@ -2538,7 +2538,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
           </div>
         )}
         {/* Real-time Responsive Popup Chat for Active Ride */}
-        {activeRide && activeRide.customerId && (
+        {activeRide && activeRide.customerId && !isChatOpen && (
           <ActiveRideChatPopup
             rideId={rideId || ""}
             user={user}
