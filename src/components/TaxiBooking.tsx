@@ -2421,13 +2421,36 @@ export default function TaxiBooking() {
 
         const speedIndex = id === 'bike' ? 2 : id === 'mini' ? 3 : id === 'bajaj' ? 4 : 5;
 
+        // Calculate dynamic ETA based on actual physical distance to the closest driver of this type
+        let closestDriverDist = Infinity;
+        if (drivers && drivers.length > 0) {
+          drivers.forEach((d) => {
+            if (d.vehicleType === id) {
+              const dist = getDistanceLocal([d.lat, d.lng], pickupPos);
+              if (dist < closestDriverDist) {
+                closestDriverDist = dist;
+              }
+            }
+          });
+        }
+
+        let calculatedEta = speedIndex;
+        if (closestDriverDist < 15000) { // closest driver within 15km
+          // 30km/h is ~500 meters per minute
+          calculatedEta = Math.max(1, Math.ceil(closestDriverDist / 500));
+        } else {
+          // Stable mock/fallback estimate based on pickup coordinate hash so index is steady
+          const stableHash = Math.abs(Math.round((pickupPos[0] + pickupPos[1]) * 10000)) % 4;
+          calculatedEta = speedIndex + stableHash;
+        }
+
         return {
           id: id,
           name: val?.name || id,
           icon: iconComponent,
           sub: val?.sub || "",
           price: getDynamicPrice(id, val),
-          eta: String(speedIndex),
+          eta: String(calculatedEta),
           vehicleType: id,
           image: val?.image || "🚗",
           imageUrl: val?.imageUrl || "",
@@ -2436,7 +2459,7 @@ export default function TaxiBooking() {
           discount: id === 'mini' ? "PUNGUZO 3K" : undefined
         };
       });
-  }, [config?.vehicles, pickupPos, destPos, totalDistance, totalDuration, selectedCity, isNightSurcharge, surgeLevel, waitingTime]);
+  }, [config?.vehicles, pickupPos, destPos, totalDistance, totalDuration, selectedCity, isNightSurcharge, surgeLevel, waitingTime, drivers]);
 
   const rideOptionsIds = (rideOptions || []).map(r => r.id).join(',');
 
@@ -3352,7 +3375,11 @@ export default function TaxiBooking() {
                             >
                               {ride.name}
                             </h4>
-                            <h3 className={`text-[11px] font-black italic mt-0.5 transition-colors ${isSelected ? "text-white" : "text-neutral-200"}`}>
+                            <h3 className={`text-[11px] font-black italic mt-0.5 transition-colors ${
+                              isSelected 
+                                ? (destination && totalDistance > 0) ? "text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.25)] text-xs" : "text-white" 
+                                : (destination && totalDistance > 0) ? "text-emerald-500/90 text-xs" : "text-neutral-200"
+                            }`}>
                               TZS {ride.price.toLocaleString()}
                             </h3>
                           </div>
@@ -3363,8 +3390,10 @@ export default function TaxiBooking() {
                               <Users className="w-2.5 h-2.5 text-[#7F77DD] shrink-0" />
                               <span>Abiria {ride.capacity}</span>
                             </div>
-                            <div className="flex items-center justify-center gap-1 text-[8.5px] font-bold text-neutral-400">
-                              <Clock className="w-2.5 h-2.5 text-emerald-400 shrink-0 animate-pulse" />
+                            <div className={`flex items-center justify-center gap-1 text-[8.5px] font-bold ${
+                              isSelected ? "text-emerald-400" : "text-neutral-400"
+                            }`}>
+                              <Clock className={`w-2.5 h-2.5 shrink-0 ${isSelected ? "text-emerald-400 animate-pulse" : "text-neutral-500"}`} />
                               <span>Fika: {ride.eta} min</span>
                             </div>
                           </div>
@@ -3384,6 +3413,46 @@ export default function TaxiBooking() {
                         <span>Gharama ya Uwazi (Breakdown)</span>
                       </button>
                     </div>
+                  )}
+
+                  {/* Summary Dynamic Trip Ticket Panel for better user confirmation as explicitly requested */}
+                  {destination && totalDistance > 0 && selectedRide && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: 0.3 }}
+                      className="w-full bg-[#161626]/90 border border-emerald-500/35 rounded-[24px] p-4 flex flex-col gap-2.5 select-none my-2.5 shadow-[0_0_20px_rgba(16,185,129,0.08)] relative overflow-hidden"
+                    >
+                      <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none" />
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                          <p className="text-[9.5px] font-black text-emerald-400 uppercase tracking-wider">MAKADIRIO YA SAFARI (TRIP ESTIMATE)</p>
+                        </div>
+                        <span className="text-[8px] font-black text-[#7F77DD] uppercase tracking-widest bg-[#7F77DD]/10 px-2 py-0.5 rounded-full border border-[#7F77DD]/15">
+                          {selectedRide.name} ⚡
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center justify-between gap-2 border-t border-white/5 pt-2.5 mt-0.5">
+                        <div className="flex flex-col">
+                          <span className="text-[8.5px] text-neutral-400 font-extrabold uppercase tracking-wide">Kiasi cha Kulipa (Fare)</span>
+                          <span className="text-[15px] font-black italic text-emerald-400 tracking-tight mt-0.5">
+                            TZS {selectedRide.price.toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex flex-col items-end">
+                          <span className="text-[8.5px] text-neutral-400 font-extrabold uppercase tracking-wide">Muda wa Kufika Dereva (ETA)</span>
+                          <span className="text-[15px] font-black text-white tracking-tight mt-0.5 flex items-center gap-1 leading-none">
+                            <span className="text-[#9c95ff]">{selectedRide.eta}</span>
+                            <span className="text-[9px] font-black uppercase text-neutral-400">Dakika</span>
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-[8px] bg-emerald-500/5 border border-emerald-500/10 p-2 rounded-xl text-emerald-400/90 font-bold leading-relaxed text-center">
+                        Dereva wa karibu zaidi atakufikia kwa takribani dakika <strong className="text-white font-black">{selectedRide.eta}</strong> akipokea ombi lako.
+                      </div>
+                    </motion.div>
                   )}
                   
                   <button
