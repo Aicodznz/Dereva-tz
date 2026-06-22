@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { Shield, Clock, Navigation2, MapPin, MessageSquare, Star } from 'lucide-react';
+import { Shield, Clock, Navigation2, MapPin, MessageSquare, Star, Trash2 } from 'lucide-react';
 import { Ride } from '../../types/trip.types';
 import { useDriverTracking } from '../../hooks/useDriverTracking';
 import { toast } from 'sonner';
@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 interface LiveTripScreenProps {
   ride: Ride;
   onMessage?: () => void;
+  onCancel?: () => void;
   isMinimized?: boolean;
   isSpectator?: boolean;
 }
@@ -44,7 +45,7 @@ const MapControl = ({ position, target }: { position: { lat: number, lng: number
   return null;
 };
 
-export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage, isMinimized, isSpectator = false }) => {
+export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage, onCancel, isMinimized, isSpectator = false }) => {
   const isArriving = ride.status !== 'on_trip';
   const targetLocation = isArriving ? ride.pickup : ride.destination;
   const { distance, eta } = useDriverTracking(ride.driverLocation, targetLocation);
@@ -79,14 +80,39 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
     };
   }, [ride]);
 
-  // Progress calculation
+  // Progress calculation - Map dynamically based on ride stages and live tracking distance
   const progress = useMemo(() => {
-    if (!ride.distance || distance === null) return 0;
-    if (isArriving) return 0;
-    const travelled = Math.max(0, ride.distance - distance);
-    const p = Math.round((travelled / ride.distance) * 100);
-    return Math.min(100, Math.max(0, p));
-  }, [distance, ride.distance, isArriving]);
+    // 1. Completed (FIKA)
+    if (ride.status === 'completed') {
+      return 100;
+    }
+    
+    // 2. On Trip (PO MAP)
+    if (ride.status === 'on_trip') {
+      const rem = distance !== null ? distance : (ride.distance || 0);
+      const total = (ride as any).initialDistance || Math.max(rem, (ride as any).totalDistance || ride.distance || 5);
+      const ratio = total > 0 ? Math.max(0, Math.min(1, (total - rem) / total)) : 0.5;
+      // Map ratio (0 to 1) to progress range [65%, 95%]
+      return 65 + Math.round(ratio * 30);
+    }
+    
+    // 3. Driver Arrived (PATA to PO MAP transition)
+    if (ride.status === 'driver_arrived') {
+      return 58;
+    }
+    
+    // 4. Driver accepted & Arriving (PATA)
+    if (ride.status === 'accepted' || isArriving) {
+      const rem = distance !== null ? distance : 1.5;
+      const totalPickup = 2.5;
+      const ratio = Math.max(0, Math.min(1, (totalPickup - rem) / totalPickup));
+      // Map ratio (0 to 1) to progress range [28%, 54%]
+      return 28 + Math.round(ratio * 26);
+    }
+    
+    // 5. Searching (TAFUTA)
+    return 12;
+  }, [distance, ride.status, ride.distance, isArriving, (ride as any).initialDistance, (ride as any).totalDistance]);
 
   const statusText = isArriving ? 'Dereva anakuja...' : 'Safari Inaendelea';
   const targetLabel = isArriving ? 'Eneo la Pickup' : 'Unakokwenda';
@@ -245,11 +271,11 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
                     }}
                   >
                     {ride.vehicleType === 'bike' ? (
-                      <span className="text-xl filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]">🏍️</span>
+                      <span className="text-xl filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)] inline-block" style={{ transform: 'scaleX(-1)' }}>🏍️</span>
                     ) : ride.vehicleType === 'bajaj' ? (
-                      <span className="text-xl filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]">🛺</span>
+                      <span className="text-xl filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)] inline-block" style={{ transform: 'scaleX(-1)' }}>🛺</span>
                     ) : (
-                      <span className="text-lg filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]">🚗</span>
+                      <span className="text-lg filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)] inline-block" style={{ transform: 'scaleX(-1)' }}>🚗</span>
                     )}
 
                     {/* Back smoke puff emissions if transit speed is nonzero */}
@@ -335,6 +361,17 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
                 <div className="col-span-1" />
               )}
             </div>
+
+            {/* Cancel Safari Action inside bottom details sheet */}
+            {!isSpectator && onCancel && (
+              <button
+                onClick={onCancel}
+                className="w-full mt-3.5 h-11 bg-red-600/10 border border-red-500/20 hover:bg-red-500/20 text-red-400 rounded-2xl flex items-center justify-center gap-2 font-black tracking-widest text-[10px] uppercase transition-all active:scale-95 cursor-pointer pointer-events-auto"
+              >
+                <Trash2 className="w-4 h-4 text-red-500" />
+                <span>GHAIRI SAFARI</span>
+              </button>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

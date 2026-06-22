@@ -2580,27 +2580,6 @@ export default function TaxiBooking() {
                   >
                     <Home className="w-5 h-5 sm:w-6 sm:h-6" />
                   </button>
-                  {step !== "map" && !isSpectator && (
-                    <button
-                      onClick={async () => {
-                        if (activeRide) {
-                          if (window.confirm("Je, una uhakika unataka kukatisha safari hii ya sasa na kuanza upya?")) {
-                            await cancelRide();
-                            setStep("map");
-                            setRideId(null);
-                            toast.success("Safari imefutwa. Sasa unaweza kupanga upya!");
-                          }
-                        } else {
-                          setStep("map");
-                        }
-                      }}
-                      className="px-3 sm:px-4 h-10 sm:h-12 bg-red-600/90 backdrop-blur-xl rounded-xl sm:rounded-2xl border border-red-500/20 flex items-center gap-1.5 sm:gap-2 justify-center shadow-xl active:scale-95 transition-transform text-white pointer-events-auto font-black text-[10px] sm:text-xs uppercase"
-                      title="Ghairi & Anza Mpya"
-                    >
-                      <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
-                      <span>Ghairi Safari</span>
-                    </button>
-                  )}
                   <div className="flex gap-1.5 sm:gap-3">
                     <AppDownloadButton variant="compact" className="w-10 h-10 sm:w-12 sm:h-12 bg-[#111118]/90 backdrop-blur-xl rounded-xl sm:rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform text-white pointer-events-auto" />
                     <button
@@ -3480,6 +3459,15 @@ export default function TaxiBooking() {
                   if (activeRide.driverId) {
                     setSearchParams({ to: activeRide.driverId });
                     setIsChatOpen(true);
+                  }
+                }}
+                onCancel={async () => {
+                  if (isSpectator) return;
+                  if (window.confirm("Je, una uhakika unataka kukatisha safari hii ya sasa na kuanza upya?")) {
+                    await cancelRide();
+                    setStep("map");
+                    setRideId(null);
+                    toast.success("Safari imefutwa. Sasa unaweza kupanga upya!");
                   }
                 }}
                 isMinimized={isMapFullscreen}
