@@ -1545,21 +1545,23 @@ export default function TaxiBooking() {
       return L.divIcon({
         className: "driver-marker-icon-clean-custom",
         html: `
-          <div class="relative flex items-center justify-center transition-all duration-300" style="width: 44px; height: 44px;">
-            <!-- Gentle surrounding sonar/pulse for high premium visibility -->
-            <div class="absolute w-10 h-10 rounded-full bg-[#7F77DD]/10 animate-ping pointer-events-none"></div>
-            <div class="absolute w-8 h-8 rounded-full bg-[#7F77DD]/5 pointer-events-none"></div>
+          <div class="relative flex items-center justify-center transition-all duration-300" style="width: 34px; height: 34px;">
+            <!-- Gentle micro pulse for premium active visibility -->
+            <div class="absolute -inset-1.5 rounded-full bg-[#7F77DD]/10 animate-ping pointer-events-none"></div>
+            
+            <!-- Sleek 3D Glowing Podium/Shadow disk at the bottom to ground the vehicle -->
+            <div class="absolute bottom-0.5 w-6 h-1.5 rounded-full bg-black/45 blur-[1px] pointer-events-none"></div>
             
             <img 
               src="${customVehicle.mapMarkerUrl}" 
-              class="w-11 h-11 object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.35)] transition-transform duration-300 ease-out" 
+              class="w-8 h-8 object-contain drop-shadow-[0_2px_4.5px_rgba(0,0,0,0.35)] transition-transform duration-300 ease-out" 
               style="transform: ${flipTransform};"
               referrerPolicy="no-referrer" 
             />
           </div>
         `,
-        iconSize: [44, 44],
-        iconAnchor: [22, 22],
+        iconSize: [34, 34],
+        iconAnchor: [17, 17],
       });
     }
 
