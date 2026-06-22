@@ -37,7 +37,7 @@ export interface Ride {
   driverId: string | null;
   pickup: LocationInfo;
   destination: LocationInfo;
-  vehicleType: 'mini' | 'bajaj' | 'bike';
+  vehicleType: string;
   fare: number;
   routeCoords: [number, number][]; // OSRM coords
   driverLocation?: { lat: number; lng: number };

@@ -15,9 +15,12 @@ import { useAuth } from '../../AuthContext';
 import { useLanguage } from '../../LanguageContext';
 import { toast } from 'sonner';
 
+import { useBusinessConfig } from '../../BusinessConfigContext';
+
 type DriverType = 'taxi' | 'delivery' | null;
 
 export default function RegisterDriver() {
+  const { config } = useBusinessConfig();
   const { t } = useLanguage();
   const { signUp, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -198,9 +201,18 @@ export default function RegisterDriver() {
                   <SelectValue placeholder="Aina ya Gari (Vehicle Type)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pikipiki">Pikipiki</SelectItem>
-                  <SelectItem value="bajaji">Bajaji</SelectItem>
-                  <SelectItem value="gari">Gari</SelectItem>
+                  <SelectItem value="bike">Pikipiki (Pikipiki / Boda)</SelectItem>
+                  <SelectItem value="bajaj">Bajaji (Bajaji)</SelectItem>
+                  <SelectItem value="mini">Gari (Gari / Taxi)</SelectItem>
+                  {config?.vehicles && Object.entries(config.vehicles).map(([id, v]: [string, any]) => {
+                    if (id === 'bike' || id === 'bajaj' || id === 'mini') return null;
+                    if (v.enabled === false) return null;
+                    return (
+                      <SelectItem key={id} value={id}>
+                        {v.name} {v.image ? `(${v.image})` : ''}
+                      </SelectItem>
+                    );
+                  })}
                   {driverType === 'delivery' && <SelectItem value="baskeli">Baskeli</SelectItem>}
                 </SelectContent>
               </Select>

@@ -3455,7 +3455,7 @@ export default function AdminDashboard() {
                                     : "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20"
                                 }`}
                               >
-                                {v.enabled !== false ? "Vipaji (Active)" : "Imezuiwa (Hidden)"}
+                                {v.enabled !== false ? "Wazi (Active)" : "Imezuiwa (Hidden)"}
                               </button>
                             </div>
 
@@ -4120,6 +4120,29 @@ export default function AdminDashboard() {
                     );
                   }
 
+                  const activeVehiclesList = (() => {
+                    const defaultVehicles = {
+                      mini: { id: "mini", name: "Gari / Taxi (🚗)", defBase: 1000, defKm: 800, defMin: 100, defWait: 120 },
+                      bajaj: { id: "bajaj", name: "Bajaji (🛺)", defBase: 500, defKm: 500, defMin: 0, defWait: 50 },
+                      bike: { id: "bike", name: "Pikipiki / Boda (🏍️)", defBase: 300, defKm: 350, defMin: 0, defWait: 30 }
+                    };
+
+                    const combined = { ...defaultVehicles } as any;
+                    if (businessConfig.vehicles) {
+                      Object.entries(businessConfig.vehicles).forEach(([id, v]: [string, any]) => {
+                        combined[id] = {
+                          id,
+                          name: `${v.name} (${v.image || '🚗'})`,
+                          defBase: v.baseFare !== undefined ? Number(v.baseFare) : 500,
+                          defKm: v.pricePerKm !== undefined ? Number(v.pricePerKm) : 400,
+                          defMin: v.pricePerMin !== undefined ? Number(v.pricePerMin) : 0,
+                          defWait: v.waitingRate !== undefined ? Number(v.waitingRate) : 50,
+                        };
+                      });
+                    }
+                    return Object.values(combined);
+                  })();
+
                   const updateCityField = (field: string, value: any) => {
                     const updatedCity = { ...city, [field]: value };
                     const updatedPricing = { ...rules, [selectedPricingCity]: updatedCity };
@@ -4127,11 +4150,20 @@ export default function AdminDashboard() {
                   };
 
                   const updateRideRate = (rideId: string, rateField: string, value: number) => {
-                    const currentRates = city.rates || {
-                      mini: { baseFare: 1000, pricePerKm: 800, pricePerMin: 100, waitingRate: 120, surgeRush: 1.25, surgeRain: 1.5 },
-                      bajaj: { baseFare: 500, pricePerKm: 500, pricePerMin: 0, waitingRate: 50, surgeRush: 1.15, surgeRain: 1.3 },
-                      bike: { baseFare: 300, pricePerKm: 350, pricePerMin: 0, waitingRate: 30, surgeRush: 1.1, surgeRain: 1.2 }
-                    };
+                    const currentRates = { ...(city.rates || {}) };
+                    activeVehiclesList.forEach((vt: any) => {
+                      if (!currentRates[vt.id]) {
+                        currentRates[vt.id] = {
+                          baseFare: vt.defBase,
+                          pricePerKm: vt.defKm,
+                          pricePerMin: vt.defMin,
+                          waitingRate: vt.defWait,
+                          surgeRush: 1.25,
+                          surgeRain: 1.5
+                        };
+                      }
+                    });
+
                     const updatedRideRates = {
                       ...currentRates,
                       [rideId]: {
@@ -4371,11 +4403,7 @@ export default function AdminDashboard() {
                               </div>
 
                               <div className="space-y-8 divide-y divide-neutral-100 dark:divide-neutral-800">
-                                {[
-                                  { id: 'mini', name: 'Gari / Taxi (🚗)', defBase: 1000, defKm: 800, defMin: 100, defWait: 120 },
-                                  { id: 'bajaj', name: 'Bajaji (🛺)', defBase: 500, defKm: 500, defMin: 0, defWait: 50 },
-                                  { id: 'bike', name: 'Pikipiki / Boda (🏍️)', defBase: 300, defKm: 350, defMin: 0, defWait: 30 },
-                                ].map((vt, vIdx) => {
+                                {activeVehiclesList.map((vt: any, vIdx: number) => {
                                   const rates = city.rates || {};
                                   const vRate = rates[vt.id] || {
                                     baseFare: vt.defBase,

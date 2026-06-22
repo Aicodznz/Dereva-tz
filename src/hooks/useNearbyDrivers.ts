@@ -6,7 +6,7 @@ export interface DriverMarker {
   id: string;
   lat: number;
   lng: number;
-  vehicleType: 'mini' | 'bajaj' | 'bike';
+  vehicleType: string;
   name: string;
   heading?: number;
 }

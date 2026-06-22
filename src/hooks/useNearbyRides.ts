@@ -3,7 +3,7 @@ import { db } from '../firebase';
 import { collection, query, where, onSnapshot, limit } from 'firebase/firestore';
 import { Ride } from '../types/ride.types';
 
-export function useNearbyRides(vehicleType: 'mini' | 'bajaj' | 'bike') {
+export function useNearbyRides(vehicleType: string) {
   const [rides, setRides] = useState<Ride[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 

@@ -14,7 +14,7 @@ export function useCreateRide() {
     customerInfo: CustomerInfo,
     pickup: TripLocation,
     destination: TripLocation,
-    vehicleType: 'mini' | 'bajaj' | 'bike',
+    vehicleType: string,
     fare: number,
     distance: number,
     duration: number,

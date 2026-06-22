@@ -29,7 +29,7 @@ export interface Ride {
   driverId?: string;
   pickup: TripLocation;
   destination: TripLocation;
-  vehicleType: 'mini' | 'bajaj' | 'bike';
+  vehicleType: string;
   fare: number;
   routeCoords?: LatLng[];
   driverLocation?: LatLng;

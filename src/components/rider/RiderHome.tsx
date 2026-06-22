@@ -492,8 +492,14 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
   useEffect(() => {
     setSecondsOffset(0);
   }, [rideId, activeRide?.status]);
-  const vTypeRaw = (profile?.vehicleType || 'gari').toLowerCase();
-  const vType = (vTypeRaw.includes('bike') || vTypeRaw.includes('piki')) ? 'bike' : vTypeRaw.includes('bajaj') ? 'bajaj' : 'mini';
+  const vTypeRaw = (profile?.vehicleType || 'mini').toLowerCase();
+  const vType = (vTypeRaw.includes('bike') || vTypeRaw.includes('piki')) 
+    ? 'bike' 
+    : vTypeRaw.includes('bajaj') 
+      ? 'bajaj' 
+      : (vTypeRaw === 'gari' || vTypeRaw === 'mini')
+        ? 'mini'
+        : vTypeRaw;
   
   const { showEarnings, toggleEarnings, stats } = useDriverDashboard();
   const nearbyRequests = useIncomingRequests(vType, isOnline, position ? { lat: position[0], lng: position[1] } : null, user?.uid);
