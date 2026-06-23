@@ -2075,6 +2075,7 @@ export default function AdminDashboard() {
               {[
                 { id: 'business_info', label: t('admin_settings_business_info'), icon: Info },
                 { id: 'app_design', label: t('admin_settings_app_design'), icon: Monitor },
+                { id: 'services_status', label: 'Huduma & Matengenezo', icon: LayoutGrid },
                 { id: 'vehicles', label: 'Usafiri (Vehicles)', icon: Car },
                 { id: 'pricing_rules', label: 'Miji & Bei (Tariffs/Pricing)', icon: Coins },
                 { id: 'payment', label: t('admin_settings_payment'), icon: CreditCard },
@@ -3983,6 +3984,167 @@ export default function AdminDashboard() {
                     onClick={handleSaveSettings}
                   >
                     Hifadhi Mabadiliko (Save Vehicles Settings)
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {activeSettingsTab === 'services_status' && (
+              <div className="space-y-8 animate-in fade-in-50 duration-200">
+                {/* Intro banner */}
+                <Card className="rounded-[3rem] border-none shadow-2xl p-8 bg-gradient-to-br from-neutral-900 to-[#1e133a] border border-violet-950/30 text-white space-y-4">
+                  <div>
+                    <h3 className="text-xl font-black uppercase italic tracking-tight flex items-center gap-2">
+                      <LayoutGrid className="w-6 h-6 text-violet-400 animate-bounce" />
+                      Usimamizi wa Huduma Kwenye Programu (Services Status & Maintenance)
+                    </h3>
+                    <p className="text-xs text-violet-200/80 font-medium leading-relaxed">
+                      Kama Meneja Mkuu (Admin), sasa una mamlaka kamili ya kuamua ni huduma gani zitokee kwa wateja (Explore Services). 
+                      Unaweza **kuficha huduma** kabisa isionekane, au **kukataza matumizi na kuweka tangazo la matengenezo** (ziko matengenezo). 
+                      Mteja akijaribu kufungua huduma ya matengenezo, ataonyeshwa ujumbe maalum uliouandika hapa.
+                    </p>
+                  </div>
+                </Card>
+
+                {/* Grid of 10 services */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-20">
+                  {[
+                    { id: 'chakula', name: 'Chakula (Food Delivery 🍔)', color: 'bg-red-500', defaultMsg: 'Huduma ya Chakula inafanyiwa marekebisho kwa sasa. Inarudi hivi punde!' },
+                    { id: 'sokoni', name: 'Sokoni (Grocery Market 🛒)', color: 'bg-green-500', defaultMsg: 'Huduma ya Sokoni/Grocery inafanyiwa marekebisho. Tafadhali jaribu baadaye kidogo.' },
+                    { id: 'bus_ticket', name: 'Bus Tickets (Mabasi 🚌)', color: 'bg-orange-600', defaultMsg: 'Mfumo wa kukata tiketi za mabasi upo kwenye maboresho ya kiufundi kwa sasa.' },
+                    { id: 'teksi', name: 'Teksi (Taxi Booking 🚕)', color: 'bg-yellow-500', defaultMsg: 'Huduma yetu ya usafiri wa Teksi/Gari/Pikipiki iko kwenye matengenezo mafupi.' },
+                    { id: 'vifurushi', name: 'Vifurushi (Parcel Delivery 📦)', color: 'bg-orange-500', defaultMsg: 'Uwasilishaji na uagizaji wa vifurushi upo kwenye matengenezo ya dharura.' },
+                    { id: 'dawa', name: 'Duka la Dawa (Pharmacy 💊)', color: 'bg-blue-500', defaultMsg: 'Duka la dawa na bidhaa za afya mtandaoni litafunguliwa hivi punde.' },
+                    { id: 'maduka', name: 'Maduka (eCommerce Shopping 🛍️)', color: 'bg-purple-500', defaultMsg: 'Usimamizi na manunuzi ya maduka ya bidhaa yanaletwa upya.' },
+                    { id: 'saluni', name: 'Saluni (Beauty & Salons 💇‍♀️)', color: 'bg-pink-500', defaultMsg: 'Huduma za kutafuta na kuhifadhi nafasi za kike/kiume kwenye Saluni haipatikani.' },
+                    { id: 'ramani', name: 'Ramani (Nearby Stores 📍)', color: 'bg-neutral-600', defaultMsg: 'Mfumo wa ramani na maduka ya karibu unafanyiwa marekebisho ya kuboresha ufanisi.' },
+                    { id: 'hoteli', name: 'Hoteli (Hotel Booking 🏨)', color: 'bg-indigo-500', defaultMsg: 'Huduma ya kukata vyumba vya hoteli zipo kwenye maboresho.' },
+                  ].map((s) => {
+                    const servicesState = businessConfig.services || {};
+                    const sData = servicesState[s.id] || { enabled: true, maintenance: false, message: s.defaultMsg };
+                    const isServiceEnabled = sData.enabled !== false;
+                    const isServiceUnderMaintenance = sData.maintenance === true;
+
+                    // Compute dynamic status indicators
+                    let statusLabel = "Kawaida (Active)";
+                    let statusBadgeClass = "bg-emerald-500/10 text-emerald-600 border-emerald-200/50";
+                    if (!isServiceEnabled) {
+                      statusLabel = "Imefichwa (Hidden)";
+                      statusBadgeClass = "bg-red-500/10 text-red-600 border-red-200/50";
+                    } else if (isServiceUnderMaintenance) {
+                      statusLabel = "Matengenezo (Maintenance)";
+                      statusBadgeClass = "bg-amber-500/10 text-amber-600 border-amber-200/50";
+                    }
+
+                    return (
+                      <Card key={s.id} className="rounded-[2.5rem] border-none shadow-xl bg-white dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 overflow-hidden p-6 flex flex-col justify-between">
+                        <div className="space-y-4">
+                          {/* Item Header */}
+                          <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800 pb-4">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-12 h-12 rounded-2xl ${s.color} flex items-center justify-center text-white font-extrabold text-xl shadow-lg shadow-neutral-200/10`}>
+                                {s.id === 'chakula' ? "🍔" : s.id === 'sokoni' ? "🛒" : s.id === 'bus_ticket' ? "🚌" : s.id === 'teksi' ? "🚕" : s.id === 'vifurushi' ? "📦" : s.id === 'dawa' ? "💊" : s.id === 'maduka' ? "🛍️" : s.id === 'saluni' ? "💇‍♀️" : s.id === 'ramani' ? "📍" : "🏨"}
+                              </div>
+                              <div>
+                                <h4 className="font-extrabold text-sm text-neutral-900 dark:text-neutral-100 tracking-tight">{s.name}</h4>
+                                <span className={`inline-block border text-[9px] font-black uppercase tracking-wider px-2 py-0.5 mt-1 rounded-md ${statusBadgeClass}`}>
+                                  {statusLabel}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Enable / Disable entirely Toggle */}
+                            <div className="flex flex-col items-end gap-1">
+                              <span className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Onyesha Huduma</span>
+                              <Switch
+                                checked={isServiceEnabled}
+                                onCheckedChange={(val) => {
+                                  const updatedServices = { ...servicesState };
+                                  updatedServices[s.id] = {
+                                    ...sData,
+                                    enabled: val
+                                  };
+                                  setBusinessConfig({
+                                    ...businessConfig,
+                                    services: updatedServices
+                                  });
+                                  toast.info(`${s.name} sasa ${val ? 'itaonekana' : 'imefichwa'} kwa wateja (Hifadhi kufanya mabadiliko dumu).`);
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Control Controls */}
+                          {isServiceEnabled && (
+                            <div className="space-y-4 pt-1 animate-in slide-in-from-top-1 duration-150">
+                              {/* Maintenance Switch */}
+                              <div className="flex items-center justify-between bg-neutral-50 dark:bg-neutral-950/40 p-3 rounded-2xl border border-neutral-100 dark:border-neutral-800">
+                                <div>
+                                  <div className="text-xs font-black uppercase tracking-tight text-neutral-700 dark:text-neutral-300">Hali ya Matengenezo (Maintenance Mode)</div>
+                                  <div className="text-[9px] font-bold text-neutral-400 mt-0.5">Weka huduma katika maboresho ya dharura</div>
+                                </div>
+                                <Switch
+                                  checked={isServiceUnderMaintenance}
+                                  onCheckedChange={(val) => {
+                                    const updatedServices = { ...servicesState };
+                                    updatedServices[s.id] = {
+                                      ...sData,
+                                      maintenance: val
+                                    };
+                                    setBusinessConfig({
+                                      ...businessConfig,
+                                      services: updatedServices
+                                    });
+                                    toast.info(`${s.name} sasa ${val ? 'ipo matengenezo' : 'ipo kawaida'} (Hifadhi ili yakamilike).`);
+                                  }}
+                                />
+                              </div>
+
+                              {/* Maintenance custom comment note */}
+                              {isServiceUnderMaintenance && (
+                                <div className="space-y-1.5 animate-in slide-in-from-top-2 duration-200">
+                                  <Label className="text-[9px] font-black uppercase tracking-wider text-rose-500">Meseji Maalum ya Matengenezo (In Swahili / Eng)</Label>
+                                  <Textarea
+                                    value={sData.message || ""}
+                                    placeholder={s.defaultMsg}
+                                    onChange={(e) => {
+                                      const updatedServices = { ...servicesState };
+                                      updatedServices[s.id] = {
+                                        ...sData,
+                                        message: e.target.value
+                                      };
+                                      setBusinessConfig({
+                                        ...businessConfig,
+                                        services: updatedServices
+                                      });
+                                    }}
+                                    className="min-h-[70px] rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 text-xs font-semibold px-4 py-3"
+                                  />
+                                  <p className="text-[8px] font-bold text-neutral-400">Note: Hii ndiyo mteja ataiona akijaribu kugusa huduma hii.</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Save hint / info */}
+                        <div className="mt-4 flex items-center justify-between text-[8px] font-black uppercase tracking-widest text-[#7F77DD]">
+                          <span>ID: {s.id}</span>
+                          <span>HIFADHI KUKAMILISHA</span>
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+
+                {/* Big Save Button */}
+                <div className="flex justify-end gap-4 pt-4 border-t border-neutral-100 dark:border-neutral-800">
+                  <Button 
+                    className="h-14 px-16 rounded-2xl bg-orange-600 hover:bg-orange-700 text-white shadow-xl shadow-orange-100 font-black uppercase tracking-widest text-xs flex items-center gap-2" 
+                    onClick={handleSaveSettings}
+                  >
+                    <Check className="w-5 h-5" />
+                    Hifadhi Hali ya Huduma (Save Services Settings)
                   </Button>
                 </div>
               </div>
