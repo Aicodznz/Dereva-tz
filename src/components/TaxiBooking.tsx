@@ -42,6 +42,7 @@ import {
   Trash2,
   Loader2,
   Calculator,
+  Map,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import Chat from "./Chat";
@@ -3218,15 +3219,30 @@ export default function TaxiBooking() {
                             className="w-full bg-transparent text-sm font-bold text-white border-none outline-none p-0 placeholder:text-neutral-700 italic"
                           />
                         </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCurrentLocation();
-                          }}
-                          className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-emerald-500/10 text-emerald-500 active:scale-90 transition-all"
-                        >
-                          <Navigation2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCurrentLocation();
+                            }}
+                            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-emerald-500/10 text-emerald-500 active:scale-90 transition-all"
+                            title="Tafuta GPS ya sasa"
+                          >
+                            <Navigation2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSettingMode("pickup");
+                              setIsMapFullscreen(true);
+                              toast.success("Bofya au gusa popote kwenye ramani ili kuchagua eneo la kuanzia safari! 📍");
+                            }}
+                            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#7F77DD]/10 text-[#7F77DD] active:scale-90 transition-all"
+                            title="Fungua ramani na uchague eneo la kuanzia"
+                          >
+                            <Map className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
 
                       <div className="h-px bg-white/5" />
@@ -3255,6 +3271,20 @@ export default function TaxiBooking() {
                             className="w-full bg-transparent text-sm font-bold text-white border-none outline-none p-0 placeholder:text-neutral-700 italic"
                             placeholder="Andika hapa unapoenda"
                           />
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSettingMode("destination");
+                              setIsMapFullscreen(true);
+                              toast.success("Bofya au gusa popote kwenye ramani ili kuchagua unakokwenda! 📍");
+                            }}
+                            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#7F77DD]/10 text-[#7F77DD] active:scale-90 transition-all"
+                            title="Fungua ramani na uchague unakokwenda"
+                          >
+                            <Map className="w-4 h-4" />
+                          </button>
                         </div>
                       </div>
                     </div>
