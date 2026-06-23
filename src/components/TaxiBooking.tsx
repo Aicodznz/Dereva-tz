@@ -2477,7 +2477,7 @@ export default function TaxiBooking() {
   }, [rideOptionsIds, selectedRide?.id]);
 
   // Dynamic ETA & Travel Calculations
-  const getDistanceLocal = (p1: [number, number], p2: [number, number]) => {
+  function getDistanceLocal(p1: [number, number], p2: [number, number]) {
     const R = 6371000; // meters
     const dLat = (p2[0] - p1[0]) * Math.PI / 180;
     const dLon = (p2[1] - p1[1]) * Math.PI / 180;
@@ -2486,9 +2486,9 @@ export default function TaxiBooking() {
               Math.sin(dLon/2) * Math.sin(dLon/2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     return R * c;
-  };
+  }
 
-  const formatTimeLocal = (date: Date) => {
+  function formatTimeLocal(date: Date) {
     let hours = date.getHours();
     const minutes = date.getMinutes();
     const amampm = hours >= 12 ? "pm" : "am";
@@ -2496,7 +2496,7 @@ export default function TaxiBooking() {
     hours = hours ? hours : 12;
     const minStr = minutes < 10 ? "0" + minutes : minutes;
     return `${hours}:${minStr} ${amampm}`;
-  };
+  }
 
   // Determine pickup ETA text ("dereva atakuja baada ya dakika X min" au kashafika)
   let etaPickupText = "";
