@@ -50,6 +50,10 @@ export function useIncomingRequests(vehicleType: string, isOnline: boolean, driv
         // For testing/prototype, we allow self-ordering.
         // if (ride.customerId === currentUserId) return false;
 
+        if (!ride.pickup || typeof ride.pickup.lat !== 'number' || typeof ride.pickup.lng !== 'number') {
+          return false;
+        }
+
         const dist = getDistanceKm(
           ride.pickup.lat, 
           ride.pickup.lng, 
@@ -68,7 +72,11 @@ export function useIncomingRequests(vehicleType: string, isOnline: boolean, driv
         const newRequests = allNearby.filter(nr => !prev.find(pr => pr.id === nr.id));
         if (newRequests.length > 0) {
           playAlertSound();
-          if (navigator.vibrate) navigator.vibrate([300, 100, 300, 100, 300]);
+          try {
+            if (navigator.vibrate) navigator.vibrate([300, 100, 300, 100, 300]);
+          } catch (e) {
+            console.warn("Navigator vibrate blocked or not supported", e);
+          }
         }
         return allNearby;
       });

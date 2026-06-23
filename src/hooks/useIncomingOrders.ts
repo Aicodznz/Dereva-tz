@@ -37,7 +37,7 @@ export function useIncomingOrders(isOnline: boolean, driverLocation: { lat: numb
           // In a real app, we might store vendorLocation on the order itself for fast indexing
           // For now, we fetch it or assume it's there if we added it (we should add it in Checkout)
           const vendorLoc = (order as any).vendorLocation;
-          if (vendorLoc) {
+          if (vendorLoc && typeof vendorLoc.lat === 'number' && typeof vendorLoc.lng === 'number') {
             const dist = getDistanceKm(
               vendorLoc.lat,
               vendorLoc.lng,

@@ -59,8 +59,12 @@ export function useIncomingParcels() {
   }, []); // No dependencies - subscription is stable
 
   const triggerAlert = () => {
-    if ('vibrate' in navigator) {
-      navigator.vibrate([400, 100, 400, 100, 400]);
+    try {
+      if ('vibrate' in navigator) {
+        navigator.vibrate([400, 100, 400, 100, 400]);
+      }
+    } catch (e) {
+      console.warn("Navigator vibrate blocked or not supported", e);
     }
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     const playBeep = (delay: number) => {
