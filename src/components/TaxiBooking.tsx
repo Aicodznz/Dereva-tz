@@ -3148,7 +3148,7 @@ export default function TaxiBooking() {
                     : 0,
               }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="absolute bottom-0 left-0 right-0 z-[9999] bg-[#111118] rounded-t-[40px] border-t border-[#1e1e2e] p-5 pb-10 space-y-4 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]"
+              className="absolute bottom-0 left-0 right-0 z-[9999] bg-[#111118] rounded-t-[40px] border-t border-[#1e1e2e] p-5 pb-10 space-y-4 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] max-h-[85dvh] overflow-y-auto no-scrollbar"
             >
               <div
                 className="w-full h-10 flex items-center justify-center cursor-pointer group -mt-4 relative"
