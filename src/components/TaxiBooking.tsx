@@ -43,6 +43,7 @@ import {
   Loader2,
   Calculator,
   Map,
+  Compass,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import Chat from "./Chat";
@@ -434,6 +435,8 @@ export default function TaxiBooking() {
   const [step, setStep] = useState<BookingStep>("map");
   const [isMinimized, setIsMinimized] = useState(false);
   const [isMapFullscreen, setIsMapFullscreen] = useState(false);
+  const [showPickupDropdown, setShowPickupDropdown] = useState(false);
+  const [showDestinationDropdown, setShowDestinationDropdown] = useState(false);
   const [autoFollow, setAutoFollow] = useState(true);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [settingMode, setSettingMode] = useState<"pickup" | "destination">(
@@ -3219,29 +3222,64 @@ export default function TaxiBooking() {
                             className="w-full bg-transparent text-sm font-bold text-white border-none outline-none p-0 placeholder:text-neutral-700 italic"
                           />
                         </div>
-                        <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleCurrentLocation();
+                              setShowPickupDropdown(!showPickupDropdown);
+                              setShowDestinationDropdown(false);
                             }}
-                            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-emerald-500/10 text-emerald-500 active:scale-90 transition-all"
-                            title="Tafuta GPS ya sasa"
+                            className="w-9 h-9 flex items-center justify-center rounded-xl bg-[#7F77DD]/10 border border-[#7F77DD]/30 text-[#7F77DD] hover:bg-[#7F77DD]/25 active:scale-90 transition-all shadow-md shadow-[#7F77DD]/5"
+                            title="Chaguzi za Mahali"
                           >
-                            <Navigation2 className="w-4 h-4" />
+                            <Compass className="w-4 h-4 animate-pulse" />
                           </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSettingMode("pickup");
-                              setIsMapFullscreen(true);
-                              toast.success("Bofya au gusa popote kwenye ramani ili kuchagua eneo la kuanzia safari! 📍");
-                            }}
-                            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#7F77DD]/10 text-[#7F77DD] active:scale-90 transition-all"
-                            title="Fungua ramani na uchague eneo la kuanzia"
-                          >
-                            <Map className="w-4 h-4" />
-                          </button>
+
+                          {/* Dropdown Menu */}
+                          {showPickupDropdown && (
+                            <>
+                              <div 
+                                className="fixed inset-0 z-[9998]" 
+                                onClick={() => setShowPickupDropdown(false)} 
+                              />
+                              <div className="absolute right-0 top-full mt-2 z-[9999] bg-[#111118]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-1.5 w-52 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowPickupDropdown(false);
+                                    handleCurrentLocation();
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left text-xs font-semibold text-white hover:bg-white/5 transition-colors group"
+                                >
+                                  <div className="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform">
+                                    <Navigation2 className="w-3.5 h-3.5" />
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <span>Tafuta kwa GPS</span>
+                                    <span className="text-[9px] text-[#6b6b8a] font-normal">Tumia mahali ulipo sasa</span>
+                                  </div>
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowPickupDropdown(false);
+                                    setSettingMode("pickup");
+                                    setIsMapFullscreen(true);
+                                    toast.success("Bofya au gusa popote kwenye ramani ili kuchagua eneo la kuanzia safari! 📍");
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left text-xs font-semibold text-white hover:bg-white/5 transition-colors group"
+                                >
+                                  <div className="w-7 h-7 rounded-lg bg-[#7F77DD]/10 flex items-center justify-center text-[#7F77DD] group-hover:scale-110 transition-transform">
+                                    <Map className="w-3.5 h-3.5" />
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <span>Chagua kwa Ramani</span>
+                                    <span className="text-[9px] text-[#6b6b8a] font-normal">Chagua kwa kugusa ramani</span>
+                                  </div>
+                                </button>
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
 
@@ -3272,19 +3310,64 @@ export default function TaxiBooking() {
                             placeholder="Andika hapa unapoenda"
                           />
                         </div>
-                        <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              setSettingMode("destination");
-                              setIsMapFullscreen(true);
-                              toast.success("Bofya au gusa popote kwenye ramani ili kuchagua unakokwenda! 📍");
+                              setShowDestinationDropdown(!showDestinationDropdown);
+                              setShowPickupDropdown(false);
                             }}
-                            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#7F77DD]/10 text-[#7F77DD] active:scale-90 transition-all"
-                            title="Fungua ramani na uchague unakokwenda"
+                            className="w-9 h-9 flex items-center justify-center rounded-xl bg-[#7F77DD]/10 border border-[#7F77DD]/30 text-[#7F77DD] hover:bg-[#7F77DD]/25 active:scale-90 transition-all shadow-md shadow-[#7F77DD]/5"
+                            title="Chaguzi za Mahali"
                           >
-                            <Map className="w-4 h-4" />
+                            <Compass className="w-4 h-4 animate-pulse" />
                           </button>
+
+                          {/* Dropdown Menu */}
+                          {showDestinationDropdown && (
+                            <>
+                              <div 
+                                className="fixed inset-0 z-[9998]" 
+                                onClick={() => setShowDestinationDropdown(false)} 
+                              />
+                              <div className="absolute right-0 top-full mt-2 z-[9999] bg-[#111118]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-1.5 w-52 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowDestinationDropdown(false);
+                                    handleCurrentLocation();
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left text-xs font-semibold text-white hover:bg-white/5 transition-colors group"
+                                >
+                                  <div className="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform">
+                                    <Navigation2 className="w-3.5 h-3.5" />
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <span>Tafuta kwa GPS</span>
+                                    <span className="text-[9px] text-[#6b6b8a] font-normal">Tumia mahali ulipo sasa</span>
+                                  </div>
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowDestinationDropdown(false);
+                                    setSettingMode("destination");
+                                    setIsMapFullscreen(true);
+                                    toast.success("Bofya au gusa popote kwenye ramani ili kuchagua unakokwenda! 📍");
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left text-xs font-semibold text-white hover:bg-white/5 transition-colors group"
+                                >
+                                  <div className="w-7 h-7 rounded-lg bg-[#7F77DD]/10 flex items-center justify-center text-[#7F77DD] group-hover:scale-110 transition-transform">
+                                    <Map className="w-3.5 h-3.5" />
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <span>Chagua kwa Ramani</span>
+                                    <span className="text-[9px] text-[#6b6b8a] font-normal">Chagua kwa kugusa ramani</span>
+                                  </div>
+                                </button>
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
