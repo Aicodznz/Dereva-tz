@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { useAuth } from '../../AuthContext';
 import { useLanguage } from '../../LanguageContext';
+import { useBusinessConfig } from '../../BusinessConfigContext';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -37,6 +38,7 @@ const AMENITIES_OPTIONS = [
 export default function RegisterVendor() {
   const { t } = useLanguage();
   const { signUp, user, loading: authLoading } = useAuth();
+  const { config } = useBusinessConfig();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(1);
@@ -47,6 +49,37 @@ export default function RegisterVendor() {
       navigate('/');
     }
   }, [user, authLoading, navigate]);
+
+  if (config?.maintenanceMode || config?.vendorSelfRegistration === false) {
+    const isMaintenance = !!config?.maintenanceMode;
+    return (
+      <AuthLayout 
+        title="Become a Vendor" 
+        subtitle="Kuwa Muuzaji"
+      >
+        <div className="text-center py-8 px-4 bg-amber-50/50 border border-amber-200 rounded-[2rem] space-y-4">
+          <div className="w-16 h-16 bg-amber-100 rounded-3xl flex items-center justify-center text-amber-600 mx-auto animate-pulse">
+            <Info className="w-8 h-8" />
+          </div>
+          <h2 className="text-lg font-black text-neutral-800 uppercase tracking-tight">
+            {isMaintenance ? "Mfumo upo kwenye Matengenezo" : "Usajili Umefungwa"}
+          </h2>
+          <p className="text-xs text-neutral-500 font-bold leading-relaxed uppercase">
+            {isMaintenance 
+              ? "Usajili wa wauzaji wapya umesitishwa kwa sasa kwa ajili ya maboresho ya mfumo wetu. Tafadhali jaribu tena baadae."
+              : "Usajili wa wauzaji wapya umefungwa na admin kwa sasa. Tafadhali wasiliana na usaidizi kwa maelezo zaidi."}
+          </p>
+          <div className="pt-4">
+            <Link to="/login" className="block">
+              <Button className="w-full h-11 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-xs font-black uppercase tracking-widest">
+                Rudi Kwenye Login
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </AuthLayout>
+    );
+  }
 
   const [formData, setFormData] = useState({
     // Standard Vendor Fields
@@ -464,6 +497,8 @@ export default function RegisterVendor() {
               <SelectItem value="ecommerce">eCommerce / Maduka na Bidhaa</SelectItem>
               <SelectItem value="salon">Salon / Kinyozi na Urembo</SelectItem>
               <SelectItem value="bus_ticket">Bus Ticket / Tiketi za Mabasi</SelectItem>
+              <SelectItem value="car_rental">Car Rental / Kukodisha Magari</SelectItem>
+              <SelectItem value="car_sale">Car Sales / Kuuza Magari</SelectItem>
             </SelectContent>
           </Select>
         </div>

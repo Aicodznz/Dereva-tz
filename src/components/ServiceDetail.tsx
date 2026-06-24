@@ -149,6 +149,10 @@ export default function ServiceDetail() {
   }
 
   const matchedProducts = products.filter(p => {
+    const vendor = vendors.find(v => v.id === p.vendorId);
+    if (vendor && vendor.hideProducts === true) {
+      return false;
+    }
     const isSalon = p.vendorCategory === 'salon' || p.category === 'salon' || vendors.some(v => v.id === p.vendorId);
     if (config.category === 'salon') {
       if (!isSalon) return false;

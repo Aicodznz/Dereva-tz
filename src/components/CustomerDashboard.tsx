@@ -174,11 +174,15 @@ export default function CustomerDashboard() {
     v.description?.toLowerCase().includes(effectiveSearchQuery.toLowerCase())
   );
 
-  const filteredProducts = products.filter(p => 
-    p.name.toLowerCase().includes(effectiveSearchQuery.toLowerCase()) ||
-    p.description?.toLowerCase().includes(effectiveSearchQuery.toLowerCase()) ||
-    p.category?.toLowerCase().includes(effectiveSearchQuery.toLowerCase())
-  );
+  const filteredProducts = products.filter(p => {
+    const vendor = vendors.find(v => v.id === p.vendorId);
+    if (vendor && vendor.hideProducts === true) {
+      return false;
+    }
+    return p.name.toLowerCase().includes(effectiveSearchQuery.toLowerCase()) ||
+           p.description?.toLowerCase().includes(effectiveSearchQuery.toLowerCase()) ||
+           p.category?.toLowerCase().includes(effectiveSearchQuery.toLowerCase());
+  });
 
   const locationRef = useRef(location);
   useEffect(() => {

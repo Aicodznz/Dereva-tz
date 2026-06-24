@@ -375,7 +375,7 @@ export default function VendorStore() {
                     exit={{ opacity: 0, y: -30 }}
                     className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-10"
                   >
-                    {products.map((product, idx) => (
+                    {(vendor.hideProducts === true ? [] : products).map((product, idx) => (
                       <motion.div
                         key={product.id}
                         initial={{ opacity: 0, y: 30 }}
@@ -468,7 +468,7 @@ export default function VendorStore() {
                       </motion.div>
                     ))}
 
-                    {products.length === 0 && (
+                    {(vendor.hideProducts === true || products.length === 0) && (
                       <motion.div 
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
@@ -480,8 +480,12 @@ export default function VendorStore() {
                         >
                           <ShoppingBasket className="w-20 h-20 text-orange-100 dark:text-neutral-800 mx-auto mb-8 stroke-[1px]" />
                         </motion.div>
-                        <h3 className="text-2xl font-black text-neutral-900 dark:text-white uppercase italic tracking-tighter mb-2">Hakuna Bidhaa</h3>
-                        <p className="text-neutral-400 font-bold uppercase tracking-[0.2em] text-[10px]">Tutasasisha hivi punde, Karibu tena.</p>
+                        <h3 className="text-2xl font-black text-neutral-900 dark:text-white uppercase italic tracking-tighter mb-2">
+                          {vendor.hideProducts === true ? "Bidhaa Hazipatikani" : "Hakuna Bidhaa"}
+                        </h3>
+                        <p className="text-neutral-400 font-bold uppercase tracking-[0.2em] text-[10px]">
+                          {vendor.hideProducts === true ? "Bidhaa za muuzaji huyu zimefichwa na admin kwa sasa." : "Tutasasisha hivi punde, Karibu tena."}
+                        </p>
                       </motion.div>
                     )}
                   </motion.div>

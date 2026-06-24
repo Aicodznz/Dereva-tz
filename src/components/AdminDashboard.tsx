@@ -808,6 +808,19 @@ export default function AdminDashboard() {
     }
   };
 
+  const toggleVendorProductsVisibility = async (vendorId: string, currentHideState: boolean) => {
+    try {
+      const newHideState = !currentHideState;
+      await updateDoc(doc(db, 'vendors', vendorId), { hideProducts: newHideState });
+      if (selectedVendorForReview && selectedVendorForReview.id === vendorId) {
+        setSelectedVendorForReview(prev => prev ? { ...prev, hideProducts: newHideState } : null);
+      }
+      toast.success(newHideState ? "Bidhaa za muuzaji huyu zimefichwa kikamilifu!" : "Bidhaa za muuzaji huyu sasa zinaonekana!");
+    } catch (error: any) {
+      handleFirestoreError(error, OperationType.UPDATE, `vendors/${vendorId}`);
+    }
+  };
+
   const handleBlockUser = async (id: string, currentStatus: string) => {
     const newStatus = currentStatus === 'blocked' ? 'active' : 'blocked';
     try {
@@ -5226,6 +5239,23 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                 </div>
+
+                {/* Vendor Products Visibility Control */}
+                <Card className="rounded-[2rem] border-none shadow-lg bg-orange-50/50 p-6 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center shrink-0">
+                      <ShoppingBag className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-black text-neutral-900 dark:text-white uppercase italic tracking-tight text-sm">Onyesha Bidhaa za Muuzaji Huyu</h4>
+                      <p className="text-[10px] text-neutral-400 font-bold uppercase leading-relaxed mt-0.5">Admin anaweza kuchagua kama bidhaa za muuzaji huyu zionekane kwa wateja au la.</p>
+                    </div>
+                  </div>
+                  <Switch 
+                    checked={!selectedVendorForReview.hideProducts} 
+                    onCheckedChange={() => toggleVendorProductsVisibility(selectedVendorForReview.id!, !!selectedVendorForReview.hideProducts)}
+                  />
+                </Card>
               </div>
 
               <div className="p-8 border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/50 flex gap-4">

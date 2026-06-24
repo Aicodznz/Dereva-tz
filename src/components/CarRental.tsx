@@ -8,6 +8,8 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage } from '../LanguageContext';
 import { toast } from 'sonner';
+import { db } from '../firebase';
+import { collection, getDocs } from 'firebase/firestore';
 
 // Define TS Interfaces
 interface CarRentalItem {
@@ -266,6 +268,73 @@ export default function CarRental() {
   const [selectedSaleCar, setSelectedSaleCar] = useState<CarSaleItem | null>(null);
   const [favorites, setFavorites] = useState<string[]>([]);
   
+  // Database state for dynamic vendor products
+  const [dbRentalCars, setDbRentalCars] = useState<CarRentalItem[]>([]);
+  const [dbSaleCars, setDbSaleCars] = useState<CarSaleItem[]>([]);
+
+  useEffect(() => {
+    const fetchCars = async () => {
+      try {
+        const vendorsSnapshot = await getDocs(collection(db, 'vendors'));
+        const hiddenVendorIds = new Set<string>();
+        vendorsSnapshot.forEach((vDoc) => {
+          if (vDoc.data().hideProducts === true) {
+            hiddenVendorIds.add(vDoc.id);
+          }
+        });
+
+        const querySnapshot = await getDocs(collection(db, 'products'));
+        const rentals: CarRentalItem[] = [];
+        const sales: CarSaleItem[] = [];
+        querySnapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          if (data.vendorId && hiddenVendorIds.has(data.vendorId)) {
+            return; // Skip products from hidden vendors
+          }
+          if (data.vendorCategory === 'car_rental') {
+            rentals.push({
+              id: docSnap.id,
+              name: data.name || '',
+              brand: data.category || 'Toyota',
+              type: (data.carType || 'suv').toLowerCase() as any,
+              image: data.imageUrl || 'https://images.unsplash.com/photo-1619767886558-efdc259cde1a?auto=format&fit=crop&w=600&q=80',
+              pricePerDay: Number(data.price) || 100000,
+              transmission: data.transmission || 'Automatic',
+              fuel: data.fuel || 'Petrol',
+              seats: Number(data.seats) || 5,
+              rating: 5.0,
+              engine: data.engine || '2000 cc',
+              ac: data.ac !== false,
+              carNumber: data.carNumber || 'T 123 ABC',
+              about: data.description || '',
+              features: data.features || ['Air Conditioning', 'Power Steering'],
+              gallery: data.imageUrls || [data.imageUrl || 'https://images.unsplash.com/photo-1619767886558-efdc259cde1a?auto=format&fit=crop&w=600&q=80']
+            });
+          } else if (data.vendorCategory === 'car_sale') {
+            sales.push({
+              id: docSnap.id,
+              name: data.name || '',
+              brand: data.category || 'Toyota',
+              year: data.year || '2020',
+              image: data.imageUrl || 'https://images.unsplash.com/photo-1619767886558-efdc259cde1a?auto=format&fit=crop&w=600&q=80',
+              price: Number(data.price) || 25000000,
+              transmission: data.transmission || 'Automatic',
+              fuel: data.fuel || 'Petrol',
+              seats: Number(data.seats) || 5,
+              mileage: Number(data.mileage) || 45000,
+              about: data.description || ''
+            });
+          }
+        });
+        setDbRentalCars(rentals);
+        setDbSaleCars(sales);
+      } catch (e) {
+        console.error("Error fetching cars: ", e);
+      }
+    };
+    fetchCars();
+  }, []);
+  
   // Tab states in detail
   const [detailTab, setDetailTab] = useState<'about' | 'feature' | 'gallery' | 'review'>('about');
   
@@ -326,13 +395,14 @@ export default function CarRental() {
       const parsed = JSON.parse(stored);
       setActiveBooking(parsed);
       // Find the car corresponding to it
-      const matchedCar = RENTAL_CARS.find(c => c.id === parsed.carId);
+      const allRentalCars = [...RENTAL_CARS, ...dbRentalCars];
+      const matchedCar = allRentalCars.find(c => c.id === parsed.carId);
       if (matchedCar) {
         setSelectedCar(matchedCar);
         setCurrentView('active-booking');
       }
     }
-  }, []);
+  }, [dbRentalCars]);
 
   const handleFavoriteToggle = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -425,18 +495,22 @@ export default function CarRental() {
   };
 
   // Filter Logic
-  const filteredRentCars = RENTAL_CARS.filter(car => {
+  const filteredRentCars = [...RENTAL_CARS, ...dbRentalCars].filter(car => {
     const matchesCategory = selectedCategory === 'all' || car.type === selectedCategory;
     const matchesBrand = !selectedBrand || car.brand.toLowerCase() === selectedBrand.toLowerCase();
     const matchesSearch = car.name.toLowerCase().includes(searchQuery.toLowerCase()) || car.brand.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesBrand && matchesSearch;
   });
 
-  const filteredSaleCars = SALE_CARS.filter(car => {
+  const filteredSaleCars = [...SALE_CARS, ...dbSaleCars].filter(car => {
     const matchesBrand = !selectedBrand || car.brand.toLowerCase() === selectedBrand.toLowerCase();
     const matchesSearch = car.name.toLowerCase().includes(searchQuery.toLowerCase()) || car.brand.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesBrand && matchesSearch;
   });
+
+  const handleImgError = (e: React.SyntheticEvent<HTMLImageElement, Event>, fallbackSeed: string) => {
+    e.currentTarget.src = `https://picsum.photos/seed/${fallbackSeed}/600/400`;
+  };
 
   return (
     <div className="min-h-screen bg-neutral-950 text-white flex flex-col font-sans pb-24">
@@ -676,6 +750,7 @@ export default function CarRental() {
                           alt={car.name}
                           className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                           referrerPolicy="no-referrer"
+                          onError={(e) => handleImgError(e, car.id)}
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-transparent" />
                         
@@ -771,6 +846,7 @@ export default function CarRental() {
                           alt={car.name}
                           className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                           referrerPolicy="no-referrer"
+                          onError={(e) => handleImgError(e, car.id)}
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-transparent" />
                         
@@ -838,6 +914,7 @@ export default function CarRental() {
                   alt={selectedCar.name} 
                   className="w-full h-full object-cover"
                   referrerPolicy="no-referrer"
+                  onError={(e) => handleImgError(e, selectedCar.id)}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-transparent to-transparent" />
                 
@@ -976,6 +1053,7 @@ export default function CarRental() {
                           alt="" 
                           className="w-full h-20 object-cover rounded-xl border border-neutral-800"
                           referrerPolicy="no-referrer"
+                          onError={(e) => handleImgError(e, `${selectedCar.id}-gallery-${idx}`)}
                         />
                       ))}
                     </div>
@@ -1036,6 +1114,7 @@ export default function CarRental() {
                     alt={selectedSaleCar.name} 
                     className="w-full h-full object-cover"
                     referrerPolicy="no-referrer"
+                    onError={(e) => handleImgError(e, selectedSaleCar.id)}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-transparent to-transparent" />
                   
@@ -1130,7 +1209,13 @@ export default function CarRental() {
           <div className="bg-neutral-900 border border-neutral-850 rounded-2xl p-4 mb-4">
             <h3 className="text-xs font-black uppercase tracking-wider text-neutral-400 mb-2">Selected Car:</h3>
             <div className="flex items-center gap-3">
-              <img src={selectedCar.image} alt="" className="w-16 h-12 object-cover rounded-lg" referrerPolicy="no-referrer" />
+              <img 
+                src={selectedCar.image} 
+                alt="" 
+                className="w-16 h-12 object-cover rounded-lg" 
+                referrerPolicy="no-referrer" 
+                onError={(e) => handleImgError(e, selectedCar.id)}
+              />
               <div>
                 <h4 className="text-sm font-black">{selectedCar.name}</h4>
                 <p className="text-[10px] text-indigo-400 font-mono font-bold">
@@ -1396,7 +1481,13 @@ export default function CarRental() {
 
               {interiorImage ? (
                 <div className="relative rounded-xl overflow-hidden border border-neutral-800 bg-neutral-950 p-2">
-                  <img src={interiorImage} alt="" className="w-full h-32 object-cover rounded-lg" referrerPolicy="no-referrer" />
+                  <img 
+                    src={interiorImage} 
+                    alt="" 
+                    className="w-full h-32 object-cover rounded-lg" 
+                    referrerPolicy="no-referrer" 
+                    onError={(e) => handleImgError(e, 'interior-fallback')}
+                  />
                   <button 
                     onClick={() => setInteriorImage(null)}
                     className="absolute top-4 right-4 bg-red-600 hover:bg-red-500 p-1.5 rounded-lg text-white transition"

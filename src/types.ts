@@ -30,7 +30,7 @@ export interface UserProfile {
   location?: { lat: number; lng: number };
 }
 
-export type VendorCategory = 'pharmacy' | 'grocery' | 'restaurant' | 'parcel' | 'taxi' | 'car_rental' | 'salon' | 'hotel' | 'ecommerce' | 'bus_ticket';
+export type VendorCategory = 'pharmacy' | 'grocery' | 'restaurant' | 'parcel' | 'taxi' | 'car_rental' | 'car_sale' | 'salon' | 'hotel' | 'ecommerce' | 'bus_ticket';
 export type VendorStatus = 'pending' | 'active' | 'suspended';
 
 export interface VendorProfile {
@@ -51,6 +51,7 @@ export interface VendorProfile {
   rating: number;
   ratingCount?: number;
   distance?: string;
+  hideProducts?: boolean;
   socialLinks?: {
     whatsapp?: string;
     instagram?: string;
@@ -130,6 +131,17 @@ export interface Product {
     description: string;
     certifiedBy?: string;
   };
+  // Car Rental & Car Sale specific
+  carType?: string;
+  transmission?: string;
+  fuel?: string;
+  seats?: number;
+  engine?: string;
+  ac?: boolean;
+  carNumber?: string;
+  features?: string[];
+  year?: number | string;
+  mileage?: number;
 }
 
 export type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'prepared' | 'out_for_delivery' | 'delivered' | 'cancelled' | 'completed';

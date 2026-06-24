@@ -42,24 +42,26 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   });
 
   const isTaxiRoute = location.pathname === '/taxi';
+  const isCarRentalRoute = location.pathname === '/car-rental';
   const isDashboardRoute = location.pathname === '/dashboard' || location.pathname === '/';
   const isRiderDashboard = profile?.role === 'rider' && isDashboardRoute;
   const isPartnerRoute = location.pathname === '/parcel-partner' || (isDashboardRoute && profile?.role === 'rider' && profile?.driverType === 'delivery');
   const isFullscreen = isTaxiRoute || isPartnerRoute || isRiderDashboard;
   const isVendorOrAdmin = profile?.role === 'vendor' || profile?.role === 'admin';
-  const hideBottomNav = isFullscreen || profile?.role === 'rider' || isVendorOrAdmin;
-  const isFullWidthPage = location.pathname.startsWith('/vendor/') || location.pathname.startsWith('/service/') || isFullscreen;
+  const hideBottomNav = isFullscreen || isCarRentalRoute || profile?.role === 'rider' || isVendorOrAdmin;
+  const isFullWidthPage = location.pathname.startsWith('/vendor/') || location.pathname.startsWith('/service/') || isFullscreen || isCarRentalRoute;
+  const isDarkBackgroundRoute = isFullscreen || isCarRentalRoute;
 
   return (
-    <div className={`${isFullscreen ? 'h-screen w-full overflow-hidden' : 'min-h-screen overflow-x-hidden'} bg-neutral-50 dark:bg-neutral-950 flex flex-col font-sans selection:bg-orange-100 dark:selection:bg-orange-900/30 selection:text-orange-900 ${isRTL ? 'font-arabic' : ''}`}>
+    <div className={`${isFullscreen ? 'h-screen w-full overflow-hidden' : 'min-h-screen overflow-x-hidden'} ${isDarkBackgroundRoute ? 'bg-neutral-950 text-white animate-fade-in' : 'bg-neutral-50 dark:bg-neutral-950'} flex flex-col font-sans selection:bg-orange-100 dark:selection:bg-orange-900/30 selection:text-orange-900 ${isRTL ? 'font-arabic' : ''}`}>
       {/* Visual Grain Overlay */}
       <div className="fixed inset-0 pointer-events-none z-[1000] opacity-[0.03] contrast-150 mix-blend-multiply flex-none">
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
       </div>
 
-      {!isVendorOrAdmin && !isFullscreen && <Header />}
+      {!isVendorOrAdmin && !isFullscreen && !isCarRentalRoute && <Header />}
 
-      <main className={`flex-1 ${isFullscreen ? 'h-screen w-full overflow-hidden' : `max-w-[2400px] mx-auto w-full ${isFullWidthPage ? 'px-0 pt-0' : 'px-2 py-4 md:py-6'} md:px-6 lg:px-10 pb-20 relative z-10`} ${!isVendorOrAdmin && !isFullscreen ? 'mt-4' : ''}`}>
+      <main className={`flex-1 ${isFullscreen ? 'h-screen w-full overflow-hidden' : `max-w-[2400px] mx-auto w-full ${isFullWidthPage ? 'px-0 pt-0' : 'px-2 py-4 md:py-6'} md:px-6 lg:px-10 pb-20 relative z-10`} ${!isVendorOrAdmin && !isFullscreen && !isCarRentalRoute ? 'mt-4' : ''}`}>
         {children}
       </main>
 

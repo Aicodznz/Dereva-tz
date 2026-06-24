@@ -70,6 +70,7 @@ import {
   Save,
   ShoppingBag,
   Beer,
+  Car,
   Smartphone,
   Banknote,
   QrCode,
@@ -463,7 +464,6 @@ export default function VendorDashboard() {
           awaitingLabel: 'New Requests'
         };
       case 'taxi':
-      case 'car_rental':
       case 'parcel':
       case 'bus_ticket':
         return {
@@ -481,6 +481,40 @@ export default function VendorDashboard() {
           readyLabel: 'Safari Imeanza',
           pickingLabel: 'Boarding In-Progress',
           awaitingLabel: 'Zinasubiri'
+        };
+      case 'car_rental':
+        return {
+          type: 'retail',
+          ordersLabel: 'Maombi ya Kukodi',
+          ordersDescription: 'Dhibiti maombi ya kukodisha magari na ratiba.',
+          ordersIcon: Key,
+          inventoryLabel: 'Magari ya Kukodisha',
+          inventoryIcon: Car,
+          locationLabel: 'Vituo vya Kukabidhi',
+          locationLabelSingular: 'Kituo',
+          posLabel: 'Dawati la Kukodisha',
+          posIcon: Banknote,
+          fulfillmentAction: 'Kukodisha',
+          readyLabel: 'Gari Lipo Tayari',
+          pickingLabel: 'Gari Lipo Safarini',
+          awaitingLabel: 'Maombi Mpya'
+        };
+      case 'car_sale':
+        return {
+          type: 'retail',
+          ordersLabel: 'Maombi ya Kununua',
+          ordersDescription: 'Dhibiti maombi ya ununuzi na ukaguzi wa magari.',
+          ordersIcon: Key,
+          inventoryLabel: 'Magari ya Kuuza',
+          inventoryIcon: Car,
+          locationLabel: 'Yard / Showroom',
+          locationLabelSingular: 'Showroom',
+          posLabel: 'Dawati la Mauzo',
+          posIcon: Banknote,
+          fulfillmentAction: 'Kuuza',
+          readyLabel: 'Gari Limeuzwa',
+          pickingLabel: 'Kwenye Majaribio',
+          awaitingLabel: 'Maombi Mapya'
         };
       default: // grocery, ecommerce, etc.
         return {
@@ -2086,7 +2120,18 @@ export default function VendorDashboard() {
       branchId: (product as any).branchId || '',
       highlights: product.highlights || [],
       story: product.story || '',
-      qualityPromise: product.qualityPromise || { description: '', certifiedBy: '' }
+      qualityPromise: product.qualityPromise || { description: '', certifiedBy: '' },
+      // Car rental & sale properties
+      carType: product.carType || '',
+      transmission: product.transmission || 'Automatic',
+      fuel: product.fuel || 'Petrol',
+      seats: product.seats || undefined,
+      engine: product.engine || '',
+      ac: product.ac !== false,
+      carNumber: product.carNumber || '',
+      year: product.year || '',
+      mileage: product.mileage || undefined,
+      features: product.features || []
     });
     setIsAddProductOpen(true);
   };
@@ -7343,18 +7388,54 @@ export default function VendorDashboard() {
                                     />
                                    ) : (
                                      <div className="w-full h-full flex items-center justify-center bg-neutral-950">
-                                       <Bus className="w-8 h-8 text-neutral-800" />
+                                       {vendorProfile?.category === 'car_rental' || vendorProfile?.category === 'car_sale' ? (
+                                         <Car className="w-8 h-8 text-neutral-800" />
+                                       ) : (
+                                         <Bus className="w-8 h-8 text-neutral-800" />
+                                       )}
                                      </div>
                                    )}
                                 </div>
                                 <div>
-                                   <p className="font-black text-white text-md uppercase tracking-tight italic">
-                                     {isBus ? `${(product as any).origin || 'Dar'} → ${(product as any).destination || 'Arusha'}` : product.name}
+                                   <p className="font-black text-white text-md uppercase tracking-tight italic flex items-center gap-2">
+                                     {isBus 
+                                       ? `${(product as any).origin || 'Dar'} → ${(product as any).destination || 'Arusha'}` 
+                                       : (vendorProfile?.category === 'car_rental' || vendorProfile?.category === 'car_sale')
+                                         ? `${product.category} ${product.name}`
+                                         : product.name
+                                     }
+                                     {(vendorProfile?.category === 'car_rental' || vendorProfile?.category === 'car_sale') && (
+                                       <span className="text-[10px] font-bold text-orange-500 normal-case bg-orange-500/10 px-2 py-0.5 rounded-full">
+                                         {vendorProfile?.category === 'car_rental' ? 'Rental' : 'For Sale'}
+                                       </span>
+                                     )}
                                    </p>
                                    <div className="flex flex-col gap-1">
-                                      <p className="text-[10px] text-neutral-600 font-bold uppercase tracking-wider">
-                                        {isBus ? `Departure: ${(product as any).departureTime || '06:00 AM'}` : `SKU: ${product.id?.slice(0, 8).toUpperCase()}`}
-                                      </p>
+                                      {vendorProfile?.category === 'car_rental' ? (
+                                        <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider flex items-center gap-2">
+                                          <span>Plate: {product.carNumber}</span>
+                                          <span>•</span>
+                                          <span>{product.transmission}</span>
+                                          <span>•</span>
+                                          <span>{product.fuel}</span>
+                                          <span>•</span>
+                                          <span>{product.seats} Seats</span>
+                                        </p>
+                                      ) : vendorProfile?.category === 'car_sale' ? (
+                                        <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider flex items-center gap-2">
+                                          <span>Year: {product.year}</span>
+                                          <span>•</span>
+                                          <span>Mileage: {product.mileage?.toLocaleString()} km</span>
+                                          <span>•</span>
+                                          <span>{product.transmission}</span>
+                                          <span>•</span>
+                                          <span>{product.fuel}</span>
+                                        </p>
+                                      ) : (
+                                        <p className="text-[10px] text-neutral-600 font-bold uppercase tracking-wider">
+                                          {isBus ? `Departure: ${(product as any).departureTime || '06:00 AM'}` : `SKU: ${product.id?.slice(0, 8).toUpperCase()}`}
+                                        </p>
+                                      )}
                                       {isBus && (product as any).branchId && branches.find(b => b.id === (product as any).branchId) && (
                                          <p className="text-[9px] text-orange-600/70 font-black uppercase tracking-tight flex items-center gap-1">
                                            <MapPin className="w-2 h-2" />
@@ -8253,14 +8334,26 @@ export default function VendorDashboard() {
 
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-neutral-500 uppercase">
-                    {vendorProfile?.category === 'hotel' ? 'Room Category / Type (e.g. Executive Double)' : vendorProfile?.category === 'bus_ticket' ? 'Trip Label / Jina la Safari' : 'Product Name / Jina la Bidhaa'}
+                    {vendorProfile?.category === 'hotel' 
+                      ? 'Room Category / Type (e.g. Executive Double)' 
+                      : vendorProfile?.category === 'bus_ticket' 
+                        ? 'Trip Label / Jina la Safari' 
+                        : (vendorProfile?.category === 'car_rental' || vendorProfile?.category === 'car_sale')
+                          ? 'Model ya Gari / Car Model (e.g. Land Cruiser, Fit)'
+                          : 'Product Name / Jina la Bidhaa'}
                   </label>
                   <Input 
                     required 
                     className="bg-neutral-800 border-none h-12 rounded-xl"
                     value={newProduct.name}
                     onChange={e => setNewProduct({...newProduct, name: e.target.value})}
-                    placeholder={vendorProfile?.category === 'hotel' ? "e.g. VIP Ocean View" : vendorProfile?.category === 'bus_ticket' ? "Dar to Arusha (Morning)" : "e.g. Paracetamol 500mg"}
+                    placeholder={vendorProfile?.category === 'hotel' 
+                      ? "e.g. VIP Ocean View" 
+                      : vendorProfile?.category === 'bus_ticket' 
+                        ? "Dar to Arusha (Morning)" 
+                        : (vendorProfile?.category === 'car_rental' || vendorProfile?.category === 'car_sale')
+                          ? "e.g. Land Cruiser V8"
+                          : "e.g. Paracetamol 500mg"}
                   />
                 </div>
 
@@ -8396,6 +8489,256 @@ export default function VendorDashboard() {
                       </div>
                     )}
                   </div>
+                ) : vendorProfile?.category === 'car_rental' ? (
+                  <div className="space-y-4 pt-2">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-neutral-500 uppercase">Brand ya Gari / Car Brand *</label>
+                        <Input 
+                          required
+                          placeholder="e.g. Toyota"
+                          className="bg-neutral-800 border-none h-12 rounded-xl"
+                          value={newProduct.category || ''}
+                          onChange={e => setNewProduct({...newProduct, category: e.target.value})}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-neutral-500 uppercase">Aina ya Gari / Vehicle Type *</label>
+                        <Select 
+                          value={newProduct.carType || ''} 
+                          onValueChange={val => setNewProduct({...newProduct, carType: val || undefined})}
+                        >
+                          <SelectTrigger className="bg-neutral-800 border-none h-12 rounded-xl">
+                            <SelectValue placeholder="Chagua aina" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
+                            <SelectItem value="suv">SUV</SelectItem>
+                            <SelectItem value="hatchback">Hatchback / Compact</SelectItem>
+                            <SelectItem value="wedding">Wedding / Sherehe</SelectItem>
+                            <SelectItem value="safari">Safari / Utalii</SelectItem>
+                            <SelectItem value="sedan">Sedan / Saloon</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-neutral-500 uppercase">Transmission / Gia *</label>
+                        <Select 
+                          value={newProduct.transmission || 'Automatic'} 
+                          onValueChange={val => setNewProduct({...newProduct, transmission: val || undefined})}
+                        >
+                          <SelectTrigger className="bg-neutral-800 border-none h-12 rounded-xl">
+                            <SelectValue placeholder="Chagua Gia" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
+                            <SelectItem value="Automatic">Automatic</SelectItem>
+                            <SelectItem value="Manual">Manual</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-neutral-500 uppercase">Aina ya Mafuta / Fuel Type *</label>
+                        <Select 
+                          value={newProduct.fuel || 'Petrol'} 
+                          onValueChange={val => setNewProduct({...newProduct, fuel: val || undefined})}
+                        >
+                          <SelectTrigger className="bg-neutral-800 border-none h-12 rounded-xl">
+                            <SelectValue placeholder="Chagua Mafuta" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
+                            <SelectItem value="Petrol">Petrol</SelectItem>
+                            <SelectItem value="Diesel">Diesel</SelectItem>
+                            <SelectItem value="Hybrid">Hybrid</SelectItem>
+                            <SelectItem value="Electric">Electric</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-neutral-500 uppercase">Idadi ya Viti *</label>
+                        <Input 
+                          type="number"
+                          required
+                          placeholder="5"
+                          className="bg-neutral-800 border-none h-12 rounded-xl"
+                          value={newProduct.seats || ''}
+                          onChange={e => setNewProduct({...newProduct, seats: parseInt(e.target.value)})}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-neutral-500 uppercase">Uwezo wa Injini (Engine)</label>
+                        <Input 
+                          placeholder="e.g. 2000 cc"
+                          className="bg-neutral-800 border-none h-12 rounded-xl"
+                          value={newProduct.engine || ''}
+                          onChange={e => setNewProduct({...newProduct, engine: e.target.value})}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-neutral-500 uppercase">Plati / Car Number *</label>
+                        <Input 
+                          required
+                          placeholder="e.g. T 123 ABC"
+                          className="bg-neutral-800 border-none h-12 rounded-xl"
+                          value={newProduct.carNumber || ''}
+                          onChange={e => setNewProduct({...newProduct, carNumber: e.target.value})}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-neutral-500 uppercase">Bei ya Kukodi kwa Siku (TZS) *</label>
+                        <Input 
+                          type="number"
+                          required
+                          placeholder="e.g. 100000"
+                          className="bg-neutral-800 border-none h-12 rounded-xl"
+                          value={newProduct.price || ''}
+                          onChange={e => setNewProduct({...newProduct, price: parseFloat(e.target.value)})}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-neutral-500 uppercase">Magari yaliyopo (Stock) *</label>
+                        <Input 
+                          type="number"
+                          required
+                          placeholder="e.g. 1"
+                          className="bg-neutral-800 border-none h-12 rounded-xl"
+                          value={newProduct.stock || 1}
+                          onChange={e => setNewProduct({...newProduct, stock: parseInt(e.target.value)})}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 p-4 bg-neutral-800/50 rounded-xl border border-neutral-800">
+                      <input 
+                        type="checkbox"
+                        id="ac-checkbox"
+                        className="w-5 h-5 rounded border-neutral-700 bg-neutral-800 text-orange-600 focus:ring-orange-600"
+                        checked={newProduct.ac !== false}
+                        onChange={e => setNewProduct({...newProduct, ac: e.target.checked})}
+                      />
+                      <label htmlFor="ac-checkbox" className="text-sm font-medium text-white cursor-pointer">
+                        Gari lina AC? / Has Air Conditioning?
+                      </label>
+                    </div>
+                  </div>
+                ) : vendorProfile?.category === 'car_sale' ? (
+                  <div className="space-y-4 pt-2">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-neutral-500 uppercase">Brand ya Gari / Car Brand *</label>
+                        <Input 
+                          required
+                          placeholder="e.g. Toyota"
+                          className="bg-neutral-800 border-none h-12 rounded-xl"
+                          value={newProduct.category || ''}
+                          onChange={e => setNewProduct({...newProduct, category: e.target.value})}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-neutral-500 uppercase">Mwaka wa Undaji / Manufacture Year *</label>
+                        <Input 
+                          type="number"
+                          required
+                          placeholder="e.g. 2018"
+                          className="bg-neutral-800 border-none h-12 rounded-xl"
+                          value={newProduct.year || ''}
+                          onChange={e => setNewProduct({...newProduct, year: parseInt(e.target.value)})}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-neutral-500 uppercase">Transmission / Gia *</label>
+                        <Select 
+                          value={newProduct.transmission || 'Automatic'} 
+                          onValueChange={val => setNewProduct({...newProduct, transmission: val || undefined})}
+                        >
+                          <SelectTrigger className="bg-neutral-800 border-none h-12 rounded-xl">
+                            <SelectValue placeholder="Chagua Gia" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
+                            <SelectItem value="Automatic">Automatic</SelectItem>
+                            <SelectItem value="Manual">Manual</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-neutral-500 uppercase">Aina ya Mafuta / Fuel Type *</label>
+                        <Select 
+                          value={newProduct.fuel || 'Petrol'} 
+                          onValueChange={val => setNewProduct({...newProduct, fuel: val || undefined})}
+                        >
+                          <SelectTrigger className="bg-neutral-800 border-none h-12 rounded-xl">
+                            <SelectValue placeholder="Chagua Mafuta" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
+                            <SelectItem value="Petrol">Petrol</SelectItem>
+                            <SelectItem value="Diesel">Diesel</SelectItem>
+                            <SelectItem value="Hybrid">Hybrid</SelectItem>
+                            <SelectItem value="Electric">Electric</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-neutral-500 uppercase">Mileage (km) *</label>
+                        <Input 
+                          type="number"
+                          required
+                          placeholder="e.g. 45000"
+                          className="bg-neutral-800 border-none h-12 rounded-xl"
+                          value={newProduct.mileage || ''}
+                          onChange={e => setNewProduct({...newProduct, mileage: parseInt(e.target.value)})}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-neutral-500 uppercase">Idadi ya Viti *</label>
+                        <Input 
+                          type="number"
+                          required
+                          placeholder="5"
+                          className="bg-neutral-800 border-none h-12 rounded-xl"
+                          value={newProduct.seats || 5}
+                          onChange={e => setNewProduct({...newProduct, seats: parseInt(e.target.value)})}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-neutral-500 uppercase">Bei ya Kuuza (TZS) *</label>
+                        <Input 
+                          type="number"
+                          required
+                          placeholder="e.g. 25000000"
+                          className="bg-neutral-800 border-none h-12 rounded-xl"
+                          value={newProduct.price || ''}
+                          onChange={e => setNewProduct({...newProduct, price: parseFloat(e.target.value)})}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-neutral-500 uppercase">Magari yaliyopo (Stock) *</label>
+                        <Input 
+                          type="number"
+                          required
+                          placeholder="e.g. 1"
+                          className="bg-neutral-800 border-none h-12 rounded-xl"
+                          value={newProduct.stock || 1}
+                          onChange={e => setNewProduct({...newProduct, stock: parseInt(e.target.value)})}
+                        />
+                      </div>
+                    </div>
+                  </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -8523,7 +8866,7 @@ export default function VendorDashboard() {
                   </div>
                 )}
 
-                {vendorProfile?.category !== 'hotel' && (
+                {vendorProfile?.category !== 'hotel' && vendorProfile?.category !== 'car_rental' && vendorProfile?.category !== 'car_sale' && (
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-xs font-bold text-neutral-500 uppercase">Base Price / Bei ya Msingi (TZS)</label>
