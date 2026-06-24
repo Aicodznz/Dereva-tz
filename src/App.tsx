@@ -25,6 +25,7 @@ import RegisterDriver from './components/auth/RegisterDriver';
 import RegisterVendor from './components/auth/RegisterVendor';
 
 import TaxiBooking from './components/TaxiBooking';
+import CarRental from './components/CarRental';
 import ParcelPartnerController from './components/parcel/partner/ParcelPartnerController';
 import ParcelRequestFlow from './components/parcel/ParcelRequestFlow';
 import ParcelHome from './components/parcel/ParcelHome';
@@ -379,6 +380,7 @@ function AppContent() {
             <Route path="/product/:id" element={<ProductDetail />} />
             <Route path="/vendor/:id" element={<VendorStore />} />
             <Route path="/taxi" element={<TaxiBooking />} />
+            <Route path="/car-rental" element={<CarRental />} />
             <Route path="/taxi/history" element={<PrivateRoute><TaxiHistory /></PrivateRoute>} />
             <Route path="/service/vifurushi" element={<PrivateRoute><ParcelHome /></PrivateRoute>} />
             <Route path="/parcel/history" element={<PrivateRoute><ParcelHistory /></PrivateRoute>} />

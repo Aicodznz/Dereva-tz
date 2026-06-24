@@ -518,7 +518,7 @@ export default function CustomerDashboard() {
           </button>
           {services.filter(s => s.id !== 'ramani').map((s) => (
             <button
-              key={`filter-${s.category}`}
+              key={`filter-${s.id}`}
               onClick={() => setSelectedCategory(s.category === selectedCategory ? null : s.category)}
               className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-2 ${
                 selectedCategory === s.category ? 'bg-orange-600 text-white shadow-lg' : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200'
@@ -725,7 +725,7 @@ export default function CustomerDashboard() {
                     </button>
                   ) : (
                     <Link 
-                      to={isUnderMaintenance ? '#' : (service.id === 'teksi' ? '/taxi' : service.id === 'car_rental' ? '/taxi?service=rental' : service.id === 'vifurushi' ? '/service/vifurushi' : `/service/${service.id}`)}
+                      to={isUnderMaintenance ? '#' : (service.id === 'teksi' ? '/taxi' : service.id === 'car_rental' ? '/car-rental' : service.id === 'vifurushi' ? '/service/vifurushi' : `/service/${service.id}`)}
                       onClick={handleServiceClick}
                       className="flex flex-col items-center text-center group gap-3 relative"
                     >
