@@ -251,15 +251,24 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
       setError(null);
       const response = await fetch(`/api/geo/search?q=${encodeURIComponent(query)}&limit=5&addressdetails=1`);
       
+      const contentType = response.headers.get("content-type");
+      const isJson = contentType && contentType.includes("application/json");
+
       if (!response.ok) {
         let errorMsg = `Search failed (${response.status})`;
-        try {
-          const errorData = await response.json();
-          errorMsg = errorData.error || errorData.detail || errorMsg;
-        } catch (e) {
-          // Fallback if not JSON
+        if (isJson) {
+          try {
+            const errorData = await response.json();
+            errorMsg = errorData.error || errorData.detail || errorMsg;
+          } catch (e) {
+            // Fallback
+          }
         }
         throw new Error(errorMsg);
+      }
+      
+      if (!isJson) {
+        throw new Error("Received non-JSON response from geocoding service");
       }
       
       const data = await response.json();
@@ -358,7 +367,8 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
   const reverseGeocode = async (lat: number, lng: number) => {
     try {
       const response = await fetch(`/api/geo/reverse?lat=${lat}&lon=${lng}&zoom=18`);
-      if (!response.ok) {
+      const contentType = response.headers.get("content-type");
+      if (!response.ok || !contentType || !contentType.includes("application/json")) {
         throw new Error(`Reverse geocoding failed with status ${response.status}`);
       }
       const data = await response.json();
@@ -371,7 +381,8 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
       console.error('Reverse geocoding failed, trying fallback:', err);
       try {
         const bdcResponse = await fetch(`/api/geo/bdc-reverse?lat=${lat}&lon=${lng}`);
-        if (!bdcResponse.ok) {
+        const bdcContentType = bdcResponse.headers.get("content-type");
+        if (!bdcResponse.ok || !bdcContentType || !bdcContentType.includes("application/json")) {
            throw new Error(`BDC failed with status ${bdcResponse.status}`);
         }
         const bdcData = await bdcResponse.json();
@@ -395,10 +406,26 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
     setError(null);
     try {
       const response = await fetch(`/api/geo/search?q=${encodeURIComponent(query)}&limit=1`);
+      const contentType = response.headers.get("content-type");
+      const isJson = contentType && contentType.includes("application/json");
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Search failed with status ${response.status}`);
+        let errorMsg = `Search failed with status ${response.status}`;
+        if (isJson) {
+          try {
+            const errorData = await response.json();
+            errorMsg = errorData.error || errorMsg;
+          } catch (e) {
+            // Fallback
+          }
+        }
+        throw new Error(errorMsg);
       }
+
+      if (!isJson) {
+        throw new Error("Received non-JSON response from search service");
+      }
+
       const data = await response.json();
       if (data && data.length > 0) {
         const newPos = new L.LatLng(parseFloat(data[0].lat), parseFloat(data[0].lon));

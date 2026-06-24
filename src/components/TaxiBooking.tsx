@@ -748,10 +748,12 @@ export default function TaxiBooking() {
   const reverseGeocode = async (lat: number, lng: number) => {
     try {
       const response = await fetch(`/api/geo/reverse?lat=${lat}&lon=${lng}`);
-      if (!response.ok)
+      const contentType = response.headers.get("content-type");
+      if (!response.ok || !contentType || !contentType.includes("application/json")) {
         throw new Error(
           `Reverse geocoding failed with status ${response.status}`,
         );
+      }
       const data = await response.json();
       const addr = formatAddress(data);
       if (addr && addr !== "Unknown Area" && addr !== "Eneo Halijapatikana" && addr !== "Unknown Location") {
@@ -764,11 +766,20 @@ export default function TaxiBooking() {
         const bdcResponse = await fetch(
           `/api/geo/bdc-reverse?lat=${lat}&lon=${lng}`,
         );
-        if (!bdcResponse.ok) {
-          const errorData = await bdcResponse.json().catch(() => ({}));
-          throw new Error(
-            errorData.error || `BDC failed with status ${bdcResponse.status}`,
-          );
+        const bdcContentType = bdcResponse.headers.get("content-type");
+        const isBdcJson = bdcContentType && bdcContentType.includes("application/json");
+        
+        if (!bdcResponse.ok || !isBdcJson) {
+          let bdcError = `BDC failed with status ${bdcResponse.status}`;
+          if (isBdcJson) {
+            try {
+              const errorData = await bdcResponse.json();
+              bdcError = errorData.error || bdcError;
+            } catch (e) {
+              // Fallback
+            }
+          }
+          throw new Error(bdcError);
         }
         const bdcData = await bdcResponse.json();
         const bdcAddr = bdcData.locality || bdcData.city || bdcData.principalSubdivision;
@@ -1870,12 +1881,26 @@ export default function TaxiBooking() {
           const response = await fetch(
             `/api/geo/search?q=${encodeURIComponent(apiQuery)}&limit=8&addressdetails=1`,
           );
+          const contentType = response.headers.get("content-type");
+          const isJson = contentType && contentType.includes("application/json");
+
           if (!response.ok) {
-            const errData = await response.json().catch(() => ({}));
-            throw new Error(
-              errData.error || `Search failed with status ${response.status}`,
-            );
+            let errorMsg = `Search failed with status ${response.status}`;
+            if (isJson) {
+              try {
+                const errData = await response.json();
+                errorMsg = errData.error || errorMsg;
+              } catch (e) {
+                // Fallback
+              }
+            }
+            throw new Error(errorMsg);
           }
+
+          if (!isJson) {
+            throw new Error("Received non-JSON response from geocoding service");
+          }
+
           const data = await response.json();
           if (Array.isArray(data)) {
             const fetched = data.map((item: any) => ({
@@ -2863,15 +2888,10 @@ export default function TaxiBooking() {
                       );
                     })()}
 
-                    {/* Nearby Drivers - Only show in map step */}
-                    {step === "map" &&
+                    {/* Nearby Drivers - Show in home or map step, showing all vehicle types without selecting */}
+                    {(step === "home" || step === "map") &&
                       drivers
-                        .filter(
-                          (d) =>
-                            (!selectedRide ||
-                              d.vehicleType === selectedRide.vehicleType) &&
-                            d.id !== activeRide?.driverId,
-                        )
+                        .filter((d) => d.id !== activeRide?.driverId)
                         .map((driver) => (
                           <Marker
                             key={`nearby-${driver.id}-${driver.lat}-${driver.lng}-${driver.heading || 0}`}

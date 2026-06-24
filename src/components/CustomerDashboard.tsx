@@ -197,7 +197,8 @@ export default function CustomerDashboard() {
           if (!currentLoc.address || distMoved > 0.2) {
             try {
               const response = await fetch(`/api/geo/reverse?lat=${latitude}&lon=${longitude}&zoom=18`);
-              if (!response.ok) {
+              const contentType = response.headers.get("content-type");
+              if (!response.ok || !contentType || !contentType.includes("application/json")) {
                 console.warn(`Reverse geocoding failed with status ${response.status}`);
                 setLocation((prev: any) => ({ ...prev, lat: latitude, lng: longitude }));
                 return;
