@@ -9,7 +9,7 @@ import { Skeleton } from './ui/Skeleton';
 import { 
   Utensils, ShoppingCart, Pill, Package, Car, Scissors, Hotel, Star, 
   Search, Bell, MapPin, ChevronRight, ShoppingBag, Tag, Plus, ShoppingBasket,
-  FileText, Smartphone, Box, Dog, Bus, Sparkles, Wrench
+  FileText, Smartphone, Box, Dog, Bus, Sparkles, Wrench, Key
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
@@ -236,6 +236,7 @@ export default function CustomerDashboard() {
     { id: 'sokoni', label: t('grocery') || 'Sokoni', icon: ShoppingCart, color: 'bg-green-500', sub: 'Grocery 🛒', category: 'grocery' },
     { id: 'bus_ticket', label: 'Bus Tickets', icon: Bus, color: 'bg-orange-600', sub: 'Bus Booking 🚌', category: 'bus_ticket' },
     { id: 'teksi', label: t('taxi') || 'Teksi', icon: Car, color: 'bg-yellow-500', sub: 'Taxi 🚕', category: 'taxi' },
+    { id: 'car_rental', label: 'Kukodi Gari', icon: Key, color: 'bg-teal-600', sub: 'Car Rental 🔑🚗', category: 'taxi' },
     { id: 'vifurushi', label: t('parcel') || 'Vifurushi', icon: Package, color: 'bg-orange-500', sub: 'Parcel 📦', category: 'parcel' },
     { id: 'dawa', label: t('pharmacy') || 'Duka la Dawa', icon: Pill, color: 'bg-blue-500', sub: 'Pharmacy 💊', category: 'pharmacy' },
     { id: 'maduka', label: t('ecommerce') || 'Maduka', icon: ShoppingBag, color: 'bg-purple-500', sub: 'eCommerce 🛍️', category: 'ecommerce' },
@@ -724,7 +725,7 @@ export default function CustomerDashboard() {
                     </button>
                   ) : (
                     <Link 
-                      to={isUnderMaintenance ? '#' : (service.id === 'teksi' ? '/taxi' : service.id === 'vifurushi' ? '/service/vifurushi' : `/service/${service.id}`)}
+                      to={isUnderMaintenance ? '#' : (service.id === 'teksi' ? '/taxi' : service.id === 'car_rental' ? '/taxi?service=rental' : service.id === 'vifurushi' ? '/service/vifurushi' : `/service/${service.id}`)}
                       onClick={handleServiceClick}
                       className="flex flex-col items-center text-center group gap-3 relative"
                     >

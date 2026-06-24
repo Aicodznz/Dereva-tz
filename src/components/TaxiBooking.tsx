@@ -2285,7 +2285,8 @@ export default function TaxiBooking() {
         rates: {
           mini: { baseFare: 1000, pricePerKm: 800, pricePerMin: 100, waitingRate: 120, surgeRush: 1.25, surgeRain: 1.5 },
           bajaj: { baseFare: 500, pricePerKm: 500, pricePerMin: 0, waitingRate: 50, surgeRush: 1.15, surgeRain: 1.3 },
-          bike: { baseFare: 300, pricePerKm: 350, pricePerMin: 0, waitingRate: 30, surgeRush: 1.1, surgeRain: 1.2 }
+          bike: { baseFare: 300, pricePerKm: 350, pricePerMin: 0, waitingRate: 30, surgeRush: 1.1, surgeRain: 1.2 },
+          rental: { baseFare: 45000, pricePerKm: 1500, pricePerMin: 0, waitingRate: 0, surgeRush: 1.0, surgeRain: 1.1 }
         }
       },
       "Arusha": {
@@ -2302,7 +2303,8 @@ export default function TaxiBooking() {
         rates: {
           mini: { baseFare: 1200, pricePerKm: 880, pricePerMin: 110, waitingRate: 130, surgeRush: 1.3, surgeRain: 1.6 },
           bajaj: { baseFare: 600, pricePerKm: 550, pricePerMin: 0, waitingRate: 55, surgeRush: 1.2, surgeRain: 1.4 },
-          bike: { baseFare: 400, pricePerKm: 385, pricePerMin: 0, waitingRate: 35, surgeRush: 1.15, surgeRain: 1.3 }
+          bike: { baseFare: 400, pricePerKm: 385, pricePerMin: 0, waitingRate: 35, surgeRush: 1.15, surgeRain: 1.3 },
+          rental: { baseFare: 50000, pricePerKm: 1600, pricePerMin: 0, waitingRate: 0, surgeRush: 1.0, surgeRain: 1.1 }
         }
       },
       "Dodoma": {
@@ -2319,7 +2321,8 @@ export default function TaxiBooking() {
         rates: {
           mini: { baseFare: 900, pricePerKm: 720, pricePerMin: 90, waitingRate: 100, surgeRush: 1.2, surgeRain: 1.4 },
           bajaj: { baseFare: 450, pricePerKm: 450, pricePerMin: 0, waitingRate: 40, surgeRush: 1.1, surgeRain: 1.2 },
-          bike: { baseFare: 270, pricePerKm: 315, pricePerMin: 0, waitingRate: 25, surgeRush: 1.05, surgeRain: 1.15 }
+          bike: { baseFare: 270, pricePerKm: 315, pricePerMin: 0, waitingRate: 25, surgeRush: 1.05, surgeRain: 1.15 },
+          rental: { baseFare: 40000, pricePerKm: 1400, pricePerMin: 0, waitingRate: 0, surgeRush: 1.0, surgeRain: 1.1 }
         }
       },
       "Mwanza": {
@@ -2336,7 +2339,8 @@ export default function TaxiBooking() {
         rates: {
           mini: { baseFare: 1000, pricePerKm: 760, pricePerMin: 95, waitingRate: 110, surgeRush: 1.25, surgeRain: 1.45 },
           bajaj: { baseFare: 500, pricePerKm: 475, pricePerMin: 0, waitingRate: 45, surgeRush: 1.15, surgeRain: 1.3 },
-          bike: { baseFare: 300, pricePerKm: 332, pricePerMin: 0, waitingRate: 28, surgeRush: 1.1, surgeRain: 1.2 }
+          bike: { baseFare: 300, pricePerKm: 332, pricePerMin: 0, waitingRate: 28, surgeRush: 1.1, surgeRain: 1.2 },
+          rental: { baseFare: 45000, pricePerKm: 1500, pricePerMin: 0, waitingRate: 0, surgeRush: 1.0, surgeRain: 1.1 }
         }
       }
     };
@@ -2421,7 +2425,7 @@ export default function TaxiBooking() {
     const rounded = Math.ceil(subTotal / 100) * 100;
 
     // Ensure it's not below the base rate specified by admin or fallback minimum
-    const minPrice = vehicleConfig?.price !== undefined ? Number(vehicleConfig.price) : (vehicleId === 'mini' ? 1500 : vehicleId === 'bajaj' ? 800 : 500);
+    const minPrice = vehicleConfig?.price !== undefined ? Number(vehicleConfig.price) : (vehicleId === 'mini' ? 1500 : vehicleId === 'bajaj' ? 800 : vehicleId === 'bike' ? 500 : 45000);
     
     return Math.max(minPrice, rounded);
   };
@@ -2430,7 +2434,8 @@ export default function TaxiBooking() {
     const defaultVehicles = {
       mini: { id: "mini", name: "Gari", price: 2800, sub: "Max 4 Siti", image: "🚗", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" },
       bajaj: { id: "bajaj", name: "Bajaji", price: 1500, sub: "3 Siti", image: "🛺", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" },
-      bike: { id: "bike", name: "Pikipiki", price: 800, sub: "Usafiri Salama", image: "🏍️", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" }
+      bike: { id: "bike", name: "Pikipiki", price: 800, sub: "Usafiri Salama", image: "🏍️", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" },
+      rental: { id: "rental", name: "Kukodi Gari", price: 45000, sub: "Kukodi Gari / Siku", image: "🔑🚗", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" }
     };
 
     const combinedVehicles = {
@@ -2494,7 +2499,13 @@ export default function TaxiBooking() {
 
   useEffect(() => {
     if (rideOptions.length > 0) {
-      if (!selectedRide || !rideOptions.some(r => r.id === selectedRide.id)) {
+      const searchParams = new URLSearchParams(window.location.search);
+      const serviceParam = searchParams.get('service') || searchParams.get('type');
+      const matched = serviceParam ? rideOptions.find(r => r.id === serviceParam) : null;
+      
+      if (matched && (!selectedRide || selectedRide.id !== matched.id)) {
+        setSelectedRide(matched);
+      } else if (!selectedRide || !rideOptions.some(r => r.id === selectedRide.id)) {
         const available = rideOptions.find(r => !r.maintenance) || rideOptions[0];
         setSelectedRide(available);
       }
@@ -3347,7 +3358,7 @@ export default function TaxiBooking() {
 
 
 
-                  <div className={`grid grid-cols-3 gap-2.5 w-full py-3 transition-all duration-200 ${suggestions.length > 0 ? "pointer-events-none opacity-20 grayscale select-none" : ""}`}>
+                  <div className={`grid grid-cols-2 sm:grid-cols-4 gap-2.5 w-full py-3 transition-all duration-200 ${suggestions.length > 0 ? "pointer-events-none opacity-20 grayscale select-none" : ""}`}>
                     {rideOptions.map((ride) => {
                       const isSelected = selectedRide?.id === ride.id;
                       return (

@@ -88,6 +88,16 @@ const defaultConfig: BusinessConfig = {
       imageType: "emoji",
       imageUrl: "",
       mapMarkerUrl: ""
+    },
+    rental: {
+      id: "rental",
+      name: "Kukodi Gari",
+      price: 45000,
+      sub: "Kukodi Gari / Siku",
+      image: "🔑🚗",
+      imageType: "emoji",
+      imageUrl: "",
+      mapMarkerUrl: ""
     }
   }
 };
