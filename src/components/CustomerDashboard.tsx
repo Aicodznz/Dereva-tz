@@ -68,7 +68,9 @@ export default function CustomerDashboard() {
           setHeaderLocation(newLoc.address);
         },
         (error) => {
-          console.error("Geolocation error:", error);
+          if (error.code !== 1) {
+            console.warn("Geolocation warning/error:", error.message || "Unknown error", error.code);
+          }
         }
       );
     }
