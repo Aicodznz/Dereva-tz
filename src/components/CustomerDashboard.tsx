@@ -264,7 +264,30 @@ export default function CustomerDashboard() {
         const productsRef = collection(db, 'products');
         const pQuery = limit(10);
         const pSnap = await getDocs(query(productsRef, pQuery));
-        setProducts(pSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
+        const productsList = pSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+        const servicesState = businessConfig?.services || {};
+        const activeProducts = productsList.filter(p => {
+          if (p.hidden === true) return false;
+          // Map product category to service ID
+          const categoryToServiceId: Record<string, string> = {
+            hotel: 'hoteli',
+            restaurant: 'chakula',
+            grocery: 'sokoni',
+            pharmacy: 'dawa',
+            ecommerce: 'maduka',
+            salon: 'saluni',
+            bus_ticket: 'bus_ticket',
+            car_rental: 'car_rental',
+            car_sale: 'car_sale'
+          };
+          const serviceId = categoryToServiceId[p.vendorCategory || ''] || p.vendorCategory || '';
+          const sState = servicesState[serviceId];
+          if (sState?.maintenance === true && sState?.hideProductsDuringMaintenance === true) {
+            return false;
+          }
+          return true;
+        });
+        setProducts(activeProducts);
 
         const bannersRef = collection(db, 'banners');
         const bSnap = await getDocs(query(bannersRef, where('active', '==', true)));

@@ -43,6 +43,7 @@ export default function RegisterVendor() {
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(1);
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [categoryMaintenanceError, setCategoryMaintenanceError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -127,8 +128,30 @@ export default function RegisterVendor() {
   });
 
   const handleCategoryChange = (val: string) => {
-    setSelectedCategory(val);
-    setFormData(prev => ({ ...prev, category: val }));
+    const categoryToServiceId: Record<string, string> = {
+      hotel: 'hoteli',
+      restaurant: 'chakula',
+      grocery: 'sokoni',
+      pharmacy: 'dawa',
+      ecommerce: 'maduka',
+      salon: 'saluni',
+      bus_ticket: 'bus_ticket',
+      car_rental: 'car_rental',
+      car_sale: 'car_sale'
+    };
+    const serviceId = categoryToServiceId[val] || val;
+    const sState = config?.services?.[serviceId];
+    if (sState?.maintenance === true) {
+      const msg = sState.message || `Huduma hii ipo kwenye matengenezo kwa sasa. Huwezi kujisajili kama muuzaji wa kundi hili kwa sasa.`;
+      setCategoryMaintenanceError(msg);
+      setSelectedCategory(val);
+      setFormData(prev => ({ ...prev, category: val }));
+      toast.error(msg, { duration: 6000 });
+    } else {
+      setCategoryMaintenanceError(null);
+      setSelectedCategory(val);
+      setFormData(prev => ({ ...prev, category: val }));
+    }
   };
 
   const nextStep = () => setStep(s => s + 1);
@@ -145,6 +168,11 @@ export default function RegisterVendor() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (categoryMaintenanceError) {
+      toast.error(`Huwezi kujisajili: ${categoryMaintenanceError}`);
+      return;
+    }
 
     if (selectedCategory === 'hotel') {
       if (step < 6) {
@@ -502,6 +530,14 @@ export default function RegisterVendor() {
             </SelectContent>
           </Select>
         </div>
+
+        {categoryMaintenanceError && (
+          <div className="bg-red-500/10 text-red-500 border border-red-200/50 p-4 rounded-2xl animate-in fade-in duration-300 space-y-2">
+            <p className="text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5">⚠️ HUDUMA IPO KWENYE MATENGENEZO</p>
+            <p className="text-xs font-semibold leading-relaxed">{categoryMaintenanceError}</p>
+            <p className="text-[10px] font-bold text-red-400">Usajili kwa kundi hili umezuiwa kwa muda hadi matengenezo yakamilike na Admin.</p>
+          </div>
+        )}
 
         {selectedCategory && selectedCategory !== 'hotel' && (
           <>

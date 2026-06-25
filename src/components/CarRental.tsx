@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useBusinessConfig } from '../BusinessConfigContext';
 import { 
   Car, Key, Star, Calendar, Clock, Upload, ShieldCheck, Check, ChevronLeft, 
   ChevronRight, Heart, Search, MessageSquare, Phone, MapPin, Tag, CheckCircle2,
@@ -256,6 +257,7 @@ const SALE_CARS: CarSaleItem[] = [
 export default function CarRental() {
   const { t, language } = useLanguage();
   const navigate = useNavigate();
+  const { config: businessConfig } = useBusinessConfig();
 
   // Navigation states
   const [currentView, setCurrentView] = useState<'list' | 'detail' | 'book' | 'summary' | 'verification' | 'active-booking'>('list');
@@ -275,6 +277,9 @@ export default function CarRental() {
   useEffect(() => {
     const fetchCars = async () => {
       try {
+        const isCarRentalMaintenanceHidden = businessConfig?.services?.['car_rental']?.maintenance && businessConfig?.services?.['car_rental']?.hideProductsDuringMaintenance;
+        const isCarSaleMaintenanceHidden = businessConfig?.services?.['car_sale']?.maintenance && businessConfig?.services?.['car_sale']?.hideProductsDuringMaintenance;
+
         const vendorsSnapshot = await getDocs(collection(db, 'vendors'));
         const hiddenVendorIds = new Set<string>();
         vendorsSnapshot.forEach((vDoc) => {
@@ -288,10 +293,13 @@ export default function CarRental() {
         const sales: CarSaleItem[] = [];
         querySnapshot.forEach((docSnap) => {
           const data = docSnap.data();
+          if (data.hidden === true || data.status === 'hidden') {
+            return; // Skip hidden products
+          }
           if (data.vendorId && hiddenVendorIds.has(data.vendorId)) {
             return; // Skip products from hidden vendors
           }
-          if (data.vendorCategory === 'car_rental') {
+          if (data.vendorCategory === 'car_rental' && !isCarRentalMaintenanceHidden) {
             rentals.push({
               id: docSnap.id,
               name: data.name || '',
@@ -310,7 +318,7 @@ export default function CarRental() {
               features: data.features || ['Air Conditioning', 'Power Steering'],
               gallery: data.imageUrls || [data.imageUrl || 'https://images.unsplash.com/photo-1619767886558-efdc259cde1a?auto=format&fit=crop&w=600&q=80']
             });
-          } else if (data.vendorCategory === 'car_sale') {
+          } else if (data.vendorCategory === 'car_sale' && !isCarSaleMaintenanceHidden) {
             sales.push({
               id: docSnap.id,
               name: data.name || '',

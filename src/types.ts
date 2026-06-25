@@ -108,6 +108,7 @@ export interface Product {
   category: string;
   stock: number;
   status?: 'active' | 'out_of_stock' | 'discontinued';
+  hidden?: boolean;
   imageUrl?: string;
   imageUrls?: string[];
   unit?: string;

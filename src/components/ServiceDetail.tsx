@@ -14,6 +14,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage } from '../LanguageContext';
 import { useCart } from '../CartContext';
+import { useBusinessConfig } from '../BusinessConfigContext';
 import { toast } from 'sonner';
 import BusBooking from './BusBooking';
 
@@ -53,6 +54,7 @@ export default function ServiceDetail() {
   const navigate = useNavigate();
   const { t } = useLanguage();
   const { addItem } = useCart();
+  const { config: businessConfig } = useBusinessConfig();
   const [vendors, setVendors] = useState<VendorProfile[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [viewMode, setViewMode] = useState<'products' | 'vendors'>(id === 'all-stores' ? 'vendors' : 'products');
@@ -149,6 +151,15 @@ export default function ServiceDetail() {
   }
 
   const matchedProducts = products.filter(p => {
+    if (p.hidden === true) {
+      return false;
+    }
+    const currentServiceId = id || '';
+    const sState = businessConfig?.services?.[currentServiceId];
+    if (sState?.maintenance === true && sState?.hideProductsDuringMaintenance === true) {
+      return false;
+    }
+
     const vendor = vendors.find(v => v.id === p.vendorId);
     if (vendor && vendor.hideProducts === true) {
       return false;

@@ -84,7 +84,8 @@ export default function VendorStore() {
       try {
         const q = query(collection(db, 'products'), where('vendorId', '==', id));
         const snap = await getDocs(q);
-        setProducts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
+        const productsList = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+        setProducts(productsList.filter(p => p.hidden !== true));
         setLoading(false);
       } catch (error) {
         handleFirestoreError(error, OperationType.LIST, 'products');

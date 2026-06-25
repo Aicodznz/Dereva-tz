@@ -105,6 +105,7 @@ interface PayoutRequest {
 
 interface ProductWithVendor extends Product {
   vendorName?: string;
+  hidden?: boolean;
 }
 
 type AdminTab = 'overview' | 'vendors' | 'drivers' | 'products' | 'users' | 'orders' | 'banners' | 'notifications' | 'coupons' | 'settings' | 'live_map' | 'payouts' | 'analytics';
@@ -1082,16 +1083,64 @@ export default function AdminDashboard() {
 
         {activeTab === 'products' && (
           <motion.div key="products" className="space-y-6">
-             <div className="flex justify-between items-center">
+             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <h3 className="text-2xl font-black italic uppercase tracking-tighter text-neutral-900 dark:text-white">{t('admin_inventory_oversight')}</h3>
-                <div className="relative w-64">
-                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-                   <Input 
-                     placeholder={t('admin_search_placeholder')} 
-                     className="pl-10 h-10 rounded-xl"
-                     value={searchQuery}
-                     onChange={e => setSearchQuery(e.target.value)}
-                   />
+                <div className="flex flex-wrap items-center gap-3">
+                   <Button
+                     variant="outline"
+                     size="sm"
+                     className="bg-red-500/10 text-red-500 border-red-200 hover:bg-red-50 rounded-xl font-bold text-xs"
+                     onClick={async () => {
+                       if (confirm("Je, una uhakika unataka kuficha bidhaa zote za wauzaji kwa ujumla?")) {
+                         toast.loading("Inaficha bidhaa zote...");
+                         try {
+                           const batchPromises = allProducts.map(p => 
+                             updateDoc(doc(db, 'products', p.id!), { hidden: true })
+                           );
+                           await Promise.all(batchPromises);
+                           toast.dismiss();
+                           toast.success("Bidhaa zote zimefichwa kwa ujumla!");
+                         } catch (err) {
+                           toast.dismiss();
+                           toast.error("Imeshindwa kuficha bidhaa.");
+                         }
+                       }
+                     }}
+                   >
+                     Ficha Bidhaa Zote (Hide All)
+                   </Button>
+                   <Button
+                     variant="outline"
+                     size="sm"
+                     className="bg-emerald-500/10 text-emerald-500 border-emerald-200 hover:bg-emerald-50 rounded-xl font-bold text-xs"
+                     onClick={async () => {
+                       if (confirm("Je, una uhakika unataka kuonyesha bidhaa zote za wauzaji kwa ujumla?")) {
+                         toast.loading("Inaonyesha bidhaa zote...");
+                         try {
+                           const batchPromises = allProducts.map(p => 
+                             updateDoc(doc(db, 'products', p.id!), { hidden: false })
+                           );
+                           await Promise.all(batchPromises);
+                           toast.dismiss();
+                           toast.success("Bidhaa zote sasa zinaonekana kwa ujumla!");
+                         } catch (err) {
+                           toast.dismiss();
+                           toast.error("Imeshindwa kuonyesha bidhaa.");
+                         }
+                       }
+                     }}
+                   >
+                     Onyesha Bidhaa Zote (Show All)
+                   </Button>
+                   <div className="relative w-64">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                      <Input 
+                        placeholder={t('admin_search_placeholder')} 
+                        className="pl-10 h-10 rounded-xl"
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                      />
+                   </div>
                 </div>
              </div>
              <Card className="rounded-[2.5rem] border-none shadow-xl overflow-hidden bg-white dark:bg-neutral-900">
@@ -1101,6 +1150,7 @@ export default function AdminDashboard() {
                         <tr className="text-left">
                            <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-neutral-400">{t('admin_products')}</th>
                            <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-neutral-400">{t('admin_merchant')}</th>
+                           <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-neutral-400">Muonekano (Visibility)</th>
                            <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-neutral-400">{t('total')} (Gross)</th>
                            <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-neutral-400">Net (Est)</th>
                            <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-neutral-400 text-right">Action</th>
@@ -1127,6 +1177,24 @@ export default function AdminDashboard() {
                                       <span className="text-xs font-bold text-neutral-600">
                                          {currentVendor?.businessName || 'Unknown Vendor'}
                                       </span>
+                                   </div>
+                                </td>
+                                <td className="px-8 py-6">
+                                   <div className="flex flex-col gap-1">
+                                      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold w-fit ${product.hidden ? 'bg-red-500/10 text-red-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
+                                        <span className={`w-1 h-1 rounded-full ${product.hidden ? 'bg-red-500' : 'bg-emerald-500'}`} />
+                                        {product.hidden ? 'Imefichwa' : 'Inaonekana'}
+                                      </span>
+                                      <button
+                                        onClick={async () => {
+                                          const newHidden = !product.hidden;
+                                          await updateDoc(doc(db, 'products', product.id!), { hidden: newHidden });
+                                          toast.success(newHidden ? 'Bidhaa imefichwa!' : 'Bidhaa sasa inaonekana!');
+                                        }}
+                                        className="text-[10px] font-black text-orange-600 uppercase tracking-wider hover:underline text-left"
+                                      >
+                                        {product.hidden ? 'Onyesha' : 'Ficha'}
+                                      </button>
                                    </div>
                                 </td>
                                 <td className="px-8 py-6 font-bold">TZS {product.price.toLocaleString()}</td>
@@ -4019,7 +4087,7 @@ export default function AdminDashboard() {
                   </div>
                 </Card>
 
-                {/* Grid of 10 services */}
+                {/* Grid of services */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-20">
                   {[
                     { id: 'chakula', name: 'Chakula (Food Delivery 🍔)', color: 'bg-red-500', defaultMsg: 'Huduma ya Chakula inafanyiwa marekebisho kwa sasa. Inarudi hivi punde!' },
@@ -4032,6 +4100,8 @@ export default function AdminDashboard() {
                     { id: 'saluni', name: 'Saluni (Beauty & Salons 💇‍♀️)', color: 'bg-pink-500', defaultMsg: 'Huduma za kutafuta na kuhifadhi nafasi za kike/kiume kwenye Saluni haipatikani.' },
                     { id: 'ramani', name: 'Ramani (Nearby Stores 📍)', color: 'bg-neutral-600', defaultMsg: 'Mfumo wa ramani na maduka ya karibu unafanyiwa marekebisho ya kuboresha ufanisi.' },
                     { id: 'hoteli', name: 'Hoteli (Hotel Booking 🏨)', color: 'bg-indigo-500', defaultMsg: 'Huduma ya kukata vyumba vya hoteli zipo kwenye maboresho.' },
+                    { id: 'car_rental', name: 'Kukodi Gari (Car Rental 🚗)', color: 'bg-emerald-600', defaultMsg: 'Huduma ya kukodi magari ipo kwenye marekebisho ya dharura. Rejea baadae!' },
+                    { id: 'car_sale', name: 'Kuuza Gari (Car Sales 🚘)', color: 'bg-cyan-600', defaultMsg: 'Sehemu ya kuuza na kununua magari haipatikani kwa sasa kutokana na maboresho.' },
                   ].map((s) => {
                     const servicesState = businessConfig.services || {};
                     const sData = servicesState[s.id] || { enabled: true, maintenance: false, message: s.defaultMsg };
@@ -4056,7 +4126,7 @@ export default function AdminDashboard() {
                           <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800 pb-4">
                             <div className="flex items-center gap-3">
                               <div className={`w-12 h-12 rounded-2xl ${s.color} flex items-center justify-center text-white font-extrabold text-xl shadow-lg shadow-neutral-200/10`}>
-                                {s.id === 'chakula' ? "🍔" : s.id === 'sokoni' ? "🛒" : s.id === 'bus_ticket' ? "🚌" : s.id === 'teksi' ? "🚕" : s.id === 'vifurushi' ? "📦" : s.id === 'dawa' ? "💊" : s.id === 'maduka' ? "🛍️" : s.id === 'saluni' ? "💇‍♀️" : s.id === 'ramani' ? "📍" : "🏨"}
+                                {s.id === 'chakula' ? "🍔" : s.id === 'sokoni' ? "🛒" : s.id === 'bus_ticket' ? "🚌" : s.id === 'teksi' ? "🚕" : s.id === 'vifurushi' ? "📦" : s.id === 'dawa' ? "💊" : s.id === 'maduka' ? "🛍️" : s.id === 'saluni' ? "💇‍♀️" : s.id === 'ramani' ? "📍" : s.id === 'car_rental' ? "🚗" : s.id === 'car_sale' ? "🚘" : "🏨"}
                               </div>
                               <div>
                                 <h4 className="font-extrabold text-sm text-neutral-900 dark:text-neutral-100 tracking-tight">{s.name}</h4>
@@ -4112,6 +4182,30 @@ export default function AdminDashboard() {
                                   }}
                                 />
                               </div>
+
+                              {isServiceUnderMaintenance && (
+                                <div className="flex items-center justify-between bg-neutral-50 dark:bg-neutral-950/40 p-3 rounded-2xl border border-neutral-100 dark:border-neutral-800 animate-in slide-in-from-top-1">
+                                  <div>
+                                    <div className="text-xs font-black uppercase tracking-tight text-neutral-700 dark:text-neutral-300">Ficha Bidhaa pindi ikiwa Matengenezo? (Hide Products?)</div>
+                                    <div className="text-[9px] font-bold text-neutral-400 mt-0.5">Ficha bidhaa zote za wauzaji za kundi hili pindi ikiwa matengenezo</div>
+                                  </div>
+                                  <Switch
+                                    checked={!!sData.hideProductsDuringMaintenance}
+                                    onCheckedChange={(val) => {
+                                      const updatedServices = { ...servicesState };
+                                      updatedServices[s.id] = {
+                                        ...sData,
+                                        hideProductsDuringMaintenance: val
+                                      };
+                                      setBusinessConfig({
+                                        ...businessConfig,
+                                        services: updatedServices
+                                      });
+                                      toast.info(`${s.name} - ${val ? 'Bidhaa zote zitafichwa wateja wasizione' : 'Bidhaa zote zitaendelea kuonekana'} wakati wa matengenezo.`);
+                                    }}
+                                  />
+                                </div>
+                              )}
 
                               {/* Maintenance custom comment note */}
                               {isServiceUnderMaintenance && (
