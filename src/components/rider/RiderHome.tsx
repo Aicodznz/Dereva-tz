@@ -415,6 +415,16 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
     fetchTripRoute();
   }, [activeRide?.id, activeRide?.pickup?.lat, activeRide?.destination?.lat]);
 
+  // Instantly reflect updated Firestore routeCoords in local map state for rider
+  useEffect(() => {
+    if (activeRide?.routeCoords && activeRide.routeCoords.length > 0) {
+      const normalized = getNormalizedCoords(activeRide.routeCoords);
+      if (normalized.length > 0) {
+        setRealTripRoute(normalized);
+      }
+    }
+  }, [activeRide?.id, activeRide?.routeCoords ? JSON.stringify(activeRide.routeCoords) : '']);
+
   useEffect(() => {
     if (!activeRide) {
       driverApproachRouteRef.current = [];

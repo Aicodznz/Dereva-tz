@@ -242,6 +242,24 @@ export function useMatchmaking(ride: Ride | null) {
         if (currentIdx < interpolatedTripCoords.length) {
           const nextCoord = interpolatedTripCoords[currentIdx];
 
+          // Simulate automatic driver deviation (taking a different turn) at ~35% of the journey
+          const hasDeviatedFlag = (ride as any).hasDeviated === true;
+          if (!hasDeviatedFlag && currentIdx >= Math.floor(interpolatedTripCoords.length * 0.35) && currentIdx <= Math.floor(interpolatedTripCoords.length * 0.42)) {
+            console.log("[Simulation] Driver is changing path/turning on another road! Simulating deviation...");
+            const devLat = nextCoord[0] + 0.0022; // shift 240 meters away
+            const devLng = nextCoord[1] - 0.0022;
+
+            await updateDoc(doc(db, 'rides', rideId), {
+              driverLocation: { lat: devLat, lng: devLng },
+              hasDeviated: true,
+              isRerouting: true,
+              navigationMessage: "Mteja, dereva amebadilisha njia! Antway inakuelekeza upya...",
+              updatedAt: serverTimestamp()
+            });
+            // Stop this cycle, wait for reroute coordinates to update
+            return;
+          }
+
           await updateDoc(doc(db, 'rides', rideId), {
             driverLocation: { lat: nextCoord[0], lng: nextCoord[1] },
             updatedAt: serverTimestamp()
@@ -268,7 +286,7 @@ export function useMatchmaking(ride: Ride | null) {
       };
     }
 
-  }, [ride?.id, ride?.status, isSearching]);
+  }, [ride?.id, ride?.status, isSearching, ride?.routeCoords ? JSON.stringify(ride.routeCoords) : '']);
 
   return { isSearching };
 }

@@ -123,8 +123,27 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
       className="absolute inset-0 bg-transparent z-50 pointer-events-none"
     >
       {/* Top Floating Content (HUD) */}
-      <div className="absolute top-0 inset-x-0 pointer-events-none">
-        {/* Keeping top area entirely empty and clean for the map */}
+      <div className="absolute top-6 inset-x-4 pointer-events-none flex flex-col items-center gap-2 z-[70]">
+        <AnimatePresence>
+          {((ride as any).navigationMessage || (ride as any).isRerouting) && (
+            <motion.div
+              initial={{ opacity: 0, y: -50, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -50, scale: 0.95 }}
+              className="bg-[#0D0E16]/95 backdrop-blur-md border border-[#00E5A0]/20 rounded-2xl px-5 py-3.5 shadow-[0_10px_30px_rgba(0,229,160,0.15)] flex items-center gap-3.5 max-w-sm pointer-events-auto"
+            >
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#00E5A0]/10 flex items-center justify-center border border-[#00E5A0]/20 text-[#00E5A0] text-sm animate-pulse">
+                🔄
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-black text-[#00E5A0] tracking-wider uppercase font-heading">Maelekezo ya Antway</p>
+                <p className="text-[11px] font-bold text-white leading-normal">
+                  {(ride as any).navigationMessage || "Dereva amebadilisha njia! Antway inakokotoa upya ruti..."}
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Bottom Sheet Card */}
@@ -349,7 +368,7 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
               )}
 
               {/* SOS safety Button (hidden for spectator viewers) */}
-              {!isSpectator ? (
+              {!isSpectator && (
                 <button 
                   onClick={() => toast.error("SOS Aleriti ya Dharura imetumwa kwa kituo cha usalama!")}
                   className="col-span-1 bg-red-650/15 border border-red-500/20 text-red-400 hover:bg-red-500/25 rounded-2xl flex flex-col items-center justify-center text-center transition-all p-2 active:scale-95 cursor-pointer"
@@ -357,10 +376,39 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
                   <Shield className="w-4 h-4 text-red-500 mb-1" />
                   <span className="text-[8px] font-black uppercase tracking-widest text-red-400">SOS</span>
                 </button>
-              ) : (
-                <div className="col-span-1" />
               )}
             </div>
+
+            {/* Simulate Route Deviation Button */}
+            {!isSpectator && ride.status === 'on_trip' && (
+              <button
+                onClick={async () => {
+                  if (!ride || !ride.driverLocation) return;
+                  const devLat = ride.driverLocation.lat + 0.0022; // shift driver off-route
+                  const devLng = ride.driverLocation.lng - 0.0022;
+                  
+                  try {
+                    const { doc, updateDoc, serverTimestamp } = await import('firebase/firestore');
+                    const { db } = await import('../../firebase');
+                    await updateDoc(doc(db, 'rides', ride.id), {
+                      driverLocation: { lat: devLat, lng: devLng },
+                      hasDeviated: true,
+                      isRerouting: true,
+                      navigationMessage: "Dereva amebadilisha njia! Antway inatafuta njia mbadala...",
+                      updatedAt: serverTimestamp()
+                    });
+                    toast.success("Njia imebadilishwa! Antway inaanza kuongoza upya.", {
+                      icon: "🔄"
+                    });
+                  } catch (e) {
+                    console.error(e);
+                  }
+                }}
+                className="w-full mt-3 h-11 bg-[#00E5A0]/10 border border-[#00E5A0]/20 hover:bg-[#00E5A0]/20 text-[#00E5A0] rounded-2xl flex items-center justify-center gap-2 font-black tracking-widest text-[10px] uppercase transition-all active:scale-95 cursor-pointer pointer-events-auto"
+              >
+                <span>🔄 BADILISHA NJIA (SIMULATE DETOUR)</span>
+              </button>
+            )}
 
             {/* Cancel Safari Action inside bottom details sheet */}
             {!isSpectator && onCancel && (

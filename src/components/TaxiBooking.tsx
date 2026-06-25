@@ -1183,6 +1183,21 @@ export default function TaxiBooking() {
                 console.log("[TaxiBooking] Successfully rerouted trip line following driver's road deviation!");
                 setRealTripRoute(coords);
                 lastReroutePosRef.current = driverLivePos;
+
+                // Sync new coordinates back to Firestore so driver simulation and shared viewers are fully aligned
+                try {
+                  await updateDoc(doc(db, "rides", activeRide.id), {
+                    routeCoords: coords.map(c => ({ lat: c[0], lng: c[1] })),
+                    navigationMessage: "Njia mpya imepatikana! Antway inaendelea kukuongoza.",
+                    isRerouting: false,
+                    updatedAt: serverTimestamp()
+                  });
+                  toast.info("🔄 Antway: Njia imerekebishwa kufuatana na mabadiliko ya barabara!", {
+                    duration: 5000
+                  });
+                } catch (err) {
+                  console.error("Failed to update reroute in Firestore:", err);
+                }
               }
             }
           }
@@ -1194,6 +1209,16 @@ export default function TaxiBooking() {
       triggerRerouteFetch();
     }
   }, [driverLivePos, activeRide?.id, activeRide?.status, realTripRoute.length]);
+
+  // Instantly reflect updated Firestore routeCoords in local map state
+  useEffect(() => {
+    if (activeRide?.routeCoords && activeRide.routeCoords.length > 0) {
+      const normalized = getNormalizedCoords(activeRide.routeCoords);
+      if (normalized.length > 0) {
+        setRealTripRoute(normalized);
+      }
+    }
+  }, [activeRide?.id, activeRide?.routeCoords ? JSON.stringify(activeRide.routeCoords) : '']);
 
   useEffect(() => {
     if (!activeRide) {
