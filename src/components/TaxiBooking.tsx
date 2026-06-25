@@ -2434,8 +2434,7 @@ export default function TaxiBooking() {
     const defaultVehicles = {
       mini: { id: "mini", name: "Gari", price: 2800, sub: "Max 4 Siti", image: "🚗", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" },
       bajaj: { id: "bajaj", name: "Bajaji", price: 1500, sub: "3 Siti", image: "🛺", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" },
-      bike: { id: "bike", name: "Pikipiki", price: 800, sub: "Usafiri Salama", image: "🏍️", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" },
-      rental: { id: "rental", name: "Kukodi Gari", price: 45000, sub: "Kukodi Gari / Siku", image: "🔑🚗", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" }
+      bike: { id: "bike", name: "Pikipiki", price: 800, sub: "Usafiri Salama", image: "🏍️", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" }
     };
 
     const combinedVehicles = {
