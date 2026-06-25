@@ -3357,7 +3357,7 @@ export default function TaxiBooking() {
 
 
 
-                  <div className={`grid grid-cols-2 sm:grid-cols-4 gap-2.5 w-full py-3 transition-all duration-200 ${suggestions.length > 0 ? "pointer-events-none opacity-20 grayscale select-none" : ""}`}>
+                  <div className={`grid grid-cols-3 gap-2.5 w-full py-3 transition-all duration-200 ${suggestions.length > 0 ? "pointer-events-none opacity-20 grayscale select-none" : ""}`}>
                     {rideOptions.map((ride) => {
                       const isSelected = selectedRide?.id === ride.id;
                       return (
