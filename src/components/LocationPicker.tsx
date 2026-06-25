@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { Search, MapPin, X, Navigation, Loader2, Star, ArrowRight, Package, Clock, RotateCw, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -138,7 +139,7 @@ function LocationMarker({ position, setPosition, onPositionChange, isMapViewOnly
     }
   });
 
-  if (isMapViewOnly) return null;
+  if (!isMapViewOnly) return null;
 
   return (
     <Marker position={position} icon={icon}></Marker>
@@ -622,7 +623,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
             )}
 
             {/* Map Area */}
-            <div className={`relative ${isMapExpanded ? 'flex-1 h-full mx-0 rounded-none' : 'h-[450px] mx-4 rounded-3xl'} shrink-0 bg-neutral-100 overflow-hidden border-2 border-neutral-50 shadow-inner transition-all duration-500 z-10`}>
+            <div className={`relative ${isMapExpanded ? 'flex-1 h-full mx-0 rounded-none' : 'h-[450px] mx-4 rounded-3xl'} shrink-0 bg-neutral-100 overflow-hidden border-2 border-neutral-50 shadow-inner transition-all duration-500 z-10 touch-none`}>
               {/* Map Type Toggle */}
               <div className="absolute top-4 left-4 z-[1000] flex bg-white/90 backdrop-blur-md rounded-xl p-1 shadow-lg border border-white/50">
                 <button 
@@ -655,6 +656,10 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                 maxZoom={22}
                 style={{ height: '100%', width: '100%' }}
                 zoomControl={false}
+                dragging={true}
+                doubleClickZoom={true}
+                scrollWheelZoom={true}
+                touchZoom={true}
                 whenReady={() => setTimeout(() => setMapReady(true), 100)}
               >
                 <TileLayer
