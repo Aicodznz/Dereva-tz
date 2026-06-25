@@ -887,6 +887,29 @@ export default function VendorDashboard() {
   const [productQrTexts, setProductQrTexts] = useState<Record<string, string>>({});
   const [productBadges, setProductBadges] = useState<Record<string, string>>({});
   const [activeQrEditProductId, setActiveQrEditProductId] = useState<string | null>(null);
+  
+  // Enhanced QR Customizer States
+  const [qrDetailLevel, setQrDetailLevel] = useState<number>(55);
+  const [qrCodeSize, setQrCodeSize] = useState<number>(5);
+  const [exportSize, setExportSize] = useState<number>(100);
+  const [foregroundColor, setForegroundColor] = useState<string>('#000000');
+  const [backgroundColor, setBackgroundColor] = useState<string>('#ffffff');
+  const [borderColor, setBorderColor] = useState<string>('#000000');
+  const [padding, setPadding] = useState<number>(15);
+  const [borderWidth, setBorderWidth] = useState<number>(5);
+  const [borderRound, setBorderRound] = useState<number>(25);
+  const [isLogoCentered, setIsLogoCentered] = useState<boolean>(true);
+  const [patternShape, setPatternShape] = useState<DotType>('square');
+  const [cornerStyle, setCornerStyle] = useState<CornerSquareType>('square');
+  
+  const [frameStyle, setFrameStyle] = useState<'none' | 'simple' | 'bottom-label' | 'top-bottom-label' | 'card'>('none');
+  const [frameText, setFrameText] = useState<string>('SCAN ME');
+  const [frameColor, setFrameColor] = useState<string>('#000000');
+  const [frameWidth, setFrameWidth] = useState<number>(10);
+  const [frameRound, setFrameRound] = useState<number>(25);
+  const [textColor, setTextColor] = useState<string>('#ffffff');
+  const [textSize, setTextSize] = useState<number>(100);
+
   const [printDetails, setPrintDetails] = useState({
     header: '',
     subHeader: 'ORODHA YA KIDIJITALI',
@@ -903,6 +926,7 @@ export default function VendorDashboard() {
     customSeating: '',
     showSeating: true
   });
+
   const [qrOptions, setQrOptions] = useState<any>({
     width: 300,
     height: 300,
@@ -923,7 +947,7 @@ export default function VendorDashboard() {
       color: '#000000',
       type: 'square' as CornerDotType
     },
-    margin: 10,
+    margin: 20,
     qrOptions: {
       typeNumber: 0,
       mode: 'Byte',
@@ -969,6 +993,59 @@ export default function VendorDashboard() {
     }
   }, [vendorProfile]);
 
+  // Synchronize customizer states with qrOptions
+  useEffect(() => {
+    setQrOptions((prev: any) => {
+      let logoUrlSrc = "";
+      if (isLogoCentered) {
+        logoUrlSrc = vendorProfile?.logoUrl 
+          ? getProxiedImageUrl(vendorProfile.logoUrl) 
+          : `https://api.dicebear.com/7.x/initials/svg?seed=${vendorProfile?.businessName || 'Vendor'}`;
+      }
+      
+      const calculatedMargin = Math.max(4, 40 - (qrCodeSize * 4.5));
+      
+      return {
+        ...prev,
+        margin: calculatedMargin,
+        dotsOptions: {
+          ...prev.dotsOptions,
+          color: foregroundColor,
+          type: patternShape,
+        },
+        backgroundOptions: {
+          ...prev.backgroundOptions,
+          color: backgroundColor,
+        },
+        cornersSquareOptions: {
+          ...prev.cornersSquareOptions,
+          color: foregroundColor,
+          type: cornerStyle,
+        },
+        cornersDotOptions: {
+          ...prev.cornersDotOptions,
+          color: foregroundColor,
+          type: cornerStyle === 'extra-rounded' ? 'dot' : cornerStyle as any,
+        },
+        image: logoUrlSrc,
+        qrOptions: {
+          ...prev.qrOptions,
+          errorCorrectionLevel: qrDetailLevel >= 70 ? 'H' : qrDetailLevel >= 55 ? 'Q' : 'M'
+        }
+      };
+    });
+  }, [
+    foregroundColor, 
+    backgroundColor, 
+    patternShape, 
+    cornerStyle, 
+    qrCodeSize, 
+    isLogoCentered, 
+    qrDetailLevel,
+    vendorProfile?.logoUrl,
+    vendorProfile?.businessName
+  ]);
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const options = {
@@ -999,12 +1076,258 @@ export default function VendorDashboard() {
     }
   }, [isQrBuilderOpen, qrCodeInstance, printDetails.isPrintMode]);
 
-  const downloadQr = () => {
-    if (qrCodeInstance) {
-      qrCodeInstance.download({
-        name: 'Table Stand QR Code',
-        extension: 'png'
+  const downloadQr = async () => {
+    try {
+      const size = exportSize * 10; // e.g. 100 -> 1000px
+      const scale = size / 300; // scaling factor relative to 300px preview
+      
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // 1. Fill base background color
+      ctx.fillStyle = backgroundColor;
+      ctx.fillRect(0, 0, size, size);
+
+      // Helper function to draw rounded rectangles
+      const drawRoundedRect = (
+        x: number, 
+        y: number, 
+        width: number, 
+        height: number, 
+        radius: number, 
+        fill: boolean, 
+        stroke: boolean
+      ) => {
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + width - radius, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+        ctx.lineTo(x + width, y + height - radius);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        ctx.lineTo(x + radius, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.quadraticCurveTo(x, y, x + radius, y);
+        ctx.closePath();
+        if (fill) ctx.fill();
+        if (stroke) ctx.stroke();
+      };
+
+      // 2. Draw Frame Style custom background/shapes
+      let qrAreaYOffset = 0;
+      let qrAreaXOffset = 0;
+      let qrAreaSize = size;
+
+      if (frameStyle === 'card') {
+        // Thick frame/polaroid background
+        ctx.fillStyle = frameColor;
+        drawRoundedRect(0, 0, size, size, frameRound * scale, true, false);
+        
+        // Inner white/bg card for QR code
+        ctx.fillStyle = backgroundColor;
+        const innerOffset = frameWidth * scale;
+        const innerSize = size - (innerOffset * 2);
+        const innerHeight = size - (innerOffset * 2) - (80 * scale); // leave space for text
+        drawRoundedRect(innerOffset, innerOffset, innerSize, innerHeight, Math.max(0, (frameRound - 10)) * scale, true, false);
+        
+        // Position QR inside the inner card
+        qrAreaXOffset = innerOffset;
+        qrAreaYOffset = innerOffset;
+        qrAreaSize = innerSize;
+      } else if (frameStyle === 'bottom-label') {
+        // Draw frame border
+        ctx.strokeStyle = frameColor;
+        ctx.lineWidth = frameWidth * scale;
+        drawRoundedRect(
+          (frameWidth * scale) / 2, 
+          (frameWidth * scale) / 2, 
+          size - (frameWidth * scale), 
+          size - (frameWidth * scale), 
+          frameRound * scale, 
+          false, 
+          true
+        );
+        
+        // Solid banner at bottom
+        ctx.fillStyle = frameColor;
+        const bannerHeight = 80 * scale;
+        const bRadius = frameRound * scale;
+        ctx.beginPath();
+        const startY = size - bannerHeight;
+        ctx.moveTo(frameWidth * scale, startY);
+        ctx.lineTo(size - frameWidth * scale, startY);
+        ctx.lineTo(size - frameWidth * scale, size - bRadius);
+        ctx.quadraticCurveTo(size - frameWidth * scale, size - frameWidth * scale, size - bRadius, size - frameWidth * scale);
+        ctx.lineTo(bRadius, size - frameWidth * scale);
+        ctx.quadraticCurveTo(frameWidth * scale, size - frameWidth * scale, frameWidth * scale, size - bRadius);
+        ctx.closePath();
+        ctx.fill();
+
+        qrAreaSize = size - (frameWidth * scale * 2);
+        qrAreaYOffset = frameWidth * scale;
+        qrAreaXOffset = frameWidth * scale;
+      } else if (frameStyle === 'top-bottom-label') {
+        // Draw frame border
+        ctx.strokeStyle = frameColor;
+        ctx.lineWidth = frameWidth * scale;
+        drawRoundedRect(
+          (frameWidth * scale) / 2, 
+          (frameWidth * scale) / 2, 
+          size - (frameWidth * scale), 
+          size - (frameWidth * scale), 
+          frameRound * scale, 
+          false, 
+          true
+        );
+
+        // Top banner
+        ctx.fillStyle = frameColor;
+        const topBannerHeight = 60 * scale;
+        const bRadius = frameRound * scale;
+        ctx.beginPath();
+        ctx.moveTo(bRadius, frameWidth * scale);
+        ctx.lineTo(size - bRadius, frameWidth * scale);
+        ctx.quadraticCurveTo(size - frameWidth * scale, frameWidth * scale, size - frameWidth * scale, bRadius);
+        ctx.lineTo(size - frameWidth * scale, topBannerHeight);
+        ctx.lineTo(frameWidth * scale, topBannerHeight);
+        ctx.lineTo(frameWidth * scale, bRadius);
+        ctx.quadraticCurveTo(frameWidth * scale, frameWidth * scale, bRadius, frameWidth * scale);
+        ctx.closePath();
+        ctx.fill();
+
+        // Bottom banner
+        ctx.beginPath();
+        const startY = size - 70 * scale;
+        ctx.moveTo(frameWidth * scale, startY);
+        ctx.lineTo(size - frameWidth * scale, startY);
+        ctx.lineTo(size - frameWidth * scale, size - bRadius);
+        ctx.quadraticCurveTo(size - frameWidth * scale, size - frameWidth * scale, size - bRadius, size - frameWidth * scale);
+        ctx.lineTo(bRadius, size - frameWidth * scale);
+        ctx.quadraticCurveTo(frameWidth * scale, size - frameWidth * scale, frameWidth * scale, size - bRadius);
+        ctx.closePath();
+        ctx.fill();
+
+        qrAreaSize = size - (frameWidth * scale * 2);
+        qrAreaYOffset = topBannerHeight;
+        qrAreaXOffset = frameWidth * scale;
+      } else if (frameStyle === 'simple') {
+        // Thin outline frame
+        ctx.strokeStyle = frameColor;
+        ctx.lineWidth = frameWidth * scale;
+        drawRoundedRect(
+          (frameWidth * scale) / 2, 
+          (frameWidth * scale) / 2, 
+          size - (frameWidth * scale), 
+          size - (frameWidth * scale), 
+          frameRound * scale, 
+          false, 
+          true
+        );
+      }
+
+      // 3. Draw standard outer borders (if any and not fully covered by card/frame)
+      if (borderWidth > 0 && frameStyle === 'none') {
+        ctx.strokeStyle = borderColor;
+        ctx.lineWidth = borderWidth * scale;
+        drawRoundedRect(
+          (borderWidth * scale) / 2, 
+          (borderWidth * scale) / 2, 
+          size - (borderWidth * scale), 
+          size - (borderWidth * scale), 
+          borderRound * scale, 
+          false, 
+          true
+        );
+      }
+
+      // 4. Draw QR Code
+      const qrPadding = padding * scale;
+      let qrWidth = qrAreaSize - (qrPadding * 2);
+      if (frameStyle === 'bottom-label') {
+        qrWidth = qrAreaSize - (qrPadding * 2) - (40 * scale); // accommodate bottom label
+      } else if (frameStyle === 'top-bottom-label') {
+        qrWidth = qrAreaSize - (qrPadding * 2) - (60 * scale);
+      } else if (frameStyle === 'card') {
+        qrWidth = qrAreaSize - (qrPadding * 2) - (50 * scale);
+      }
+
+      const qrX = qrAreaXOffset + (qrAreaSize - qrWidth) / 2;
+      const qrY = qrAreaYOffset + (frameStyle === 'top-bottom-label' ? 15 * scale : frameStyle === 'bottom-label' ? 10 * scale : (qrAreaSize - qrWidth) / 2);
+
+      const tempQr = new QRCodeStyling({
+        ...qrOptions,
+        width: qrWidth,
+        height: qrWidth,
+        type: 'canvas' as const
       });
+
+      const tempDiv = document.createElement('div');
+      await tempQr.append(tempDiv);
+      await new Promise(resolve => setTimeout(resolve, 80)); // wait for canvas rendering
+      
+      const qrCanvas = tempDiv.querySelector('canvas');
+      if (qrCanvas) {
+        ctx.drawImage(qrCanvas, qrX, qrY, qrWidth, qrWidth);
+      }
+
+      // 5. Draw Frame Text
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      if (frameStyle === 'card') {
+        ctx.fillStyle = textColor;
+        ctx.font = `black ${Math.round(20 * (textSize / 100) * scale)}px system-ui, sans-serif`;
+        ctx.fillText(
+          frameText.toUpperCase(), 
+          size / 2, 
+          size - (frameWidth * scale) - (35 * scale)
+        );
+      } else if (frameStyle === 'bottom-label') {
+        ctx.fillStyle = textColor;
+        ctx.font = `black ${Math.round(18 * (textSize / 100) * scale)}px system-ui, sans-serif`;
+        ctx.fillText(
+          frameText.toUpperCase(), 
+          size / 2, 
+          size - (frameWidth * scale) - (40 * scale)
+        );
+      } else if (frameStyle === 'top-bottom-label') {
+        const topBannerHeight = 60 * scale;
+        // Draw top text (business name or scan to view)
+        ctx.fillStyle = textColor;
+        ctx.font = `bold ${Math.round(13 * scale)}px system-ui, sans-serif`;
+        ctx.fillText(
+          vendorProfile?.businessName?.toUpperCase() || 'SCAN QR CODE', 
+          size / 2, 
+          (topBannerHeight + (frameWidth * scale)) / 2
+        );
+
+        // Draw bottom text
+        ctx.font = `black ${Math.round(16 * (textSize / 100) * scale)}px system-ui, sans-serif`;
+        ctx.fillText(
+          frameText.toUpperCase(), 
+          size / 2, 
+          size - (frameWidth * scale) - (35 * scale)
+        );
+      } else if (frameStyle === 'simple') {
+        ctx.fillStyle = textColor;
+        ctx.font = `black ${Math.round(16 * (textSize / 100) * scale)}px system-ui, sans-serif`;
+        ctx.fillText(
+          frameText.toUpperCase(), 
+          size / 2, 
+          size - (frameWidth * scale) - (30 * scale)
+        );
+      }
+
+      // 6. Download the canvas
+      const link = document.createElement('a');
+      link.download = `QR-Custom-${selectedSection?.number || 'Vendor'}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (err) {
+      console.error("Failed to export custom QR:", err);
     }
   };
 
@@ -10210,7 +10533,7 @@ export default function VendorDashboard() {
                     <QrCode className="w-16 h-16 text-orange-600/40 mb-4" />
                     <h4 className="text-sm font-black text-white uppercase tracking-wider mb-2">QR Customizer Locked</h4>
                     <p className="text-xs text-neutral-500 font-bold max-w-xs leading-normal">
-                      Mhudumu (Waiter) hawezi kubadilisha mwonekano wa QR code kulingana na majukumu ya kazi. Tafadhali tumia panel ya kulia kufanya Preview na Kuchapa (Print) stand ya meza hii.
+                      Mhudumu (Waiter) hawezi kubadilisha mwonekano wa QR Code. Wasiliana na Meneja au Mmiliki kwa mabadiliko.
                     </p>
                   </div>
                 ) : (
@@ -10225,16 +10548,39 @@ export default function VendorDashboard() {
                     </div>
                   </div>
 
-                  {/* QR Block Style */}
+                  {/* Export Resolution & Custom Size */}
+                  <div className="space-y-4 pt-4 border-t border-white/5">
+                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] px-1">Export Size & Resolution / Vipimo vya Kupakua</label>
+                    <div className="bg-neutral-900/40 border border-white/5 rounded-2xl p-4 space-y-4">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-bold text-neutral-400">Scale / Ukubwa:</span>
+                        <span className="text-xs font-mono font-black text-orange-500">{exportSize * 10} x {exportSize * 10} px</span>
+                      </div>
+                      <input 
+                        type="range"
+                        min="50"
+                        max="300"
+                        step="10"
+                        value={exportSize}
+                        onChange={(e) => setExportSize(parseInt(e.target.value))}
+                        className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-orange-600 focus:outline-none"
+                      />
+                      <p className="text-[8px] text-neutral-500 font-bold uppercase tracking-tight">
+                        Chagua azimio (Resolution) unayotaka wakati wa kudownload. Scale kubwa inaleta QR iliyo wazi zaidi wakati wa kuchapisha (Print).
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* QR Pattern Shape */}
                   <div className="space-y-4">
-                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] px-1">Qr Block Style / Aina ya Michoro</label>
+                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] px-1">Pattern Shape / Michoro ya QR</label>
                     <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
                       {(['square', 'dots', 'rounded', 'extra-rounded', 'classy', 'classy-rounded'] as DotType[]).map((type, tIdx) => (
                         <button
                           key={`qr-dot-style-${type}-${tIdx}`}
-                          onClick={() => setQrOptions({ ...qrOptions, dotsOptions: { ...qrOptions.dotsOptions, type } })}
+                          onClick={() => setPatternShape(type)}
                           className={`aspect-square rounded-2xl border transition-all flex flex-col items-center justify-center gap-2 ${
-                            qrOptions.dotsOptions.type === type 
+                            patternShape === type 
                               ? 'bg-orange-600 border-orange-500 text-white shadow-lg shadow-orange-950/20' 
                               : 'bg-neutral-900 border-white/5 text-neutral-500 hover:border-white/20'
                           }`}
@@ -10254,20 +10600,16 @@ export default function VendorDashboard() {
                     </div>
                   </div>
 
-                  {/* Eye Style */}
+                  {/* Corner Square & Dot style */}
                   <div className="space-y-4">
-                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] px-1">Eye Style / Aina ya Kona</label>
+                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] px-1">Corner Style / Muonekano wa Kona (Eyes)</label>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {(['square', 'dot', 'extra-rounded'] as CornerSquareType[]).map((type, tIdx) => (
+                      {(['square', 'dot', 'extra-rounded', 'rounded'] as any[]).map((type, tIdx) => (
                         <button
                           key={`qr-eye-style-${type}-${tIdx}`}
-                          onClick={() => setQrOptions({ 
-                            ...qrOptions, 
-                            cornersSquareOptions: { ...qrOptions.cornersSquareOptions, type },
-                            cornersDotOptions: { ...qrOptions.cornersDotOptions, type: type === 'extra-rounded' ? 'dot' : type as any }
-                          })}
+                          onClick={() => setCornerStyle(type)}
                           className={`h-14 rounded-2xl border transition-all flex items-center justify-center gap-3 ${
-                            qrOptions.cornersSquareOptions.type === type 
+                            cornerStyle === type 
                               ? 'bg-orange-600 border-orange-500 text-white shadow-lg shadow-orange-950/20' 
                               : 'bg-neutral-900 border-white/5 text-neutral-500 hover:border-white/20'
                           }`}
@@ -10285,117 +10627,34 @@ export default function VendorDashboard() {
                     </div>
                   </div>
 
-                  {/* Color Preset */}
-                  <div className="space-y-4">
-                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] px-1">Color / Rangi</label>
-                    <div className="grid grid-cols-5 sm:grid-cols-10 gap-2">
-                       {[
-                         '#000000', '#71717A', '#E2E8F0', '#F97316', '#EAB308', 
-                         '#22C55E', '#3B82F6', '#06B6D4', '#EF4444', '#EC4899'
-                       ].map((color, cIdx) => (
-                         <button
-                           key={`qr-color-${color}-${cIdx}`}
-                           onClick={() => setQrOptions({ 
-                             ...qrOptions, 
-                             dotsOptions: { ...qrOptions.dotsOptions, color },
-                             cornersSquareOptions: { ...qrOptions.cornersSquareOptions, color },
-                             cornersDotOptions: { ...qrOptions.cornersDotOptions, color }
-                           })}
-                           className={`aspect-square rounded-xl border-2 transition-all relative flex items-center justify-center ${
-                             qrOptions.dotsOptions.color === color ? 'border-white scale-110 z-10' : 'border-transparent'
-                           }`}
-                           style={{ backgroundColor: color }}
-                         >
-                           {qrOptions.dotsOptions.color === color && <Check className={`w-3 h-3 ${color === '#E2E8F0' ? 'text-black' : 'text-white'}`} />}
-                         </button>
-                       ))}
-                       <label className="aspect-square rounded-xl border-2 border-dashed border-white/20 hover:border-orange-600/50 transition-all flex items-center justify-center cursor-pointer group">
-                          <Palette className="w-4 h-4 text-neutral-500 group-hover:text-orange-600" />
-                          <input 
-                            type="color" 
-                            className="sr-only" 
-                            value={qrOptions.dotsOptions.color}
-                            onChange={(e) => setQrOptions({ 
-                              ...qrOptions, 
-                              dotsOptions: { ...qrOptions.dotsOptions, color: e.target.value },
-                              cornersSquareOptions: { ...qrOptions.cornersSquareOptions, color: e.target.value },
-                              cornersDotOptions: { ...qrOptions.cornersDotOptions, color: e.target.value }
-                            })}
-                          />
-                       </label>
-                    </div>
-                  </div>
-
-                  {/* Background Color Preset */}
-                  <div className="space-y-4">
-                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] px-1">Background Color / Rangi ya Nyuma</label>
-                    <div className="grid grid-cols-5 sm:grid-cols-10 gap-2">
-                       {[
-                         '#ffffff', '#000000', '#71717A', '#E2E8F0', '#F97316', '#EAB308', 
-                         '#22C55E', '#3B82F6', '#06B6D4', '#EF4444', '#EC4899'
-                       ].map((color, cIdx) => (
-                         <button
-                           key={`qr-bg-color-${color}-${cIdx}`}
-                           onClick={() => setQrOptions({ ...qrOptions, backgroundOptions: { color } })}
-                           className={`aspect-square rounded-xl border-2 transition-all relative flex items-center justify-center ${
-                             qrOptions.backgroundOptions.color === color ? 'border-orange-500 scale-110 z-10' : 'border-transparent'
-                           }`}
-                           style={{ backgroundColor: color }}
-                         >
-                           {color === '#ffffff' && <div className="absolute inset-0 border border-neutral-800 rounded-xl pointer-events-none"></div>}
-                           {qrOptions.backgroundOptions.color === color && <Check className={`w-3 h-3 ${color === '#ffffff' || color === '#E2E8F0' ? 'text-black' : 'text-white'}`} />}
-                         </button>
-                       ))}
-                       <label className="aspect-square rounded-xl border-2 border-dashed border-white/20 hover:border-orange-600/50 transition-all flex items-center justify-center cursor-pointer group">
-                          <Palette className="w-4 h-4 text-neutral-500 group-hover:text-orange-600" />
-                          <input 
-                            type="color" 
-                            className="sr-only" 
-                            value={qrOptions.backgroundOptions.color}
-                            onChange={(e) => setQrOptions({ ...qrOptions, backgroundOptions: { color: e.target.value } })}
-                          />
-                       </label>
-                    </div>
-                  </div>
-
-                  {/* QR Code Mode */}
+                  {/* Logo Centered or Not */}
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                       <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] px-1">Qr Code Mode / Nembo ya Kati</label>
+                       <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] px-1">Logo Centered / Nembo ya Kati</label>
+                       <button 
+                         onClick={() => setIsLogoCentered(!isLogoCentered)}
+                         className={`text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest transition-all ${
+                           isLogoCentered ? 'bg-orange-600 text-white' : 'bg-neutral-800 text-neutral-400'
+                         }`}
+                       >
+                         {isLogoCentered ? 'Nembo Ipo Kati' : 'Weka Nembo Kati'}
+                       </button>
                     </div>
-                    <Select 
-                      value={qrOptions.image ? 'image' : 'none'}
-                      onValueChange={(val) => {
-                        if (val === 'image') {
-                          const logoSrc = vendorProfile?.logoUrl 
-                            ? getProxiedImageUrl(vendorProfile.logoUrl) 
-                            : `https://api.dicebear.com/7.x/initials/svg?seed=${vendorProfile?.businessName || 'Vendor'}`;
-                          setQrOptions((prev: any) => ({ 
-                            ...prev, 
-                            image: logoSrc,
-                            qrOptions: { ...prev.qrOptions, errorCorrectionLevel: 'H' },
-                            imageOptions: { ...prev.imageOptions, hideBackgroundDots: true, imageSize: 0.35, margin: 4 }
-                          }));
-                        } else {
-                          setQrOptions((prev: any) => ({ 
-                            ...prev, 
-                            image: '',
-                            qrOptions: { ...prev.qrOptions, errorCorrectionLevel: 'Q' }
-                          }));
-                        }
-                      }}
-                    >
-                      <SelectTrigger className="bg-neutral-900 border-white/5 h-14 rounded-2xl text-white font-bold">
-                        <SelectValue placeholder="None" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-neutral-900 border-white/10 text-white">
-                        <SelectItem value="none">None (Plain QR)</SelectItem>
-                        <SelectItem value="image">Business Logo</SelectItem>
-                      </SelectContent>
-                    </Select>
-
-                    {qrOptions.image && (
-                      <div className="space-y-4 p-4 rounded-2xl bg-neutral-950 border border-white/5 shadow-inner mt-2">
+                    {isLogoCentered && (
+                      <div className="p-4 rounded-2xl bg-neutral-950 border border-white/5 space-y-4">
+                        <div className="flex items-center gap-3">
+                          {vendorProfile?.logoUrl ? (
+                            <img src={getProxiedImageUrl(vendorProfile.logoUrl)} alt="Logo" className="w-10 h-10 rounded-xl object-cover bg-neutral-900 border border-white/10" referrerPolicy="no-referrer" />
+                          ) : (
+                            <div className="w-10 h-10 rounded-xl bg-orange-600/20 text-orange-500 font-bold flex items-center justify-center text-xs">
+                              {vendorProfile?.businessName?.[0] || 'V'}
+                            </div>
+                          )}
+                          <div className="text-left">
+                            <p className="text-xs font-bold text-white uppercase">{vendorProfile?.businessName || 'Duka Lako'}</p>
+                            <p className="text-[9px] text-neutral-500 font-bold uppercase tracking-wider">Logo itaonekana katikati ya QR code</p>
+                          </div>
+                        </div>
                         <div className="space-y-2">
                           <div className="flex justify-between items-center text-[9px] uppercase font-black tracking-widest text-neutral-400 leading-none">
                             <span>Ukubwa wa Nembo / Logo Size</span>
@@ -10404,7 +10663,7 @@ export default function VendorDashboard() {
                           <input 
                             type="range"
                             min="0.1"
-                            max="0.5"
+                            max="0.4"
                             step="0.05"
                             value={qrOptions.imageOptions?.imageSize || 0.35}
                             onChange={(e) => {
@@ -10417,25 +10676,127 @@ export default function VendorDashboard() {
                             className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-orange-600 focus:outline-none"
                           />
                         </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* QR Frame Style & Textures */}
+                  <div className="space-y-4 pt-4 border-t border-white/5">
+                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] px-1">Frame Style / Fremu ya Stand</label>
+                    <Select 
+                      value={frameStyle}
+                      onValueChange={(val: any) => setFrameStyle(val)}
+                    >
+                      <SelectTrigger className="bg-neutral-900 border-white/5 h-14 rounded-2xl text-white font-bold text-left">
+                        <SelectValue placeholder="Chagua Frame Style" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-neutral-900 border-white/10 text-white">
+                        <SelectItem value="none">No Frame (Plain QR)</SelectItem>
+                        <SelectItem value="simple">Simple Outline (Fremu ya Kawaida)</SelectItem>
+                        <SelectItem value="bottom-label">Bottom Banner (Fremu yenye Maandishi Chini)</SelectItem>
+                        <SelectItem value="top-bottom-label">Top & Bottom Banner (Fremu ya Juu na Chini)</SelectItem>
+                        <SelectItem value="card">Card / Polaroid Stand (Style ya Kadi)</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    {frameStyle !== 'none' && (
+                      <div className="p-4 rounded-2xl bg-neutral-950 border border-white/5 space-y-4 text-left animate-in fade-in duration-200">
+                        <div className="space-y-1.5">
+                          <span className="text-[9px] font-black text-neutral-400 uppercase tracking-widest block">Frame Text / Maandishi ya Fremu</span>
+                          <Input 
+                            placeholder="e.g. SCAN TO ORDER"
+                            className="bg-neutral-900 border-white/5 h-11 rounded-xl text-white text-xs focus:ring-1 focus:ring-orange-600 uppercase font-black tracking-wider"
+                            value={frameText}
+                            onChange={(e) => setFrameText(e.target.value)}
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1.5">
+                            <span className="text-[9px] font-black text-neutral-400 uppercase tracking-widest block">Frame Color</span>
+                            <div className="flex items-center gap-2">
+                              <label className="w-8 h-8 rounded-xl border border-white/15 cursor-pointer relative flex items-center justify-center shrink-0" style={{ backgroundColor: frameColor }}>
+                                <Palette className="w-3.5 h-3.5 text-white/80" />
+                                <input 
+                                  type="color" 
+                                  className="sr-only" 
+                                  value={frameColor}
+                                  onChange={(e) => setFrameColor(e.target.value)}
+                                />
+                              </label>
+                              <Input 
+                                className="bg-neutral-900 border-white/5 h-8 rounded-lg text-white text-[10px] font-mono px-2"
+                                value={frameColor}
+                                onChange={(e) => setFrameColor(e.target.value)}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <span className="text-[9px] font-black text-neutral-400 uppercase tracking-widest block">Text Color</span>
+                            <div className="flex items-center gap-2">
+                              <label className="w-8 h-8 rounded-xl border border-white/15 cursor-pointer relative flex items-center justify-center shrink-0" style={{ backgroundColor: textColor }}>
+                                <Palette className="w-3.5 h-3.5 text-white/80" />
+                                <input 
+                                  type="color" 
+                                  className="sr-only" 
+                                  value={textColor}
+                                  onChange={(e) => setTextColor(e.target.value)}
+                                />
+                              </label>
+                              <Input 
+                                className="bg-neutral-900 border-white/5 h-8 rounded-lg text-white text-[10px] font-mono px-2"
+                                value={textColor}
+                                onChange={(e) => setTextColor(e.target.value)}
+                              />
+                            </div>
+                          </div>
+                        </div>
 
                         <div className="space-y-2">
-                          <div className="flex justify-between items-center text-[9px] uppercase font-black tracking-widest text-neutral-400 leading-none">
-                            <span>Nafasi ya Nembo / Logo Margin</span>
-                            <span className="text-orange-500 font-mono text-xs font-black">{(qrOptions.imageOptions?.margin !== undefined ? qrOptions.imageOptions.margin : 4)}px</span>
+                          <div className="flex justify-between items-center text-[9px] uppercase font-black tracking-widest text-neutral-400">
+                            <span>Text Size / Ukubwa wa Maandishi</span>
+                            <span className="text-orange-500 font-mono text-xs font-black">{textSize}%</span>
+                          </div>
+                          <input 
+                            type="range"
+                            min="60"
+                            max="160"
+                            step="5"
+                            value={textSize}
+                            onChange={(e) => setTextSize(parseInt(e.target.value))}
+                            className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-orange-600 focus:outline-none"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center text-[9px] uppercase font-black tracking-widest text-neutral-400">
+                            <span>Frame Border Width / Unene</span>
+                            <span className="text-orange-500 font-mono text-xs font-black">{frameWidth}px</span>
+                          </div>
+                          <input 
+                            type="range"
+                            min="2"
+                            max="24"
+                            step="1"
+                            value={frameWidth}
+                            onChange={(e) => setFrameWidth(parseInt(e.target.value))}
+                            className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-orange-600 focus:outline-none"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center text-[9px] uppercase font-black tracking-widest text-neutral-400">
+                            <span>Corner Roundness / Mviringo wa Pembe</span>
+                            <span className="text-orange-500 font-mono text-xs font-black">{frameRound}px</span>
                           </div>
                           <input 
                             type="range"
                             min="0"
-                            max="15"
-                            step="1"
-                            value={qrOptions.imageOptions?.margin !== undefined ? qrOptions.imageOptions.margin : 4}
-                            onChange={(e) => {
-                              const marg = parseInt(e.target.value, 10);
-                              setQrOptions((prev: any) => ({
-                                ...prev,
-                                imageOptions: { ...prev.imageOptions, margin: marg }
-                              }));
-                            }}
+                            max="40"
+                            step="2"
+                            value={frameRound}
+                            onChange={(e) => setFrameRound(parseInt(e.target.value))}
                             className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-orange-600 focus:outline-none"
                           />
                         </div>
@@ -10443,398 +10804,139 @@ export default function VendorDashboard() {
                     )}
                   </div>
 
-                  {/* Print Customization */}
-                  <div className="space-y-4 pt-4 border-t border-white/5">
-                    <div className="space-y-4">
-                         <div className="space-y-2">
-                           <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Seating Label / Maandishi ya Siti</label>
-                           <Input 
-                             placeholder="e.g. VITI" 
-                             value={printDetails.seatingLabel}
-                             onChange={(e) => setPrintDetails({...printDetails, seatingLabel: e.target.value.toUpperCase()})}
-                             className="bg-neutral-900 border-white/5 h-12 rounded-xl text-white font-black italic"
-                           />
-                         </div>
-                         <div className="space-y-2">
-                           <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Seating Capacity / Idadi ya Siti</label>
-                           <Input 
-                             placeholder="e.g. 10" 
-                             value={printDetails.customSeating}
-                             onChange={(e) => setPrintDetails({...printDetails, customSeating: e.target.value})}
-                             className="bg-neutral-900 border-white/5 h-12 rounded-xl text-white font-black italic"
-                           />
-                         </div>
-                    </div>
-                    <div className="flex items-center justify-between">
-                       <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] px-1">Print Layout / Mpangilio wa Print</label>
-                       <button 
-                         onClick={() => setPrintDetails({...printDetails, isPrintMode: !printDetails.isPrintMode})}
-                         className={`text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest transition-all ${
-                           printDetails.isPrintMode ? 'bg-orange-600 text-white' : 'bg-neutral-800 text-neutral-400'
-                         }`}
-                       >
-                         {printDetails.isPrintMode ? 'Layout Iwashwa' : 'Washa Mpangilio'}
-                       </button>
-                    </div>
-                    
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between p-3 bg-neutral-900/50 rounded-xl border border-white/5">
-                        <div className="flex flex-col">
-                          <span className="text-[10px] font-black text-white uppercase tracking-wider">Show Seating / Onyesha Siti</span>
-                          <span className="text-[8px] text-neutral-500 uppercase font-bold tracking-tighter">Onyesha idadi ya siti kwenye stand</span>
-                        </div>
-                        <button 
-                          onClick={() => setPrintDetails({...printDetails, showSeating: !printDetails.showSeating})}
-                          className={`w-10 h-5 rounded-full transition-all relative flex items-center px-1 ${printDetails.showSeating ? 'bg-orange-600' : 'bg-neutral-700'}`}
-                        >
-                          <div className={`w-3.5 h-3.5 bg-white rounded-full transition-all shadow-sm ${printDetails.showSeating ? 'translate-x-4.5' : 'translate-x-0'}`}></div>
-                        </button>
-                      </div>
-
-                      <div className="flex items-center justify-between p-3 bg-neutral-900/50 rounded-xl border border-white/5">
-                        <div className="flex flex-col">
-                          <span className="text-[10px] font-black text-white uppercase tracking-wider">Show Shop Logo</span>
-                          <span className="text-[8px] text-neutral-500 uppercase font-bold tracking-tighter">Onyesha nembo ya duka</span>
-                        </div>
-                        <button 
-                          onClick={() => setPrintDetails({...printDetails, showLogo: !printDetails.showLogo})}
-                          className={`w-10 h-5 rounded-full transition-all relative flex items-center px-1 ${printDetails.showLogo ? 'bg-orange-600' : 'bg-neutral-700'}`}
-                        >
-                          <div className={`w-3.5 h-3.5 bg-white rounded-full transition-all shadow-sm ${printDetails.showLogo ? 'translate-x-4.5' : 'translate-x-0'}`}></div>
-                        </button>
-                      </div>
-
-                      <div className="space-y-1">
-                        <span className="text-[8px] font-black text-neutral-600 uppercase tracking-widest px-1 text-center block mb-2">Stand Theme Color / Rangi ya Stand</span>
-                        <div className="flex flex-wrap justify-center gap-2 pb-2">
-                          {[
-                            '#ea580c', '#3b82f6', '#22c55e', '#ef4444', '#a855f7', 
-                            '#ec4899', '#06b6d4', '#000000', '#71717a'
-                          ].map((color, iIdx) => (
-                            <button
-                              key={`stand-color-${color}-${iIdx}`}
-                              onClick={() => setPrintDetails({...printDetails, accentColor: color})}
-                              className={`w-7 h-7 rounded-full border-2 transition-all flex items-center justify-center ${
-                                printDetails.accentColor === color ? 'border-white scale-110 shadow-lg' : 'border-transparent'
-                              }`}
-                              style={{ backgroundColor: color }}
-                            >
-                              {printDetails.accentColor === color && <Check className="w-3 h-3 text-white" />}
-                            </button>
-                          ))}
-                          {[
-                            '#ea580c', '#3b82f6', '#22c55e', '#ef4444', '#a855f7', 
-                            '#ec4899', '#06b6d4', '#000000', '#71717a'
-                          ].includes(printDetails.accentColor) ? (
-                            <label className="w-7 h-7 rounded-full border-2 border-dashed border-white/20 hover:border-orange-600/50 transition-all flex items-center justify-center cursor-pointer group" title="Custom Color">
-                               <Palette className="w-3.5 h-3.5 text-neutral-500 group-hover:text-orange-600" />
-                               <input 
-                                 type="color" 
-                                 className="sr-only" 
-                                 value={printDetails.accentColor}
-                                 onChange={(e) => setPrintDetails({...printDetails, accentColor: e.target.value})}
-                               />
-                             </label>
-                          ) : (
-                             <label 
-                               className="w-7 h-7 rounded-full border-2 border-white scale-110 shadow-lg transition-all flex items-center justify-center cursor-pointer"
-                               style={{ backgroundColor: printDetails.accentColor }}
-                             >
-                               <Palette className={`w-3.5 h-3.5 ${['#ffffff', '#f8fafc', '#f1f5f9', '#fff7ed'].includes(printDetails.accentColor.toLowerCase()) ? 'text-black' : 'text-white'}`} />
-                               <input 
-                                 type="color" 
-                                 className="sr-only" 
-                                 value={printDetails.accentColor}
-                                 onChange={(e) => setPrintDetails({...printDetails, accentColor: e.target.value})}
-                               />
-                             </label>
-                          )}
-                          <input 
-                            type="text"
-                            value={printDetails.accentColor}
-                            onChange={(e) => setPrintDetails({...printDetails, accentColor: e.target.value})}
-                            className="bg-neutral-900 border border-white/10 rounded-lg px-2 py-1 text-[8px] font-black italic text-white w-16 h-7 focus:ring-1 focus:ring-orange-600 uppercase text-center"
-                            placeholder="#HEX"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-1">
-                        <span className="text-[8px] font-black text-neutral-600 uppercase tracking-widest px-1 text-center block mb-2">Content Background Color / Rangi ya Ndani</span>
-                        <div className="flex flex-wrap justify-center gap-2 pb-2">
-                          {[
-                            '#ffffff', '#f8fafc', '#f1f5f9', '#fff7ed', '#f0f9ff', 
-                            '#f0fdf4', '#000000', '#1a1a1a'
-                          ].map((color, bgIdx) => (
-                            <button
-                              key={`stand-content-bg-${color}-${bgIdx}`}
-                              onClick={() => setPrintDetails({...printDetails, contentBg: color})}
-                              className={`w-7 h-7 rounded-full border-2 transition-all flex items-center justify-center ${
-                                printDetails.contentBg === color ? 'border-orange-600 scale-110 shadow-lg' : 'border-neutral-800'
-                              }`}
-                              style={{ backgroundColor: color }}
-                            >
-                              {printDetails.contentBg === color && <Check className={`w-3 h-3 ${color === '#ffffff' || color === '#f8fafc' || color === '#f1f5f9' || color === '#fff7ed' ? 'text-black' : 'text-white'}`} />}
-                            </button>
-                          ))}
-                          <div className="flex items-center gap-2">
-                            {[
-                              '#ffffff', '#f8fafc', '#f1f5f9', '#fff7ed', '#f0f9ff', 
-                              '#f0fdf4', '#000000', '#1a1a1a'
-                            ].includes(printDetails.contentBg) ? (
-                              <label className="w-7 h-7 rounded-full border-2 border-dashed border-white/20 hover:border-orange-600/50 transition-all flex items-center justify-center cursor-pointer group" title="Custom Color">
-                                 <Palette className="w-3.5 h-3.5 text-neutral-500 group-hover:text-orange-600" />
-                                 <input 
-                                   type="color" 
-                                   className="sr-only" 
-                                   value={printDetails.contentBg}
-                                   onChange={(e) => setPrintDetails({...printDetails, contentBg: e.target.value})}
-                                 />
-                               </label>
-                            ) : (
-                               <label 
-                                 className="w-7 h-7 rounded-full border-2 border-orange-600 scale-110 shadow-lg transition-all flex items-center justify-center cursor-pointer"
-                                 style={{ backgroundColor: printDetails.contentBg }}
-                               >
-                                 <Palette className={`w-3.5 h-3.5 ${['#ffffff', '#f8fafc', '#f1f5f9', '#fff7ed', '#f0f9ff', '#f0fdf4'].includes(printDetails.contentBg.toLowerCase()) ? 'text-black' : 'text-white'}`} />
-                                 <input 
-                                   type="color" 
-                                   className="sr-only" 
-                                   value={printDetails.contentBg}
-                                   onChange={(e) => setPrintDetails({...printDetails, contentBg: e.target.value})}
-                                 />
-                               </label>
-                            )}
-                            <input 
-                              type="text"
-                              value={printDetails.contentBg}
-                              onChange={(e) => setPrintDetails({...printDetails, contentBg: e.target.value})}
-                              className="bg-neutral-900 border border-white/10 rounded-lg px-2 py-1 text-[8px] font-black italic text-white w-16 h-7 focus:ring-1 focus:ring-orange-600 uppercase text-center"
-                              placeholder="#HEX"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="space-y-1 pb-4 border-b border-white/5">
-                        <span className="text-[8px] font-black text-neutral-600 uppercase tracking-widest px-1 text-center block mb-2">Background Image / Picha ya Nyuma</span>
-                        
-                        <div className="flex bg-neutral-950 p-1 rounded-xl mb-3 border border-white/5">
-                          <button 
-                            type="button"
-                            onClick={() => setBgImageMode('upload')}
-                            className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
-                              bgImageMode === 'upload' 
-                                ? 'bg-orange-600 text-white shadow-md' 
-                                : 'text-neutral-500 hover:text-white'
-                            }`}
-                          >
-                            Pakia / Upload
-                          </button>
-                          <button 
-                            type="button"
-                            onClick={() => setBgImageMode('url')}
-                            className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
-                              bgImageMode === 'url' 
-                                ? 'bg-orange-600 text-white shadow-md' 
-                                : 'text-neutral-500 hover:text-white'
-                            }`}
-                          >
-                            Kiungo / URL Link
-                          </button>
-                        </div>
-
-                        {bgImageMode === 'upload' && (
-                          <div className="flex items-center justify-center gap-3 animate-in fade-in duration-200">
-                             <label className="flex-1 cursor-pointer">
-                                <div className="h-14 rounded-2xl border-2 border-dashed border-white/10 hover:border-orange-600/30 bg-neutral-900 flex items-center justify-center gap-2 transition-all">
-                                   {isStandBgUploading ? (
-                                     <Loader2 className="w-5 h-5 animate-spin text-orange-600" />
-                                   ) : printDetails.bgImage ? (
-                                     <div className="flex items-center gap-2">
-                                        <ImageIcon className="w-4 h-4 text-green-500" />
-                                        <span className="text-[9px] font-black text-white uppercase">Picha Imewekwa</span>
-                                     </div>
-                                   ) : (
-                                     <div className="flex items-center gap-2">
-                                        <ImageIcon className="w-4 h-4 text-neutral-500" />
-                                        <span className="text-[9px] font-black text-neutral-500 uppercase">Weka Picha</span>
-                                     </div>
-                                   )}
-                                </div>
-                                <input 
-                                  type="file" 
-                                  className="hidden" 
-                                  accept="image/*"
-                                  onChange={handleStandBgUpload}
-                                  disabled={isStandBgUploading}
-                                />
-                             </label>
-                             {printDetails.bgImage && (
-                               <button 
-                                 onClick={() => setPrintDetails({...printDetails, bgImage: ''})}
-                                 className="w-14 h-14 rounded-2xl bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500/20 transition-all"
-                               >
-                                 <Trash2 className="w-5 h-5" />
-                               </button>
-                             )}
-                          </div>
-                        )}
-
-                        {bgImageMode === 'url' && (
-                          <div className="space-y-2 animate-in fade-in duration-200">
-                            <div className="relative">
-                              <input 
-                                type="text"
-                                className="w-full h-12 bg-neutral-900 border border-white/10 rounded-2xl px-4 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-orange-600 transition-all font-bold pr-12"
-                                placeholder="Weka link ya picha (e.g. https://...)"
-                                value={printDetails.bgImage}
-                                onChange={(e) => setPrintDetails({...printDetails, bgImage: e.target.value})}
-                              />
-                              {printDetails.bgImage && (
-                                <button 
-                                  onClick={() => setPrintDetails({...printDetails, bgImage: ''})}
-                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-red-500 transition-colors p-1"
-                                >
-                                  <X className="w-4 h-4" />
-                                </button>
-                              )}
-                            </div>
-                            <p className="text-[8px] text-neutral-500 text-left px-1 uppercase font-black tracking-tight leading-snug">
-                              Weka kiungo cha picha halali (e.g. .jpg, .png, .webp).
-                            </p>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="space-y-1">
-                        <span className="text-[8px] font-black text-neutral-600 uppercase tracking-widest px-1 text-center block mb-2">Header Color / Rangi ya Juu</span>
-                        <div className="flex flex-wrap justify-center gap-2 pb-4 border-b border-white/5">
-                          {[
-                            '#1A1A1A', '#000000', '#ffffff', '#ea580c', '#3b82f6', 
-                            '#22c55e', '#ef4444', '#71717a'
-                          ].map((color, hIdx) => (
-                            <button
-                              key={`stand-header-color-${color}-${hIdx}`}
-                              onClick={() => setPrintDetails({...printDetails, headerBg: color})}
-                              className={`w-7 h-7 rounded-full border-2 transition-all flex items-center justify-center ${
-                                printDetails.headerBg === color ? 'border-white scale-110 shadow-lg' : 'border-transparent'
-                              }`}
-                              style={{ backgroundColor: color }}
-                            >
-                              {printDetails.headerBg === color && <Check className={`w-3 h-3 ${color === '#ffffff' ? 'text-black' : 'text-white'}`} />}
-                            </button>
-                          ))}
-                          <div className="flex items-center gap-2">
-                            {[
-                              '#1A1A1A', '#000000', '#ffffff', '#ea580c', '#3b82f6', 
-                              '#22c55e', '#ef4444', '#71717a'
-                            ].includes(printDetails.headerBg) ? (
-                              <label className="w-7 h-7 rounded-full border-2 border-dashed border-white/20 hover:border-orange-600/50 transition-all flex items-center justify-center cursor-pointer group" title="Custom Header Color">
-                                 <Palette className="w-3.5 h-3.5 text-neutral-500 group-hover:text-orange-600" />
-                                 <input 
-                                   type="color" 
-                                   className="sr-only" 
-                                   value={printDetails.headerBg}
-                                   onChange={(e) => setPrintDetails({...printDetails, headerBg: e.target.value})}
-                                 />
-                               </label>
-                            ) : (
-                               <label 
-                                 className="w-7 h-7 rounded-full border-2 border-white scale-110 shadow-lg transition-all flex items-center justify-center cursor-pointer"
-                                 style={{ backgroundColor: printDetails.headerBg }}
-                               >
-                                 <Palette className={`w-3.5 h-3.5 ${['#ffffff'].includes(printDetails.headerBg.toLowerCase()) ? 'text-black' : 'text-white'}`} />
-                                 <input 
-                                   type="color" 
-                                   className="sr-only" 
-                                   value={printDetails.headerBg}
-                                   onChange={(e) => setPrintDetails({...printDetails, headerBg: e.target.value})}
-                                 />
-                               </label>
-                            )}
-                            <input 
-                              type="text"
-                              value={printDetails.headerBg}
-                              onChange={(e) => setPrintDetails({...printDetails, headerBg: e.target.value})}
-                              className="bg-neutral-900 border border-white/10 rounded-lg px-2 py-1 text-[8px] font-black italic text-white w-16 h-7 focus:ring-1 focus:ring-orange-600 uppercase text-center"
-                              placeholder="#HEX"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="space-y-1">
-                        <span className="text-[8px] font-black text-neutral-600 uppercase tracking-widest px-1">Title / Jina la Biashara</span>
-                        <Input 
-                          placeholder="e.g. KARIBU SOKONI"
-                          className="bg-neutral-900 border-white/5 h-11 rounded-xl text-white text-xs focus:ring-1 focus:ring-orange-600"
-                          value={printDetails.header}
-                          onChange={e => setPrintDetails({...printDetails, header: e.target.value})}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <span className="text-[8px] font-black text-neutral-600 uppercase tracking-widest px-1">Sub-header / Maelezo</span>
-                        <Input 
-                          placeholder="e.g. ORODHA YA KIDIJITALI"
-                          className="bg-neutral-900 border-white/5 h-11 rounded-xl text-white text-xs focus:ring-1 focus:ring-orange-600"
-                          value={printDetails.subHeader}
-                          onChange={e => setPrintDetails({...printDetails, subHeader: e.target.value})}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <span className="text-[8px] font-black text-neutral-600 uppercase tracking-widest px-1">Footer / Maelekezo</span>
-                        <Input 
-                          placeholder="e.g. Scan to view items"
-                          className="bg-neutral-900 border-white/5 h-11 rounded-xl text-white text-xs focus:ring-1 focus:ring-orange-600"
-                          value={printDetails.footer}
-                          onChange={e => setPrintDetails({...printDetails, footer: e.target.value})}
-                        />
-                      </div>
+                  {/* Colors & Details */}
+                  <div className="space-y-4 pt-4 border-t border-white/5 text-left">
+                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] px-1">Colors & Borders / Rangi na Kingo</label>
+                    <div className="bg-neutral-900/40 border border-white/5 rounded-2xl p-4 space-y-4">
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
-                          <span className="text-[8px] font-black text-neutral-600 uppercase tracking-widest px-1">Phone / Simu</span>
-                          <Input 
-                            className="bg-neutral-900 border-white/5 h-11 rounded-xl text-white text-xs focus:ring-1 focus:ring-orange-600"
-                            value={printDetails.phone}
-                            onChange={e => setPrintDetails({...printDetails, phone: e.target.value})}
-                          />
+                          <span className="text-[9px] font-black text-neutral-400 uppercase tracking-widest">Foreground / Mbele</span>
+                          <div className="flex items-center gap-1.5">
+                            <label className="w-8 h-8 rounded-xl border border-white/10 cursor-pointer relative flex items-center justify-center shrink-0" style={{ backgroundColor: foregroundColor }}>
+                              <Palette className="w-3.5 h-3.5 text-white/80" />
+                              <input 
+                                type="color" 
+                                className="sr-only" 
+                                value={foregroundColor}
+                                onChange={(e) => setForegroundColor(e.target.value)}
+                              />
+                            </label>
+                            <Input 
+                              className="bg-neutral-900 border-white/5 h-8 rounded-lg text-white text-[10px] font-mono px-2"
+                              value={foregroundColor}
+                              onChange={(e) => setForegroundColor(e.target.value)}
+                            />
+                          </div>
                         </div>
+
                         <div className="space-y-1">
-                          <span className="text-[8px] font-black text-neutral-600 uppercase tracking-widest px-1">Location / Mahali</span>
-                          <Input 
-                            className="bg-neutral-900 border-white/5 h-11 rounded-xl text-white text-xs focus:ring-1 focus:ring-orange-600"
-                            value={printDetails.address}
-                            onChange={e => setPrintDetails({...printDetails, address: e.target.value})}
-                          />
+                          <span className="text-[9px] font-black text-neutral-400 uppercase tracking-widest">Background / Nyuma</span>
+                          <div className="flex items-center gap-1.5">
+                            <label className="w-8 h-8 rounded-xl border border-white/10 cursor-pointer relative flex items-center justify-center shrink-0" style={{ backgroundColor: backgroundColor }}>
+                              <Palette className="w-3.5 h-3.5 text-white/80" />
+                              <input 
+                                type="color" 
+                                className="sr-only" 
+                                value={backgroundColor}
+                                onChange={(e) => setBackgroundColor(e.target.value)}
+                              />
+                            </label>
+                            <Input 
+                              className="bg-neutral-900 border-white/5 h-8 rounded-lg text-white text-[10px] font-mono px-2"
+                              value={backgroundColor}
+                              onChange={(e) => setBackgroundColor(e.target.value)}
+                            />
+                          </div>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3 border-t border-white/5 pt-4 mt-2">
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center text-[9px] uppercase font-black tracking-widest text-neutral-400">
+                          <span>Kingo Width / Border Width</span>
+                          <span className="text-orange-500 font-mono text-xs font-black">{borderWidth}px</span>
+                        </div>
+                        <input 
+                          type="range"
+                          min="0"
+                          max="16"
+                          step="1"
+                          value={borderWidth}
+                          onChange={(e) => setBorderWidth(parseInt(e.target.value))}
+                          className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-orange-600 focus:outline-none"
+                        />
+                      </div>
+
+                      {borderWidth > 0 && (
+                        <>
+                          <div className="space-y-1">
+                            <span className="text-[9px] font-black text-neutral-400 uppercase tracking-widest">Border Color / Rangi ya Kingo</span>
+                            <div className="flex items-center gap-1.5">
+                              <label className="w-8 h-8 rounded-xl border border-white/10 cursor-pointer relative flex items-center justify-center shrink-0" style={{ backgroundColor: borderColor }}>
+                                <Palette className="w-3.5 h-3.5 text-white/80" />
+                                <input 
+                                  type="color" 
+                                  className="sr-only" 
+                                  value={borderColor}
+                                  onChange={(e) => setBorderColor(e.target.value)}
+                                />
+                              </label>
+                              <Input 
+                                className="bg-neutral-900 border-white/5 h-8 rounded-lg text-white text-[10px] font-mono px-2"
+                                value={borderColor}
+                                onChange={(e) => setBorderColor(e.target.value)}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <div className="flex justify-between items-center text-[9px] uppercase font-black tracking-widest text-neutral-400">
+                              <span>Kingo Roundness / Border Rounding</span>
+                              <span className="text-orange-500 font-mono text-xs font-black">{borderRound}px</span>
+                            </div>
+                            <input 
+                              type="range"
+                              min="0"
+                              max="32"
+                              step="2"
+                              value={borderRound}
+                              onChange={(e) => setBorderRound(parseInt(e.target.value))}
+                              className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-orange-600 focus:outline-none"
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Print & Seating Customization */}
+                  <div className="space-y-4 pt-4 border-t border-white/5 text-left">
+                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] px-1">Stand Seating Label / Maandishi ya Siti</label>
+                    <div className="bg-neutral-900/40 border border-white/5 rounded-2xl p-4 space-y-4">
+                      <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
-                          <span className="text-[8px] font-black text-neutral-600 uppercase tracking-widest px-1 text-center block">Seating Label / Label ya Viti</span>
+                          <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest px-1 block">Label ya Viti / Table Label</span>
                           <Input 
-                            placeholder="e.g. SEATING"
+                            placeholder="e.g. TABLE"
                             className="bg-neutral-900 border-white/5 h-11 rounded-xl text-white text-[10px] font-black text-center focus:ring-1 focus:ring-orange-600 uppercase tracking-widest"
                             value={printDetails.seatingLabel}
-                            onChange={e => setPrintDetails({...printDetails, seatingLabel: e.target.value})}
+                            onChange={(e) => setPrintDetails({...printDetails, seatingLabel: e.target.value})}
                           />
                         </div>
                         <div className="space-y-1">
-                          <span className="text-[8px] font-black text-neutral-600 uppercase tracking-widest px-1 text-center block">Custom Seater / Idadi</span>
+                          <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest px-1 block">Idadi / Table Number</span>
                           <Input 
                             placeholder="Weka idadi au herufi"
                             className="bg-neutral-900 border-white/5 h-11 rounded-xl text-white text-[10px] font-black text-center focus:ring-1 focus:ring-orange-600 uppercase tracking-widest"
                             value={printDetails.customSeating}
-                            onChange={e => setPrintDetails({...printDetails, customSeating: e.target.value})}
+                            onChange={(e) => setPrintDetails({...printDetails, customSeating: e.target.value})}
                           />
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between p-3 bg-neutral-900/30 rounded-xl border border-white/5 mt-4">
+                      <div className="flex items-center justify-between p-3 bg-neutral-900/30 rounded-xl border border-white/5 mt-2">
                         <div className="flex flex-col">
-                          <span className="text-[10px] font-black text-white uppercase tracking-wider">Show Seating Info</span>
-                          <span className="text-[8px] text-neutral-500 uppercase font-bold tracking-tighter">Onyesha idadi ya viti</span>
+                          <span className="text-[10px] font-black text-white uppercase tracking-wider">Onyesha Siti / Show Seating Info</span>
+                          <span className="text-[8px] text-neutral-500 uppercase font-bold tracking-tighter">Onyesha idadi ya viti kwenye Stand</span>
                         </div>
                         <button 
                           onClick={() => setPrintDetails({...printDetails, showSeating: !printDetails.showSeating})}
@@ -11407,7 +11509,6 @@ export default function VendorDashboard() {
                       </div>
                     </div>
                   )}
-                </div>
 
                   <div className="w-full space-y-4 max-w-[280px]">
                     {printDetails.isPrintMode ? (
@@ -11444,6 +11545,7 @@ export default function VendorDashboard() {
                     </p>
                   </div>
                 </div>
+              </div>
               
               <div className="p-8 border-t border-white/5 flex items-center justify-between shrink-0 bg-black/20">
                  <div className="flex gap-4">
