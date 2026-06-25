@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, onSnapshot, getDocs, limit, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, getDocs, limit, orderBy, addDoc, serverTimestamp } from 'firebase/firestore';
 import { VendorProfile, Product } from '../types';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
@@ -48,6 +48,229 @@ export default function CustomerDashboard() {
   const { setLocation: setHeaderLocation, setOnLocationClick, searchQuery: contextSearchQuery } = useHeader();
   
   const [isLoading, setIsLoading] = useState(true);
+  const [isSeeding, setIsSeeding] = useState(false);
+
+  const seedDemoStoresAndProducts = async () => {
+    setIsSeeding(true);
+    try {
+      const baseLat = location.lat || -6.7924;
+      const baseLng = location.lng || 39.2083;
+
+      const demoVendorsList = [
+        {
+          ownerUid: "admin",
+          businessName: "Lulu Grocery & Store",
+          category: "grocery" as const,
+          description: "Fresh vegetables and daily essentials.",
+          tin: "123-456-789",
+          address: "Ubungo, Dar es Salaam",
+          location: { lat: baseLat + 0.0012, lng: baseLng - 0.0008 },
+          deliveryRadius: 10,
+          status: "active" as const,
+          rating: 4.9,
+          ratingCount: 142,
+          logoUrl: "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=200&q=80",
+          bannerUrl: "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=80",
+          operatingHours: "08:00 - 22:00",
+          createdAt: serverTimestamp()
+        },
+        {
+          ownerUid: "admin",
+          businessName: "Papo Hapo Pizza",
+          category: "restaurant" as const,
+          description: "Best Italian pizza in town.",
+          tin: "987-654-321",
+          address: "Kibo Area, DSM",
+          location: { lat: baseLat - 0.0025, lng: baseLng + 0.0018 },
+          deliveryRadius: 8,
+          status: "active" as const,
+          rating: 4.7,
+          ratingCount: 89,
+          logoUrl: "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=200&q=80",
+          bannerUrl: "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=800&q=80",
+          operatingHours: "10:00 - 23:00",
+          createdAt: serverTimestamp()
+        },
+        {
+          ownerUid: "admin",
+          businessName: "Kibo Medical Pharmacy",
+          category: "pharmacy" as const,
+          description: "Your health, our priority.",
+          tin: "456-789-123",
+          address: "Mikocheni, Dar es Salaam",
+          location: { lat: baseLat + 0.0034, lng: baseLng + 0.0042 },
+          deliveryRadius: 5,
+          status: "active" as const,
+          rating: 4.8,
+          ratingCount: 65,
+          logoUrl: "https://images.unsplash.com/photo-1584017911766-d451b3d0e843?auto=format&fit=crop&w=200&q=80",
+          bannerUrl: "https://images.unsplash.com/photo-1584017911766-d451b3d0e843?auto=format&fit=crop&w=800&q=80",
+          operatingHours: "24 Hours",
+          createdAt: serverTimestamp()
+        },
+        {
+          ownerUid: "admin",
+          businessName: "Urembo Salon & Spa",
+          category: "salon" as const,
+          description: "Affordable luxury beauty treatments & hair style.",
+          tin: "321-654-987",
+          address: "Sinza, DSM",
+          location: { lat: baseLat - 0.0008, lng: baseLng - 0.0032 },
+          deliveryRadius: 6,
+          status: "active" as const,
+          rating: 4.6,
+          ratingCount: 47,
+          logoUrl: "https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=200&q=80",
+          bannerUrl: "https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=800&q=80",
+          operatingHours: "09:00 - 21:00",
+          createdAt: serverTimestamp()
+        }
+      ];
+
+      for (const v of demoVendorsList) {
+        const vendorDocRef = await addDoc(collection(db, 'vendors'), v);
+        const vId = vendorDocRef.id;
+
+        // Add corresponding products
+        let demoProducts: any[] = [];
+        if (v.category === 'grocery') {
+          demoProducts = [
+            {
+              vendorId: vId,
+              name: "Nyanya Safi (Organic Tomatoes)",
+              description: "Kilo 1 ya nyanya mbichi na safi zilizovunwa asubuhi ya leo kutoka shambani.",
+              price: 3500,
+              category: "mboga",
+              stock: 50,
+              status: "active",
+              imageUrl: "https://images.unsplash.com/photo-1595855759920-86582396756a?w=600&auto=format&fit=crop",
+              vendorCategory: "grocery"
+            },
+            {
+              vendorId: vId,
+              name: "Tofaha Nyekundu (Sweet Apples)",
+              description: "Mfuko wa kilo 1 wa matofaha nyekundu matamu, yenye afya na crispy sana.",
+              price: 5000,
+              category: "matunda",
+              stock: 35,
+              status: "active",
+              imageUrl: "https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=600&auto=format&fit=crop",
+              vendorCategory: "grocery"
+            },
+            {
+              vendorId: vId,
+              name: "Mchele Bora wa Basmati (Premium Rice)",
+              description: "Kilo 1 ya mchele safi kabisa wa daraja la kwanza kutoka Kyela, wenye harufu na ladha nzuri.",
+              price: 4500,
+              category: "nafaka",
+              stock: 120,
+              status: "active",
+              imageUrl: "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600&auto=format&fit=crop",
+              vendorCategory: "grocery"
+            }
+          ];
+        } else if (v.category === 'restaurant') {
+          demoProducts = [
+            {
+              vendorId: vId,
+              name: "Pizza ya Kuku (BBQ Chicken Pizza)",
+              description: "Pizza kubwa yenye vipande vya kuku mtamu wa choma, sosi ya BBQ na jibini ya ziada.",
+              price: 15000,
+              category: "pizza",
+              stock: 100,
+              status: "active",
+              imageUrl: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=600&auto=format&fit=crop",
+              vendorCategory: "restaurant"
+            },
+            {
+              vendorId: vId,
+              name: "Burger ya Ng'ombe (Double Beef Burger)",
+              description: "Burger mbili tamu za nyama ya ng'ombe zenye jibini, saladi na sosi maalum ya Papo Hapo.",
+              price: 10000,
+              category: "burger",
+              stock: 80,
+              status: "active",
+              imageUrl: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600&auto=format&fit=crop",
+              vendorCategory: "restaurant"
+            },
+            {
+              vendorId: vId,
+              name: "Viazi vya Kukaanga (Crispy French Fries)",
+              description: "Viazi vitamu vya mbatata vilivyokaangwa kwa usahihi wa kipekee, crispy kwa nje na laini kwa ndani.",
+              price: 3500,
+              category: "vileo",
+              stock: 200,
+              status: "active",
+              imageUrl: "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=600&auto=format&fit=crop",
+              vendorCategory: "restaurant"
+            }
+          ];
+        } else if (v.category === 'pharmacy') {
+          demoProducts = [
+            {
+              vendorId: vId,
+              name: "Vidonge vya Vitamin C (Chewable Tablets)",
+              description: "Vidonge 30 vya kutafuna vya Vitamin C vya nguvu ya 500mg, nzuri kwa kuongeza kinga ya mwili.",
+              price: 8500,
+              category: "vitamini",
+              stock: 45,
+              status: "active",
+              imageUrl: "https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=600&auto=format&fit=crop",
+              vendorCategory: "pharmacy"
+            },
+            {
+              vendorId: vId,
+              name: "Huduma ya Kwanza (First Aid Kit)",
+              description: "Mfuko mzima wa dharura wenye bandeji, pamba, dawa ya kusafisha vidonda na mkasi.",
+              price: 25000,
+              category: "vifaa",
+              stock: 15,
+              status: "active",
+              imageUrl: "https://images.unsplash.com/photo-1607619056574-7b8f304f3c6f?w=600&auto=format&fit=crop",
+              vendorCategory: "pharmacy"
+            }
+          ];
+        } else if (v.category === 'salon') {
+          demoProducts = [
+            {
+              vendorId: vId,
+              name: "Kukata Nywele & Scrub (Executive Haircut)",
+              description: "Huduma ya kisasa ya kunyoa nywele, kusafisha uso kwa scrub maalum na kupaka mafuta laini.",
+              price: 12000,
+              category: "kunyoa",
+              stock: 99,
+              status: "active",
+              imageUrl: "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=600&auto=format&fit=crop",
+              vendorCategory: "salon"
+            },
+            {
+              vendorId: vId,
+              name: "Kusuka Nywele (Natural Braiding)",
+              description: "Kusuka nywele katika mitindo mbalimbali kama rasta au weaving, kwa kutumia rasta safi.",
+              price: 20000,
+              category: "kusuka",
+              stock: 99,
+              status: "active",
+              imageUrl: "https://images.unsplash.com/photo-1562322140-8baeececf3df?w=600&auto=format&fit=crop",
+              vendorCategory: "salon"
+            }
+          ];
+        }
+
+        for (const p of demoProducts) {
+          await addDoc(collection(db, 'products'), p);
+        }
+      }
+
+      toast.success("🎉 Maduka na bidhaa za mfano zimesakinishwa kikamilifu karibu nawe!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Imefeli kusakinisha maduka ya mfano.");
+    } finally {
+      setIsSeeding(false);
+    }
+  };
+
   const [maintenanceService, setMaintenanceService] = useState<{ id: string; name: string; message: string } | null>(null);
 
   const storeScrollRef = useRef<HTMLDivElement>(null);
@@ -676,8 +899,28 @@ export default function CustomerDashboard() {
             </motion.div>
           )))}
           {vendors.filter(v => v.status === 'active').length === 0 && (
-            <div className="w-full py-12 text-center bg-neutral-50 dark:bg-neutral-900/50 rounded-[2.5rem] border border-dashed border-neutral-200 dark:border-neutral-800 mx-4">
-              <p className="text-neutral-400 text-sm italic">Hakuna maduka yaliyopatikana karibu nawe.</p>
+            <div className="w-full py-12 px-6 text-center bg-neutral-50 dark:bg-neutral-900/50 rounded-[2.5rem] border border-dashed border-neutral-200/80 dark:border-neutral-800 mx-4 flex flex-col items-center justify-center gap-4">
+              <div>
+                <p className="text-neutral-400 text-sm font-bold">Hakuna maduka yaliyosajiliwa karibu nawe.</p>
+                <p className="text-neutral-500 text-xs mt-1">Database haina maduka ya majaribio bado.</p>
+              </div>
+              <button
+                onClick={seedDemoStoresAndProducts}
+                disabled={isSeeding}
+                className="bg-orange-600 hover:bg-orange-700 active:scale-95 text-white font-black text-[10px] sm:text-[11px] uppercase tracking-widest px-6 py-3 rounded-2xl shadow-lg shadow-orange-600/30 flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {isSeeding ? (
+                  <>
+                    <span className="animate-spin inline-block">🔄</span>
+                    Inasakinisha...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 text-white" />
+                    Sakinisha Maduka & Bidhaa za Mfano
+                  </>
+                )}
+              </button>
             </div>
           )}
         </div>
