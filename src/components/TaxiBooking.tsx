@@ -1105,6 +1105,96 @@ export default function TaxiBooking() {
     fetchTripRoute();
   }, [activeRide?.id, activeRide?.pickup?.lat, activeRide?.destination?.lat]);
 
+  const lastReroutePosRef = useRef<{lat: number, lng: number} | null>(null);
+
+  useEffect(() => {
+    if (!activeRide || activeRide.status !== "on_trip" || !driverLivePos || realTripRoute.length === 0) {
+      lastReroutePosRef.current = null;
+      return;
+    }
+
+    const getDistMetersLocal = (p1: {lat: number, lng: number}, p2: {lat: number, lng: number}) => {
+      const R = 6371000;
+      const dLat = (p2.lat - p1.lat) * Math.PI / 180;
+      const dLon = (p2.lng - p1.lng) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(p1.lat * Math.PI / 180) * Math.cos(p2.lat * Math.PI / 180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
+    };
+
+    // Calculate minimum distance from driver's live position to any point on our active trip route line
+    let minDistance = Infinity;
+    for (let i = 0; i < realTripRoute.length; i++) {
+      const d = getDistMetersLocal(driverLivePos, { lat: realTripRoute[i][0], lng: realTripRoute[i][1] });
+      if (d < minDistance) {
+        minDistance = d;
+      }
+    }
+
+    // If driver is more than 80 meters away from the active route, we treat this as a road deviation ("anti way")
+    // and fetch a new route instantly from their current position to destination
+    if (minDistance > 80) {
+      // Throttle: only reroute if they have moved at least 50 meters from our last reroute position
+      if (lastReroutePosRef.current) {
+        const movedSinceLastReroute = getDistMetersLocal(driverLivePos, lastReroutePosRef.current);
+        if (movedSinceLastReroute < 50) {
+          return;
+        }
+      }
+
+      console.log(`[TaxiBooking] Road deviation ("anti way") detected! Distance to route: ${minDistance.toFixed(1)}m. Recalculating trip route...`);
+
+      const triggerRerouteFetch = async () => {
+        const driverStr = `${driverLivePos.lng},${driverLivePos.lat}`;
+        const destStr = `${activeRide.destination.lng},${activeRide.destination.lat}`;
+        const url = `/api/geo/route?coords=${encodeURIComponent(driverStr + ";" + destStr)}`;
+
+        try {
+          const response = await fetch(url);
+          if (response.ok) {
+            let json = await response.json();
+            if (json.isFallback) {
+              const directUrls = [
+                `https://router.project-osrm.org/route/v1/driving/${driverStr};${destStr}?overview=full&geometries=geojson&steps=true`,
+                `https://routing.openstreetmap.de/routed-car/route/v1/driving/${driverStr};${destStr}?overview=full&geometries=geojson&steps=true`
+              ];
+              for (const directUrl of directUrls) {
+                try {
+                  const clientRes = await fetch(directUrl);
+                  if (clientRes.ok) {
+                    const clientJson = await clientRes.json();
+                    if (clientJson && clientJson.code === "Ok" && clientJson.routes && clientJson.routes.length > 0) {
+                      json = clientJson;
+                      break;
+                    }
+                  }
+                } catch (e) {}
+              }
+            }
+
+            if (json.code === "Ok" && json.routes && json.routes.length > 0) {
+              const route = json.routes[0];
+              const coords: [number, number][] = route.geometry.coordinates.map(
+                (c: number[]) => [c[1], c[0]] as [number, number]
+              );
+              if (coords.length > 0) {
+                console.log("[TaxiBooking] Successfully rerouted trip line following driver's road deviation!");
+                setRealTripRoute(coords);
+                lastReroutePosRef.current = driverLivePos;
+              }
+            }
+          }
+        } catch (err) {
+          console.error("Failed to fetch dynamic reroute:", err);
+        }
+      };
+
+      triggerRerouteFetch();
+    }
+  }, [driverLivePos, activeRide?.id, activeRide?.status, realTripRoute.length]);
+
   useEffect(() => {
     if (!activeRide) {
       driverApproachRouteRef.current = [];
@@ -1424,7 +1514,7 @@ export default function TaxiBooking() {
               closestIndex = i;
             }
           }
-          if (minDistance < 300) {
+          if (minDistance < 80) {
             setDriverRouteCoords(driverRouteCoords.slice(closestIndex));
             lastFetchedPosRef.current = driverLivePos;
             return;
@@ -2710,14 +2800,22 @@ export default function TaxiBooking() {
                         <MapPin className="w-5 h-5 sm:w-6 sm:h-6" />
                       )}
                     </button>
-                    {!autoFollow && step !== "home" && (
-                      <button
-                        onClick={() => setAutoFollow(true)}
-                        className="w-10 h-10 sm:w-12 sm:h-12 bg-[#1D9E75] text-white backdrop-blur-xl rounded-xl sm:rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-all pointer-events-auto"
-                      >
-                        <RotateCw className="w-5 h-5 sm:w-6 sm:h-6 animate-spin-slow" />
-                      </button>
-                    )}
+                    <button
+                      onClick={() => {
+                        setAutoFollow(true);
+                        if (["home", "map"].includes(step)) {
+                          handleCurrentLocation();
+                        }
+                      }}
+                      title="Angazia Eneo Langu au Dereva"
+                      className={`w-10 h-10 sm:w-12 sm:h-12 backdrop-blur-xl rounded-xl sm:rounded-2xl border flex items-center justify-center shadow-xl active:scale-90 transition-all pointer-events-auto ${
+                        !autoFollow 
+                          ? "bg-[#1D9E75] text-white border-transparent shadow-[0_0_15px_rgba(29,158,117,0.5)] animate-pulse"
+                          : "bg-[#111118]/90 text-[#00E5A0] border-[#1e1e2e] hover:text-white"
+                      }`}
+                    >
+                      <Navigation2 className={`w-5 h-5 sm:w-6 sm:h-6 ${!autoFollow ? "rotate-45" : ""}`} />
+                    </button>
                     <button
                       onClick={() => navigate("/taxi/history")}
                       className="w-10 h-10 sm:w-12 sm:h-12 bg-[#111118]/90 backdrop-blur-xl rounded-xl sm:rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform text-white pointer-events-auto"
