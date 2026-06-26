@@ -1839,22 +1839,22 @@ export default function TaxiBooking() {
         <div class="relative flex flex-col items-center">
           <!-- Active Pill above marker with premium typography and alignment -->
           ${etaText ? `
-          <div class="bg-[#0A0C14]/95 backdrop-blur-md border border-[#00E5A0]/30 rounded-2xl px-3 py-1.5 mb-2 shadow-2xl flex flex-col items-center min-w-[130px]">
-            <span class="text-[9px] font-black text-[#00E5A0] uppercase tracking-[0.15em] leading-tight font-heading">PICKUP MTEJA</span>
-            <span class="text-[9.5px] font-mono font-bold text-white mt-0.5 whitespace-nowrap">${etaText}</span>
+          <div class="bg-[#0A0C14]/95 backdrop-blur-md border border-[#00E5A0]/30 rounded-xl px-2 py-1 mb-1.5 shadow-xl flex flex-col items-center">
+            <span class="text-[8px] font-black text-[#00E5A0] uppercase tracking-[0.1em] leading-tight font-heading">PICKUP MTEJA</span>
+            <span class="text-[8.5px] font-mono font-bold text-white mt-0.5 whitespace-nowrap">${etaText}</span>
           </div>
           ` : `
-          <div class="bg-[#0A0C14]/95 backdrop-blur-md border border-[#00E5A0]/30 rounded-2xl px-3 py-1 mb-1.5 shadow-2xl flex flex-col items-center min-w-[100px]">
-            <span class="text-[9px] font-black text-[#00E5A0] uppercase tracking-[0.15em] leading-tight font-heading font-semibold text-center">PICKUP MTEJA</span>
+          <div class="bg-[#0A0C14]/95 backdrop-blur-md border border-[#00E5A0]/30 rounded-xl px-2 py-0.5 mb-1 shadow-xl flex flex-col items-center">
+            <span class="text-[8px] font-black text-[#00E5A0] uppercase tracking-[0.1em] leading-tight font-heading font-semibold text-center">PICKUP MTEJA</span>
           </div>
           `}
           <!-- Pulse green animating container -->
-          <div class="w-9 h-9 bg-[#00E5A0] rounded-full border-4 border-[#0F111E] shadow-2xl flex items-center justify-center font-black text-lg text-[#0F111E] marker-pulse-mint">A</div>
-          <div class="w-1.5 h-3 bg-[#00E5A0] rounded-full -mt-0.5 shadow-lg"></div>
+          <div class="w-8 h-8 bg-[#00E5A0] rounded-full border-4 border-[#0F111E] shadow-2xl flex items-center justify-center font-black text-base text-[#0F111E] marker-pulse-mint">A</div>
+          <div class="w-1 h-2 bg-[#00E5A0] rounded-full -mt-0.5 shadow-lg"></div>
         </div>
       `,
-      iconSize: [160, 95],
-      iconAnchor: [80, 95],
+      iconSize: [160, 80],
+      iconAnchor: [80, 80],
     });
   };
 
@@ -1863,16 +1863,16 @@ export default function TaxiBooking() {
       className: "custom-div-icon",
       html: `
         <div class="relative flex flex-col items-center">
-          <div class="bg-[#0A0C14]/95 backdrop-blur-md border border-[#FF6B35]/30 rounded-2xl px-3 py-1.5 mb-2 shadow-2xl flex flex-col items-center min-w-[160px]">
-            <span class="text-[9px] font-black text-[#FF6B35] uppercase tracking-[0.15em] leading-tight font-heading">DESTINATION</span>
-            <span class="text-[9.5px] font-mono font-bold text-white mt-0.5 whitespace-nowrap">${etaText}</span>
+          <div class="bg-[#0A0C14]/95 backdrop-blur-md border border-[#FF6B35]/30 rounded-xl px-2 py-1 mb-1.5 shadow-xl flex flex-col items-center">
+            <span class="text-[8px] font-black text-[#FF6B35] uppercase tracking-[0.1em] leading-tight font-heading">DESTINATION</span>
+            <span class="text-[8.5px] font-mono font-bold text-white mt-0.5 whitespace-nowrap">${etaText}</span>
           </div>
-          <div class="w-9 h-9 bg-[#FF6B35] rounded-full border-4 border-[#0F111E] shadow-2xl flex items-center justify-center font-black text-lg text-white">B</div>
-          <div class="w-1.5 h-3 bg-[#FF6B35] rounded-full -mt-0.5 shadow-lg animate-bounce"></div>
+          <div class="w-8 h-8 bg-[#FF6B35] rounded-full border-4 border-[#0F111E] shadow-2xl flex items-center justify-center font-black text-base text-white">B</div>
+          <div class="w-1 h-2 bg-[#FF6B35] rounded-full -mt-0.5 shadow-lg animate-bounce"></div>
         </div>
       `,
-      iconSize: [180, 95],
-      iconAnchor: [90, 95],
+      iconSize: [160, 80],
+      iconAnchor: [80, 80],
     });
   };
 
@@ -2724,15 +2724,13 @@ export default function TaxiBooking() {
         const remainingDurSecs = remainingDist / 9.5; // account for density and road twists
         const realRemainingSecs = Math.max(0, remainingDurSecs - (secondsOffset % 30));
         const minsLeft = Math.floor(realRemainingSecs / 60);
-        const secsLeft = Math.floor(realRemainingSecs % 60);
         const etaTime = new Date(Date.now() + realRemainingSecs * 1000);
-        etaDestText = `EXPECTED ARRIVE BY ${formatTimeLocal(etaTime)} (Imebaki dk ${minsLeft} sek ${secsLeft})`;
+        etaDestText = `Kufika: ${formatTimeLocal(etaTime)} (dk ${minsLeft})`;
       } else {
         const realRemainingSecs = Math.max(0, tripDurSecs - secondsOffset);
         const minsLeft = Math.floor(realRemainingSecs / 60);
-        const secsLeft = Math.floor(realRemainingSecs % 60);
         const etaTime = new Date(Date.now() + realRemainingSecs * 1000);
-        etaDestText = `EXPECTED ARRIVE BY ${formatTimeLocal(etaTime)} (Imebaki dk ${minsLeft} sek ${secsLeft})`;
+        etaDestText = `Kufika: ${formatTimeLocal(etaTime)} (dk ${minsLeft})`;
       }
     } else if (["accepted", "driver_arriving", "driver_arrived", "found"].includes(activeRide.status)) {
       // Driver is heading to pickup. Estimated total duration = (time to pickup) + (ride duration)
@@ -2756,23 +2754,20 @@ export default function TaxiBooking() {
       const totalRemainingSecs = durToPickupSecs + tripDurSecs;
       const realRemainingSecs = Math.max(0, totalRemainingSecs - secondsOffset);
       const minsLeft = Math.floor(realRemainingSecs / 60);
-      const secsLeft = Math.floor(realRemainingSecs % 60);
       const etaTime = new Date(Date.now() + realRemainingSecs * 1000);
-      etaDestText = `EXPECTED ARRIVE BY ${formatTimeLocal(etaTime)} (Imebaki dk ${minsLeft} sek ${secsLeft})`;
+      etaDestText = `Kufika: ${formatTimeLocal(etaTime)} (dk ${minsLeft})`;
     } else {
       const realRemainingSecs = Math.max(0, tripDurSecs - secondsOffset);
       const minsLeft = Math.floor(realRemainingSecs / 60);
-      const secsLeft = Math.floor(realRemainingSecs % 60);
       const etaTime = new Date(Date.now() + realRemainingSecs * 1000);
-      etaDestText = `EXPECTED ARRIVE BY ${formatTimeLocal(etaTime)} (Imebaki dk ${minsLeft} sek ${secsLeft})`;
+      etaDestText = `Kufika: ${formatTimeLocal(etaTime)} (dk ${minsLeft})`;
     }
   } else {
     // Before trip starts (during booking setup / search)
     const realRemainingSecs = Math.max(0, tripDurSecs - secondsOffset);
     const minsLeft = Math.floor(realRemainingSecs / 60);
-    const secsLeft = Math.floor(realRemainingSecs % 60);
     const etaTime = new Date(Date.now() + realRemainingSecs * 1000);
-    etaDestText = `EXPECTED ARRIVE BY ${formatTimeLocal(etaTime)} (Imebaki dk ${minsLeft} sek ${secsLeft})`;
+    etaDestText = `Kufika: ${formatTimeLocal(etaTime)} (dk ${minsLeft})`;
   }
 
   return (

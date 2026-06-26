@@ -780,16 +780,16 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
       className: "custom-div-icon",
       html: `
         <div class="relative flex flex-col items-center animate-fade-in">
-          <div class="bg-[#111118]/95 backdrop-blur-md border border-emerald-500/30 rounded-2xl px-2.5 py-1 mb-1 shadow-2xl flex flex-col items-center min-w-[125px]">
-            <span class="text-[9px] font-black text-emerald-400 uppercase tracking-widest leading-normal">PICKUP MTEJA</span>
-            <span class="text-[9.5px] font-bold text-white/95 mt-0.5 whitespace-nowrap px-1.5 py-0.5 bg-emerald-500/10 rounded border border-emerald-500/20">${etaText}</span>
+          <div class="bg-[#111118]/95 backdrop-blur-md border border-emerald-500/30 rounded-xl px-2 py-1 mb-1.5 shadow-xl flex flex-col items-center">
+            <span class="text-[8px] font-black text-emerald-400 uppercase tracking-wider leading-tight">PICKUP MTEJA</span>
+            <span class="text-[8.5px] font-bold text-white/95 mt-0.5 whitespace-nowrap px-1 py-0.5 bg-emerald-500/10 rounded border border-emerald-500/20">${etaText}</span>
           </div>
-          <div class="bg-emerald-500 text-white w-9 h-9 rounded-full border-4 border-[#111118] shadow-2xl flex items-center justify-center font-black text-lg marker-pulse-green">A</div>
-          <div class="w-1 h-2.5 bg-emerald-500 rounded-full -mt-0.5 shadow-lg"></div>
+          <div class="bg-emerald-500 text-white w-8 h-8 rounded-full border-4 border-[#111118] shadow-2xl flex items-center justify-center font-black text-base marker-pulse-green">A</div>
+          <div class="w-1 h-2 bg-emerald-500 rounded-full -mt-0.5 shadow-lg"></div>
         </div>
       `,
-      iconSize: [145, 85],
-      iconAnchor: [72, 85],
+      iconSize: [140, 75],
+      iconAnchor: [70, 75],
     });
   };
 
@@ -798,16 +798,16 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
       className: "custom-div-icon",
       html: `
         <div class="relative flex flex-col items-center animate-fade-in">
-          <div class="bg-[#111118]/95 backdrop-blur-md border border-orange-500/30 rounded-2xl px-2.5 py-1 mb-1 shadow-2xl flex flex-col items-center min-w-[160px]">
-            <span class="text-[9px] font-black text-orange-400 uppercase tracking-widest leading-normal">DESTINATION</span>
-            <span class="text-[9.5px] font-bold text-white/95 mt-0.5 whitespace-nowrap px-1.5 py-0.5 bg-orange-500/10 rounded border border-orange-500/20">${etaText}</span>
+          <div class="bg-[#111118]/95 backdrop-blur-md border border-orange-500/30 rounded-xl px-2 py-1 mb-1.5 shadow-xl flex flex-col items-center">
+            <span class="text-[8px] font-black text-orange-400 uppercase tracking-wider leading-tight">DESTINATION</span>
+            <span class="text-[8.5px] font-bold text-white/95 mt-0.5 whitespace-nowrap px-1 py-0.5 bg-orange-500/10 rounded border border-orange-500/20">${etaText}</span>
           </div>
-          <div class="bg-orange-500 text-white w-9 h-9 rounded-full border-4 border-[#111118] shadow-2xl flex items-center justify-center font-black text-lg marker-pulse-orange">B</div>
-          <div class="w-1 h-2.5 bg-orange-500 rounded-full -mt-0.5 shadow-lg"></div>
+          <div class="bg-orange-500 text-white w-8 h-8 rounded-full border-4 border-[#111118] shadow-2xl flex items-center justify-center font-black text-base marker-pulse-orange">B</div>
+          <div class="w-1 h-2 bg-orange-500 rounded-full -mt-0.5 shadow-lg"></div>
         </div>
       `,
-      iconSize: [170, 85],
-      iconAnchor: [85, 85],
+      iconSize: [140, 75],
+      iconAnchor: [70, 75],
     });
   };
 
@@ -1356,9 +1356,8 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
       const remainingDurSecs = distToDest / 9.5;
       const realRemainingSecs = Math.max(0, remainingDurSecs - (secondsOffset % 30));
       const minsLeft = Math.floor(realRemainingSecs / 60);
-      const secsLeft = Math.floor(realRemainingSecs % 60);
       const etaTime = new Date(Date.now() + realRemainingSecs * 1000);
-      etaDestTextD = `EXPECTED ARRIVE BY ${formatTimeDriver(etaTime)} (Imebaki dk ${minsLeft} sek ${secsLeft})`;
+      etaDestTextD = `Kufika: ${formatTimeDriver(etaTime)} (dk ${minsLeft})`;
     } else {
       // heading to pickup: total duration = (driver to pickup) + (pickup to destination)
       const distToPickup = getDistanceDriver([position[0], position[1]], [activeRide.pickup.lat, activeRide.pickup.lng]);
@@ -1370,24 +1369,21 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
       const totalRemainingSecs = durToPickupSecs + durPickupToDestSecs;
       const realRemainingSecs = Math.max(0, totalRemainingSecs - secondsOffset);
       const minsLeft = Math.floor(realRemainingSecs / 60);
-      const secsLeft = Math.floor(realRemainingSecs % 60);
       const etaTime = new Date(Date.now() + realRemainingSecs * 1000);
-      etaDestTextD = `EXPECTED ARRIVE BY ${formatTimeDriver(etaTime)} (Imebaki dk ${minsLeft} sek ${secsLeft})`;
+      etaDestTextD = `Kufika: ${formatTimeDriver(etaTime)} (dk ${minsLeft})`;
     }
   } else if (incomingRequest) {
     const distToDest = getDistanceDriver([incomingRequest.pickup.lat, incomingRequest.pickup.lng], [incomingRequest.destination.lat, incomingRequest.destination.lng]);
     const etSecs = distToDest / 9.5;
     const realRemainingSecs = Math.max(0, etSecs - secondsOffset);
     const minsLeft = Math.floor(realRemainingSecs / 60);
-    const secsLeft = Math.floor(realRemainingSecs % 60);
     const etaTime = new Date(Date.now() + realRemainingSecs * 1000);
-    etaDestTextD = `EXPECTED ARRIVE BY ${formatTimeDriver(etaTime)} (Imebaki dk ${minsLeft} sek ${secsLeft})`;
+    etaDestTextD = `Kufika: ${formatTimeDriver(etaTime)} (dk ${minsLeft})`;
   } else {
     const realRemainingSecs = Math.max(0, 600 - secondsOffset);
     const minsLeft = Math.floor(realRemainingSecs / 60);
-    const secsLeft = Math.floor(realRemainingSecs % 60);
     const etaTime = new Date(Date.now() + realRemainingSecs * 1000);
-    etaDestTextD = `EXPECTED ARRIVE BY ${formatTimeDriver(etaTime)} (Imebaki dk ${minsLeft} sek ${secsLeft})`;
+    etaDestTextD = `Kufika: ${formatTimeDriver(etaTime)} (dk ${minsLeft})`;
   }
 
   const handleSubmitPoi = async (e: React.FormEvent) => {
