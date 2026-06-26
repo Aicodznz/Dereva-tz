@@ -1325,9 +1325,8 @@ export default function TaxiBooking() {
     }
 
     const sliced = [...fullRoute.slice(closestIndex)];
-    // Only smooth the first coordinate to the driver's exact position if the distance is tiny (within ~50m)
-    // 50m correspond to a squared degree distance of approximately 2.0e-7
-    if (sliced.length > 0 && minDistance < 2.0e-7) {
+    // Always connect the active trip line seamlessly to the driver's exact position to avoid any visual gap
+    if (sliced.length > 0) {
       sliced[0] = [currentPos.lat, currentPos.lng];
     }
     return sliced;

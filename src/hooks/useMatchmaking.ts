@@ -7,6 +7,11 @@ import { generateSimulatedRoads, interpolatePoints } from './useRouting';
 export function useMatchmaking(ride: Ride | null) {
   const [isSearching, setIsSearching] = useState(false);
   const simulationIntervalRef = useRef<any>(null);
+  const rideRef = useRef<Ride | null>(ride);
+
+  useEffect(() => {
+    rideRef.current = ride;
+  }, [ride]);
 
   useEffect(() => {
     if (!ride) {
@@ -243,7 +248,7 @@ export function useMatchmaking(ride: Ride | null) {
           const nextCoord = interpolatedTripCoords[currentIdx];
 
           // Simulate automatic driver deviation (taking a different turn) at ~35% of the journey
-          const hasDeviatedFlag = (ride as any).hasDeviated === true;
+          const hasDeviatedFlag = (rideRef.current as any)?.hasDeviated === true;
           if (!hasDeviatedFlag && currentIdx >= Math.floor(interpolatedTripCoords.length * 0.35) && currentIdx <= Math.floor(interpolatedTripCoords.length * 0.42)) {
             console.log("[Simulation] Driver is changing path/turning on another road! Simulating deviation...");
             const devLat = nextCoord[0] + 0.0022; // shift 240 meters away
