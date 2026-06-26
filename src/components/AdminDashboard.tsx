@@ -630,10 +630,27 @@ export default function AdminDashboard() {
   const [notifCategory, setNotifCategory] = useState<string>('System');
   const [isSending, setIsSending] = useState(false);
   const [adminSoundSettings, setAdminSoundSettings] = useState({
-    critical: 'https://assets.mixkit.co/active_storage/sfx/911/911-720.wav',
-    important: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-720.wav',
-    normal: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-720.wav'
+    critical: 'https://www.soundjay.com/misc/sounds/warning-horn-01.mp3',
+    important: 'https://www.soundjay.com/buttons/sounds/button-16.mp3',
+    normal: 'https://www.soundjay.com/buttons/sounds/button-3.mp3'
   });
+
+  const DEFAULT_NOTIFICATION_SOUNDS = {
+    critical: 'https://www.soundjay.com/misc/sounds/warning-horn-01.mp3',
+    important: 'https://www.soundjay.com/buttons/sounds/button-16.mp3',
+    normal: 'https://www.soundjay.com/buttons/sounds/button-3.mp3'
+  };
+
+  const handleAdminSoundReset = async () => {
+    try {
+      setAdminSoundSettings(DEFAULT_NOTIFICATION_SOUNDS);
+      await setDoc(doc(db, 'settings', 'notification_sounds'), DEFAULT_NOTIFICATION_SOUNDS);
+      toast.success("Mlio wa notification umerejeshwa kwenye milio mizuri ya awali!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Imeshindwa kurejesha milio ya awali.");
+    }
+  };
 
   // Load sound settings for admin
   useEffect(() => {
@@ -2261,10 +2278,16 @@ export default function AdminDashboard() {
 
              {/* Sound Configuration Card */}
              <Card className="rounded-[3rem] border-none shadow-2xl p-12 bg-neutral-950 text-white space-y-8">
-                <CardHeader className="text-center p-0">
+                <CardHeader className="text-center p-0 flex flex-col items-center justify-center">
                    <Volume2 className="w-14 h-14 text-orange-500 mx-auto mb-4 animate-pulse" />
-                   <CardTitle className="text-2xl font-black uppercase tracking-widest">Global Sounds & Audio Alerts</CardTitle>
-                   <CardDescription className="text-neutral-500 font-bold uppercase tracking-widest text-[9px]">Weza Link au pakia sauti (audio files) kwa umuhimu wa taarifa</CardDescription>
+                   <CardTitle className="text-2xl font-black uppercase tracking-widest text-center">Global Sounds & Audio Alerts</CardTitle>
+                   <CardDescription className="text-neutral-500 font-bold uppercase tracking-widest text-[9px] text-center mb-4">Weza Link au pakia sauti (audio files) kwa umuhimu wa taarifa</CardDescription>
+                   <Button 
+                     onClick={handleAdminSoundReset} 
+                     className="bg-neutral-900 border border-orange-500/30 text-orange-500 hover:bg-orange-500/10 hover:text-orange-400 rounded-2xl h-10 px-4 text-[10px] font-black uppercase tracking-wider flex items-center gap-2 transition-all shadow-lg"
+                   >
+                     <Undo2 className="w-3.5 h-3.5" /> Rudisha Sauti za Awali
+                   </Button>
                 </CardHeader>
                 <CardContent className="space-y-8 p-0">
                    

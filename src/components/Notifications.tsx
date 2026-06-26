@@ -11,7 +11,8 @@ import {
   Bell, CheckCircle2, Settings, ChevronRight, ShoppingBag, Tag, Star,
   AlertCircle, Info, Car, Utensils, ShoppingCart, Pill, Package, Bus, Key,
   Hotel, Scissors, CreditCard, MessageSquare, Megaphone, Shield, Navigation,
-  Volume2, VolumeX, Upload, Play, Sparkles, Plus, X, User, Users, Check, Flame, AlertTriangle
+  Volume2, VolumeX, Upload, Play, Sparkles, Plus, X, User, Users, Check, Flame, AlertTriangle,
+  Undo2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
@@ -41,9 +42,9 @@ interface SoundSettings {
 }
 
 const DEFAULT_SOUNDS: SoundSettings = {
-  critical: 'https://assets.mixkit.co/active_storage/sfx/911/911-720.wav', // Emergency siren
-  important: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-720.wav', // Chime/ping
-  normal: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-720.wav', // Pop chime
+  critical: 'https://www.soundjay.com/misc/sounds/warning-horn-01.mp3', // Loud industrial siren / warning horn
+  important: 'https://www.soundjay.com/buttons/sounds/button-16.mp3', // Crisp bell chime
+  normal: 'https://www.soundjay.com/buttons/sounds/button-3.mp3', // Soft pop/click
 };
 
 const CATEGORIES = [
@@ -335,6 +336,17 @@ export default function Notifications() {
     } catch (err) {
       console.error(err);
       toast.error("Imefeli kusave link.");
+    }
+  };
+
+  const handleCustomSoundReset = async () => {
+    try {
+      setSoundSettings(DEFAULT_SOUNDS);
+      await setDoc(doc(db, 'settings', 'notification_sounds'), DEFAULT_SOUNDS);
+      toast.success("Mlio wa notification umerejeshwa kwenye sauti safi za awali!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Imeshindwa kurejesha sauti za awali.");
     }
   };
 
@@ -659,12 +671,20 @@ export default function Notifications() {
       {activeTab === 'sound_settings' && (
         <div className="space-y-8">
           <div className="bg-neutral-900 text-white rounded-[2.5rem] p-8 space-y-6 shadow-2xl">
-            <div className="flex items-center gap-3">
-              <Volume2 className="w-8 h-8 text-orange-500" />
-              <div>
-                <CardTitle className="text-xl font-black uppercase tracking-widest">Notification Sounds Config</CardTitle>
-                <CardDescription className="text-neutral-500 font-bold uppercase tracking-wider text-[9px]">Sanidi mlio wa taarifa kulingana na umuhimu wake</CardDescription>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800 pb-4">
+              <div className="flex items-center gap-3">
+                <Volume2 className="w-8 h-8 text-orange-500" />
+                <div>
+                  <CardTitle className="text-xl font-black uppercase tracking-widest">Notification Sounds Config</CardTitle>
+                  <CardDescription className="text-neutral-500 font-bold uppercase tracking-wider text-[9px]">Sanidi mlio wa taarifa kulingana na umuhimu wake</CardDescription>
+                </div>
               </div>
+              <Button 
+                onClick={handleCustomSoundReset} 
+                className="bg-neutral-800 border border-orange-500/30 text-orange-500 hover:bg-orange-500/10 hover:text-orange-400 rounded-2xl h-10 px-4 text-[10px] font-black uppercase tracking-wider flex items-center gap-2 transition-all shadow-lg self-start sm:self-auto"
+              >
+                <Undo2 className="w-3.5 h-3.5" /> Rudisha Sauti za Awali
+              </Button>
             </div>
 
             <div className="space-y-8 mt-6">
