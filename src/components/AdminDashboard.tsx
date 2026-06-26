@@ -22,7 +22,8 @@ import {
   ExternalLink, Search, Ban, History, BarChart3, Settings, Info, CreditCard, Star, Key,
   Package, Undo2, Bike, Trophy, Wallet, MessageSquare, Globe, Clock, Coins, Moon, Loader2, Zap,
   Bed, Wifi, Wind, Monitor, Car, Waves, MapPin, Mail, Phone, PhoneCall, FileText, User, Camera,
-  Menu, MoreHorizontal, MoreVertical, LayoutGrid, LogOut, ArrowUp, ArrowDown
+  Menu, MoreHorizontal, MoreVertical, LayoutGrid, LogOut, ArrowUp, ArrowDown,
+  Volume2, Play, Upload
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -625,7 +626,75 @@ export default function AdminDashboard() {
   const [notifBody, setNotifBody] = useState('');
   const [notifImage, setNotifImage] = useState('');
   const [notifTarget, setNotifTarget] = useState<'all' | string>('all');
+  const [notifImportance, setNotifImportance] = useState<'critical' | 'important' | 'normal' | 'silent'>('normal');
+  const [notifCategory, setNotifCategory] = useState<string>('System');
   const [isSending, setIsSending] = useState(false);
+  const [adminSoundSettings, setAdminSoundSettings] = useState({
+    critical: 'https://assets.mixkit.co/active_storage/sfx/911/911-720.wav',
+    important: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-720.wav',
+    normal: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-720.wav'
+  });
+
+  // Load sound settings for admin
+  useEffect(() => {
+    const fetchAdminSounds = async () => {
+      try {
+        const docSnap = await getDoc(doc(db, 'settings', 'notification_sounds'));
+        if (docSnap.exists()) {
+          setAdminSoundSettings(docSnap.data() as any);
+        }
+      } catch (err) {
+        console.error("Failed to load sounds for admin panel:", err);
+      }
+    };
+    if (activeTab === 'notifications') {
+      fetchAdminSounds();
+    }
+  }, [activeTab]);
+
+  const handleAdminSoundSave = async (importance: string, url: string) => {
+    try {
+      const updated = { ...adminSoundSettings, [importance]: url };
+      setAdminSoundSettings(updated);
+      await setDoc(doc(db, 'settings', 'notification_sounds'), updated);
+      toast.success(`Mlio wa ${importance} umesasishwa kikamilifu!`);
+    } catch (err) {
+      console.error(err);
+      toast.error("Imeshindwa kusave mlio.");
+    }
+  };
+
+  const handleAdminSoundUpload = async (importance: string, file: File) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const base64Url = e.target?.result as string;
+      if (!base64Url) return;
+      try {
+        const updated = { ...adminSoundSettings, [importance]: base64Url };
+        setAdminSoundSettings(updated);
+        await setDoc(doc(db, 'settings', 'notification_sounds'), updated);
+        toast.success(`Sauti ya ${importance} imepakiwa na kuhifadhiwa!`);
+      } catch (err) {
+        console.error(err);
+        toast.error("Imefeli kuhifadhi sauti.");
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const playAdminSound = (importance: string) => {
+    try {
+      // @ts-ignore
+      const url = adminSoundSettings[importance];
+      const audio = new Audio(url);
+      audio.play().catch(err => {
+        toast.info("Ruhusu sauti kwenye browser yako kwanza.");
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   // Stats / Finances (Mongike 3.5% fee estimated)
   const stats = useMemo(() => {
@@ -885,6 +954,8 @@ export default function AdminDashboard() {
           imageUrl: notifImage || null,
           userId: uid,
           type: 'system',
+          importance: notifImportance,
+          category: notifCategory,
           isRead: false,
           createdAt: serverTimestamp()
         })
@@ -2103,42 +2174,184 @@ export default function AdminDashboard() {
         )}
 
         {activeTab === 'notifications' && (
-          <motion.div key="notifications" className="max-w-2xl mx-auto py-12">
+          <motion.div key="notifications" className="max-w-3xl mx-auto py-12 space-y-12">
+             {/* Broadcast Card */}
              <Card className="rounded-[3rem] border-none shadow-2xl p-12 bg-neutral-900 text-white">
                 <CardHeader className="text-center">
-                   <Megaphone className="w-16 h-16 text-orange-600 mx-auto mb-6" />
+                   <Megaphone className="w-16 h-16 text-orange-600 mx-auto mb-6 animate-bounce" />
                    <CardTitle className="text-3xl font-black italic uppercase tracking-widest">{t('admin_broadcast_title')}</CardTitle>
                    <CardDescription className="text-neutral-500 font-bold uppercase tracking-widest text-[10px]">{t('admin_broadcast_subtitle')}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-8 mt-8">
-                   <div className="space-y-3">
-                      <label className="text-[10px] font-black uppercase tracking-[0.3rem] text-neutral-500">Target Audience</label>
-                      <select 
-                        className="w-full h-16 px-6 rounded-2xl bg-neutral-800 border-none transition-colors outline-none font-bold text-white"
-                        value={notifTarget}
-                        onChange={(e) => setNotifTarget(e.target.value)}
-                      >
-                        <option value="all">All Users & Drivers</option>
-                        {allUsers.filter(u => u.role === 'admin' || u.role === 'customer').map((u, idx) => (
-                          <option key={u.id || `notif-user-${idx}`} value={u.id}>{u.displayName} ({u.role})</option>
-                        ))}
-                      </select>
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-3">
+                         <label className="text-[10px] font-black uppercase tracking-[0.3rem] text-neutral-500">Target Audience</label>
+                         <select 
+                           className="w-full h-16 px-6 rounded-2xl bg-neutral-800 border-none transition-colors outline-none font-bold text-white"
+                           value={notifTarget}
+                           onChange={(e) => setNotifTarget(e.target.value)}
+                         >
+                           <option value="all">All Users & Drivers</option>
+                           {allUsers.filter(u => u.role === 'admin' || u.role === 'customer').map((u, idx) => (
+                             <option key={u.id || `notif-user-${idx}`} value={u.id}>{u.displayName} ({u.role})</option>
+                           ))}
+                         </select>
+                      </div>
+                      <div className="space-y-3">
+                         <label className="text-[10px] font-black uppercase tracking-[0.3rem] text-neutral-500">Category</label>
+                         <select 
+                           className="w-full h-16 px-6 rounded-2xl bg-neutral-800 border-none transition-colors outline-none font-bold text-white"
+                           value={notifCategory}
+                           onChange={(e) => setNotifCategory(e.target.value)}
+                         >
+                           <option value="System">⚙️ System</option>
+                           <option value="Transport">🚖 Transport</option>
+                           <option value="Food">🍔 Food</option>
+                           <option value="Shopping">🛒 Shopping</option>
+                           <option value="Pharmacy">💊 Pharmacy</option>
+                           <option value="Parcel">📦 Parcel</option>
+                           <option value="Bus Tickets">🎫 Bus Tickets</option>
+                           <option value="Car Rental">🚗 Car Rental</option>
+                           <option value="Hotels">🏨 Hotels</option>
+                           <option value="Salon">💇 Salon</option>
+                           <option value="Payments">💰 Payments</option>
+                           <option value="Messages">💬 Messages</option>
+                           <option value="Promotions">📢 Promotions</option>
+                           <option value="Security">🔐 Security</option>
+                           <option value="Navigation">🗺️ Navigation</option>
+                         </select>
+                      </div>
                    </div>
-                   <div className="space-y-3">
-                      <label className="text-[10px] font-black uppercase tracking-[0.3rem] text-neutral-500">{t('admin_alert_title')}</label>
-                      <Input className="bg-neutral-800 border-none h-16 rounded-2xl font-bold text-white placeholder:text-neutral-600" value={notifTitle} onChange={e => setNotifTitle(e.target.value)} placeholder="What's happening?" />
+
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-3">
+                         <label className="text-[10px] font-black uppercase tracking-[0.3rem] text-neutral-500">Alert Title</label>
+                         <Input className="bg-neutral-800 border-none h-16 rounded-2xl font-bold text-white placeholder:text-neutral-600" value={notifTitle} onChange={e => setNotifTitle(e.target.value)} placeholder="What's happening?" />
+                      </div>
+                      <div className="space-y-3">
+                         <label className="text-[10px] font-black uppercase tracking-[0.3rem] text-neutral-500">Importance</label>
+                         <select 
+                           className="w-full h-16 px-6 rounded-2xl bg-neutral-800 border-none transition-colors outline-none font-bold text-white"
+                           value={notifImportance}
+                           onChange={(e) => setNotifImportance(e.target.value as any)}
+                         >
+                           <option value="normal">Normal (Notification Only)</option>
+                           <option value="important">Important (Sound + Notification)</option>
+                           <option value="critical">Critical (Siren + Fullscreen Loop)</option>
+                           <option value="silent">Silent (Quiet)</option>
+                         </select>
+                      </div>
                    </div>
+
                    <div className="space-y-3">
                       <label className="text-[10px] font-black uppercase tracking-[0.3rem] text-neutral-500">Image URL (Optional)</label>
                       <Input className="bg-neutral-800 border-none h-16 rounded-2xl font-bold text-white placeholder:text-neutral-600" value={notifImage} onChange={e => setNotifImage(e.target.value)} placeholder="https://..." />
                    </div>
+
                    <div className="space-y-3">
                       <label className="text-[10px] font-black uppercase tracking-[0.3rem] text-neutral-500">{t('admin_alert_content')}</label>
-                      <Textarea className="bg-neutral-800 border-none min-h-[160px] rounded-[2rem] font-bold text-white placeholder:text-neutral-600" value={notifBody} onChange={e => setNotifBody(e.target.value)} placeholder="Tell them everything..." />
+                      <Textarea className="bg-neutral-800 border-none min-h-[140px] rounded-[2rem] font-bold text-white placeholder:text-neutral-600" value={notifBody} onChange={e => setNotifBody(e.target.value)} placeholder="Tell them everything..." />
                    </div>
+
                    <Button disabled={isSending} onClick={handleSendNotification} className="w-full h-20 bg-orange-600 hover:bg-orange-700 text-xl font-black uppercase tracking-widest rounded-[2rem] shadow-2xl shadow-orange-900/50">
                       {isSending ? 'Transmitting...' : t('admin_initiate_broadcast')}
                    </Button>
+                </CardContent>
+             </Card>
+
+             {/* Sound Configuration Card */}
+             <Card className="rounded-[3rem] border-none shadow-2xl p-12 bg-neutral-950 text-white space-y-8">
+                <CardHeader className="text-center p-0">
+                   <Volume2 className="w-14 h-14 text-orange-500 mx-auto mb-4 animate-pulse" />
+                   <CardTitle className="text-2xl font-black uppercase tracking-widest">Global Sounds & Audio Alerts</CardTitle>
+                   <CardDescription className="text-neutral-500 font-bold uppercase tracking-widest text-[9px]">Weza Link au pakia sauti (audio files) kwa umuhimu wa taarifa</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-8 p-0">
+                   
+                   {/* Critical Sound */}
+                   <div className="space-y-4 border-b border-neutral-900 pb-6">
+                      <div className="flex items-center justify-between">
+                         <span className="text-xs font-black uppercase tracking-[0.15rem] text-red-500">🔴 Critical Sound URL</span>
+                         <button onClick={() => playAdminSound('critical')} className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
+                            <Play className="w-3.5 h-3.5" /> Skiliza
+                         </button>
+                      </div>
+                      <div className="flex gap-3">
+                         <Input 
+                           className="bg-neutral-900 border-none h-14 rounded-xl text-xs text-white" 
+                           value={adminSoundSettings.critical} 
+                           onChange={e => setAdminSoundSettings({ ...adminSoundSettings, critical: e.target.value })}
+                           placeholder="https://..."
+                         />
+                         <Button onClick={() => handleAdminSoundSave('critical', adminSoundSettings.critical)} className="h-14 bg-orange-600 hover:bg-orange-700 text-xs font-bold rounded-xl px-4">Save</Button>
+                      </div>
+                      <label className="inline-flex items-center gap-2 cursor-pointer bg-neutral-900 hover:bg-neutral-800 px-4 py-2.5 rounded-xl text-xs font-bold text-neutral-300 transition-all">
+                         <Upload className="w-4 h-4 text-orange-500" /> Upload Custom Sound
+                         <input 
+                           type="file" 
+                           accept="audio/*" 
+                           className="hidden" 
+                           onChange={e => e.target.files?.[0] && handleAdminSoundUpload('critical', e.target.files[0])}
+                         />
+                      </label>
+                   </div>
+
+                   {/* Important Sound */}
+                   <div className="space-y-4 border-b border-neutral-900 pb-6">
+                      <div className="flex items-center justify-between">
+                         <span className="text-xs font-black uppercase tracking-[0.15rem] text-orange-500">🟠 Important Sound URL</span>
+                         <button onClick={() => playAdminSound('important')} className="px-3 py-1.5 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
+                            <Play className="w-3.5 h-3.5" /> Skiliza
+                         </button>
+                      </div>
+                      <div className="flex gap-3">
+                         <Input 
+                           className="bg-neutral-900 border-none h-14 rounded-xl text-xs text-white" 
+                           value={adminSoundSettings.important} 
+                           onChange={e => setAdminSoundSettings({ ...adminSoundSettings, important: e.target.value })}
+                           placeholder="https://..."
+                         />
+                         <Button onClick={() => handleAdminSoundSave('important', adminSoundSettings.important)} className="h-14 bg-orange-600 hover:bg-orange-700 text-xs font-bold rounded-xl px-4">Save</Button>
+                      </div>
+                      <label className="inline-flex items-center gap-2 cursor-pointer bg-neutral-900 hover:bg-neutral-800 px-4 py-2.5 rounded-xl text-xs font-bold text-neutral-300 transition-all">
+                         <Upload className="w-4 h-4 text-orange-500" /> Upload Custom Sound
+                         <input 
+                           type="file" 
+                           accept="audio/*" 
+                           className="hidden" 
+                           onChange={e => e.target.files?.[0] && handleAdminSoundUpload('important', e.target.files[0])}
+                         />
+                      </label>
+                   </div>
+
+                   {/* Normal Sound */}
+                   <div className="space-y-4 pb-2">
+                      <div className="flex items-center justify-between">
+                         <span className="text-xs font-black uppercase tracking-[0.15rem] text-neutral-400">🟢 Normal Sound URL</span>
+                         <button onClick={() => playAdminSound('normal')} className="px-3 py-1.5 bg-neutral-950 hover:bg-neutral-900 text-neutral-400 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
+                            <Play className="w-3.5 h-3.5" /> Skiliza
+                         </button>
+                      </div>
+                      <div className="flex gap-3">
+                         <Input 
+                           className="bg-neutral-900 border-none h-14 rounded-xl text-xs text-white" 
+                           value={adminSoundSettings.normal} 
+                           onChange={e => setAdminSoundSettings({ ...adminSoundSettings, normal: e.target.value })}
+                           placeholder="https://..."
+                         />
+                         <Button onClick={() => handleAdminSoundSave('normal', adminSoundSettings.normal)} className="h-14 bg-orange-600 hover:bg-orange-700 text-xs font-bold rounded-xl px-4">Save</Button>
+                      </div>
+                      <label className="inline-flex items-center gap-2 cursor-pointer bg-neutral-900 hover:bg-neutral-800 px-4 py-2.5 rounded-xl text-xs font-bold text-neutral-300 transition-all">
+                         <Upload className="w-4 h-4 text-orange-500" /> Upload Custom Sound
+                         <input 
+                           type="file" 
+                           accept="audio/*" 
+                           className="hidden" 
+                           onChange={e => e.target.files?.[0] && handleAdminSoundUpload('normal', e.target.files[0])}
+                         />
+                      </label>
+                   </div>
+
                 </CardContent>
              </Card>
           </motion.div>
