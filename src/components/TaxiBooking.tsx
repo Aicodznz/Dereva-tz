@@ -454,6 +454,22 @@ export default function TaxiBooking() {
   const [secondsOffset, setSecondsOffset] = useState<number>(0);
   const justSelectedRef = useRef(false);
 
+  const [taxiBanners, setTaxiBanners] = useState<{ id?: string; title: string; sub: string; img: string; active?: boolean }[]>([]);
+
+  useEffect(() => {
+    const bannersRef = collection(db, "banners");
+    const unsubscribe = onSnapshot(query(bannersRef), (snap) => {
+      const list = snap.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as any[];
+      setTaxiBanners(list.filter((b) => b.active !== false && b.img));
+    }, (error) => {
+      console.error("Error fetching banners in TaxiBooking:", error);
+    });
+    return unsubscribe;
+  }, []);
+
   const [rideId, setRideId] = useState<string | null>(null);
   const { ride: activeRide, cancelRide, deleteRide } = useTripFlow(rideId);
 
@@ -3486,20 +3502,20 @@ export default function TaxiBooking() {
                     </span>
                   </div>
 
-                  <div className="bg-[#0a0a0f]/60 backdrop-blur-xl border border-white/5 rounded-3xl p-6 relative">
-                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-[#7F77DD] opacity-30 rounded-t-3xl" />
-                    <div className="space-y-6">
+                  <div className="bg-[#0a0a0f]/60 backdrop-blur-xl border border-white/5 rounded-2xl p-4 relative">
+                    <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-emerald-500 to-[#7F77DD] opacity-30 rounded-t-2xl" />
+                    <div className="space-y-4">
                       <div 
-                        className="flex items-center gap-4 cursor-pointer"
+                        className="flex items-center gap-3 cursor-pointer"
                         onClick={() => setSettingMode("destination")}
                       >
                         <div
-                          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${settingMode === "destination" ? "bg-red-500 text-white shadow-lg" : "bg-white/5 text-[#6b6b8a]"}`}
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${settingMode === "destination" ? "bg-red-500 text-white shadow-md scale-95" : "bg-white/5 text-[#6b6b8a]"}`}
                         >
-                          <Search className="w-5 h-5" />
+                          <Search className="w-4 h-4" />
                         </div>
                         <div className="flex-1 overflow-hidden">
-                          <p className="text-[9px] font-black text-[#6b6b8a] uppercase tracking-widest mb-1">
+                          <p className="text-[8.5px] font-black text-[#6b6b8a] uppercase tracking-wider mb-0.5">
                             UNAKWENDA WAPI?
                           </p>
                           <input
@@ -3510,7 +3526,7 @@ export default function TaxiBooking() {
                               geocodeAddress(e.target.value);
                             }}
                             onFocus={() => setSettingMode("destination")}
-                            className="w-full bg-transparent text-sm font-bold text-white border-none outline-none p-0 placeholder:text-neutral-700 italic"
+                            className="w-full bg-transparent text-xs font-bold text-white border-none outline-none p-0 placeholder:text-neutral-700 italic"
                             placeholder="Andika hapa unapoenda"
                           />
                         </div>
@@ -3522,14 +3538,54 @@ export default function TaxiBooking() {
                               setIsMapFullscreen(true);
                               toast.success("Gusa popote kwenye ramani ili kuchagua unakokwenda! 📍");
                             }}
-                            className="w-10 h-10 flex items-center justify-center rounded-xl bg-[#7F77DD]/15 border border-[#7F77DD]/35 text-[#7F77DD] hover:bg-[#7F77DD]/30 active:scale-90 transition-all shadow-md shadow-[#7F77DD]/10 group"
+                            className="w-9 h-9 flex items-center justify-center rounded-xl bg-[#7F77DD]/15 border border-[#7F77DD]/35 text-[#7F77DD] hover:bg-[#7F77DD]/30 active:scale-90 transition-all shadow-md group"
                             title="Chagua kwa Ramani"
                           >
-                            <Map className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                            <Map className="w-3.5 h-3.5 group-hover:scale-105 transition-transform" />
                           </button>
                         </div>
                       </div>
                     </div>
+
+                    {/* Compact slide banner of active promotional banners inside/under the destination box */}
+                    {(() => {
+                      const isHomepageOnly = config.taxiBannerPlacement === 'homepage';
+                      const showBannerHere = isHomepageOnly ? !destination : true;
+                      if (!showBannerHere || taxiBanners.length === 0) return null;
+                      return (
+                        <div className="w-full mt-3 pt-3 border-t border-white/5 overflow-hidden">
+                          <div className="flex gap-2.5 overflow-x-auto pb-1 no-scrollbar snap-x scroll-smooth">
+                            {taxiBanners.map((banner, idx) => (
+                              <div
+                                key={`taxi-banner-${banner.id || idx}`}
+                                className="min-w-full h-24 rounded-2xl overflow-hidden relative snap-center shadow-md group border border-white/5 shrink-0"
+                              >
+                                <img
+                                  src={banner.img}
+                                  alt={banner.title}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                                  referrerPolicy="no-referrer"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent flex flex-col justify-end p-3.5 text-white">
+                                  <span className="absolute top-1.5 left-2 flex items-center gap-1 px-1.5 py-0.5 bg-white/10 backdrop-blur-md rounded-full border border-white/15 text-[7.5px] font-black uppercase tracking-widest text-[#00E5A0]">
+                                    Ofa Maalum
+                                  </span>
+                                  <h4 className="text-[11px] font-black uppercase italic tracking-tight">{banner.title}</h4>
+                                  <p className="text-[8.5px] opacity-80 font-bold uppercase tracking-wider">{banner.sub}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          {taxiBanners.length > 1 && (
+                            <div className="flex justify-center gap-1 mt-1.5">
+                              {taxiBanners.map((_, i) => (
+                                <div key={`dot-${i}`} className="w-1 h-1 rounded-full bg-white/20" />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     {suggestions.length > 0 && (
                       <div className="absolute left-0 right-0 top-full mt-2 z-[100] bg-[#14141f] border-2 border-[#7f77dd]/30 rounded-3xl shadow-2xl overflow-hidden max-h-[300px] overflow-y-auto">
@@ -3689,45 +3745,7 @@ export default function TaxiBooking() {
                     </div>
                   )}
 
-                  {/* Summary Dynamic Trip Ticket Panel for better user confirmation as explicitly requested */}
-                  {destination && totalDistance > 0 && selectedRide && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ duration: 0.3 }}
-                      className="w-full bg-[#161626]/90 border border-emerald-500/35 rounded-[24px] p-4 flex flex-col gap-2.5 select-none my-2.5 shadow-[0_0_20px_rgba(16,185,129,0.08)] relative overflow-hidden"
-                    >
-                      <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none" />
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                          <p className="text-[9.5px] font-black text-emerald-400 uppercase tracking-wider">MAKADIRIO YA SAFARI (TRIP ESTIMATE)</p>
-                        </div>
-                        <span className="text-[8px] font-black text-[#7F77DD] uppercase tracking-widest bg-[#7F77DD]/10 px-2 py-0.5 rounded-full border border-[#7F77DD]/15">
-                          {selectedRide.name} ⚡
-                        </span>
-                      </div>
-                      
-                      <div className="flex items-center justify-between gap-2 border-t border-white/5 pt-2.5 mt-0.5">
-                        <div className="flex flex-col">
-                          <span className="text-[8.5px] text-neutral-400 font-extrabold uppercase tracking-wide">Kiasi cha Kulipa (Fare)</span>
-                          <span className="text-[15px] font-black italic text-emerald-400 tracking-tight mt-0.5">
-                            TZS {selectedRide.price.toLocaleString()}
-                          </span>
-                        </div>
-                        <div className="flex flex-col items-end">
-                          <span className="text-[8.5px] text-neutral-400 font-extrabold uppercase tracking-wide">Muda wa Kufika Dereva (ETA)</span>
-                          <span className="text-[15px] font-black text-white tracking-tight mt-0.5 flex items-center gap-1 leading-none">
-                            <span className="text-[#9c95ff]">{selectedRide.eta}</span>
-                            <span className="text-[9px] font-black uppercase text-neutral-400">Dakika</span>
-                          </span>
-                        </div>
-                      </div>
-                      <div className="text-[8px] bg-emerald-500/5 border border-emerald-500/10 p-2 rounded-xl text-emerald-400/90 font-bold leading-relaxed text-center">
-                        Dereva wa karibu zaidi atakufikia kwa takribani dakika <strong className="text-white font-black">{selectedRide.eta}</strong> akipokea ombi lako.
-                      </div>
-                    </motion.div>
-                  )}
+
                   
                   <button
                     onClick={() => {

@@ -2094,6 +2094,40 @@ export default function AdminDashboard() {
                 </Card>
               ))}
             </div>
+
+            {/* Slide Banner Location Setting */}
+            <Card className="rounded-[2rem] border-none shadow-xl bg-orange-50/25 p-6 space-y-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-sm font-black uppercase italic tracking-tight text-neutral-900 dark:text-white">
+                    Mahali pa Bango la Usafiri / Taxi Banner Placement
+                  </h3>
+                  <p className="text-[10.5px] text-neutral-500 font-medium mt-1">
+                    Chagua kama bango la usafiri lioneshwe kwenye Ukurasa Mkuu (Homepage) tu au Chini ya sehemu ya kuweka unapokwenda kila wakati.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <select
+                    value={businessConfig.taxiBannerPlacement || "under_search"}
+                    onChange={async (e) => {
+                      const val = e.target.value;
+                      const updated = { ...businessConfig, taxiBannerPlacement: val };
+                      setBusinessConfig(updated);
+                      try {
+                        await setDoc(doc(db, 'config', 'business'), { ...updated, updatedAt: serverTimestamp() });
+                        toast.success("Mpangilio wa bango la usafiri umehifadhiwa kikamilifu! 🎯");
+                      } catch (err) {
+                        toast.error("Imeshindwa kuhifadhi mpangilio: " + (err as any).message);
+                      }
+                    }}
+                    className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl px-4 py-2.5 text-xs font-bold outline-none cursor-pointer shadow-sm"
+                  >
+                    <option value="under_search">Chini ya Unakokwenda (Under Search)</option>
+                    <option value="homepage">Homepage Pekee (Homepage Only)</option>
+                  </select>
+                </div>
+              </div>
+            </Card>
           </motion.div>
         )}
 
