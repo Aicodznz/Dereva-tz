@@ -2793,8 +2793,8 @@ export default function TaxiBooking() {
   }
 
   return (
-    <div className="max-w-md mx-auto bg-neutral-50 w-full flex flex-col relative overflow-hidden font-sans text-neutral-800 border-x border-neutral-200/60 h-[100dvh]">
-      <div className="absolute inset-0 bg-[#f8f9fa]" />
+    <div className={`max-w-md mx-auto ${theme === "dark" ? "bg-[#0a0a0f] text-[#f0eeff] border-neutral-800" : "bg-neutral-50 text-neutral-800 border-neutral-200/60"} w-full flex flex-col relative overflow-hidden font-sans border-x h-[100dvh]`}>
+      <div className={`absolute inset-0 ${theme === "dark" ? "bg-[#0a0a0f]" : "bg-[#f8f9fa]"}`} />
 
       {/* DEBUG FLAG */}
       <div className="hidden">DEBUG_RENDER_ACTIVE_{step}</div>
@@ -2822,7 +2822,7 @@ export default function TaxiBooking() {
                   <div className="relative pointer-events-auto">
                     <button
                       onClick={() => setShowMenu(!showMenu)}
-                      className="w-10 h-10 sm:w-12 sm:h-12 bg-white/95 backdrop-blur-xl rounded-xl sm:rounded-2xl border border-neutral-200/80 flex items-center justify-center shadow-md active:scale-90 transition-all text-neutral-800 hover:text-indigo-600 hover:border-indigo-300"
+                      className={`w-10 h-10 sm:w-12 sm:h-12 backdrop-blur-xl rounded-xl sm:rounded-2xl flex items-center justify-center shadow-md active:scale-90 transition-all border ${theme === 'dark' ? 'bg-[#111118]/95 border-neutral-800 text-neutral-200 hover:text-indigo-400 hover:border-indigo-900' : 'bg-white/95 border-neutral-200/80 text-neutral-800 hover:text-indigo-600 hover:border-indigo-300'}`}
                       title="Fungua Menu"
                     >
                       <Menu className="w-5 h-5 sm:w-6 sm:h-6" />
@@ -2841,33 +2841,33 @@ export default function TaxiBooking() {
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             exit={{ opacity: 0, y: -10, scale: 0.95 }}
                             transition={{ duration: 0.15 }}
-                            className="absolute left-0 mt-2 w-52 bg-white/95 backdrop-blur-2xl border border-neutral-200/80 rounded-xl sm:rounded-2xl shadow-xl py-2 z-50 flex flex-col overflow-hidden"
+                            className={`absolute left-0 mt-2 w-52 backdrop-blur-2xl rounded-xl sm:rounded-2xl shadow-xl py-2 z-50 flex flex-col overflow-hidden border ${theme === 'dark' ? 'bg-[#111118]/95 border-neutral-800' : 'bg-white/95 border-neutral-200/80'}`}
                           >
                             <button
                               onClick={() => {
                                 setShowMenu(false);
                                 navigate("/");
                               }}
-                              className="w-full text-left px-4 py-3 text-xs sm:text-sm text-neutral-700 hover:text-indigo-600 hover:bg-neutral-50 flex items-center gap-3 transition-colors font-bold"
+                              className={`w-full text-left px-4 py-3 text-xs sm:text-sm flex items-center gap-3 transition-colors font-bold ${theme === 'dark' ? 'text-neutral-300 hover:text-indigo-400 hover:bg-neutral-900/60' : 'text-neutral-700 hover:text-indigo-600 hover:bg-neutral-50'}`}
                             >
                               <Home className="w-4 h-4 text-indigo-500" />
                               <span>Rudi Nyumbani</span>
                             </button>
                             
-                            <div className="w-full border-b border-neutral-100" />
+                            <div className={`w-full border-b ${theme === 'dark' ? 'border-neutral-800/60' : 'border-neutral-100'}`} />
 
                             <button
                               onClick={() => {
                                 setShowMenu(false);
                                 navigate("/taxi/history");
                               }}
-                              className="w-full text-left px-4 py-3 text-xs sm:text-sm text-neutral-700 hover:text-indigo-600 hover:bg-neutral-50 flex items-center gap-3 transition-colors font-bold"
+                              className={`w-full text-left px-4 py-3 text-xs sm:text-sm flex items-center gap-3 transition-colors font-bold ${theme === 'dark' ? 'text-neutral-300 hover:text-indigo-400 hover:bg-neutral-900/60' : 'text-neutral-700 hover:text-indigo-600 hover:bg-neutral-50'}`}
                             >
                               <Clock className="w-4 h-4 text-emerald-500" />
                               <span>Historia ya Safari</span>
                             </button>
 
-                            <div className="w-full border-b border-neutral-100" />
+                            <div className={`w-full border-b ${theme === 'dark' ? 'border-neutral-800/60' : 'border-neutral-100'}`} />
 
                             <button
                               onClick={() => {
@@ -2875,7 +2875,7 @@ export default function TaxiBooking() {
                                 setIsMapFullscreen(!isMapFullscreen);
                                 if (!isMapFullscreen) setAutoFollow(true);
                               }}
-                              className="w-full text-left px-4 py-3 text-xs sm:text-sm text-neutral-700 hover:text-indigo-600 hover:bg-neutral-50 flex items-center gap-3 transition-colors font-bold"
+                              className={`w-full text-left px-4 py-3 text-xs sm:text-sm flex items-center gap-3 transition-colors font-bold ${theme === 'dark' ? 'text-neutral-300 hover:text-indigo-400 hover:bg-neutral-900/60' : 'text-neutral-700 hover:text-indigo-600 hover:bg-neutral-50'}`}
                             >
                               {isMapFullscreen ? (
                                 <>
@@ -2890,14 +2890,14 @@ export default function TaxiBooking() {
                               )}
                             </button>
 
-                            <div className="w-full border-b border-neutral-100" />
+                            <div className={`w-full border-b ${theme === 'dark' ? 'border-neutral-800/60' : 'border-neutral-100'}`} />
 
                             <button
                               onClick={() => {
                                 setShowMenu(false);
                                 setNextTheme(theme === "dark" ? "light" : "dark");
                               }}
-                              className="w-full text-left px-4 py-3 text-xs sm:text-sm text-neutral-700 hover:text-indigo-600 hover:bg-neutral-50 flex items-center gap-3 transition-colors font-bold"
+                              className={`w-full text-left px-4 py-3 text-xs sm:text-sm flex items-center gap-3 transition-colors font-bold ${theme === 'dark' ? 'text-neutral-300 hover:text-indigo-400 hover:bg-neutral-900/60' : 'text-neutral-700 hover:text-indigo-600 hover:bg-neutral-50'}`}
                             >
                               {theme === "dark" ? (
                                 <>
@@ -2912,10 +2912,10 @@ export default function TaxiBooking() {
                               )}
                             </button>
 
-                            <div className="w-full border-b border-neutral-100" />
+                            <div className={`w-full border-b ${theme === 'dark' ? 'border-neutral-800/60' : 'border-neutral-100'}`} />
 
                             {/* App download section inside dropdown */}
-                            <div className="px-1.5 py-1.5 bg-neutral-50">
+                            <div className={`px-1.5 py-1.5 ${theme === 'dark' ? 'bg-[#0d0d12]' : 'bg-neutral-50'}`}>
                               <AppDownloadButton 
                                 variant="compact" 
                                 className="w-full h-10 bg-gradient-to-r from-amber-500/10 to-orange-500/10 hover:from-amber-500/20 hover:to-orange-500/20 border border-orange-500/20 text-orange-600 rounded-lg text-xs font-black flex items-center justify-center gap-2 active:scale-95 transition-all"
@@ -2928,7 +2928,7 @@ export default function TaxiBooking() {
                   </div>
 
                   {/* Center Search Bar */}
-                  <div className="flex-1 flex items-center h-10 sm:h-12 bg-white/95 backdrop-blur-xl border border-neutral-200/80 rounded-xl sm:rounded-2xl shadow-md px-3 gap-2 pointer-events-auto relative">
+                  <div className={`flex-1 flex items-center h-10 sm:h-12 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-md px-3 gap-2 pointer-events-auto relative border ${theme === 'dark' ? 'bg-[#111118]/95 border-neutral-800' : 'bg-white/95 border-neutral-200/80'}`}>
                     <Search className="w-4 h-4 text-neutral-400 shrink-0" />
                     
                     <input
@@ -2944,7 +2944,7 @@ export default function TaxiBooking() {
                         setSettingMode("pickup");
                       }}
                       placeholder="Tafuta eneo lako..."
-                      className="flex-1 bg-transparent text-xs sm:text-sm font-bold text-neutral-800 border-none outline-none p-0 placeholder:text-neutral-400 font-sans"
+                      className={`flex-1 bg-transparent text-xs sm:text-sm font-bold border-none outline-none p-0 font-sans ${theme === 'dark' ? 'text-neutral-200 placeholder:text-neutral-600' : 'text-neutral-800 placeholder:text-neutral-400'}`}
                     />
 
                     {isAutoLocated && (
@@ -2964,7 +2964,7 @@ export default function TaxiBooking() {
                       className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center active:scale-90 transition-all ${
                         isAutoLocated 
                           ? "bg-[#1D9E75]/25 text-[#00E5A0] border border-[#1D9E75]/35 hover:bg-[#1D9E75]/40"
-                          : "bg-neutral-100 text-neutral-500 hover:text-neutral-800 border border-neutral-200/40"
+                          : (theme === 'dark' ? "bg-neutral-900 text-neutral-400 hover:text-neutral-200 border border-neutral-800" : "bg-neutral-100 text-neutral-500 hover:text-neutral-800 border border-neutral-200/40")
                       }`}
                       title="Tafuta mahali ulipo kiotomatiki kwa GPS"
                     >
@@ -2973,8 +2973,8 @@ export default function TaxiBooking() {
 
                     {/* Autocomplete predictions for top search bar */}
                     {settingMode === "pickup" && suggestions.length > 0 && (
-                      <div className="absolute left-0 right-0 top-full mt-2 z-[99999] bg-white border border-neutral-200 shadow-2xl rounded-2xl overflow-hidden max-h-[250px] overflow-y-auto">
-                        <div className="px-4 py-2 bg-neutral-50 border-b border-neutral-100 text-[9px] font-black uppercase text-neutral-500 tracking-wider">
+                      <div className={`absolute left-0 right-0 top-full mt-2 z-[99999] border shadow-2xl rounded-2xl overflow-hidden max-h-[250px] overflow-y-auto ${theme === 'dark' ? 'bg-[#111118] border-neutral-800 text-neutral-200' : 'bg-white border-neutral-200'}`}>
+                        <div className={`px-4 py-2 border-b text-[9px] font-black uppercase tracking-wider ${theme === 'dark' ? 'bg-[#161622] border-neutral-850 text-neutral-400' : 'bg-neutral-50 border-neutral-100 text-neutral-500'}`}>
                           Maeneo Yaliyopatikana
                         </div>
                         {suggestions.map((s, i) => {
@@ -2995,16 +2995,16 @@ export default function TaxiBooking() {
                                 e.stopPropagation();
                                 e.preventDefault();
                               }}
-                              className="w-full text-left p-3.5 hover:bg-neutral-50 active:bg-neutral-100 flex items-center gap-3 border-b border-neutral-100 last:border-0 group transition-all"
+                              className={`w-full text-left p-3.5 flex items-center gap-3 border-b last:border-0 group transition-all ${theme === 'dark' ? 'hover:bg-neutral-800/40 border-neutral-800' : 'hover:bg-neutral-50 active:bg-neutral-100 border-neutral-100'}`}
                             >
-                              <div className="w-8 h-8 rounded-lg bg-neutral-100 flex items-center justify-center text-indigo-600 group-hover:bg-indigo-50 group-hover:scale-105 transition-all">
+                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${theme === 'dark' ? 'bg-neutral-800 text-indigo-400 group-hover:bg-indigo-950/40' : 'bg-neutral-100 text-indigo-600 group-hover:bg-indigo-50'} group-hover:scale-105`}>
                                 <MapPin className="w-4 h-4" />
                               </div>
                               <div className="flex-1 overflow-hidden">
-                                <p className="text-xs font-bold text-neutral-800 truncate group-hover:text-indigo-600 transition-colors">
+                                <p className={`text-xs font-bold truncate group-hover:text-indigo-500 transition-colors ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`}>
                                   {mainName}
                                 </p>
-                                <p className="text-[10px] text-neutral-500 truncate mt-0.5">
+                                <p className={`text-[10px] truncate mt-0.5 ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-500'}`}>
                                   {subName}
                                 </p>
                               </div>
@@ -3367,13 +3367,13 @@ export default function TaxiBooking() {
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => navigate("/")}
-                    className="w-12 h-12 rounded-2xl bg-white border border-neutral-200/80 hover:border-neutral-300 flex items-center justify-center shadow-md active:scale-95 transition-all text-[#ff6b35] hover:text-[#ff8552]"
+                    className={`w-12 h-12 rounded-2xl border flex items-center justify-center shadow-md active:scale-95 transition-all text-[#ff6b35] hover:text-[#ff8552] ${theme === 'dark' ? 'bg-[#111118] border-neutral-800' : 'bg-white border-neutral-200/80 hover:border-neutral-300'}`}
                     title="Rudi Nyumbani (Home)"
                   >
                     <Home className="w-5 h-5" />
                   </button>
                   <div>
-                    <h1 className="text-2xl font-black italic tracking-tighter text-neutral-900 leading-tight">
+                    <h1 className={`text-2xl font-black italic tracking-tighter leading-tight ${theme === 'dark' ? 'text-white' : 'text-neutral-900'}`}>
                       TEKSI-PAPA 🚕
                     </h1>
                     <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest leading-none mt-0.5">
@@ -3383,17 +3383,17 @@ export default function TaxiBooking() {
                 </div>
                 <button
                   onClick={() => navigate("/taxi/history")}
-                  className="w-12 h-12 rounded-2xl bg-white border border-neutral-200/80 flex items-center justify-center shadow-md active:scale-95 transition-all text-neutral-800 hover:bg-neutral-50"
+                  className={`w-12 h-12 rounded-2xl border flex items-center justify-center shadow-md active:scale-95 transition-all ${theme === 'dark' ? 'bg-[#111118] border-neutral-800 text-neutral-300 hover:bg-neutral-900/60' : 'bg-white border-neutral-200/80 text-neutral-800 hover:bg-neutral-50'}`}
                   title="Historia ya Safari"
                 >
                   <Clock size={20} />
                 </button>
               </div>
 
-              <div className="bg-white border border-neutral-200/80 rounded-[32px] p-6 shadow-xl space-y-5">
+              <div className={`border rounded-[32px] p-6 shadow-xl space-y-5 ${theme === 'dark' ? 'bg-[#111118] border-neutral-800' : 'bg-white border-neutral-200/80'}`}>
                 <div className="space-y-4">
                   <div
-                    className="bg-neutral-50/80 hover:bg-neutral-100/40 rounded-2xl border border-neutral-200/60 p-4 flex items-center gap-3.5 cursor-pointer active:scale-[0.98] transition-transform"
+                    className={`rounded-2xl border p-4 flex items-center gap-3.5 cursor-pointer active:scale-[0.98] transition-transform ${theme === 'dark' ? 'bg-neutral-900/40 hover:bg-neutral-900 border-neutral-800/80' : 'bg-neutral-50/80 hover:bg-neutral-100/40 border-neutral-200/60'}`}
                     onClick={() => {
                       console.log("Manual pickup click");
                       setSettingMode("pickup");
@@ -3407,13 +3407,13 @@ export default function TaxiBooking() {
                       <p className="text-[9px] font-black text-neutral-400 uppercase tracking-wider mb-0.5">
                         Unatokea
                       </p>
-                      <p className="text-sm font-bold text-neutral-800 truncate">
+                      <p className={`text-sm font-bold truncate ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`}>
                         {pickup}
                       </p>
                     </div>
                   </div>
                   <div
-                    className="bg-neutral-50/80 hover:bg-neutral-100/40 rounded-2xl border border-neutral-200/60 p-4 flex items-center gap-3.5 cursor-pointer active:scale-[0.98] transition-transform"
+                    className={`rounded-2xl border p-4 flex items-center gap-3.5 cursor-pointer active:scale-[0.98] transition-transform ${theme === 'dark' ? 'bg-neutral-900/40 hover:bg-neutral-900 border-neutral-800/80' : 'bg-neutral-50/80 hover:bg-neutral-100/40 border-neutral-200/60'}`}
                     onClick={() => {
                       console.log("Manual dest click");
                       setSettingMode("destination");
@@ -3428,7 +3428,7 @@ export default function TaxiBooking() {
                         Unakwenda wapi?
                       </p>
                       <p
-                        className={`text-sm font-bold truncate ${destination ? "text-neutral-800" : "text-neutral-400"}`}
+                        className={`text-sm font-bold truncate ${destination ? (theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800') : (theme === 'dark' ? 'text-neutral-600' : 'text-neutral-400')}`}
                       >
                         {destination || "Andika hapa unapoenda"}
                       </p>
@@ -3460,7 +3460,7 @@ export default function TaxiBooking() {
                     : 0,
               }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="absolute bottom-0 left-0 right-0 z-[9999] bg-white rounded-t-[32px] border-t border-neutral-200/80 p-5 pb-10 space-y-4 shadow-[0_-12px_40px_rgba(0,0,0,0.12)] max-h-[85dvh] overflow-y-auto no-scrollbar"
+              className={`absolute bottom-0 left-0 right-0 z-[9999] rounded-t-[32px] border-t p-5 pb-10 space-y-4 shadow-[0_-12px_40px_rgba(0,0,0,0.12)] max-h-[85dvh] overflow-y-auto no-scrollbar ${theme === 'dark' ? 'bg-[#111118] border-neutral-800' : 'bg-white border-neutral-200/80'}`}
             >
               <div
                 className="w-full h-8 flex items-center justify-center cursor-pointer group -mt-4 relative"
@@ -3476,7 +3476,7 @@ export default function TaxiBooking() {
                 }}
               >
                 <div
-                  className={`w-16 h-2 rounded-full transition-all duration-300 shadow-md ${isMinimized || isMapFullscreen ? "bg-indigo-600 animate-bounce" : "bg-neutral-200 group-hover:bg-neutral-300"}`}
+                  className={`w-16 h-2 rounded-full transition-all duration-300 shadow-md ${isMinimized || isMapFullscreen ? "bg-indigo-600 animate-bounce" : (theme === 'dark' ? 'bg-neutral-800 group-hover:bg-neutral-700' : 'bg-neutral-200 group-hover:bg-neutral-300')}`}
                 />
               </div>
 
@@ -3492,7 +3492,7 @@ export default function TaxiBooking() {
                         console.log("Back to home click");
                         setStep("home");
                       }}
-                      className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-neutral-100 hover:bg-neutral-200 border border-neutral-200/40 text-neutral-600 hover:text-neutral-800 transition-all text-[11px] font-black tracking-wider uppercase"
+                      className={`flex items-center gap-2 px-4 py-2 rounded-2xl border transition-all text-[11px] font-black tracking-wider uppercase ${theme === 'dark' ? 'bg-neutral-900 hover:bg-neutral-800 border-neutral-800 text-neutral-400 hover:text-neutral-200' : 'bg-neutral-100 hover:bg-neutral-200 border-neutral-200/40 text-neutral-600 hover:text-neutral-800'}`}
                     >
                       <ArrowLeft className="w-3.5 h-3.5" />
                       RUDI NYUMBANI
@@ -3502,7 +3502,7 @@ export default function TaxiBooking() {
                     </span>
                   </div>
 
-                  <div className="bg-neutral-50 border border-neutral-200/60 rounded-2xl p-4 relative">
+                  <div className={`border rounded-2xl p-4 relative ${theme === 'dark' ? 'bg-[#0e0e15] border-neutral-800/80' : 'bg-neutral-50 border-neutral-200/60'}`}>
                     <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-emerald-500 to-[#7F77DD] opacity-30 rounded-t-2xl" />
                     <div className="space-y-4">
                       <div 
@@ -3510,7 +3510,7 @@ export default function TaxiBooking() {
                         onClick={() => setSettingMode("destination")}
                       >
                         <div
-                          className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${settingMode === "destination" ? "bg-red-500 text-white shadow-md scale-95" : "bg-neutral-200/60 text-neutral-500"}`}
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${settingMode === "destination" ? "bg-red-500 text-white shadow-md scale-95" : (theme === 'dark' ? "bg-neutral-800 text-neutral-400" : "bg-neutral-200/60 text-neutral-500")}`}
                         >
                           <Search className="w-4 h-4" />
                         </div>
@@ -3526,7 +3526,7 @@ export default function TaxiBooking() {
                               geocodeAddress(e.target.value);
                             }}
                             onFocus={() => setSettingMode("destination")}
-                            className="w-full bg-transparent text-xs font-black text-neutral-800 border-none outline-none p-0 placeholder:text-neutral-400"
+                            className={`w-full bg-transparent text-xs font-black border-none outline-none p-0 ${theme === 'dark' ? 'text-neutral-200 placeholder:text-neutral-700' : 'text-neutral-800 placeholder:text-neutral-400'}`}
                             placeholder="Andika hapa unapoenda"
                           />
                         </div>
@@ -3538,7 +3538,7 @@ export default function TaxiBooking() {
                               setIsMapFullscreen(true);
                               toast.success("Gusa popote kwenye ramani ili kuchagua unakokwenda! 📍");
                             }}
-                            className="w-9 h-9 flex items-center justify-center rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 hover:bg-indigo-100 active:scale-90 transition-all shadow-sm group"
+                            className={`w-9 h-9 flex items-center justify-center rounded-xl border active:scale-90 transition-all shadow-sm group ${theme === 'dark' ? 'bg-indigo-950/40 border-indigo-900 text-indigo-400 hover:bg-indigo-900/60' : 'bg-indigo-50 border-indigo-100 text-indigo-600 hover:bg-indigo-100'}`}
                             title="Chagua kwa Ramani"
                           >
                             <Map className="w-3.5 h-3.5 group-hover:scale-105 transition-transform" />
@@ -3588,8 +3588,8 @@ export default function TaxiBooking() {
                     })()}
 
                     {suggestions.length > 0 && (
-                      <div className="absolute left-0 right-0 top-full mt-2 z-[100] bg-white border border-neutral-200 shadow-2xl rounded-2xl overflow-hidden max-h-[300px] overflow-y-auto">
-                        <div className="px-4 py-2.5 bg-neutral-50 border-b border-neutral-100 text-[9px] font-black uppercase text-neutral-500 tracking-wider">
+                      <div className={`absolute left-0 right-0 top-full mt-2 z-[100] border shadow-2xl rounded-2xl overflow-hidden max-h-[300px] overflow-y-auto ${theme === 'dark' ? 'bg-[#111118] border-neutral-800 text-neutral-200' : 'bg-white border-neutral-200'}`}>
+                        <div className={`px-4 py-2.5 border-b text-[9px] font-black uppercase tracking-wider ${theme === 'dark' ? 'bg-[#161622] border-neutral-850 text-neutral-400' : 'bg-neutral-50 border-neutral-100 text-neutral-500'}`}>
                           Maeneo Yaliyopatikana
                         </div>
                         {suggestions.map((s, i) => {
@@ -3610,16 +3610,16 @@ export default function TaxiBooking() {
                                 e.stopPropagation();
                                 e.preventDefault();
                               }}
-                              className="w-full text-left p-4 hover:bg-neutral-50 active:bg-neutral-100 flex items-center gap-4 border-b border-neutral-100 last:border-0 group transition-all"
+                              className={`w-full text-left p-4 flex items-center gap-4 border-b last:border-0 group transition-all ${theme === 'dark' ? 'hover:bg-neutral-800/40 border-neutral-800' : 'hover:bg-neutral-50 active:bg-neutral-100 border-neutral-100'}`}
                             >
-                              <div className="w-9 h-9 rounded-xl bg-neutral-100 flex items-center justify-center text-indigo-600 group-hover:bg-indigo-50 group-hover:scale-105 transition-all">
+                              <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${theme === 'dark' ? 'bg-neutral-800 text-indigo-400 group-hover:bg-indigo-950/40' : 'bg-neutral-100 text-indigo-600 group-hover:bg-indigo-50'} group-hover:scale-105`}>
                                 <MapPin className="w-4 h-4" />
                               </div>
                               <div className="flex-1 overflow-hidden">
-                                <p className="text-sm font-bold text-neutral-800 truncate group-hover:text-indigo-600 transition-colors">
+                                <p className={`text-sm font-bold truncate group-hover:text-indigo-500 transition-colors ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`}>
                                   {mainName}
                                 </p>
-                                <p className="text-[11px] text-neutral-500 truncate mt-0.5">
+                                <p className={`text-[11px] truncate mt-0.5 ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-500'}`}>
                                   {subName}
                                 </p>
                               </div>
@@ -3648,10 +3648,11 @@ export default function TaxiBooking() {
                               setSelectedRide(ride);
                             }}
                             className={`w-full p-3.5 rounded-[24px] border-2 transition-all duration-300 flex flex-col items-center gap-2.5 relative overflow-hidden group ${
-                              ride.maintenance ? "opacity-50 grayscale pointer-events-auto cursor-not-allowed border-amber-500/25 bg-amber-50" :
+                              ride.maintenance 
+                                ? (theme === 'dark' ? "opacity-50 grayscale pointer-events-auto cursor-not-allowed border-amber-900/40 bg-amber-950/20" : "opacity-50 grayscale pointer-events-auto cursor-not-allowed border-amber-500/25 bg-amber-50") :
                               isSelected
-                                ? "bg-indigo-50/60 border-indigo-600 shadow-md scale-[1.02]"
-                                : "bg-white border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50"
+                                ? (theme === 'dark' ? "bg-indigo-950/30 border-indigo-500 shadow-md scale-[1.02]" : "bg-indigo-50/60 border-indigo-600 shadow-md scale-[1.02]")
+                                : (theme === 'dark' ? "bg-neutral-900/80 border-neutral-800 hover:border-neutral-700 hover:bg-neutral-800/80" : "bg-white border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50")
                             }`}
                           >
                             {ride.maintenance && (
@@ -3674,11 +3675,11 @@ export default function TaxiBooking() {
                             <div className="relative w-full aspect-[4/3] max-h-[72px] sm:max-h-[80px] flex items-center justify-center -mt-1 select-none">
                               {/* Ambient dynamic glow under the vehicle */}
                               <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-4/5 h-2.5 rounded-full transition-all duration-300 blur-md ${
-                                isSelected ? "bg-indigo-600/20 scale-110" : "bg-neutral-200/40 group-hover:bg-indigo-600/10"
+                                isSelected ? "bg-indigo-600/20 scale-110" : (theme === 'dark' ? "bg-neutral-950/60" : "bg-neutral-200/40 group-hover:bg-indigo-600/10")
                               }`} />
                               {/* Subtle elegant podium ellipse */}
-                              <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-2/3 h-1 rounded-full border border-neutral-100 transition-all duration-300 ${
-                                isSelected ? "bg-neutral-100 border-indigo-200" : "bg-transparent"
+                              <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-2/3 h-1 rounded-full border transition-all duration-300 ${
+                                isSelected ? (theme === 'dark' ? "bg-neutral-800 border-indigo-900" : "bg-neutral-100 border-indigo-200") : "bg-transparent border-transparent"
                               }`} />
                               
                               {/* Floating Vehicle container */}
@@ -3700,27 +3701,27 @@ export default function TaxiBooking() {
                             
                             <div className="text-center w-full">
                               <h4
-                                className={`text-[9px] font-black uppercase tracking-wider ${isSelected ? "text-indigo-600" : "text-neutral-500"}`}
+                                className={`text-[9px] font-black uppercase tracking-wider ${isSelected ? "text-indigo-400" : (theme === 'dark' ? 'text-neutral-500' : "text-neutral-500")}`}
                               >
                                 {ride.name}
                               </h4>
                               <h3 className={`text-[11px] font-black italic mt-0.5 transition-colors ${
                                 isSelected 
-                                  ? (destination && totalDistance > 0) ? "text-emerald-600 drop-shadow-sm text-xs" : "text-neutral-800" 
-                                  : (destination && totalDistance > 0) ? "text-emerald-700 text-xs" : "text-neutral-700"
+                                  ? (destination && totalDistance > 0) ? "text-emerald-500 drop-shadow-sm text-xs" : (theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800')
+                                  : (destination && totalDistance > 0) ? "text-emerald-600 text-xs" : (theme === 'dark' ? 'text-neutral-400' : 'text-neutral-700')
                               }`}>
                                 TZS {ride.price.toLocaleString()}
                               </h3>
                             </div>
                             
                             {/* Information of capacity and ETA */}
-                            <div className="w-full flex flex-col gap-1 border-t border-neutral-100 pt-2 mt-0.5">
-                              <div className="flex items-center justify-center gap-1 text-[8.5px] font-bold text-neutral-600">
+                            <div className={`w-full flex flex-col gap-1 border-t pt-2 mt-0.5 ${theme === 'dark' ? 'border-neutral-800' : 'border-neutral-100'}`}>
+                              <div className={`flex items-center justify-center gap-1 text-[8.5px] font-bold ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-600'}`}>
                                 <Users className="w-2.5 h-2.5 text-indigo-500 shrink-0" />
                                 <span>Abiria {ride.capacity}</span>
                               </div>
                               <div className={`flex items-center justify-center gap-1 text-[8.5px] font-bold ${
-                                isSelected ? "text-emerald-600" : "text-neutral-500"
+                                isSelected ? "text-emerald-500" : (theme === 'dark' ? 'text-neutral-500' : 'text-neutral-500')
                               }`}>
                                 <Clock className={`w-2.5 h-2.5 shrink-0 ${isSelected ? "text-emerald-500 animate-pulse" : "text-neutral-400"}`} />
                                 <span>Fika: {ride.eta} min</span>
@@ -3737,9 +3738,9 @@ export default function TaxiBooking() {
                     <div className="w-full flex justify-center py-1">
                       <button
                         onClick={() => setShowBreakdownModal(true)}
-                        className="text-[9.5px] font-black tracking-widest text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-4 py-2 rounded-full uppercase flex items-center gap-1.5 transition-all shadow-sm border border-indigo-100 active:scale-95"
+                        className={`text-[9.5px] font-black tracking-widest px-4 py-2 rounded-full uppercase flex items-center gap-1.5 transition-all shadow-sm border active:scale-95 ${theme === 'dark' ? 'text-indigo-400 hover:text-indigo-300 bg-indigo-950/40 border-indigo-900/60' : 'text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border-indigo-100'}`}
                       >
-                        <Calculator className="w-3 h-3 text-indigo-600" />
+                        <Calculator className="w-3 h-3 text-indigo-500" />
                         <span>Gharama ya Uwazi (Breakdown)</span>
                       </button>
                     </div>

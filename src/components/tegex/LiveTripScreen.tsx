@@ -7,6 +7,7 @@ import { Shield, Clock, Navigation2, MapPin, MessageSquare, Star, Trash2 } from 
 import { Ride } from '../../types/trip.types';
 import { useDriverTracking } from '../../hooks/useDriverTracking';
 import { toast } from 'sonner';
+import { useTheme } from 'next-themes';
 
 interface LiveTripScreenProps {
   ride: Ride;
@@ -49,6 +50,8 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
   const isArriving = ride.status !== 'on_trip';
   const targetLocation = isArriving ? ride.pickup : ride.destination;
   const { distance, eta } = useDriverTracking(ride.driverLocation, targetLocation);
+  const { resolvedTheme } = useTheme();
+  const theme = resolvedTheme === 'dark' ? 'dark' : 'light';
   
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   const [showShareModal, setShowShareModal] = React.useState(false);
@@ -130,14 +133,14 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
               initial={{ opacity: 0, y: -50, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -50, scale: 0.95 }}
-              className="bg-white border border-neutral-200 rounded-2xl px-5 py-3.5 shadow-lg flex items-center gap-3.5 max-w-sm pointer-events-auto"
+              className={`border rounded-2xl px-5 py-3.5 shadow-lg flex items-center gap-3.5 max-w-sm pointer-events-auto ${theme === 'dark' ? 'bg-[#111118]/95 border-neutral-800' : 'bg-white border-neutral-200'}`}
             >
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center border border-indigo-100 text-indigo-600 text-sm animate-pulse">
+              <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center border text-sm animate-pulse ${theme === 'dark' ? 'bg-indigo-950/40 border-indigo-900 text-indigo-400' : 'bg-indigo-50 border-indigo-100 text-indigo-600'}`}>
                 🔄
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] font-black text-indigo-600 tracking-wider uppercase font-heading">Maelekezo ya Antway</p>
-                <p className="text-[11px] font-bold text-neutral-800 leading-normal">
+                <p className="text-[10px] font-black text-indigo-500 tracking-wider uppercase font-heading">Maelekezo ya Antway</p>
+                <p className={`text-[11px] font-bold leading-normal ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`}>
                   {(ride as any).navigationMessage || "Dereva amebadilisha njia! Antway inakokotoa upya ruti..."}
                 </p>
               </div>
@@ -162,11 +165,11 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
                 setIsCollapsed(true);
               }
             }}
-            className="absolute bottom-0 left-0 right-0 w-full bg-white/95 backdrop-blur-[20px] rounded-t-[40px] border-t border-neutral-200/80 p-8 pb-10 shadow-[0_-15px_35px_rgba(0,0,0,0.08)] z-[60] touch-none pointer-events-auto"
+            className={`absolute bottom-0 left-0 right-0 w-full rounded-t-[40px] border-t p-8 pb-10 shadow-[0_-15px_35px_rgba(0,0,0,0.08)] z-[60] transition-all touch-none pointer-events-auto ${theme === 'dark' ? 'bg-[#111118]/95 border-neutral-800' : 'bg-white/95 border-neutral-200/80'}`}
           >
             <div className="relative flex items-center justify-between mb-5 select-none">
               <div className="flex items-center gap-2">
-                <div className="bg-emerald-50 text-emerald-700 border border-emerald-500/20 px-3 py-1 rounded-full flex items-center gap-2 animate-fade">
+                <div className={`border px-3 py-1 rounded-full flex items-center gap-2 animate-fade ${theme === 'dark' ? 'bg-emerald-950/20 text-emerald-400 border-emerald-900/60' : 'bg-emerald-50 text-emerald-700 border-emerald-500/20'}`}>
                   <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
                   <span className="text-[9px] font-black uppercase tracking-wider leading-none">{statusText}</span>
                 </div>
@@ -174,32 +177,32 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
                 {activeViewersCount > 0 && (
                   <div 
                     title={activeViewerNames.join(", ")}
-                    className="relative group bg-blue-50 text-blue-700 border border-blue-400/20 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm cursor-help"
+                    className={`relative group border px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm cursor-help ${theme === 'dark' ? 'bg-blue-950/20 text-blue-400 border-blue-900/40' : 'bg-blue-50 text-blue-700 border-blue-400/20'}`}
                   >
                     <span className="text-[10px] leading-none">👁️</span>
                     <span className="text-[9.5px] font-black uppercase tracking-wider leading-none">
                       {activeViewersCount} {activeViewersCount === 1 ? 'Anatazama' : 'Wanatazama'}
                     </span>
                     {/* Floating elegant tooltip on hover to see exact Swahili Names */}
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-white border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-medium text-neutral-800 whitespace-nowrap shadow-xl z-50">
-                      Inatazamwa na: <span className="text-indigo-600 font-bold">{activeViewerNames.join(", ")}</span>
+                    <div className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block border rounded-xl px-3 py-2 text-[10px] font-medium whitespace-nowrap shadow-xl z-50 ${theme === 'dark' ? 'bg-[#161622] border-neutral-800 text-neutral-200' : 'bg-white border-neutral-200 text-neutral-800'}`}>
+                      Inatazamwa na: <span className="text-indigo-500 font-bold">{activeViewerNames.join(", ")}</span>
                     </div>
                   </div>
                 )}
               </div>
 
-              <div className="w-12 h-1.5 bg-neutral-200 rounded-full cursor-grab active:cursor-grabbing absolute left-1/2 -translate-x-1/2" />
+              <div className={`w-12 h-1.5 rounded-full cursor-grab active:cursor-grabbing absolute left-1/2 -translate-x-1/2 ${theme === 'dark' ? 'bg-neutral-800' : 'bg-neutral-200'}`} />
 
               <button 
                 onClick={() => setIsCollapsed(true)}
-                className="text-[10px] font-black uppercase text-neutral-500 hover:text-neutral-800 tracking-[0.12em] px-3 py-1 bg-neutral-100 hover:bg-neutral-200 rounded-full transition-colors pointer-events-auto"
+                className={`text-[10px] font-black uppercase tracking-[0.12em] px-3 py-1 rounded-full transition-colors pointer-events-auto ${theme === 'dark' ? 'text-neutral-400 bg-neutral-900 hover:bg-neutral-850 hover:text-neutral-200' : 'text-neutral-500 hover:text-neutral-800 bg-neutral-100 hover:bg-neutral-200'}`}
               >
                 Ficha Maelezo
               </button>
             </div>
 
             {ride.driverInfo && (
-              <div className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-neutral-50 border border-neutral-200/60 mb-5 select-none hover:bg-neutral-100 transition-all">
+              <div className={`flex items-center justify-between gap-4 p-4 rounded-2xl border mb-5 select-none transition-all ${theme === 'dark' ? 'bg-[#161622] border-neutral-800 hover:bg-neutral-800/40' : 'bg-neutral-50 border-neutral-200/60 hover:bg-neutral-100'}`}>
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-emerald-500 relative bg-neutral-100">
                     <img 
@@ -210,19 +213,19 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
                     <div className="absolute bottom-0.5 right-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full shadow-lg" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-black text-neutral-800 uppercase font-heading leading-tight">{ride.driverInfo.name || 'Dereva'}</h4>
-                    <div className="flex items-center gap-1 mt-1 bg-yellow-400/10 px-2 py-0.5 rounded border border-yellow-400/20 w-fit">
-                      <Star className="w-2.5 h-2.5 text-yellow-600 fill-yellow-500" />
-                      <span className="text-[10px] font-black text-yellow-600 font-mono tracking-wide leading-none">{ride.driverInfo.rating || '4.8'}</span>
+                    <h4 className={`text-sm font-black uppercase font-heading leading-tight ${theme === 'dark' ? 'text-neutral-150' : 'text-neutral-800'}`}>{ride.driverInfo.name || 'Dereva'}</h4>
+                    <div className={`flex items-center gap-1 mt-1 px-2 py-0.5 rounded border w-fit ${theme === 'dark' ? 'bg-yellow-550/10 border-yellow-500/20 text-yellow-500' : 'bg-yellow-400/10 border-yellow-400/20 text-yellow-600'}`}>
+                      <Star className="w-2.5 h-2.5 fill-yellow-500 text-yellow-500" />
+                      <span className="text-[10px] font-black font-mono tracking-wide leading-none">{ride.driverInfo.rating || '4.8'}</span>
                     </div>
                   </div>
                 </div>
 
                 <div className="text-right flex flex-col items-end">
-                  <span className="text-xs font-black text-indigo-600 uppercase tracking-wider font-mono bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                  <span className={`text-xs font-black uppercase tracking-wider font-mono px-2 py-0.5 rounded border ${theme === 'dark' ? 'bg-indigo-950/40 border-indigo-900 text-indigo-400' : 'bg-indigo-50 border-indigo-100 text-indigo-600'}`}>
                     {ride.driverInfo.vehicle.plate || 'T 123 ABC'}
                   </span>
-                  <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider mt-1.5">
+                  <span className={`text-[9px] font-bold uppercase tracking-wider mt-1.5 ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-500'}`}>
                     {ride.driverInfo.vehicle?.model || 'Mini'}
                   </span>
                 </div>
@@ -232,13 +235,13 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
             <div className="flex items-center justify-between mb-5 select-none">
                <div className="space-y-1 max-w-[65%]">
                   <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.1em] font-heading">{targetLabel}</p>
-                  <h3 className="text-xs font-black text-neutral-800 uppercase tracking-wide truncate font-sans">
+                  <h3 className={`text-xs font-black uppercase tracking-wide truncate font-sans ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`}>
                     {targetLocation.address}
                   </h3>
                </div>
                <div className="text-right">
                   <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.1em] font-heading">ETA</p>
-                  <h3 className="text-xl font-black text-indigo-600 font-mono tracking-wider bg-indigo-50 px-3 py-1 rounded-lg border border-indigo-100 inline-block shadow-sm">
+                  <h3 className={`text-xl font-black font-mono tracking-wider px-3 py-1 rounded-lg border inline-block shadow-sm ${theme === 'dark' ? 'bg-indigo-950/40 border-indigo-900 text-indigo-400' : 'bg-indigo-50 border-indigo-100 text-indigo-600'}`}>
                     {eta ? `${eta.minutes}:${eta.seconds.toString().padStart(2, '0')}` : '00:00'}
                   </h3>
                </div>
@@ -246,7 +249,7 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
             {/* Trip Status Steps Progress Bar with Animating Scenic Road Waypoints */}
             <div className="mb-6 select-none pointer-events-auto">
               {/* Simulated Scenic Road Progress Map (motion/react animations) */}
-              <div className="relative h-16 bg-neutral-50 rounded-2xl border border-neutral-200 overflow-hidden p-3 flex flex-col justify-end">
+              <div className={`relative h-16 rounded-2xl border overflow-hidden p-3 flex flex-col justify-end ${theme === 'dark' ? 'bg-[#161622] border-neutral-800' : 'bg-neutral-50 border-neutral-200'}`}>
                 {/* Scenic Details (Floating Trees & Skyscrapers) */}
                 <div className="absolute inset-x-0 top-1 h-6 opacity-30 flex justify-between px-4 select-none pointer-events-none text-xs">
                   <span>🏢</span>
@@ -258,7 +261,7 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
                 </div>
 
                 {/* The Animated Road Line */}
-                <div className="w-full h-1.5 bg-neutral-200 rounded-full relative overflow-visible flex items-center">
+                <div className={`w-full h-1.5 rounded-full relative overflow-visible flex items-center ${theme === 'dark' ? 'bg-neutral-800' : 'bg-neutral-200'}`}>
                   
                   {/* Origin Point Flag */}
                   <div className="absolute left-0 -translate-x-1/2 -top-3.5 text-xs font-black z-10 filter drop-shadow">
@@ -311,7 +314,7 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
                 {/* Swahili Translation HUD updates info */}
                 <div className="flex justify-between items-center mt-2 font-bold text-[8px] uppercase tracking-wider text-neutral-400">
                   <span>{isArriving ? 'Kituo cha Dereva' : 'Mwanzo'}</span>
-                  <span className="text-emerald-700 font-black font-mono bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                  <span className={`font-black font-mono px-1.5 py-0.5 rounded border ${theme === 'dark' ? 'bg-emerald-950/20 border-emerald-900/40 text-emerald-400' : 'bg-emerald-50 border-emerald-500/20 text-emerald-700'}`}>
                     {progress}% ya Safari
                   </span>
                   <span>{isArriving ? 'Kituo chako' : 'Mwisho'}</span>
@@ -327,20 +330,20 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
                   { label: 'FIKA', active: ride.status === 'completed' }
                 ].map((s) => (
                   <div key={s.label} className="flex flex-col items-center gap-0.5">
-                    <div className={`w-2 h-2 rounded-full border transition-all duration-500 ${s.active ? 'bg-emerald-500 border-emerald-500 shadow-sm' : 'bg-neutral-100 border-neutral-200'}`} />
-                    <span className={`text-[6px] font-black uppercase tracking-widest ${s.active ? 'text-neutral-800' : 'text-neutral-400'}`}>{s.label}</span>
+                    <div className={`w-2 h-2 rounded-full border transition-all duration-500 ${s.active ? 'bg-emerald-500 border-emerald-500 shadow-sm' : (theme === 'dark' ? 'bg-neutral-800 border-neutral-700' : 'bg-neutral-100 border-neutral-200')}`} />
+                    <span className={`text-[6px] font-black uppercase tracking-widest ${s.active ? (theme === 'dark' ? 'text-neutral-300' : 'text-neutral-800') : 'text-neutral-400'}`}>{s.label}</span>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* Unified Quick Actions & Distance Panel Footer */}
-            <div className="grid grid-cols-4 gap-2.5 mt-4 pt-4 border-t border-neutral-100">
+            <div className={`grid grid-cols-4 gap-2.5 mt-4 pt-4 border-t ${theme === 'dark' ? 'border-neutral-800' : 'border-neutral-100'}`}>
               {/* Distance Left Panel */}
-              <div className="col-span-1 bg-neutral-50 rounded-2xl p-2.5 border border-neutral-200 flex flex-col items-center justify-center text-center select-none">
-                <Navigation2 className="w-4 h-4 text-indigo-600 mb-1" />
+              <div className={`col-span-1 rounded-2xl p-2.5 border flex flex-col items-center justify-center text-center select-none ${theme === 'dark' ? 'bg-[#161622] border-neutral-800' : 'bg-neutral-50 border-neutral-200'}`}>
+                <Navigation2 className="w-4 h-4 text-indigo-500 mb-1" />
                 <span className="text-[7px] font-black text-neutral-400 uppercase tracking-wider mb-0.5">{distanceLabel}</span>
-                <span className="text-[10px] font-black text-neutral-800 font-mono leading-none">
+                <span className={`text-[10px] font-black font-mono leading-none ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`}>
                   {distance ? distance.toFixed(1) : (ride.distance || '0.0')} km
                 </span>
               </div>
@@ -348,20 +351,20 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
               {/* Share Trip Button */}
               <button 
                 onClick={() => setShowShareModal(true)}
-                className="col-span-1 bg-neutral-50 border border-neutral-200 hover:bg-neutral-100 text-neutral-800 rounded-2xl flex flex-col items-center justify-center text-center transition-all p-2 active:scale-95 cursor-pointer pointer-events-auto"
+                className={`col-span-1 border rounded-2xl flex flex-col items-center justify-center text-center transition-all p-2 active:scale-95 cursor-pointer pointer-events-auto ${theme === 'dark' ? 'bg-[#161622] border-neutral-800 hover:bg-neutral-800 text-neutral-300' : 'bg-neutral-50 border-neutral-200 hover:bg-neutral-100 text-neutral-800'}`}
               >
                 <span className="text-[14px] mb-0.5">🔗</span>
-                <span className="text-[8px] font-black uppercase tracking-widest text-neutral-500 hover:text-neutral-800">Share</span>
+                <span className="text-[8px] font-black uppercase tracking-widest text-neutral-400">Share</span>
               </button>
 
               {/* Chat Button */}
               {onMessage ? (
                 <button 
                   onClick={onMessage}
-                  className="col-span-1 bg-indigo-50 border border-indigo-100 hover:bg-indigo-100/80 text-indigo-600 rounded-2xl flex flex-col items-center justify-center text-center transition-all p-2 active:scale-95 cursor-pointer"
+                  className={`col-span-1 border rounded-2xl flex flex-col items-center justify-center text-center transition-all p-2 active:scale-95 cursor-pointer ${theme === 'dark' ? 'bg-indigo-950/20 border-indigo-900 text-indigo-400 hover:bg-indigo-950/40' : 'bg-indigo-50 border-indigo-100 hover:bg-indigo-100/80 text-indigo-600'}`}
                 >
-                  <MessageSquare className="w-4 h-4 text-indigo-600 mb-1" />
-                  <span className="text-[8px] font-black uppercase tracking-widest text-indigo-600">Chat</span>
+                  <MessageSquare className="w-4 h-4 text-indigo-500 mb-1" />
+                  <span className="text-[8px] font-black uppercase tracking-widest">Chat</span>
                 </button>
               ) : (
                 <div className="col-span-1" />
@@ -371,10 +374,10 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
               {!isSpectator && (
                 <button 
                   onClick={() => toast.error("SOS Aleriti ya Dharura imetumwa kwa kituo cha usalama!")}
-                  className="col-span-1 bg-red-50 border border-red-100 text-red-650 hover:bg-red-100 rounded-2xl flex flex-col items-center justify-center text-center transition-all p-2 active:scale-95 cursor-pointer"
+                  className={`col-span-1 border rounded-2xl flex flex-col items-center justify-center text-center transition-all p-2 active:scale-95 cursor-pointer ${theme === 'dark' ? 'bg-red-950/20 border-red-900/40 text-red-400 hover:bg-red-950/40' : 'bg-red-50 border-red-100 text-red-650 hover:bg-red-100'}`}
                 >
                   <Shield className="w-4 h-4 text-red-500 mb-1" />
-                  <span className="text-[8px] font-black uppercase tracking-widest text-red-650">SOS</span>
+                  <span className="text-[8px] font-black uppercase tracking-widest">SOS</span>
                 </button>
               )}
             </div>
@@ -404,7 +407,7 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
                     console.error(e);
                   }
                 }}
-                className="w-full mt-3 h-11 bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center gap-2 font-black tracking-widest text-[10px] uppercase transition-all active:scale-95 cursor-pointer pointer-events-auto"
+                className={`w-full mt-3 h-11 border rounded-2xl flex items-center justify-center gap-2 font-black tracking-widest text-[10px] uppercase transition-all active:scale-95 cursor-pointer pointer-events-auto ${theme === 'dark' ? 'bg-indigo-950/40 border-indigo-900 text-indigo-400 hover:bg-indigo-900/60' : 'bg-indigo-50 border-indigo-100 hover:bg-indigo-100 text-indigo-600'}`}
               >
                 <span>🔄 BADILISHA NJIA (SIMULATE DETOUR)</span>
               </button>
@@ -414,7 +417,7 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
             {!isSpectator && onCancel && (
               <button
                 onClick={onCancel}
-                className="w-full mt-3.5 h-11 bg-red-50 border border-red-100 hover:bg-red-100 text-red-600 rounded-2xl flex items-center justify-center gap-2 font-black tracking-widest text-[10px] uppercase transition-all active:scale-95 cursor-pointer pointer-events-auto"
+                className={`w-full mt-3.5 h-11 border rounded-2xl flex items-center justify-center gap-2 font-black tracking-widest text-[10px] uppercase transition-all active:scale-95 cursor-pointer pointer-events-auto ${theme === 'dark' ? 'bg-red-950/20 border-red-900/40 text-red-400 hover:bg-red-950/40' : 'bg-red-50 border-red-100 hover:bg-red-100 text-red-600'}`}
               >
                 <Trash2 className="w-4 h-4 text-red-500" />
                 <span>GHAIRI SAFARI</span>
@@ -456,19 +459,19 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
               initial={{ scale: 0.9, y: 15 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 15 }}
-              className="bg-white border border-neutral-200 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4"
+              className={`border rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4 ${theme === 'dark' ? 'bg-[#111118] border-neutral-800' : 'bg-white border-neutral-200'}`}
             >
-              <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
-                <h3 className="text-sm font-black text-neutral-800 uppercase tracking-wider">Shiriki Safari</h3>
+              <div className={`flex items-center justify-between border-b pb-3 ${theme === 'dark' ? 'border-neutral-800' : 'border-neutral-100'}`}>
+                <h3 className={`text-sm font-black uppercase tracking-wider ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`}>Shiriki Safari</h3>
                 <button 
                   onClick={() => setShowShareModal(false)}
-                  className="w-8 h-8 rounded-full bg-neutral-100 hover:bg-neutral-200 flex items-center justify-center text-neutral-500 hover:text-neutral-800 transition-colors text-xs"
+                  className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors text-xs ${theme === 'dark' ? 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200' : 'bg-neutral-100 hover:bg-neutral-200 text-neutral-505 hover:text-neutral-805'}`}
                 >
                   ✕
                 </button>
               </div>
 
-              <p className="text-xs text-neutral-600 leading-relaxed">
+              <p className={`text-xs leading-relaxed ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-600'}`}>
                 Ndugu au rafiki anaweza kufuatilia safari yako kwa wakati halisi kupitia kiungo hiki:
               </p>
 
@@ -478,7 +481,7 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
                   readOnly 
                   value={window.location.origin + "/taxi?rideId=" + ride.id}
                   onClick={(e) => (e.target as HTMLInputElement).select()}
-                  className="w-full bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3 text-indigo-600 font-mono text-center select-all focus:outline-none focus:border-indigo-500/50 text-xs"
+                  className={`w-full border rounded-2xl px-4 py-3 font-mono text-center select-all focus:outline-none focus:border-indigo-500/50 text-xs ${theme === 'dark' ? 'bg-[#161622] border-neutral-800 text-indigo-400' : 'bg-neutral-50 border-neutral-200 text-indigo-600'}`}
                 />
                 <p className="text-[10px] text-center text-neutral-400 italic">
                   Gusa kiungo hapo juu ili kukichagua na kukopi

@@ -6,6 +6,7 @@ import L from 'leaflet';
 import { Phone, MessageSquare, Star, Clock, Navigation2 } from 'lucide-react';
 import { Ride } from '../../types/trip.types';
 import { useDriverTracking } from '../../hooks/useDriverTracking';
+import { useTheme } from 'next-themes';
 
 interface DriverArrivedScreenProps {
   ride: Ride;
@@ -49,6 +50,8 @@ const MapControl = ({ position, target }: { position: { lat: number, lng: number
 
 export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, onCall, onMessage, onImComing, onCancel, isMinimized, isSpectator }) => {
   const { distance, eta } = useDriverTracking(ride.driverLocation, ride.pickup);
+  const { resolvedTheme } = useTheme();
+  const theme = resolvedTheme === 'dark' ? 'dark' : 'light';
   
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   const showDetails = !isMinimized && !isCollapsed;
@@ -84,10 +87,10 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
         {/* Floating ETA Chip */}
         {eta && !isArrived && showDetails && (
           <div 
-            className="absolute top-24 left-1/2 -translate-x-1/2 bg-white/95 border border-neutral-200 rounded-full px-4 py-2 flex items-center gap-2 shadow-md z-[60] pointer-events-auto"
+            className={`absolute top-24 left-1/2 -translate-x-1/2 border rounded-full px-4 py-2 flex items-center gap-2 shadow-md z-[60] pointer-events-auto ${theme === 'dark' ? 'bg-[#111118]/95 border-neutral-800' : 'bg-white/95 border-neutral-200'}`}
           >
-            <Clock className="w-3 h-3 text-indigo-600" />
-            <span className="text-[10px] font-black text-neutral-700 uppercase tracking-widest whitespace-nowrap">
+            <Clock className="w-3 h-3 text-indigo-500" />
+            <span className={`text-[10px] font-black uppercase tracking-widest whitespace-nowrap ${theme === 'dark' ? 'text-neutral-300' : 'text-neutral-700'}`}>
               Dereva anakuja — {eta.minutes} min {eta.seconds} sec
             </span>
           </div>
@@ -110,13 +113,13 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
                 setIsCollapsed(true);
               }
             }}
-            className={`absolute bottom-0 left-0 right-0 w-full bg-white/95 backdrop-blur-[20px] rounded-t-[40px] border-t border-neutral-200/80 p-8 pb-12 shadow-[0_-15px_35px_rgba(0,0,0,0.08)] z-[60] transition-all touch-none pointer-events-auto ${isArrived ? 'ring-4 ring-emerald-500/10' : ''}`}
+            className={`absolute bottom-0 left-0 right-0 w-full rounded-t-[40px] border-t p-8 pb-12 shadow-[0_-15px_35px_rgba(0,0,0,0.08)] z-[60] transition-all touch-none pointer-events-auto ${theme === 'dark' ? 'bg-[#111118]/95 border-neutral-800' : 'bg-white/95 border-neutral-200/80'} ${isArrived ? 'ring-4 ring-emerald-500/10' : ''}`}
           >
             <div className="relative flex items-center justify-center mb-6">
-              <div className="w-12 h-1.5 bg-neutral-200 rounded-full cursor-grab active:cursor-grabbing" />
+              <div className={`w-12 h-1.5 rounded-full cursor-grab active:cursor-grabbing ${theme === 'dark' ? 'bg-neutral-800' : 'bg-neutral-200'}`} />
               <button 
                 onClick={() => setIsCollapsed(true)}
-                className="absolute right-0 text-[10px] font-black uppercase text-neutral-500 hover:text-neutral-800 tracking-[0.15em] px-3 py-1 bg-neutral-100 hover:bg-neutral-200 rounded-full transition-colors pointer-events-auto"
+                className={`absolute right-0 text-[10px] font-black uppercase tracking-[0.15em] px-3 py-1 rounded-full transition-colors pointer-events-auto ${theme === 'dark' ? 'text-neutral-400 bg-neutral-900 hover:bg-neutral-850 hover:text-neutral-200' : 'text-neutral-500 hover:text-neutral-800 bg-neutral-100 hover:bg-neutral-200'}`}
               >
                 Ficha Maelezo
               </button>
@@ -132,15 +135,15 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
                   )}
                 </div>
                 <div>
-                  <h4 className="text-xl font-black uppercase text-neutral-800 font-heading tracking-wide leading-none mb-1">
+                  <h4 className={`text-xl font-black uppercase font-heading tracking-wide leading-none mb-1 ${theme === 'dark' ? 'text-neutral-100' : 'text-neutral-800'}`}>
                     {ride.driverInfo?.name || "Dereva Swahili"}
                   </h4>
-                  <p className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider">
-                    {ride.driverInfo?.vehicle.model} · <span className="text-indigo-600 font-mono font-black">{ride.driverInfo?.vehicle.plate}</span>
+                  <p className={`text-[11px] font-semibold uppercase tracking-wider ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-500'}`}>
+                    {ride.driverInfo?.vehicle.model} · <span className="text-indigo-400 font-mono font-black">{ride.driverInfo?.vehicle.plate}</span>
                   </p>
                 </div>
               </div>
-              <div className="flex flex-col items-end justify-center bg-neutral-50 px-3 py-1.5 rounded-xl border border-neutral-100">
+              <div className={`flex flex-col items-end justify-center px-3 py-1.5 rounded-xl border ${theme === 'dark' ? 'bg-neutral-900 border-neutral-800' : 'bg-neutral-50 border-neutral-100'}`}>
                 <div className="flex items-center gap-1.5 text-yellow-500">
                   <Star className="w-4.5 h-4.5 fill-current" />
                   <span className="text-sm font-black font-mono">{ride.driverInfo?.rating || "4.8"}</span>
@@ -153,35 +156,39 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
               <div className="grid grid-cols-3 gap-3 mb-8">
                 <button 
                   onClick={onCall} 
-                  className="h-12 bg-neutral-50 border border-neutral-200 rounded-full flex items-center justify-center gap-2 active:scale-95 transition-all text-neutral-800 pointer-events-auto hover:bg-neutral-100"
+                  className={`h-12 border rounded-full flex items-center justify-center gap-2 active:scale-95 transition-all pointer-events-auto ${theme === 'dark' ? 'bg-[#161622] border-neutral-800 text-neutral-200 hover:bg-neutral-800' : 'bg-neutral-50 border-neutral-200 text-neutral-800 hover:bg-neutral-100'}`}
                 >
-                  <Phone className="w-4 h-4 text-emerald-600" />
+                  <Phone className="w-4 h-4 text-emerald-500" />
                   <span className="text-[10px] font-black uppercase tracking-[0.08em] font-heading">Call</span>
                 </button>
                 <button 
                   onClick={onMessage} 
-                  className="h-12 bg-neutral-50 border border-neutral-200 rounded-full flex items-center justify-center gap-2 active:scale-95 transition-all text-neutral-800 pointer-events-auto hover:bg-neutral-100"
+                  className={`h-12 border rounded-full flex items-center justify-center gap-2 active:scale-95 transition-all pointer-events-auto ${theme === 'dark' ? 'bg-[#161622] border-neutral-800 text-neutral-200 hover:bg-neutral-800' : 'bg-neutral-50 border-neutral-200 text-neutral-800 hover:bg-neutral-100'}`}
                 >
-                  <MessageSquare className="w-4 h-4 text-indigo-600" />
+                  <MessageSquare className="w-4 h-4 text-indigo-400" />
                   <span className="text-[10px] font-black uppercase tracking-[0.08em] font-heading">Chat</span>
                 </button>
                 <button 
                   onClick={onCancel || (() => {})} 
-                  className="h-12 bg-red-50 border border-red-100 rounded-full flex items-center justify-center gap-2 active:scale-95 transition-all text-red-600 pointer-events-auto hover:bg-red-100"
+                  className={`h-12 border rounded-full flex items-center justify-center gap-2 active:scale-95 transition-all pointer-events-auto ${theme === 'dark' ? 'bg-red-950/20 border-red-900/40 text-red-400 hover:bg-red-950/40' : 'bg-red-50 border-red-100 text-red-600 hover:bg-red-100'}`}
                 >
                   <span className="text-[10px] font-black uppercase tracking-[0.08em] font-heading">✕ Cancel</span>
                 </button>
               </div>
             )}
 
-            <div className={`p-5 rounded-3xl border flex items-center justify-between transition-all duration-500 ${isArrived ? 'bg-emerald-50 border-emerald-500/30 shadow-[0_4px_20px_rgba(16,185,129,0.05)]' : 'bg-neutral-50 border-neutral-200/60'}`}>
+            <div className={`p-5 rounded-3xl border flex items-center justify-between transition-all duration-500 ${
+              isArrived 
+                ? (theme === 'dark' ? 'bg-emerald-950/20 border-emerald-900/40' : 'bg-emerald-50 border-emerald-500/30 shadow-[0_4px_20px_rgba(16,185,129,0.05)]') 
+                : (theme === 'dark' ? 'bg-[#161622] border-neutral-800' : 'bg-neutral-50 border-neutral-200/60')
+            }`}>
               <div className="flex items-center gap-4">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-all ${isArrived ? 'bg-emerald-100 animate-bounce' : 'bg-neutral-200/50'}`}>
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-all ${isArrived ? 'bg-emerald-100 animate-bounce' : (theme === 'dark' ? 'bg-neutral-800' : 'bg-neutral-200/50')}`}>
                   {isArrived ? '🎉' : '🟢'}
                 </div>
                 <div>
                   <p className="text-[8px] font-black text-neutral-400 uppercase tracking-widest mb-0.5">Hali ya Safari</p>
-                  <h4 className={`text-xs font-black uppercase font-heading tracking-wide transition-colors ${isArrived ? 'text-emerald-700' : 'text-neutral-700'}`}>
+                  <h4 className={`text-xs font-black uppercase font-heading tracking-wide transition-colors ${isArrived ? 'text-emerald-500' : (theme === 'dark' ? 'text-neutral-300' : 'text-neutral-700')}`}>
                     {isArrived ? 'Dereva Amefika!' : 'Anakuja Kukuchukua'}
                   </h4>
                 </div>
@@ -189,7 +196,7 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
               {!isArrived && distance !== null && (
                 <div className="text-right">
                   <p className="text-[8px] font-black text-neutral-400 uppercase tracking-widest mb-0.5">Umbali</p>
-                  <h4 className="text-xs font-black text-neutral-700 px-2 py-0.5 bg-neutral-100 rounded border border-neutral-200 inline-block font-mono tracking-wide">{distance.toFixed(1)} km · {eta?.minutes} min</h4>
+                  <h4 className={`text-xs font-black px-2 py-0.5 rounded border inline-block font-mono tracking-wide ${theme === 'dark' ? 'text-neutral-300 bg-neutral-900 border-neutral-800' : 'text-neutral-700 bg-neutral-100 border-neutral-200'}`}>{distance.toFixed(1)} km · {eta?.minutes} min</h4>
                 </div>
               )}
               {isArrived && onImComing && !isSpectator && (

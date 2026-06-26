@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MapPin, Navigation2, X } from 'lucide-react';
 import { Ride } from '../../types/trip.types';
+import { useTheme } from 'next-themes';
 
 interface SearchingScreenProps {
   ride: Ride | null;
@@ -14,6 +15,8 @@ interface SearchingScreenProps {
 export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel, onTimeout, isMinimized, isSpectator }) => {
   const [dots, setDots] = useState('');
   const [statusIndex, setStatusIndex] = useState(0);
+  const { resolvedTheme } = useTheme();
+  const theme = resolvedTheme === 'dark' ? 'dark' : 'light';
 
   const statuses = [
     `Inatafuta madereva wa ${ride?.vehicleType === 'mini' ? 'Gari' : ride?.vehicleType === 'bajaj' ? 'Bajaji' : 'Pikipiki'} Karibu Nawe...`,
@@ -55,7 +58,7 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel
               initial={{ y: -30, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: -30, opacity: 0 }}
-              className="w-full max-w-sm bg-white border border-neutral-200/80 rounded-[32px] p-5 shadow-2xl z-20 shrink-0 mb-8 pointer-events-auto"
+              className={`w-full max-w-sm border rounded-[32px] p-5 shadow-2xl z-20 shrink-0 mb-8 pointer-events-auto ${theme === 'dark' ? 'bg-[#111118]/95 border-neutral-800' : 'bg-white border-neutral-200/80'}`}
             >
               <div className="space-y-4">
                 <div className="flex items-center gap-4">
@@ -64,7 +67,7 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel
                   </div>
                   <div className="overflow-hidden">
                     <p className="text-[8px] font-black text-neutral-400 uppercase tracking-[0.2em] mb-0.5">UNATOKEA</p>
-                    <p className="text-sm font-bold text-neutral-800 truncate leading-tight">{ride?.pickup?.address || "Eneo lako..."}</p>
+                    <p className={`text-sm font-bold truncate leading-tight ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`}>{ride?.pickup?.address || "Eneo lako..."}</p>
                   </div>
                 </div>
 
@@ -74,23 +77,23 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel
                   </div>
                   <div className="overflow-hidden">
                     <p className="text-[8px] font-black text-neutral-400 uppercase tracking-[0.2em] mb-0.5">UNAKWENDA</p>
-                    <p className="text-sm font-bold text-neutral-800 truncate leading-tight">{ride?.destination?.address || "Andika..."}</p>
+                    <p className={`text-sm font-bold truncate leading-tight ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`}>{ride?.destination?.address || "Andika..."}</p>
                   </div>
                 </div>
 
-                <div className="pt-3 border-t border-neutral-100 flex items-center justify-between">
+                <div className={`pt-3 border-t flex items-center justify-between ${theme === 'dark' ? 'border-neutral-800' : 'border-neutral-100'}`}>
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-neutral-100 rounded-xl flex items-center justify-center text-xl border border-neutral-200">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl border ${theme === 'dark' ? 'bg-neutral-900 border-neutral-800' : 'bg-neutral-100 border-neutral-200'}`}>
                       {ride?.vehicleType === 'mini' ? '🚗' : ride?.vehicleType === 'bajaj' ? '🛺' : '🏍️'}
                     </div>
                     <div>
                       <p className="text-[9px] font-black text-neutral-400 uppercase tracking-widest mb-0.5">{ride?.vehicleType || 'Gari'}</p>
-                      <p className="text-xs font-black text-neutral-700 italic">Usafiri wa Haraka</p>
+                      <p className={`text-xs font-black italic ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-700'}`}>Usafiri wa Haraka</p>
                     </div>
                   </div>
                   <div className="text-right">
                     <p className="text-[9px] font-black text-neutral-400 uppercase tracking-widest mb-0.5">GHARAMA</p>
-                    <p className="text-lg font-black text-indigo-600">TZS {ride?.fare?.toLocaleString()}</p>
+                    <p className="text-lg font-black text-indigo-500">TZS {ride?.fare?.toLocaleString()}</p>
                   </div>
                 </div>
               </div>
@@ -118,9 +121,9 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel
                     key={statusIndex}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="px-6 py-2 bg-white/95 backdrop-blur-xl rounded-full border border-neutral-200/80 inline-block mb-4 shadow-md"
+                    className={`px-6 py-2 backdrop-blur-xl rounded-full border inline-block mb-4 shadow-md ${theme === 'dark' ? 'bg-[#111118]/95 border-neutral-800' : 'bg-white/95 border-neutral-200/80'}`}
                   >
-                    <p className="text-neutral-700 text-[9px] font-black uppercase tracking-[0.2em] italic">
+                    <p className={`text-[9px] font-black uppercase tracking-[0.2em] italic ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-700'}`}>
                       {ride ? statuses[statusIndex] : "Inatayarisha..."}
                     </p>
                   </motion.div>
