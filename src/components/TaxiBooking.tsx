@@ -44,6 +44,7 @@ import {
   Calculator,
   Map,
   Compass,
+  Menu,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import Chat from "./Chat";
@@ -575,6 +576,8 @@ export default function TaxiBooking() {
   const [destPos, setDestPos] = useState<[number, number]>([-6.8235, 39.2695]);
   const [pickup, setPickup] = useState("Mwenge, Dar es Salaam");
   const [destination, setDestination] = useState("");
+  const [showMenu, setShowMenu] = useState(false);
+  const [isAutoLocated, setIsAutoLocated] = useState(true);
 
   // Automatic pricing conditions & city detection based on location and time
   useEffect(() => {
@@ -794,6 +797,7 @@ export default function TaxiBooking() {
   };
 
   const handleCurrentLocation = async (isInitial = false) => {
+    setIsAutoLocated(true);
     let fallbackCalled = false;
     let gpsResolved = false;
     const inIframe = window.self !== window.top;
@@ -2032,6 +2036,7 @@ export default function TaxiBooking() {
     if (settingMode === "pickup") {
       setPickupPos(pos);
       setPickup(suggestion.display_name);
+      setIsAutoLocated(false);
     } else {
       setDestPos(pos);
       setDestination(suggestion.display_name);
@@ -2062,6 +2067,7 @@ export default function TaxiBooking() {
     if (settingMode === "pickup") {
       setPickupPos([lat, lng]);
       setPickup(addr);
+      setIsAutoLocated(false);
     } else {
       setDestPos([lat, lng]);
       setDestination(addr);
@@ -2779,63 +2785,202 @@ export default function TaxiBooking() {
                 exit={{ opacity: 0 }}
                 className="absolute inset-0 z-0 h-full w-full pointer-events-auto"
               >
-                <div className="absolute top-4 left-4 right-4 sm:top-6 sm:left-6 sm:right-6 z-[9999] flex flex-wrap items-center justify-between gap-y-2 pointer-events-none">
-                  <button
-                    onClick={() => navigate("/")}
-                    className="w-10 h-10 sm:w-12 sm:h-12 bg-[#111118]/90 backdrop-blur-xl rounded-xl sm:rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform text-white pointer-events-auto"
-                    title="Rudi Nyumbani"
-                  >
-                    <Home className="w-5 h-5 sm:w-6 sm:h-6" />
-                  </button>
-                  <div className="flex gap-1.5 sm:gap-3">
-                    <AppDownloadButton variant="compact" className="w-10 h-10 sm:w-12 sm:h-12 bg-[#111118]/90 backdrop-blur-xl rounded-xl sm:rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform text-white pointer-events-auto" />
+                <div className="absolute top-4 left-4 right-4 sm:top-6 sm:left-6 sm:right-6 z-[9999] flex items-center gap-2 sm:gap-3 pointer-events-none">
+                  {/* Left Menu Button */}
+                  <div className="relative pointer-events-auto">
                     <button
-                      onClick={() => {
-                        setIsMapFullscreen(!isMapFullscreen);
-                        if (!isMapFullscreen) setAutoFollow(true);
-                      }}
-                      className={`w-10 h-10 sm:w-12 sm:h-12 ${isMapFullscreen ? "bg-[#7F77DD] text-white" : "bg-[#111118]/90 text-white"} backdrop-blur-xl rounded-xl sm:rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-all pointer-events-auto`}
-                      title={isMapFullscreen ? "Onesha Maelezo" : "Ramani tupu"}
+                      onClick={() => setShowMenu(!showMenu)}
+                      className="w-10 h-10 sm:w-12 sm:h-12 bg-[#111118]/95 backdrop-blur-xl rounded-xl sm:rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-all text-white hover:text-[#00E5A0] hover:border-[#7F77DD]/50"
+                      title="Fungua Menu"
                     >
-                      {isMapFullscreen ? (
-                        <Layers className="w-5 h-5 sm:w-6 sm:h-6" />
-                      ) : (
-                        <MapPin className="w-5 h-5 sm:w-6 sm:h-6" />
-                      )}
+                      <Menu className="w-5 h-5 sm:w-6 sm:h-6" />
                     </button>
+                    {/* Animated Dropdown Menu */}
+                    <AnimatePresence>
+                      {showMenu && (
+                        <>
+                          {/* Backdrop to close the menu on click outside */}
+                          <div 
+                            className="fixed inset-0 z-40 bg-black/5" 
+                            onClick={() => setShowMenu(false)}
+                          />
+                          <motion.div
+                            initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                            transition={{ duration: 0.15 }}
+                            className="absolute left-0 mt-2 w-52 bg-[#111118]/95 backdrop-blur-2xl border border-[#1e1e2e] rounded-xl sm:rounded-2xl shadow-2xl py-2 z-50 flex flex-col overflow-hidden"
+                          >
+                            <button
+                              onClick={() => {
+                                setShowMenu(false);
+                                navigate("/");
+                              }}
+                              className="w-full text-left px-4 py-3 text-xs sm:text-sm text-neutral-300 hover:text-white hover:bg-white/5 flex items-center gap-3 transition-colors"
+                            >
+                              <Home className="w-4 h-4 text-[#7F77DD]" />
+                              <span>Rudi Nyumbani</span>
+                            </button>
+                            
+                            <div className="w-full border-b border-white/5" />
+
+                            <button
+                              onClick={() => {
+                                setShowMenu(false);
+                                navigate("/taxi/history");
+                              }}
+                              className="w-full text-left px-4 py-3 text-xs sm:text-sm text-neutral-300 hover:text-white hover:bg-white/5 flex items-center gap-3 transition-colors"
+                            >
+                              <Clock className="w-4 h-4 text-emerald-400" />
+                              <span>Historia ya Safari</span>
+                            </button>
+
+                            <div className="w-full border-b border-white/5" />
+
+                            <button
+                              onClick={() => {
+                                setShowMenu(false);
+                                setIsMapFullscreen(!isMapFullscreen);
+                                if (!isMapFullscreen) setAutoFollow(true);
+                              }}
+                              className="w-full text-left px-4 py-3 text-xs sm:text-sm text-neutral-300 hover:text-white hover:bg-white/5 flex items-center gap-3 transition-colors"
+                            >
+                              {isMapFullscreen ? (
+                                <>
+                                  <Layers className="w-4 h-4 text-sky-400" />
+                                  <span>Onesha Maelezo</span>
+                                </>
+                              ) : (
+                                <>
+                                  <MapPin className="w-4 h-4 text-rose-400" />
+                                  <span>Tazama Ramani Tupu</span>
+                                </>
+                              )}
+                            </button>
+
+                            <div className="w-full border-b border-white/5" />
+
+                            <button
+                              onClick={() => {
+                                setShowMenu(false);
+                                setNextTheme(theme === "dark" ? "light" : "dark");
+                              }}
+                              className="w-full text-left px-4 py-3 text-xs sm:text-sm text-neutral-300 hover:text-white hover:bg-white/5 flex items-center gap-3 transition-colors"
+                            >
+                              {theme === "dark" ? (
+                                <>
+                                  <Sun className="w-4 h-4 text-amber-400" />
+                                  <span>Mwangaza</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Moon className="w-4 h-4 text-blue-400" />
+                                  <span>Giza</span>
+                                </>
+                              )}
+                            </button>
+
+                            <div className="w-full border-b border-white/5" />
+
+                            {/* App download section inside dropdown */}
+                            <div className="px-1.5 py-1.5 bg-[#1b1b2a]/40">
+                              <AppDownloadButton 
+                                variant="compact" 
+                                className="w-full h-10 bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 border border-orange-500/25 text-orange-400 rounded-lg text-xs font-black flex items-center justify-center gap-2 active:scale-95 transition-all"
+                              />
+                            </div>
+                          </motion.div>
+                        </>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* Center Search Bar */}
+                  <div className="flex-1 flex items-center h-10 sm:h-12 bg-[#111118]/95 backdrop-blur-xl border border-[#1e1e2e] rounded-xl sm:rounded-2xl shadow-xl px-3 gap-2 pointer-events-auto relative">
+                    <Search className="w-4 h-4 text-[#8a8ab0] shrink-0" />
+                    
+                    <input
+                      type="text"
+                      value={pickup}
+                      onChange={(e) => {
+                        setPickup(e.target.value);
+                        setIsAutoLocated(false);
+                        setSettingMode("pickup");
+                        geocodeAddress(e.target.value);
+                      }}
+                      onFocus={() => {
+                        setSettingMode("pickup");
+                      }}
+                      placeholder="Tafuta eneo lako..."
+                      className="flex-1 bg-transparent text-xs sm:text-sm font-bold text-white border-none outline-none p-0 placeholder:text-[#4e4e6a] font-sans"
+                    />
+
+                    {isAutoLocated && (
+                      <span className="shrink-0 text-[9px] font-black tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-md uppercase animate-pulse">
+                        Auto
+                      </span>
+                    )}
+
+                    {/* Automatic GPS locator button */}
                     <button
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsAutoLocated(true);
                         setAutoFollow(true);
-                        if (["home", "map"].includes(step)) {
-                          handleCurrentLocation();
-                        }
+                        handleCurrentLocation(false);
                       }}
-                      title="Angazia Eneo Langu au Dereva"
-                      className={`w-10 h-10 sm:w-12 sm:h-12 backdrop-blur-xl rounded-xl sm:rounded-2xl border flex items-center justify-center shadow-xl active:scale-90 transition-all pointer-events-auto ${
-                        !autoFollow 
-                          ? "bg-[#1D9E75] text-white border-transparent shadow-[0_0_15px_rgba(29,158,117,0.5)] animate-pulse"
-                          : "bg-[#111118]/90 text-[#00E5A0] border-[#1e1e2e] hover:text-white"
+                      className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center active:scale-90 transition-all ${
+                        isAutoLocated 
+                          ? "bg-[#1D9E75]/25 text-[#00E5A0] border border-[#1D9E75]/35 hover:bg-[#1D9E75]/40"
+                          : "bg-white/5 text-neutral-400 hover:text-white border border-white/5"
                       }`}
+                      title="Tafuta mahali ulipo kiotomatiki kwa GPS"
                     >
-                      <Navigation2 className={`w-5 h-5 sm:w-6 sm:h-6 ${!autoFollow ? "rotate-45" : ""}`} />
+                      <Navigation2 className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isAutoLocated ? "rotate-45" : ""}`} />
                     </button>
-                    <button
-                      onClick={() => navigate("/taxi/history")}
-                      className="w-10 h-10 sm:w-12 sm:h-12 bg-[#111118]/90 backdrop-blur-xl rounded-xl sm:rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform text-white pointer-events-auto"
-                    >
-                      <Clock className="w-5 h-5 sm:w-6 sm:h-6" />
-                    </button>
-                    <button
-                      onClick={() => setNextTheme(theme === "dark" ? "light" : "dark")}
-                      className="w-10 h-10 sm:w-12 sm:h-12 bg-[#111118]/90 backdrop-blur-xl rounded-xl sm:rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-transform text-white pointer-events-auto"
-                      title={theme === "dark" ? "Badili kwenda mwangaza" : "Badili kwenda giza"}
-                    >
-                      {theme === "dark" ? (
-                        <Sun className="w-5 h-5 sm:w-6 sm:h-6 text-amber-400" />
-                      ) : (
-                        <Moon className="w-5 h-5 sm:w-6 sm:h-6 text-blue-400" />
-                      )}
-                    </button>
+
+                    {/* Autocomplete predictions for top search bar */}
+                    {settingMode === "pickup" && suggestions.length > 0 && (
+                      <div className="absolute left-0 right-0 top-full mt-2 z-[99999] bg-[#14141f]/95 backdrop-blur-2xl border-2 border-[#7f77dd]/30 rounded-2xl shadow-2xl overflow-hidden max-h-[250px] overflow-y-auto">
+                        <div className="px-4 py-2 bg-[#1b1b29] border-b border-white/5 text-[9px] font-black uppercase text-[#8a8ab0] tracking-wider">
+                          Maeneo Yaliyopatikana
+                        </div>
+                        {suggestions.map((s, i) => {
+                          const displayName = s.display_name || "";
+                          const parts = displayName.split(",");
+                          const mainName = parts[0] || "Eneo Lisilojulikana";
+                          const subName = parts.slice(1).join(",").trim() || "Chagua eneo hili";
+                          
+                          return (
+                            <button
+                              key={`top-suggest-${displayName}-${i}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                selectSuggestion(s);
+                              }}
+                              onMouseDown={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                              }}
+                              className="w-full text-left p-3.5 hover:bg-white/5 active:bg-white/10 flex items-center gap-3 border-b border-white/5 last:border-0 group transition-all"
+                            >
+                              <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-[#7f77dd] group-hover:bg-[#7f77dd]/20 group-hover:scale-105 transition-all">
+                                <MapPin className="w-4 h-4" />
+                              </div>
+                              <div className="flex-1 overflow-hidden">
+                                <p className="text-xs font-bold text-white truncate group-hover:text-[#7f77dd] transition-colors">
+                                  {mainName}
+                                </p>
+                                <p className="text-[10px] text-[#8a8ab0] truncate mt-0.5">
+                                  {subName}
+                                </p>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -3346,6 +3491,7 @@ export default function TaxiBooking() {
                             value={pickup}
                             onChange={(e) => {
                               setPickup(e.target.value);
+                              setIsAutoLocated(false);
                               geocodeAddress(e.target.value);
                             }}
                             onFocus={() => setSettingMode("pickup")}
