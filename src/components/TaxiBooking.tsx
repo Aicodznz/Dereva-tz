@@ -29,6 +29,8 @@ import {
   ShieldCheck,
   User,
   Users,
+  UserPlus,
+  Check,
   CheckCircle2,
   DollarSign,
   Zap,
@@ -578,6 +580,13 @@ export default function TaxiBooking() {
   const [destination, setDestination] = useState("");
   const [showMenu, setShowMenu] = useState(false);
   const [isAutoLocated, setIsAutoLocated] = useState(true);
+  
+  // Passenger selection states
+  const [showPassengerModal, setShowPassengerModal] = useState(false);
+  const [passengerType, setPassengerType] = useState<'you' | 'someone_else'>('you');
+  const [passengerName, setPassengerName] = useState("");
+  const [passengerPhone, setPassengerPhone] = useState("");
+  const [passengerStep, setPassengerStep] = useState<'who' | 'details'>('who');
 
   // Automatic pricing conditions & city detection based on location and time
   useEffect(() => {
@@ -2167,21 +2176,28 @@ export default function TaxiBooking() {
       console.log("Current authorized user ID:", activeUser.uid);
 
       let customerName = "Mteja";
-      if (profile?.displayName) {
-        customerName = profile.displayName;
-      } else if (activeUser.displayName) {
-        customerName = activeUser.displayName;
-      } else if (activeUser.email) {
-        const part = activeUser.email.split("@")[0];
-        customerName = part.charAt(0).toUpperCase() + part.slice(1);
+      let customerPhone = profile?.phoneNumber || "";
+
+      if (passengerType === "someone_else" && passengerName.trim()) {
+        customerName = passengerName.trim();
+        customerPhone = passengerPhone.trim() || customerPhone;
+      } else {
+        if (profile?.displayName) {
+          customerName = profile.displayName;
+        } else if (activeUser.displayName) {
+          customerName = activeUser.displayName;
+        } else if (activeUser.email) {
+          const part = activeUser.email.split("@")[0];
+          customerName = part.charAt(0).toUpperCase() + part.slice(1);
+        }
       }
 
       const customerInfo = {
         name: customerName,
         rating: 5.0,
-        avatar: profile?.photoURL || activeUser.photoURL || null,
-        photo: profile?.photoURL || activeUser.photoURL || undefined,
-        phone: profile?.phoneNumber || "",
+        avatar: passengerType === "someone_else" ? null : (profile?.photoURL || activeUser.photoURL || null),
+        photo: passengerType === "someone_else" ? undefined : (profile?.photoURL || activeUser.photoURL || undefined),
+        phone: customerPhone,
       };
 
       const id = await createRide(
@@ -3717,7 +3733,15 @@ export default function TaxiBooking() {
                     onClick={() => {
                       if (justSelectedRef.current) return;
                       console.log("Confirm button click");
-                      confirmBooking();
+                      if (destination && selectedRide) {
+                        setPassengerType('you');
+                        setPassengerStep('who');
+                        setPassengerName('');
+                        setPassengerPhone('');
+                        setShowPassengerModal(true);
+                      } else {
+                        confirmBooking();
+                      }
                     }}
                     disabled={isCreatingRide || !destination || suggestions.length > 0}
                     className="w-full h-16 bg-white text-[#0a0a0f] rounded-3xl font-black italic uppercase text-xs tracking-[0.2em] flex items-center justify-between px-10 disabled:opacity-30 disabled:grayscale transition-all active:scale-95 shadow-2xl relative overflow-hidden group"
@@ -4202,6 +4226,223 @@ export default function TaxiBooking() {
               >
                 NIMEFAHAMU, ASANTE!
               </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* PASSENGER SELECTION MODAL */}
+      <AnimatePresence>
+        {showPassengerModal && (
+          <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowPassengerModal(false)}
+              className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            />
+
+            {/* Modal Box */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: "spring", damping: 25, stiffness: 350 }}
+              className="relative w-full max-w-sm bg-[#111118]/95 backdrop-blur-2xl border border-[#1e1e2e]/90 rounded-[28px] p-6 shadow-2xl overflow-hidden z-10 flex flex-col gap-5"
+            >
+              {passengerStep === 'who' ? (
+                <>
+                  <div className="text-center relative">
+                    <h3 className="text-[10px] font-black text-[#8a8ab0] uppercase tracking-[0.15em] mb-0.5">
+                      Nani Anasafiri?
+                    </h3>
+                    <h2 className="text-sm font-black text-white uppercase tracking-wider">
+                      Who will be seated?
+                    </h2>
+                    
+                    <button
+                      onClick={() => setShowPassengerModal(false)}
+                      className="absolute right-0 top-0 p-1 text-neutral-500 hover:text-white transition-colors"
+                    >
+                      <CloseX className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Options Grid */}
+                  <div className="grid grid-cols-2 gap-3.5 my-1">
+                    {/* Someone Else Option */}
+                    <button
+                      onClick={() => setPassengerType('someone_else')}
+                      className={`p-4 rounded-2.5xl border-2 transition-all flex flex-col items-center gap-2.5 group relative ${
+                        passengerType === 'someone_else'
+                          ? "bg-[#7F77DD]/10 border-[#7F77DD] shadow-[0_0_15px_rgba(127,119,221,0.15)] scale-[1.02]"
+                          : "bg-white/5 border-white/5 hover:border-white/10"
+                      }`}
+                    >
+                      <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${
+                        passengerType === 'someone_else'
+                          ? "bg-[#7F77DD] text-white"
+                          : "bg-white/10 text-neutral-300"
+                      }`}>
+                        <UserPlus className="w-6 h-6" />
+                      </div>
+                      
+                      <div className="text-center">
+                        <p className={`text-[10px] font-black uppercase tracking-wider ${
+                          passengerType === 'someone_else' ? "text-[#7F77DD]" : "text-neutral-400"
+                        }`}>
+                          Mtu Mwingine
+                        </p>
+                        <p className="text-[8.5px] text-neutral-500 font-bold mt-0.5">
+                          Someone Else
+                        </p>
+                      </div>
+
+                      {passengerType === 'someone_else' && (
+                        <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-[#7F77DD] flex items-center justify-center">
+                          <Check className="w-2.5 h-2.5 text-white" />
+                        </div>
+                      )}
+                    </button>
+
+                    {/* You Option */}
+                    <button
+                      onClick={() => setPassengerType('you')}
+                      className={`p-4 rounded-2.5xl border-2 transition-all flex flex-col items-center gap-2.5 group relative ${
+                        passengerType === 'you'
+                          ? "bg-[#00E5A0]/10 border-[#00E5A0] shadow-[0_0_15px_rgba(0,229,160,0.15)] scale-[1.02]"
+                          : "bg-white/5 border-white/5 hover:border-white/10"
+                      }`}
+                    >
+                      <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${
+                        passengerType === 'you'
+                          ? "bg-[#00E5A0] text-[#0a0a0f]"
+                          : "bg-white/10 text-neutral-300"
+                      }`}>
+                        <User className="w-6 h-6" />
+                      </div>
+
+                      <div className="text-center">
+                        <p className={`text-[10px] font-black uppercase tracking-wider ${
+                          passengerType === 'you' ? "text-[#00E5A0]" : "text-neutral-400"
+                        }`}>
+                          Wewe
+                        </p>
+                        <p className="text-[8.5px] text-neutral-500 font-bold mt-0.5">
+                          You
+                        </p>
+                      </div>
+
+                      {passengerType === 'you' && (
+                        <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-[#00E5A0] flex items-center justify-center">
+                          <Check className="w-2.5 h-2.5 text-black" />
+                        </div>
+                      )}
+                    </button>
+                  </div>
+
+                  <p className="text-[9px] text-neutral-400 font-semibold text-center leading-normal px-2">
+                    Confirm the customer & make sure the trip information / Thibitisha mteja na uhakikishe taarifa za safari
+                  </p>
+
+                  <button
+                    onClick={() => {
+                      if (passengerType === 'you') {
+                        setShowPassengerModal(false);
+                        confirmBooking();
+                      } else {
+                        setPassengerStep('details');
+                      }
+                    }}
+                    className="w-full py-4 bg-[#7F77DD]/10 border border-[#7F77DD]/30 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-[#7F77DD]/20 active:scale-95 transition-all shadow-xl"
+                  >
+                    Next / Endelea
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="text-center relative">
+                    <h3 className="text-[10px] font-black text-[#8a8ab0] uppercase tracking-[0.15em] mb-0.5">
+                      Taarifa za Msafiri
+                    </h3>
+                    <h2 className="text-sm font-black text-white uppercase tracking-wider">
+                      Ride Information
+                    </h2>
+                    
+                    <button
+                      onClick={() => setPassengerStep('who')}
+                      className="absolute left-0 top-1/2 -translate-y-1/2 p-1 text-neutral-500 hover:text-white transition-colors"
+                      title="Rudi Nyuma"
+                    >
+                      <ArrowLeft className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Input Fields */}
+                  <div className="flex flex-col gap-3.5 my-1">
+                    {/* Name Input */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[8.5px] font-black uppercase text-[#8a8ab0] tracking-wider pl-1">
+                        Jina la Msafiri / Passenger Name
+                      </label>
+                      <div className="bg-[#171725] border border-white/5 rounded-2xl p-3 flex items-center gap-3 focus-within:border-[#7F77DD]/50 transition-colors">
+                        <User className="w-4 h-4 text-neutral-500" />
+                        <input
+                          type="text"
+                          value={passengerName}
+                          onChange={(e) => setPassengerName(e.target.value)}
+                          placeholder="Andika Jina / Enter Name..."
+                          className="bg-transparent text-xs font-bold text-white w-full outline-none placeholder:text-neutral-600"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Contact Number Input */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[8.5px] font-black uppercase text-[#8a8ab0] tracking-wider pl-1">
+                        Namba ya Simu / Contact Number
+                      </label>
+                      <div className="bg-[#171725] border border-white/5 rounded-2xl p-3 flex items-center gap-3 focus-within:border-[#7F77DD]/50 transition-colors">
+                        <div className="flex items-center gap-1.5 shrink-0 pr-2 border-r border-white/10 select-none">
+                          <span className="text-xs">🇹🇿</span>
+                          <span className="text-xs font-black text-neutral-400">+255</span>
+                        </div>
+                        <input
+                          type="tel"
+                          value={passengerPhone}
+                          onChange={(e) => setPassengerPhone(e.target.value)}
+                          placeholder="Andika Namba / Enter Contact..."
+                          className="bg-transparent text-xs font-bold text-white w-full outline-none placeholder:text-neutral-600"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="text-[9px] text-neutral-400 font-semibold text-center leading-normal px-2">
+                    Msafiri atapokea maelezo ya gari na dereva kwa njia ya ujumbe (SMS).
+                  </p>
+
+                  <button
+                    onClick={() => {
+                      if (!passengerName.trim()) {
+                        toast.error("Tafadhali andika jina la msafiri! 👤");
+                        return;
+                      }
+                      if (!passengerPhone.trim()) {
+                        toast.error("Tafadhali andika namba ya simu ya msafiri! 📞");
+                        return;
+                      }
+                      setShowPassengerModal(false);
+                      confirmBooking();
+                    }}
+                    className="w-full py-4 bg-gradient-to-r from-[#7F77DD] to-[#6056d6] hover:from-[#8d86ff] hover:to-[#7066e6] text-white rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95 transition-all shadow-xl"
+                  >
+                    Done / Thibitisha
+                  </button>
+                </>
+              )}
             </motion.div>
           </div>
         )}
