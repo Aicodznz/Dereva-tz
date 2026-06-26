@@ -170,13 +170,13 @@ const TaxiHistory: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50 pb-32 font-sans text-neutral-800">
-      <div className="p-6 flex items-center gap-4 sticky top-0 bg-white/80 backdrop-blur-xl z-50 border-b border-neutral-200/80">
-        <button onClick={() => navigate('/taxi')} className="w-12 h-12 rounded-2xl bg-white border border-neutral-200 flex items-center justify-center shadow-sm active:scale-95 transition-all text-neutral-800 hover:bg-neutral-50">
+    <div className={`min-h-screen ${theme === 'dark' ? 'bg-[#0a0a0f] text-[#f0eeff]' : 'bg-neutral-50 text-neutral-800'} pb-32 font-sans`}>
+      <div className={`p-6 flex items-center gap-4 sticky top-0 ${theme === 'dark' ? 'bg-[#0a0a0f]/80 border-neutral-800' : 'bg-white/80 border-neutral-200/80'} backdrop-blur-xl z-50 border-b`}>
+        <button onClick={() => navigate('/taxi')} className={`w-12 h-12 rounded-2xl ${theme === 'dark' ? 'bg-[#111118] border-neutral-800 text-neutral-350 hover:bg-neutral-800' : 'bg-white border-neutral-200 text-neutral-800 hover:bg-neutral-50'} border flex items-center justify-center shadow-sm active:scale-95 transition-all`}>
           <ArrowLeft size={20} />
         </button>
         <div>
-          <h1 className="text-xl font-black uppercase tracking-tighter italic text-neutral-800">Safari Zangu</h1>
+          <h1 className={`text-xl font-black uppercase tracking-tighter italic ${theme === 'dark' ? 'text-[#f0eeff]' : 'text-neutral-800'}`}>Safari Zangu</h1>
           <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest leading-none mt-1">Historia ya safari zako za Taxi</p>
         </div>
       </div>
@@ -188,11 +188,11 @@ const TaxiHistory: React.FC = () => {
             <p className="text-sm font-bold text-neutral-400 uppercase tracking-widest italic">Pakia data...</p>
           </div>
         ) : rides.length === 0 ? (
-          <div className="bg-white rounded-[2.5rem] p-12 text-center border-2 border-dashed border-neutral-200 shadow-sm">
-            <div className="w-20 h-20 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <div className={`rounded-[2.5rem] p-12 text-center border-2 border-dashed ${theme === 'dark' ? 'bg-[#111118] border-neutral-800' : 'bg-white border-neutral-200'} shadow-sm`}>
+            <div className={`w-20 h-20 ${theme === 'dark' ? 'bg-neutral-800' : 'bg-neutral-100'} rounded-full flex items-center justify-center mx-auto mb-6`}>
               <Car size={40} className="text-neutral-400" />
             </div>
-            <h3 className="text-lg font-black uppercase tracking-tighter italic mb-2 text-neutral-800">Huna Safari Bado</h3>
+            <h3 className={`text-lg font-black uppercase tracking-tighter italic mb-2 ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`}>Huna Safari Bado</h3>
             <p className="text-xs text-neutral-500 font-bold leading-relaxed mb-8">Anza safari yako sasa kwa kutumia huduma yetu ya haraka na salama.</p>
             <button 
               onClick={() => navigate('/taxi')}
@@ -207,11 +207,11 @@ const TaxiHistory: React.FC = () => {
               layoutId={ride.id}
               key={ride.id}
               onClick={() => setSelectedRide(ride)}
-              className="bg-white rounded-[2rem] p-5 shadow-sm border border-neutral-200/60 cursor-pointer hover:border-neutral-300 active:scale-[0.98] transition-all group"
+              className={`rounded-[2rem] p-5 shadow-sm border ${theme === 'dark' ? 'bg-[#111118] border-neutral-800/80 hover:border-neutral-700' : 'bg-white border-neutral-200/60 hover:border-neutral-300'} cursor-pointer active:scale-[0.98] transition-all group`}
             >
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-neutral-100 rounded-xl flex items-center justify-center overflow-hidden">
+                  <div className={`w-10 h-10 ${theme === 'dark' ? 'bg-neutral-800' : 'bg-neutral-100'} rounded-xl flex items-center justify-center overflow-hidden`}>
                     {ride.driverInfo?.photo ? (
                       <img src={ride.driverInfo.photo} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     ) : (
@@ -282,22 +282,22 @@ const TaxiHistory: React.FC = () => {
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
-              className="w-full max-w-lg bg-white rounded-t-[3rem] sm:rounded-[3rem] overflow-hidden relative shadow-2xl border border-neutral-200"
+              className={`w-full max-w-lg ${theme === 'dark' ? 'bg-[#111118] border-neutral-800' : 'bg-white border-neutral-200'} rounded-t-[3rem] sm:rounded-[3rem] overflow-hidden relative shadow-2xl border`}
             >
               <div className="p-8">
                 <div className="flex items-center justify-between mb-8">
                   <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center border border-emerald-100">
-                      <Car size={28} className="text-emerald-600" />
+                    <div className={`w-14 h-14 ${theme === 'dark' ? 'bg-emerald-950/20 border-emerald-900 text-emerald-400' : 'bg-emerald-50 border-emerald-100 text-emerald-600'} rounded-2xl flex items-center justify-center border`}>
+                      <Car size={28} />
                     </div>
                     <div>
-                      <h2 className="text-2xl font-black uppercase tracking-tighter italic text-neutral-800">{selectedRide.vehicleType || 'Taxi'}</h2>
+                      <h2 className={`text-2xl font-black uppercase tracking-tighter italic ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`}>{selectedRide.vehicleType || 'Taxi'}</h2>
                       <p className="text-xs font-bold text-neutral-400 uppercase tracking-widest">ID: {selectedRide.id.slice(0, 8)}</p>
                     </div>
                   </div>
                   <button 
                     onClick={() => setSelectedRide(null)}
-                    className="w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-500 hover:bg-neutral-200 hover:text-neutral-800 transition-colors"
+                    className={`w-10 h-10 rounded-full ${theme === 'dark' ? 'bg-neutral-800 text-neutral-450 hover:bg-neutral-700 hover:text-neutral-200' : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-800'} flex items-center justify-center transition-colors`}
                   >
                     <X size={20} />
                   </button>
@@ -393,20 +393,20 @@ const TaxiHistory: React.FC = () => {
 
                 <div className="space-y-6">
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-neutral-50 p-4 rounded-3xl border border-neutral-200">
+                    <div className={`p-4 rounded-3xl border ${theme === 'dark' ? 'bg-neutral-800/40 border-neutral-800' : 'bg-neutral-50 border-neutral-200'}`}>
                       <p className="text-[9px] font-black text-neutral-400 uppercase tracking-widest mb-1 italic">Hali</p>
                       <span className={`text-[11px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${getStatusColor(selectedRide.status)}`}>
                         {getStatusLabel(selectedRide.status)}
                       </span>
                     </div>
-                    <div className="bg-neutral-50 p-4 rounded-3xl border border-neutral-200">
+                    <div className={`p-4 rounded-3xl border ${theme === 'dark' ? 'bg-neutral-800/40 border-neutral-800' : 'bg-neutral-50 border-neutral-200'}`}>
                       <p className="text-[9px] font-black text-neutral-400 uppercase tracking-widest mb-1 italic">Iliwekwa</p>
-                      <p className="text-xs font-black italic text-neutral-800">{selectedRide.createdAt ? format(typeof selectedRide.createdAt.toDate === 'function' ? selectedRide.createdAt.toDate() : (selectedRide.createdAt.seconds ? new Date(selectedRide.createdAt.seconds * 1000) : new Date(selectedRide.createdAt)), 'dd MMM, HH:mm') : 'Leo'}</p>
+                      <p className={`text-xs font-black italic ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`}>{selectedRide.createdAt ? format(typeof selectedRide.createdAt.toDate === 'function' ? selectedRide.createdAt.toDate() : (selectedRide.createdAt.seconds ? new Date(selectedRide.createdAt.seconds * 1000) : new Date(selectedRide.createdAt)), 'dd MMM, HH:mm') : 'Leo'}</p>
                     </div>
                   </div>
 
                   {selectedRide.driverInfo && (
-                    <div className="p-5 bg-neutral-50 rounded-3xl border border-neutral-200 flex items-center gap-4">
+                    <div className={`p-5 rounded-3xl border flex items-center gap-4 ${theme === 'dark' ? 'bg-[#161622] border-neutral-800' : 'bg-neutral-50 border-neutral-200'}`}>
                        <div className="w-14 h-14 rounded-2xl overflow-hidden bg-neutral-200">
                           {selectedRide.driverInfo.photo ? (
                             <img src={selectedRide.driverInfo.photo} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
@@ -424,7 +424,7 @@ const TaxiHistory: React.FC = () => {
                               <span className="text-[10px] font-black text-amber-500">{selectedRide.driverInfo.rating?.toFixed(1) || '5.0'}</span>
                             </div>
                           </div>
-                          <p className="text-lg font-black italic text-neutral-800">{selectedRide.driverInfo.name}</p>
+                          <p className={`text-lg font-black italic ${theme === 'dark' ? 'text-[#f0eeff]' : 'text-neutral-800'}`}>{selectedRide.driverInfo.name}</p>
                           <div className="flex items-center gap-2 mt-0.5">
                              <Phone size={12} className="text-emerald-600" />
                              <p className="text-[10px] font-bold text-neutral-500">{selectedRide.driverInfo.phone}</p>
@@ -435,12 +435,12 @@ const TaxiHistory: React.FC = () => {
 
                   <div className="space-y-4">
                     <div className="flex gap-4">
-                      <div className="w-10 h-10 bg-neutral-50 rounded-2xl flex items-center justify-center shrink-0 border border-neutral-200">
+                      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border ${theme === 'dark' ? 'bg-neutral-800/40 border-neutral-800' : 'bg-neutral-50 border-neutral-200'}`}>
                         <MapPin size={20} className="text-emerald-600" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Kutokea</p>
-                        <p className="text-xs font-bold text-neutral-700 leading-relaxed">{selectedRide.pickup?.address || 'Location data missing'}</p>
+                        <p className={`text-xs font-bold ${theme === 'dark' ? 'text-neutral-300' : 'text-neutral-700'} leading-relaxed`}>{selectedRide.pickup?.address || 'Location data missing'}</p>
                       </div>
                     </div>
 
@@ -482,17 +482,17 @@ const TaxiHistory: React.FC = () => {
                     )}
 
                     <div className="flex gap-4">
-                      <div className="w-10 h-10 bg-neutral-50 rounded-2xl flex items-center justify-center shrink-0 border border-neutral-200">
+                      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border ${theme === 'dark' ? 'bg-neutral-800/40 border-neutral-800' : 'bg-neutral-50 border-neutral-200'}`}>
                         <Navigation2 size={20} className="text-[#D85A30]" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Kwenda</p>
-                        <p className="text-xs font-bold text-neutral-700 leading-relaxed">{selectedRide.destination?.address || 'Location data missing'}</p>
+                        <p className={`text-xs font-bold ${theme === 'dark' ? 'text-neutral-300' : 'text-neutral-700'} leading-relaxed`}>{selectedRide.destination?.address || 'Location data missing'}</p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="p-6 bg-indigo-50 border border-indigo-100 rounded-[2rem] text-indigo-950 shadow-sm">
+                  <div className={`p-6 border rounded-[2rem] shadow-sm ${theme === 'dark' ? 'bg-indigo-950/40 border-indigo-900 text-indigo-200' : 'bg-indigo-50 border-indigo-100 text-indigo-950'}`}>
                     <div className="flex items-center justify-between">
                       <div className="flex flex-col">
                         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600/70">Gharama ya Safari</span>
@@ -507,7 +507,7 @@ const TaxiHistory: React.FC = () => {
                   <div className="flex gap-3">
                     <button 
                       onClick={downloadReceipt}
-                      className="flex-1 py-5 bg-neutral-100 border border-neutral-200 text-neutral-800 rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-3 active:scale-[0.98] transition-all hover:bg-neutral-200"
+                      className={`flex-1 py-5 border rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-3 active:scale-[0.98] transition-all ${theme === 'dark' ? 'bg-neutral-800 border-neutral-700 text-neutral-200 hover:bg-neutral-700' : 'bg-neutral-100 border-neutral-200 text-neutral-800 hover:bg-neutral-200'}`}
                     >
                       <Download size={16} /> Pakua Receipt
                     </button>

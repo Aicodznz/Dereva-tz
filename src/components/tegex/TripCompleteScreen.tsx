@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Check, Wallet, CreditCard, QrCode } from 'lucide-react';
 import { Ride } from '../../types/trip.types';
+import { useTheme } from 'next-themes';
 
 interface TripCompleteScreenProps {
   ride: Ride;
@@ -10,6 +11,8 @@ interface TripCompleteScreenProps {
 
 export const TripCompleteScreen: React.FC<TripCompleteScreenProps> = ({ ride, onPay }) => {
   const [method, setMethod] = useState('mongike');
+  const { resolvedTheme } = useTheme();
+  const theme = resolvedTheme === 'dark' ? 'dark' : 'light';
 
   // Pure CSS Confetti
   const confetti = Array.from({ length: 20 }).map((_, i) => (
@@ -38,7 +41,7 @@ export const TripCompleteScreen: React.FC<TripCompleteScreenProps> = ({ ride, on
 
   return (
     <div 
-      className="h-full w-full bg-neutral-50 flex flex-col items-center justify-center p-6 overflow-hidden relative z-50"
+      className={`h-full w-full ${theme === 'dark' ? 'bg-[#0a0a0f]' : 'bg-neutral-50'} flex flex-col items-center justify-center p-6 overflow-hidden relative z-50`}
     >
       <div className="relative z-10 w-full max-w-sm flex flex-col items-center">
         <div
@@ -51,13 +54,13 @@ export const TripCompleteScreen: React.FC<TripCompleteScreenProps> = ({ ride, on
            </svg>
         </div>
 
-        <h2 className="text-3xl font-black italic uppercase tracking-tighter text-neutral-800 text-center leading-none mb-2">
+        <h2 className={`text-3xl font-black italic uppercase tracking-tighter ${theme === 'dark' ? 'text-[#f0eeff]' : 'text-neutral-800'} text-center leading-none mb-2`}>
           Umefika!<br />Safari Imekamilika
         </h2>
         <p className="text-neutral-500 text-sm font-bold mb-12">Shukrani kwa kutumia TegeX</p>
 
         <div 
-          className="w-full bg-white border border-neutral-200/80 rounded-[40px] p-8 shadow-xl relative overflow-hidden"
+          className={`w-full ${theme === 'dark' ? 'bg-[#111118] border-neutral-800' : 'bg-white border-neutral-200/80'} border rounded-[40px] p-8 shadow-xl relative overflow-hidden`}
         >
           <div className="space-y-6">
             <div className="flex justify-between items-center text-[10px] font-black text-neutral-400 uppercase tracking-widest">
@@ -68,13 +71,13 @@ export const TripCompleteScreen: React.FC<TripCompleteScreenProps> = ({ ride, on
             <div className="space-y-4">
                <div className="flex justify-between items-center text-sm font-bold text-neutral-500">
                   <span>Msingi</span>
-                  <span className="text-neutral-800">TZS 1,200</span>
+                  <span className={theme === 'dark' ? 'text-neutral-300' : 'text-neutral-800'}>TZS 1,200</span>
                </div>
                <div className="flex justify-between items-center text-sm font-bold text-neutral-500">
                   <span>Umbali (4.2 km)</span>
-                  <span className="text-neutral-800">TZS {(ride?.fare ? ride.fare - 1200 : 0).toLocaleString()}</span>
+                  <span className={theme === 'dark' ? 'text-neutral-300' : 'text-neutral-800'}>TZS {(ride?.fare ? ride.fare - 1200 : 0).toLocaleString()}</span>
                </div>
-               <div className="h-px bg-neutral-100" />
+               <div className={`h-px ${theme === 'dark' ? 'bg-neutral-800' : 'bg-neutral-100'}`} />
                <div className="flex justify-between items-end">
                   <div className="text-left">
                      <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest leading-none mb-1">Jumla</p>
@@ -89,15 +92,15 @@ export const TripCompleteScreen: React.FC<TripCompleteScreenProps> = ({ ride, on
             <div className="space-y-3">
                <p className="text-[9px] font-black text-neutral-400 uppercase tracking-widest text-center">Chagua Njia ya Malipo</p>
                <div className="grid grid-cols-3 gap-3">
-                  <button onClick={() => setMethod('mongike')} className={`p-3 rounded-2xl border flex flex-col items-center gap-2 transition-all ${method === 'mongike' ? 'bg-indigo-50 border-indigo-600 text-indigo-600 shadow-sm' : 'bg-neutral-50 border-neutral-200 text-neutral-500 hover:bg-neutral-100'}`}>
+                  <button onClick={() => setMethod('mongike')} className={`p-3 rounded-2xl border flex flex-col items-center gap-2 transition-all ${method === 'mongike' ? (theme === 'dark' ? 'bg-indigo-950/40 border-indigo-500 text-indigo-400 shadow-sm' : 'bg-indigo-50 border-indigo-600 text-indigo-600 shadow-sm') : (theme === 'dark' ? 'bg-neutral-800/40 border-neutral-800 text-neutral-400 hover:bg-neutral-800' : 'bg-neutral-50 border-neutral-200 text-neutral-500 hover:bg-neutral-100')}`}>
                      <Wallet className="w-5 h-5" />
                      <span className="text-[8px] font-black uppercase">Mongike</span>
                   </button>
-                  <button onClick={() => setMethod('namba')} className={`p-3 rounded-2xl border flex flex-col items-center gap-2 transition-all ${method === 'namba' ? 'bg-indigo-50 border-indigo-600 text-indigo-600 shadow-sm' : 'bg-neutral-50 border-neutral-200 text-neutral-500 hover:bg-neutral-100'}`}>
+                  <button onClick={() => setMethod('namba')} className={`p-3 rounded-2xl border flex flex-col items-center gap-2 transition-all ${method === 'namba' ? (theme === 'dark' ? 'bg-indigo-950/40 border-indigo-500 text-indigo-400 shadow-sm' : 'bg-indigo-50 border-indigo-600 text-indigo-600 shadow-sm') : (theme === 'dark' ? 'bg-neutral-800/40 border-neutral-800 text-neutral-400 hover:bg-neutral-800' : 'bg-neutral-50 border-neutral-200 text-neutral-500 hover:bg-neutral-100')}`}>
                      <CreditCard className="w-5 h-5" />
                      <span className="text-[8px] font-black uppercase">LipaNamba</span>
                   </button>
-                  <button onClick={() => setMethod('qr')} className={`p-3 rounded-2xl border flex flex-col items-center gap-2 transition-all ${method === 'qr' ? 'bg-indigo-50 border-indigo-600 text-indigo-600 shadow-sm' : 'bg-neutral-50 border-neutral-200 text-neutral-500 hover:bg-neutral-100'}`}>
+                  <button onClick={() => setMethod('qr')} className={`p-3 rounded-2xl border flex flex-col items-center gap-2 transition-all ${method === 'qr' ? (theme === 'dark' ? 'bg-indigo-950/40 border-indigo-500 text-indigo-400 shadow-sm' : 'bg-indigo-50 border-indigo-600 text-indigo-600 shadow-sm') : (theme === 'dark' ? 'bg-neutral-800/40 border-neutral-800 text-neutral-400 hover:bg-neutral-800' : 'bg-neutral-50 border-neutral-200 text-neutral-500 hover:bg-neutral-100')}`}>
                      <QrCode className="w-5 h-5" />
                      <span className="text-[8px] font-black uppercase">QR Code</span>
                   </button>

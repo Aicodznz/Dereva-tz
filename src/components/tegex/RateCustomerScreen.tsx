@@ -4,6 +4,7 @@ import { Star, Heart, MessageSquare, FastForward } from 'lucide-react';
 import { Ride } from '../../types/ride.types';
 import { db } from '../../firebase';
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { useTheme } from 'next-themes';
 
 interface RateCustomerScreenProps {
   ride: Ride;
@@ -16,6 +17,8 @@ export default function RateCustomerScreen({ ride, onDone }: RateCustomerScreenP
   const [rating, setRating] = useState(5);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { resolvedTheme } = useTheme();
+  const theme = resolvedTheme === 'dark' ? 'dark' : 'light';
 
   const toggleTag = (tag: string) => {
     setSelectedTags(prev => 
@@ -64,17 +67,17 @@ export default function RateCustomerScreen({ ride, onDone }: RateCustomerScreenP
   return (
     <motion.div 
       initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-      className="fixed inset-0 z-[3000] bg-neutral-50 flex flex-col p-6 overflow-y-auto"
+      className={`fixed inset-0 z-[3000] ${theme === 'dark' ? 'bg-[#0a0a0f]' : 'bg-neutral-50'} flex flex-col p-6 overflow-y-auto`}
     >
       <div className="flex-1 flex flex-col items-center justify-center gap-12 py-10">
         <div className="text-center">
-           <h2 className="text-3xl font-black italic tracking-tighter text-neutral-800 leading-none mb-2">Tathmini Mteja Wako</h2>
+           <h2 className={`text-3xl font-black italic tracking-tighter ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'} leading-none mb-2`}>Tathmini Mteja Wako</h2>
            <p className="text-neutral-500 font-bold">Mrejesho wako unatusaidia kuwahudumia bora zaidi</p>
         </div>
 
         <div className="flex flex-col items-center gap-4">
-           <div className="w-32 h-32 rounded-[40px] bg-white border border-neutral-200 overflow-hidden p-2 shadow-sm">
-              <div className="w-full h-full rounded-[30px] bg-neutral-100 overflow-hidden relative">
+           <div className={`w-32 h-32 rounded-[40px] border overflow-hidden p-2 shadow-sm ${theme === 'dark' ? 'bg-[#111118] border-neutral-800' : 'bg-white border-neutral-200'}`}>
+              <div className={`w-full h-full rounded-[30px] overflow-hidden relative ${theme === 'dark' ? 'bg-neutral-800' : 'bg-neutral-100'}`}>
                  <img 
                    src={ride.customerInfo?.photo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${ride.customerId}`} 
                    className="w-full h-full object-cover"
@@ -93,7 +96,7 @@ export default function RateCustomerScreen({ ride, onDone }: RateCustomerScreenP
                    className="p-1 active:scale-125 transition-transform"
                  >
                     <Star 
-                      className={`w-10 h-10 ${rating >= star ? 'text-amber-500 fill-amber-500' : 'text-neutral-200'}`} 
+                      className={`w-10 h-10 ${rating >= star ? 'text-amber-500 fill-amber-500' : (theme === 'dark' ? 'text-neutral-800 hover:text-neutral-700' : 'text-neutral-200 hover:text-neutral-300')}`} 
                     />
                  </button>
               ))}
@@ -107,7 +110,7 @@ export default function RateCustomerScreen({ ride, onDone }: RateCustomerScreenP
                  <button
                    key={tag}
                    onClick={() => toggleTag(tag)}
-                   className={`px-6 py-3 rounded-2xl border-2 font-black italic text-sm transition-all ${selectedTags.includes(tag) ? 'bg-indigo-50 border-indigo-600 text-indigo-700 shadow-sm' : 'bg-white border-neutral-200 text-neutral-500 hover:bg-neutral-50'}`}
+                   className={`px-6 py-3 rounded-2xl border-2 font-black italic text-sm transition-all ${selectedTags.includes(tag) ? (theme === 'dark' ? 'bg-indigo-950/40 border-indigo-500 text-indigo-400 shadow-sm' : 'bg-indigo-50 border-indigo-600 text-indigo-700 shadow-sm') : (theme === 'dark' ? 'bg-neutral-900 border-neutral-800 text-neutral-400 hover:bg-neutral-800' : 'bg-white border-neutral-200 text-neutral-500 hover:bg-neutral-50')}`}
                  >
                     {tag}
                  </button>
@@ -119,7 +122,7 @@ export default function RateCustomerScreen({ ride, onDone }: RateCustomerScreenP
       <div className="flex gap-4 mt-auto">
         <button 
           onClick={onDone}
-          className="w-1/3 h-16 rounded-3xl border-2 border-neutral-200 text-neutral-400 bg-white font-black uppercase italic hover:bg-neutral-100 hover:text-neutral-600"
+          className={`w-1/3 h-16 rounded-3xl border-2 font-black uppercase italic transition-colors ${theme === 'dark' ? 'border-neutral-800 bg-neutral-900 text-neutral-500 hover:bg-neutral-800 hover:text-neutral-350' : 'border-neutral-200 bg-white text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600'}`}
         >
           RUKA
         </button>
