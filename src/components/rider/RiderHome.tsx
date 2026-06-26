@@ -1047,6 +1047,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
 
     let watchId: number | null = null;
     let lastErrorTime = 0;
+    const prevPosRef = { current: null as [number, number] | null };
 
     const getDistanceInMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
       const R = 6371000;
@@ -1066,38 +1067,50 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
           async (pos) => {
             const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
             
+            // Check if simulated ride is in progress. If so, suspend GPS tracking updates so they do not conflict.
+            const isSimulating = activeRide && ['accepted', 'driver_arriving', 'on_trip'].includes(activeRide.status);
+            if (isSimulating) {
+              return;
+            }
+
+            const prev = prevPosRef.current;
             let shouldUpdate = true;
-            setPosition(prev => {
-              if (prev && prev[0] && prev[1]) {
-                const dist = getDistanceInMeters(prev[0], prev[1], loc.lat, loc.lng);
-                if (dist < 3) {
-                  shouldUpdate = false;
-                  return prev;
+            let currentBearing = rotation;
+
+            if (prev) {
+              const dist = getDistanceInMeters(prev[0], prev[1], loc.lat, loc.lng);
+              // Minimum 5 meters to update position to prevent minor GPS drifting
+              if (dist < 5) {
+                shouldUpdate = false;
+              } else {
+                // Minimum 10 meters to change rotation to prevent rotating around when stationary
+                if (dist >= 10) {
+                  currentBearing = calculateBearing(prev[0], prev[1], loc.lat, loc.lng);
+                  setRotation(currentBearing);
                 }
+                setPosition([loc.lat, loc.lng]);
+                prevPosRef.current = [loc.lat, loc.lng];
               }
-              return [loc.lat, loc.lng];
-            });
+            } else {
+              // First location acquired
+              setPosition([loc.lat, loc.lng]);
+              prevPosRef.current = [loc.lat, loc.lng];
+            }
 
             if (!shouldUpdate) return;
 
-            setLastPosition(prev => {
-              if (prev && (prev[0] !== loc.lat || prev[1] !== loc.lng)) {
-                const b = calculateBearing(prev[0], prev[1], loc.lat, loc.lng);
-                setRotation(b);
-              }
-              return [loc.lat, loc.lng];
-            });
+            setLastPosition(prevPosRef.current);
             
-            // Update active ride tracking if exists
+            // Update active ride tracking if exists with heading
             if (activeRide) {
-              updateDriverLocation(loc.lat, loc.lng);
+              updateDriverLocation(loc.lat, loc.lng, currentBearing);
             }
 
             // ALWAYS update the public "drivers" collection if online
-            // so passengers can see the driver on their map
+            // so passengers can see the driver on their map with the heading
             try {
               await updateDoc(doc(db, 'drivers', user.uid), {
-                location: { lat: loc.lat, lng: loc.lng },
+                location: { lat: loc.lat, lng: loc.lng, heading: currentBearing },
                 isOnline: true,
                 receiving: true,
                 status: 'online',

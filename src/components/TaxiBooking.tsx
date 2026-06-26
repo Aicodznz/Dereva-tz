@@ -1425,15 +1425,7 @@ export default function TaxiBooking() {
           activeRide.driverLocation,
         );
         const loc = activeRide.driverLocation;
-        setDriverLivePos((prev) => {
-          if (!prev) return loc;
-          const dist = L.latLng(loc.lat, loc.lng).distanceTo(L.latLng(prev.lat, prev.lng));
-          const headingDiff = Math.abs(((loc as any).heading ?? 0) - ((prev as any).heading ?? 0));
-          if (dist > 1 || headingDiff > 5) {
-            return loc;
-          }
-          return prev;
-        });
+        setDriverLivePos(loc);
 
         const target =
           activeRide.status === "on_trip"
@@ -1474,15 +1466,7 @@ export default function TaxiBooking() {
             const data = docSnap.data();
             const pos = data.location || data.currentPosition;
             if (pos) {
-              setDriverLivePos((prev) => {
-                if (!prev) return pos;
-                const dist = L.latLng(pos.lat, pos.lng).distanceTo(L.latLng(prev.lat, prev.lng));
-                const headingDiff = Math.abs((pos.heading ?? 0) - (prev.heading ?? 0));
-                if (dist > 1 || headingDiff > 5) {
-                  return pos;
-                }
-                return prev;
-              });
+              setDriverLivePos(pos);
             }
           }
         },
