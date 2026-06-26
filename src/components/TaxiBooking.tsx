@@ -1668,7 +1668,7 @@ export default function TaxiBooking() {
     const mapMarkerLayout = customVehicle?.mapMarkerLayout || 'top_down';
 
     if (customVehicle?.mapMarkerUrl && (mapMarkerLayout === 'custom' || mapMarkerLayout === 'custom_side' || mapMarkerLayout === 'custom_top_down')) {
-      if (mapMarkerLayout === 'custom_top_down') {
+      if (mapMarkerLayout === 'custom_top_down' || (mapMarkerLayout === 'custom' && type === 'bike')) {
         // Compute final orientation offset
         let finalRotation = rotation;
         const orientation = customVehicle.mapMarkerOrientation || 'left';
@@ -1690,7 +1690,7 @@ export default function TaxiBooking() {
               <!-- Map Marker Glowing Halo -->
               <div class="absolute w-8 h-8 rounded-full bg-black/15 blur-[2px] pointer-events-none"></div>
               
-              <div class="relative transition-transform duration-500 ease-out" style="transform: rotate(${finalRotation}deg); width: 40px; height: 40px; display: flex; items-center: center; justify-content: center;">
+              <div class="relative transition-transform duration-500 ease-out flex items-center justify-center" style="transform: rotate(${finalRotation}deg); width: 40px; height: 40px;">
                 <img 
                   src="${customVehicle.mapMarkerUrl}" 
                   class="w-10 h-10 object-contain drop-shadow-[0_2.5px_4px_rgba(0,0,0,0.4)]" 

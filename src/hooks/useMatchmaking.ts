@@ -4,6 +4,19 @@ import { doc, updateDoc, serverTimestamp, collection, query, where, getDocs } fr
 import { Ride } from '../types/trip.types';
 import { generateSimulatedRoads, interpolatePoints } from './useRouting';
 
+function getBearing(startLat: number, startLng: number, endLat: number, endLng: number): number {
+  const radians = Math.PI / 180;
+  const dLngRad = (endLng - startLng) * radians;
+  const lat1Rad = startLat * radians;
+  const lat2Rad = endLat * radians;
+  
+  const y = Math.sin(dLngRad) * Math.cos(lat2Rad);
+  const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) -
+            Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLngRad);
+  let brng = Math.atan2(y, x) * 180 / Math.PI;
+  return (brng + 360) % 360;
+}
+
 export function useMatchmaking(ride: Ride | null) {
   const [isSearching, setIsSearching] = useState(false);
   const simulationIntervalRef = useRef<any>(null);
@@ -104,9 +117,16 @@ export function useMatchmaking(ride: Ride | null) {
         simulationIntervalRef.current = setInterval(async () => {
           if (stepIdx < coords.length) {
             const nextCoord = coords[stepIdx];
+            let heading = 0;
+            if (stepIdx > 0) {
+              const prevCoord = coords[stepIdx - 2];
+              heading = getBearing(prevCoord[0], prevCoord[1], nextCoord[0], nextCoord[1]);
+            } else {
+              heading = getBearing(driverPos.lat, driverPos.lng, nextCoord[0], nextCoord[1]);
+            }
             
             await updateDoc(doc(db, 'rides', rideId), {
-              driverLocation: { lat: nextCoord[0], lng: nextCoord[1] },
+              driverLocation: { lat: nextCoord[0], lng: nextCoord[1], heading },
               updatedAt: serverTimestamp()
             });
             stepIdx += 2; // Move 2 steps at a time for smooth pace
@@ -115,9 +135,13 @@ export function useMatchmaking(ride: Ride | null) {
             clearInterval(simulationIntervalRef.current);
             simulationIntervalRef.current = null;
 
+            const finalHeading = coords.length > 1 
+              ? getBearing(coords[coords.length - 2][0], coords[coords.length - 2][1], ride.pickup.lat, ride.pickup.lng)
+              : 0;
+
             await updateDoc(doc(db, 'rides', rideId), {
               status: 'driver_arrived',
-              driverLocation: { lat: ride.pickup.lat, lng: ride.pickup.lng },
+              driverLocation: { lat: ride.pickup.lat, lng: ride.pickup.lng, heading: finalHeading },
               updatedAt: serverTimestamp()
             });
           }
@@ -253,9 +277,10 @@ export function useMatchmaking(ride: Ride | null) {
             console.log("[Simulation] Driver is changing path/turning on another road! Simulating deviation...");
             const devLat = nextCoord[0] + 0.0022; // shift 240 meters away
             const devLng = nextCoord[1] - 0.0022;
+            const heading = getBearing(nextCoord[0], nextCoord[1], devLat, devLng);
 
             await updateDoc(doc(db, 'rides', rideId), {
-              driverLocation: { lat: devLat, lng: devLng },
+              driverLocation: { lat: devLat, lng: devLng, heading },
               hasDeviated: true,
               isRerouting: true,
               navigationMessage: "Mteja, dereva amebadilisha njia! Antway inakuelekeza upya...",
@@ -265,8 +290,16 @@ export function useMatchmaking(ride: Ride | null) {
             return;
           }
 
+          let heading = 0;
+          if (currentIdx > 0) {
+            const prevCoord = interpolatedTripCoords[currentIdx - 2];
+            heading = getBearing(prevCoord[0], prevCoord[1], nextCoord[0], nextCoord[1]);
+          } else if (ride.driverLocation) {
+            heading = getBearing(ride.driverLocation.lat, ride.driverLocation.lng, nextCoord[0], nextCoord[1]);
+          }
+
           await updateDoc(doc(db, 'rides', rideId), {
-            driverLocation: { lat: nextCoord[0], lng: nextCoord[1] },
+            driverLocation: { lat: nextCoord[0], lng: nextCoord[1], heading },
             updatedAt: serverTimestamp()
           });
           currentIdx += 2;
