@@ -29,7 +29,7 @@ export const TripCompleteScreen: React.FC<TripCompleteScreenProps> = ({ ride, on
       }}
       className={`absolute w-2 h-2 rounded-full z-0`}
       style={{ 
-        backgroundColor: ['#1D9E75', '#7F77DD', '#D85A30', '#f0eeff'][Math.floor(Math.random() * 4)],
+        backgroundColor: ['#059669', '#4f46e5', '#ea580c', '#cbd5e1'][Math.floor(Math.random() * 4)],
         left: `${Math.random() * 100}%`,
         top: '-10px'
       }}
@@ -38,11 +38,11 @@ export const TripCompleteScreen: React.FC<TripCompleteScreenProps> = ({ ride, on
 
   return (
     <div 
-      className="h-full w-full bg-[#0a0a0f] flex flex-col items-center justify-center p-6 overflow-hidden relative z-50"
+      className="h-full w-full bg-neutral-50 flex flex-col items-center justify-center p-6 overflow-hidden relative z-50"
     >
       <div className="relative z-10 w-full max-w-sm flex flex-col items-center">
         <div
-           className="w-20 h-20 bg-[#1D9E75] rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(29,158,117,0.5)] mb-8"
+           className="w-20 h-20 bg-emerald-600 rounded-full flex items-center justify-center shadow-lg shadow-emerald-600/10 mb-8"
         >
            <svg className="w-10 h-10 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
               <path 
@@ -51,53 +51,53 @@ export const TripCompleteScreen: React.FC<TripCompleteScreenProps> = ({ ride, on
            </svg>
         </div>
 
-        <h2 className="text-3xl font-black italic uppercase tracking-tighter text-[#f0eeff] text-center leading-none mb-2">
+        <h2 className="text-3xl font-black italic uppercase tracking-tighter text-neutral-800 text-center leading-none mb-2">
           Umefika!<br />Safari Imekamilika
         </h2>
-        <p className="text-[#6b6b8a] text-sm font-bold mb-12">Shukrani kwa kutumia TegeX</p>
+        <p className="text-neutral-500 text-sm font-bold mb-12">Shukrani kwa kutumia TegeX</p>
 
         <div 
-          className="w-full bg-[#111118] border border-[#1e1e2e] rounded-[40px] p-8 shadow-2xl relative overflow-hidden"
+          className="w-full bg-white border border-neutral-200/80 rounded-[40px] p-8 shadow-xl relative overflow-hidden"
         >
           <div className="space-y-6">
-            <div className="flex justify-between items-center text-[10px] font-black text-[#6b6b8a] uppercase tracking-widest">
+            <div className="flex justify-between items-center text-[10px] font-black text-neutral-400 uppercase tracking-widest">
               <span>Mchanganuo wa Malipo</span>
               <span>Trip Summary</span>
             </div>
 
             <div className="space-y-4">
-               <div className="flex justify-between items-center text-sm font-bold text-[#6b6b8a]">
+               <div className="flex justify-between items-center text-sm font-bold text-neutral-500">
                   <span>Msingi</span>
-                  <span className="text-[#f0eeff]">TZS 1,200</span>
+                  <span className="text-neutral-800">TZS 1,200</span>
                </div>
-               <div className="flex justify-between items-center text-sm font-bold text-[#6b6b8a]">
+               <div className="flex justify-between items-center text-sm font-bold text-neutral-500">
                   <span>Umbali (4.2 km)</span>
-                  <span className="text-[#f0eeff]">TZS {(ride?.fare ? ride.fare - 1200 : 0).toLocaleString()}</span>
+                  <span className="text-neutral-800">TZS {(ride?.fare ? ride.fare - 1200 : 0).toLocaleString()}</span>
                </div>
-               <div className="h-px bg-[#1e1e2e]" />
+               <div className="h-px bg-neutral-100" />
                <div className="flex justify-between items-end">
                   <div className="text-left">
-                     <p className="text-[10px] font-black text-[#6b6b8a] uppercase tracking-widest leading-none mb-1">Jumla</p>
-                     <h3 className="text-3xl font-black italic text-[#7F77DD]">TZS {(ride?.fare ?? 0).toLocaleString()}</h3>
+                     <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest leading-none mb-1">Jumla</p>
+                     <h3 className="text-3xl font-black italic text-indigo-600">TZS {(ride?.fare ?? 0).toLocaleString()}</h3>
                   </div>
-                  <div className="px-3 py-1 bg-[#1D9E75]/10 border border-[#1D9E75]/30 rounded-full text-[8px] font-black text-[#1D9E75] uppercase">
+                  <div className="px-3 py-1 bg-emerald-50 border border-emerald-100 rounded-full text-[8px] font-black text-emerald-700 uppercase">
                      Bado Hujalipa
                   </div>
                </div>
             </div>
 
             <div className="space-y-3">
-               <p className="text-[9px] font-black text-[#6b6b8a] uppercase tracking-widest text-center">Chagua Njia ya Malipo</p>
+               <p className="text-[9px] font-black text-neutral-400 uppercase tracking-widest text-center">Chagua Njia ya Malipo</p>
                <div className="grid grid-cols-3 gap-3">
-                  <button onClick={() => setMethod('mongike')} className={`p-3 rounded-2xl border flex flex-col items-center gap-2 transition-all ${method === 'mongike' ? 'bg-[#7F77DD]/20 border-[#7F77DD] text-[#7F77DD]' : 'bg-[#0a0a0f] border-[#1e1e2e] text-[#6b6b8a]'}`}>
+                  <button onClick={() => setMethod('mongike')} className={`p-3 rounded-2xl border flex flex-col items-center gap-2 transition-all ${method === 'mongike' ? 'bg-indigo-50 border-indigo-600 text-indigo-600 shadow-sm' : 'bg-neutral-50 border-neutral-200 text-neutral-500 hover:bg-neutral-100'}`}>
                      <Wallet className="w-5 h-5" />
                      <span className="text-[8px] font-black uppercase">Mongike</span>
                   </button>
-                  <button onClick={() => setMethod('namba')} className={`p-3 rounded-2xl border flex flex-col items-center gap-2 transition-all ${method === 'namba' ? 'bg-[#7F77DD]/20 border-[#7F77DD] text-[#7F77DD]' : 'bg-[#0a0a0f] border-[#1e1e2e] text-[#6b6b8a]'}`}>
+                  <button onClick={() => setMethod('namba')} className={`p-3 rounded-2xl border flex flex-col items-center gap-2 transition-all ${method === 'namba' ? 'bg-indigo-50 border-indigo-600 text-indigo-600 shadow-sm' : 'bg-neutral-50 border-neutral-200 text-neutral-500 hover:bg-neutral-100'}`}>
                      <CreditCard className="w-5 h-5" />
                      <span className="text-[8px] font-black uppercase">LipaNamba</span>
                   </button>
-                  <button onClick={() => setMethod('qr')} className={`p-3 rounded-2xl border flex flex-col items-center gap-2 transition-all ${method === 'qr' ? 'bg-[#7F77DD]/20 border-[#7F77DD] text-[#7F77DD]' : 'bg-[#0a0a0f] border-[#1e1e2e] text-[#6b6b8a]'}`}>
+                  <button onClick={() => setMethod('qr')} className={`p-3 rounded-2xl border flex flex-col items-center gap-2 transition-all ${method === 'qr' ? 'bg-indigo-50 border-indigo-600 text-indigo-600 shadow-sm' : 'bg-neutral-50 border-neutral-200 text-neutral-500 hover:bg-neutral-100'}`}>
                      <QrCode className="w-5 h-5" />
                      <span className="text-[8px] font-black uppercase">QR Code</span>
                   </button>
@@ -106,7 +106,7 @@ export const TripCompleteScreen: React.FC<TripCompleteScreenProps> = ({ ride, on
 
             <button 
               onClick={() => onPay(method)}
-              className="w-full h-14 bg-[#1D9E75] text-white rounded-[50px] font-black uppercase tracking-[0.2em] text-xs shadow-2xl shadow-[#1D9E75]/20 active:scale-95 transition-all mt-4"
+              className="w-full h-14 bg-emerald-600 text-white rounded-[50px] font-black uppercase tracking-[0.2em] text-xs shadow-lg shadow-emerald-600/15 hover:bg-emerald-700 active:scale-95 transition-all mt-4"
             >
               Lipa Sasa
             </button>

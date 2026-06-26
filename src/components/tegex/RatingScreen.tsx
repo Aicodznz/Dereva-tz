@@ -25,22 +25,22 @@ export const RatingScreen: React.FC<RatingScreenProps> = ({ ride, onSubmit, onSk
 
   return (
     <div 
-      className="h-full w-full bg-[#0a0a0f] flex flex-col p-8 overflow-y-auto no-scrollbar relative z-[60]"
+      className="h-full w-full bg-neutral-50 flex flex-col p-8 overflow-y-auto no-scrollbar relative z-[60]"
     >
       <div className="w-full flex-1 flex flex-col items-center justify-center py-10">
         <div className="relative mb-8">
-          <div className="w-24 h-24 rounded-full overflow-hidden ring-4 ring-[#7F77DD]/20 bg-[#111118] flex items-center justify-center text-3xl font-black text-[#7F77DD]">
+          <div className="w-24 h-24 rounded-full overflow-hidden ring-4 ring-indigo-100 bg-neutral-100 flex items-center justify-center text-3xl font-black text-indigo-600">
             {ride.driverInfo?.photo ? <img src={ride.driverInfo.photo} className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : ride.driverInfo?.name?.charAt(0) || 'D'}
           </div>
-          <div className="absolute -bottom-2 -right-2 bg-[#1D9E75] text-white p-2 rounded-xl border-2 border-[#0a0a0f]">
+          <div className="absolute -bottom-2 -right-2 bg-emerald-600 text-white p-2 rounded-xl border-2 border-white shadow-md">
             <CheckCircle2 className="w-4 h-4" />
           </div>
         </div>
 
-        <h2 className="text-2xl font-black text-center text-[#f0eeff] mb-2 leading-tight italic uppercase">
+        <h2 className="text-2xl font-black text-center text-neutral-800 mb-2 leading-tight italic uppercase">
           Je, safari ilikuwaje na {ride.driverInfo?.name.split(' ')[0] || "Dereva"}?
         </h2>
-        <p className="text-[#6b6b8a] text-[10px] font-black uppercase tracking-widest mb-10 text-center px-4 italic">
+        <p className="text-neutral-400 text-[10px] font-black uppercase tracking-widest mb-10 text-center px-4 italic">
           (gusa nyota — 1 mpaka 5)
         </p>
 
@@ -57,8 +57,8 @@ export const RatingScreen: React.FC<RatingScreenProps> = ({ ride, onSubmit, onSk
               <Star 
                 className={`w-10 h-10 transition-colors ${
                   star <= (hovered || rating) 
-                  ? 'fill-[#D85A30] text-[#D85A30]' 
-                  : 'text-[#1e1e2e]'
+                  ? 'fill-amber-500 text-amber-500' 
+                  : 'text-neutral-200 hover:text-neutral-300'
                 }`} 
               />
             </button>
@@ -77,8 +77,8 @@ export const RatingScreen: React.FC<RatingScreenProps> = ({ ride, onSubmit, onSk
               onClick={() => toggleChip(chip)}
               className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all ${
                 selectedChips.includes(chip)
-                ? 'bg-[#1D9E75]/20 border-[#1D9E75] text-[#1D9E75]'
-                : 'bg-[#111118] border-[#1e1e2e] text-[#6b6b8a]'
+                ? 'bg-emerald-50 border-emerald-500 text-emerald-700 font-bold'
+                : 'bg-white border-neutral-200 text-neutral-500 hover:bg-neutral-50'
               }`}
             >
               [{chip}]
@@ -93,7 +93,7 @@ export const RatingScreen: React.FC<RatingScreenProps> = ({ ride, onSubmit, onSk
              value={comment}
              onChange={(e) => setComment(e.target.value)}
              placeholder="Andika maoni yako hapa..."
-             className="w-full bg-[#111118] border border-[#1e1e2e] rounded-3xl p-5 text-sm font-bold text-[#f0eeff] placeholder-[#6b6b8a] outline-none focus:border-[#7F77DD]/30 resize-none h-32 transition-colors"
+             className="w-full bg-white border border-neutral-200 rounded-3xl p-5 text-sm font-bold text-neutral-800 placeholder-neutral-400 outline-none focus:border-indigo-600/40 focus:ring-1 focus:ring-indigo-600/20 resize-none h-32 transition-colors"
            />
         </div>
 
@@ -101,14 +101,14 @@ export const RatingScreen: React.FC<RatingScreenProps> = ({ ride, onSubmit, onSk
           <button
             onClick={() => rating > 0 && onSubmit(rating, selectedChips)}
             disabled={rating === 0}
-            className="w-full h-16 bg-[#7F77DD] text-white rounded-[50px] font-black uppercase tracking-[0.2em] text-xs shadow-[0_10px_30px_rgba(127,119,221,0.3)] disabled:opacity-30 active:scale-95 transition-all flex items-center justify-center gap-3"
+            className="w-full h-16 bg-indigo-600 text-white rounded-[50px] font-black uppercase tracking-[0.2em] text-xs shadow-lg shadow-indigo-600/10 disabled:opacity-30 active:scale-95 transition-all flex items-center justify-center gap-3"
           >
             TUMA TATHMINI
           </button>
 
           <button
             onClick={onSkip}
-            className="text-[10px] font-black text-[#6b6b8a] uppercase tracking-widest hover:text-[#f0eeff] transition-colors"
+            className="text-[10px] font-black text-neutral-400 uppercase tracking-widest hover:text-neutral-600 transition-colors"
           >
             Ruka →
           </button>

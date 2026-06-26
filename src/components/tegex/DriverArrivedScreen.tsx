@@ -68,12 +68,12 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
               initial={{ y: -100 }}
               animate={{ y: 80 }}
               exit={{ y: -100 }}
-              className="absolute top-0 inset-x-4 z-[70] bg-[#1D9E75] p-4 rounded-2xl shadow-2xl border-2 border-white/20 flex items-center gap-4 animate-bounce pointer-events-auto"
+              className="absolute top-0 inset-x-4 z-[70] bg-emerald-600 p-4 rounded-2xl shadow-xl border border-emerald-500/30 flex items-center gap-4 animate-bounce pointer-events-auto"
             >
               <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-2xl">🚗</div>
               <div className="flex-1">
                 <h4 className="text-sm font-black text-white italic uppercase tracking-tighter leading-none mb-1">Dereva Amefika!</h4>
-                <p className="text-[10px] font-bold text-white/80 uppercase whitespace-nowrap">
+                <p className="text-[10px] font-bold text-white/90 uppercase whitespace-nowrap">
                   {ride.driverInfo?.vehicle.model} · {ride.driverInfo?.vehicle.plate}
                 </p>
               </div>
@@ -84,10 +84,10 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
         {/* Floating ETA Chip */}
         {eta && !isArrived && showDetails && (
           <div 
-            className="absolute top-24 left-1/2 -translate-x-1/2 bg-[#111118]/90 backdrop-blur-xl border border-[#1e1e2e] rounded-full px-4 py-2 flex items-center gap-2 shadow-2xl z-[60] pointer-events-auto"
+            className="absolute top-24 left-1/2 -translate-x-1/2 bg-white/95 border border-neutral-200 rounded-full px-4 py-2 flex items-center gap-2 shadow-md z-[60] pointer-events-auto"
           >
-            <Clock className="w-3 h-3 text-[#7F77DD]" />
-            <span className="text-[10px] font-black text-[#f0eeff] uppercase tracking-widest whitespace-nowrap">
+            <Clock className="w-3 h-3 text-indigo-600" />
+            <span className="text-[10px] font-black text-neutral-700 uppercase tracking-widest whitespace-nowrap">
               Dereva anakuja — {eta.minutes} min {eta.seconds} sec
             </span>
           </div>
@@ -110,13 +110,13 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
                 setIsCollapsed(true);
               }
             }}
-            className={`absolute bottom-0 left-0 right-0 w-full bg-[#0A0C14]/95 backdrop-blur-[20px] rounded-t-[40px] border-t border-white/10 p-8 pb-12 shadow-[0_-20px_50px_rgba(0,0,0,0.6)] z-[60] transition-all touch-none pointer-events-auto ${isArrived ? 'ring-4 ring-[#00E5A0]/20' : ''}`}
+            className={`absolute bottom-0 left-0 right-0 w-full bg-white/95 backdrop-blur-[20px] rounded-t-[40px] border-t border-neutral-200/80 p-8 pb-12 shadow-[0_-15px_35px_rgba(0,0,0,0.08)] z-[60] transition-all touch-none pointer-events-auto ${isArrived ? 'ring-4 ring-emerald-500/10' : ''}`}
           >
             <div className="relative flex items-center justify-center mb-6">
-              <div className="w-12 h-1.5 bg-white/10 rounded-full cursor-grab active:cursor-grabbing" />
+              <div className="w-12 h-1.5 bg-neutral-200 rounded-full cursor-grab active:cursor-grabbing" />
               <button 
                 onClick={() => setIsCollapsed(true)}
-                className="absolute right-0 text-[10px] font-black uppercase text-[#8A8FA8] hover:text-white tracking-[0.15em] px-3 py-1 bg-white/5 hover:bg-white/10 rounded-full transition-colors pointer-events-auto"
+                className="absolute right-0 text-[10px] font-black uppercase text-neutral-500 hover:text-neutral-800 tracking-[0.15em] px-3 py-1 bg-neutral-100 hover:bg-neutral-200 rounded-full transition-colors pointer-events-auto"
               >
                 Ficha Maelezo
               </button>
@@ -124,24 +124,24 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
         
             <div className="flex items-center justify-between mb-8">
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-[#00E5A0] bg-[#080A12] flex items-center justify-center shadow-[0_0_12px_rgba(0,229,160,0.2)]">
+                <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-emerald-500 bg-neutral-50 flex items-center justify-center shadow-sm">
                   {ride.driverInfo?.photo ? (
                     <img src={ride.driverInfo.photo} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   ) : (
-                    <div className="text-xl font-bold text-[#00E5A0] font-heading">{ride.driverInfo?.name?.charAt(0) || 'D'}</div>
+                    <div className="text-xl font-bold text-emerald-600 font-heading">{ride.driverInfo?.name?.charAt(0) || 'D'}</div>
                   )}
                 </div>
                 <div>
-                  <h4 className="text-xl font-black uppercase text-white font-heading tracking-wide leading-none mb-1">
+                  <h4 className="text-xl font-black uppercase text-neutral-800 font-heading tracking-wide leading-none mb-1">
                     {ride.driverInfo?.name || "Dereva Swahili"}
                   </h4>
-                  <p className="text-[11px] font-semibold text-[#8A8FA8] uppercase tracking-wider">
-                    {ride.driverInfo?.vehicle.model} · <span className="text-[#00E5A0] font-mono">{ride.driverInfo?.vehicle.plate}</span>
+                  <p className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider">
+                    {ride.driverInfo?.vehicle.model} · <span className="text-indigo-600 font-mono font-black">{ride.driverInfo?.vehicle.plate}</span>
                   </p>
                 </div>
               </div>
-              <div className="flex flex-col items-end justify-center bg-white/5 px-3 py-1.5 rounded-xl border border-white/5">
-                <div className="flex items-center gap-1.5 text-yellow-400">
+              <div className="flex flex-col items-end justify-center bg-neutral-50 px-3 py-1.5 rounded-xl border border-neutral-100">
+                <div className="flex items-center gap-1.5 text-yellow-500">
                   <Star className="w-4.5 h-4.5 fill-current" />
                   <span className="text-sm font-black font-mono">{ride.driverInfo?.rating || "4.8"}</span>
                 </div>
@@ -153,49 +153,49 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
               <div className="grid grid-cols-3 gap-3 mb-8">
                 <button 
                   onClick={onCall} 
-                  className="h-12 bg-white/5 border border-white/10 rounded-full flex items-center justify-center gap-2 active:scale-95 transition-all text-white pointer-events-auto hover:bg-white/10"
+                  className="h-12 bg-neutral-50 border border-neutral-200 rounded-full flex items-center justify-center gap-2 active:scale-95 transition-all text-neutral-800 pointer-events-auto hover:bg-neutral-100"
                 >
-                  <Phone className="w-4 h-4 text-[#00E5A0]" />
+                  <Phone className="w-4 h-4 text-emerald-600" />
                   <span className="text-[10px] font-black uppercase tracking-[0.08em] font-heading">Call</span>
                 </button>
                 <button 
                   onClick={onMessage} 
-                  className="h-12 bg-white/5 border border-white/10 rounded-full flex items-center justify-center gap-2 active:scale-95 transition-all text-white pointer-events-auto hover:bg-white/10"
+                  className="h-12 bg-neutral-50 border border-neutral-200 rounded-full flex items-center justify-center gap-2 active:scale-95 transition-all text-neutral-800 pointer-events-auto hover:bg-neutral-100"
                 >
-                  <MessageSquare className="w-4 h-4 text-[#00E5A0]" />
+                  <MessageSquare className="w-4 h-4 text-indigo-600" />
                   <span className="text-[10px] font-black uppercase tracking-[0.08em] font-heading">Chat</span>
                 </button>
                 <button 
                   onClick={onCancel || (() => {})} 
-                  className="h-12 bg-red-500/10 border border-red-500/20 rounded-full flex items-center justify-center gap-2 active:scale-95 transition-all text-red-400 pointer-events-auto hover:bg-red-500/20"
+                  className="h-12 bg-red-50 border border-red-100 rounded-full flex items-center justify-center gap-2 active:scale-95 transition-all text-red-600 pointer-events-auto hover:bg-red-100"
                 >
                   <span className="text-[10px] font-black uppercase tracking-[0.08em] font-heading">✕ Cancel</span>
                 </button>
               </div>
             )}
 
-            <div className={`p-5 rounded-3xl border flex items-center justify-between transition-all duration-500 ${isArrived ? 'bg-[#00E5A0]/10 border-[#00E5A0]/30 shadow-[0_4px_20px_rgba(0,229,160,0.1)]' : 'bg-[#080A12] border-white/5'}`}>
+            <div className={`p-5 rounded-3xl border flex items-center justify-between transition-all duration-500 ${isArrived ? 'bg-emerald-50 border-emerald-500/30 shadow-[0_4px_20px_rgba(16,185,129,0.05)]' : 'bg-neutral-50 border-neutral-200/60'}`}>
               <div className="flex items-center gap-4">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-all ${isArrived ? 'bg-[#00E5A0]/20 animate-bounce' : 'bg-white/5'}`}>
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-all ${isArrived ? 'bg-emerald-100 animate-bounce' : 'bg-neutral-200/50'}`}>
                   {isArrived ? '🎉' : '🟢'}
                 </div>
                 <div>
-                  <p className="text-[8px] font-black text-[#8A8FA8] uppercase tracking-widest mb-0.5">Hali ya Safari</p>
-                  <h4 className={`text-xs font-black uppercase font-heading tracking-wide transition-colors ${isArrived ? 'text-[#00E5A0]' : 'text-white'}`}>
+                  <p className="text-[8px] font-black text-neutral-400 uppercase tracking-widest mb-0.5">Hali ya Safari</p>
+                  <h4 className={`text-xs font-black uppercase font-heading tracking-wide transition-colors ${isArrived ? 'text-emerald-700' : 'text-neutral-700'}`}>
                     {isArrived ? 'Dereva Amefika!' : 'Anakuja Kukuchukua'}
                   </h4>
                 </div>
               </div>
               {!isArrived && distance !== null && (
                 <div className="text-right">
-                  <p className="text-[8px] font-black text-[#8A8FA8] uppercase tracking-widest mb-0.5">Umbali</p>
-                  <h4 className="text-xs font-black text-white px-2 py-0.5 bg-white/5 rounded border border-white/5 inline-block font-mono tracking-wide">{distance.toFixed(1)} km · {eta?.minutes} min</h4>
+                  <p className="text-[8px] font-black text-neutral-400 uppercase tracking-widest mb-0.5">Umbali</p>
+                  <h4 className="text-xs font-black text-neutral-700 px-2 py-0.5 bg-neutral-100 rounded border border-neutral-200 inline-block font-mono tracking-wide">{distance.toFixed(1)} km · {eta?.minutes} min</h4>
                 </div>
               )}
               {isArrived && onImComing && !isSpectator && (
                 <button 
                   onClick={onImComing}
-                  className="px-6 h-10 bg-[#00E5A0] rounded-full text-[10px] font-black uppercase tracking-[0.1em] text-[#0A0C14] hover:brightness-110 active:scale-95 transition-all"
+                  className="px-6 h-10 bg-emerald-600 hover:bg-emerald-700 rounded-full text-[10px] font-black uppercase tracking-[0.1em] text-white hover:brightness-110 active:scale-95 transition-all"
                 >
                   Nimeingia Garini
                 </button>
@@ -215,7 +215,7 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
           >
             <button 
               onClick={() => setIsCollapsed(false)}
-              className="bg-[#1D9E75] hover:bg-[#16815f] text-white px-6 py-3 rounded-full flex items-center gap-2 shadow-2xl font-black text-xs uppercase tracking-[0.15em] transition-all active:scale-95 whitespace-nowrap"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-full flex items-center gap-2 shadow-lg font-black text-xs uppercase tracking-[0.15em] transition-all active:scale-95 whitespace-nowrap"
             >
               <span>Onesha Maelezo</span>
               <span className="text-base text-white/80 animate-bounce">▲</span>

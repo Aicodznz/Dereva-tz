@@ -2793,14 +2793,14 @@ export default function TaxiBooking() {
   }
 
   return (
-    <div className="max-w-md mx-auto bg-green-500/5 w-full flex flex-col relative overflow-hidden font-sans text-[#f0eeff] border-x border-[#1e1e2e] h-[100dvh]">
-      <div className="absolute inset-0 bg-[#0a0a0f]" />
+    <div className="max-w-md mx-auto bg-neutral-50 w-full flex flex-col relative overflow-hidden font-sans text-neutral-800 border-x border-neutral-200/60 h-[100dvh]">
+      <div className="absolute inset-0 bg-[#f8f9fa]" />
 
       {/* DEBUG FLAG */}
       <div className="hidden">DEBUG_RENDER_ACTIVE_{step}</div>
 
       <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute top-[-10%] right-[-10%] w-[300px] h-[300px] bg-[#7F77DD]/10 blur-[100px] rounded-full" />
+        <div className="absolute top-[-10%] right-[-10%] w-[300px] h-[300px] bg-indigo-500/5 blur-[80px] rounded-full" />
       </div>
 
       <div className="flex-1 flex flex-col relative z-10 h-full overflow-hidden">
@@ -2822,7 +2822,7 @@ export default function TaxiBooking() {
                   <div className="relative pointer-events-auto">
                     <button
                       onClick={() => setShowMenu(!showMenu)}
-                      className="w-10 h-10 sm:w-12 sm:h-12 bg-[#111118]/95 backdrop-blur-xl rounded-xl sm:rounded-2xl border border-[#1e1e2e] flex items-center justify-center shadow-xl active:scale-90 transition-all text-white hover:text-[#00E5A0] hover:border-[#7F77DD]/50"
+                      className="w-10 h-10 sm:w-12 sm:h-12 bg-white/95 backdrop-blur-xl rounded-xl sm:rounded-2xl border border-neutral-200/80 flex items-center justify-center shadow-md active:scale-90 transition-all text-neutral-800 hover:text-indigo-600 hover:border-indigo-300"
                       title="Fungua Menu"
                     >
                       <Menu className="w-5 h-5 sm:w-6 sm:h-6" />
@@ -2841,33 +2841,33 @@ export default function TaxiBooking() {
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             exit={{ opacity: 0, y: -10, scale: 0.95 }}
                             transition={{ duration: 0.15 }}
-                            className="absolute left-0 mt-2 w-52 bg-[#111118]/95 backdrop-blur-2xl border border-[#1e1e2e] rounded-xl sm:rounded-2xl shadow-2xl py-2 z-50 flex flex-col overflow-hidden"
+                            className="absolute left-0 mt-2 w-52 bg-white/95 backdrop-blur-2xl border border-neutral-200/80 rounded-xl sm:rounded-2xl shadow-xl py-2 z-50 flex flex-col overflow-hidden"
                           >
                             <button
                               onClick={() => {
                                 setShowMenu(false);
                                 navigate("/");
                               }}
-                              className="w-full text-left px-4 py-3 text-xs sm:text-sm text-neutral-300 hover:text-white hover:bg-white/5 flex items-center gap-3 transition-colors"
+                              className="w-full text-left px-4 py-3 text-xs sm:text-sm text-neutral-700 hover:text-indigo-600 hover:bg-neutral-50 flex items-center gap-3 transition-colors font-bold"
                             >
-                              <Home className="w-4 h-4 text-[#7F77DD]" />
+                              <Home className="w-4 h-4 text-indigo-500" />
                               <span>Rudi Nyumbani</span>
                             </button>
                             
-                            <div className="w-full border-b border-white/5" />
+                            <div className="w-full border-b border-neutral-100" />
 
                             <button
                               onClick={() => {
                                 setShowMenu(false);
                                 navigate("/taxi/history");
                               }}
-                              className="w-full text-left px-4 py-3 text-xs sm:text-sm text-neutral-300 hover:text-white hover:bg-white/5 flex items-center gap-3 transition-colors"
+                              className="w-full text-left px-4 py-3 text-xs sm:text-sm text-neutral-700 hover:text-indigo-600 hover:bg-neutral-50 flex items-center gap-3 transition-colors font-bold"
                             >
-                              <Clock className="w-4 h-4 text-emerald-400" />
+                              <Clock className="w-4 h-4 text-emerald-500" />
                               <span>Historia ya Safari</span>
                             </button>
 
-                            <div className="w-full border-b border-white/5" />
+                            <div className="w-full border-b border-neutral-100" />
 
                             <button
                               onClick={() => {
@@ -2875,50 +2875,50 @@ export default function TaxiBooking() {
                                 setIsMapFullscreen(!isMapFullscreen);
                                 if (!isMapFullscreen) setAutoFollow(true);
                               }}
-                              className="w-full text-left px-4 py-3 text-xs sm:text-sm text-neutral-300 hover:text-white hover:bg-white/5 flex items-center gap-3 transition-colors"
+                              className="w-full text-left px-4 py-3 text-xs sm:text-sm text-neutral-700 hover:text-indigo-600 hover:bg-neutral-50 flex items-center gap-3 transition-colors font-bold"
                             >
                               {isMapFullscreen ? (
                                 <>
-                                  <Layers className="w-4 h-4 text-sky-400" />
+                                  <Layers className="w-4 h-4 text-sky-500" />
                                   <span>Onesha Maelezo</span>
                                 </>
                               ) : (
                                 <>
-                                  <MapPin className="w-4 h-4 text-rose-400" />
+                                  <MapPin className="w-4 h-4 text-rose-500" />
                                   <span>Tazama Ramani Tupu</span>
                                 </>
                               )}
                             </button>
 
-                            <div className="w-full border-b border-white/5" />
+                            <div className="w-full border-b border-neutral-100" />
 
                             <button
                               onClick={() => {
                                 setShowMenu(false);
                                 setNextTheme(theme === "dark" ? "light" : "dark");
                               }}
-                              className="w-full text-left px-4 py-3 text-xs sm:text-sm text-neutral-300 hover:text-white hover:bg-white/5 flex items-center gap-3 transition-colors"
+                              className="w-full text-left px-4 py-3 text-xs sm:text-sm text-neutral-700 hover:text-indigo-600 hover:bg-neutral-50 flex items-center gap-3 transition-colors font-bold"
                             >
                               {theme === "dark" ? (
                                 <>
-                                  <Sun className="w-4 h-4 text-amber-400" />
+                                  <Sun className="w-4 h-4 text-amber-500" />
                                   <span>Mwangaza</span>
                                 </>
                               ) : (
                                 <>
-                                  <Moon className="w-4 h-4 text-blue-400" />
+                                  <Moon className="w-4 h-4 text-blue-500" />
                                   <span>Giza</span>
                                 </>
                               )}
                             </button>
 
-                            <div className="w-full border-b border-white/5" />
+                            <div className="w-full border-b border-neutral-100" />
 
                             {/* App download section inside dropdown */}
-                            <div className="px-1.5 py-1.5 bg-[#1b1b2a]/40">
+                            <div className="px-1.5 py-1.5 bg-neutral-50">
                               <AppDownloadButton 
                                 variant="compact" 
-                                className="w-full h-10 bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 border border-orange-500/25 text-orange-400 rounded-lg text-xs font-black flex items-center justify-center gap-2 active:scale-95 transition-all"
+                                className="w-full h-10 bg-gradient-to-r from-amber-500/10 to-orange-500/10 hover:from-amber-500/20 hover:to-orange-500/20 border border-orange-500/20 text-orange-600 rounded-lg text-xs font-black flex items-center justify-center gap-2 active:scale-95 transition-all"
                               />
                             </div>
                           </motion.div>
@@ -2928,8 +2928,8 @@ export default function TaxiBooking() {
                   </div>
 
                   {/* Center Search Bar */}
-                  <div className="flex-1 flex items-center h-10 sm:h-12 bg-[#111118]/95 backdrop-blur-xl border border-[#1e1e2e] rounded-xl sm:rounded-2xl shadow-xl px-3 gap-2 pointer-events-auto relative">
-                    <Search className="w-4 h-4 text-[#8a8ab0] shrink-0" />
+                  <div className="flex-1 flex items-center h-10 sm:h-12 bg-white/95 backdrop-blur-xl border border-neutral-200/80 rounded-xl sm:rounded-2xl shadow-md px-3 gap-2 pointer-events-auto relative">
+                    <Search className="w-4 h-4 text-neutral-400 shrink-0" />
                     
                     <input
                       type="text"
@@ -2944,7 +2944,7 @@ export default function TaxiBooking() {
                         setSettingMode("pickup");
                       }}
                       placeholder="Tafuta eneo lako..."
-                      className="flex-1 bg-transparent text-xs sm:text-sm font-bold text-white border-none outline-none p-0 placeholder:text-[#4e4e6a] font-sans"
+                      className="flex-1 bg-transparent text-xs sm:text-sm font-bold text-neutral-800 border-none outline-none p-0 placeholder:text-neutral-400 font-sans"
                     />
 
                     {isAutoLocated && (
@@ -2964,7 +2964,7 @@ export default function TaxiBooking() {
                       className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center active:scale-90 transition-all ${
                         isAutoLocated 
                           ? "bg-[#1D9E75]/25 text-[#00E5A0] border border-[#1D9E75]/35 hover:bg-[#1D9E75]/40"
-                          : "bg-white/5 text-neutral-400 hover:text-white border border-white/5"
+                          : "bg-neutral-100 text-neutral-500 hover:text-neutral-800 border border-neutral-200/40"
                       }`}
                       title="Tafuta mahali ulipo kiotomatiki kwa GPS"
                     >
@@ -2973,8 +2973,8 @@ export default function TaxiBooking() {
 
                     {/* Autocomplete predictions for top search bar */}
                     {settingMode === "pickup" && suggestions.length > 0 && (
-                      <div className="absolute left-0 right-0 top-full mt-2 z-[99999] bg-[#14141f]/95 backdrop-blur-2xl border-2 border-[#7f77dd]/30 rounded-2xl shadow-2xl overflow-hidden max-h-[250px] overflow-y-auto">
-                        <div className="px-4 py-2 bg-[#1b1b29] border-b border-white/5 text-[9px] font-black uppercase text-[#8a8ab0] tracking-wider">
+                      <div className="absolute left-0 right-0 top-full mt-2 z-[99999] bg-white border border-neutral-200 shadow-2xl rounded-2xl overflow-hidden max-h-[250px] overflow-y-auto">
+                        <div className="px-4 py-2 bg-neutral-50 border-b border-neutral-100 text-[9px] font-black uppercase text-neutral-500 tracking-wider">
                           Maeneo Yaliyopatikana
                         </div>
                         {suggestions.map((s, i) => {
@@ -2995,16 +2995,16 @@ export default function TaxiBooking() {
                                 e.stopPropagation();
                                 e.preventDefault();
                               }}
-                              className="w-full text-left p-3.5 hover:bg-white/5 active:bg-white/10 flex items-center gap-3 border-b border-white/5 last:border-0 group transition-all"
+                              className="w-full text-left p-3.5 hover:bg-neutral-50 active:bg-neutral-100 flex items-center gap-3 border-b border-neutral-100 last:border-0 group transition-all"
                             >
-                              <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-[#7f77dd] group-hover:bg-[#7f77dd]/20 group-hover:scale-105 transition-all">
+                              <div className="w-8 h-8 rounded-lg bg-neutral-100 flex items-center justify-center text-indigo-600 group-hover:bg-indigo-50 group-hover:scale-105 transition-all">
                                 <MapPin className="w-4 h-4" />
                               </div>
                               <div className="flex-1 overflow-hidden">
-                                <p className="text-xs font-bold text-white truncate group-hover:text-[#7f77dd] transition-colors">
+                                <p className="text-xs font-bold text-neutral-800 truncate group-hover:text-indigo-600 transition-colors">
                                   {mainName}
                                 </p>
-                                <p className="text-[10px] text-[#8a8ab0] truncate mt-0.5">
+                                <p className="text-[10px] text-neutral-500 truncate mt-0.5">
                                   {subName}
                                 </p>
                               </div>
@@ -3367,68 +3367,68 @@ export default function TaxiBooking() {
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => navigate("/")}
-                    className="w-12 h-12 rounded-2xl bg-[#0e0e17] border border-[#ff6b35]/20 hover:border-[#ff6b35]/40 flex items-center justify-center shadow-lg active:scale-95 transition-all text-[#ff6b35] hover:text-[#ff8552]"
+                    className="w-12 h-12 rounded-2xl bg-white border border-neutral-200/80 hover:border-neutral-300 flex items-center justify-center shadow-md active:scale-95 transition-all text-[#ff6b35] hover:text-[#ff8552]"
                     title="Rudi Nyumbani (Home)"
                   >
                     <Home className="w-5 h-5" />
                   </button>
                   <div>
-                    <h1 className="text-2xl font-black italic tracking-tighter text-white leading-tight">
+                    <h1 className="text-2xl font-black italic tracking-tighter text-neutral-900 leading-tight">
                       TEKSI-PAPA 🚕
                     </h1>
-                    <p className="text-[9px] font-bold text-[#6b6b8a] uppercase tracking-widest leading-none mt-0.5">
+                    <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest leading-none mt-0.5">
                       Usafiri wa haraka na uhakika
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={() => navigate("/taxi/history")}
-                  className="w-12 h-12 rounded-2xl bg-[#111118] border border-[#1e1e2e] flex items-center justify-center shadow-lg active:scale-95 transition-all text-white"
+                  className="w-12 h-12 rounded-2xl bg-white border border-neutral-200/80 flex items-center justify-center shadow-md active:scale-95 transition-all text-neutral-800 hover:bg-neutral-50"
                   title="Historia ya Safari"
                 >
                   <Clock size={20} />
                 </button>
               </div>
 
-              <div className="bg-[#111118] border border-[#1e1e2e] rounded-[40px] p-8 shadow-2xl space-y-6">
+              <div className="bg-white border border-neutral-200/80 rounded-[32px] p-6 shadow-xl space-y-5">
                 <div className="space-y-4">
                   <div
-                    className="bg-[#0a0a0f] rounded-2xl border border-[#1e1e2e] p-5 flex items-center gap-4 cursor-pointer active:scale-[0.98] transition-transform"
+                    className="bg-neutral-50/80 hover:bg-neutral-100/40 rounded-2xl border border-neutral-200/60 p-4 flex items-center gap-3.5 cursor-pointer active:scale-[0.98] transition-transform"
                     onClick={() => {
                       console.log("Manual pickup click");
                       setSettingMode("pickup");
                       setStep("map");
                     }}
                   >
-                    <div className="w-10 h-10 rounded-xl bg-[#1D9E75]/10 flex items-center justify-center text-[#1D9E75]">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600">
                       <MapPin className="w-5 h-5" />
                     </div>
                     <div className="flex-1 overflow-hidden">
-                      <p className="text-[9px] font-black text-[#6b6b8a] uppercase tracking-wider mb-1">
+                      <p className="text-[9px] font-black text-neutral-400 uppercase tracking-wider mb-0.5">
                         Unatokea
                       </p>
-                      <p className="text-sm font-bold text-[#f0eeff] truncate">
+                      <p className="text-sm font-bold text-neutral-800 truncate">
                         {pickup}
                       </p>
                     </div>
                   </div>
                   <div
-                    className="bg-[#0a0a0f] rounded-2xl border border-[#1e1e2e] p-5 flex items-center gap-4 cursor-pointer active:scale-[0.98] transition-transform"
+                    className="bg-neutral-50/80 hover:bg-neutral-100/40 rounded-2xl border border-neutral-200/60 p-4 flex items-center gap-3.5 cursor-pointer active:scale-[0.98] transition-transform"
                     onClick={() => {
                       console.log("Manual dest click");
                       setSettingMode("destination");
                       setStep("map");
                     }}
                   >
-                    <div className="w-10 h-10 rounded-xl bg-[#7F77DD]/10 flex items-center justify-center text-[#7F77DD]">
+                    <div className="w-9 h-9 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-600">
                       <Search className="w-5 h-5" />
                     </div>
                     <div className="flex-1 overflow-hidden">
-                      <p className="text-[9px] font-black text-[#6b6b8a] uppercase tracking-wider mb-1">
+                      <p className="text-[9px] font-black text-neutral-400 uppercase tracking-wider mb-0.5">
                         Unakwenda wapi?
                       </p>
                       <p
-                        className={`text-sm font-bold truncate ${destination ? "text-[#f0eeff]" : "text-[#6b6b8a]"}`}
+                        className={`text-sm font-bold truncate ${destination ? "text-neutral-800" : "text-neutral-400"}`}
                       >
                         {destination || "Andika hapa unapoenda"}
                       </p>
@@ -3441,7 +3441,7 @@ export default function TaxiBooking() {
                     setSettingMode("destination");
                     setStep("map");
                   }}
-                  className="w-full h-14 bg-white text-[#0a0a0f] rounded-[50px] font-black tracking-[0.2em] text-xs shadow-2xl shadow-white/5 active:scale-95 transition-all"
+                  className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-[50px] font-black tracking-[0.2em] text-xs shadow-lg active:scale-95 transition-all"
                 >
                   AGIZA USAFIRI SASA
                 </button>
@@ -3460,10 +3460,10 @@ export default function TaxiBooking() {
                     : 0,
               }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="absolute bottom-0 left-0 right-0 z-[9999] bg-[#111118] rounded-t-[40px] border-t border-[#1e1e2e] p-5 pb-10 space-y-4 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] max-h-[85dvh] overflow-y-auto no-scrollbar"
+              className="absolute bottom-0 left-0 right-0 z-[9999] bg-white rounded-t-[32px] border-t border-neutral-200/80 p-5 pb-10 space-y-4 shadow-[0_-12px_40px_rgba(0,0,0,0.12)] max-h-[85dvh] overflow-y-auto no-scrollbar"
             >
               <div
-                className="w-full h-10 flex items-center justify-center cursor-pointer group -mt-4 relative"
+                className="w-full h-8 flex items-center justify-center cursor-pointer group -mt-4 relative"
                 onClick={() => {
                   if (isMapFullscreen) {
                     setIsMapFullscreen(false);
@@ -3476,7 +3476,7 @@ export default function TaxiBooking() {
                 }}
               >
                 <div
-                  className={`w-16 h-2 rounded-full transition-all duration-300 shadow-lg ${isMinimized || isMapFullscreen ? "bg-[#7F77DD] animate-bounce" : "bg-neutral-800 group-hover:bg-neutral-600"}`}
+                  className={`w-16 h-2 rounded-full transition-all duration-300 shadow-md ${isMinimized || isMapFullscreen ? "bg-indigo-600 animate-bounce" : "bg-neutral-200 group-hover:bg-neutral-300"}`}
                 />
               </div>
 
@@ -3492,17 +3492,17 @@ export default function TaxiBooking() {
                         console.log("Back to home click");
                         setStep("home");
                       }}
-                      className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/5 border border-white/5 hover:border-white/15 hover:bg-white/10 text-[#6b6b8a] hover:text-white transition-all text-[11px] font-black tracking-wider uppercase"
+                      className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-neutral-100 hover:bg-neutral-200 border border-neutral-200/40 text-neutral-600 hover:text-neutral-800 transition-all text-[11px] font-black tracking-wider uppercase"
                     >
                       <ArrowLeft className="w-3.5 h-3.5" />
                       RUDI NYUMBANI
                     </button>
-                    <span className="text-[9px] font-black text-[#6b6b8a] uppercase tracking-[0.2em] italic">
+                    <span className="text-[9px] font-black text-neutral-400 uppercase tracking-[0.2em] italic">
                       chagua maeneo
                     </span>
                   </div>
 
-                  <div className="bg-[#0a0a0f]/60 backdrop-blur-xl border border-white/5 rounded-2xl p-4 relative">
+                  <div className="bg-neutral-50 border border-neutral-200/60 rounded-2xl p-4 relative">
                     <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-emerald-500 to-[#7F77DD] opacity-30 rounded-t-2xl" />
                     <div className="space-y-4">
                       <div 
@@ -3510,12 +3510,12 @@ export default function TaxiBooking() {
                         onClick={() => setSettingMode("destination")}
                       >
                         <div
-                          className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${settingMode === "destination" ? "bg-red-500 text-white shadow-md scale-95" : "bg-white/5 text-[#6b6b8a]"}`}
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${settingMode === "destination" ? "bg-red-500 text-white shadow-md scale-95" : "bg-neutral-200/60 text-neutral-500"}`}
                         >
                           <Search className="w-4 h-4" />
                         </div>
                         <div className="flex-1 overflow-hidden">
-                          <p className="text-[8.5px] font-black text-[#6b6b8a] uppercase tracking-wider mb-0.5">
+                          <p className="text-[8.5px] font-black text-neutral-400 uppercase tracking-wider mb-0.5">
                             UNAKWENDA WAPI?
                           </p>
                           <input
@@ -3526,7 +3526,7 @@ export default function TaxiBooking() {
                               geocodeAddress(e.target.value);
                             }}
                             onFocus={() => setSettingMode("destination")}
-                            className="w-full bg-transparent text-xs font-bold text-white border-none outline-none p-0 placeholder:text-neutral-700 italic"
+                            className="w-full bg-transparent text-xs font-black text-neutral-800 border-none outline-none p-0 placeholder:text-neutral-400"
                             placeholder="Andika hapa unapoenda"
                           />
                         </div>
@@ -3538,7 +3538,7 @@ export default function TaxiBooking() {
                               setIsMapFullscreen(true);
                               toast.success("Gusa popote kwenye ramani ili kuchagua unakokwenda! 📍");
                             }}
-                            className="w-9 h-9 flex items-center justify-center rounded-xl bg-[#7F77DD]/15 border border-[#7F77DD]/35 text-[#7F77DD] hover:bg-[#7F77DD]/30 active:scale-90 transition-all shadow-md group"
+                            className="w-9 h-9 flex items-center justify-center rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 hover:bg-indigo-100 active:scale-90 transition-all shadow-sm group"
                             title="Chagua kwa Ramani"
                           >
                             <Map className="w-3.5 h-3.5 group-hover:scale-105 transition-transform" />
@@ -3588,8 +3588,8 @@ export default function TaxiBooking() {
                     })()}
 
                     {suggestions.length > 0 && (
-                      <div className="absolute left-0 right-0 top-full mt-2 z-[100] bg-[#14141f] border-2 border-[#7f77dd]/30 rounded-3xl shadow-2xl overflow-hidden max-h-[300px] overflow-y-auto">
-                        <div className="px-4 py-2.5 bg-[#1b1b29] border-b border-white/5 text-[9px] font-black uppercase text-[#8a8ab0] tracking-wider">
+                      <div className="absolute left-0 right-0 top-full mt-2 z-[100] bg-white border border-neutral-200 shadow-2xl rounded-2xl overflow-hidden max-h-[300px] overflow-y-auto">
+                        <div className="px-4 py-2.5 bg-neutral-50 border-b border-neutral-100 text-[9px] font-black uppercase text-neutral-500 tracking-wider">
                           Maeneo Yaliyopatikana
                         </div>
                         {suggestions.map((s, i) => {
@@ -3610,16 +3610,16 @@ export default function TaxiBooking() {
                                 e.stopPropagation();
                                 e.preventDefault();
                               }}
-                              className="w-full text-left p-4 hover:bg-white/5 active:bg-white/10 flex items-center gap-4 border-b border-white/5 last:border-0 group transition-all"
+                              className="w-full text-left p-4 hover:bg-neutral-50 active:bg-neutral-100 flex items-center gap-4 border-b border-neutral-100 last:border-0 group transition-all"
                             >
-                              <div className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center text-[#7f77dd] group-hover:bg-[#7f77dd]/20 group-hover:scale-105 transition-all">
+                              <div className="w-9 h-9 rounded-xl bg-neutral-100 flex items-center justify-center text-indigo-600 group-hover:bg-indigo-50 group-hover:scale-105 transition-all">
                                 <MapPin className="w-4 h-4" />
                               </div>
                               <div className="flex-1 overflow-hidden">
-                                <p className="text-sm font-bold text-white truncate group-hover:text-[#7f77dd] transition-colors">
+                                <p className="text-sm font-bold text-neutral-800 truncate group-hover:text-indigo-600 transition-colors">
                                   {mainName}
                                 </p>
-                                <p className="text-[11px] text-[#8a8ab0] truncate mt-0.5">
+                                <p className="text-[11px] text-neutral-500 truncate mt-0.5">
                                   {subName}
                                 </p>
                               </div>
@@ -3648,10 +3648,10 @@ export default function TaxiBooking() {
                               setSelectedRide(ride);
                             }}
                             className={`w-full p-3.5 rounded-[24px] border-2 transition-all duration-300 flex flex-col items-center gap-2.5 relative overflow-hidden group ${
-                              ride.maintenance ? "opacity-50 grayscale pointer-events-auto cursor-not-allowed border-amber-500/20 bg-amber-950/20" :
+                              ride.maintenance ? "opacity-50 grayscale pointer-events-auto cursor-not-allowed border-amber-500/25 bg-amber-50" :
                               isSelected
-                                ? "bg-[#7F77DD]/15 border-[#7F77DD] shadow-[0_0_25px_rgba(127,119,221,0.25)] scale-[1.02]"
-                                : "bg-[#141420] border-white/5 hover:border-white/10 hover:bg-[#181828]"
+                                ? "bg-indigo-50/60 border-indigo-600 shadow-md scale-[1.02]"
+                                : "bg-white border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50"
                             }`}
                           >
                             {ride.maintenance && (
@@ -3663,32 +3663,32 @@ export default function TaxiBooking() {
                             {isSelected && (
                               <motion.div
                                 layoutId="active-bg"
-                                className="absolute inset-0 bg-[#7F77DD]/5 pointer-events-none"
+                                className="absolute inset-0 bg-indigo-600/5 pointer-events-none"
                               />
                             )}
                             
                             {/* Active state small indicator point */}
-                            <div className={`absolute top-2 right-2 w-1.5 h-1.5 rounded-full transition-all duration-300 ${isSelected ? "bg-[#7F77DD] scale-100 shadow-[0_0_8px_#7F77DD]" : "bg-transparent scale-0"}`} />
+                            <div className={`absolute top-2 right-2 w-1.5 h-1.5 rounded-full transition-all duration-300 ${isSelected ? "bg-indigo-600 scale-100 shadow-[0_0_8px_indigo]" : "bg-transparent scale-0"}`} />
 
                             {/* Beautiful Custom-designed Vehicle Container with a 3D Glowing Podium/Shadow */}
                             <div className="relative w-full aspect-[4/3] max-h-[72px] sm:max-h-[80px] flex items-center justify-center -mt-1 select-none">
                               {/* Ambient dynamic glow under the vehicle */}
                               <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-4/5 h-2.5 rounded-full transition-all duration-300 blur-md ${
-                                isSelected ? "bg-[#7F77DD]/50 scale-110" : "bg-neutral-900/50 group-hover:bg-[#7F77DD]/20"
+                                isSelected ? "bg-indigo-600/20 scale-110" : "bg-neutral-200/40 group-hover:bg-indigo-600/10"
                               }`} />
                               {/* Subtle elegant podium ellipse */}
-                              <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-2/3 h-1 rounded-full border border-white/5 transition-all duration-300 ${
-                                isSelected ? "bg-white/5 border-[#7F77DD]/30" : "bg-transparent"
+                              <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-2/3 h-1 rounded-full border border-neutral-100 transition-all duration-300 ${
+                                isSelected ? "bg-neutral-100 border-indigo-200" : "bg-transparent"
                               }`} />
                               
                               {/* Floating Vehicle container */}
                               <div className={`relative z-10 transition-all duration-500 transform ${
-                                isSelected ? "-translate-y-1.5 scale-110 drop-shadow-[0_8px_16px_rgba(0,0,0,0.5)]" : "group-hover:-translate-y-1 group-hover:scale-105"
+                                isSelected ? "-translate-y-1.5 scale-110 drop-shadow-[0_8px_16px_rgba(0,0,0,0.15)]" : "group-hover:-translate-y-1 group-hover:scale-105"
                               }`}>
                                 {ride.imageUrl ? (
                                   <img 
                                     src={ride.imageUrl} 
-                                    className="w-20 sm:w-24 h-12 sm:h-14 object-contain filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]" 
+                                    className="w-20 sm:w-24 h-12 sm:h-14 object-contain filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.1)]" 
                                     referrerPolicy="no-referrer" 
                                     alt={ride.name}
                                   />
@@ -3700,29 +3700,29 @@ export default function TaxiBooking() {
                             
                             <div className="text-center w-full">
                               <h4
-                                className={`text-[9px] font-black uppercase tracking-wider ${isSelected ? "text-[#7F77DD]" : "text-[#8a8ab0]"}`}
+                                className={`text-[9px] font-black uppercase tracking-wider ${isSelected ? "text-indigo-600" : "text-neutral-500"}`}
                               >
                                 {ride.name}
                               </h4>
                               <h3 className={`text-[11px] font-black italic mt-0.5 transition-colors ${
                                 isSelected 
-                                  ? (destination && totalDistance > 0) ? "text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.25)] text-xs" : "text-white" 
-                                  : (destination && totalDistance > 0) ? "text-emerald-500/90 text-xs" : "text-neutral-200"
+                                  ? (destination && totalDistance > 0) ? "text-emerald-600 drop-shadow-sm text-xs" : "text-neutral-800" 
+                                  : (destination && totalDistance > 0) ? "text-emerald-700 text-xs" : "text-neutral-700"
                               }`}>
                                 TZS {ride.price.toLocaleString()}
                               </h3>
                             </div>
                             
                             {/* Information of capacity and ETA */}
-                            <div className="w-full flex flex-col gap-1 border-t border-white/5 pt-2 mt-0.5">
-                              <div className="flex items-center justify-center gap-1 text-[8.5px] font-bold text-neutral-300">
-                                <Users className="w-2.5 h-2.5 text-[#7F77DD] shrink-0" />
+                            <div className="w-full flex flex-col gap-1 border-t border-neutral-100 pt-2 mt-0.5">
+                              <div className="flex items-center justify-center gap-1 text-[8.5px] font-bold text-neutral-600">
+                                <Users className="w-2.5 h-2.5 text-indigo-500 shrink-0" />
                                 <span>Abiria {ride.capacity}</span>
                               </div>
                               <div className={`flex items-center justify-center gap-1 text-[8.5px] font-bold ${
-                                isSelected ? "text-emerald-400" : "text-neutral-400"
+                                isSelected ? "text-emerald-600" : "text-neutral-500"
                               }`}>
-                                <Clock className={`w-2.5 h-2.5 shrink-0 ${isSelected ? "text-emerald-400 animate-pulse" : "text-neutral-500"}`} />
+                                <Clock className={`w-2.5 h-2.5 shrink-0 ${isSelected ? "text-emerald-500 animate-pulse" : "text-neutral-400"}`} />
                                 <span>Fika: {ride.eta} min</span>
                               </div>
                             </div>
@@ -3737,9 +3737,9 @@ export default function TaxiBooking() {
                     <div className="w-full flex justify-center py-1">
                       <button
                         onClick={() => setShowBreakdownModal(true)}
-                        className="text-[9.5px] font-black tracking-widest text-[#7F77DD] hover:text-[#9c95ff] bg-[#7F77DD]/10 hover:bg-[#7F77DD]/15 px-4 py-2 rounded-full uppercase flex items-center gap-1.5 transition-all shadow-sm border border-[#7F77DD]/25 active:scale-95"
+                        className="text-[9.5px] font-black tracking-widest text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-4 py-2 rounded-full uppercase flex items-center gap-1.5 transition-all shadow-sm border border-indigo-100 active:scale-95"
                       >
-                        <Calculator className="w-3 h-3 text-[#7F77DD]" />
+                        <Calculator className="w-3 h-3 text-indigo-600" />
                         <span>Gharama ya Uwazi (Breakdown)</span>
                       </button>
                     </div>
@@ -3762,9 +3762,9 @@ export default function TaxiBooking() {
                       }
                     }}
                     disabled={isCreatingRide || !destination || suggestions.length > 0}
-                    className="w-full h-16 bg-white text-[#0a0a0f] rounded-3xl font-black italic uppercase text-xs tracking-[0.2em] flex items-center justify-between px-10 disabled:opacity-30 disabled:grayscale transition-all active:scale-95 shadow-2xl relative overflow-hidden group"
+                    className="w-full h-16 bg-indigo-600 hover:bg-indigo-700 text-white rounded-3xl font-black italic uppercase text-xs tracking-[0.2em] flex items-center justify-between px-10 disabled:opacity-30 disabled:grayscale transition-all active:scale-95 shadow-lg relative overflow-hidden group"
                   >
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
                     <span className="relative z-10">
                       {destination
                         ? selectedRide
@@ -3782,7 +3782,7 @@ export default function TaxiBooking() {
                   <div className="w-8 h-8 rounded-full bg-[#7F77DD]/20 flex items-center justify-center mb-1">
                     <ChevronRight className="w-4 h-4 text-[#7F77DD] -rotate-90" />
                   </div>
-                  <p className="text-[10px] font-black text-white uppercase tracking-[0.2em]">
+                  <p className="text-[10px] font-black text-neutral-700 uppercase tracking-[0.2em]">
                     Bofya hapa kuendelea
                   </p>
                 </div>
@@ -4259,7 +4259,7 @@ export default function TaxiBooking() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowPassengerModal(false)}
-              className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             />
 
             {/* Modal Box */}
@@ -4268,21 +4268,21 @@ export default function TaxiBooking() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ type: "spring", damping: 25, stiffness: 350 }}
-              className="relative w-full max-w-sm bg-[#111118]/95 backdrop-blur-2xl border border-[#1e1e2e]/90 rounded-[28px] p-6 shadow-2xl overflow-hidden z-10 flex flex-col gap-5"
+              className="relative w-full max-w-sm bg-white border border-neutral-200 shadow-2xl rounded-[28px] p-6 overflow-hidden z-10 flex flex-col gap-5"
             >
               {passengerStep === 'who' ? (
                 <>
                   <div className="text-center relative">
-                    <h3 className="text-[10px] font-black text-[#8a8ab0] uppercase tracking-[0.15em] mb-0.5">
+                    <h3 className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.15em] mb-0.5">
                       Nani Anasafiri?
                     </h3>
-                    <h2 className="text-sm font-black text-white uppercase tracking-wider">
+                    <h2 className="text-sm font-black text-neutral-800 uppercase tracking-wider">
                       Who will be seated?
                     </h2>
                     
                     <button
                       onClick={() => setShowPassengerModal(false)}
-                      className="absolute right-0 top-0 p-1 text-neutral-500 hover:text-white transition-colors"
+                      className="absolute right-0 top-0 p-1 text-neutral-400 hover:text-neutral-600 transition-colors"
                     >
                       <CloseX className="w-4 h-4" />
                     </button>
@@ -4295,31 +4295,31 @@ export default function TaxiBooking() {
                       onClick={() => setPassengerType('someone_else')}
                       className={`p-4 rounded-2.5xl border-2 transition-all flex flex-col items-center gap-2.5 group relative ${
                         passengerType === 'someone_else'
-                          ? "bg-[#7F77DD]/10 border-[#7F77DD] shadow-[0_0_15px_rgba(127,119,221,0.15)] scale-[1.02]"
-                          : "bg-white/5 border-white/5 hover:border-white/10"
+                          ? "bg-indigo-50/60 border-indigo-600 shadow-sm scale-[1.02]"
+                          : "bg-white border-neutral-200 hover:border-neutral-300"
                       }`}
                     >
                       <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${
                         passengerType === 'someone_else'
-                          ? "bg-[#7F77DD] text-white"
-                          : "bg-white/10 text-neutral-300"
+                          ? "bg-indigo-600 text-white"
+                          : "bg-neutral-100 text-neutral-500"
                       }`}>
                         <UserPlus className="w-6 h-6" />
                       </div>
                       
                       <div className="text-center">
                         <p className={`text-[10px] font-black uppercase tracking-wider ${
-                          passengerType === 'someone_else' ? "text-[#7F77DD]" : "text-neutral-400"
+                          passengerType === 'someone_else' ? "text-indigo-600" : "text-neutral-500"
                         }`}>
                           Mtu Mwingine
                         </p>
-                        <p className="text-[8.5px] text-neutral-500 font-bold mt-0.5">
+                        <p className="text-[8.5px] text-neutral-400 font-bold mt-0.5">
                           Someone Else
                         </p>
                       </div>
 
                       {passengerType === 'someone_else' && (
-                        <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-[#7F77DD] flex items-center justify-center">
+                        <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-indigo-600 flex items-center justify-center">
                           <Check className="w-2.5 h-2.5 text-white" />
                         </div>
                       )}
@@ -4330,38 +4330,38 @@ export default function TaxiBooking() {
                       onClick={() => setPassengerType('you')}
                       className={`p-4 rounded-2.5xl border-2 transition-all flex flex-col items-center gap-2.5 group relative ${
                         passengerType === 'you'
-                          ? "bg-[#00E5A0]/10 border-[#00E5A0] shadow-[0_0_15px_rgba(0,229,160,0.15)] scale-[1.02]"
-                          : "bg-white/5 border-white/5 hover:border-white/10"
+                          ? "bg-emerald-50 border-emerald-500 shadow-sm scale-[1.02]"
+                          : "bg-white border-neutral-200 hover:border-neutral-300"
                       }`}
                     >
                       <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${
                         passengerType === 'you'
-                          ? "bg-[#00E5A0] text-[#0a0a0f]"
-                          : "bg-white/10 text-neutral-300"
+                          ? "bg-emerald-500 text-white"
+                          : "bg-neutral-100 text-neutral-500"
                       }`}>
                         <User className="w-6 h-6" />
                       </div>
 
                       <div className="text-center">
                         <p className={`text-[10px] font-black uppercase tracking-wider ${
-                          passengerType === 'you' ? "text-[#00E5A0]" : "text-neutral-400"
+                          passengerType === 'you' ? "text-emerald-600" : "text-neutral-500"
                         }`}>
                           Wewe
                         </p>
-                        <p className="text-[8.5px] text-neutral-500 font-bold mt-0.5">
+                        <p className="text-[8.5px] text-neutral-400 font-bold mt-0.5">
                           You
                         </p>
                       </div>
 
                       {passengerType === 'you' && (
-                        <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-[#00E5A0] flex items-center justify-center">
-                          <Check className="w-2.5 h-2.5 text-black" />
+                        <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center">
+                          <Check className="w-2.5 h-2.5 text-white" />
                         </div>
                       )}
                     </button>
                   </div>
 
-                  <p className="text-[9px] text-neutral-400 font-semibold text-center leading-normal px-2">
+                  <p className="text-[9px] text-neutral-500 font-semibold text-center leading-normal px-2">
                     Confirm the customer & make sure the trip information / Thibitisha mteja na uhakikishe taarifa za safari
                   </p>
 
@@ -4374,7 +4374,7 @@ export default function TaxiBooking() {
                         setPassengerStep('details');
                       }
                     }}
-                    className="w-full py-4 bg-[#7F77DD]/10 border border-[#7F77DD]/30 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-[#7F77DD]/20 active:scale-95 transition-all shadow-xl"
+                    className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95 transition-all shadow-md"
                   >
                     Next / Endelea
                   </button>
@@ -4382,16 +4382,16 @@ export default function TaxiBooking() {
               ) : (
                 <>
                   <div className="text-center relative">
-                    <h3 className="text-[10px] font-black text-[#8a8ab0] uppercase tracking-[0.15em] mb-0.5">
+                    <h3 className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.15em] mb-0.5">
                       Taarifa za Msafiri
                     </h3>
-                    <h2 className="text-sm font-black text-white uppercase tracking-wider">
+                    <h2 className="text-sm font-black text-neutral-800 uppercase tracking-wider">
                       Ride Information
                     </h2>
                     
                     <button
                       onClick={() => setPassengerStep('who')}
-                      className="absolute left-0 top-1/2 -translate-y-1/2 p-1 text-neutral-500 hover:text-white transition-colors"
+                      className="absolute left-0 top-1/2 -translate-y-1/2 p-1 text-neutral-400 hover:text-neutral-600 transition-colors"
                       title="Rudi Nyuma"
                     >
                       <ArrowLeft className="w-4 h-4" />
@@ -4402,43 +4402,43 @@ export default function TaxiBooking() {
                   <div className="flex flex-col gap-3.5 my-1">
                     {/* Name Input */}
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-[8.5px] font-black uppercase text-[#8a8ab0] tracking-wider pl-1">
+                      <label className="text-[8.5px] font-black uppercase text-neutral-500 tracking-wider pl-1">
                         Jina la Msafiri / Passenger Name
                       </label>
-                      <div className="bg-[#171725] border border-white/5 rounded-2xl p-3 flex items-center gap-3 focus-within:border-[#7F77DD]/50 transition-colors">
-                        <User className="w-4 h-4 text-neutral-500" />
+                      <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-3 flex items-center gap-3 focus-within:border-indigo-500/50 transition-colors">
+                        <User className="w-4 h-4 text-neutral-400" />
                         <input
                           type="text"
                           value={passengerName}
                           onChange={(e) => setPassengerName(e.target.value)}
                           placeholder="Andika Jina / Enter Name..."
-                          className="bg-transparent text-xs font-bold text-white w-full outline-none placeholder:text-neutral-600"
+                          className="bg-transparent text-xs font-black text-neutral-800 w-full outline-none placeholder:text-neutral-400"
                         />
                       </div>
                     </div>
 
                     {/* Contact Number Input */}
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-[8.5px] font-black uppercase text-[#8a8ab0] tracking-wider pl-1">
+                      <label className="text-[8.5px] font-black uppercase text-neutral-500 tracking-wider pl-1">
                         Namba ya Simu / Contact Number
                       </label>
-                      <div className="bg-[#171725] border border-white/5 rounded-2xl p-3 flex items-center gap-3 focus-within:border-[#7F77DD]/50 transition-colors">
-                        <div className="flex items-center gap-1.5 shrink-0 pr-2 border-r border-white/10 select-none">
+                      <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-3 flex items-center gap-3 focus-within:border-indigo-500/50 transition-colors">
+                        <div className="flex items-center gap-1.5 shrink-0 pr-2 border-r border-neutral-200 select-none">
                           <span className="text-xs">🇹🇿</span>
-                          <span className="text-xs font-black text-neutral-400">+255</span>
+                          <span className="text-xs font-black text-neutral-500">+255</span>
                         </div>
                         <input
                           type="tel"
                           value={passengerPhone}
                           onChange={(e) => setPassengerPhone(e.target.value)}
                           placeholder="Andika Namba / Enter Contact..."
-                          className="bg-transparent text-xs font-bold text-white w-full outline-none placeholder:text-neutral-600"
+                          className="bg-transparent text-xs font-black text-neutral-800 w-full outline-none placeholder:text-neutral-400"
                         />
                       </div>
                     </div>
                   </div>
 
-                  <p className="text-[9px] text-neutral-400 font-semibold text-center leading-normal px-2">
+                  <p className="text-[9px] text-neutral-500 font-semibold text-center leading-normal px-2">
                     Msafiri atapokea maelezo ya gari na dereva kwa njia ya ujumbe (SMS).
                   </p>
 
@@ -4455,7 +4455,7 @@ export default function TaxiBooking() {
                       setShowPassengerModal(false);
                       confirmBooking();
                     }}
-                    className="w-full py-4 bg-gradient-to-r from-[#7F77DD] to-[#6056d6] hover:from-[#8d86ff] hover:to-[#7066e6] text-white rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95 transition-all shadow-xl"
+                    className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95 transition-all shadow-md"
                   >
                     Done / Thibitisha
                   </button>

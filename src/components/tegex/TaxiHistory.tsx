@@ -170,33 +170,33 @@ const TaxiHistory: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-950 pb-32 font-sans text-white">
-      <div className="p-6 flex items-center gap-4 sticky top-0 bg-neutral-950/80 backdrop-blur-xl z-50 border-b border-white/5">
-        <button onClick={() => navigate('/taxi')} className="w-12 h-12 rounded-2xl bg-neutral-900 border border-white/10 flex items-center justify-center shadow-lg active:scale-95 transition-all">
+    <div className="min-h-screen bg-neutral-50 pb-32 font-sans text-neutral-800">
+      <div className="p-6 flex items-center gap-4 sticky top-0 bg-white/80 backdrop-blur-xl z-50 border-b border-neutral-200/80">
+        <button onClick={() => navigate('/taxi')} className="w-12 h-12 rounded-2xl bg-white border border-neutral-200 flex items-center justify-center shadow-sm active:scale-95 transition-all text-neutral-800 hover:bg-neutral-50">
           <ArrowLeft size={20} />
         </button>
         <div>
-          <h1 className="text-xl font-black uppercase tracking-tighter italic">Safari Zangu</h1>
-          <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest leading-none mt-1">Historia ya safari zako za Taxi</p>
+          <h1 className="text-xl font-black uppercase tracking-tighter italic text-neutral-800">Safari Zangu</h1>
+          <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest leading-none mt-1">Historia ya safari zako za Taxi</p>
         </div>
       </div>
 
       <div className="px-6 mt-6 max-w-xl mx-auto space-y-4">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
-            <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm font-bold text-neutral-500 uppercase tracking-widest italic">Pakia data...</p>
+            <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm font-bold text-neutral-400 uppercase tracking-widest italic">Pakia data...</p>
           </div>
         ) : rides.length === 0 ? (
-          <div className="bg-neutral-900 rounded-[2.5rem] p-12 text-center border-2 border-dashed border-white/5">
-            <div className="w-20 h-20 bg-neutral-800 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Car size={40} className="text-neutral-700" />
+          <div className="bg-white rounded-[2.5rem] p-12 text-center border-2 border-dashed border-neutral-200 shadow-sm">
+            <div className="w-20 h-20 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Car size={40} className="text-neutral-400" />
             </div>
-            <h3 className="text-lg font-black uppercase tracking-tighter italic mb-2">Huna Safari Bado</h3>
+            <h3 className="text-lg font-black uppercase tracking-tighter italic mb-2 text-neutral-800">Huna Safari Bado</h3>
             <p className="text-xs text-neutral-500 font-bold leading-relaxed mb-8">Anza safari yako sasa kwa kutumia huduma yetu ya haraka na salama.</p>
             <button 
               onClick={() => navigate('/taxi')}
-              className="px-8 py-4 bg-white text-black rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-white/10 active:scale-95 transition-all"
+              className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-indigo-600/10 active:scale-95 transition-all"
             >
               Agiza Safari Sasa
             </button>
@@ -207,20 +207,20 @@ const TaxiHistory: React.FC = () => {
               layoutId={ride.id}
               key={ride.id}
               onClick={() => setSelectedRide(ride)}
-              className="bg-neutral-900 rounded-[2rem] p-5 shadow-2xl border border-white/5 cursor-pointer active:scale-[0.98] transition-all group"
+              className="bg-white rounded-[2rem] p-5 shadow-sm border border-neutral-200/60 cursor-pointer hover:border-neutral-300 active:scale-[0.98] transition-all group"
             >
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-neutral-800 rounded-xl flex items-center justify-center overflow-hidden">
+                  <div className="w-10 h-10 bg-neutral-100 rounded-xl flex items-center justify-center overflow-hidden">
                     {ride.driverInfo?.photo ? (
                       <img src={ride.driverInfo.photo} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     ) : (
-                      <Car size={20} className="text-[#1D9E75]" />
+                      <Car size={20} className="text-emerald-600" />
                     )}
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h4 className="font-black text-sm uppercase tracking-tighter italic">{ride.vehicleType || 'Gari'}</h4>
+                      <h4 className="font-black text-sm uppercase tracking-tighter italic text-neutral-800">{ride.vehicleType || 'Gari'}</h4>
                       {ride.driverInfo?.rating && (
                         <div className="flex items-center gap-0.5 text-amber-500">
                           <Star size={8} className="fill-amber-500" />
@@ -228,7 +228,7 @@ const TaxiHistory: React.FC = () => {
                         </div>
                       )}
                     </div>
-                    <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">
+                    <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest">
                       {ride.createdAt ? format(typeof ride.createdAt.toDate === 'function' ? ride.createdAt.toDate() : (ride.createdAt.seconds ? new Date(ride.createdAt.seconds * 1000) : new Date(ride.createdAt)), 'dd MMM, HH:mm') : 'Hivi sasa'}
                     </p>
                   </div>
@@ -241,23 +241,23 @@ const TaxiHistory: React.FC = () => {
               <div className="space-y-3 pl-2">
                 <div className="flex items-start gap-4 h-full relative">
                   <div className="flex flex-col items-center gap-1.5 pt-1">
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#1D9E75]" />
-                    <div className="w-0.5 h-6 bg-white/5 rounded-full" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    <div className="w-0.5 h-6 bg-neutral-100 rounded-full" />
                     <div className="w-1.5 h-1.5 rounded-full bg-[#D85A30]" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-white/90 truncate">{ride.pickup?.address || 'Location unknown'}</p>
-                    <p className="text-xs font-bold text-white/90 truncate mt-3">{ride.destination?.address || 'Location unknown'}</p>
+                    <p className="text-xs font-bold text-neutral-700 truncate">{ride.pickup?.address || 'Location unknown'}</p>
+                    <p className="text-xs font-bold text-neutral-700 truncate mt-3">{ride.destination?.address || 'Location unknown'}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
+              <div className="mt-4 pt-4 border-t border-neutral-100 flex items-center justify-between">
                 <div className="flex flex-col">
-                  <span className="text-[9px] font-black text-neutral-500 uppercase tracking-widest">Gharama</span>
-                  <span className="text-sm font-black text-white">TZS {(ride.fare || 0).toLocaleString()}</span>
+                  <span className="text-[9px] font-black text-neutral-400 uppercase tracking-widest">Gharama</span>
+                  <span className="text-sm font-black text-neutral-800">TZS {(ride.fare || 0).toLocaleString()}</span>
                 </div>
-                <div className="flex items-center gap-2 text-neutral-400 font-black uppercase tracking-widest text-[9px] group-hover:text-white transition-colors">
+                <div className="flex items-center gap-2 text-neutral-400 font-black uppercase tracking-widest text-[9px] group-hover:text-neutral-700 transition-colors">
                   Maelezo zaidi <ChevronRight size={14} />
                 </div>
               </div>
@@ -275,29 +275,29 @@ const TaxiHistory: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setSelectedRide(null)}
-              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+              className="absolute inset-0 bg-black/40 backdrop-blur-md"
             />
             <motion.div
               layoutId={selectedRide.id}
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
-              className="w-full max-w-lg bg-neutral-900 rounded-t-[3rem] sm:rounded-[3rem] overflow-hidden relative shadow-[0_-20px_50px_rgba(0,0,0,0.5)] border-t border-white/10"
+              className="w-full max-w-lg bg-white rounded-t-[3rem] sm:rounded-[3rem] overflow-hidden relative shadow-2xl border border-neutral-200"
             >
               <div className="p-8">
                 <div className="flex items-center justify-between mb-8">
                   <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 bg-[#1D9E75]/10 rounded-2xl flex items-center justify-center border border-[#1D9E75]/20">
-                      <Car size={28} className="text-[#1D9E75]" />
+                    <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center border border-emerald-100">
+                      <Car size={28} className="text-emerald-600" />
                     </div>
                     <div>
-                      <h2 className="text-2xl font-black uppercase tracking-tighter italic">{selectedRide.vehicleType || 'Taxi'}</h2>
-                      <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest">ID: {selectedRide.id.slice(0, 8)}</p>
+                      <h2 className="text-2xl font-black uppercase tracking-tighter italic text-neutral-800">{selectedRide.vehicleType || 'Taxi'}</h2>
+                      <p className="text-xs font-bold text-neutral-400 uppercase tracking-widest">ID: {selectedRide.id.slice(0, 8)}</p>
                     </div>
                   </div>
                   <button 
                     onClick={() => setSelectedRide(null)}
-                    className="w-10 h-10 rounded-full bg-neutral-800 flex items-center justify-center text-neutral-400"
+                    className="w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-500 hover:bg-neutral-200 hover:text-neutral-800 transition-colors"
                   >
                     <X size={20} />
                   </button>
@@ -334,18 +334,18 @@ const TaxiHistory: React.FC = () => {
                         {selectedRide.pickup && selectedRide.destination && (
                           <div className="h-32 w-full rounded-xl overflow-hidden border border-neutral-100 relative my-2">
                              <MapContainer 
-                               center={[selectedRide.pickup.lat, selectedRide.pickup.lng]} 
-                               zoom={12} 
-                               maxZoom={22}
-                               zoomControl={false}
-                               dragging={false}
-                               scrollWheelZoom={false}
-                               touchZoom={false}
-                               doubleClickZoom={false}
-                               boxZoom={false}
-                               keyboard={false}
-                               className="h-full w-full"
-                             >
+                                center={[selectedRide.pickup.lat, selectedRide.pickup.lng]} 
+                                zoom={12} 
+                                maxZoom={22}
+                                zoomControl={false}
+                                dragging={false}
+                                scrollWheelZoom={false}
+                                touchZoom={false}
+                                doubleClickZoom={false}
+                                boxZoom={false}
+                                keyboard={false}
+                                className="h-full w-full"
+                              >
                                <TileLayer 
                                  url="https://{s}.tile.openstreetmap.org/{z}/{y}/{x}.png" 
                                  maxZoom={22}
@@ -393,21 +393,21 @@ const TaxiHistory: React.FC = () => {
 
                 <div className="space-y-6">
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-neutral-800/50 p-4 rounded-3xl border border-white/5">
-                      <p className="text-[9px] font-black text-neutral-500 uppercase tracking-widest mb-1 italic">Hali</p>
+                    <div className="bg-neutral-50 p-4 rounded-3xl border border-neutral-200">
+                      <p className="text-[9px] font-black text-neutral-400 uppercase tracking-widest mb-1 italic">Hali</p>
                       <span className={`text-[11px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${getStatusColor(selectedRide.status)}`}>
                         {getStatusLabel(selectedRide.status)}
                       </span>
                     </div>
-                    <div className="bg-neutral-800/50 p-4 rounded-3xl border border-white/5">
-                      <p className="text-[9px] font-black text-neutral-500 uppercase tracking-widest mb-1 italic">Iliwekwa</p>
-                      <p className="text-xs font-black italic">{selectedRide.createdAt ? format(typeof selectedRide.createdAt.toDate === 'function' ? selectedRide.createdAt.toDate() : (selectedRide.createdAt.seconds ? new Date(selectedRide.createdAt.seconds * 1000) : new Date(selectedRide.createdAt)), 'dd MMM, HH:mm') : 'Leo'}</p>
+                    <div className="bg-neutral-50 p-4 rounded-3xl border border-neutral-200">
+                      <p className="text-[9px] font-black text-neutral-400 uppercase tracking-widest mb-1 italic">Iliwekwa</p>
+                      <p className="text-xs font-black italic text-neutral-800">{selectedRide.createdAt ? format(typeof selectedRide.createdAt.toDate === 'function' ? selectedRide.createdAt.toDate() : (selectedRide.createdAt.seconds ? new Date(selectedRide.createdAt.seconds * 1000) : new Date(selectedRide.createdAt)), 'dd MMM, HH:mm') : 'Leo'}</p>
                     </div>
                   </div>
 
                   {selectedRide.driverInfo && (
-                    <div className="p-5 bg-neutral-800/50 rounded-3xl border border-white/5 flex items-center gap-4">
-                       <div className="w-14 h-14 rounded-2xl overflow-hidden bg-neutral-700">
+                    <div className="p-5 bg-neutral-50 rounded-3xl border border-neutral-200 flex items-center gap-4">
+                       <div className="w-14 h-14 rounded-2xl overflow-hidden bg-neutral-200">
                           {selectedRide.driverInfo.photo ? (
                             <img src={selectedRide.driverInfo.photo} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                           ) : (
@@ -418,16 +418,16 @@ const TaxiHistory: React.FC = () => {
                        </div>
                        <div className="flex-1">
                           <div className="flex items-center justify-between">
-                            <p className="text-[10px] font-black text-neutral-500 uppercase tracking-widest italic">Dereva</p>
+                            <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest italic">Dereva</p>
                             <div className="flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
                               <Star size={10} className="text-amber-500 fill-amber-500" />
                               <span className="text-[10px] font-black text-amber-500">{selectedRide.driverInfo.rating?.toFixed(1) || '5.0'}</span>
                             </div>
                           </div>
-                          <p className="text-lg font-black italic">{selectedRide.driverInfo.name}</p>
+                          <p className="text-lg font-black italic text-neutral-800">{selectedRide.driverInfo.name}</p>
                           <div className="flex items-center gap-2 mt-0.5">
-                             <Phone size={12} className="text-[#1D9E75]" />
-                             <p className="text-[10px] font-bold text-neutral-400">{selectedRide.driverInfo.phone}</p>
+                             <Phone size={12} className="text-emerald-600" />
+                             <p className="text-[10px] font-bold text-neutral-500">{selectedRide.driverInfo.phone}</p>
                           </div>
                        </div>
                     </div>
@@ -435,18 +435,18 @@ const TaxiHistory: React.FC = () => {
 
                   <div className="space-y-4">
                     <div className="flex gap-4">
-                      <div className="w-10 h-10 bg-neutral-800 rounded-2xl flex items-center justify-center shrink-0 border border-white/5">
-                        <MapPin size={20} className="text-[#1D9E75]" />
+                      <div className="w-10 h-10 bg-neutral-50 rounded-2xl flex items-center justify-center shrink-0 border border-neutral-200">
+                        <MapPin size={20} className="text-emerald-600" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">Kutokea</p>
-                        <p className="text-xs font-bold text-white leading-relaxed">{selectedRide.pickup?.address || 'Location data missing'}</p>
+                        <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Kutokea</p>
+                        <p className="text-xs font-bold text-neutral-700 leading-relaxed">{selectedRide.pickup?.address || 'Location data missing'}</p>
                       </div>
                     </div>
 
                     {/* Trip Map */}
                     {selectedRide.pickup && selectedRide.destination && (
-                      <div className="h-40 w-full rounded-2xl overflow-hidden border border-white/10 relative z-0">
+                      <div className="h-40 w-full rounded-2xl overflow-hidden border border-neutral-200 relative z-0">
                          <MapContainer 
                            center={[selectedRide.pickup.lat, selectedRide.pickup.lng]} 
                            zoom={13} 
@@ -482,23 +482,23 @@ const TaxiHistory: React.FC = () => {
                     )}
 
                     <div className="flex gap-4">
-                      <div className="w-10 h-10 bg-neutral-800 rounded-2xl flex items-center justify-center shrink-0 border border-white/5">
+                      <div className="w-10 h-10 bg-neutral-50 rounded-2xl flex items-center justify-center shrink-0 border border-neutral-200">
                         <Navigation2 size={20} className="text-[#D85A30]" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">Kwenda</p>
-                        <p className="text-xs font-bold text-white leading-relaxed">{selectedRide.destination?.address || 'Location data missing'}</p>
+                        <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Kwenda</p>
+                        <p className="text-xs font-bold text-neutral-700 leading-relaxed">{selectedRide.destination?.address || 'Location data missing'}</p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="p-6 bg-white rounded-[2rem] text-black shadow-xl shadow-white/5">
+                  <div className="p-6 bg-indigo-50 border border-indigo-100 rounded-[2rem] text-indigo-950 shadow-sm">
                     <div className="flex items-center justify-between">
                       <div className="flex flex-col">
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-black/40">Gharama ya Safari</span>
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600/70">Gharama ya Safari</span>
                         <span className="text-2xl font-black italic tracking-tighter">TZS {(selectedRide.fare || 0).toLocaleString()}</span>
                       </div>
-                      <div className="w-12 h-12 bg-black rounded-2xl flex items-center justify-center text-[#1D9E75]">
+                      <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white">
                         <CreditCard />
                       </div>
                     </div>
@@ -507,14 +507,14 @@ const TaxiHistory: React.FC = () => {
                   <div className="flex gap-3">
                     <button 
                       onClick={downloadReceipt}
-                      className="flex-1 py-5 bg-neutral-800 border border-white/10 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-3 active:scale-[0.98] transition-all"
+                      className="flex-1 py-5 bg-neutral-100 border border-neutral-200 text-neutral-800 rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-3 active:scale-[0.98] transition-all hover:bg-neutral-200"
                     >
                       <Download size={16} /> Pakua Receipt
                     </button>
                     {selectedRide.status !== 'completed' && selectedRide.status !== 'cancelled' && (
                       <button 
                         onClick={() => navigate('/taxi')}
-                        className="flex-1 py-5 bg-[#7F77DD] text-white rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-3 shadow-xl shadow-[#7F77DD]/20 active:scale-[0.98] transition-all"
+                        className="flex-1 py-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-3 shadow-lg shadow-indigo-600/15 active:scale-[0.98] transition-all"
                       >
                         <Car size={16} /> Fuatilia Safari
                       </button>
