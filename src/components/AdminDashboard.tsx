@@ -658,7 +658,7 @@ export default function AdminDashboard() {
       try {
         const docSnap = await getDoc(doc(db, 'settings', 'notification_sounds'));
         if (docSnap.exists()) {
-          setAdminSoundSettings(docSnap.data() as any);
+          setAdminSoundSettings({ ...DEFAULT_NOTIFICATION_SOUNDS, ...docSnap.data() } as any);
         }
       } catch (err) {
         console.error("Failed to load sounds for admin panel:", err);
