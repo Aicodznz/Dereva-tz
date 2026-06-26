@@ -704,12 +704,26 @@ export default function AdminDashboard() {
     try {
       // @ts-ignore
       const url = adminSoundSettings[importance];
+      if (!url) {
+        toast.error("Mlio huu hauna link ya sauti!");
+        return;
+      }
       const audio = new Audio(url);
-      audio.play().catch(err => {
-        toast.info("Ruhusu sauti kwenye browser yako kwanza.");
-      });
+      audio.play()
+        .then(() => {
+          toast.success(`Mlio wa ${importance} unacheza kikamilifu!`);
+        })
+        .catch(err => {
+          console.error("Audio play error:", err);
+          if (err.name === 'NotAllowedError') {
+            toast.info("Ili kusikia sauti, tafadhali fungua mfumo huu kwenye tab mpya (New Tab) ukitumia kitufe cha juu au Shared App URL, kisha ubofye skrini kuruhusu.");
+          } else {
+            toast.info("Imeshindwa kucheza sauti. Hakikisha link ipo sahihi, haina vizuizi vya CORS, au fungua mfumo kwenye tab mpya.");
+          }
+        });
     } catch (e) {
       console.error(e);
+      toast.error("Hitilafu imetokea wakati wa kucheza sauti.");
     }
   };
 

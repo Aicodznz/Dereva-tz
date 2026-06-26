@@ -168,12 +168,16 @@ export default function Notifications() {
     return () => unsub();
   }, [user?.uid]);
 
-  const triggerSound = (importance: 'critical' | 'important' | 'normal') => {
+  const triggerSound = (importance: 'critical' | 'important' | 'normal', isManualTest: boolean = false) => {
     try {
       if (activeAudioRef.current) {
         activeAudioRef.current.pause();
       }
       const url = soundSettings[importance] || DEFAULT_SOUNDS[importance];
+      if (!url) {
+        if (isManualTest) toast.error("Hakuna link ya sauti iliyowekwa!");
+        return;
+      }
       const audio = new Audio(url);
       activeAudioRef.current = audio;
       
@@ -184,11 +188,24 @@ export default function Notifications() {
       
       audio.play().then(() => {
         setIsAudioEnabled(true);
+        if (isManualTest) {
+          toast.success(`Mlio wa ${importance} unacheza kikamilifu!`);
+        }
       }).catch(err => {
         console.warn("Autoplay blocked. User needs to interact with the page first.", err);
+        if (isManualTest) {
+          if (err.name === 'NotAllowedError') {
+            toast.info("Ili kusikia sauti, tafadhali fungua mfumo huu kwenye tab mpya (New Tab) ya browser yako (Shared App au Dev URL) kisha ubofye skrini kuruhusu.");
+          } else {
+            toast.info("Imeshindwa kucheza sauti. Hakikisha link ipo sahihi na haina vizuizi vya CORS, au fungua mfumo kwenye tab mpya.");
+          }
+        }
       });
     } catch (e) {
       console.error("Audio trigger failed:", e);
+      if (isManualTest) {
+        toast.error("Hitilafu imetokea wakati wa kucheza sauti.");
+      }
     }
   };
 
@@ -697,7 +714,7 @@ export default function Notifications() {
                     <span className="text-xs font-black uppercase tracking-[0.2rem] text-red-500">Critical Alarms (Loop)</span>
                   </div>
                   <button 
-                    onClick={() => triggerSound('critical')}
+                    onClick={() => triggerSound('critical', true)}
                     className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all"
                   >
                     <Play className="w-4 h-4" /> Jaribu Mlio
@@ -741,7 +758,7 @@ export default function Notifications() {
                     <span className="text-xs font-black uppercase tracking-[0.2rem] text-orange-500">Important Notifications</span>
                   </div>
                   <button 
-                    onClick={() => triggerSound('important')}
+                    onClick={() => triggerSound('important', true)}
                     className="p-2 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all"
                   >
                     <Play className="w-4 h-4" /> Jaribu Mlio
@@ -784,7 +801,7 @@ export default function Notifications() {
                     <span className="text-xs font-black uppercase tracking-[0.2rem] text-neutral-400">Normal Alerts</span>
                   </div>
                   <button 
-                    onClick={() => triggerSound('normal')}
+                    onClick={() => triggerSound('normal', true)}
                     className="p-2 bg-neutral-500/10 hover:bg-neutral-500/20 text-neutral-400 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all"
                   >
                     <Play className="w-4 h-4" /> Jaribu Mlio
