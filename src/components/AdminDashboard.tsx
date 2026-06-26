@@ -29,6 +29,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { motion, AnimatePresence, useScroll, useMotionValueEvent } from 'motion/react';
 import { useLanguage } from '../LanguageContext';
+import { playSyntheticNormal, playSyntheticImportant, playSyntheticCritical } from '../utils/soundAlert';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents, Circle, Polygon } from 'react-leaflet';
@@ -630,15 +631,15 @@ export default function AdminDashboard() {
   const [notifCategory, setNotifCategory] = useState<string>('System');
   const [isSending, setIsSending] = useState(false);
   const [adminSoundSettings, setAdminSoundSettings] = useState({
-    critical: 'https://www.soundjay.com/misc/sounds/warning-horn-01.mp3',
-    important: 'https://www.soundjay.com/buttons/sounds/button-16.mp3',
-    normal: 'https://www.soundjay.com/buttons/sounds/button-3.mp3'
+    critical: 'https://assets.mixkit.co/active_storage/sfx/911/911-720.wav',
+    important: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-720.wav',
+    normal: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-720.wav'
   });
 
   const DEFAULT_NOTIFICATION_SOUNDS = {
-    critical: 'https://www.soundjay.com/misc/sounds/warning-horn-01.mp3',
-    important: 'https://www.soundjay.com/buttons/sounds/button-16.mp3',
-    normal: 'https://www.soundjay.com/buttons/sounds/button-3.mp3'
+    critical: 'https://assets.mixkit.co/active_storage/sfx/911/911-720.wav',
+    important: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-720.wav',
+    normal: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-720.wav'
   };
 
   const handleAdminSoundReset = async () => {
@@ -711,19 +712,39 @@ export default function AdminDashboard() {
       const audio = new Audio(url);
       audio.play()
         .then(() => {
-          toast.success(`Mlio wa ${importance} unacheza kikamilifu!`);
+          toast.success(`Mlio wa ${importance} unacheza kikamilifu kutoka kwenye link!`);
         })
         .catch(err => {
           console.error("Audio play error:", err);
           if (err.name === 'NotAllowedError') {
             toast.info("Ili kusikia sauti, tafadhali fungua mfumo huu kwenye tab mpya (New Tab) ukitumia kitufe cha juu au Shared App URL, kisha ubofye skrini kuruhusu.");
           } else {
-            toast.info("Imeshindwa kucheza sauti. Hakikisha link ipo sahihi, haina vizuizi vya CORS, au fungua mfumo kwenye tab mpya.");
+            // High-fidelity fallback synthesizer!
+            if (importance === 'critical') {
+              playSyntheticCritical();
+            } else if (importance === 'important') {
+              playSyntheticImportant();
+            } else {
+              playSyntheticNormal();
+            }
+            toast.success(`Mlio wa ${importance} umefanikiwa kuchezwa kutoka kwenye mfumo salama wa ndani!`);
           }
         });
     } catch (e) {
       console.error(e);
-      toast.error("Hitilafu imetokea wakati wa kucheza sauti.");
+      // Outer fallback
+      try {
+        if (importance === 'critical') {
+          playSyntheticCritical();
+        } else if (importance === 'important') {
+          playSyntheticImportant();
+        } else {
+          playSyntheticNormal();
+        }
+        toast.success(`Mlio wa ${importance} umefanikiwa kuchezwa kutoka kwenye mfumo salama wa ndani!`);
+      } catch (innerErr) {
+        toast.error("Hitilafu imetokea wakati wa kucheza sauti.");
+      }
     }
   };
 

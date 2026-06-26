@@ -20,6 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
+import { playSyntheticNormal, playSyntheticImportant, playSyntheticCritical } from '../utils/soundAlert';
 
 interface Notification {
   id: string;
@@ -42,9 +43,9 @@ interface SoundSettings {
 }
 
 const DEFAULT_SOUNDS: SoundSettings = {
-  critical: 'https://www.soundjay.com/misc/sounds/warning-horn-01.mp3', // Loud industrial siren / warning horn
-  important: 'https://www.soundjay.com/buttons/sounds/button-16.mp3', // Crisp bell chime
-  normal: 'https://www.soundjay.com/buttons/sounds/button-3.mp3', // Soft pop/click
+  critical: 'https://assets.mixkit.co/active_storage/sfx/911/911-720.wav', // Emergency siren
+  important: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-720.wav', // Chime/ping
+  normal: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-720.wav', // Pop chime
 };
 
 const CATEGORIES = [
@@ -189,22 +190,45 @@ export default function Notifications() {
       audio.play().then(() => {
         setIsAudioEnabled(true);
         if (isManualTest) {
-          toast.success(`Mlio wa ${importance} unacheza kikamilifu!`);
+          toast.success(`Mlio wa ${importance} unacheza kikamilifu kutoka kwenye link!`);
         }
       }).catch(err => {
         console.warn("Autoplay blocked. User needs to interact with the page first.", err);
-        if (isManualTest) {
-          if (err.name === 'NotAllowedError') {
+        if (err.name === 'NotAllowedError') {
+          if (isManualTest) {
             toast.info("Ili kusikia sauti, tafadhali fungua mfumo huu kwenye tab mpya (New Tab) ya browser yako (Shared App au Dev URL) kisha ubofye skrini kuruhusu.");
+          }
+        } else {
+          // Play synthetic sound!
+          if (importance === 'critical') {
+            playSyntheticCritical();
+          } else if (importance === 'important') {
+            playSyntheticImportant();
           } else {
-            toast.info("Imeshindwa kucheza sauti. Hakikisha link ipo sahihi na haina vizuizi vya CORS, au fungua mfumo kwenye tab mpya.");
+            playSyntheticNormal();
+          }
+          if (isManualTest) {
+            toast.success(`Mlio wa ${importance} umefanikiwa kuchezwa kutoka kwenye mfumo salama wa ndani!`);
           }
         }
       });
     } catch (e) {
       console.error("Audio trigger failed:", e);
-      if (isManualTest) {
-        toast.error("Hitilafu imetokea wakati wa kucheza sauti.");
+      try {
+        if (importance === 'critical') {
+          playSyntheticCritical();
+        } else if (importance === 'important') {
+          playSyntheticImportant();
+        } else {
+          playSyntheticNormal();
+        }
+        if (isManualTest) {
+          toast.success(`Mlio wa ${importance} umefanikiwa kuchezwa kutoka kwenye mfumo salama wa ndani!`);
+        }
+      } catch (innerErr) {
+        if (isManualTest) {
+          toast.error("Hitilafu imetokea wakati wa kucheza sauti.");
+        }
       }
     }
   };
