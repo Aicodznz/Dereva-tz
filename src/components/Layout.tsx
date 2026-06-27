@@ -12,10 +12,12 @@ import { toast } from 'sonner';
 import { motion, AnimatePresence, useScroll, useMotionValueEvent } from 'motion/react';
 import Header from './Header';
 import { useLanguage } from '../LanguageContext';
+import { useTheme } from 'next-themes';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { profile, logout, signIn, user } = useAuth();
   const { cartCount, cartItems, totalAmount, removeItem, addItem, clearCart, isCartOpen, setIsCartOpen } = useCart();
+  const { resolvedTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const { isRTL, t } = useLanguage();
@@ -50,10 +52,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const isVendorOrAdmin = profile?.role === 'vendor' || profile?.role === 'admin';
   const hideBottomNav = isFullscreen || isCarRentalRoute || profile?.role === 'rider' || isVendorOrAdmin;
   const isFullWidthPage = location.pathname.startsWith('/vendor/') || location.pathname.startsWith('/service/') || isFullscreen || isCarRentalRoute;
-  const isDarkBackgroundRoute = isFullscreen || isCarRentalRoute;
+  const isDarkBackgroundRoute = (isFullscreen || isCarRentalRoute) && resolvedTheme !== 'light';
 
   return (
-    <div className={`${isFullscreen ? 'h-screen w-full overflow-hidden' : 'min-h-screen overflow-x-hidden'} ${isDarkBackgroundRoute ? 'bg-neutral-950 text-white animate-fade-in' : 'bg-neutral-50 dark:bg-neutral-950'} flex flex-col font-sans selection:bg-orange-100 dark:selection:bg-orange-900/30 selection:text-orange-900 ${isRTL ? 'font-arabic' : ''}`}>
+    <div className={`${isFullscreen ? 'h-screen w-full overflow-hidden' : 'min-h-screen overflow-x-hidden'} ${isDarkBackgroundRoute ? 'bg-[#0a0a0f] text-white animate-fade-in' : 'bg-neutral-50 dark:bg-[#0a0a0f] text-neutral-900 dark:text-[#f0eeff]'} flex flex-col font-sans selection:bg-orange-100 dark:selection:bg-orange-900/30 selection:text-orange-900 ${isRTL ? 'font-arabic' : ''}`}>
       {/* Visual Grain Overlay */}
       <div className="fixed inset-0 pointer-events-none z-[1000] opacity-[0.03] contrast-150 mix-blend-multiply flex-none">
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
