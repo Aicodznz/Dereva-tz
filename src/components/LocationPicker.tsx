@@ -90,7 +90,11 @@ function MapController({ center, zoom }: { center: L.LatLng, zoom?: number }) {
   useEffect(() => {
     if (!map) return;
     try {
-      // Force a reasonable zoom if currently zoomed out too far
+      const currentCenter = map.getCenter();
+      const distance = currentCenter.distanceTo(center);
+      // If the map is already centered within 10 meters, don't trigger flyTo to avoid fighting user dragging/clicking
+      if (distance < 10) return;
+
       const currentZoom = map.getZoom();
       const finalZoom = zoom || (currentZoom < 10 ? 14 : currentZoom);
       map.flyTo(center, finalZoom, { duration: 1.5 });
@@ -101,17 +105,23 @@ function MapController({ center, zoom }: { center: L.LatLng, zoom?: number }) {
   return null;
 }
 
-function AutoFitBounds({ vendors }: { vendors: any[] }) {
+function AutoFitBounds({ vendors, categoryFilter }: { vendors: any[], categoryFilter: string }) {
   const map = useMap();
+  const lastFitFilterRef = React.useRef<string | null>(null);
+
   useEffect(() => {
-    if (vendors && vendors.length > 0) {
-      const validVendors = vendors.filter(v => v.location && v.location.lat && v.location.lng);
-      if (validVendors.length > 0) {
-        const bounds = L.latLngBounds(validVendors.map(v => [v.location.lat, v.location.lng]));
-        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 20 });
-      }
+    if (!vendors || vendors.length === 0) return;
+    
+    // Only fit bounds if we haven't fitted bounds for this category filter yet
+    if (lastFitFilterRef.current === categoryFilter) return;
+
+    const validVendors = vendors.filter(v => v.location && v.location.lat && v.location.lng);
+    if (validVendors.length > 0) {
+      const bounds = L.latLngBounds(validVendors.map(v => [v.location.lat, v.location.lng]));
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 20 });
+      lastFitFilterRef.current = categoryFilter;
     }
-  }, [vendors, map]);
+  }, [vendors, categoryFilter, map]);
   return null;
 }
 
@@ -179,20 +189,22 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
     { id: 'hotel', label: 'Hoteli', icon: <div dangerouslySetInnerHTML={{ __html: getVendorIcon('hotel').options.html || '' }} className="scale-50" /> },
   ];
 
-  const filteredVendors = vendors.filter(v => {
-    if (categoryFilter === 'all') return true;
-    const cat = (v.category || '').toLowerCase();
-    
-    if (categoryFilter === 'food') return cat.includes('chakula') || cat.includes('food') || cat.includes('mgahawa') || cat.includes('restaurant');
-    if (categoryFilter === 'grocery') return cat.includes('soko') || cat.includes('grocery') || cat.includes('market');
-    if (categoryFilter === 'bus') return cat.includes('bus') || cat.includes('ticket') || cat.includes('basi');
-    if (categoryFilter === 'pharmacy') return cat.includes('dawa') || cat.includes('pharmacy') || cat.includes('medicine');
-    if (categoryFilter === 'salon') return cat.includes('saluni') || cat.includes('salon') || cat.includes('kinyozi') || cat.includes('hair');
-    if (categoryFilter === 'hotel') return cat.includes('hotel') || cat.includes('malazi') || cat.includes('accommodation') || cat.includes('hoteli');
-    if (categoryFilter === 'ecommerce') return !(['chakula', 'food', 'mgahawa', 'restaurant', 'soko', 'grocery', 'market', 'bus', 'ticket', 'basi', 'dawa', 'pharmacy', 'medicine', 'saluni', 'salon', 'kinyozi', 'hair', 'hotel', 'malazi', 'accommodation', 'hoteli'].some(c => cat.includes(c)));
-    
-    return true;
-  });
+  const filteredVendors = React.useMemo(() => {
+    return vendors.filter(v => {
+      if (categoryFilter === 'all') return true;
+      const cat = (v.category || '').toLowerCase();
+      
+      if (categoryFilter === 'food') return cat.includes('chakula') || cat.includes('food') || cat.includes('mgahawa') || cat.includes('restaurant');
+      if (categoryFilter === 'grocery') return cat.includes('soko') || cat.includes('grocery') || cat.includes('market');
+      if (categoryFilter === 'bus') return cat.includes('bus') || cat.includes('ticket') || cat.includes('basi');
+      if (categoryFilter === 'pharmacy') return cat.includes('dawa') || cat.includes('pharmacy') || cat.includes('medicine');
+      if (categoryFilter === 'salon') return cat.includes('saluni') || cat.includes('salon') || cat.includes('kinyozi') || cat.includes('hair');
+      if (categoryFilter === 'hotel') return cat.includes('hotel') || cat.includes('malazi') || cat.includes('accommodation') || cat.includes('hoteli');
+      if (categoryFilter === 'ecommerce') return !(['chakula', 'food', 'mgahawa', 'restaurant', 'soko', 'grocery', 'market', 'bus', 'ticket', 'basi', 'dawa', 'pharmacy', 'medicine', 'saluni', 'salon', 'kinyozi', 'hair', 'hotel', 'malazi', 'accommodation', 'hoteli'].some(c => cat.includes(c)));
+      
+      return true;
+    });
+  }, [vendors, categoryFilter]);
 
   // Load recent places from localStorage
   useEffect(() => {
@@ -499,7 +511,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm">
+      <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm">
         <motion.div 
           initial={{ y: '100%' }}
           animate={{ y: 0 }}
@@ -674,7 +686,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                 {mapReady && (
                   <>
                     <MapController center={position} />
-                    <AutoFitBounds vendors={filteredVendors} />
+                    <AutoFitBounds vendors={filteredVendors} categoryFilter={categoryFilter} />
                     <InteractionHandler onInteraction={() => {}} />
                     <LocationMarker 
                       position={position} 
