@@ -625,6 +625,8 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
   const [isMinimized, setIsMinimized] = useState(false);
   const theme = resolvedTheme === 'light' ? 'light' : 'dark';
   const [isTripMinimized, setIsTripMinimized] = useState(false);
+  const [isHeaderHidden, setIsHeaderHidden] = useState(false);
+  const [isInstructionsHidden, setIsInstructionsHidden] = useState(false);
   
   const mapTileUrl = theme === 'dark' 
     ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
@@ -642,6 +644,11 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
   useEffect(() => {
     if (activeRide) {
        setIsTripMinimized(false);
+       setIsHeaderHidden(false);
+       setIsInstructionsHidden(false);
+    } else {
+       setIsHeaderHidden(false);
+       setIsInstructionsHidden(false);
     }
   }, [activeRide?.id]);
 
