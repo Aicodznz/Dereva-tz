@@ -211,16 +211,16 @@ const TaxiHistory: React.FC = () => {
             >
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 ${theme === 'dark' ? 'bg-neutral-800' : 'bg-neutral-100'} rounded-xl flex items-center justify-center overflow-hidden`}>
+                  <div className={`w-10 h-10 ${theme === 'dark' ? 'bg-neutral-850' : 'bg-neutral-100'} rounded-xl flex items-center justify-center overflow-hidden`}>
                     {ride.driverInfo?.photo ? (
                       <img src={ride.driverInfo.photo} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     ) : (
-                      <Car size={20} className="text-emerald-600" />
+                      <Car size={20} className="text-emerald-500" />
                     )}
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h4 className="font-black text-sm uppercase tracking-tighter italic text-neutral-800">{ride.vehicleType || 'Gari'}</h4>
+                      <h4 className={`font-black text-sm uppercase tracking-tighter italic ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`}>{ride.vehicleType || 'Gari'}</h4>
                       {ride.driverInfo?.rating && (
                         <div className="flex items-center gap-0.5 text-amber-500">
                           <Star size={8} className="fill-amber-500" />
@@ -242,22 +242,22 @@ const TaxiHistory: React.FC = () => {
                 <div className="flex items-start gap-4 h-full relative">
                   <div className="flex flex-col items-center gap-1.5 pt-1">
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    <div className="w-0.5 h-6 bg-neutral-100 rounded-full" />
+                    <div className={`w-0.5 h-6 rounded-full ${theme === 'dark' ? 'bg-neutral-800' : 'bg-neutral-100'}`} />
                     <div className="w-1.5 h-1.5 rounded-full bg-[#D85A30]" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-neutral-700 truncate">{ride.pickup?.address || 'Location unknown'}</p>
-                    <p className="text-xs font-bold text-neutral-700 truncate mt-3">{ride.destination?.address || 'Location unknown'}</p>
+                    <p className={`text-xs font-bold truncate ${theme === 'dark' ? 'text-neutral-300' : 'text-neutral-700'}`}>{ride.pickup?.address || 'Location unknown'}</p>
+                    <p className={`text-xs font-bold truncate mt-3 ${theme === 'dark' ? 'text-neutral-300' : 'text-neutral-700'}`}>{ride.destination?.address || 'Location unknown'}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-4 pt-4 border-t border-neutral-100 flex items-center justify-between">
+              <div className={`mt-4 pt-4 flex items-center justify-between border-t ${theme === 'dark' ? 'border-neutral-800' : 'border-neutral-100'}`}>
                 <div className="flex flex-col">
                   <span className="text-[9px] font-black text-neutral-400 uppercase tracking-widest">Gharama</span>
-                  <span className="text-sm font-black text-neutral-800">TZS {(ride.fare || 0).toLocaleString()}</span>
+                  <span className={`text-sm font-black ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`}>TZS {(ride.fare || 0).toLocaleString()}</span>
                 </div>
-                <div className="flex items-center gap-2 text-neutral-400 font-black uppercase tracking-widest text-[9px] group-hover:text-neutral-700 transition-colors">
+                <div className={`flex items-center gap-2 text-neutral-400 font-black uppercase tracking-widest text-[9px] ${theme === 'dark' ? 'group-hover:text-neutral-300' : 'group-hover:text-neutral-700'} transition-colors`}>
                   Maelezo zaidi <ChevronRight size={14} />
                 </div>
               </div>
@@ -446,7 +446,7 @@ const TaxiHistory: React.FC = () => {
 
                     {/* Trip Map */}
                     {selectedRide.pickup && selectedRide.destination && (
-                      <div className="h-40 w-full rounded-2xl overflow-hidden border border-neutral-200 relative z-0">
+                      <div className={`h-40 w-full rounded-2xl overflow-hidden border relative z-0 ${theme === 'dark' ? 'border-neutral-800' : 'border-neutral-200'}`}>
                          <MapContainer 
                            center={[selectedRide.pickup.lat, selectedRide.pickup.lng]} 
                            zoom={13} 

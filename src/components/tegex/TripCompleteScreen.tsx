@@ -83,7 +83,7 @@ export const TripCompleteScreen: React.FC<TripCompleteScreenProps> = ({ ride, on
                      <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest leading-none mb-1">Jumla</p>
                      <h3 className="text-3xl font-black italic text-indigo-600">TZS {(ride?.fare ?? 0).toLocaleString()}</h3>
                   </div>
-                  <div className="px-3 py-1 bg-emerald-50 border border-emerald-100 rounded-full text-[8px] font-black text-emerald-700 uppercase">
+                  <div className={`px-3 py-1 border rounded-full text-[8px] font-black uppercase ${theme === 'dark' ? 'bg-emerald-950/20 border-emerald-900/40 text-emerald-400' : 'bg-emerald-50 border-emerald-100 text-emerald-700'}`}>
                      Bado Hujalipa
                   </div>
                </div>
