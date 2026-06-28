@@ -812,22 +812,22 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
     return L.divIcon({
       className: "custom-div-icon",
       html: `
-        <div class="relative flex flex-col items-center w-[200px] h-[140px] justify-end">
+        <div class="relative flex flex-col items-center w-[150px] h-[110px] justify-end">
           <!-- Speech Bubble Container -->
-          <div class="${bgClass} px-3.5 py-2 rounded-[16px] flex flex-col items-center min-w-[140px] max-w-[190px] relative mb-3.5 vibango-premium-float transition-all duration-300">
-            <span class="text-[8px] font-black ${titleColor} tracking-[0.12em] uppercase leading-none font-heading">MAHALI PA KUCHUKULIWA</span>
-            <span class="text-[11.5px] font-extrabold ${addrColor} tracking-tight mt-1 leading-tight text-center truncate w-full whitespace-nowrap">${displayAddr}</span>
+          <div class="${bgClass} px-2.5 py-1.5 rounded-[12px] flex flex-col items-center min-w-[110px] max-w-[140px] relative mb-2.5 vibango-premium-float transition-all duration-300">
+            <span class="text-[7.5px] font-black ${titleColor} tracking-[0.12em] uppercase leading-none font-heading">MAHALI PA KUCHUKULIWA</span>
+            <span class="text-[10px] font-extrabold ${addrColor} tracking-tight mt-1 leading-tight text-center truncate w-full whitespace-nowrap">${displayAddr}</span>
             ${etaText ? `
-              <span class="text-[9px] font-mono font-extrabold text-emerald-500 mt-1.5 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 whitespace-nowrap leading-none">${etaText}</span>
+              <span class="text-[8px] font-mono font-extrabold text-emerald-500 mt-1 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 whitespace-nowrap leading-none">${etaText}</span>
             ` : ""}
             <!-- Downward-pointing speech bubble arrow -->
-            <div class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 ${arrowBg}"></div>
+            <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 rotate-45 ${arrowBg}"></div>
           </div>
           
           <!-- Glowing Golden Hexagonal Pin on Ground -->
-          <div class="relative flex items-center justify-center w-10 h-10 pb-1">
-            <div class="absolute w-8 h-8 rounded-full bg-amber-500/25 blur-sm animate-pulse"></div>
-            <svg width="34" height="34" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" class="drop-shadow-[0_5px_10px_rgba(0,0,0,0.4)]">
+          <div class="relative flex items-center justify-center w-8 h-8 pb-1">
+            <div class="absolute w-6 h-6 rounded-full bg-amber-500/25 blur-sm animate-pulse"></div>
+            <svg width="26" height="26" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" class="drop-shadow-[0_4px_8px_rgba(0,0,0,0.4)]">
               <path d="M18 4 L30 11 L30 25 L18 32 L6 25 L6 11 Z" fill="url(#goldGradient)" stroke="#FFFFFF" stroke-width="1.5" stroke-linejoin="round"/>
               <path d="M18 10 L24 13.5 L24 22.5 L18 26 L12 22.5 L12 13.5 Z" fill="url(#darkGoldCenter)" stroke="#FFE259" stroke-width="1.2" stroke-linejoin="round"/>
               <defs>
@@ -846,8 +846,8 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
           </div>
         </div>
       `,
-      iconSize: [200, 140],
-      iconAnchor: [100, 134],
+      iconSize: [150, 110],
+      iconAnchor: [75, 105],
     });
   };
 
@@ -877,22 +877,22 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
     return L.divIcon({
       className: "custom-div-icon",
       html: `
-        <div class="relative flex flex-col items-center w-[200px] h-[140px] justify-end">
+        <div class="relative flex flex-col items-center w-[150px] h-[110px] justify-end">
           <!-- Speech Bubble Container -->
-          <div class="${bgClass} px-3.5 py-2 rounded-[16px] flex flex-col items-center min-w-[140px] max-w-[190px] relative mb-3.5 vibango-premium-float transition-all duration-300">
-            <span class="text-[8px] font-black ${titleColor} tracking-[0.12em] uppercase leading-none font-heading font-semibold text-center">HATIMA YAKO</span>
-            <span class="text-[11.5px] font-extrabold ${addrColor} tracking-tight mt-1 leading-tight text-center truncate w-full whitespace-nowrap">${displayAddr}</span>
+          <div class="${bgClass} px-2.5 py-1.5 rounded-[12px] flex flex-col items-center min-w-[110px] max-w-[140px] relative mb-2.5 vibango-premium-float transition-all duration-300">
+            <span class="text-[7.5px] font-black ${titleColor} tracking-[0.12em] uppercase leading-none font-heading font-semibold text-center">HATIMA YAKO</span>
+            <span class="text-[10px] font-extrabold ${addrColor} tracking-tight mt-1 leading-tight text-center truncate w-full whitespace-nowrap">${displayAddr}</span>
             ${etaText ? `
-              <span class="text-[9px] font-mono font-extrabold text-sky-500 mt-1.5 bg-sky-500/10 px-1.5 py-0.5 rounded border border-sky-500/20 whitespace-nowrap leading-none">${etaText}</span>
+              <span class="text-[8px] font-mono font-extrabold text-sky-500 mt-1 bg-sky-500/10 px-1.5 py-0.5 rounded border border-sky-500/20 whitespace-nowrap leading-none">${etaText}</span>
             ` : ""}
             <!-- Downward-pointing speech bubble arrow -->
-            <div class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 ${arrowBg}"></div>
+            <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 rotate-45 ${arrowBg}"></div>
           </div>
           
           <!-- Concentric Target Pin on Ground -->
-          <div class="relative flex items-center justify-center w-10 h-10 pb-1">
-            <div class="absolute w-8 h-8 rounded-full border border-sky-500/40 animate-ping opacity-75"></div>
-            <svg width="34" height="34" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" class="drop-shadow-[0_5px_10px_rgba(0,0,0,0.4)]">
+          <div class="relative flex items-center justify-center w-8 h-8 pb-1">
+            <div class="absolute w-6 h-6 rounded-full border border-sky-500/40 animate-ping opacity-75"></div>
+            <svg width="26" height="26" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" class="drop-shadow-[0_4px_8px_rgba(0,0,0,0.4)]">
               <circle cx="18" cy="18" r="14" fill="url(#metallicTarget)" stroke="#FFFFFF" stroke-width="2.5" />
               <circle cx="18" cy="18" r="8" fill="#111827" stroke="#9CA3AF" stroke-width="1" />
               <circle cx="18" cy="18" r="3.5" fill="#FFFFFF"/>
@@ -907,8 +907,8 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
           </div>
         </div>
       `,
-      iconSize: [200, 140],
-      iconAnchor: [100, 134],
+      iconSize: [150, 110],
+      iconAnchor: [75, 105],
     });
   };
 

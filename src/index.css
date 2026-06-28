@@ -362,7 +362,7 @@
     transform: translateY(0) scale(1);
   }
   50% {
-    transform: translateY(-4px) scale(1.03);
+    transform: translateY(0) scale(1);
   }
 }
 

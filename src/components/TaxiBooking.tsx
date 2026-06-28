@@ -1868,22 +1868,22 @@ export default function TaxiBooking() {
     return L.divIcon({
       className: "custom-div-icon",
       html: `
-        <div class="relative flex flex-col items-center w-[200px] h-[140px] justify-end">
+        <div class="relative flex flex-col items-center w-[150px] h-[110px] justify-end">
           <!-- Speech Bubble Container -->
-          <div class="${bgClass} px-3.5 py-2 rounded-[16px] flex flex-col items-center min-w-[140px] max-w-[190px] relative mb-3.5 vibango-premium-float transition-all duration-300">
-            <span class="text-[8px] font-black ${titleColor} tracking-[0.12em] uppercase leading-none font-heading">MAHALI PA KUCHUKULIWA</span>
-            <span class="text-[11.5px] font-extrabold ${addrColor} tracking-tight mt-1 leading-tight text-center truncate w-full whitespace-nowrap">${displayAddr}</span>
+          <div class="${bgClass} px-2.5 py-1.5 rounded-[12px] flex flex-col items-center min-w-[110px] max-w-[140px] relative mb-2.5 vibango-premium-float transition-all duration-300">
+            <span class="text-[7.5px] font-black ${titleColor} tracking-[0.12em] uppercase leading-none font-heading">MAHALI PA KUCHUKULIWA</span>
+            <span class="text-[10px] font-extrabold ${addrColor} tracking-tight mt-1 leading-tight text-center truncate w-full whitespace-nowrap">${displayAddr}</span>
             ${etaText ? `
-              <span class="text-[9px] font-mono font-extrabold text-emerald-500 mt-1.5 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 whitespace-nowrap leading-none">${etaText}</span>
+              <span class="text-[8px] font-mono font-extrabold text-emerald-500 mt-1 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 whitespace-nowrap leading-none">${etaText}</span>
             ` : ""}
             <!-- Downward-pointing speech bubble arrow -->
-            <div class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 ${arrowBg}"></div>
+            <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 rotate-45 ${arrowBg}"></div>
           </div>
           
           <!-- Glowing Golden Hexagonal Pin on Ground -->
-          <div class="relative flex items-center justify-center w-10 h-10 pb-1">
-            <div class="absolute w-8 h-8 rounded-full bg-amber-500/25 blur-sm animate-pulse"></div>
-            <svg width="34" height="34" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" class="drop-shadow-[0_5px_10px_rgba(0,0,0,0.4)]">
+          <div class="relative flex items-center justify-center w-8 h-8 pb-1">
+            <div class="absolute w-6 h-6 rounded-full bg-amber-500/25 blur-sm animate-pulse"></div>
+            <svg width="26" height="26" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" class="drop-shadow-[0_4px_8px_rgba(0,0,0,0.4)]">
               <path d="M18 4 L30 11 L30 25 L18 32 L6 25 L6 11 Z" fill="url(#goldGradient)" stroke="#FFFFFF" stroke-width="1.5" stroke-linejoin="round"/>
               <path d="M18 10 L24 13.5 L24 22.5 L18 26 L12 22.5 L12 13.5 Z" fill="url(#darkGoldCenter)" stroke="#FFE259" stroke-width="1.2" stroke-linejoin="round"/>
               <defs>
@@ -1902,8 +1902,8 @@ export default function TaxiBooking() {
           </div>
         </div>
       `,
-      iconSize: [200, 140],
-      iconAnchor: [100, 134],
+      iconSize: [150, 110],
+      iconAnchor: [75, 105],
     });
   };
 
@@ -1932,22 +1932,22 @@ export default function TaxiBooking() {
     return L.divIcon({
       className: "custom-div-icon",
       html: `
-        <div class="relative flex flex-col items-center w-[200px] h-[140px] justify-end">
+        <div class="relative flex flex-col items-center w-[150px] h-[110px] justify-end">
           <!-- Speech Bubble Container -->
-          <div class="${bgClass} px-3.5 py-2 rounded-[16px] flex flex-col items-center min-w-[140px] max-w-[190px] relative mb-3.5 vibango-premium-float transition-all duration-300">
-            <span class="text-[8px] font-black ${titleColor} tracking-[0.12em] uppercase leading-none font-heading font-semibold text-center">HATIMA YAKO</span>
-            <span class="text-[11.5px] font-extrabold ${addrColor} tracking-tight mt-1 leading-tight text-center truncate w-full whitespace-nowrap">${displayAddr}</span>
+          <div class="${bgClass} px-2.5 py-1.5 rounded-[12px] flex flex-col items-center min-w-[110px] max-w-[140px] relative mb-2.5 vibango-premium-float transition-all duration-300">
+            <span class="text-[7.5px] font-black ${titleColor} tracking-[0.12em] uppercase leading-none font-heading font-semibold text-center">HATIMA YAKO</span>
+            <span class="text-[10px] font-extrabold ${addrColor} tracking-tight mt-1 leading-tight text-center truncate w-full whitespace-nowrap">${displayAddr}</span>
             ${etaText ? `
-              <span class="text-[9px] font-mono font-extrabold text-sky-500 mt-1.5 bg-sky-500/10 px-1.5 py-0.5 rounded border border-sky-500/20 whitespace-nowrap leading-none">${etaText}</span>
+              <span class="text-[8px] font-mono font-extrabold text-sky-500 mt-1 bg-sky-500/10 px-1.5 py-0.5 rounded border border-sky-500/20 whitespace-nowrap leading-none">${etaText}</span>
             ` : ""}
             <!-- Downward-pointing speech bubble arrow -->
-            <div class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 ${arrowBg}"></div>
+            <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 rotate-45 ${arrowBg}"></div>
           </div>
           
           <!-- Concentric Target Pin on Ground -->
-          <div class="relative flex items-center justify-center w-10 h-10 pb-1">
-            <div class="absolute w-8 h-8 rounded-full border border-sky-500/40 animate-ping opacity-75"></div>
-            <svg width="34" height="34" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" class="drop-shadow-[0_5px_10px_rgba(0,0,0,0.4)]">
+          <div class="relative flex items-center justify-center w-8 h-8 pb-1">
+            <div class="absolute w-6 h-6 rounded-full border border-sky-500/40 animate-ping opacity-75"></div>
+            <svg width="26" height="26" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" class="drop-shadow-[0_4px_8px_rgba(0,0,0,0.4)]">
               <circle cx="18" cy="18" r="14" fill="url(#metallicTarget)" stroke="#FFFFFF" stroke-width="2.5" />
               <circle cx="18" cy="18" r="8" fill="#111827" stroke="#9CA3AF" stroke-width="1" />
               <circle cx="18" cy="18" r="3.5" fill="#FFFFFF"/>
@@ -1962,8 +1962,8 @@ export default function TaxiBooking() {
           </div>
         </div>
       `,
-      iconSize: [200, 140],
-      iconAnchor: [100, 134],
+      iconSize: [150, 110],
+      iconAnchor: [75, 105],
     });
   };
 
@@ -3006,8 +3006,8 @@ export default function TaxiBooking() {
                   </div>
 
                   {/* Center Search Bar */}
-                  <div className={`flex-1 flex items-center h-10 sm:h-12 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-md px-3 gap-2 pointer-events-auto relative border ${theme === 'dark' ? 'bg-[#111118]/95 border-neutral-800' : 'bg-white/95 border-neutral-200/80'}`}>
-                    <Search className="w-4 h-4 text-neutral-400 shrink-0" />
+                  <div className={`flex-1 flex items-center h-9 sm:h-11 backdrop-blur-xl rounded-lg sm:rounded-xl shadow-md px-2 sm:px-3 gap-1.5 pointer-events-auto relative border ${theme === 'dark' ? 'bg-[#111118]/95 border-neutral-800' : 'bg-white/95 border-neutral-200/80'}`}>
+                    <Search className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
                     
                     <input
                       type="text"
@@ -3022,11 +3022,11 @@ export default function TaxiBooking() {
                         setSettingMode("pickup");
                       }}
                       placeholder="Tafuta eneo lako..."
-                      className={`flex-1 bg-transparent text-xs sm:text-sm font-bold border-none outline-none p-0 font-sans ${theme === 'dark' ? 'text-neutral-200 placeholder:text-neutral-600' : 'text-neutral-800 placeholder:text-neutral-400'}`}
+                      className={`flex-1 bg-transparent text-[11px] sm:text-xs font-bold border-none outline-none p-0 font-sans ${theme === 'dark' ? 'text-neutral-200 placeholder:text-neutral-600' : 'text-neutral-800 placeholder:text-neutral-400'}`}
                     />
 
                     {isAutoLocated && (
-                      <span className="shrink-0 text-[9px] font-black tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-md uppercase animate-pulse">
+                      <span className="shrink-0 text-[8px] font-black tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded-md uppercase animate-pulse">
                         Auto
                       </span>
                     )}
@@ -3039,14 +3039,14 @@ export default function TaxiBooking() {
                         setAutoFollow(true);
                         handleCurrentLocation(false);
                       }}
-                      className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center active:scale-90 transition-all ${
+                      className={`w-6 h-6 sm:w-7 sm:h-7 rounded-md flex items-center justify-center active:scale-90 transition-all ${
                         isAutoLocated 
                           ? "bg-[#1D9E75]/25 text-[#00E5A0] border border-[#1D9E75]/35 hover:bg-[#1D9E75]/40"
                           : (theme === 'dark' ? "bg-neutral-900 text-neutral-400 hover:text-neutral-200 border border-neutral-800" : "bg-neutral-100 text-neutral-500 hover:text-neutral-800 border border-neutral-200/40")
                       }`}
                       title="Tafuta mahali ulipo kiotomatiki kwa GPS"
                     >
-                      <Navigation2 className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isAutoLocated ? "rotate-45" : ""}`} />
+                      <Navigation2 className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${isAutoLocated ? "rotate-45" : ""}`} />
                     </button>
 
                     {/* Autocomplete predictions for top search bar */}
@@ -3532,13 +3532,15 @@ export default function TaxiBooking() {
               initial={{ y: "100%" }}
               animate={{
                 y: isMapFullscreen
-                  ? "calc(100% - 90px)"
+                  ? "calc(100% - 68px)"
                   : isMinimized
-                    ? "calc(100% - 110px)"
+                    ? "calc(100% - 75px)"
                     : 0,
               }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className={`absolute bottom-0 left-0 right-0 z-[9999] rounded-t-[32px] border-t p-5 pb-10 space-y-4 shadow-[0_-12px_40px_rgba(0,0,0,0.12)] max-h-[85dvh] overflow-y-auto no-scrollbar ${theme === 'dark' ? 'bg-[#111118] border-neutral-800' : 'bg-white border-neutral-200/80'}`}
+              className={`absolute bottom-0 left-0 right-0 z-[9999] rounded-t-[24px] border-t shadow-[0_-12px_40px_rgba(0,0,0,0.12)] max-h-[85dvh] overflow-y-auto no-scrollbar transition-all duration-300 ${
+                isMinimized || isMapFullscreen ? "p-3 pb-6 space-y-2" : "p-5 pb-10 space-y-4"
+              } ${theme === 'dark' ? 'bg-[#111118] border-neutral-800' : 'bg-white border-neutral-200/80'}`}
             >
               <div
                 className="w-full h-8 flex items-center justify-center cursor-pointer group -mt-4 relative"
@@ -3554,7 +3556,7 @@ export default function TaxiBooking() {
                 }}
               >
                 <div
-                  className={`w-16 h-2 rounded-full transition-all duration-300 shadow-md ${isMinimized || isMapFullscreen ? "bg-indigo-600 animate-bounce" : (theme === 'dark' ? 'bg-neutral-800 group-hover:bg-neutral-700' : 'bg-neutral-200 group-hover:bg-neutral-300')}`}
+                  className={`w-12 h-1.5 rounded-full transition-all duration-300 shadow-md ${isMinimized || isMapFullscreen ? "bg-indigo-600 animate-bounce" : (theme === 'dark' ? 'bg-neutral-800 group-hover:bg-neutral-700' : 'bg-neutral-200 group-hover:bg-neutral-300')}`}
                 />
               </div>
 
@@ -3857,11 +3859,11 @@ export default function TaxiBooking() {
               )}
 
               {(isMinimized || isMapFullscreen) && (
-                <div className="py-2 flex flex-col items-center justify-center gap-1 opacity-80">
-                  <div className="w-8 h-8 rounded-full bg-[#7F77DD]/20 flex items-center justify-center mb-1">
-                    <ChevronRight className="w-4 h-4 text-[#7F77DD] -rotate-90" />
+                <div className="py-1 flex flex-col items-center justify-center gap-0.5 opacity-80">
+                  <div className="w-6 h-6 rounded-full bg-[#7F77DD]/20 flex items-center justify-center mb-0.5">
+                    <ChevronRight className="w-3 h-3 text-[#7F77DD] -rotate-90" />
                   </div>
-                  <p className="text-[10px] font-black text-neutral-700 uppercase tracking-[0.2em]">
+                  <p className="text-[8px] font-black text-neutral-500 uppercase tracking-[0.2em]">
                     Bofya hapa kuendelea
                   </p>
                 </div>
