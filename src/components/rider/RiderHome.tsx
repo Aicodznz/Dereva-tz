@@ -630,7 +630,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
   
   const mapTileUrl = theme === 'dark' 
     ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-    : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+    : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
   
   // Auto-expand if request comes or ride active
   useEffect(() => {
@@ -783,56 +783,128 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
   }, [isOnline, !!activeRide]);
 
   const getStartPin = (etaText: string) => {
+    const isDark = theme === "dark";
+    const cleanAddr = (addr: string) => {
+      if (!addr) return "Tafuta eneo la pickup...";
+      const parts = addr.split(",");
+      if (parts.length > 2) {
+        return `${parts[0].trim()}, ${parts[1].trim()}`;
+      }
+      return addr.length > 30 ? addr.substring(0, 27) + "..." : addr;
+    };
+
+    const activePickupAddress = activeRide?.pickup?.address || incomingRequest?.pickup?.address || "Pickup Eneo";
+    const displayAddr = cleanAddr(activePickupAddress);
+
+    // Dark vs Light Mode Speech Bubble styling
+    const bgClass = isDark 
+      ? "bg-gradient-to-b from-[#0B1E14]/95 to-[#030A06]/95 border border-emerald-500/40 shadow-[0_12px_30px_rgba(16,185,129,0.3)]" 
+      : "bg-gradient-to-b from-[#FDFBF7]/98 to-[#F5F2EB]/98 border border-[#D9D2C5] shadow-[0_12px_30px_rgba(139,115,85,0.2)]";
+
+    const titleColor = isDark ? "text-emerald-400" : "text-[#1E724C]";
+    const addrColor = isDark ? "text-white" : "text-[#1F2937]";
+    const arrowBg = isDark ? "bg-[#030A06] border-r border-b border-emerald-500/40" : "bg-[#F5F2EB] border-r border-b border-[#D9D2C5]";
+
     return L.divIcon({
       className: "custom-div-icon",
       html: `
-        <div class="relative flex flex-col items-center w-[160px] h-[100px] justify-end">
+        <div class="relative flex flex-col items-center w-[200px] h-[140px] justify-end">
           <!-- Speech Bubble Container -->
-          <div class="bg-[#1E724C] text-white px-3 py-1.5 rounded-[12px] shadow-[0_8px_20px_rgba(0,0,0,0.3)] flex flex-col items-center min-w-[110px] relative mb-3 vibango-premium-float">
-            <span class="text-[9px] font-semibold tracking-wide uppercase opacity-90 leading-none">Pickup hapa</span>
-            <span class="text-[12px] font-extrabold tracking-tight mt-1 leading-none font-sans whitespace-nowrap">${etaText || 'Bofya kubadili'}</span>
+          <div class="${bgClass} px-3.5 py-2 rounded-[16px] flex flex-col items-center min-w-[140px] max-w-[190px] relative mb-3.5 vibango-premium-float transition-all duration-300">
+            <span class="text-[8px] font-black ${titleColor} tracking-[0.12em] uppercase leading-none font-heading">MAHALI PA KUCHUKULIWA</span>
+            <span class="text-[11.5px] font-extrabold ${addrColor} tracking-tight mt-1 leading-tight text-center truncate w-full whitespace-nowrap">${displayAddr}</span>
+            ${etaText ? `
+              <span class="text-[9px] font-mono font-extrabold text-emerald-500 mt-1.5 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 whitespace-nowrap leading-none">${etaText}</span>
+            ` : ""}
             <!-- Downward-pointing speech bubble arrow -->
-            <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rotate-45 bg-[#1E724C]"></div>
+            <div class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 ${arrowBg}"></div>
           </div>
           
-          <!-- Concentric Circle GPS Pin -->
-          <div class="relative flex items-center justify-center w-8 h-8 pb-1">
-            <div class="absolute inset-0 rounded-full bg-[#1E724C]/35 animate-ping pointer-events-none"></div>
-            <div class="w-[22px] h-[22px] rounded-full border-[3px] border-white bg-[#1E724C] shadow-[0_4px_10px_rgba(0,0,0,0.35)] flex items-center justify-center">
-              <div class="w-[7px] h-[7px] bg-white rounded-full"></div>
-            </div>
+          <!-- Glowing Golden Hexagonal Pin on Ground -->
+          <div class="relative flex items-center justify-center w-10 h-10 pb-1">
+            <div class="absolute w-8 h-8 rounded-full bg-amber-500/25 blur-sm animate-pulse"></div>
+            <svg width="34" height="34" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" class="drop-shadow-[0_5px_10px_rgba(0,0,0,0.4)]">
+              <path d="M18 4 L30 11 L30 25 L18 32 L6 25 L6 11 Z" fill="url(#goldGradient)" stroke="#FFFFFF" stroke-width="1.5" stroke-linejoin="round"/>
+              <path d="M18 10 L24 13.5 L24 22.5 L18 26 L12 22.5 L12 13.5 Z" fill="url(#darkGoldCenter)" stroke="#FFE259" stroke-width="1.2" stroke-linejoin="round"/>
+              <defs>
+                <linearGradient id="goldGradient" x1="6" y1="4" x2="30" y2="32" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#FFE259"/>
+                  <stop offset="30%" stop-color="#FFA751"/>
+                  <stop offset="70%" stop-color="#D4AF37"/>
+                  <stop offset="100%" stop-color="#8A640F"/>
+                </linearGradient>
+                <linearGradient id="darkGoldCenter" x1="12" y1="10" x2="24" y2="26" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#3A2D15"/>
+                  <stop offset="100%" stop-color="#1A1305"/>
+                </linearGradient>
+              </defs>
+            </svg>
           </div>
         </div>
       `,
-      iconSize: [160, 100],
-      iconAnchor: [80, 84],
+      iconSize: [200, 140],
+      iconAnchor: [100, 134],
     });
   };
 
   const getEndPin = (etaText: string) => {
+    const isDark = theme === "dark";
+    const cleanAddr = (addr: string) => {
+      if (!addr) return "Tafuta eneo la dropoff...";
+      const parts = addr.split(",");
+      if (parts.length > 2) {
+        return `${parts[0].trim()}, ${parts[1].trim()}`;
+      }
+      return addr.length > 30 ? addr.substring(0, 27) + "..." : addr;
+    };
+
+    const activeDestAddress = activeRide?.destination?.address || incomingRequest?.destination?.address || "Eneo la Kushushwa";
+    const displayAddr = cleanAddr(activeDestAddress);
+
+    // Dark vs Light Mode Speech Bubble styling
+    const bgClass = isDark 
+      ? "bg-gradient-to-b from-[#0B1528]/95 to-[#020712]/95 border border-sky-500/40 shadow-[0_12px_30px_rgba(56,189,248,0.3)]" 
+      : "bg-gradient-to-b from-[#FDFBF7]/98 to-[#F5F2EB]/98 border border-[#D9D2C5] shadow-[0_12px_30px_rgba(139,115,85,0.2)]";
+
+    const titleColor = isDark ? "text-sky-400" : "text-[#1E3A8A]";
+    const addrColor = isDark ? "text-white" : "text-[#1F2937]";
+    const arrowBg = isDark ? "bg-[#020712] border-r border-b border-sky-500/40" : "bg-[#F5F2EB] border-r border-b border-[#D9D2C5]";
+
     return L.divIcon({
       className: "custom-div-icon",
       html: `
-        <div class="relative flex flex-col items-center w-[160px] h-[100px] justify-end">
+        <div class="relative flex flex-col items-center w-[200px] h-[140px] justify-end">
           <!-- Speech Bubble Container -->
-          <div class="bg-[#0A1A12] text-white px-3 py-1.5 rounded-[12px] shadow-[0_8px_20px_rgba(0,0,0,0.3)] flex flex-col items-center min-w-[110px] relative mb-3 vibango-premium-float">
-            <span class="text-[9px] font-semibold tracking-wide uppercase opacity-90 leading-none">Dropoff</span>
-            <span class="text-[12px] font-extrabold tracking-tight mt-1 leading-none font-sans whitespace-nowrap">${etaText || 'Mwisho'}</span>
+          <div class="${bgClass} px-3.5 py-2 rounded-[16px] flex flex-col items-center min-w-[140px] max-w-[190px] relative mb-3.5 vibango-premium-float transition-all duration-300">
+            <span class="text-[8px] font-black ${titleColor} tracking-[0.12em] uppercase leading-none font-heading font-semibold text-center">HATIMA YAKO</span>
+            <span class="text-[11.5px] font-extrabold ${addrColor} tracking-tight mt-1 leading-tight text-center truncate w-full whitespace-nowrap">${displayAddr}</span>
+            ${etaText ? `
+              <span class="text-[9px] font-mono font-extrabold text-sky-500 mt-1.5 bg-sky-500/10 px-1.5 py-0.5 rounded border border-sky-500/20 whitespace-nowrap leading-none">${etaText}</span>
+            ` : ""}
             <!-- Downward-pointing speech bubble arrow -->
-            <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rotate-45 bg-[#0A1A12]"></div>
+            <div class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 ${arrowBg}"></div>
           </div>
           
-          <!-- Concentric Circle GPS Pin -->
-          <div class="relative flex items-center justify-center w-8 h-8 pb-1">
-            <div class="absolute inset-0 rounded-full bg-[#0A1A12]/35 animate-ping pointer-events-none"></div>
-            <div class="w-[22px] h-[22px] rounded-full border-[3px] border-white bg-[#0A1A12] shadow-[0_4px_10px_rgba(0,0,0,0.35)] flex items-center justify-center">
-              <div class="w-[7px] h-[7px] bg-white rounded-full"></div>
-            </div>
+          <!-- Concentric Target Pin on Ground -->
+          <div class="relative flex items-center justify-center w-10 h-10 pb-1">
+            <div class="absolute w-8 h-8 rounded-full border border-sky-500/40 animate-ping opacity-75"></div>
+            <svg width="34" height="34" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" class="drop-shadow-[0_5px_10px_rgba(0,0,0,0.4)]">
+              <circle cx="18" cy="18" r="14" fill="url(#metallicTarget)" stroke="#FFFFFF" stroke-width="2.5" />
+              <circle cx="18" cy="18" r="8" fill="#111827" stroke="#9CA3AF" stroke-width="1" />
+              <circle cx="18" cy="18" r="3.5" fill="#FFFFFF"/>
+              <defs>
+                <linearGradient id="metallicTarget" x1="4" y1="4" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#4B5563"/>
+                  <stop offset="50%" stop-color="#1F2937"/>
+                  <stop offset="100%" stop-color="#111827"/>
+                </linearGradient>
+              </defs>
+            </svg>
           </div>
         </div>
       `,
-      iconSize: [160, 100],
-      iconAnchor: [80, 84],
+      iconSize: [200, 140],
+      iconAnchor: [100, 134],
     });
   };
 
