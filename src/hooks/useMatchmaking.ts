@@ -268,6 +268,12 @@ export function useMatchmaking(ride: Ride | null) {
       console.log(`[Simulation] Active trip started. Steps: ${interpolatedTripCoords.length}. Resuming index: ${currentIdx}`);
 
       simulationIntervalRef.current = setInterval(async () => {
+        // Pause active movement if client is in the middle of a route recalculation
+        if ((rideRef.current as any)?.isRerouting === true) {
+          console.log("[Simulation] Suspended movement tick: waiting for client rerouting...");
+          return;
+        }
+
         if (currentIdx < interpolatedTripCoords.length) {
           const nextCoord = interpolatedTripCoords[currentIdx];
 

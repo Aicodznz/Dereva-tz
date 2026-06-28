@@ -55,6 +55,9 @@ export interface Ride {
   paymentId?: string;
   paymentStatus?: 'pending' | 'paid';
   paymentMethod?: 'cash' | 'online';
+  isRerouting?: boolean;
+  hasDeviated?: boolean;
+  navigationMessage?: string;
 }
 
 export interface PaymentRecord {

@@ -786,17 +786,17 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
     return L.divIcon({
       className: "custom-div-icon",
       html: `
-        <div class="relative flex flex-col items-center animate-fade-in">
-          <div class="bg-[#111118]/95 backdrop-blur-md border border-emerald-500/30 rounded-xl px-2 py-1 mb-1.5 shadow-xl flex flex-col items-center">
-            <span class="text-[8px] font-black text-emerald-400 uppercase tracking-wider leading-tight">PICKUP MTEJA</span>
-            <span class="text-[8.5px] font-bold text-white/95 mt-0.5 whitespace-nowrap px-1 py-0.5 bg-emerald-500/10 rounded border border-emerald-500/20">${etaText}</span>
+        <div class="relative flex flex-col items-center">
+          <div class="bg-gradient-to-b from-[#111118]/95 to-[#05060A]/95 backdrop-blur-md border border-emerald-500/45 rounded-[14px] px-2.5 py-1.5 mb-2 shadow-[0_10px_25px_rgba(16,185,129,0.15)] flex flex-col items-center vibango-premium-float">
+            <span class="text-[8px] font-black text-emerald-400 uppercase tracking-[0.12em] leading-none">PICKUP MTEJA</span>
+            <span class="text-[9px] font-mono font-extrabold text-white mt-1.5 whitespace-nowrap">${etaText}</span>
           </div>
-          <div class="bg-emerald-500 text-white w-8 h-8 rounded-full border-4 border-[#111118] shadow-2xl flex items-center justify-center font-black text-base marker-pulse-green">A</div>
-          <div class="w-1 h-2 bg-emerald-500 rounded-full -mt-0.5 shadow-lg"></div>
+          <div class="bg-emerald-500 text-white w-8 h-8 rounded-full border-[3px] border-[#111118] shadow-[0_4px_12px_rgba(16,185,129,0.4)] flex items-center justify-center font-black text-base marker-pulse-mint">A</div>
+          <div class="w-1.5 h-2 bg-emerald-500 rounded-full -mt-0.5 shadow-md"></div>
         </div>
       `,
-      iconSize: [140, 75],
-      iconAnchor: [70, 75],
+      iconSize: [160, 90],
+      iconAnchor: [80, 90],
     });
   };
 
@@ -804,17 +804,17 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
     return L.divIcon({
       className: "custom-div-icon",
       html: `
-        <div class="relative flex flex-col items-center animate-fade-in">
-          <div class="bg-[#111118]/95 backdrop-blur-md border border-orange-500/30 rounded-xl px-2 py-1 mb-1.5 shadow-xl flex flex-col items-center">
-            <span class="text-[8px] font-black text-orange-400 uppercase tracking-wider leading-tight">DESTINATION</span>
-            <span class="text-[8.5px] font-bold text-white/95 mt-0.5 whitespace-nowrap px-1 py-0.5 bg-orange-500/10 rounded border border-orange-500/20">${etaText}</span>
+        <div class="relative flex flex-col items-center">
+          <div class="bg-gradient-to-b from-[#111118]/95 to-[#05060A]/95 backdrop-blur-md border border-orange-500/45 rounded-[14px] px-2.5 py-1.5 mb-2 shadow-[0_10px_25px_rgba(249,115,22,0.15)] flex flex-col items-center vibango-premium-float">
+            <span class="text-[8px] font-black text-orange-400 uppercase tracking-[0.12em] leading-none">DESTINATION</span>
+            <span class="text-[9px] font-mono font-extrabold text-white mt-1.5 whitespace-nowrap">${etaText}</span>
           </div>
-          <div class="bg-orange-500 text-white w-8 h-8 rounded-full border-4 border-[#111118] shadow-2xl flex items-center justify-center font-black text-base marker-pulse-orange">B</div>
-          <div class="w-1 h-2 bg-orange-500 rounded-full -mt-0.5 shadow-lg"></div>
+          <div class="bg-orange-500 text-white w-8 h-8 rounded-full border-[3px] border-[#111118] shadow-[0_4px_12px_rgba(249,115,22,0.4)] flex items-center justify-center font-black text-base marker-pulse-premium-orange">B</div>
+          <div class="w-1.5 h-2 bg-orange-500 rounded-full -mt-0.5 shadow-md"></div>
         </div>
       `,
-      iconSize: [140, 75],
-      iconAnchor: [70, 75],
+      iconSize: [160, 90],
+      iconAnchor: [80, 90],
     });
   };
 

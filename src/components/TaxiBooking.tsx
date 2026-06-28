@@ -1239,6 +1239,75 @@ export default function TaxiBooking() {
     }
   }, [driverLivePos, activeRide?.id, activeRide?.status, realTripRoute.length]);
 
+  // Automated effect that listens specifically to the isRerouting flag in Firestore
+  // to instantly recalculate and sync the detour route when triggered automatically or manually
+  useEffect(() => {
+    if (!activeRide || !activeRide.isRerouting || !driverLivePos || !activeRide.destination) return;
+
+    console.log("[TaxiBooking] Firestore isRerouting flag is true! Automatically recalculating route...");
+
+    const recalculateDueToFlag = async () => {
+      const driverStr = `${driverLivePos.lng},${driverLivePos.lat}`;
+      const destStr = `${activeRide.destination.lng},${activeRide.destination.lat}`;
+      const url = `/api/geo/route?coords=${encodeURIComponent(driverStr + ";" + destStr)}`;
+
+      try {
+        const response = await fetch(url);
+        if (response.ok) {
+          let json = await response.json();
+          if (json.isFallback) {
+            const directUrls = [
+              `https://router.project-osrm.org/route/v1/driving/${driverStr};${destStr}?overview=full&geometries=geojson&steps=true`,
+              `https://routing.openstreetmap.de/routed-car/route/v1/driving/${driverStr};${destStr}?overview=full&geometries=geojson&steps=true`
+            ];
+            for (const directUrl of directUrls) {
+              try {
+                const clientRes = await fetch(directUrl);
+                if (clientRes.ok) {
+                  const clientJson = await clientRes.json();
+                  if (clientJson && clientJson.code === "Ok" && clientJson.routes && clientJson.routes.length > 0) {
+                    json = clientJson;
+                    break;
+                  }
+                }
+              } catch (e) {}
+            }
+          }
+
+          if (json.code === "Ok" && json.routes && json.routes.length > 0) {
+            const route = json.routes[0];
+            const coords: [number, number][] = route.geometry.coordinates.map(
+              (c: number[]) => [c[1], c[0]] as [number, number]
+            );
+            if (coords.length > 0) {
+              console.log("[TaxiBooking] Successfully auto-recalculated detour route from isRerouting flag!");
+              setRealTripRoute(coords);
+              lastReroutePosRef.current = driverLivePos;
+
+              try {
+                await updateDoc(doc(db, "rides", activeRide.id), {
+                  routeCoords: coords.map(c => ({ lat: c[0], lng: c[1] })),
+                  navigationMessage: "Njia mpya imepatikana! Antway inaendelea kukuongoza.",
+                  isRerouting: false,
+                  updatedAt: serverTimestamp()
+                });
+                toast.info("🔄 Antway: Njia imerekebishwa kufuatana na mabadiliko ya barabara!", {
+                  duration: 5000
+                });
+              } catch (err) {
+                console.error("Failed to update reroute from flag in Firestore:", err);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch dynamic reroute from flag:", err);
+      }
+    };
+
+    recalculateDueToFlag();
+  }, [activeRide?.id, activeRide?.isRerouting, driverLivePos?.lat, driverLivePos?.lng]);
+
   // Instantly reflect updated Firestore routeCoords in local map state
   useEffect(() => {
     if (activeRide?.routeCoords && activeRide.routeCoords.length > 0) {
@@ -1850,24 +1919,24 @@ export default function TaxiBooking() {
       className: "custom-div-icon",
       html: `
         <div class="relative flex flex-col items-center">
-          <!-- Active Pill above marker with premium typography and alignment -->
+          <!-- Active Pill above marker with premium typography and floating animation -->
           ${etaText ? `
-          <div class="bg-[#0A0C14]/95 backdrop-blur-md border border-[#00E5A0]/30 rounded-xl px-2 py-1 mb-1.5 shadow-xl flex flex-col items-center">
-            <span class="text-[8px] font-black text-[#00E5A0] uppercase tracking-[0.1em] leading-tight font-heading">PICKUP MTEJA</span>
-            <span class="text-[8.5px] font-mono font-bold text-white mt-0.5 whitespace-nowrap">${etaText}</span>
+          <div class="bg-gradient-to-b from-[#0F111E]/95 to-[#05060A]/95 backdrop-blur-md border border-[#00E5A0]/45 rounded-[14px] px-2.5 py-1.5 mb-2 shadow-[0_10px_25px_rgba(0,229,160,0.15)] flex flex-col items-center vibango-premium-float">
+            <span class="text-[8px] font-black text-[#00E5A0] uppercase tracking-[0.12em] leading-none font-heading">PICKUP MTEJA</span>
+            <span class="text-[9px] font-mono font-extrabold text-white mt-1.5 whitespace-nowrap">${etaText}</span>
           </div>
           ` : `
-          <div class="bg-[#0A0C14]/95 backdrop-blur-md border border-[#00E5A0]/30 rounded-xl px-2 py-0.5 mb-1 shadow-xl flex flex-col items-center">
-            <span class="text-[8px] font-black text-[#00E5A0] uppercase tracking-[0.1em] leading-tight font-heading font-semibold text-center">PICKUP MTEJA</span>
+          <div class="bg-gradient-to-b from-[#0F111E]/95 to-[#05060A]/95 backdrop-blur-md border border-[#00E5A0]/45 rounded-[14px] px-2.5 py-1.5 mb-2 shadow-[0_10px_25px_rgba(0,229,160,0.15)] flex flex-col items-center vibango-premium-float">
+            <span class="text-[8px] font-black text-[#00E5A0] uppercase tracking-[0.12em] leading-none font-heading">PICKUP MTEJA</span>
           </div>
           `}
           <!-- Pulse green animating container -->
-          <div class="w-8 h-8 bg-[#00E5A0] rounded-full border-4 border-[#0F111E] shadow-2xl flex items-center justify-center font-black text-base text-[#0F111E] marker-pulse-mint">A</div>
-          <div class="w-1 h-2 bg-[#00E5A0] rounded-full -mt-0.5 shadow-lg"></div>
+          <div class="w-8 h-8 bg-[#00E5A0] rounded-full border-[3px] border-[#0F111E] shadow-[0_4px_12px_rgba(0,229,160,0.4)] flex items-center justify-center font-black text-base text-[#0F111E] marker-pulse-mint">A</div>
+          <div class="w-1.5 h-2 bg-[#00E5A0] rounded-full -mt-0.5 shadow-md"></div>
         </div>
       `,
-      iconSize: [160, 80],
-      iconAnchor: [80, 80],
+      iconSize: [160, 90],
+      iconAnchor: [80, 90],
     });
   };
 
@@ -1876,16 +1945,16 @@ export default function TaxiBooking() {
       className: "custom-div-icon",
       html: `
         <div class="relative flex flex-col items-center">
-          <div class="bg-[#0A0C14]/95 backdrop-blur-md border border-[#FF6B35]/30 rounded-xl px-2 py-1 mb-1.5 shadow-xl flex flex-col items-center">
-            <span class="text-[8px] font-black text-[#FF6B35] uppercase tracking-[0.1em] leading-tight font-heading">DESTINATION</span>
-            <span class="text-[8.5px] font-mono font-bold text-white mt-0.5 whitespace-nowrap">${etaText}</span>
+          <div class="bg-gradient-to-b from-[#0F111E]/95 to-[#05060A]/95 backdrop-blur-md border border-[#FF6B35]/45 rounded-[14px] px-2.5 py-1.5 mb-2 shadow-[0_10px_25px_rgba(255,107,53,0.15)] flex flex-col items-center vibango-premium-float">
+            <span class="text-[8px] font-black text-[#FF6B35] uppercase tracking-[0.12em] leading-none font-heading">DESTINATION</span>
+            <span class="text-[9px] font-mono font-extrabold text-white mt-1.5 whitespace-nowrap">${etaText}</span>
           </div>
-          <div class="w-8 h-8 bg-[#FF6B35] rounded-full border-4 border-[#0F111E] shadow-2xl flex items-center justify-center font-black text-base text-white">B</div>
-          <div class="w-1 h-2 bg-[#FF6B35] rounded-full -mt-0.5 shadow-lg animate-bounce"></div>
+          <div class="w-8 h-8 bg-[#FF6B35] rounded-full border-[3px] border-[#0F111E] shadow-[0_4px_12px_rgba(255,107,53,0.4)] flex items-center justify-center font-black text-base text-white marker-pulse-premium-orange">B</div>
+          <div class="w-1.5 h-2 bg-[#FF6B35] rounded-full -mt-0.5 shadow-md"></div>
         </div>
       `,
-      iconSize: [160, 80],
-      iconAnchor: [80, 80],
+      iconSize: [160, 90],
+      iconAnchor: [80, 90],
     });
   };
 
