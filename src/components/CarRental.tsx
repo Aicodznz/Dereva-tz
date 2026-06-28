@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useBusinessConfig } from '../BusinessConfigContext';
 import { 
   Car, Key, Star, Calendar, Clock, Upload, ShieldCheck, Check, ChevronLeft, 
-  ChevronRight, Heart, Search, MessageSquare, Phone, MapPin, Tag, CheckCircle2,
+  ChevronRight, Heart, Search, MessageSquare, MessageCircle, Phone, MapPin, Tag, CheckCircle2,
   Trash2, ThumbsUp, MapPin as MapPinIcon, RefreshCw, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -1101,7 +1101,7 @@ export default function CarRental() {
                 </div>
 
                 {/* Primary CTA Button */}
-                <div className="mt-6">
+                <div className="mt-6 flex flex-col gap-2.5">
                   <button 
                     onClick={() => setCurrentView('book')}
                     className="w-full h-12 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-xl text-xs uppercase tracking-widest shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 transition active:scale-[0.98]"
@@ -1109,6 +1109,16 @@ export default function CarRental() {
                     <span>{language === 'sw' ? 'Kitabu Sasa (Book Now)' : 'Proceed to Book'}</span>
                     <ChevronRight className="w-4 h-4" />
                   </button>
+
+                  <a 
+                    href={`https://wa.me/14155238886?text=${encodeURIComponent(`Hi! Nataka kukodi gari la: ${selectedCar?.brand} ${selectedCar?.name}`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-xs uppercase tracking-widest shadow-md flex items-center justify-center gap-2 transition active:scale-[0.98]"
+                  >
+                    <MessageCircle className="w-4 h-4 shrink-0" />
+                    <span>{language === 'sw' ? 'Kodi kwa WhatsApp Bot (Automatic)' : 'Book via WhatsApp Bot'}</span>
+                  </a>
                 </div>
               </div>
             </div>

@@ -29,6 +29,7 @@ import {
   X,
   ThumbsUp,
   MessageSquare,
+  MessageCircle,
   Trash2,
   Reply,
   Megaphone,
@@ -1318,23 +1319,35 @@ export default function ProductDetail() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex flex-row gap-2 lg:gap-4 pt-2">
-                <Button 
-                  onClick={handleAddToCart}
-                  className="flex-1 h-12 lg:h-14 bg-neutral-900 hover:bg-black text-white rounded-xl lg:rounded-2xl font-black uppercase text-[10px] lg:text-xs tracking-tighter lg:tracking-widest shadow-lg shadow-black/5 gap-1.5 lg:gap-2 transition-all active:scale-[0.98]"
+              <div className="flex flex-col gap-2.5 pt-2">
+                <div className="flex flex-row gap-2 lg:gap-4">
+                  <Button 
+                    onClick={handleAddToCart}
+                    className="flex-1 h-12 lg:h-14 bg-neutral-900 hover:bg-black text-white rounded-xl lg:rounded-2xl font-black uppercase text-[10px] lg:text-xs tracking-tighter lg:tracking-widest shadow-lg shadow-black/5 gap-1.5 lg:gap-2 transition-all active:scale-[0.98]"
+                  >
+                    <ShoppingBag className="w-3.5 h-3.5" />
+                    Weka Kikapuni
+                  </Button>
+                  <Button 
+                    onClick={() => {
+                        handleAddToCart();
+                        setIsCartOpen(true);
+                    }}
+                    className="flex-1 h-12 lg:h-14 bg-orange-600 hover:bg-orange-700 text-white rounded-xl lg:rounded-2xl font-black uppercase text-[10px] lg:text-xs tracking-tighter lg:tracking-widest shadow-lg shadow-orange-600/10 gap-1.5 lg:gap-2 transition-all active:scale-[0.98]"
+                  >
+                    Agiza Sasa <ChevronRight className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+                
+                <a 
+                  href={`https://wa.me/14155238886?text=${encodeURIComponent(`Hi! Nataka kuagiza bidhaa: ${product?.name}`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full h-11 lg:h-12 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl lg:rounded-2xl font-black uppercase text-[10px] lg:text-xs tracking-tighter lg:tracking-widest shadow-md flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
                 >
-                  <ShoppingBag className="w-3.5 h-3.5" />
-                  Weka Kikapuni
-                </Button>
-                <Button 
-                  onClick={() => {
-                      handleAddToCart();
-                      setIsCartOpen(true);
-                  }}
-                  className="flex-1 h-12 lg:h-14 bg-orange-600 hover:bg-orange-700 text-white rounded-xl lg:rounded-2xl font-black uppercase text-[10px] lg:text-xs tracking-tighter lg:tracking-widest shadow-lg shadow-orange-600/10 gap-1.5 lg:gap-2 transition-all active:scale-[0.98]"
-                >
-                  Agiza Sasa <ChevronRight className="w-3.5 h-3.5" />
-                </Button>
+                  <MessageCircle className="w-4 h-4 shrink-0" />
+                  <span>Agiza kwa WhatsApp Bot (Automatic Way)</span>
+                </a>
               </div>
             </div>
           </div>

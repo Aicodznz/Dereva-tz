@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import admin from "firebase-admin";
 import fs from "fs";
 import { handleSMSInput } from "./src/lib/smsBot";
+import { handleMetaInput } from "./src/lib/metaBot";
 
 dotenv.config();
 
@@ -69,6 +70,168 @@ async function startServer() {
 </Response>`;
       res.type('text/xml');
       res.send(errorTwiml);
+    }
+  });
+
+  // GET Meta Webhook Verification (WhatsApp, Facebook Messenger, Instagram)
+  app.get("/api/meta/webhook", (req, res) => {
+    const mode = req.query["hub.mode"];
+    const token = req.query["hub.verify_token"];
+    const challenge = req.query["hub.challenge"];
+    
+    if (mode && token) {
+      if (mode === "subscribe" && token === "papo_hapo_meta_secure_token_2026") {
+        console.log("[Meta Webhook] GET Verification successful!");
+        return res.status(200).send(challenge);
+      }
+      console.warn("[Meta Webhook] GET Verification failed: Invalid token");
+      return res.status(403).send("Forbidden");
+    }
+    return res.status(400).send("Bad Request");
+  });
+
+  // POST Meta Webhook Event Handler (WhatsApp, Messenger, Instagram)
+  app.post("/api/meta/webhook", async (req, res) => {
+    console.log("[Meta Webhook] Received webhook POST event:", JSON.stringify(req.body));
+    
+    let senderId = "";
+    let textBody = "";
+    let channel: 'whatsapp' | 'messenger' | 'instagram' = 'whatsapp';
+    
+    // 1. WhatsApp Business Cloud API payload detection
+    if (req.body.object === "whatsapp_business_account") {
+      const entry = req.body.entry?.[0];
+      const change = entry?.changes?.[0];
+      const value = change?.value;
+      const message = value?.messages?.[0];
+      if (message) {
+        senderId = message.from || "";
+        textBody = message.text?.body || "";
+        channel = 'whatsapp';
+      }
+    } 
+    // 2. Facebook Messenger / Instagram Messaging payload detection
+    else if (req.body.object === "page" || req.body.object === "instagram") {
+      const entry = req.body.entry?.[0];
+      const messaging = entry?.messaging?.[0];
+      if (messaging) {
+        senderId = messaging.sender?.id || "";
+        textBody = messaging.message?.text || "";
+        channel = req.body.object === "instagram" ? 'instagram' : 'messenger';
+      }
+    }
+    
+    if (senderId && textBody) {
+      try {
+        console.log(`[Meta Webhook] Incoming message on ${channel} from ${senderId}: "${textBody}"`);
+        const reply = await handleMetaInput(senderId, textBody, channel, dbAdmin);
+        console.log(`[Meta Webhook] Responding to ${channel}:${senderId} -> "${reply}"`);
+        
+        // Log in Firestore for dashboard visibility
+        if (dbAdmin) {
+          await dbAdmin.collection('meta_chats').add({
+            channel,
+            senderId,
+            message: textBody,
+            reply,
+            timestamp: new Date()
+          });
+        }
+      } catch (err: any) {
+        console.error(`[Meta Webhook] Error processing message:`, err);
+      }
+    }
+    
+    return res.status(200).send("EVENT_RECEIVED");
+  });
+
+  // Meta Omni-Channel Simulator endpoint for front-end testing
+  app.post("/api/meta/simulate", async (req, res) => {
+    const { senderId, message, channel } = req.body;
+    if (!senderId || !message || !channel) {
+      return res.status(400).json({ error: "senderId, message, and channel are required parameters." });
+    }
+    
+    console.log(`[Meta Simulator] Received simulated message from ${channel}:${senderId}: "${message}"`);
+    
+    try {
+      const reply = await handleMetaInput(senderId, message, channel, dbAdmin);
+      
+      // Save simulated conversation in FireStore for real-time monitoring
+      if (dbAdmin) {
+        await dbAdmin.collection('meta_chats').add({
+          channel,
+          senderId,
+          message,
+          reply,
+          timestamp: new Date()
+        });
+      }
+      
+      res.json({ reply, status: "success" });
+    } catch (error: any) {
+      console.error("[Meta Simulator] Failed to simulate:", error);
+      res.status(500).json({ error: "Failed to simulate Meta response", details: error.message });
+    }
+  });
+
+  // Retrieve Meta live chat logs for Admin Console
+  app.get("/api/meta/history", async (req, res) => {
+    try {
+      let chats: any[] = [];
+      if (dbAdmin) {
+        const snap = await dbAdmin.collection('meta_chats')
+          .orderBy('timestamp', 'desc')
+          .limit(50)
+          .get();
+          
+        snap.forEach((doc: any) => {
+          const d = doc.data();
+          chats.push({
+            id: doc.id,
+            channel: d.channel,
+            senderId: d.senderId,
+            message: d.message,
+            reply: d.reply,
+            timestamp: d.timestamp ? d.timestamp.toDate() : new Date()
+          });
+        });
+      }
+      
+      // Fallback to beautiful mock history if no Firebase logs yet
+      if (chats.length === 0) {
+        chats = [
+          {
+            id: "m-mock-1",
+            channel: "whatsapp",
+            senderId: "+255716543210",
+            message: "Naomba taxi kwenda Posta kutoka Mwenge",
+            reply: "🚖 *Papo Hapo Taxi Service Router*:\n\nNjia uliyochagua: *POSTA KUTOKA MWENGE*\nTumepata madereva 3 karibu nawe:\n\n*1. Ally Rajabu (Passo - White)*\nBeji: ⭐ 4.9 (Uber Partner)\n💰 Bei: *TSH 7,500*\n\n*2. Salum Juma (Bajaji - Yellow)*\nBeji: ⭐ 4.8 (Fastest)\n💰 Bei: *TSH 4,500*\n\nAndika namba ya Dereva unayetaka kumuita sasa hivi:",
+            timestamp: new Date(Date.now() - 5 * 60000)
+          },
+          {
+            id: "m-mock-2",
+            channel: "instagram",
+            senderId: "tz_fashion_star",
+            message: "Mambo! Kuna chips kuku hapo?",
+            reply: "🍔 *Papo Hapo Food Court Bot*:\n\nTulichopata kwa jina: *\"CHIPS KUKU\"*\n\n*1. Chips Kuku Choma (Nusu)*\n📍 Papo Hapo Kitchen\n💰 Bei: *TSH 8,500*\n\n*2. Chips Kuku Fry*\n📍 Burger Point\n💰 Bei: *TSH 9,000*\n\nAndika namba ya chakula unachotaka kuagiza sasa hivi:",
+            timestamp: new Date(Date.now() - 15 * 60000)
+          },
+          {
+            id: "m-mock-3",
+            channel: "messenger",
+            senderId: "John_Mrema",
+            message: "Nataka kukata tiketi ya basi kwenda Mwanza",
+            reply: "🚌 *Papo Hapo Bus Booking System*:\n\nRoute: *DAR - MWANZA*\nMabasi yanayotoka leo:\n\n*1. Shabiby Line (Luxury VIP)*\n💰 Bei: *TSH 45,000*\n\n*2. Katarama Express (Business)*\n💰 Bei: *TSH 42,000*\n\nAndika namba ya basi unayotaka kukata tiketi sasa:",
+            timestamp: new Date(Date.now() - 25 * 60000)
+          }
+        ];
+      }
+      
+      res.json({ chats });
+    } catch (err: any) {
+      console.error("[Meta History API] Failed to fetch chat history:", err);
+      res.status(500).json({ error: "Failed to load chat history" });
     }
   });
 

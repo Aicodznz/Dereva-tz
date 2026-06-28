@@ -47,6 +47,7 @@ import {
   Map,
   Compass,
   Menu,
+  MessageCircle,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import Chat from "./Chat";
@@ -3843,7 +3844,7 @@ export default function TaxiBooking() {
                       }
                     }}
                     disabled={isCreatingRide || !destination || suggestions.length > 0}
-                    className="w-full h-16 bg-indigo-600 hover:bg-indigo-700 text-white rounded-3xl font-black italic uppercase text-xs tracking-[0.2em] flex items-center justify-between px-10 disabled:opacity-30 disabled:grayscale transition-all active:scale-95 shadow-lg relative overflow-hidden group"
+                    className="w-full h-16 bg-indigo-600 hover:bg-indigo-700 text-white rounded-3xl font-black italic uppercase text-xs tracking-[0.2em] flex items-center justify-between px-10 disabled:opacity-30 disabled:grayscale transition-all active:scale-95 shadow-lg relative overflow-hidden group animate-pulse"
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
                     <span className="relative z-10">
@@ -3855,6 +3856,18 @@ export default function TaxiBooking() {
                     </span>
                     <ArrowRight className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />
                   </button>
+
+                  {destination && selectedRide && (
+                    <a
+                      href={`https://wa.me/14155238886?text=${encodeURIComponent(`Hi! Nataka kuagiza Taxi ya ${selectedRide.name} kutoka ${pickup} kwenda ${destination}`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full h-12 mt-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black uppercase text-[10px] tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md shrink-0"
+                    >
+                      <MessageCircle className="w-4 h-4 shrink-0" />
+                      <span>Agiza kwa WhatsApp Bot (Automatic)</span>
+                    </a>
+                  )}
                 </motion.div>
               )}
 
