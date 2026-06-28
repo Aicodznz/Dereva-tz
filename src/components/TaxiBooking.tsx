@@ -1918,25 +1918,26 @@ export default function TaxiBooking() {
     return L.divIcon({
       className: "custom-div-icon",
       html: `
-        <div class="relative flex flex-col items-center">
-          <!-- Active Pill above marker with premium typography and floating animation -->
-          ${etaText ? `
-          <div class="bg-gradient-to-b from-[#0F111E]/95 to-[#05060A]/95 backdrop-blur-md border border-[#00E5A0]/45 rounded-[14px] px-2.5 py-1.5 mb-2 shadow-[0_10px_25px_rgba(0,229,160,0.15)] flex flex-col items-center vibango-premium-float">
-            <span class="text-[8px] font-black text-[#00E5A0] uppercase tracking-[0.12em] leading-none font-heading">PICKUP MTEJA</span>
-            <span class="text-[9px] font-mono font-extrabold text-white mt-1.5 whitespace-nowrap">${etaText}</span>
+        <div class="relative flex flex-col items-center w-[160px] h-[100px] justify-end">
+          <!-- Speech Bubble Container -->
+          <div class="bg-[#1E724C] text-white px-3 py-1.5 rounded-[12px] shadow-[0_8px_20px_rgba(0,0,0,0.3)] flex flex-col items-center min-w-[110px] relative mb-3 vibango-premium-float">
+            <span class="text-[9px] font-semibold tracking-wide uppercase opacity-90 leading-none">Pickup hapa</span>
+            <span class="text-[12px] font-extrabold tracking-tight mt-1 leading-none font-sans whitespace-nowrap">${etaText || 'Bofya kubadili'}</span>
+            <!-- Downward-pointing speech bubble arrow -->
+            <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rotate-45 bg-[#1E724C]"></div>
           </div>
-          ` : `
-          <div class="bg-gradient-to-b from-[#0F111E]/95 to-[#05060A]/95 backdrop-blur-md border border-[#00E5A0]/45 rounded-[14px] px-2.5 py-1.5 mb-2 shadow-[0_10px_25px_rgba(0,229,160,0.15)] flex flex-col items-center vibango-premium-float">
-            <span class="text-[8px] font-black text-[#00E5A0] uppercase tracking-[0.12em] leading-none font-heading">PICKUP MTEJA</span>
+          
+          <!-- Concentric Circle GPS Pin -->
+          <div class="relative flex items-center justify-center w-8 h-8 pb-1">
+            <div class="absolute inset-0 rounded-full bg-[#1E724C]/35 animate-ping pointer-events-none"></div>
+            <div class="w-[22px] h-[22px] rounded-full border-[3px] border-white bg-[#1E724C] shadow-[0_4px_10px_rgba(0,0,0,0.35)] flex items-center justify-center">
+              <div class="w-[7px] h-[7px] bg-white rounded-full"></div>
+            </div>
           </div>
-          `}
-          <!-- Pulse green animating container -->
-          <div class="w-8 h-8 bg-[#00E5A0] rounded-full border-[3px] border-[#0F111E] shadow-[0_4px_12px_rgba(0,229,160,0.4)] flex items-center justify-center font-black text-base text-[#0F111E] marker-pulse-mint">A</div>
-          <div class="w-1.5 h-2 bg-[#00E5A0] rounded-full -mt-0.5 shadow-md"></div>
         </div>
       `,
-      iconSize: [160, 90],
-      iconAnchor: [80, 90],
+      iconSize: [160, 100],
+      iconAnchor: [80, 84],
     });
   };
 
@@ -1944,17 +1945,26 @@ export default function TaxiBooking() {
     return L.divIcon({
       className: "custom-div-icon",
       html: `
-        <div class="relative flex flex-col items-center">
-          <div class="bg-gradient-to-b from-[#0F111E]/95 to-[#05060A]/95 backdrop-blur-md border border-[#FF6B35]/45 rounded-[14px] px-2.5 py-1.5 mb-2 shadow-[0_10px_25px_rgba(255,107,53,0.15)] flex flex-col items-center vibango-premium-float">
-            <span class="text-[8px] font-black text-[#FF6B35] uppercase tracking-[0.12em] leading-none font-heading">DESTINATION</span>
-            <span class="text-[9px] font-mono font-extrabold text-white mt-1.5 whitespace-nowrap">${etaText}</span>
+        <div class="relative flex flex-col items-center w-[160px] h-[100px] justify-end">
+          <!-- Speech Bubble Container -->
+          <div class="bg-[#0A1A12] text-white px-3 py-1.5 rounded-[12px] shadow-[0_8px_20px_rgba(0,0,0,0.3)] flex flex-col items-center min-w-[110px] relative mb-3 vibango-premium-float">
+            <span class="text-[9px] font-semibold tracking-wide uppercase opacity-90 leading-none">Dropoff</span>
+            <span class="text-[12px] font-extrabold tracking-tight mt-1 leading-none font-sans whitespace-nowrap">${etaText || 'Mwisho'}</span>
+            <!-- Downward-pointing speech bubble arrow -->
+            <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rotate-45 bg-[#0A1A12]"></div>
           </div>
-          <div class="w-8 h-8 bg-[#FF6B35] rounded-full border-[3px] border-[#0F111E] shadow-[0_4px_12px_rgba(255,107,53,0.4)] flex items-center justify-center font-black text-base text-white marker-pulse-premium-orange">B</div>
-          <div class="w-1.5 h-2 bg-[#FF6B35] rounded-full -mt-0.5 shadow-md"></div>
+          
+          <!-- Concentric Circle GPS Pin -->
+          <div class="relative flex items-center justify-center w-8 h-8 pb-1">
+            <div class="absolute inset-0 rounded-full bg-[#0A1A12]/35 animate-ping pointer-events-none"></div>
+            <div class="w-[22px] h-[22px] rounded-full border-[3px] border-white bg-[#0A1A12] shadow-[0_4px_10px_rgba(0,0,0,0.35)] flex items-center justify-center">
+              <div class="w-[7px] h-[7px] bg-white rounded-full"></div>
+            </div>
+          </div>
         </div>
       `,
-      iconSize: [160, 90],
-      iconAnchor: [80, 90],
+      iconSize: [160, 100],
+      iconAnchor: [80, 84],
     });
   };
 
