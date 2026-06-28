@@ -187,13 +187,17 @@ function MapBoundsUpdater({ activeRide, position }: { activeRide: any, position:
 
 
 function DriverMarker({ position, rotation, vType }: { position: [number, number], rotation: number, vType: string }) {
+  const { resolvedTheme } = useTheme();
+  const theme = resolvedTheme === 'light' ? 'light' : 'dark';
   return (
     <Marker 
       position={position}
       icon={createDriverMarkerIcon(
         '', // Initial will be handled by parent if needed
         true,
-        rotation
+        rotation,
+        vType,
+        theme
       )}
     />
   );
@@ -1758,7 +1762,9 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
               icon={createDriverMarkerIcon(
                 (profile?.displayName || 'D').split(' ').map(n => n[0]).join(''),
                 isOnline,
-                rotation
+                rotation,
+                profile?.vehicleType || 'mini',
+                theme
               )}
             />
 
