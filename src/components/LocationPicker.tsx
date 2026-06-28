@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -508,8 +509,9 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
   };
 
   if (!isOpen) return null;
+  if (typeof window === 'undefined' || typeof document === 'undefined') return null;
 
-  return (
+  return createPortal(
     <AnimatePresence>
       <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm">
         <motion.div 
@@ -635,7 +637,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
             )}
 
             {/* Map Area */}
-            <div className={`relative ${isMapExpanded ? 'flex-1 h-full mx-0 rounded-none' : 'h-[450px] mx-4 rounded-3xl'} shrink-0 bg-neutral-100 overflow-hidden border-2 border-neutral-50 shadow-inner transition-all duration-500 z-10 touch-none`}>
+            <div className={`relative ${isMapExpanded ? 'flex-1 h-full mx-0 rounded-none' : 'h-[450px] mx-4 rounded-3xl'} shrink-0 bg-neutral-100 overflow-hidden border-2 border-neutral-50 shadow-inner transition-all duration-500 z-10`}>
               {/* Map Type Toggle */}
               <div className="absolute top-4 left-4 z-[1000] flex bg-white/90 backdrop-blur-md rounded-xl p-1 shadow-lg border border-white/50">
                 <button 
@@ -947,6 +949,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
           )}
         </motion.div>
       </div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }
