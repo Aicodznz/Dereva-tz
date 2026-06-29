@@ -30,6 +30,7 @@ import { toast } from 'sonner';
 import { motion, AnimatePresence, useScroll, useMotionValueEvent } from 'motion/react';
 import { useLanguage } from '../LanguageContext';
 import { playSyntheticNormal, playSyntheticImportant, playSyntheticCritical } from '../utils/soundAlert';
+import { TwilioResponderTab } from './TwilioResponderTab';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents, Circle, Polygon } from 'react-leaflet';
@@ -110,7 +111,7 @@ interface ProductWithVendor extends Product {
   hidden?: boolean;
 }
 
-type AdminTab = 'overview' | 'vendors' | 'drivers' | 'products' | 'users' | 'orders' | 'banners' | 'notifications' | 'coupons' | 'settings' | 'live_map' | 'payouts' | 'analytics';
+type AdminTab = 'overview' | 'vendors' | 'drivers' | 'products' | 'users' | 'orders' | 'banners' | 'notifications' | 'coupons' | 'settings' | 'live_map' | 'payouts' | 'analytics' | 'twilio_responder';
 
 interface Coupon {
   id?: string;
@@ -1035,6 +1036,7 @@ export default function AdminDashboard() {
     { id: 'orders', label: t('admin_sales_feed'), icon: ShoppingBag },
     { id: 'banners', label: t('admin_marketing'), icon: Megaphone },
     { id: 'notifications', label: t('admin_broadcast'), icon: Bell },
+    { id: 'twilio_responder', label: 'Meta Bot Studio', icon: MessageSquare },
     { id: 'live_map', label: 'Monitor', icon: Globe },
     { id: 'payouts', label: 'Payouts', icon: Wallet },
     { id: 'analytics', label: 'Insights', icon: BarChart3 },
@@ -2448,6 +2450,18 @@ export default function AdminDashboard() {
              </Card>
           </motion.div>
         )}
+        {activeTab === 'twilio_responder' && (
+          <motion.div
+            key="twilio_responder"
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.98 }}
+            className="max-w-6xl mx-auto space-y-8"
+          >
+            <TwilioResponderTab vendorId="admin-global" vendorCategory="admin" />
+          </motion.div>
+        )}
+
         {activeTab === 'settings' && (
           <motion.div
             key="settings"
