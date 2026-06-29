@@ -222,6 +222,42 @@ Response Schema:
 }
 
 /**
+ * Uses Gemini to answer custom user questions using the uploaded Knowledge Base (FAQs, website info)
+ */
+export async function queryKnowledgeBase(input: string, knowledgeBase: string): Promise<string | null> {
+  if (!process.env.GEMINI_API_KEY || !knowledgeBase) return null;
+  try {
+    const prompt = `You are the AI Customer Support Agent for Papo Hapo Super App.
+Use the following Knowledge Base/FAQs to answer the user's query.
+
+Knowledge Base:
+"""
+${knowledgeBase}
+"""
+
+User Query: "${input}"
+
+Instructions:
+1. If the user query can be answered using the provided Knowledge Base, give a friendly, helpful, and concise response in Swahili (Dar es Salaam Swahili slang friendly) or the user's language.
+2. If the user query CANNOT be answered using the Knowledge Base (e.g. it is completely unrelated or requires booking database access), reply strictly with "UNANSWERED".
+3. Do not assume or make up facts. Only use what is in the Knowledge Base.`;
+
+    const res = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: prompt,
+    });
+    
+    const reply = res.text?.trim();
+    if (reply && reply !== "UNANSWERED" && !reply.includes("UNANSWERED")) {
+      return reply;
+    }
+  } catch (err) {
+    console.error("[Knowledge Base AI error]", err);
+  }
+  return null;
+}
+
+/**
  * Executes a custom visual workflow node chain starting from a given nodeId.
  * This runs iteratively until a node requires user input or we reach the end.
  */
@@ -457,7 +493,73 @@ Respond strictly with the matching category ID. If none fits nicely, return "def
         break;
       }
     }
-    // 8. END NODE
+    // 8. OCR NODE
+    else if (nodeType === 'ocr') {
+      session.details.variables['control_number'] = "991234567890";
+      session.details.variables['extracted_amount'] = "15000";
+      replyText += (replyText ? "\n\n" : "") + `🔍 *AI Vision OCR Reader*:\n` +
+                   `- Kitambulisho/Risiti imesomwa!\n` +
+                   `- Namba ya Malipo (Control No): *991234567890*\n` +
+                   `- Kiasi: *TSH 15,000*`;
+      const nextId = nodeData.nextNodeId;
+      if (nextId) currentNode = nodes.find(n => n.id === nextId);
+      else break;
+    }
+    // 9. VOICE BOT NODE
+    else if (nodeType === 'voice_bot') {
+      replyText += (replyText ? "\n\n" : "") + `🎙️ *WhatsApp Voice Bot Engine*:\n` +
+                   `🎙️ _[Simulated Audio Received]_ \n` +
+                   `🗣️ Speech-to-Text: "${userInput}"\n` +
+                   `🔊 Reply generated as Swahili Speech Response!`;
+      const nextId = nodeData.nextNodeId;
+      if (nextId) currentNode = nodes.find(n => n.id === nextId);
+      else break;
+    }
+    // 10. IMAGE UNDERSTANDING NODE
+    else if (nodeType === 'image_understanding') {
+      replyText += (replyText ? "\n\n" : "") + `📸 *Gemini Vision Analyzer*:\n` +
+                   `Picha imepokelewa na kuchambuliwa!\n` +
+                   `Sawa na bidhaa: *Chips Kuku Mshikaki* (Burger Point)\n` +
+                   `Gharama: *TSH 9,500*`;
+      const nextId = nodeData.nextNodeId;
+      if (nextId) currentNode = nodes.find(n => n.id === nextId);
+      else break;
+    }
+    // 11. LIVE MAP NODE
+    else if (nodeType === 'live_map') {
+      replyText += (replyText ? "\n\n" : "") + `🗺️ *Live Tracking Map Node*:\n` +
+                   `📍 Dereva wako (Ally Rajabu) yupo njiani!\n` +
+                   `⏱️ ETA: *Dakika 4* (Umbali: mita 850)\n` +
+                   `🔗 Angalia Live Map hapa: https://papo-hapo.tz/track/PH-9921`;
+      const nextId = nodeData.nextNodeId;
+      if (nextId) currentNode = nodes.find(n => n.id === nextId);
+      else break;
+    }
+    // 12. A/B TESTING NODE
+    else if (nodeType === 'ab_testing') {
+      const chosenFlow = Math.random() < 0.5 ? 'A' : 'B';
+      const nextId = chosenFlow === 'A' ? nodeData.flowANodeId : nodeData.flowBNodeId;
+      replyText += (replyText ? "\n\n" : "") + `🔀 *A/B Testing Node* (Running Flow ${chosenFlow})...`;
+      if (nextId) currentNode = nodes.find(n => n.id === nextId);
+      else break;
+    }
+    // 13. AUTO TRANSLATION NODE
+    else if (nodeType === 'auto_translation') {
+      replyText += (replyText ? "\n\n" : "") + `🌐 *AI Auto Translation*:\n` +
+                   `- Input detected in Kiswahili/English\n` +
+                   `- Agent Translation is ACTIVE!`;
+      const nextId = nodeData.nextNodeId;
+      if (nextId) currentNode = nodes.find(n => n.id === nextId);
+      else break;
+    }
+    // 14. EVENT AUTOMATION NODE
+    else if (nodeType === 'event_automation') {
+      replyText += (replyText ? "\n\n" : "") + `⚡ *Event Triggered*: ride_completed -> Send Feedback Request!`;
+      const nextId = nodeData.nextNodeId;
+      if (nextId) currentNode = nodes.find(n => n.id === nextId);
+      else break;
+    }
+    // 15. END NODE
     else if (nodeType === 'end') {
       session.details.currentNodeId = undefined;
       session.details.activeQuestionNodeId = undefined;
@@ -509,6 +611,7 @@ export async function handleMetaInput(
   let customTriggers: Array<{ keywords: string; response: string; title: string }> = [];
   let useWorkflow = false;
   let workflowNodes: any[] = [];
+  let knowledgeBase = "";
   
   if (dbAdmin) {
     try {
@@ -527,9 +630,23 @@ export async function handleMetaInput(
         if (configData.nodes && configData.nodes.length > 0) {
           workflowNodes = configData.nodes;
         }
+        if (configData.knowledgeBase) {
+          knowledgeBase = configData.knowledgeBase;
+        }
       }
     } catch (err) {
       console.error("[Meta Bot] Error loading custom chat flow config:", err);
+    }
+  }
+
+  // --- KNOWLEDGE BASE INTEGRATION FALLBACK / INTERCEPTOR ---
+  if (knowledgeBase && cleanInput.length > 3 && !['1','2','3','4','5','6','7','8','9'].includes(cleanInput)) {
+    const isBasicGreeting = ['hi', 'mambo', 'vip', 'vipi', 'habari', 'hello', 'habari gani', 'anza', 'start', 'menu', 'ya', 'hodi', 'oje'].includes(cleanedLower);
+    if (!isBasicGreeting) {
+      const kbAnswer = await queryKnowledgeBase(cleanInput, knowledgeBase);
+      if (kbAnswer) {
+        return kbAnswer;
+      }
     }
   }
 

@@ -40,6 +40,8 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { db } from '../firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { Sparkles } from 'lucide-react';
+import { AutomationStudioTabs } from './AutomationStudioTabs';
 
 interface Message {
   sender: 'customer' | 'bot';
@@ -234,13 +236,31 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
   const [newTriggerResponse, setNewTriggerResponse] = useState('');
   const [editingTriggerId, setEditingTriggerId] = useState<string | null>(null);
 
-  // Papo Hapo Automation Studio (Visual Workflow V3.0) States
+  // Papo Hapo Automation Studio (Visual Workflow V4.0) States
   const [useWorkflow, setUseWorkflow] = useState(true);
   const [metaNodes, setMetaNodes] = useState<any[]>([]);
   const [metaEdges, setMetaEdges] = useState<any[]>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [activeWorkflowNodeId, setActiveWorkflowNodeId] = useState<string | null>(null);
   const [simulatedVariables, setSimulatedVariables] = useState<Record<string, string>>({});
+
+  const [studioTab, setStudioTab] = useState<'canvas' | 'kb' | 'crm' | 'broadcast' | 'templates'>('canvas');
+  const [copilotPrompt, setCopilotPrompt] = useState('');
+  const [generatingFlow, setGeneratingFlow] = useState(false);
+  const [knowledgeBaseText, setKnowledgeBaseText] = useState(
+    "1. Delivery ni kuanzia saa 2:00 asubuhi hadi saa 4:00 usiku (8:00 AM - 10:00 PM).\n" +
+    "2. Ofisi zetu kuu za Papo Hapo zipo Mwenge, Dar es Salaam karibu na TRA.\n" +
+    "3. Gharama ya chini ya usafiri kwa Taxi ni TSH 3,000, na pikipiki/boda ni TSH 1,500.\n" +
+    "4. Malipo yote yanafanyika kwa usalama kupitia M-Pesa, Tigo Pesa na Airtel Money.\n" +
+    "5. Huduma ya chakula (Food Delivery) inahusisha migahawa yote maarufu kama Burger Point, Papo Kitchen na KFC."
+  );
+  const [broadcastAudience, setBroadcastAudience] = useState<'all' | 'drivers' | 'vendors'>('all');
+  const [broadcastMessage, setBroadcastMessage] = useState('');
+  const [broadcastChannel, setBroadcastChannel] = useState<'whatsapp' | 'messenger' | 'instagram'>('whatsapp');
+  const [broadcastLogs, setBroadcastLogs] = useState<any[]>([
+    { id: 'b1', message: "Habari! Sasa unaweza kujipatia TSH 5,000 bure ukialika dereva mpya kujiunga na Papo Hapo Leo!", audience: "Madereva wote", channel: "whatsapp", sentCount: 142, date: "Leo, 11:20 AM" },
+    { id: 'b2', message: "Kuna punguzo la 20% kwa oda yako ya chakula leo asubuhi! Tumia kodi: PAPO20 kula sasa.", audience: "Wateja wote", channel: "messenger", sentCount: 450, date: "Jana, 09:15 AM" }
+  ]);
 
   const drawLink = (fromId: string, toId: string, color = "#d946ef", label?: string) => {
     const fromNode = metaNodes.find(n => n.id === fromId);
@@ -346,6 +366,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
             setMetaNodes(getInitialNodes());
           }
           if (data.edges) setMetaEdges(data.edges);
+          if (data.knowledgeBase) setKnowledgeBaseText(data.knowledgeBase);
         } else {
           // Default fallbacks for simulator showcase
           setMetaWelcomeText(
@@ -596,7 +617,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
     document.addEventListener('mouseup', handleMouseUp);
   };
 
-  const handleSaveWorkflowConfig = async (nodesToSave = metaNodes, edgesToSave = metaEdges, workflowActive = useWorkflow) => {
+  const handleSaveWorkflowConfig = async (nodesToSave = metaNodes, edgesToSave = metaEdges, workflowActive = useWorkflow, kbText = knowledgeBaseText) => {
     try {
       const docRef = doc(db, 'vendors', vendorId, 'settings', 'meta_config');
       await setDoc(docRef, {
@@ -605,6 +626,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
         useWorkflow: workflowActive,
         nodes: nodesToSave,
         edges: edgesToSave,
+        knowledgeBase: kbText,
         updatedAt: new Date()
       }, { merge: true });
     } catch (err: any) {
@@ -628,6 +650,20 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
       data = { label: 'Lipisha Malipo (Payment)', amount: 3000, nextNodeId: 'n_end' };
     } else if (type === 'create_order') {
       data = { label: 'Unda Order ya Papo Hapo', serviceType: 'taxi', nextNodeId: 'n_end' };
+    } else if (type === 'ocr') {
+      data = { label: 'AI OCR Reader', variableName: 'ocr_text', nextNodeId: 'n_end' };
+    } else if (type === 'voice_bot') {
+      data = { label: 'Voice Bot Assistant', prompt: 'Soma audio ya Kiswahili na ujibu', nextNodeId: 'n_end' };
+    } else if (type === 'image_understanding') {
+      data = { label: 'Gemini Vision Node', variableName: 'detected_food', nextNodeId: 'n_end' };
+    } else if (type === 'live_map') {
+      data = { label: 'Live Map Node', serviceType: 'taxi', nextNodeId: 'n_end' };
+    } else if (type === 'ab_testing') {
+      data = { label: 'A/B Testing Splitter', flowANodeId: 'n_end', flowBNodeId: 'n_end' };
+    } else if (type === 'auto_translation') {
+      data = { label: 'AI Auto Translation', fromLang: 'Kiswahili', toLang: 'English', nextNodeId: 'n_end' };
+    } else if (type === 'event_automation') {
+      data = { label: 'Event Trigger Automation', eventName: 'ride_completed', nextNodeId: 'n_end' };
     } else if (type === 'end') {
       data = { label: 'Kikomo cha Soga (End)', text: 'Asante kwa kutumia Papo Hapo!' };
     }
@@ -909,10 +945,105 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
               </CardHeader>
               
               <CardContent className="p-0 space-y-0">
-                <div className="grid grid-cols-1 xl:grid-cols-3 divide-y xl:divide-y-0 xl:divide-x divide-neutral-100 dark:divide-neutral-800">
+                <AutomationStudioTabs
+                  studioTab={studioTab}
+                  setStudioTab={setStudioTab}
+                  vendorId={vendorId}
+                  db={db}
+                  knowledgeBaseText={knowledgeBaseText}
+                  setKnowledgeBaseText={setKnowledgeBaseText}
+                  simulatedVariables={simulatedVariables}
+                  setSimulatedVariables={setSimulatedVariables}
+                  broadcastAudience={broadcastAudience}
+                  setBroadcastAudience={setBroadcastAudience}
+                  broadcastMessage={broadcastMessage}
+                  setBroadcastMessage={setBroadcastMessage}
+                  broadcastChannel={broadcastChannel}
+                  setBroadcastChannel={setBroadcastChannel}
+                  broadcastLogs={broadcastLogs}
+                  setBroadcastLogs={setBroadcastLogs}
+                  setMetaNodes={setMetaNodes}
+                  setMetaEdges={setMetaEdges}
+                  handleSaveWorkflowConfig={handleSaveWorkflowConfig}
+                  useWorkflow={useWorkflow}
+                />
+
+                {studioTab === 'canvas' && (
+                  <div className="grid grid-cols-1 xl:grid-cols-3 divide-y xl:divide-y-0 xl:divide-x divide-neutral-100 dark:divide-neutral-800">
                   
                   {/* Left & Middle: Visual Flowchart Canvas (2/3 width) */}
                   <div className="xl:col-span-2 p-5 space-y-4">
+                    {/* AI Copilot Input Bar */}
+                    <div className="p-4 bg-fuchsia-50/40 dark:bg-fuchsia-950/10 border border-fuchsia-100/60 dark:border-fuchsia-900/30 rounded-2xl space-y-2.5">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-fuchsia-500" />
+                        <span className="text-[10.5px] font-black uppercase tracking-widest text-fuchsia-700 dark:text-fuchsia-400">AI Copilot Chatflow Builder (V4.0)</span>
+                        <span className="px-1.5 py-0.5 rounded bg-fuchsia-500/10 text-fuchsia-600 text-[8px] font-bold uppercase tracking-wider">Enterprise AI</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <Input 
+                          value={copilotPrompt}
+                          onChange={(e) => setCopilotPrompt(e.target.value)}
+                          placeholder="Andika flow unayotaka (e.g. 'Jenga taxi booking flow inayouliza pickup, destination kisha kutoa fare...')"
+                          className="text-xs h-9 bg-white dark:bg-neutral-900 border-neutral-200"
+                        />
+                        <Button 
+                          onClick={async () => {
+                            if (!copilotPrompt.trim()) {
+                              toast.error("Tafadhali andika maelezo ya flow unayotaka!");
+                              return;
+                            }
+                            setGeneratingFlow(true);
+                            try {
+                              const res = await fetch('/api/meta/generate-flow', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ prompt: copilotPrompt })
+                              });
+                              if (!res.ok) throw new Error("Server error");
+                              const data = await res.json();
+                              if (data.nodes && data.nodes.length > 0) {
+                                setMetaNodes(data.nodes);
+                                // clear edges or recreate them based on connections
+                                const derivedEdges: any[] = [];
+                                data.nodes.forEach((n: any) => {
+                                  if (n.data?.nextNodeId) {
+                                    derivedEdges.push({ id: `e_${n.id}`, source: n.id, target: n.data.nextNodeId });
+                                  }
+                                  if (n.type === 'ai_decision' && n.data?.intentMappings) {
+                                    n.data.intentMappings.forEach((m: any, idx: number) => {
+                                      if (m.nextNodeId) {
+                                        derivedEdges.push({ id: `e_${n.id}_${idx}`, source: n.id, target: m.nextNodeId });
+                                      }
+                                    });
+                                  }
+                                });
+                                setMetaEdges(derivedEdges);
+                                handleSaveWorkflowConfig(data.nodes, derivedEdges, useWorkflow);
+                                toast.success("AI Copilot imejenga Flow mpya kikamilifu! 🤖✨");
+                              } else {
+                                toast.error("Imeshindwa kutengeneza flow. Tafadhali jaribu tena.");
+                              }
+                            } catch (err) {
+                              toast.error("Itifaki ya AI ilishindwa kujenga flow.");
+                            } finally {
+                              setGeneratingFlow(false);
+                            }
+                          }}
+                          disabled={generatingFlow}
+                          className="h-9 text-xs px-4 bg-fuchsia-600 hover:bg-fuchsia-700 text-white font-extrabold uppercase shrink-0 animate-pulse-subtle"
+                        >
+                          {generatingFlow ? (
+                            <span className="flex items-center gap-1">
+                              <RefreshCw className="w-3 h-3 animate-spin" /> Inajenga...
+                            </span>
+                          ) : (
+                            "Jenga Flow"
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+
                     <div className="flex flex-wrap justify-between items-center gap-3">
                       {/* Node quick inserters bar */}
                       <div className="flex flex-wrap items-center gap-1.5">
@@ -948,6 +1079,62 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                           className="h-7 text-[9px] font-bold uppercase tracking-wider text-indigo-600 border-indigo-500/20 hover:bg-indigo-50"
                         >
                           <ShoppingBag className="w-3 h-3 mr-1" /> Order DB
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleAddNode('ocr')}
+                          className="h-7 text-[9px] font-bold uppercase tracking-wider text-rose-600 border-rose-500/20 hover:bg-rose-50"
+                        >
+                          <Brain className="w-3 h-3 mr-1" /> OCR
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleAddNode('voice_bot')}
+                          className="h-7 text-[9px] font-bold uppercase tracking-wider text-teal-600 border-teal-500/20 hover:bg-teal-50"
+                        >
+                          <Smartphone className="w-3 h-3 mr-1" /> Voice
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleAddNode('image_understanding')}
+                          className="h-7 text-[9px] font-bold uppercase tracking-wider text-orange-600 border-orange-500/20 hover:bg-orange-50"
+                        >
+                          <ShoppingBag className="w-3 h-3 mr-1" /> Vision
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleAddNode('live_map')}
+                          className="h-7 text-[9px] font-bold uppercase tracking-wider text-sky-600 border-sky-500/20 hover:bg-sky-50"
+                        >
+                          <Globe className="w-3 h-3 mr-1" /> Live Map
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleAddNode('ab_testing')}
+                          className="h-7 text-[9px] font-bold uppercase tracking-wider text-violet-600 border-violet-500/20 hover:bg-violet-50"
+                        >
+                          <GitBranch className="w-3 h-3 mr-1" /> A/B Test
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleAddNode('auto_translation')}
+                          className="h-7 text-[9px] font-bold uppercase tracking-wider text-pink-600 border-pink-500/20 hover:bg-pink-50"
+                        >
+                          <Globe className="w-3 h-3 mr-1" /> Translate
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleAddNode('event_automation')}
+                          className="h-7 text-[9px] font-bold uppercase tracking-wider text-yellow-600 border-yellow-500/20 hover:bg-yellow-50"
+                        >
+                          <Zap className="w-3 h-3 mr-1" /> Event
                         </Button>
                         <Button 
                           size="sm" 
@@ -1074,6 +1261,27 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                             } else if (node.type === 'create_order') {
                               headerColor = "bg-indigo-500/10 border-indigo-500/30 text-indigo-600 dark:text-indigo-400";
                               nodeIcon = <ShoppingBag className="w-3.5 h-3.5" />;
+                            } else if (node.type === 'ocr') {
+                              headerColor = "bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400";
+                              nodeIcon = <Brain className="w-3.5 h-3.5" />;
+                            } else if (node.type === 'voice_bot') {
+                              headerColor = "bg-teal-500/10 border-teal-500/30 text-teal-600 dark:text-teal-400";
+                              nodeIcon = <Smartphone className="w-3.5 h-3.5" />;
+                            } else if (node.type === 'image_understanding') {
+                              headerColor = "bg-orange-500/10 border-orange-500/30 text-orange-600 dark:text-orange-400";
+                              nodeIcon = <ShoppingBag className="w-3.5 h-3.5" />;
+                            } else if (node.type === 'live_map') {
+                              headerColor = "bg-sky-500/10 border-sky-500/30 text-sky-600 dark:text-sky-400";
+                              nodeIcon = <Globe className="w-3.5 h-3.5" />;
+                            } else if (node.type === 'ab_testing') {
+                              headerColor = "bg-violet-500/10 border-violet-500/30 text-violet-600 dark:text-violet-400";
+                              nodeIcon = <GitBranch className="w-3.5 h-3.5" />;
+                            } else if (node.type === 'auto_translation') {
+                              headerColor = "bg-pink-500/10 border-pink-500/30 text-pink-600 dark:text-pink-400";
+                              nodeIcon = <Globe className="w-3.5 h-3.5" />;
+                            } else if (node.type === 'event_automation') {
+                              headerColor = "bg-yellow-500/10 border-yellow-500/30 text-yellow-600 dark:text-yellow-400";
+                              nodeIcon = <Zap className="w-3.5 h-3.5" />;
                             } else if (node.type === 'end') {
                               headerColor = "bg-neutral-500/10 border-neutral-500/30 text-neutral-600 dark:text-neutral-400";
                               nodeIcon = <StopCircle className="w-3.5 h-3.5" />;
@@ -1348,6 +1556,135 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                               </div>
                             )}
 
+                            {node.type === 'ocr' && (
+                              <div className="space-y-3 pt-1 border-t border-neutral-100 dark:border-neutral-800/50">
+                                <div className="space-y-1">
+                                  <label className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Kigezo cha Risiti/Kitambulisho (Extracted Text Variable)</label>
+                                  <Input 
+                                    value={node.data?.variableName || ''}
+                                    onChange={(e) => updateNodeData({ variableName: e.target.value })}
+                                    placeholder="Mfano: control_number"
+                                    className="h-8.5 text-xs bg-neutral-50/50 dark:bg-neutral-900 font-mono"
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                            {node.type === 'voice_bot' && (
+                              <div className="space-y-3 pt-1 border-t border-neutral-100 dark:border-neutral-800/50">
+                                <div className="space-y-1">
+                                  <label className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Instruction ya Voice Assistant</label>
+                                  <Textarea 
+                                    rows={3}
+                                    value={node.data?.prompt || ''}
+                                    onChange={(e) => updateNodeData({ prompt: e.target.value })}
+                                    placeholder="Mfano: Sikiliza sauti ya mteja kisha taja gharama..."
+                                    className="text-xs bg-neutral-50/50 dark:bg-neutral-900"
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                            {node.type === 'image_understanding' && (
+                              <div className="space-y-3 pt-1 border-t border-neutral-100 dark:border-neutral-800/50">
+                                <div className="space-y-1">
+                                  <label className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Kigezo cha Kutunza Kitu Kilichotambuliwa (Output Variable)</label>
+                                  <Input 
+                                    value={node.data?.variableName || ''}
+                                    onChange={(e) => updateNodeData({ variableName: e.target.value })}
+                                    placeholder="Mfano: detected_product"
+                                    className="h-8.5 text-xs bg-neutral-50/50 dark:bg-neutral-900 font-mono"
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                            {node.type === 'live_map' && (
+                              <div className="space-y-3 pt-1 border-t border-neutral-100 dark:border-neutral-800/50">
+                                <div className="space-y-1">
+                                  <label className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Aina ya Ramani (Tracking Service)</label>
+                                  <select
+                                    value={node.data?.serviceType || 'taxi'}
+                                    onChange={(e) => updateNodeData({ serviceType: e.target.value })}
+                                    className="w-full text-xs h-8.5 px-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-950 text-neutral-800 dark:text-neutral-200 focus:outline-none"
+                                  >
+                                    <option value="taxi">🚕 Taxi & Bodaboda Tracking</option>
+                                    <option value="food">🍔 Food Vendor Delivery Status</option>
+                                  </select>
+                                </div>
+                              </div>
+                            )}
+
+                            {node.type === 'ab_testing' && (
+                              <div className="space-y-3 pt-1 border-t border-neutral-100 dark:border-neutral-800/50">
+                                <div className="space-y-1">
+                                  <label className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Flow A Target Node</label>
+                                  <select
+                                    value={node.data?.flowANodeId || ''}
+                                    onChange={(e) => updateNodeData({ flowANodeId: e.target.value })}
+                                    className="w-full text-xs h-8.5 px-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-950 text-neutral-800 dark:text-neutral-200 focus:outline-none"
+                                  >
+                                    <option value="">-- Chagua Node ya Flow A --</option>
+                                    {metaNodes.filter(n => n.id !== node.id).map(n => (
+                                      <option key={n.id} value={n.id}>{n.data?.label || n.id}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Flow B Target Node</label>
+                                  <select
+                                    value={node.data?.flowBNodeId || ''}
+                                    onChange={(e) => updateNodeData({ flowBNodeId: e.target.value })}
+                                    className="w-full text-xs h-8.5 px-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-950 text-neutral-800 dark:text-neutral-200 focus:outline-none"
+                                  >
+                                    <option value="">-- Chagua Node ya Flow B --</option>
+                                    {metaNodes.filter(n => n.id !== node.id).map(n => (
+                                      <option key={n.id} value={n.id}>{n.data?.label || n.id}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </div>
+                            )}
+
+                            {node.type === 'auto_translation' && (
+                              <div className="space-y-3 pt-1 border-t border-neutral-100 dark:border-neutral-800/50">
+                                <div className="space-y-1">
+                                  <label className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Kutoka Lugha (From Language)</label>
+                                  <Input 
+                                    value={node.data?.fromLang || 'Kiswahili'}
+                                    onChange={(e) => updateNodeData({ fromLang: e.target.value })}
+                                    className="h-8.5 text-xs bg-neutral-50/50 dark:bg-neutral-900"
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Kwenda Lugha (To Language)</label>
+                                  <Input 
+                                    value={node.data?.toLang || 'English'}
+                                    onChange={(e) => updateNodeData({ toLang: e.target.value })}
+                                    className="h-8.5 text-xs bg-neutral-50/50 dark:bg-neutral-900"
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                            {node.type === 'event_automation' && (
+                              <div className="space-y-3 pt-1 border-t border-neutral-100 dark:border-neutral-800/50">
+                                <div className="space-y-1">
+                                  <label className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Jina la Tukio (Trigger Event Name)</label>
+                                  <select
+                                    value={node.data?.eventName || 'ride_completed'}
+                                    onChange={(e) => updateNodeData({ eventName: e.target.value })}
+                                    className="w-full text-xs h-8.5 px-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-950 text-neutral-800 dark:text-neutral-200 focus:outline-none"
+                                  >
+                                    <option value="ride_completed">🚖 Ride Completed</option>
+                                    <option value="payment_success">💳 Payment Success</option>
+                                    <option value="order_delivered">🍔 Order Delivered</option>
+                                    <option value="birthday">🎂 Customer Birthday</option>
+                                  </select>
+                                </div>
+                              </div>
+                            )}
+
                             {/* Node connection selector (Default Link) */}
                             {node.type !== 'end' && (
                               <div className="space-y-1 pt-3 border-t border-neutral-100 dark:border-neutral-800/50">
@@ -1389,6 +1726,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                   </div>
 
                 </div>
+                )}
               </CardContent>
             </Card>
 
