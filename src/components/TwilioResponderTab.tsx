@@ -244,7 +244,19 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
   const [activeWorkflowNodeId, setActiveWorkflowNodeId] = useState<string | null>(null);
   const [simulatedVariables, setSimulatedVariables] = useState<Record<string, string>>({});
 
-  const [studioTab, setStudioTab] = useState<'canvas' | 'kb' | 'crm' | 'broadcast' | 'templates'>('canvas');
+  const [studioTab, setStudioTab] = useState<'canvas' | 'kb' | 'crm' | 'broadcast' | 'templates' | 'meta_settings'>('canvas');
+  
+  // Meta Configuration Integration states
+  const [metaAppId, setMetaAppId] = useState('9810319892103');
+  const [metaAppSecret, setMetaAppSecret] = useState('••••••••••••••••••••••••••••••••');
+  const [metaBusinessId, setMetaBusinessId] = useState('5543210987654');
+  const [metaPageId, setMetaPageId] = useState('1098765432109');
+  const [metaInstagramId, setMetaInstagramId] = useState('178414053210987');
+  const [metaWabaId, setMetaWabaId] = useState('33210987654321');
+  const [metaPhoneNumberId, setMetaPhoneNumberId] = useState('15550109988');
+  const [metaAccessToken, setMetaAccessToken] = useState('EAAGzDkZAbgBAKBZBv2YBAZB8CZA9pP6ZA2lZB38vXb1vCq8aZB6eZByvZA19...');
+  const [metaVerifyToken, setMetaVerifyToken] = useState('papo_hapo_meta_secure_token_2026');
+
   const [copilotPrompt, setCopilotPrompt] = useState('');
   const [generatingFlow, setGeneratingFlow] = useState(false);
   const [knowledgeBaseText, setKnowledgeBaseText] = useState(
@@ -367,6 +379,15 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
           }
           if (data.edges) setMetaEdges(data.edges);
           if (data.knowledgeBase) setKnowledgeBaseText(data.knowledgeBase);
+          if (data.metaAppId) setMetaAppId(data.metaAppId);
+          if (data.metaAppSecret) setMetaAppSecret(data.metaAppSecret);
+          if (data.metaBusinessId) setMetaBusinessId(data.metaBusinessId);
+          if (data.metaPageId) setMetaPageId(data.metaPageId);
+          if (data.metaInstagramId) setMetaInstagramId(data.metaInstagramId);
+          if (data.metaWabaId) setMetaWabaId(data.metaWabaId);
+          if (data.metaPhoneNumberId) setMetaPhoneNumberId(data.metaPhoneNumberId);
+          if (data.metaAccessToken) setMetaAccessToken(data.metaAccessToken);
+          if (data.metaVerifyToken) setMetaVerifyToken(data.metaVerifyToken);
         } else {
           // Default fallbacks for simulator showcase
           setMetaWelcomeText(
@@ -444,6 +465,27 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
       toast.success("Chat Flow ya Meta imehifadhiwa vizuri!");
     } catch (err: any) {
       toast.error("Imeshindwa kuhifadhi Meta Config: " + err.message);
+    }
+  };
+
+  const handleSaveFullMetaIntegration = async () => {
+    try {
+      const docRef = doc(db, 'vendors', vendorId, 'settings', 'meta_config');
+      await setDoc(docRef, {
+        metaAppId,
+        metaAppSecret,
+        metaBusinessId,
+        metaPageId,
+        metaInstagramId,
+        metaWabaId,
+        metaPhoneNumberId,
+        metaAccessToken,
+        metaVerifyToken,
+        updatedAt: new Date()
+      }, { merge: true });
+      toast.success("Muunganisho wote wa Meta na Webhooks umehifadhiwa kikamilifu kwenye Database! 🟢💾");
+    } catch (err: any) {
+      toast.error("Imeshindwa kuhifadhi muunganisho wa Meta: " + err.message);
     }
   };
 
@@ -966,6 +1008,25 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                   setMetaEdges={setMetaEdges}
                   handleSaveWorkflowConfig={handleSaveWorkflowConfig}
                   useWorkflow={useWorkflow}
+                  metaAppId={metaAppId}
+                  setMetaAppId={setMetaAppId}
+                  metaAppSecret={metaAppSecret}
+                  setMetaAppSecret={setMetaAppSecret}
+                  metaBusinessId={metaBusinessId}
+                  setMetaBusinessId={setMetaBusinessId}
+                  metaPageId={metaPageId}
+                  setMetaPageId={setMetaPageId}
+                  metaInstagramId={metaInstagramId}
+                  setMetaInstagramId={setMetaInstagramId}
+                  metaWabaId={metaWabaId}
+                  setMetaWabaId={setMetaWabaId}
+                  metaPhoneNumberId={metaPhoneNumberId}
+                  setMetaPhoneNumberId={setMetaPhoneNumberId}
+                  metaAccessToken={metaAccessToken}
+                  setMetaAccessToken={setMetaAccessToken}
+                  metaVerifyToken={metaVerifyToken}
+                  setMetaVerifyToken={setMetaVerifyToken}
+                  handleSaveFullMetaIntegration={handleSaveFullMetaIntegration}
                 />
 
                 {studioTab === 'canvas' && (
