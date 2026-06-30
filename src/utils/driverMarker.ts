@@ -273,10 +273,10 @@ export function createDriverMarkerIcon(
   const vehicleSvg = getDriverSvg(vehicleType, isDark);
   const pulseClass = isOnline ? 'animate-pulse' : '';
 
-  // Use a beautifully crafted wrapper representing a professional radar tracking compass dial
+  // Use a beautifully crafted wrapper representing a professional radar tracking compass dial (bg-transparent so it never obscures the map with a solid black or white disk)
   const ringColor = isDark 
-    ? 'border-[#00E5A0]/50 shadow-[0_0_12px_rgba(0,229,160,0.3)] bg-slate-950/90' 
-    : 'border-[#1E724C]/50 shadow-[0_0_12px_rgba(30,114,76,0.2)] bg-[#FDFBF7]/95';
+    ? 'border-[#00E5A0]/60 shadow-[0_0_12px_rgba(0,229,160,0.35)] bg-transparent' 
+    : 'border-[#1E724C]/60 shadow-[0_0_12px_rgba(30,114,76,0.25)] bg-transparent';
 
   const centerAccent = isDark ? 'bg-emerald-500/10' : 'bg-emerald-600/10';
 

@@ -1821,8 +1821,8 @@ export default function TaxiBooking() {
           <!-- Active sonar radar ripple radiating under the driver -->
           <div class="absolute w-[34px] h-[34px] rounded-full bg-emerald-500/15 border border-emerald-500/20 animate-pulse pointer-events-none"></div>
           
-          <!-- Elegant premium pointer/glow ring -->
-          <div class="absolute w-[38px] h-[38px] rounded-full ${theme === 'dark' ? 'bg-slate-950/90 border-[#00E5A0]/45' : 'bg-white/95 border-[#1E724C]/45'} border flex items-center justify-center shadow-[0_4px_12px_rgba(0,0,0,0.4)]">
+          <!-- Elegant premium pointer/glow ring (transparent background) -->
+          <div class="absolute w-[38px] h-[38px] rounded-full bg-transparent ${theme === 'dark' ? 'border-[#00E5A0]/60 shadow-[0_0_12px_rgba(0,229,160,0.35)]' : 'border-[#1E724C]/60 shadow-[0_0_12px_rgba(30,114,76,0.25)]'} border flex items-center justify-center">
             <!-- Central rotated vehicle wrapper -->
             <div class="transition-transform duration-500 ease-out select-none pointer-events-none flex items-center justify-center w-7 h-7" style="transform: rotate(${rotation}deg);">
               <!-- Heading notch/pointer at front of vehicle -->
