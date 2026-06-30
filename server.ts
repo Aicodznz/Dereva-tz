@@ -78,13 +78,14 @@ async function startServer() {
     const mode = req.query["hub.mode"];
     const token = req.query["hub.verify_token"];
     const challenge = req.query["hub.challenge"];
+    const expectedToken = process.env.META_VERIFY_TOKEN || "papo_hapo_meta_secure_token_2026";
     
     if (mode && token) {
-      if (mode === "subscribe" && token === "papo_hapo_meta_secure_token_2026") {
+      if (mode === "subscribe" && token === expectedToken) {
         console.log("[Meta Webhook] GET Verification successful!");
         return res.status(200).send(challenge);
       }
-      console.warn("[Meta Webhook] GET Verification failed: Invalid token");
+      console.warn(`[Meta Webhook] GET Verification failed: Expected "${expectedToken}", received "${token}"`);
       return res.status(403).send("Forbidden");
     }
     return res.status(400).send("Bad Request");
