@@ -678,13 +678,13 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
               >
                 <TileLayer
                   url={mapType === 'satellite' 
-                    ? "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                    ? "https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
                     : "https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
                   }
-                  subdomains={mapType === 'satellite' ? undefined : ['mt0', 'mt1', 'mt2', 'mt3']}
+                  subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
                   maxZoom={22}
                   maxNativeZoom={19}
-                  attribution={mapType === 'satellite' ? '&copy; ESRI' : '&copy; Google Maps'}
+                  attribution="&copy; Google Maps"
                 />
                 {mapReady && (
                   <>

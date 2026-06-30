@@ -229,6 +229,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
   const [position, setPosition] = useState<[number, number]>([-6.7924, 39.2083]);
   const [activePoiCategory, setActivePoiCategory] = useState<string | null>(null);
   const [poisCollapsed, setPoisCollapsed] = useState<boolean>(false);
+  const [mapType, setMapType] = useState<'standard' | 'satellite'>('standard');
 
   // States for adding a POI
   const [isAddPoiModalOpen, setIsAddPoiModalOpen] = useState(false);
@@ -1749,7 +1750,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
           overflow: 'hidden',
           height: '100%',
           width: '100%'
-        }}>
+        }} className="relative h-full w-full">
           <MapContainer 
             center={position} 
             zoom={15} 
@@ -1764,8 +1765,8 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
             className="transition-all duration-1000"
           >
             <TileLayer 
-              key={theme}
-              url={mapTileUrl}
+              key={`${theme}-${mapType}`}
+              url={mapType === 'satellite' ? "https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}" : mapTileUrl}
               subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
               attribution="&copy; Google Maps"
               maxZoom={22}
@@ -2055,6 +2056,36 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
             })()}
 
           </MapContainer>
+
+          {/* Map Style Switcher (Standard vs Hybrid Satellite) */}
+          <div className="absolute bottom-6 left-6 z-[1000] flex bg-black/85 backdrop-blur-md rounded-2xl p-1 border border-white/10 shadow-2xl">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setMapType('standard');
+              }}
+              className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
+                mapType === 'standard'
+                  ? 'bg-[#7F77DD] text-white shadow-md font-extrabold'
+                  : 'text-neutral-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              Kawaida
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setMapType('satellite');
+              }}
+              className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
+                mapType === 'satellite'
+                  ? 'bg-[#7F77DD] text-white shadow-md font-extrabold'
+                  : 'text-neutral-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              Satelaiti
+            </button>
+          </div>
         </div>
       </div>
 

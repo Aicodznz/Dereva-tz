@@ -454,6 +454,7 @@ export default function TaxiBooking() {
   const [surgeLevel, setSurgeLevel] = useState("normal"); // "normal", "rush", "rain"
   const [waitingTime, setWaitingTime] = useState(0); // minutes
   const [secondsOffset, setSecondsOffset] = useState<number>(0);
+  const [mapType, setMapType] = useState<'standard' | 'satellite'>('standard');
   const justSelectedRef = useRef(false);
 
   const [taxiBanners, setTaxiBanners] = useState<{ id?: string; title: string; sub: string; img: string; active?: boolean }[]>([]);
@@ -3199,8 +3200,8 @@ export default function TaxiBooking() {
                     dragging={true}
                   >
                      <TileLayer
-                      key={theme}
-                      url={mapTileUrl}
+                      key={`${theme}-${mapType}`}
+                      url={mapType === 'satellite' ? "https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}" : mapTileUrl}
                       subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
                       attribution="&copy; Google Maps"
                       maxZoom={22}
@@ -3414,6 +3415,36 @@ export default function TaxiBooking() {
                       return null;
                     })()}
                   </MapContainer>
+
+                  {/* Map Style Switcher (Standard vs Hybrid Satellite) */}
+                  <div className="absolute bottom-6 left-6 z-[1000] flex bg-black/85 backdrop-blur-md rounded-2xl p-1 border border-white/10 shadow-2xl">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMapType('standard');
+                      }}
+                      className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
+                        mapType === 'standard'
+                          ? 'bg-[#7F77DD] text-white shadow-md font-extrabold'
+                          : 'text-neutral-400 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      Kawaida
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMapType('satellite');
+                      }}
+                      className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
+                        mapType === 'satellite'
+                          ? 'bg-[#7F77DD] text-white shadow-md font-extrabold'
+                          : 'text-neutral-400 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      Satelaiti
+                    </button>
+                  </div>
 
                   {/* Floating locate button inside the map area */}
                   <button
