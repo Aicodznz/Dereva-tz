@@ -392,7 +392,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
         throw new Error('No valid display name');
       }
     } catch (err) {
-      console.error('Reverse geocoding failed, trying fallback:', err);
+      console.warn('Reverse geocoding failed, trying fallback:', err);
       try {
         const bdcResponse = await fetch(`/api/geo/bdc-reverse?lat=${lat}&lon=${lng}`);
         const bdcContentType = bdcResponse.headers.get("content-type");
@@ -407,7 +407,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
           throw new Error('BDC also returned unknown');
         }
       } catch (bdcErr) {
-        console.error('All geocoding attempts failed:', bdcErr);
+        console.warn('All geocoding attempts failed:', bdcErr);
         setAddress(getNearestPopularPlace(lat, lng));
       }
     }

@@ -937,6 +937,12 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
       rideInterval = setInterval(async () => {
         try {
           await updateDriverLocation(positionRef.current[0], positionRef.current[1], rotationRef.current);
+          if (user?.uid) {
+            await updateDoc(doc(db, 'drivers', user.uid), {
+              location: { lat: positionRef.current[0], lng: positionRef.current[1], heading: rotationRef.current },
+              updatedAt: serverTimestamp()
+            });
+          }
         } catch (e) {
           console.warn("Ride location sync fail", e);
         }
@@ -1040,6 +1046,12 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
           
           try {
             await updateDriverLocation(nextCoord[0], nextCoord[1], bearing);
+            if (user?.uid) {
+              await updateDoc(doc(db, 'drivers', user.uid), {
+                location: { lat: nextCoord[0], lng: nextCoord[1], heading: bearing },
+                updatedAt: serverTimestamp()
+              });
+            }
           } catch (e) {
             console.warn("[Simulation] sync location fail:", e);
           }

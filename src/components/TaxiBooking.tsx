@@ -788,7 +788,7 @@ export default function TaxiBooking() {
       }
       throw new Error("Invalid address formatted");
     } catch (error) {
-      console.error("Reverse geocoding failed, trying fallback:", error);
+      console.warn("Reverse geocoding failed, trying fallback:", error);
       try {
         const bdcResponse = await fetch(
           `/api/geo/bdc-reverse?lat=${lat}&lon=${lng}`,
