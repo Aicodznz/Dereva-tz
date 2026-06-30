@@ -21,15 +21,26 @@ export interface MetaSession {
 // In-memory fallback
 const metaSessions = new Map<string, MetaSession>();
 
-// Initialize GoogleGenAI client (following AI Studio guidelines)
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
+// Lazy initialization of GoogleGenAI to prevent startup crash if GEMINI_API_KEY is not defined
+let aiClient: any = null;
+
+function getAI() {
+  if (!aiClient) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error("GEMINI_API_KEY environment variable is required.");
     }
+    aiClient = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
   }
-});
+  return aiClient;
+}
 
 /**
  * Gets or creates session for a user on a specific channel
@@ -165,7 +176,7 @@ Response Schema:
   "confidence": number (between 0.0 and 1.0)
 }`;
 
-      const response = await ai.models.generateContent({
+      const response = await getAI().models.generateContent({
         model: "gemini-3.5-flash",
         contents: prompt,
         config: {
@@ -242,7 +253,7 @@ Instructions:
 2. If the user query CANNOT be answered using the Knowledge Base (e.g. it is completely unrelated or requires booking database access), reply strictly with "UNANSWERED".
 3. Do not assume or make up facts. Only use what is in the Knowledge Base.`;
 
-    const res = await ai.models.generateContent({
+    const res = await getAI().models.generateContent({
       model: "gemini-3.5-flash",
       contents: prompt,
     });
@@ -409,7 +420,7 @@ ${intentMappings.map((m: any) => `- ID: "${m.nextNodeId}", Description/Keywords:
 
 Respond strictly with the matching category ID. If none fits nicely, return "default".`;
 
-            const res = await ai.models.generateContent({
+            const res = await getAI().models.generateContent({
               model: "gemini-3.5-flash",
               contents: prompt,
             });
