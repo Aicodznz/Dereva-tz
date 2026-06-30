@@ -910,7 +910,12 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
     });
   };
 
-  // Unified location and presence sync
+  // Unified location and presence sync using refs to prevent continuous clearing/recreation of intervals
+  const positionRef = React.useRef(position);
+  positionRef.current = position;
+  const rotationRef = React.useRef(rotation);
+  rotationRef.current = rotation;
+
   useEffect(() => {
     if (!isOnline || !user?.uid) return;
     
@@ -918,7 +923,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
     const presenceInterval = setInterval(async () => {
       try {
         await updateDoc(doc(db, 'drivers', user.uid), {
-          location: { lat: position[0], lng: position[1], heading: rotation },
+          location: { lat: positionRef.current[0], lng: positionRef.current[1], heading: rotationRef.current },
           lastActive: serverTimestamp()
         });
       } catch (e) {
@@ -931,7 +936,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
     if (rideId && activeRide && (activeRide.status === 'accepted' || activeRide.status === 'driver_arriving' || activeRide.status === 'driver_arrived' || activeRide.status === 'on_trip')) {
       rideInterval = setInterval(async () => {
         try {
-          await updateDriverLocation(position[0], position[1], rotation);
+          await updateDriverLocation(positionRef.current[0], positionRef.current[1], rotationRef.current);
         } catch (e) {
           console.warn("Ride location sync fail", e);
         }
@@ -942,7 +947,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
       clearInterval(presenceInterval);
       if (rideInterval) clearInterval(rideInterval);
     };
-  }, [isOnline, user?.uid, rideId, activeRide?.status, position, rotation]);
+  }, [isOnline, user?.uid, rideId, activeRide?.status]);
 
   // Listen for assigned rides when online
   useEffect(() => {

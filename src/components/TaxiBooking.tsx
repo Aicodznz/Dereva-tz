@@ -3246,7 +3246,7 @@ export default function TaxiBooking() {
                       const heading = (driverLivePos as any)?.heading ?? (activeRide?.driverLocation as any)?.heading;
                       return (
                         <Marker
-                          key={`active-driver-${activeRide?.driverId || "presence"}-${lat}-${lng}-${heading || 0}`}
+                          key={`active-driver-${activeRide?.driverId || "presence"}`}
                           position={[lat, lng]}
                           icon={getDriverIcon(activeRide?.vehicleType || "mini", activeRide?.driverId || "active-driver", lat, lng, heading)}
                         />
@@ -3259,7 +3259,7 @@ export default function TaxiBooking() {
                         .filter((d) => d.id !== activeRide?.driverId)
                         .map((driver) => (
                           <Marker
-                            key={`nearby-${driver.id}-${driver.lat}-${driver.lng}-${driver.heading || 0}`}
+                            key={`nearby-${driver.id}`}
                             position={[driver.lat, driver.lng]}
                             icon={getDriverIcon(driver.vehicleType, driver.id, driver.lat, driver.lng, driver.heading)}
                           />
