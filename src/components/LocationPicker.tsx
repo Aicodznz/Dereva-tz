@@ -679,11 +679,12 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                 <TileLayer
                   url={mapType === 'satellite' 
                     ? "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                    : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    : "https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
                   }
+                  subdomains={mapType === 'satellite' ? undefined : ['mt0', 'mt1', 'mt2', 'mt3']}
                   maxZoom={22}
                   maxNativeZoom={19}
-                  attribution='&copy; ESRI &copy; OpenStreetMap'
+                  attribution={mapType === 'satellite' ? '&copy; ESRI' : '&copy; Google Maps'}
                 />
                 {mapReady && (
                   <>

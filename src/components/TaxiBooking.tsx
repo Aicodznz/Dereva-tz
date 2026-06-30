@@ -701,10 +701,7 @@ export default function TaxiBooking() {
 
   const theme = resolvedTheme === "light" ? "light" : "dark";
 
-  const mapTileUrl =
-    theme === "dark"
-      ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-      : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
+  const mapTileUrl = "https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}";
 
   const getNearestPopularPlace = (lat: number, lng: number): string => {
     let nearestName = "Mwai Kibaki Road, Dar es Salaam";
@@ -3204,7 +3201,8 @@ export default function TaxiBooking() {
                      <TileLayer
                       key={theme}
                       url={mapTileUrl}
-                      attribution=""
+                      subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
+                      attribution="&copy; Google Maps"
                       maxZoom={22}
                       maxNativeZoom={19}
                       detectRetina={true}

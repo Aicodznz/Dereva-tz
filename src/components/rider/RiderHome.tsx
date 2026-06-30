@@ -632,9 +632,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
   const [isHeaderHidden, setIsHeaderHidden] = useState(false);
   const [isInstructionsHidden, setIsInstructionsHidden] = useState(false);
   
-  const mapTileUrl = theme === 'dark' 
-    ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-    : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
+  const mapTileUrl = "https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}";
   
   // Auto-expand if request comes or ride active
   useEffect(() => {
@@ -1751,7 +1749,8 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
             <TileLayer 
               key={theme}
               url={mapTileUrl}
-              attribution=""
+              subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
+              attribution="&copy; Google Maps"
               maxZoom={22}
               maxNativeZoom={19}
               detectRetina={true}

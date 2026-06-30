@@ -80,9 +80,7 @@ const ParcelMapView: React.FC<Props> = ({ destination, isDashed = false, routeCo
     return () => observer.disconnect();
   }, [resolvedTheme]);
 
-  const tileLayerUrl = isDark 
-    ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-    : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
+  const tileLayerUrl = "https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}";
 
   return (
     <div className="w-full h-full bg-[#f3f4f6] dark:bg-[#111118] transition-colors">
@@ -96,9 +94,10 @@ const ParcelMapView: React.FC<Props> = ({ destination, isDashed = false, routeCo
         <TileLayer
           key={isDark ? 'dark' : 'light'} // Re-render when theme changes
           url={tileLayerUrl}
+          subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
           maxZoom={22}
           maxNativeZoom={19}
-          attribution='&copy; OpenStreetMap &copy; CARTO'
+          attribution='&copy; Google Maps'
         />
         
         <Marker position={[partnerLoc.lat, partnerLoc.lng]} icon={partnerIcon} />

@@ -80,9 +80,7 @@ const TaxiHistory: React.FC = () => {
   const { resolvedTheme } = useTheme();
   const theme = resolvedTheme === 'dark' ? 'dark' : 'light';
 
-  const mapTileUrl = theme === 'dark' 
-    ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-    : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+  const mapTileUrl = "https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}";
 
   useEffect(() => {
     if (!user) return;
@@ -347,9 +345,11 @@ const TaxiHistory: React.FC = () => {
                                 className="h-full w-full"
                               >
                                <TileLayer 
-                                 url="https://{s}.tile.openstreetmap.org/{z}/{y}/{x}.png" 
+                                 url="https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}" 
+                                 subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
                                  maxZoom={22}
                                  maxNativeZoom={19}
+                                 attribution="&copy; Google Maps"
                                />
                                <Marker position={[selectedRide.pickup.lat, selectedRide.pickup.lng]} icon={PickupIcon} />
                                <Marker position={[selectedRide.destination.lat, selectedRide.destination.lng]} icon={DestinationIcon} />
@@ -458,8 +458,10 @@ const TaxiHistory: React.FC = () => {
                          >
                            <TileLayer 
                              url={mapTileUrl} 
+                             subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
                              maxZoom={22}
                              maxNativeZoom={19}
+                             attribution="&copy; Google Maps"
                            />
                            <Marker position={[selectedRide.pickup.lat, selectedRide.pickup.lng]} icon={PickupIcon} />
                            <Marker position={[selectedRide.destination.lat, selectedRide.destination.lng]} icon={DestinationIcon} />

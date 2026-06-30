@@ -451,7 +451,11 @@ export default function OrderTracker({ order, onBack }: OrderTrackerProps) {
            className="w-full h-full"
            zoomControl={false}
          >
-           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+           <TileLayer 
+              url="https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}" 
+              subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
+              attribution="&copy; Google Maps"
+            />
            
            {driverLocation && (
              <>
