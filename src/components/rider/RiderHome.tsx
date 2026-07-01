@@ -61,7 +61,7 @@ const getNormalizedCoords = (coords: any): [number, number][] => {
 };
 
 // Helper components for Map
-function MapController({ position, activeRide }: { position: [number, number], activeRide: any }) {
+function MapController({ position, activeRide, rotation }: { position: [number, number], activeRide: any, rotation: number }) {
   const map = useMap();
   const hasCentered = React.useRef(false);
   const [autoFollow, setAutoFollow] = React.useState(true);
@@ -75,7 +75,8 @@ function MapController({ position, activeRide }: { position: [number, number], a
         try {
           map.invalidateSize();
           if (position) {
-            map.setView(position, map.getZoom() || 17, { animate: false });
+            const desiredZoom = activeRide && ['accepted', 'driver_arriving', 'on_trip'].includes(activeRide?.status) ? 18.5 : map.getZoom() || 17;
+            map.setView(position, desiredZoom, { animate: false });
           }
         } catch (e) {
           // ignore
@@ -119,11 +120,32 @@ function MapController({ position, activeRide }: { position: [number, number], a
     }
   });
 
+  // Tilts and rotates the map pane when driving or heading to pickup (GPS 3D navigation experience!)
+  useEffect(() => {
+    if (!map) return;
+    const mapPane = map.getPane('mapPane');
+    if (!mapPane) return;
+
+    if (activeRide && ['accepted', 'driver_arriving', 'on_trip'].includes(activeRide.status)) {
+      // Apply beautiful 3D tilt and direction-based rotation
+      mapPane.style.transform = `perspective(1000px) rotateX(55deg) rotateZ(${-rotation}deg)`;
+      mapPane.style.transformOrigin = 'center center';
+      mapPane.style.transition = 'transform 0.5s cubic-bezier(0.25, 1, 0.5, 1)';
+    } else {
+      // Reset to flat 2D top-down view
+      mapPane.style.transform = '';
+      mapPane.style.transformOrigin = '';
+      mapPane.style.transition = 'transform 0.5s ease';
+    }
+  }, [map, activeRide?.status, rotation]);
+
   useEffect(() => {
     if (!position) return;
     
+    const desiredZoom = activeRide && ['accepted', 'driver_arriving', 'on_trip'].includes(activeRide?.status) ? 18.5 : 17;
+
     if (!hasCentered.current) {
-      map.setView(position, 17);
+      map.setView(position, desiredZoom);
       hasCentered.current = true;
       lastCenterRef.current = position;
       return;
@@ -136,16 +158,17 @@ function MapController({ position, activeRide }: { position: [number, number], a
 
       // Only panTo/setView if we have moved significantly to avoid constant jittering / playing of the marker
       if (!lastPos || currentPos.distanceTo(lastPos) > 10) {
-        map.panTo(position, { animate: true, duration: 0.8 });
+        map.setView(position, desiredZoom, { animate: true, duration: 0.8 });
         lastCenterRef.current = position;
       }
     }
-  }, [position?.[0], position?.[1], !!activeRide, autoFollow]);
+  }, [position?.[0], position?.[1], !!activeRide, autoFollow, activeRide?.status]);
   
   const handleRecenter = () => {
     setAutoFollow(true);
     if (position) {
-      map.flyTo(position, 18, { animate: true, duration: 1.2 });
+      const desiredZoom = activeRide && ['accepted', 'driver_arriving', 'on_trip'].includes(activeRide?.status) ? 18.5 : 18;
+      map.flyTo(position, desiredZoom, { animate: true, duration: 1.2 });
       lastCenterRef.current = position;
     }
   };
@@ -1030,8 +1053,8 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
 
       if (path && path.length > 0 && index < path.length - 1) {
         // Advance along the path. 
-        // We advance by 2 coordinate indices per tick to keep up a good simulated pace
-        const nextIndex = Math.min(index + 2, path.length - 1);
+        // We advance by 3 coordinate indices per tick to keep up a good simulated pace
+        const nextIndex = Math.min(index + 3, path.length - 1);
         simulatedIndexRef.current = nextIndex;
         
         const currentCoord = path[index];
@@ -1067,7 +1090,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
           arrivedAtPickup();
         }
       }
-    }, 1500);
+    }, 700);
 
     return () => clearInterval(simInterval);
   }, [isOnline, activeRide?.status, updateDriverLocation, arrivedAtPickup]);
@@ -1945,7 +1968,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
               </>
             )}
 
-            <MapController position={position} activeRide={activeRide} />
+            <MapController position={position} activeRide={activeRide} rotation={rotation} />
             <MapBoundsUpdater activeRide={activeRide} position={position} />
 
             {/* Render POIs when a category is selected */}
@@ -2056,36 +2079,6 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
             })()}
 
           </MapContainer>
-
-          {/* Map Style Switcher (Standard vs Hybrid Satellite) */}
-          <div className="absolute bottom-6 left-6 z-[1000] flex bg-black/85 backdrop-blur-md rounded-2xl p-1 border border-white/10 shadow-2xl">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setMapType('standard');
-              }}
-              className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
-                mapType === 'standard'
-                  ? 'bg-[#7F77DD] text-white shadow-md font-extrabold'
-                  : 'text-neutral-400 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              Kawaida
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setMapType('satellite');
-              }}
-              className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
-                mapType === 'satellite'
-                  ? 'bg-[#7F77DD] text-white shadow-md font-extrabold'
-                  : 'text-neutral-400 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              Satelaiti
-            </button>
-          </div>
         </div>
       </div>
 
@@ -2109,6 +2102,24 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
             ) : (
               <Moon className="w-4 h-4 text-indigo-500" />
             )}
+          </motion.button>
+
+          {/* Satellite Map Toggle */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setMapType(mapType === 'satellite' ? 'standard' : 'satellite')}
+            className={`w-10 h-10 border rounded-xl shadow-lg flex flex-col items-center justify-center transition-all ${
+              mapType === 'satellite'
+                ? 'bg-[#7F77DD] border-[#7F77DD] text-white shadow-[0_0_12px_rgba(127,119,221,0.4)]'
+                : 'bg-white/95 dark:bg-[#111118]/90 border-neutral-200/50 dark:border-[#1e1e2e] text-neutral-500 hover:text-neutral-850 dark:hover:text-white'
+            }`}
+            title={mapType === 'satellite' ? "Badili kwenda Ramani Kawaida" : "Badili kwenda Ramani ya Satelaiti"}
+          >
+            <MapIcon className="w-4 h-4" />
+            <span className="text-[6px] font-black mt-0.5 uppercase tracking-tighter leading-none">
+              {mapType === 'satellite' ? 'Kawaida' : 'Satelaiti'}
+            </span>
           </motion.button>
 
           {activeRide && (

@@ -90,7 +90,7 @@ export function useMatchmaking(ride: Ride | null) {
         } finally {
           setIsSearching(false);
         }
-      }, 5000);
+      }, 1000);
 
       return () => clearTimeout(timer);
     }
@@ -129,7 +129,7 @@ export function useMatchmaking(ride: Ride | null) {
               driverLocation: { lat: nextCoord[0], lng: nextCoord[1], heading },
               updatedAt: serverTimestamp()
             });
-            stepIdx += 2; // Move 2 steps at a time for smooth pace
+            stepIdx += 3; // Move 3 steps at a time for smooth, high-speed pace
           } else {
             console.log("[Simulation] Mock Driver arrived at pickup!");
             clearInterval(simulationIntervalRef.current);
@@ -145,7 +145,7 @@ export function useMatchmaking(ride: Ride | null) {
               updatedAt: serverTimestamp()
             });
           }
-        }, 1500);
+        }, 700);
       };
 
       // Fetch real routing coordinates asynchronously
@@ -216,7 +216,7 @@ export function useMatchmaking(ride: Ride | null) {
       };
     }
 
-    // Phase 3: Wait at pickup, then auto-start trip after 5 seconds
+    // Phase 3: Wait at pickup, then auto-start trip after 1 second
     if (ride.status === 'driver_arrived') {
       if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
 
@@ -227,7 +227,7 @@ export function useMatchmaking(ride: Ride | null) {
           startedAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         });
-      }, 5000);
+      }, 1000);
 
       return () => clearTimeout(startTripTimer);
     }
@@ -308,7 +308,7 @@ export function useMatchmaking(ride: Ride | null) {
             driverLocation: { lat: nextCoord[0], lng: nextCoord[1], heading },
             updatedAt: serverTimestamp()
           });
-          currentIdx += 2;
+          currentIdx += 3;
         } else {
           console.log("[Simulation] Reached destination!");
           clearInterval(simulationIntervalRef.current);
@@ -320,7 +320,7 @@ export function useMatchmaking(ride: Ride | null) {
             updatedAt: serverTimestamp()
           });
         }
-      }, 1500);
+      }, 700);
 
       return () => {
         if (simulationIntervalRef.current) {
