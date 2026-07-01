@@ -66,13 +66,15 @@ function MapController({
   activeRide, 
   rotation, 
   manualRotation,
-  onRotate 
+  onRotate,
+  is3DMode = false
 }: { 
   position: [number, number], 
   activeRide: any, 
   rotation: number, 
   manualRotation: number,
-  onRotate: (newRotation: number) => void
+  onRotate: (newRotation: number) => void,
+  is3DMode?: boolean
 }) {
   const map = useMap();
   const hasCentered = React.useRef(false);
@@ -232,24 +234,27 @@ function MapController({
     }
   });
 
-  // Tilts and rotates the map pane when driving or heading to pickup (GPS 3D navigation experience!)
+  // Tilts and rotates the map pane when driving or heading to pickup or when 3D mode is toggled
   useEffect(() => {
     if (!map) return;
     const mapPane = map.getPane('mapPane');
     if (!mapPane) return;
 
+    const is3D = is3DMode || (activeRide && ['accepted', 'driver_arriving', 'on_trip'].includes(activeRide.status));
+    const perspectiveTilt = is3D ? 'perspective(1000px) rotateX(58deg) ' : '';
+
     if (activeRide && ['accepted', 'driver_arriving', 'on_trip'].includes(activeRide.status)) {
       // Apply beautiful 3D tilt and direction-based rotation combined with manual rotation offset
-      mapPane.style.transform = `perspective(1000px) rotateX(55deg) rotateZ(${-rotation + manualRotation}deg)`;
-      mapPane.style.transformOrigin = 'center center';
-      mapPane.style.transition = 'transform 0.5s cubic-bezier(0.25, 1, 0.5, 1)';
+      mapPane.style.transform = `${perspectiveTilt}rotateZ(${-rotation + manualRotation}deg)`;
     } else {
-      // Apply simple 2D manual rotation
-      mapPane.style.transform = `rotateZ(${manualRotation}deg)`;
-      mapPane.style.transformOrigin = 'center center';
-      mapPane.style.transition = 'transform 0.5s ease';
+      // Apply manual rotation with optional 3D tilt
+      mapPane.style.transform = `${perspectiveTilt}rotateZ(${manualRotation}deg)`;
     }
-  }, [map, activeRide?.status, rotation, manualRotation]);
+    mapPane.style.transformOrigin = 'center center';
+    mapPane.style.transition = (isTouchRotatingRef.current || isMouseRotatingRef.current) 
+      ? 'none' 
+      : 'transform 0.5s cubic-bezier(0.25, 1, 0.5, 1)';
+  }, [map, activeRide?.status, rotation, manualRotation, is3DMode]);
 
   useEffect(() => {
     if (!position) return;
@@ -366,6 +371,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
   const [poisCollapsed, setPoisCollapsed] = useState<boolean>(false);
   const [mapType, setMapType] = useState<'standard' | 'satellite'>('standard');
   const [manualRotation, setManualRotation] = useState(0);
+  const [is3DMode, setIs3DMode] = useState(false);
 
   // States for adding a POI
   const [isAddPoiModalOpen, setIsAddPoiModalOpen] = useState(false);
@@ -2100,7 +2106,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
               </>
             )}
 
-            <MapController position={position} activeRide={activeRide} rotation={rotation} manualRotation={manualRotation} onRotate={setManualRotation} />
+            <MapController position={position} activeRide={activeRide} rotation={rotation} manualRotation={manualRotation} onRotate={setManualRotation} is3DMode={is3DMode} />
             <MapBoundsUpdater activeRide={activeRide} position={position} />
 
             {/* Render POIs when a category is selected */}
@@ -2251,6 +2257,23 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
             <MapIcon className="w-4 h-4" />
             <span className="text-[6px] font-black mt-0.5 uppercase tracking-tighter leading-none">
               {mapType === 'satellite' ? 'Kawaida' : 'Satelaiti'}
+            </span>
+          </motion.button>
+
+          {/* 2D / 3D Perspective Toggle */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setIs3DMode(!is3DMode)}
+            className={`w-10 h-10 border rounded-xl shadow-lg flex flex-col items-center justify-center transition-all ${
+              is3DMode
+                ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-600 dark:text-[#00FF88] shadow-[0_0_12px_rgba(0,255,136,0.3)]'
+                : 'bg-white/95 dark:bg-[#111118]/90 border-neutral-200/50 dark:border-[#1e1e2e] text-neutral-500 hover:text-neutral-850 dark:hover:text-white'
+            }`}
+            title={is3DMode ? "Badili kwenda Muonekano wa 2D" : "Badili kwenda Muonekano wa 3D"}
+          >
+            <span className="text-[10px] font-black tracking-wider">
+              {is3DMode ? '3D' : '2D'}
             </span>
           </motion.button>
 

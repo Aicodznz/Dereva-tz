@@ -451,10 +451,12 @@ const MapControl = ({
 
 const MapRotationController = ({ 
   rotation, 
-  onRotate 
+  onRotate,
+  is3DMode = false
 }: { 
   rotation: number; 
   onRotate: (newRotation: number) => void; 
+  is3DMode?: boolean;
 }) => {
   const map = useMap();
   const rotationRef = useRef(rotation);
@@ -561,12 +563,13 @@ const MapRotationController = ({
     if (!map) return;
     const mapPane = map.getPane('mapPane');
     if (!mapPane) return;
-    mapPane.style.transform = `rotateZ(${rotation}deg)`;
+    const perspectiveTilt = is3DMode ? 'perspective(1000px) rotateX(58deg) ' : '';
+    mapPane.style.transform = `${perspectiveTilt}rotateZ(${rotation}deg)`;
     mapPane.style.transformOrigin = 'center center';
     mapPane.style.transition = (isTouchRotatingRef.current || isMouseRotatingRef.current) 
       ? 'none' 
-      : 'transform 0.3s ease-out';
-  }, [map, rotation]);
+      : 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)';
+  }, [map, rotation, is3DMode]);
 
   return null;
 };
@@ -627,6 +630,7 @@ export default function TaxiBooking() {
   const [secondsOffset, setSecondsOffset] = useState<number>(0);
   const [mapType, setMapType] = useState<'standard' | 'satellite'>('standard');
   const [manualRotation, setManualRotation] = useState(0);
+  const [is3DMode, setIs3DMode] = useState(false);
   const justSelectedRef = useRef(false);
 
   const [taxiBanners, setTaxiBanners] = useState<{ id?: string; title: string; sub: string; img: string; active?: boolean }[]>([]);
@@ -3410,7 +3414,7 @@ export default function TaxiBooking() {
                       routeCoords={routeCoords}
                       isMapFullscreen={isMapFullscreen}
                     />
-                    <MapRotationController rotation={manualRotation} onRotate={setManualRotation} />
+                    <MapRotationController rotation={manualRotation} onRotate={setManualRotation} is3DMode={is3DMode} />
                     {activeRide?.status !== "on_trip" && (
                       <Marker position={pickupPos} icon={getStartPin(etaPickupText)} />
                     )}
@@ -3621,6 +3625,23 @@ export default function TaxiBooking() {
                       }`}
                     >
                       Satelaiti
+                    </button>
+
+                    <div className="w-[1px] h-4 bg-white/20 mx-0.5 self-center" />
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIs3DMode(!is3DMode);
+                      }}
+                      className={`px-2.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${
+                        is3DMode
+                          ? 'bg-[#00FF88]/20 border-[#00FF88]/50 text-[#00FF88] shadow-[0_0_12px_rgba(0,255,136,0.3)] font-extrabold'
+                          : 'border-white/10 text-neutral-400 hover:text-white hover:bg-white/5'
+                      }`}
+                      title={is3DMode ? "Badili kwenda Muonekano wa 2D" : "Badili kwenda Muonekano wa 3D"}
+                    >
+                      {is3DMode ? '3D' : '2D'}
                     </button>
                   </div>
 
