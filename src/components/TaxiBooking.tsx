@@ -450,6 +450,8 @@ const MapControl = ({
 };
 
 const MapRotationController = ({ 
+  rotation = 0,
+  onRotate,
   is3DMode = false
 }: { 
   rotation?: number; 
@@ -457,16 +459,117 @@ const MapRotationController = ({
   is3DMode?: boolean;
 }) => {
   const map = useMap();
+  const rotationRef = useRef(rotation);
+  rotationRef.current = rotation;
+
+  const initialTouchAngleRef = useRef<number | null>(null);
+  const initialRotationRef = useRef<number>(0);
+  const isTouchRotatingRef = useRef<boolean>(false);
+
+  const mouseStartXRef = useRef<number | null>(null);
+  const mouseInitialRotationRef = useRef<number>(0);
+  const isMouseRotatingRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    if (!map || !onRotate) return;
+    const container = map.getContainer();
+    if (!container) return;
+
+    const getTouchAngle = (t1: Touch, t2: Touch) => {
+      return Math.atan2(t2.clientY - t1.clientY, t2.clientX - t1.clientX) * (180 / Math.PI);
+    };
+
+    // Touch 2-Finger Rotation Gesture
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        isTouchRotatingRef.current = true;
+        initialTouchAngleRef.current = getTouchAngle(e.touches[0], e.touches[1]);
+        initialRotationRef.current = rotationRef.current;
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (isTouchRotatingRef.current && e.touches.length === 2 && initialTouchAngleRef.current !== null) {
+        const currentAngle = getTouchAngle(e.touches[0], e.touches[1]);
+        let diff = currentAngle - initialTouchAngleRef.current;
+        if (diff > 180) diff -= 360;
+        if (diff < -180) diff += 360;
+        
+        onRotate(Math.round(initialRotationRef.current + diff));
+        if (e.cancelable) e.preventDefault();
+      }
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2 && isTouchRotatingRef.current) {
+        isTouchRotatingRef.current = false;
+        initialTouchAngleRef.current = null;
+      }
+    };
+
+    // Mouse Shift+Drag or Right-Click Drag or Alt+Drag Rotation
+    const handleMouseDown = (e: MouseEvent) => {
+      if (e.shiftKey || e.altKey || e.button === 2) {
+        isMouseRotatingRef.current = true;
+        mouseStartXRef.current = e.clientX;
+        mouseInitialRotationRef.current = rotationRef.current;
+      }
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isMouseRotatingRef.current && mouseStartXRef.current !== null) {
+        const diff = e.clientX - mouseStartXRef.current;
+        onRotate(Math.round(mouseInitialRotationRef.current + diff * 0.7));
+      }
+    };
+
+    const handleMouseUp = () => {
+      if (isMouseRotatingRef.current) {
+        isMouseRotatingRef.current = false;
+        mouseStartXRef.current = null;
+      }
+    };
+
+    const handleContextMenu = (e: MouseEvent) => {
+      if (isMouseRotatingRef.current) {
+        e.preventDefault();
+      }
+    };
+
+    container.addEventListener('touchstart', handleTouchStart, { passive: false });
+    container.addEventListener('touchmove', handleTouchMove, { passive: false });
+    container.addEventListener('touchend', handleTouchEnd);
+    container.addEventListener('touchcancel', handleTouchEnd);
+
+    container.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    container.addEventListener('contextmenu', handleContextMenu);
+
+    return () => {
+      container.removeEventListener('touchstart', handleTouchStart);
+      container.removeEventListener('touchmove', handleTouchMove);
+      container.removeEventListener('touchend', handleTouchEnd);
+      container.removeEventListener('touchcancel', handleTouchEnd);
+
+      container.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      container.removeEventListener('contextmenu', handleContextMenu);
+    };
+  }, [map, onRotate]);
 
   useEffect(() => {
     if (!map) return;
     const mapPane = map.getPane('mapPane');
     if (!mapPane) return;
-    const perspectiveTilt = is3DMode ? 'perspective(1000px) rotateX(58deg)' : 'none';
-    mapPane.style.transform = perspectiveTilt;
+    const perspectiveTilt = is3DMode ? 'perspective(1000px) rotateX(58deg) ' : '';
+    mapPane.style.transform = `${perspectiveTilt}rotateZ(${rotation}deg)`;
     mapPane.style.transformOrigin = 'center center';
-    mapPane.style.transition = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)';
-  }, [map, is3DMode]);
+    mapPane.style.transition = (isTouchRotatingRef.current || isMouseRotatingRef.current) 
+      ? 'none' 
+      : 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)';
+  }, [map, rotation, is3DMode]);
 
   return null;
 };
@@ -3542,27 +3645,52 @@ export default function TaxiBooking() {
                     </button>
                   </div>
 
-                  {/* Compass needle indicator when map is rotated (Tap to reset North) */}
-                  {manualRotation !== 0 && (
+                  {/* Manual Map Orientation Controls */}
+                  <div className="absolute top-20 right-6 z-[1000] flex flex-col gap-1 items-center bg-black/85 backdrop-blur-md rounded-2xl p-1.5 border border-white/10 shadow-2xl">
+                    {/* Rotate Left (-30°) */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setManualRotation((prev) => (prev - 30) % 360);
+                      }}
+                      className="w-8 h-8 rounded-xl flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/10 active:scale-90 transition-all"
+                      title="Zungusha Kushoto (-30°)"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                    </button>
+
+                    {/* Compass Needle (Tap to reset North) */}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         setManualRotation(0);
                       }}
-                      className="absolute top-20 right-6 z-[1000] w-10 h-10 rounded-full bg-black/80 hover:bg-black border border-white/20 text-white shadow-xl flex items-center justify-center backdrop-blur-md active:scale-90 transition-all"
+                      className="w-8 h-8 rounded-xl flex items-center justify-center bg-white/10 text-white active:scale-90 transition-all relative overflow-hidden"
                       title="Weka Kaskazini Juu (Reset North)"
                     >
                       <div 
                         className="transition-transform duration-300 ease-out"
                         style={{ transform: `rotate(${-manualRotation}deg)` }}
                       >
-                        <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none">
+                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
                           <path d="M12 2L15 11H9L12 2Z" fill="#EF4444" />
                           <path d="M12 22L9 13H15L12 22Z" fill="#94A3B8" />
                         </svg>
                       </div>
                     </button>
-                  )}
+
+                    {/* Rotate Right (+30°) */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setManualRotation((prev) => (prev + 30) % 360);
+                      }}
+                      className="w-8 h-8 rounded-xl flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/10 active:scale-90 transition-all"
+                      title="Zungusha Kulia (+30°)"
+                    >
+                      <RotateCw className="w-4 h-4" />
+                    </button>
+                  </div>
 
                   {/* Floating locate button inside the map area */}
                   <button
