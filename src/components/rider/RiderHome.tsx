@@ -61,11 +61,123 @@ const getNormalizedCoords = (coords: any): [number, number][] => {
 };
 
 // Helper components for Map
-function MapController({ position, activeRide, rotation, manualRotation }: { position: [number, number], activeRide: any, rotation: number, manualRotation: number }) {
+function MapController({ 
+  position, 
+  activeRide, 
+  rotation, 
+  manualRotation,
+  onRotate 
+}: { 
+  position: [number, number], 
+  activeRide: any, 
+  rotation: number, 
+  manualRotation: number,
+  onRotate: (newRotation: number) => void
+}) {
   const map = useMap();
   const hasCentered = React.useRef(false);
   const [autoFollow, setAutoFollow] = React.useState(true);
   const lastCenterRef = React.useRef<[number, number] | null>(null);
+
+  const manualRotationRef = React.useRef(manualRotation);
+  manualRotationRef.current = manualRotation;
+
+  const initialTouchAngleRef = React.useRef<number | null>(null);
+  const initialRotationRef = React.useRef<number>(0);
+  const isTouchRotatingRef = React.useRef<boolean>(false);
+
+  const mouseStartXRef = React.useRef<number | null>(null);
+  const mouseInitialRotationRef = React.useRef<number>(0);
+  const isMouseRotatingRef = React.useRef<boolean>(false);
+
+  useEffect(() => {
+    if (!map) return;
+    const container = map.getContainer();
+    if (!container) return;
+
+    const getTouchAngle = (t1: Touch, t2: Touch) => {
+      return Math.atan2(t2.clientY - t1.clientY, t2.clientX - t1.clientX) * (180 / Math.PI);
+    };
+
+    // Touch 2-Finger Rotation Gesture
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        isTouchRotatingRef.current = true;
+        initialTouchAngleRef.current = getTouchAngle(e.touches[0], e.touches[1]);
+        initialRotationRef.current = manualRotationRef.current;
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (isTouchRotatingRef.current && e.touches.length === 2 && initialTouchAngleRef.current !== null) {
+        const currentAngle = getTouchAngle(e.touches[0], e.touches[1]);
+        let diff = currentAngle - initialTouchAngleRef.current;
+        if (diff > 180) diff -= 360;
+        if (diff < -180) diff += 360;
+        
+        onRotate(Math.round(initialRotationRef.current + diff));
+        if (e.cancelable) e.preventDefault();
+      }
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2 && isTouchRotatingRef.current) {
+        isTouchRotatingRef.current = false;
+        initialTouchAngleRef.current = null;
+      }
+    };
+
+    // Mouse Shift+Drag or Right-Click Drag or Alt+Drag Rotation
+    const handleMouseDown = (e: MouseEvent) => {
+      if (e.shiftKey || e.altKey || e.button === 2) {
+        isMouseRotatingRef.current = true;
+        mouseStartXRef.current = e.clientX;
+        mouseInitialRotationRef.current = manualRotationRef.current;
+      }
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isMouseRotatingRef.current && mouseStartXRef.current !== null) {
+        const diff = e.clientX - mouseStartXRef.current;
+        onRotate(Math.round(mouseInitialRotationRef.current + diff * 0.7));
+      }
+    };
+
+    const handleMouseUp = () => {
+      if (isMouseRotatingRef.current) {
+        isMouseRotatingRef.current = false;
+        mouseStartXRef.current = null;
+      }
+    };
+
+    const handleContextMenu = (e: MouseEvent) => {
+      if (isMouseRotatingRef.current) {
+        e.preventDefault();
+      }
+    };
+
+    container.addEventListener('touchstart', handleTouchStart, { passive: false });
+    container.addEventListener('touchmove', handleTouchMove, { passive: false });
+    container.addEventListener('touchend', handleTouchEnd);
+    container.addEventListener('touchcancel', handleTouchEnd);
+
+    container.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    container.addEventListener('contextmenu', handleContextMenu);
+
+    return () => {
+      container.removeEventListener('touchstart', handleTouchStart);
+      container.removeEventListener('touchmove', handleTouchMove);
+      container.removeEventListener('touchend', handleTouchEnd);
+      container.removeEventListener('touchcancel', handleTouchEnd);
+
+      container.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      container.removeEventListener('contextmenu', handleContextMenu);
+    };
+  }, [map, onRotate]);
 
   // Trigger invalidateSize sequentially to fix size issues when loaded on mobile phone or tablet layout
   useEffect(() => {
@@ -1988,7 +2100,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
               </>
             )}
 
-            <MapController position={position} activeRide={activeRide} rotation={rotation} manualRotation={manualRotation} />
+            <MapController position={position} activeRide={activeRide} rotation={rotation} manualRotation={manualRotation} onRotate={setManualRotation} />
             <MapBoundsUpdater activeRide={activeRide} position={position} />
 
             {/* Render POIs when a category is selected */}
@@ -2142,49 +2254,26 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
             </span>
           </motion.button>
 
-          {/* Manual Map Rotation Controls */}
-          <div className="flex flex-col gap-1.5 items-center bg-white/95 dark:bg-[#111118]/90 border border-neutral-200/50 dark:border-[#1e1e2e] rounded-xl p-1 shadow-lg pointer-events-auto">
-            {/* Rotate Left */}
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={() => setManualRotation((prev) => (prev - 30) % 360)}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-neutral-500 hover:text-neutral-800 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 active:scale-95 transition-all"
-              title="Zungusha Kushoto"
-            >
-              <RotateCcw className="w-4 h-4" />
-            </motion.button>
-
-            {/* Compass needle (points North) */}
+          {/* Compass reset needle indicator when map is rotated (Tap to reset North) */}
+          {manualRotation !== 0 && (
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               onClick={() => setManualRotation(0)}
-              className="w-8 h-8 rounded-lg flex items-center justify-center bg-neutral-100 dark:bg-white/5 text-neutral-800 dark:text-white active:scale-95 transition-all relative overflow-hidden"
-              title="Weka Kaskazini Juu (Reset)"
+              className="w-10 h-10 rounded-xl flex items-center justify-center bg-white/95 dark:bg-[#111118]/90 border border-neutral-200/50 dark:border-[#1e1e2e] text-neutral-800 dark:text-white shadow-lg pointer-events-auto relative overflow-hidden"
+              title="Weka Kaskazini Juu (Reset North)"
             >
               <div 
                 className="transition-transform duration-300 ease-out"
                 style={{ transform: `rotate(${-manualRotation}deg)` }}
               >
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
+                <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none">
                   <path d="M12 2L15 11H9L12 2Z" fill="#EF4444" />
                   <path d="M12 22L9 13H15L12 22Z" fill="#94A3B8" />
                 </svg>
               </div>
             </motion.button>
-
-            {/* Rotate Right */}
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={() => setManualRotation((prev) => (prev + 30) % 360)}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-neutral-500 hover:text-neutral-800 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 active:scale-95 transition-all"
-              title="Zungusha Kulia"
-            >
-              <RotateCw className="w-4 h-4" />
-            </motion.button>
-          </div>
+          )}
 
           {activeRide && (
             <>
