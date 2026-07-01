@@ -450,126 +450,23 @@ const MapControl = ({
 };
 
 const MapRotationController = ({ 
-  rotation, 
-  onRotate,
   is3DMode = false
 }: { 
-  rotation: number; 
-  onRotate: (newRotation: number) => void; 
+  rotation?: number; 
+  onRotate?: (newRotation: number) => void; 
   is3DMode?: boolean;
 }) => {
   const map = useMap();
-  const rotationRef = useRef(rotation);
-  rotationRef.current = rotation;
-
-  const initialTouchAngleRef = useRef<number | null>(null);
-  const initialRotationRef = useRef<number>(0);
-  const isTouchRotatingRef = useRef<boolean>(false);
-
-  const mouseStartXRef = useRef<number | null>(null);
-  const mouseInitialRotationRef = useRef<number>(0);
-  const isMouseRotatingRef = useRef<boolean>(false);
-
-  useEffect(() => {
-    if (!map) return;
-    const container = map.getContainer();
-    if (!container) return;
-
-    const getTouchAngle = (t1: Touch, t2: Touch) => {
-      return Math.atan2(t2.clientY - t1.clientY, t2.clientX - t1.clientX) * (180 / Math.PI);
-    };
-
-    // Touch 2-Finger Rotation Gesture
-    const handleTouchStart = (e: TouchEvent) => {
-      if (e.touches.length === 2) {
-        isTouchRotatingRef.current = true;
-        initialTouchAngleRef.current = getTouchAngle(e.touches[0], e.touches[1]);
-        initialRotationRef.current = rotationRef.current;
-      }
-    };
-
-    const handleTouchMove = (e: TouchEvent) => {
-      if (isTouchRotatingRef.current && e.touches.length === 2 && initialTouchAngleRef.current !== null) {
-        const currentAngle = getTouchAngle(e.touches[0], e.touches[1]);
-        let diff = currentAngle - initialTouchAngleRef.current;
-        if (diff > 180) diff -= 360;
-        if (diff < -180) diff += 360;
-        
-        onRotate(Math.round(initialRotationRef.current + diff));
-        if (e.cancelable) e.preventDefault();
-      }
-    };
-
-    const handleTouchEnd = (e: TouchEvent) => {
-      if (e.touches.length < 2 && isTouchRotatingRef.current) {
-        isTouchRotatingRef.current = false;
-        initialTouchAngleRef.current = null;
-      }
-    };
-
-    // Mouse Shift+Drag or Right-Click Drag or Alt+Drag Rotation
-    const handleMouseDown = (e: MouseEvent) => {
-      if (e.shiftKey || e.altKey || e.button === 2) {
-        isMouseRotatingRef.current = true;
-        mouseStartXRef.current = e.clientX;
-        mouseInitialRotationRef.current = rotationRef.current;
-      }
-    };
-
-    const handleMouseMove = (e: MouseEvent) => {
-      if (isMouseRotatingRef.current && mouseStartXRef.current !== null) {
-        const diff = e.clientX - mouseStartXRef.current;
-        onRotate(Math.round(mouseInitialRotationRef.current + diff * 0.7));
-      }
-    };
-
-    const handleMouseUp = () => {
-      if (isMouseRotatingRef.current) {
-        isMouseRotatingRef.current = false;
-        mouseStartXRef.current = null;
-      }
-    };
-
-    const handleContextMenu = (e: MouseEvent) => {
-      if (isMouseRotatingRef.current) {
-        e.preventDefault();
-      }
-    };
-
-    container.addEventListener('touchstart', handleTouchStart, { passive: false });
-    container.addEventListener('touchmove', handleTouchMove, { passive: false });
-    container.addEventListener('touchend', handleTouchEnd);
-    container.addEventListener('touchcancel', handleTouchEnd);
-
-    container.addEventListener('mousedown', handleMouseDown);
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    container.addEventListener('contextmenu', handleContextMenu);
-
-    return () => {
-      container.removeEventListener('touchstart', handleTouchStart);
-      container.removeEventListener('touchmove', handleTouchMove);
-      container.removeEventListener('touchend', handleTouchEnd);
-      container.removeEventListener('touchcancel', handleTouchEnd);
-
-      container.removeEventListener('mousedown', handleMouseDown);
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-      container.removeEventListener('contextmenu', handleContextMenu);
-    };
-  }, [map, onRotate]);
 
   useEffect(() => {
     if (!map) return;
     const mapPane = map.getPane('mapPane');
     if (!mapPane) return;
-    const perspectiveTilt = is3DMode ? 'perspective(1000px) rotateX(58deg) ' : '';
-    mapPane.style.transform = `${perspectiveTilt}rotateZ(${rotation}deg)`;
+    const perspectiveTilt = is3DMode ? 'perspective(1000px) rotateX(58deg)' : 'none';
+    mapPane.style.transform = perspectiveTilt;
     mapPane.style.transformOrigin = 'center center';
-    mapPane.style.transition = (isTouchRotatingRef.current || isMouseRotatingRef.current) 
-      ? 'none' 
-      : 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)';
-  }, [map, rotation, is3DMode]);
+    mapPane.style.transition = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)';
+  }, [map, is3DMode]);
 
   return null;
 };
