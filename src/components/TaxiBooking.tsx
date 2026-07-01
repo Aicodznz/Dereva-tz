@@ -129,27 +129,25 @@ const getNormalizedCoords = (coords: any): [number, number][] => {
 
 function formatAddress(result: any): string {
   if (!result) return "Eneo Halijapatikana";
-  const addr = result.address;
 
-  if (!addr) {
-    if (result.display_name) {
-      const parts = result.display_name.split(",").map((p: string) => p.trim()).filter(Boolean);
-      const seen = new Set<string>();
-      const uniqueParts: string[] = [];
-      for (const p of parts) {
-        const lower = p.toLowerCase();
-        if (!seen.has(lower)) {
-          seen.add(lower);
-          uniqueParts.push(p);
-        }
+  if (result.display_name) {
+    const parts = result.display_name.split(",").map((p: string) => p.trim()).filter(Boolean);
+    const seen = new Set<string>();
+    const uniqueParts: string[] = [];
+    for (const p of parts) {
+      const lower = p.toLowerCase();
+      if (!seen.has(lower)) {
+        seen.add(lower);
+        uniqueParts.push(p);
       }
-      if (uniqueParts.length > 2) {
-        return uniqueParts.slice(0, 2).join(", ");
-      }
+    }
+    if (uniqueParts.length > 0) {
       return uniqueParts.join(", ");
     }
-    return "Eneo Halijapatikana";
   }
+
+  const addr = result.address;
+  if (!addr) return "Eneo Halijapatikana";
 
   const partsList: string[] = [];
 
@@ -165,19 +163,26 @@ function formatAddress(result: any): string {
   const c = addr.neighbourhood || addr.quarter || addr.suburb || addr.residential || addr.locality || addr.subdistrict;
   if (c) partsList.push(c);
 
-  // Level D: City District / District
-  const d = addr.city_district || addr.district;
+  // Level D: City District / District / Municipality
+  const d = addr.city_district || addr.district || addr.municipality;
   if (d) partsList.push(d);
 
   // Level E: City / Town / Municipality / Village
-  const e = addr.city || addr.town || addr.municipality || addr.village;
+  const e = addr.city || addr.town || addr.village;
   if (e) partsList.push(e);
 
-  // Level F: Region / County
-  const f = addr.county || addr.state_district || addr.region || addr.state;
+  // Level F: Region / County / State / Zone
+  const f = addr.state_district || addr.region || addr.county || addr.state;
   if (f) partsList.push(f);
 
-  // Clean and deduplicate parts
+  // Level G: Postcode
+  const g = addr.postcode;
+  if (g) partsList.push(g);
+
+  // Level H: Country
+  const h = addr.country || "Tanzania";
+  if (h) partsList.push(h);
+
   const seenParts = new Set<string>();
   const finalParts: string[] = [];
 
@@ -186,42 +191,13 @@ function formatAddress(result: any): string {
     if (!trimmed) continue;
     const lower = trimmed.toLowerCase();
     
-    let isDuplicate = false;
-    for (const seen of seenParts) {
-      if (seen.includes(lower) || lower.includes(seen)) {
-        isDuplicate = true;
-        break;
-      }
-    }
-    if (!isDuplicate) {
+    if (!seenParts.has(lower)) {
       seenParts.add(lower);
       finalParts.push(trimmed);
     }
   }
 
-  let label = "";
-  if (finalParts.length >= 2) {
-    label = `${finalParts[0]}, ${finalParts[1]}`;
-  } else if (finalParts.length === 1) {
-    label = finalParts[0];
-  } else {
-    if (result.display_name) {
-      const displayParts = result.display_name.split(",").map((p: string) => p.trim()).filter(Boolean);
-      const uniqueDisplay: string[] = [];
-      const seenD = new Set<string>();
-      for (const p of displayParts) {
-        const lower = p.toLowerCase();
-        if (!seenD.has(lower)) {
-          seenD.add(lower);
-          uniqueDisplay.push(p);
-        }
-      }
-      return uniqueDisplay.slice(0, 2).join(", ");
-    }
-    return "Eneo Lisilojulikana";
-  }
-
-  return label.length > 45 ? label.substring(0, 42) + "..." : label;
+  return finalParts.length > 0 ? finalParts.join(", ") : "Eneo Lisilojulikana";
 }
 
 const BajajSVG = ({ className }: { className?: string }) => (
@@ -778,62 +754,65 @@ export default function TaxiBooking() {
   const mapTileUrl = "https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}";
 
   const getNearestPopularPlace = (lat: number, lng: number): string => {
-    let nearestName = "Mwai Kibaki Road, Dar es Salaam";
+    let nearestName = "Police Quarters, Mikocheni, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14111, Tanzania";
     let minDistance = Infinity;
     
     const places = [
-      { display_name: "Kariakoo, Dar es Salaam", lat: -6.82, lon: 39.278 },
-      { display_name: "Posta, Dar es Salaam", lat: -6.8164, lon: 39.2902 },
-      { display_name: "Mwenge, Dar es Salaam", lat: -6.7681, lon: 39.2274 },
-      { display_name: "Sinza, Dar es Salaam", lat: -6.7812, lon: 39.2223 },
-      { display_name: "Masaki, Dar es Salaam", lat: -6.7441, lon: 39.2812 },
-      { display_name: "Mikocheni, Dar es Salaam", lat: -6.7645, lon: 39.2492 },
-      { display_name: "Ubungo Bus Terminal, Dar es Salaam", lat: -6.7961, lon: 39.2155 },
-      { display_name: "Mbezi Luis, Dar es Salaam", lat: -6.7831, lon: 39.1952 },
-      { display_name: "Kinondoni, Dar es Salaam", lat: -6.7952, lon: 39.2631 },
-      { display_name: "Temeke, Dar es Salaam", lat: -6.855, lon: 39.265 },
-      { display_name: "Kigamboni, Dar es Salaam", lat: -6.825, lon: 39.31 },
-      { display_name: "Ilala, Dar es Salaam", lat: -6.827, lon: 39.262 },
-      { display_name: "Gerezani, Dar es Salaam", lat: -6.8239, lon: 39.2797 },
-      { display_name: "Oysterbay, Dar es Salaam", lat: -6.7725, lon: 39.2789 },
-      { display_name: "Msasani, Dar es Salaam", lat: -6.7561, lon: 39.2741 },
-      { display_name: "Tabata, Dar es Salaam", lat: -6.819, lon: 39.215 },
-      { display_name: "Segerea, Dar es Salaam", lat: -6.84, lon: 39.19 },
-      { display_name: "Kawe, Dar es Salaam", lat: -6.7389, lon: 39.2558 },
-      { display_name: "Tegeta, Dar es Salaam", lat: -6.685, lon: 39.214 },
-      { display_name: "Kunduchi, Dar es Salaam", lat: -6.669, lon: 39.219 },
-      { display_name: "Kibamba, Dar es Salaam", lat: -6.79, lon: 39.11 },
-      { display_name: "Kimara, Dar es Salaam", lat: -6.792, lon: 39.167 },
-      { display_name: "Kisutu, Dar es Salaam", lat: -6.814, lon: 39.287 },
-      { display_name: "Upanga, Dar es Salaam", lat: -6.804, lon: 39.28 },
-      { display_name: "Mbagala, Dar es Salaam", lat: -6.891, lon: 39.269 },
-      { display_name: "Chanika, Dar es Salaam", lat: -6.91, lon: 39.08 },
-      { display_name: "Kivukoni Ferry, Dar es Salaam", lat: -6.821, lon: 39.299 },
-      { display_name: "Boko, Dar es Salaam", lat: -6.649, lon: 39.191 },
-      { display_name: "Bunju, Dar es Salaam", lat: -6.611, lon: 39.166 },
-      { display_name: "Julius Nyerere Airport (JNIA), Dar es Salaam", lat: -6.8781, lon: 39.2026 },
-      { display_name: "Tazara, Dar es Salaam", lat: -6.843, lon: 39.241 },
-      { display_name: "Morocco, Dar es Salaam", lat: -6.7885, lon: 39.2604 },
-      { display_name: "Tandika, Dar es Salaam", lat: -6.858, lon: 39.259 },
-      { display_name: "Buguruni, Dar es Salaam", lat: -6.828, lon: 39.245 },
-      { display_name: "Vingunguti, Dar es Salaam", lat: -6.842, lon: 39.218 },
-      { display_name: "Kijitonyama, Dar es Salaam", lat: -6.778, lon: 39.245 },
-      { display_name: "Makumbusho, Dar es Salaam", lat: -6.776, lon: 39.241 },
-      { display_name: "Coco Beach, Dar es Salaam", lat: -6.765, lon: 39.294 },
-      { display_name: "The Slipway, Oysterbay, Dar es Salaam", lat: -6.749, lon: 39.284 },
-      { display_name: "Mlimani City Mall, Dar es Salaam", lat: -6.7722, lon: 39.2241 },
-      { display_name: "Karume, Dar es Salaam", lat: -6.8202, lon: 39.2612 },
-      { display_name: "Machinga Complex, Dar es Salaam", lat: -6.8218, lon: 39.2598 },
-      { display_name: "Kigogo, Dar es Salaam", lat: -6.807, lon: 39.231 },
-      { display_name: "Mabibo, Dar es Salaam", lat: -6.801, lon: 39.211 },
-      { display_name: "Manzese, Dar es Salaam", lat: -6.793, lon: 39.217 },
-      { display_name: "Keko, Dar es Salaam", lat: -6.837, lon: 39.282 },
-      { display_name: "Chang’ombe, Dar es Salaam", lat: -6.841, lon: 39.268 },
-      { display_name: "Kurasini, Dar es Salaam", lat: -6.848, lon: 39.289 },
-      { display_name: "Dodoma Town Central, Tanzania", lat: -6.1722, lon: 35.7481 },
-      { display_name: "Arusha Clock Tower, Tanzania", lat: -3.3731, lon: 36.6857 },
-      { display_name: "Mwanza City Centre, Tanzania", lat: -2.5164, lon: 32.9018 },
-      { display_name: "Zanzibar Stone Town, Tanzania", lat: -6.1659, lon: 39.199 },
+      { display_name: "Police Quarters, Mikocheni, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14111, Tanzania", lat: -6.7645, lon: 39.2492 },
+      { display_name: "New City Road off Bagamoyo Road, Police Quarters, Mikocheni, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14107, Tanzania", lat: -6.7650, lon: 39.2485 },
+      { display_name: "Vikawe Bondeni, Kibaha Town, Mkoa wa Pwani, Coastal Zone, Tanzania", lat: -6.7580, lon: 38.9320 },
+      { display_name: "Kariakoo, Ilala Municipal, Dar es Salaam, Coastal Zone, 11101, Tanzania", lat: -6.82, lon: 39.278 },
+      { display_name: "Posta, Kivukoni, Ilala Municipal, Dar es Salaam, Coastal Zone, 11105, Tanzania", lat: -6.8164, lon: 39.2902 },
+      { display_name: "Mwenge, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14110, Tanzania", lat: -6.7681, lon: 39.2274 },
+      { display_name: "Sinza, Ubungo Municipal, Dar es Salaam, Coastal Zone, 14113, Tanzania", lat: -6.7812, lon: 39.2223 },
+      { display_name: "Masaki, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14112, Tanzania", lat: -6.7441, lon: 39.2812 },
+      { display_name: "Mikocheni, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14111, Tanzania", lat: -6.7645, lon: 39.2492 },
+      { display_name: "Ubungo Bus Terminal, Ubungo Municipal, Dar es Salaam, Coastal Zone, 14114, Tanzania", lat: -6.7961, lon: 39.2155 },
+      { display_name: "Mbezi Luis, Ubungo Municipal, Dar es Salaam, Coastal Zone, 14115, Tanzania", lat: -6.7831, lon: 39.1952 },
+      { display_name: "Kinondoni, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14110, Tanzania", lat: -6.7952, lon: 39.2631 },
+      { display_name: "Temeke, Temeke Municipal, Dar es Salaam, Coastal Zone, 15101, Tanzania", lat: -6.855, lon: 39.265 },
+      { display_name: "Kigamboni, Kigamboni Municipal, Dar es Salaam, Coastal Zone, 17101, Tanzania", lat: -6.825, lon: 39.31 },
+      { display_name: "Ilala, Ilala Municipal, Dar es Salaam, Coastal Zone, 12101, Tanzania", lat: -6.827, lon: 39.262 },
+      { display_name: "Gerezani, Ilala Municipal, Dar es Salaam, Coastal Zone, 11102, Tanzania", lat: -6.8239, lon: 39.2797 },
+      { display_name: "Oysterbay, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14112, Tanzania", lat: -6.7725, lon: 39.2789 },
+      { display_name: "Msasani, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14111, Tanzania", lat: -6.7561, lon: 39.2741 },
+      { display_name: "Tabata, Ilala Municipal, Dar es Salaam, Coastal Zone, 12105, Tanzania", lat: -6.819, lon: 39.215 },
+      { display_name: "Segerea, Ilala Municipal, Dar es Salaam, Coastal Zone, 12108, Tanzania", lat: -6.84, lon: 39.19 },
+      { display_name: "Kawe, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14109, Tanzania", lat: -6.7389, lon: 39.2558 },
+      { display_name: "Tegeta, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14108, Tanzania", lat: -6.685, lon: 39.214 },
+      { display_name: "Kunduchi, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14107, Tanzania", lat: -6.669, lon: 39.219 },
+      { display_name: "Kibamba, Ubungo Municipal, Dar es Salaam, Coastal Zone, 14116, Tanzania", lat: -6.79, lon: 39.11 },
+      { display_name: "Kimara, Ubungo Municipal, Dar es Salaam, Coastal Zone, 14113, Tanzania", lat: -6.792, lon: 39.167 },
+      { display_name: "Kisutu, Ilala Municipal, Dar es Salaam, Coastal Zone, 11104, Tanzania", lat: -6.814, lon: 39.287 },
+      { display_name: "Upanga, Ilala Municipal, Dar es Salaam, Coastal Zone, 11102, Tanzania", lat: -6.804, lon: 39.28 },
+      { display_name: "Mbagala, Temeke Municipal, Dar es Salaam, Coastal Zone, 15102, Tanzania", lat: -6.891, lon: 39.269 },
+      { display_name: "Chanika, Ilala Municipal, Dar es Salaam, Coastal Zone, 12111, Tanzania", lat: -6.91, lon: 39.08 },
+      { display_name: "Kivukoni Ferry, Ilala Municipal, Dar es Salaam, Coastal Zone, 11105, Tanzania", lat: -6.821, lon: 39.299 },
+      { display_name: "Boko, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14107, Tanzania", lat: -6.649, lon: 39.191 },
+      { display_name: "Bunju, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14106, Tanzania", lat: -6.611, lon: 39.166 },
+      { display_name: "Julius Nyerere Airport (JNIA), Kipawa, Ukonga, Ilala Municipal, Dar es Salaam, Coastal Zone, 12109, Tanzania", lat: -6.8781, lon: 39.2026 },
+      { display_name: "Tazara, Temeke Municipal, Dar es Salaam, Coastal Zone, 15101, Tanzania", lat: -6.843, lon: 39.241 },
+      { display_name: "Morocco, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14110, Tanzania", lat: -6.7885, lon: 39.2604 },
+      { display_name: "Tandika, Temeke Municipal, Dar es Salaam, Coastal Zone, 15103, Tanzania", lat: -6.858, lon: 39.259 },
+      { display_name: "Buguruni, Ilala Municipal, Dar es Salaam, Coastal Zone, 12102, Tanzania", lat: -6.828, lon: 39.245 },
+      { display_name: "Vingunguti, Ilala Municipal, Dar es Salaam, Coastal Zone, 12103, Tanzania", lat: -6.842, lon: 39.218 },
+      { display_name: "Kijitonyama, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14110, Tanzania", lat: -6.778, lon: 39.245 },
+      { display_name: "Makumbusho, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14110, Tanzania", lat: -6.776, lon: 39.241 },
+      { display_name: "Coco Beach, Oysterbay, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14112, Tanzania", lat: -6.765, lon: 39.294 },
+      { display_name: "The Slipway, Oysterbay, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14112, Tanzania", lat: -6.749, lon: 39.284 },
+      { display_name: "Mlimani City Mall, Sam Nujoma Road, Ubungo Municipal, Dar es Salaam, Coastal Zone, 14113, Tanzania", lat: -6.7722, lon: 39.2241 },
+      { display_name: "Karume, Ilala Municipal, Dar es Salaam, Coastal Zone, 12101, Tanzania", lat: -6.8202, lon: 39.2612 },
+      { display_name: "Machinga Complex, Ilala Municipal, Dar es Salaam, Coastal Zone, 12101, Tanzania", lat: -6.8218, lon: 39.2598 },
+      { display_name: "Kigogo, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14110, Tanzania", lat: -6.807, lon: 39.231 },
+      { display_name: "Mabibo, Ubungo Municipal, Dar es Salaam, Coastal Zone, 14113, Tanzania", lat: -6.801, lon: 39.211 },
+      { display_name: "Manzese, Ubungo Municipal, Dar es Salaam, Coastal Zone, 14113, Tanzania", lat: -6.793, lon: 39.217 },
+      { display_name: "Keko, Temeke Municipal, Dar es Salaam, Coastal Zone, 15101, Tanzania", lat: -6.837, lon: 39.282 },
+      { display_name: "Chang’ombe, Temeke Municipal, Dar es Salaam, Coastal Zone, 15101, Tanzania", lat: -6.841, lon: 39.268 },
+      { display_name: "Kurasini, Temeke Municipal, Dar es Salaam, Coastal Zone, 15101, Tanzania", lat: -6.848, lon: 39.289 },
+      { display_name: "Dodoma Town Central, Dodoma City, Mkoa wa Dodoma, Central Zone, Tanzania", lat: -6.1722, lon: 35.7481 },
+      { display_name: "Arusha Clock Tower, Arusha Urban, Mkoa wa Arusha, Northern Zone, Tanzania", lat: -3.3731, lon: 36.6857 },
+      { display_name: "Mwanza City Centre, Nyamagana, Mkoa wa Mwanza, Lake Zone, Tanzania", lat: -2.5164, lon: 32.9018 },
+      { display_name: "Zanzibar Stone Town, Mjini Magharibi, Zanzibar, Tanzania", lat: -6.1659, lon: 39.199 },
     ];
 
     for (const p of places) {
@@ -2048,98 +2027,61 @@ export default function TaxiBooking() {
     }
 
     const TZ_POPULAR_PLACES = [
-      { display_name: "Kariakoo, Dar es Salaam", lat: -6.82, lon: 39.278 },
-      { display_name: "Posta, Dar es Salaam", lat: -6.8164, lon: 39.2902 },
-      { display_name: "Mwenge, Dar es Salaam", lat: -6.7681, lon: 39.2274 },
-      { display_name: "Sinza, Dar es Salaam", lat: -6.7812, lon: 39.2223 },
-      { display_name: "Masaki, Dar es Salaam", lat: -6.7441, lon: 39.2812 },
-      { display_name: "Mikocheni, Dar es Salaam", lat: -6.7645, lon: 39.2492 },
-      {
-        display_name: "Ubungo Bus Terminal, Dar es Salaam",
-        lat: -6.7961,
-        lon: 39.2155,
-      },
-      { display_name: "Mbezi Luis, Dar es Salaam", lat: -6.7831, lon: 39.1952 },
-      { display_name: "Kinondoni, Dar es Salaam", lat: -6.7952, lon: 39.2631 },
-      { display_name: "Temeke, Dar es Salaam", lat: -6.855, lon: 39.265 },
-      { display_name: "Kigamboni, Dar es Salaam", lat: -6.825, lon: 39.31 },
-      { display_name: "Ilala, Dar es Salaam", lat: -6.827, lon: 39.262 },
-      { display_name: "Gerezani, Dar es Salaam", lat: -6.8239, lon: 39.2797 },
-      { display_name: "Oysterbay, Dar es Salaam", lat: -6.7725, lon: 39.2789 },
-      { display_name: "Msasani, Dar es Salaam", lat: -6.7561, lon: 39.2741 },
-      { display_name: "Tabata, Dar es Salaam", lat: -6.819, lon: 39.215 },
-      { display_name: "Segerea, Dar es Salaam", lat: -6.84, lon: 39.19 },
-      { display_name: "Kawe, Dar es Salaam", lat: -6.7389, lon: 39.2558 },
-      { display_name: "Tegeta, Dar es Salaam", lat: -6.685, lon: 39.214 },
-      { display_name: "Kunduchi, Dar es Salaam", lat: -6.669, lon: 39.219 },
-      { display_name: "Kibamba, Dar es Salaam", lat: -6.79, lon: 39.11 },
-      { display_name: "Kimara, Dar es Salaam", lat: -6.792, lon: 39.167 },
-      { display_name: "Kisutu, Dar es Salaam", lat: -6.814, lon: 39.287 },
-      { display_name: "Upanga, Dar es Salaam", lat: -6.804, lon: 39.28 },
-      { display_name: "Mbagala, Dar es Salaam", lat: -6.891, lon: 39.269 },
-      { display_name: "Chanika, Dar es Salaam", lat: -6.91, lon: 39.08 },
-      {
-        display_name: "Kivukoni Ferry, Dar es Salaam",
-        lat: -6.821,
-        lon: 39.299,
-      },
-      { display_name: "Boko, Dar es Salaam", lat: -6.649, lon: 39.191 },
-      { display_name: "Bunju, Dar es Salaam", lat: -6.611, lon: 39.166 },
-      {
-        display_name: "Julius Nyerere Airport (JNIA), Dar es Salaam",
-        lat: -6.8781,
-        lon: 39.2026,
-      },
-      { display_name: "Tazara, Dar es Salaam", lat: -6.843, lon: 39.241 },
-      { display_name: "Morocco, Dar es Salaam", lat: -6.7885, lon: 39.2604 },
-      { display_name: "Tandika, Dar es Salaam", lat: -6.858, lon: 39.259 },
-      { display_name: "Buguruni, Dar es Salaam", lat: -6.828, lon: 39.245 },
-      { display_name: "Vingunguti, Dar es Salaam", lat: -6.842, lon: 39.218 },
-      { display_name: "Kijitonyama, Dar es Salaam", lat: -6.778, lon: 39.245 },
-      { display_name: "Makumbusho, Dar es Salaam", lat: -6.776, lon: 39.241 },
-      { display_name: "Coco Beach, Dar es Salaam", lat: -6.765, lon: 39.294 },
-      {
-        display_name: "The Slipway, Oysterbay, Dar es Salaam",
-        lat: -6.749,
-        lon: 39.284,
-      },
-      {
-        display_name: "Mlimani City Mall, Dar es Salaam",
-        lat: -6.7722,
-        lon: 39.2241,
-      },
-      { display_name: "Karume, Dar es Salaam", lat: -6.8202, lon: 39.2612 },
-      {
-        display_name: "Machinga Complex, Dar es Salaam",
-        lat: -6.8218,
-        lon: 39.2598,
-      },
-      { display_name: "Kigogo, Dar es Salaam", lat: -6.807, lon: 39.231 },
-      { display_name: "Mabibo, Dar es Salaam", lat: -6.801, lon: 39.211 },
-      { display_name: "Manzese, Dar es Salaam", lat: -6.793, lon: 39.217 },
-      { display_name: "Keko, Dar es Salaam", lat: -6.837, lon: 39.282 },
-      { display_name: "Chang’ombe, Dar es Salaam", lat: -6.841, lon: 39.268 },
-      { display_name: "Kurasini, Dar es Salaam", lat: -6.848, lon: 39.289 },
-      {
-        display_name: "Dodoma Town Central, Tanzania",
-        lat: -6.1722,
-        lon: 35.7481,
-      },
-      {
-        display_name: "Arusha Clock Tower, Tanzania",
-        lat: -3.3731,
-        lon: 36.6857,
-      },
-      {
-        display_name: "Mwanza City Centre, Tanzania",
-        lat: -2.5164,
-        lon: 32.9018,
-      },
-      {
-        display_name: "Zanzibar Stone Town, Tanzania",
-        lat: -6.1659,
-        lon: 39.199,
-      },
+      { display_name: "Police Quarters, Mikocheni, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14111, Tanzania", lat: -6.7645, lon: 39.2492 },
+      { display_name: "New City Road off Bagamoyo Road, Police Quarters, Mikocheni, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14107, Tanzania", lat: -6.7650, lon: 39.2485 },
+      { display_name: "Vikawe Bondeni, Kibaha Town, Mkoa wa Pwani, Coastal Zone, Tanzania", lat: -6.7580, lon: 38.9320 },
+      { display_name: "Kariakoo, Ilala Municipal, Dar es Salaam, Coastal Zone, 11101, Tanzania", lat: -6.82, lon: 39.278 },
+      { display_name: "Posta, Kivukoni, Ilala Municipal, Dar es Salaam, Coastal Zone, 11105, Tanzania", lat: -6.8164, lon: 39.2902 },
+      { display_name: "Mwenge, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14110, Tanzania", lat: -6.7681, lon: 39.2274 },
+      { display_name: "Sinza, Ubungo Municipal, Dar es Salaam, Coastal Zone, 14113, Tanzania", lat: -6.7812, lon: 39.2223 },
+      { display_name: "Masaki, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14112, Tanzania", lat: -6.7441, lon: 39.2812 },
+      { display_name: "Mikocheni, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14111, Tanzania", lat: -6.7645, lon: 39.2492 },
+      { display_name: "Ubungo Bus Terminal, Ubungo Municipal, Dar es Salaam, Coastal Zone, 14114, Tanzania", lat: -6.7961, lon: 39.2155 },
+      { display_name: "Mbezi Luis, Ubungo Municipal, Dar es Salaam, Coastal Zone, 14115, Tanzania", lat: -6.7831, lon: 39.1952 },
+      { display_name: "Kinondoni, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14110, Tanzania", lat: -6.7952, lon: 39.2631 },
+      { display_name: "Temeke, Temeke Municipal, Dar es Salaam, Coastal Zone, 15101, Tanzania", lat: -6.855, lon: 39.265 },
+      { display_name: "Kigamboni, Kigamboni Municipal, Dar es Salaam, Coastal Zone, 17101, Tanzania", lat: -6.825, lon: 39.31 },
+      { display_name: "Ilala, Ilala Municipal, Dar es Salaam, Coastal Zone, 12101, Tanzania", lat: -6.827, lon: 39.262 },
+      { display_name: "Gerezani, Ilala Municipal, Dar es Salaam, Coastal Zone, 11102, Tanzania", lat: -6.8239, lon: 39.2797 },
+      { display_name: "Oysterbay, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14112, Tanzania", lat: -6.7725, lon: 39.2789 },
+      { display_name: "Msasani, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14111, Tanzania", lat: -6.7561, lon: 39.2741 },
+      { display_name: "Tabata, Ilala Municipal, Dar es Salaam, Coastal Zone, 12105, Tanzania", lat: -6.819, lon: 39.215 },
+      { display_name: "Segerea, Ilala Municipal, Dar es Salaam, Coastal Zone, 12108, Tanzania", lat: -6.84, lon: 39.19 },
+      { display_name: "Kawe, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14109, Tanzania", lat: -6.7389, lon: 39.2558 },
+      { display_name: "Tegeta, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14108, Tanzania", lat: -6.685, lon: 39.214 },
+      { display_name: "Kunduchi, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14107, Tanzania", lat: -6.669, lon: 39.219 },
+      { display_name: "Kibamba, Ubungo Municipal, Dar es Salaam, Coastal Zone, 14116, Tanzania", lat: -6.79, lon: 39.11 },
+      { display_name: "Kimara, Ubungo Municipal, Dar es Salaam, Coastal Zone, 14113, Tanzania", lat: -6.792, lon: 39.167 },
+      { display_name: "Kisutu, Ilala Municipal, Dar es Salaam, Coastal Zone, 11104, Tanzania", lat: -6.814, lon: 39.287 },
+      { display_name: "Upanga, Ilala Municipal, Dar es Salaam, Coastal Zone, 11102, Tanzania", lat: -6.804, lon: 39.28 },
+      { display_name: "Mbagala, Temeke Municipal, Dar es Salaam, Coastal Zone, 15102, Tanzania", lat: -6.891, lon: 39.269 },
+      { display_name: "Chanika, Ilala Municipal, Dar es Salaam, Coastal Zone, 12111, Tanzania", lat: -6.91, lon: 39.08 },
+      { display_name: "Kivukoni Ferry, Ilala Municipal, Dar es Salaam, Coastal Zone, 11105, Tanzania", lat: -6.821, lon: 39.299 },
+      { display_name: "Boko, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14107, Tanzania", lat: -6.649, lon: 39.191 },
+      { display_name: "Bunju, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14106, Tanzania", lat: -6.611, lon: 39.166 },
+      { display_name: "Julius Nyerere Airport (JNIA), Kipawa, Ukonga, Ilala Municipal, Dar es Salaam, Coastal Zone, 12109, Tanzania", lat: -6.8781, lon: 39.2026 },
+      { display_name: "Tazara, Temeke Municipal, Dar es Salaam, Coastal Zone, 15101, Tanzania", lat: -6.843, lon: 39.241 },
+      { display_name: "Morocco, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14110, Tanzania", lat: -6.7885, lon: 39.2604 },
+      { display_name: "Tandika, Temeke Municipal, Dar es Salaam, Coastal Zone, 15103, Tanzania", lat: -6.858, lon: 39.259 },
+      { display_name: "Buguruni, Ilala Municipal, Dar es Salaam, Coastal Zone, 12102, Tanzania", lat: -6.828, lon: 39.245 },
+      { display_name: "Vingunguti, Ilala Municipal, Dar es Salaam, Coastal Zone, 12103, Tanzania", lat: -6.842, lon: 39.218 },
+      { display_name: "Kijitonyama, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14110, Tanzania", lat: -6.778, lon: 39.245 },
+      { display_name: "Makumbusho, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14110, Tanzania", lat: -6.776, lon: 39.241 },
+      { display_name: "Coco Beach, Oysterbay, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14112, Tanzania", lat: -6.765, lon: 39.294 },
+      { display_name: "The Slipway, Oysterbay, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14112, Tanzania", lat: -6.749, lon: 39.284 },
+      { display_name: "Mlimani City Mall, Sam Nujoma Road, Ubungo Municipal, Dar es Salaam, Coastal Zone, 14113, Tanzania", lat: -6.7722, lon: 39.2241 },
+      { display_name: "Karume, Ilala Municipal, Dar es Salaam, Coastal Zone, 12101, Tanzania", lat: -6.8202, lon: 39.2612 },
+      { display_name: "Machinga Complex, Ilala Municipal, Dar es Salaam, Coastal Zone, 12101, Tanzania", lat: -6.8218, lon: 39.2598 },
+      { display_name: "Kigogo, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14110, Tanzania", lat: -6.807, lon: 39.231 },
+      { display_name: "Mabibo, Ubungo Municipal, Dar es Salaam, Coastal Zone, 14113, Tanzania", lat: -6.801, lon: 39.211 },
+      { display_name: "Manzese, Ubungo Municipal, Dar es Salaam, Coastal Zone, 14113, Tanzania", lat: -6.793, lon: 39.217 },
+      { display_name: "Keko, Temeke Municipal, Dar es Salaam, Coastal Zone, 15101, Tanzania", lat: -6.837, lon: 39.282 },
+      { display_name: "Chang’ombe, Temeke Municipal, Dar es Salaam, Coastal Zone, 15101, Tanzania", lat: -6.841, lon: 39.268 },
+      { display_name: "Kurasini, Temeke Municipal, Dar es Salaam, Coastal Zone, 15101, Tanzania", lat: -6.848, lon: 39.289 },
+      { display_name: "Dodoma Town Central, Dodoma City, Mkoa wa Dodoma, Central Zone, Tanzania", lat: -6.1722, lon: 35.7481 },
+      { display_name: "Arusha Clock Tower, Arusha Urban, Mkoa wa Arusha, Northern Zone, Tanzania", lat: -3.3731, lon: 36.6857 },
+      { display_name: "Mwanza City Centre, Nyamagana, Mkoa wa Mwanza, Lake Zone, Tanzania", lat: -2.5164, lon: 32.9018 },
+      { display_name: "Zanzibar Stone Town, Mjini Magharibi, Zanzibar, Tanzania", lat: -6.1659, lon: 39.199 },
     ];
 
     const trimmed = query.trim().toLowerCase();
