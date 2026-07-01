@@ -130,49 +130,97 @@ function formatAddress(result: any): string {
   if (!result) return "Eneo Halijapatikana";
   const addr = result.address;
 
-  if (!addr && result.display_name) {
-    const parts = result.display_name.split(",");
-    if (parts.length > 2) {
-      return parts.slice(0, 2).map((p: string) => p.trim()).join(", ");
+  if (!addr) {
+    if (result.display_name) {
+      const parts = result.display_name.split(",").map((p: string) => p.trim()).filter(Boolean);
+      const seen = new Set<string>();
+      const uniqueParts: string[] = [];
+      for (const p of parts) {
+        const lower = p.toLowerCase();
+        if (!seen.has(lower)) {
+          seen.add(lower);
+          uniqueParts.push(p);
+        }
+      }
+      if (uniqueParts.length > 2) {
+        return uniqueParts.slice(0, 2).join(", ");
+      }
+      return uniqueParts.join(", ");
     }
-    return result.display_name;
+    return "Eneo Halijapatikana";
   }
 
-  if (!addr) return result.display_name || "Eneo Halijapatikana";
+  const partsList: string[] = [];
 
-  let primary =
-    addr.shop ||
-    addr.amenity ||
-    addr.building ||
-    addr.office ||
-    addr.tourism ||
-    addr.point_of_interest ||
-    addr.house_number;
-  let secondary = addr.road || addr.suburb || addr.neighbourhood;
-  let tertiary = addr.city || addr.town || addr.village || addr.county;
+  // Level A: Specific Point of Interest / Building / Number
+  const a = addr.shop || addr.amenity || addr.building || addr.office || addr.tourism || addr.point_of_interest || addr.house_number || addr.healthcare || addr.leisure;
+  if (a) partsList.push(a);
+
+  // Level B: Road / Street
+  const b = addr.road || addr.street || addr.square;
+  if (b) partsList.push(b);
+
+  // Level C: Neighborhood / Quarter / Suburb / Locality / Subdistrict / Residential
+  const c = addr.neighbourhood || addr.quarter || addr.suburb || addr.residential || addr.locality || addr.subdistrict;
+  if (c) partsList.push(c);
+
+  // Level D: City District / District
+  const d = addr.city_district || addr.district;
+  if (d) partsList.push(d);
+
+  // Level E: City / Town / Municipality / Village
+  const e = addr.city || addr.town || addr.municipality || addr.village;
+  if (e) partsList.push(e);
+
+  // Level F: Region / County
+  const f = addr.county || addr.state_district || addr.region || addr.state;
+  if (f) partsList.push(f);
+
+  // Clean and deduplicate parts
+  const seenParts = new Set<string>();
+  const finalParts: string[] = [];
+
+  for (const part of partsList) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+    const lower = trimmed.toLowerCase();
+    
+    let isDuplicate = false;
+    for (const seen of seenParts) {
+      if (seen.includes(lower) || lower.includes(seen)) {
+        isDuplicate = true;
+        break;
+      }
+    }
+    if (!isDuplicate) {
+      seenParts.add(lower);
+      finalParts.push(trimmed);
+    }
+  }
 
   let label = "";
-  if (primary && secondary) {
-    label = `${primary}, ${secondary}`;
-  } else if (primary) {
-    label = primary;
-  } else if (secondary && tertiary) {
-    label = `${secondary}, ${tertiary}`;
-  } else if (secondary) {
-    label = secondary;
+  if (finalParts.length >= 2) {
+    label = `${finalParts[0]}, ${finalParts[1]}`;
+  } else if (finalParts.length === 1) {
+    label = finalParts[0];
   } else {
-    label = tertiary || result.display_name || "Unknown Location";
-  }
-
-  if ((label === "Unknown Location" || label === "Eneo Halijapatikana") && result.display_name) {
-    const parts = result.display_name.split(",");
-    if (parts.length > 2) {
-      return parts.slice(0, 2).map((p: string) => p.trim()).join(", ");
+    if (result.display_name) {
+      const displayParts = result.display_name.split(",").map((p: string) => p.trim()).filter(Boolean);
+      const uniqueDisplay: string[] = [];
+      const seenD = new Set<string>();
+      for (const p of displayParts) {
+        const lower = p.toLowerCase();
+        if (!seenD.has(lower)) {
+          seenD.add(lower);
+          uniqueDisplay.push(p);
+        }
+      }
+      return uniqueDisplay.slice(0, 2).join(", ");
     }
-    return result.display_name;
+    return "Eneo Lisilojulikana";
   }
 
-  return label.length > 35 ? label.substring(0, 32) + "..." : label;
+  return label.length > 45 ? label.substring(0, 42) + "..." : label;
 }
 
 const BajajSVG = ({ className }: { className?: string }) => (
@@ -2164,15 +2212,20 @@ export default function TaxiBooking() {
       return;
     }
     const { lat, lng } = e.latlng;
-    const addr = await reverseGeocode(lat, lng);
 
     if (settingMode === "pickup") {
       setPickupPos([lat, lng]);
-      setPickup(addr);
+      setPickup("Inatafuta eneo... 📍");
       setIsAutoLocated(false);
+      
+      const addr = await reverseGeocode(lat, lng);
+      setPickup(addr || "Eneo Halijapatikana");
     } else {
       setDestPos([lat, lng]);
-      setDestination(addr);
+      setDestination("Inatafuta eneo... 📍");
+      
+      const addr = await reverseGeocode(lat, lng);
+      setDestination(addr || "Eneo Halijapatikana");
     }
   };
 
