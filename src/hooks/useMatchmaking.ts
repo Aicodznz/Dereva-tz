@@ -119,7 +119,7 @@ export function useMatchmaking(ride: Ride | null) {
             const nextCoord = coords[stepIdx];
             let heading = 0;
             if (stepIdx > 0) {
-              const prevCoord = coords[stepIdx - 2];
+              const prevCoord = coords[stepIdx - 1];
               heading = getBearing(prevCoord[0], prevCoord[1], nextCoord[0], nextCoord[1]);
             } else {
               heading = getBearing(driverPos.lat, driverPos.lng, nextCoord[0], nextCoord[1]);
@@ -129,7 +129,7 @@ export function useMatchmaking(ride: Ride | null) {
               driverLocation: { lat: nextCoord[0], lng: nextCoord[1], heading },
               updatedAt: serverTimestamp()
             });
-            stepIdx += 3; // Move 3 steps at a time for smooth, high-speed pace
+            stepIdx += 1; // Move 1 step at a time for extremely smooth, realistic pace
           } else {
             console.log("[Simulation] Mock Driver arrived at pickup!");
             clearInterval(simulationIntervalRef.current);
@@ -145,7 +145,7 @@ export function useMatchmaking(ride: Ride | null) {
               updatedAt: serverTimestamp()
             });
           }
-        }, 700);
+        }, 1100);
       };
 
       // Fetch real routing coordinates asynchronously
@@ -216,7 +216,7 @@ export function useMatchmaking(ride: Ride | null) {
       };
     }
 
-    // Phase 3: Wait at pickup, then auto-start trip after 1 second
+    // Phase 3: Wait at pickup, then auto-start trip after 4 seconds
     if (ride.status === 'driver_arrived') {
       if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
 
@@ -227,7 +227,7 @@ export function useMatchmaking(ride: Ride | null) {
           startedAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         });
-      }, 1000);
+      }, 4000);
 
       return () => clearTimeout(startTripTimer);
     }
@@ -298,7 +298,7 @@ export function useMatchmaking(ride: Ride | null) {
 
           let heading = 0;
           if (currentIdx > 0) {
-            const prevCoord = interpolatedTripCoords[currentIdx - 2];
+            const prevCoord = interpolatedTripCoords[currentIdx - 1];
             heading = getBearing(prevCoord[0], prevCoord[1], nextCoord[0], nextCoord[1]);
           } else if (ride.driverLocation) {
             heading = getBearing(ride.driverLocation.lat, ride.driverLocation.lng, nextCoord[0], nextCoord[1]);
@@ -308,7 +308,7 @@ export function useMatchmaking(ride: Ride | null) {
             driverLocation: { lat: nextCoord[0], lng: nextCoord[1], heading },
             updatedAt: serverTimestamp()
           });
-          currentIdx += 3;
+          currentIdx += 1;
         } else {
           console.log("[Simulation] Reached destination!");
           clearInterval(simulationIntervalRef.current);
@@ -320,7 +320,7 @@ export function useMatchmaking(ride: Ride | null) {
             updatedAt: serverTimestamp()
           });
         }
-      }, 700);
+      }, 1100);
 
       return () => {
         if (simulationIntervalRef.current) {

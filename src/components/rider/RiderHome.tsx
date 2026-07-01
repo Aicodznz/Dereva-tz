@@ -558,6 +558,11 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
     }
   };
 
+  const livePositionRef = React.useRef<[number, number]>(position);
+  useEffect(() => {
+    livePositionRef.current = position;
+  }, [position]);
+
   // Dynamic Routing for Driver
   const routingTarget = useMemo<[number, number] | null>(() => {
     if (activeRide) {
@@ -574,9 +579,23 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
     return null;
   }, [activeRide?.status, activeRide?.pickup?.lat, activeRide?.destination?.lat, incomingRequest?.pickup?.lat, incomingRequest?.id]);
 
+  const routingStart = useMemo<[number, number]>(() => {
+    if (activeRide) {
+      if (activeRide.status === 'on_trip') {
+        return [activeRide.pickup.lat, activeRide.pickup.lng];
+      }
+      if (['accepted', 'driver_arriving', 'driver_arrived'].includes(activeRide.status)) {
+        return livePositionRef.current;
+      }
+    } else if (incomingRequest) {
+      return livePositionRef.current;
+    }
+    return livePositionRef.current;
+  }, [activeRide?.id, activeRide?.status, incomingRequest?.id]);
+
   const { routeCoords: dynamicRoute, steps, isLoading: isRoutingLoading } = useRouting(
-    position, 
-    routingTarget || position,
+    routingStart, 
+    routingTarget || routingStart,
     true
   );
   const { isUnlocked: voiceUnlocked, isMuted, speak, toggleMute } = useVoiceNavigation();
@@ -1053,8 +1072,8 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
 
       if (path && path.length > 0 && index < path.length - 1) {
         // Advance along the path. 
-        // We advance by 3 coordinate indices per tick to keep up a good simulated pace
-        const nextIndex = Math.min(index + 3, path.length - 1);
+        // We advance by 1 coordinate index per tick to keep up a smooth, realistic simulated pace
+        const nextIndex = Math.min(index + 1, path.length - 1);
         simulatedIndexRef.current = nextIndex;
         
         const currentCoord = path[index];
@@ -1090,7 +1109,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
           arrivedAtPickup();
         }
       }
-    }, 700);
+    }, 1100);
 
     return () => clearInterval(simInterval);
   }, [isOnline, activeRide?.status, updateDriverLocation, arrivedAtPickup]);
