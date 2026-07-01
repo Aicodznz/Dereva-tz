@@ -19,12 +19,76 @@ function getBearing(startLat: number, startLng: number, endLat: number, endLng: 
 
 export function useMatchmaking(ride: Ride | null) {
   const [isSearching, setIsSearching] = useState(false);
+  const [isTakeoverActive, setIsTakeoverActive] = useState(false);
+  
   const simulationIntervalRef = useRef<any>(null);
   const rideRef = useRef<Ride | null>(ride);
+  
+  const lastRealLocationUpdateRef = useRef<number>(Date.now());
+  const lastLocationRef = useRef<{ lat: number, lng: number } | null>(null);
+  const lastSimulatedCoordsRef = useRef<{ lat: number, lng: number } | null>(null);
 
   useEffect(() => {
     rideRef.current = ride;
   }, [ride]);
+
+  const isMockDriver = ride?.driverId === 'mock_driver_123';
+
+  // Watchdog timer to monitor driver inactivity
+  useEffect(() => {
+    if (!ride) {
+      setIsTakeoverActive(false);
+      return;
+    }
+    if (isMockDriver) {
+      setIsTakeoverActive(true);
+      return;
+    }
+
+    const activeStatuses = ['accepted', 'driver_arriving', 'driver_arrived', 'on_trip'];
+    if (!activeStatuses.includes(ride.status)) {
+      setIsTakeoverActive(false);
+      return;
+    }
+
+    // Check for inactivity every 3 seconds.
+    // Take over simulation if no update from driver for 15 seconds.
+    const watchdog = setInterval(() => {
+      const timeSinceLastUpdate = Date.now() - lastRealLocationUpdateRef.current;
+      if (timeSinceLastUpdate > 15000) {
+        if (!isTakeoverActive) {
+          console.log("[Watchdog] Driver is offline/inactive. Activating client-side simulation takeover!");
+          setIsTakeoverActive(true);
+        }
+      } else {
+        if (isTakeoverActive) {
+          console.log("[Watchdog] Driver active. Deactivating simulation takeover.");
+          setIsTakeoverActive(false);
+        }
+      }
+    }, 3000);
+
+    return () => clearInterval(watchdog);
+  }, [ride?.id, ride?.status, isMockDriver, isTakeoverActive]);
+
+  // Monitor location changes to reset watchdog timer
+  useEffect(() => {
+    if (ride?.driverLocation) {
+      const { lat, lng } = ride.driverLocation;
+      const simulated = lastSimulatedCoordsRef.current;
+      
+      // Check if this incoming coordinate is exactly our simulated coordinate (to avoid counting our own writes)
+      const isOurSimulation = simulated && Math.abs(simulated.lat - lat) < 0.00001 && Math.abs(simulated.lng - lng) < 0.00001;
+      
+      if (!isOurSimulation) {
+        lastRealLocationUpdateRef.current = Date.now();
+        if (!isMockDriver && isTakeoverActive) {
+          console.log("[Watchdog] Received real driver GPS coordinate. Suspending client-side simulation takeover.");
+          setIsTakeoverActive(false);
+        }
+      }
+    }
+  }, [ride?.driverLocation?.lat, ride?.driverLocation?.lng, isMockDriver]);
 
   useEffect(() => {
     if (!ride) {
@@ -37,7 +101,7 @@ export function useMatchmaking(ride: Ride | null) {
 
     const rideId = ride.id;
 
-    // Phase 1: Pending Matchmaking -> Auto-assign Mock Driver after 5 seconds
+    // Phase 1: Pending Matchmaking -> Auto-assign Mock Driver after 1 second
     if (ride.status === 'pending') {
       if (isSearching) return;
       setIsSearching(true);
@@ -77,6 +141,7 @@ export function useMatchmaking(ride: Ride | null) {
             }
           };
 
+          lastSimulatedCoordsRef.current = { lat: driverStartLat, lng: driverStartLng };
           await updateDoc(doc(db, 'rides', rideId), {
             status: 'accepted',
             driverId: 'mock_driver_123',
@@ -95,8 +160,8 @@ export function useMatchmaking(ride: Ride | null) {
       return () => clearTimeout(timer);
     }
 
-    // Only run simulation if the assigned driver is the mock driver
-    if (ride.driverId !== 'mock_driver_123') {
+    // Only run simulation if the assigned driver is the mock driver OR if client-side takeover is active
+    if (!isTakeoverActive) {
       if (simulationIntervalRef.current) {
         clearInterval(simulationIntervalRef.current);
         simulationIntervalRef.current = null;
@@ -125,6 +190,7 @@ export function useMatchmaking(ride: Ride | null) {
               heading = getBearing(driverPos.lat, driverPos.lng, nextCoord[0], nextCoord[1]);
             }
             
+            lastSimulatedCoordsRef.current = { lat: nextCoord[0], lng: nextCoord[1] };
             await updateDoc(doc(db, 'rides', rideId), {
               driverLocation: { lat: nextCoord[0], lng: nextCoord[1], heading },
               updatedAt: serverTimestamp()
@@ -139,6 +205,7 @@ export function useMatchmaking(ride: Ride | null) {
               ? getBearing(coords[coords.length - 2][0], coords[coords.length - 2][1], ride.pickup.lat, ride.pickup.lng)
               : 0;
 
+            lastSimulatedCoordsRef.current = { lat: ride.pickup.lat, lng: ride.pickup.lng };
             await updateDoc(doc(db, 'rides', rideId), {
               status: 'driver_arrived',
               driverLocation: { lat: ride.pickup.lat, lng: ride.pickup.lng, heading: finalHeading },
@@ -285,6 +352,7 @@ export function useMatchmaking(ride: Ride | null) {
             const devLng = nextCoord[1] - 0.0022;
             const heading = getBearing(nextCoord[0], nextCoord[1], devLat, devLng);
 
+            lastSimulatedCoordsRef.current = { lat: devLat, lng: devLng };
             await updateDoc(doc(db, 'rides', rideId), {
               driverLocation: { lat: devLat, lng: devLng, heading },
               hasDeviated: true,
@@ -304,6 +372,7 @@ export function useMatchmaking(ride: Ride | null) {
             heading = getBearing(ride.driverLocation.lat, ride.driverLocation.lng, nextCoord[0], nextCoord[1]);
           }
 
+          lastSimulatedCoordsRef.current = { lat: nextCoord[0], lng: nextCoord[1] };
           await updateDoc(doc(db, 'rides', rideId), {
             driverLocation: { lat: nextCoord[0], lng: nextCoord[1], heading },
             updatedAt: serverTimestamp()
@@ -330,7 +399,7 @@ export function useMatchmaking(ride: Ride | null) {
       };
     }
 
-  }, [ride?.id, ride?.status, isSearching, ride?.routeCoords ? JSON.stringify(ride.routeCoords) : '']);
+  }, [ride?.id, ride?.status, isSearching, isTakeoverActive, ride?.routeCoords ? JSON.stringify(ride.routeCoords) : '']);
 
   return { isSearching };
 }

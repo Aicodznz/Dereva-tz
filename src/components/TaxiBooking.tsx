@@ -39,6 +39,7 @@ import {
   ArrowRight,
   RefreshCw,
   RotateCw,
+  RotateCcw,
   Sun,
   Moon,
   Trash2,
@@ -448,6 +449,19 @@ const MapControl = ({
   return null;
 };
 
+const MapRotationController = ({ rotation }: { rotation: number }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (!map) return;
+    const mapPane = map.getPane('mapPane');
+    if (!mapPane) return;
+    mapPane.style.transform = `rotateZ(${rotation}deg)`;
+    mapPane.style.transformOrigin = 'center center';
+    mapPane.style.transition = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)';
+  }, [map, rotation]);
+  return null;
+};
+
 // --- TYPES ---
 
 type BookingStep =
@@ -503,6 +517,7 @@ export default function TaxiBooking() {
   const [waitingTime, setWaitingTime] = useState(0); // minutes
   const [secondsOffset, setSecondsOffset] = useState<number>(0);
   const [mapType, setMapType] = useState<'standard' | 'satellite'>('standard');
+  const [manualRotation, setManualRotation] = useState(0);
   const justSelectedRef = useRef(false);
 
   const [taxiBanners, setTaxiBanners] = useState<{ id?: string; title: string; sub: string; img: string; active?: boolean }[]>([]);
@@ -3286,6 +3301,7 @@ export default function TaxiBooking() {
                       routeCoords={routeCoords}
                       isMapFullscreen={isMapFullscreen}
                     />
+                    <MapRotationController rotation={manualRotation} />
                     {activeRide?.status !== "on_trip" && (
                       <Marker position={pickupPos} icon={getStartPin(etaPickupText)} />
                     )}
@@ -3496,6 +3512,53 @@ export default function TaxiBooking() {
                       }`}
                     >
                       Satelaiti
+                    </button>
+                  </div>
+
+                  {/* Manual Map Rotation Controls */}
+                  <div className="absolute bottom-24 right-6 z-[1000] flex flex-col gap-2 items-center bg-black/85 backdrop-blur-md rounded-2xl p-1.5 border border-white/10 shadow-2xl animate-fade-in">
+                    {/* Rotate Left */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setManualRotation((prev) => (prev - 30) % 360);
+                      }}
+                      className="w-8 h-8 rounded-xl flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/5 active:scale-90 transition-all"
+                      title="Zungusha Kushoto"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                    </button>
+
+                    {/* Compass needle (points North) */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setManualRotation(0);
+                      }}
+                      className="w-8 h-8 rounded-xl flex items-center justify-center bg-white/5 text-white active:scale-90 transition-all relative overflow-hidden"
+                      title="Weka Kaskazini Juu (Reset)"
+                    >
+                      <div 
+                        className="transition-transform duration-300 ease-out"
+                        style={{ transform: `rotate(${-manualRotation}deg)` }}
+                      >
+                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
+                          <path d="M12 2L15 11H9L12 2Z" fill="#EF4444" />
+                          <path d="M12 22L9 13H15L12 22Z" fill="#94A3B8" />
+                        </svg>
+                      </div>
+                    </button>
+
+                    {/* Rotate Right */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setManualRotation((prev) => (prev + 30) % 360);
+                      }}
+                      className="w-8 h-8 rounded-xl flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/5 active:scale-90 transition-all"
+                      title="Zungusha Kulia"
+                    >
+                      <RotateCw className="w-4 h-4" />
                     </button>
                   </div>
 

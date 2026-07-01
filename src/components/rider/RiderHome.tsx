@@ -9,7 +9,7 @@ import {
   Navigation2, MessageSquare, MapPin, Star, X as CloseX,
   Clock, TrendingUp, Info, Wifi, Battery, Map as MapIcon,
   CheckCircle2, ArrowRight, RefreshCw, DollarSign, Package, Home, LogOut,
-  Volume2, VolumeX, Sun, Moon, Wrench, Sparkles, Plus, Minus
+  Volume2, VolumeX, Sun, Moon, Wrench, Sparkles, Plus, Minus, RotateCcw, RotateCw
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -61,7 +61,7 @@ const getNormalizedCoords = (coords: any): [number, number][] => {
 };
 
 // Helper components for Map
-function MapController({ position, activeRide, rotation }: { position: [number, number], activeRide: any, rotation: number }) {
+function MapController({ position, activeRide, rotation, manualRotation }: { position: [number, number], activeRide: any, rotation: number, manualRotation: number }) {
   const map = useMap();
   const hasCentered = React.useRef(false);
   const [autoFollow, setAutoFollow] = React.useState(true);
@@ -127,17 +127,17 @@ function MapController({ position, activeRide, rotation }: { position: [number, 
     if (!mapPane) return;
 
     if (activeRide && ['accepted', 'driver_arriving', 'on_trip'].includes(activeRide.status)) {
-      // Apply beautiful 3D tilt and direction-based rotation
-      mapPane.style.transform = `perspective(1000px) rotateX(55deg) rotateZ(${-rotation}deg)`;
+      // Apply beautiful 3D tilt and direction-based rotation combined with manual rotation offset
+      mapPane.style.transform = `perspective(1000px) rotateX(55deg) rotateZ(${-rotation + manualRotation}deg)`;
       mapPane.style.transformOrigin = 'center center';
       mapPane.style.transition = 'transform 0.5s cubic-bezier(0.25, 1, 0.5, 1)';
     } else {
-      // Reset to flat 2D top-down view
-      mapPane.style.transform = '';
-      mapPane.style.transformOrigin = '';
+      // Apply simple 2D manual rotation
+      mapPane.style.transform = `rotateZ(${manualRotation}deg)`;
+      mapPane.style.transformOrigin = 'center center';
       mapPane.style.transition = 'transform 0.5s ease';
     }
-  }, [map, activeRide?.status, rotation]);
+  }, [map, activeRide?.status, rotation, manualRotation]);
 
   useEffect(() => {
     if (!position) return;
@@ -253,6 +253,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
   const [activePoiCategory, setActivePoiCategory] = useState<string | null>(null);
   const [poisCollapsed, setPoisCollapsed] = useState<boolean>(false);
   const [mapType, setMapType] = useState<'standard' | 'satellite'>('standard');
+  const [manualRotation, setManualRotation] = useState(0);
 
   // States for adding a POI
   const [isAddPoiModalOpen, setIsAddPoiModalOpen] = useState(false);
@@ -1987,7 +1988,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
               </>
             )}
 
-            <MapController position={position} activeRide={activeRide} rotation={rotation} />
+            <MapController position={position} activeRide={activeRide} rotation={rotation} manualRotation={manualRotation} />
             <MapBoundsUpdater activeRide={activeRide} position={position} />
 
             {/* Render POIs when a category is selected */}
@@ -2140,6 +2141,50 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
               {mapType === 'satellite' ? 'Kawaida' : 'Satelaiti'}
             </span>
           </motion.button>
+
+          {/* Manual Map Rotation Controls */}
+          <div className="flex flex-col gap-1.5 items-center bg-white/95 dark:bg-[#111118]/90 border border-neutral-200/50 dark:border-[#1e1e2e] rounded-xl p-1 shadow-lg pointer-events-auto">
+            {/* Rotate Left */}
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setManualRotation((prev) => (prev - 30) % 360)}
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-neutral-500 hover:text-neutral-800 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 active:scale-95 transition-all"
+              title="Zungusha Kushoto"
+            >
+              <RotateCcw className="w-4 h-4" />
+            </motion.button>
+
+            {/* Compass needle (points North) */}
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setManualRotation(0)}
+              className="w-8 h-8 rounded-lg flex items-center justify-center bg-neutral-100 dark:bg-white/5 text-neutral-800 dark:text-white active:scale-95 transition-all relative overflow-hidden"
+              title="Weka Kaskazini Juu (Reset)"
+            >
+              <div 
+                className="transition-transform duration-300 ease-out"
+                style={{ transform: `rotate(${-manualRotation}deg)` }}
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 2L15 11H9L12 2Z" fill="#EF4444" />
+                  <path d="M12 22L9 13H15L12 22Z" fill="#94A3B8" />
+                </svg>
+              </div>
+            </motion.button>
+
+            {/* Rotate Right */}
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setManualRotation((prev) => (prev + 30) % 360)}
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-neutral-500 hover:text-neutral-800 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 active:scale-95 transition-all"
+              title="Zungusha Kulia"
+            >
+              <RotateCw className="w-4 h-4" />
+            </motion.button>
+          </div>
 
           {activeRide && (
             <>
