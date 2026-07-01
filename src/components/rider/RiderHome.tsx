@@ -975,7 +975,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
       }
     }, 10000);
 
-    // Ride tracking (every 1s for smoother customer experience)
+    // Ride tracking (every 4s for optimized database write queries and scalability)
     let rideInterval: any;
     if (rideId && activeRide && (activeRide.status === 'accepted' || activeRide.status === 'driver_arriving' || activeRide.status === 'driver_arrived' || activeRide.status === 'on_trip')) {
       rideInterval = setInterval(async () => {
@@ -990,7 +990,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
         } catch (e) {
           console.warn("Ride location sync fail", e);
         }
-      }, 1000);
+      }, 4000);
     }
 
     return () => {
@@ -1073,8 +1073,8 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
 
       if (path && path.length > 0 && index < path.length - 1) {
         // Advance along the path. 
-        // We advance by 1 coordinate index per tick to keep up a smooth, realistic simulated pace
-        const nextIndex = Math.min(index + 1, path.length - 1);
+        // We advance by 4 coordinate indices per tick every 4.4s to maintain realistic speed with 4x fewer database writes
+        const nextIndex = Math.min(index + 4, path.length - 1);
         simulatedIndexRef.current = nextIndex;
         
         const currentCoord = path[index];
@@ -1110,7 +1110,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
           arrivedAtPickup();
         }
       }
-    }, 1100);
+    }, 4400);
 
     return () => clearInterval(simInterval);
   }, [isOnline, activeRide?.status, updateDriverLocation, arrivedAtPickup]);

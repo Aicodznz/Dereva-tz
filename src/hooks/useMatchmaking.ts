@@ -184,7 +184,7 @@ export function useMatchmaking(ride: Ride | null) {
             const nextCoord = coords[stepIdx];
             let heading = 0;
             if (stepIdx > 0) {
-              const prevCoord = coords[stepIdx - 1];
+              const prevCoord = coords[Math.max(0, stepIdx - 4)];
               heading = getBearing(prevCoord[0], prevCoord[1], nextCoord[0], nextCoord[1]);
             } else {
               heading = getBearing(driverPos.lat, driverPos.lng, nextCoord[0], nextCoord[1]);
@@ -195,7 +195,7 @@ export function useMatchmaking(ride: Ride | null) {
               driverLocation: { lat: nextCoord[0], lng: nextCoord[1], heading },
               updatedAt: serverTimestamp()
             });
-            stepIdx += 1; // Move 1 step at a time for extremely smooth, realistic pace
+            stepIdx += 4; // Move 4 steps at a time every 4.4s to optimize database writes
           } else {
             console.log("[Simulation] Mock Driver arrived at pickup!");
             clearInterval(simulationIntervalRef.current);
@@ -212,7 +212,7 @@ export function useMatchmaking(ride: Ride | null) {
               updatedAt: serverTimestamp()
             });
           }
-        }, 1100);
+        }, 4400);
       };
 
       // Fetch real routing coordinates asynchronously
@@ -366,7 +366,7 @@ export function useMatchmaking(ride: Ride | null) {
 
           let heading = 0;
           if (currentIdx > 0) {
-            const prevCoord = interpolatedTripCoords[currentIdx - 1];
+            const prevCoord = interpolatedTripCoords[Math.max(0, currentIdx - 4)];
             heading = getBearing(prevCoord[0], prevCoord[1], nextCoord[0], nextCoord[1]);
           } else if (ride.driverLocation) {
             heading = getBearing(ride.driverLocation.lat, ride.driverLocation.lng, nextCoord[0], nextCoord[1]);
@@ -377,7 +377,7 @@ export function useMatchmaking(ride: Ride | null) {
             driverLocation: { lat: nextCoord[0], lng: nextCoord[1], heading },
             updatedAt: serverTimestamp()
           });
-          currentIdx += 1;
+          currentIdx += 4; // Advance 4 indices per tick every 4.4s to optimize database writes
         } else {
           console.log("[Simulation] Reached destination!");
           clearInterval(simulationIntervalRef.current);
@@ -389,7 +389,7 @@ export function useMatchmaking(ride: Ride | null) {
             updatedAt: serverTimestamp()
           });
         }
-      }, 1100);
+      }, 4400);
 
       return () => {
         if (simulationIntervalRef.current) {
