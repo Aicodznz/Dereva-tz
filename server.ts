@@ -358,6 +358,34 @@ Arrange the nodes in a complete, highly realistic, logical flow to satisfy the u
     }
   });
 
+  // Mobile Money / Mongike Payment Webhook Callback Endpoint
+  app.post("/api/payments/webhook", async (req, res) => {
+    const payload = req.body;
+    console.log("[Payment Webhook] Received payment callback notification:", JSON.stringify(payload));
+
+    try {
+      // Process transaction status from provider callback payload
+      const { order_id, status, reference_id, amount } = payload;
+
+      if (dbAdmin && order_id) {
+        await dbAdmin.collection("payment_callbacks").doc(String(order_id)).set({
+          order_id,
+          status: status || "SUCCESS",
+          reference_id: reference_id || "",
+          amount: amount || 0,
+          raw_payload: payload,
+          updated_at: new Date()
+        }, { merge: true });
+        console.log(`[Payment Webhook] Successfully recorded payment callback for order ${order_id}`);
+      }
+
+      res.status(200).json({ status: "SUCCESS", message: "Webhook received successfully" });
+    } catch (err: any) {
+      console.error("[Payment Webhook] Error processing payment callback:", err);
+      res.status(500).json({ status: "ERROR", message: err.message });
+    }
+  });
+
   // Proxy for Nominatim Geocoding
   app.get("/api/geo/search", async (req, res) => {
     const { q, limit, addressdetails } = req.query;
