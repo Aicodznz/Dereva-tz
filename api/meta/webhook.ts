@@ -1,11 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { handleMetaInput } from '../../src/lib/metaBot';
-import { getFirestoreDb } from '../_lib/getFirestoreDb';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    const dbAdmin = getFirestoreDb();
-
     // 1. GET METHOD: Meta Webhook Verification or Status Check
     if (req.method === 'GET') {
       const mode = req.query["hub.mode"];
@@ -23,7 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(403).send(`Forbidden - Token mismatch. Expected: ${expectedToken}, Received: ${token}`);
       }
 
-      // Browser test request GET response
+      // Browser test request GET response - 100% Guaranteed 200 OK
       return res.status(200).json({
         status: "active",
         service: "Papo Hapo Meta Webhook (WhatsApp, Messenger, Instagram)",
@@ -66,18 +62,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       if (senderId && textBody) {
-        console.log(`[Meta Webhook Vercel] Processing message from ${channel}:${senderId}: "${textBody}"`);
-        const reply = await handleMetaInput(senderId, textBody, channel, dbAdmin);
-        console.log(`[Meta Webhook Vercel] Reply to ${channel}:${senderId} -> "${reply}"`);
+        try {
+          const { handleMetaInput } = await import('../../src/lib/metaBot');
+          const { getFirestoreDb } = await import('../_lib/getFirestoreDb');
+          const dbAdmin = getFirestoreDb();
 
-        if (dbAdmin) {
-          await dbAdmin.collection('meta_chats').add({
-            channel,
-            senderId,
-            message: textBody,
-            reply,
-            timestamp: new Date()
-          });
+          console.log(`[Meta Webhook Vercel] Processing message from ${channel}:${senderId}: "${textBody}"`);
+          const reply = await handleMetaInput(senderId, textBody, channel, dbAdmin);
+          console.log(`[Meta Webhook Vercel] Reply to ${channel}:${senderId} -> "${reply}"`);
+
+          if (dbAdmin) {
+            await dbAdmin.collection('meta_chats').add({
+              channel,
+              senderId,
+              message: textBody,
+              reply,
+              timestamp: new Date()
+            });
+          }
+        } catch (innerErr) {
+          console.error("[Meta Webhook Vercel] Error processing inner message logic:", innerErr);
         }
       }
 
@@ -88,7 +92,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ message: 'Method Not Allowed' });
 
   } catch (error: any) {
-    console.error("[Meta Webhook Vercel] Critical Error Handler:", error);
+    console.error("[Meta Webhook Vercel] Fatal Root Error Handler:", error);
     return res.status(200).json({
       status: "error_handled",
       message: error?.message || String(error)
