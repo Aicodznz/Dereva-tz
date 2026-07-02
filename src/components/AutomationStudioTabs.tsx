@@ -142,10 +142,20 @@ export const AutomationStudioTabs: React.FC<AutomationStudioTabsProps> = ({
   const [widgetColor, setWidgetColor] = useState('fuchsia');
   const [widgetPosition, setWidgetPosition] = useState('bottom_right');
 
-  const webhookUrl = `${window.location.origin}/api/meta/webhook`;
+  // Webhook Domain & Live Ping Test States
+  const [selectedWebhookDomain, setSelectedWebhookDomain] = useState<'vercel' | 'cloudrun'>('vercel');
+  const [livePingStatus, setLivePingStatus] = useState<{ testing: boolean; success: boolean | null; responseText: string | null }>({
+    testing: false,
+    success: null,
+    responseText: null
+  });
+
+  const vercelWebhookUrl = "https://dereva-tz.vercel.app/api/meta/webhook";
+  const cloudRunWebhookUrl = `${window.location.origin}/api/meta/webhook`;
+  const currentWebhookUrl = selectedWebhookDomain === 'vercel' ? vercelWebhookUrl : cloudRunWebhookUrl;
 
   const handleCopyUrl = () => {
-    navigator.clipboard.writeText(webhookUrl);
+    navigator.clipboard.writeText(currentWebhookUrl);
     setCopiedUrl(true);
     toast.success("Callback Webhook URL imenakiliwa!");
     setTimeout(() => setCopiedUrl(false), 2000);
@@ -156,6 +166,41 @@ export const AutomationStudioTabs: React.FC<AutomationStudioTabsProps> = ({
     setCopiedToken(true);
     toast.success("Verify Token imenakiliwa!");
     setTimeout(() => setCopiedToken(false), 2000);
+  };
+
+  const handleTestLiveWebhook = async () => {
+    setLivePingStatus({ testing: true, success: null, responseText: null });
+    toast.loading("Inajaribu kupiga Webhook endpoint...");
+    try {
+      const challenge = "papohapo_test_challenge_123";
+      const testUrl = `${currentWebhookUrl}?hub.mode=subscribe&hub.challenge=${challenge}&hub.verify_token=${encodeURIComponent(metaVerifyToken)}`;
+      const res = await fetch(testUrl);
+      const text = await res.text();
+      toast.dismiss();
+      if (res.ok && (text.includes(challenge) || text.includes("OK") || text.includes("active"))) {
+        setLivePingStatus({
+          testing: false,
+          success: true,
+          responseText: `HTTP ${res.status} OK — Response: "${text.slice(0, 120)}"`
+        });
+        toast.success("Webhook Endpoint IPO LIVE na Inafanya Kazi 100%! Response: 200 OK 🟢");
+      } else {
+        setLivePingStatus({
+          testing: false,
+          success: false,
+          responseText: `HTTP ${res.status} — Response: "${text.slice(0, 120)}"`
+        });
+        toast.error(`Response HTTP ${res.status}: ${text.slice(0, 60)}`);
+      }
+    } catch (err: any) {
+      toast.dismiss();
+      setLivePingStatus({
+        testing: false,
+        success: false,
+        responseText: `Network Error: ${err.message}`
+      });
+      toast.error("Error calling webhook: " + err.message);
+    }
   };
 
   const handleWizardNext = () => {
@@ -867,50 +912,136 @@ export const AutomationStudioTabs: React.FC<AutomationStudioTabsProps> = ({
               </div>
 
               {/* Webhook Connection Guide Card */}
-              <div className="bg-white dark:bg-neutral-950 border border-neutral-200/60 dark:border-neutral-800/80 rounded-2xl p-5 space-y-4 shadow-xs">
-                <h5 className="font-extrabold text-[11px] uppercase tracking-wider text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5">
-                  <Shield className="w-4 h-4 text-emerald-500" />
-                  <span>Sanidi Meta Webhooks (Webhook Credentials)</span>
-                </h5>
-                <p className="text-[10.5px] text-neutral-500 leading-relaxed">
-                  Sajili Callback URL na Verify Token hizi kwenye panel ya Meta Developers Console ili kupokea ujumbe wa WhatsApp, Messenger, na Instagram mara moja wateja wanapochat.
-                </p>
+              <div className="bg-white dark:bg-neutral-950 border border-emerald-500/20 dark:border-emerald-500/30 rounded-2xl p-6 space-y-5 shadow-sm">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-neutral-100 dark:border-neutral-800">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 bg-emerald-500/10 rounded-xl text-emerald-600 dark:text-emerald-400">
+                      <Shield className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h5 className="font-black text-sm uppercase tracking-wider text-neutral-900 dark:text-neutral-100">
+                        Sanidi Meta Webhooks (Webhook Credentials & Live Verification)
+                      </h5>
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                        Nakili Callback URL na Verify Token hapa chini uweke kwenye Meta Developers Console.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Domain Selector Pill */}
+                  <div className="flex bg-neutral-100 dark:bg-neutral-900 p-1 rounded-xl border border-neutral-200 dark:border-neutral-800 shrink-0">
+                    <button
+                      onClick={() => setSelectedWebhookDomain('vercel')}
+                      className={`px-3 py-1.5 text-[10.5px] font-black uppercase rounded-lg transition-all ${
+                        selectedWebhookDomain === 'vercel'
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
+                      }`}
+                    >
+                      ▲ Vercel URL
+                    </button>
+                    <button
+                      onClick={() => setSelectedWebhookDomain('cloudrun')}
+                      className={`px-3 py-1.5 text-[10.5px] font-black uppercase rounded-lg transition-all ${
+                        selectedWebhookDomain === 'cloudrun'
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
+                      }`}
+                    >
+                      ☁️ Cloud Run URL
+                    </button>
+                  </div>
+                </div>
+
+                {/* Steps Visual Guidance Box */}
+                <div className="p-4 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-500/20 rounded-xl space-y-2 text-xs">
+                  <span className="font-extrabold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider text-[10px] block flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5" /> Hatua za Meta Developer Portal:
+                  </span>
+                  <ol className="list-decimal pl-5 space-y-1 text-neutral-700 dark:text-neutral-300 font-medium text-[11px] leading-relaxed">
+                    <li>Kwenye Meta Developer Dashboard, nenda kwenye <strong>WhatsApp / Messenger -&gt; Configuration -&gt; Webhook</strong>.</li>
+                    <li>Bofya <strong>"Edit"</strong> au <strong>"Configure a Webhook"</strong>.</li>
+                    <li>Weka <strong>Callback URL</strong> na <strong>Verify Token</strong> kama ilivyoandikwa chini.</li>
+                    <li>Bofya <strong>"Verify and Save"</strong> (Meta itathibitisha na kutoa Checkmark ya kijani 🟢).</li>
+                    <li>Bofya <strong>"Manage"</strong> kisha tick fields: <code>messages</code>, <code>messaging_postbacks</code>, <code>message_deliveries</code>.</li>
+                  </ol>
+                </div>
 
                 <div className="space-y-4 pt-1">
+                  {/* Callback URL Input */}
                   <div className="space-y-1.5">
-                    <label className="text-[9.5px] font-black uppercase tracking-wider text-neutral-400 block">Callback URL (Webhook API Endpoint)</label>
+                    <div className="flex justify-between items-center">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 dark:text-neutral-400 block">
+                        Callback URL (Webhook API Endpoint)
+                      </label>
+                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase">
+                        {selectedWebhookDomain === 'vercel' ? 'Active Production Webhook' : 'Development Cloud Run'}
+                      </span>
+                    </div>
                     <div className="flex gap-2">
                       <Input
                         readOnly
-                        value={webhookUrl}
-                        className="text-xs h-9 font-mono bg-neutral-50 border-neutral-200/80"
+                        value={currentWebhookUrl}
+                        className="text-xs font-bold h-10 font-mono bg-neutral-50 dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 text-neutral-800 dark:text-neutral-200"
                       />
                       <Button
-                        variant="outline"
                         onClick={handleCopyUrl}
-                        className="h-9 w-9 shrink-0 p-0 border-neutral-200 hover:bg-neutral-50"
+                        className="h-10 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shrink-0 rounded-xl gap-1.5"
                       >
-                        {copiedUrl ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4 text-neutral-400" />}
+                        {copiedUrl ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                        <span>{copiedUrl ? 'Imenakiliwa!' : 'Copy URL'}</span>
                       </Button>
                     </div>
                   </div>
 
+                  {/* Verify Token Input */}
                   <div className="space-y-1.5">
-                    <label className="text-[9.5px] font-black uppercase tracking-wider text-neutral-400 block">Webhook Verify Token</label>
+                    <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 dark:text-neutral-400 block">
+                      Webhook Verify Token
+                    </label>
                     <div className="flex gap-2">
                       <Input
                         readOnly
                         value={metaVerifyToken}
-                        className="text-xs h-9 font-mono bg-neutral-50 border-neutral-200/80"
+                        className="text-xs font-bold h-10 font-mono bg-neutral-50 dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 text-neutral-800 dark:text-neutral-200"
                       />
                       <Button
-                        variant="outline"
                         onClick={handleCopyToken}
-                        className="h-9 w-9 shrink-0 p-0 border-neutral-200 hover:bg-neutral-50"
+                        className="h-10 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shrink-0 rounded-xl gap-1.5"
                       >
-                        {copiedToken ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4 text-neutral-400" />}
+                        {copiedToken ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                        <span>{copiedToken ? 'Imenakiliwa!' : 'Copy Token'}</span>
                       </Button>
                     </div>
+                  </div>
+
+                  {/* Live Webhook Test Button & Response Box */}
+                  <div className="pt-2 border-t border-neutral-100 dark:border-neutral-800 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Button
+                        onClick={handleTestLiveWebhook}
+                        disabled={livePingStatus.testing}
+                        className="bg-neutral-900 hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-white font-black text-xs uppercase tracking-wider h-10 px-6 rounded-xl gap-2 shadow-sm"
+                      >
+                        <Play className="w-4 h-4 text-emerald-400 fill-emerald-400" />
+                        <span>{livePingStatus.testing ? 'Inapiga Webhook Ping...' : 'Jaribu Webhook Endpoint Sasa (Live Ping Test)'}</span>
+                      </Button>
+                      <span className="text-[10.5px] font-bold text-neutral-400">Jaribu kabla ya kuunganisha na Meta</span>
+                    </div>
+
+                    {livePingStatus.responseText && (
+                      <div className={`p-3.5 rounded-xl border font-mono text-xs space-y-1 animate-fade-in ${
+                        livePingStatus.success 
+                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
+                          : 'bg-red-500/10 border-red-500/30 text-red-700 dark:text-red-300'
+                      }`}>
+                        <div className="flex items-center gap-2 font-black uppercase text-[10px]">
+                          {livePingStatus.success ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : <AlertCircle className="w-4 h-4 text-red-500" />}
+                          <span>{livePingStatus.success ? 'WEBHOOK RESPONSE SUCCESSFUL (200 OK)' : 'WEBHOOK RESPONSE ERROR'}</span>
+                        </div>
+                        <p className="text-[11px] leading-relaxed break-all">{livePingStatus.responseText}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
