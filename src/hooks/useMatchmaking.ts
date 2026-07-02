@@ -101,26 +101,33 @@ export function useMatchmaking(ride: Ride | null) {
 
     const rideId = ride.id;
 
-    // Phase 1: Pending Matchmaking -> Auto-assign Mock Driver after 1 second
+    // Phase 1: Pending Matchmaking -> Auto-assign Mock Driver ONLY IF no real drivers are online
     if (ride.status === 'pending') {
       if (isSearching) return;
       setIsSearching(true);
 
       const timer = setTimeout(async () => {
         try {
-          const q = query(
+          // Check if ANY real drivers are online in the 'drivers' collection
+          const qOnline = query(
             collection(db, 'drivers'),
-            where('status', '==', 'online'),
-            where('receiving', '==', true),
-            where('vehicleType', '==', ride.vehicleType)
+            where('isOnline', '==', true)
           );
-          const snap = await getDocs(q);
-          
-          if (!snap.empty) {
-            console.log("Real drivers online. Let manual acceptance take place first.");
+          const snapOnline = await getDocs(qOnline);
+
+          const qStatus = query(
+            collection(db, 'drivers'),
+            where('status', '==', 'online')
+          );
+          const snapStatus = await getDocs(qStatus);
+
+          const onlineDocs = [...snapOnline.docs, ...snapStatus.docs];
+          if (onlineDocs.length > 0) {
+            console.log("[Matchmaking] Real online drivers found. Leaving request pending for manual acceptance by nearby driver.");
+            return;
           }
 
-          console.log("[Simulation] Automatching mock driver for live route tracking simulation...");
+          console.log("[Simulation] No real online drivers found. Automatching mock driver for simulation fallback...");
           const pickupLat = ride.pickup.lat;
           const pickupLng = ride.pickup.lng;
 
@@ -155,7 +162,7 @@ export function useMatchmaking(ride: Ride | null) {
         } finally {
           setIsSearching(false);
         }
-      }, 1000);
+      }, 15000); // 15-second grace period before fallback simulation if no real drivers online
 
       return () => clearTimeout(timer);
     }

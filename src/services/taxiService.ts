@@ -63,12 +63,13 @@ export const taxiService = {
     const rideRef = collection(db, 'rides');
     const q = query(
       rideRef, 
-      where('status', '==', 'pending'), 
-      where('vehicleType', '==', vehicleType)
+      where('status', '==', 'pending')
     );
 
     return onSnapshot(q, (snapshot) => {
-      const requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RideRequest));
+      const requests = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as RideRequest))
+        .filter(r => !vehicleType || !r.vehicleType || r.vehicleType.toLowerCase() === vehicleType.toLowerCase());
       callback(requests);
     }, (error) => {
       console.warn("Restricted access or error listening to nearby requests:", error.message);

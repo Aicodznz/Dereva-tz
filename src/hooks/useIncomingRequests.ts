@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, query, where, orderBy, onSnapshot, limit, Timestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, limit } from 'firebase/firestore';
 import { Ride } from '../types/ride.types';
 import { getDistanceKm } from '../utils/distanceHelper';
 import { playAlertSound } from '../utils/soundAlert';
@@ -14,16 +14,15 @@ export function useIncomingRequests(vehicleType: string, isOnline: boolean, driv
       return;
     }
 
-    // Only look for rides created in the last 2 minutes to avoid "ghost" old orders
+    // Query pending rides without locking to rigid vehicleType string in Firestore query
     const q = query(
       collection(db, 'rides'),
       where('status', '==', 'pending'),
-      where('vehicleType', '==', vehicleType),
       limit(50)
     );
 
     const unsub = onSnapshot(q, (snap) => {
-      const twoMinutesAgoMs = Date.now() - 2 * 60 * 1000;
+      const fifteenMinutesAgoMs = Date.now() - 15 * 60 * 1000;
       const getSafeTime = (val: any): number => {
         if (!val) return 0;
         if (typeof val.toMillis === 'function') return val.toMillis();
@@ -33,30 +32,47 @@ export function useIncomingRequests(vehicleType: string, isOnline: boolean, driv
         return isNaN(parsed) ? 0 : parsed;
       };
 
+      const isMatchingVehicle = (rideVType: string | undefined, driverVType: string) => {
+        if (!rideVType || !driverVType) return true;
+        const r = rideVType.toLowerCase();
+        const d = driverVType.toLowerCase();
+        if (r === d) return true;
+        if ((r.includes('bike') || r.includes('piki') || r.includes('boda')) && 
+            (d.includes('bike') || d.includes('piki') || d.includes('boda'))) return true;
+        if (r.includes('bajaj') && d.includes('bajaj')) return true;
+        if ((r.includes('mini') || r.includes('gari') || r.includes('cab') || r.includes('car') || r.includes('taxi') || r.includes('xl') || r.includes('comfort')) && 
+            (d.includes('mini') || d.includes('gari') || d.includes('cab') || d.includes('car') || d.includes('taxi') || d.includes('xl') || d.includes('comfort'))) return true;
+        return true;
+      };
+
       const rides = snap.docs
         .map(doc => ({ id: doc.id, ...doc.data() } as Ride))
         .filter(ride => {
+          // If createdAt is null/undefined (pending serverTimestamp local write), it's brand new (NOW)!
+          if (!ride.createdAt) return true;
           const createdAtMs = getSafeTime(ride.createdAt);
-          return createdAtMs >= twoMinutesAgoMs;
+          if (createdAtMs === 0) return true; // Brand new write snapshot
+          return createdAtMs >= fifteenMinutesAgoMs;
         })
+        .filter(ride => isMatchingVehicle(ride.vehicleType, vehicleType))
         .sort((a, b) => {
-          // Manual sort by createdAt desc
           const timeA = getSafeTime(a.createdAt);
           const timeB = getSafeTime(b.createdAt);
           return timeB - timeA;
         });
       
       const allNearby = rides.filter(ride => {
-        // For testing/prototype, we allow self-ordering.
-        // if (ride.customerId === currentUserId) return false;
+        if (!ride.pickup) return false;
+        const pLat = Number(ride.pickup.lat);
+        const pLng = Number(ride.pickup.lng);
 
-        if (!ride.pickup || typeof ride.pickup.lat !== 'number' || typeof ride.pickup.lng !== 'number') {
+        if (isNaN(pLat) || isNaN(pLng)) {
           return false;
         }
 
         const dist = getDistanceKm(
-          ride.pickup.lat, 
-          ride.pickup.lng, 
+          pLat, 
+          pLng, 
           driverLocation.lat, 
           driverLocation.lng
         );
@@ -64,7 +80,7 @@ export function useIncomingRequests(vehicleType: string, isOnline: boolean, driv
         // Attach distance to pickup for the UI
         (ride as any).distanceToPickup = dist;
         
-        return dist <= 10; // Increased to 10km
+        return dist <= 30; // 30km radius for nearby requests
       });
 
       // Sound alert logic: if we have a NEW request that we didn't have before
