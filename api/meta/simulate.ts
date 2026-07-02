@@ -1,11 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { handleMetaInput } from '../../src/lib/metaBot';
-import { getFirestoreDb } from '../_lib/getFirestoreDb';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    const dbAdmin = getFirestoreDb();
-
     if (req.method !== 'POST') {
       res.setHeader('Allow', ['POST']);
       return res.status(405).json({ message: 'Method Not Allowed' });
@@ -18,6 +14,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     console.log(`[Meta Simulator Vercel] Simulation from ${channel}:${senderId}: "${message}"`);
 
+    const { getFirestoreDb } = await import('../_lib/getFirestoreDb');
+    const { handleMetaInput } = await import('../../src/lib/metaBot');
+
+    const dbAdmin = getFirestoreDb();
     const reply = await handleMetaInput(senderId, message, channel, dbAdmin);
 
     if (dbAdmin) {
@@ -37,6 +37,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ reply, status: "success" });
   } catch (error: any) {
     console.error("[Meta Simulator Vercel] Processing error:", error);
-    return res.status(500).json({ error: "Failed to simulate Meta response", details: error.message });
+    return res.status(500).json({ error: "Failed to simulate Meta response", details: error?.message || String(error) });
   }
 }

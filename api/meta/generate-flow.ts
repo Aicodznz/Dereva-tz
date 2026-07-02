@@ -46,7 +46,7 @@ Every node must have:
 Arrange the nodes in a complete, highly realistic, logical flow to satisfy the user's intent. Ensure all path linkages (nextNodeId/intentMappings) refer to valid node ids in the same array! Keep language professional and in Swahili combined with easy English accents as typical of Dar es Salaam (e.g., "Karibu Papo Hapo", "Tafadhali chagua...").`;
 
     const response = await client.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-2.5-flash",
       contents: systemInstruction,
     });
 
@@ -59,6 +59,6 @@ Arrange the nodes in a complete, highly realistic, logical flow to satisfy the u
     return res.status(200).json({ nodes, status: "success" });
   } catch (err: any) {
     console.error("[Flow Generator Vercel Error]", err);
-    return res.status(500).json({ error: "Failed to generate workflow nodes via AI: " + err.message });
+    return res.status(500).json({ error: "Failed to generate workflow nodes via AI: " + err?.message || String(err) });
   }
 }
