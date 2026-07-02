@@ -9,7 +9,7 @@ import {
   Navigation2, MessageSquare, MapPin, Star, X as CloseX,
   Clock, TrendingUp, Info, Wifi, Battery, Map as MapIcon,
   CheckCircle2, ArrowRight, RefreshCw, DollarSign, Package, Home, LogOut,
-  Volume2, VolumeX, Sun, Moon, Wrench, Sparkles, Plus, Minus, RotateCcw, RotateCw
+  Volume2, VolumeX, Sun, Moon, Wrench, Sparkles, Plus, Minus, RotateCcw, RotateCw, Compass
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -134,7 +134,7 @@ function MapController({
     }
   });
 
-  // Apply optional 3D perspective tilt
+  // Apply 3D perspective tilt and live compass map rotation
   useEffect(() => {
     if (!map) return;
     const mapPane = map.getPane('mapPane');
@@ -143,14 +143,14 @@ function MapController({
     const is3D = is3DMode || (activeRide && ['accepted', 'driver_arriving', 'on_trip'].includes(activeRide?.status));
     const perspectiveTilt = is3D ? 'perspective(1000px) rotateX(58deg) ' : '';
 
-    if (activeRide && ['accepted', 'driver_arriving', 'on_trip'].includes(activeRide.status)) {
+    if (is3D || (activeRide && ['accepted', 'driver_arriving', 'on_trip'].includes(activeRide?.status))) {
       mapPane.style.transform = `${perspectiveTilt}rotateZ(${-rotation}deg)`;
     } else {
-      mapPane.style.transform = perspectiveTilt || 'none';
+      mapPane.style.transform = 'none';
     }
 
     mapPane.style.transformOrigin = 'center center';
-    mapPane.style.transition = 'transform 0.5s cubic-bezier(0.25, 1, 0.5, 1)';
+    mapPane.style.transition = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)';
   }, [map, activeRide?.status, rotation, is3DMode]);
 
   useEffect(() => {
@@ -1217,6 +1217,63 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
   };
 
   // Update driver location periodically when online
+  // Real-time Phone Compass Orientation Listener
+  // When driver points their phone in any direction, rotate the GPS map and vehicle marker towards that orientation
+  useEffect(() => {
+    if (!isOnline) return;
+
+    let lastOrientationTime = 0;
+
+    const handleOrientation = (e: DeviceOrientationEvent) => {
+      const now = Date.now();
+      if (now - lastOrientationTime < 60) return; // ~16 updates/sec for silky movement
+
+      let compassHeading: number | null = null;
+
+      // iOS Safari webkitCompassHeading (0 = North, 90 = East, 180 = South, 270 = West)
+      if (typeof (e as any).webkitCompassHeading === 'number' && !isNaN((e as any).webkitCompassHeading)) {
+        compassHeading = (e as any).webkitCompassHeading;
+      } 
+      // Standard Android / W3C device orientation
+      else if (e.alpha !== null && e.alpha !== undefined && !isNaN(e.alpha)) {
+        compassHeading = (360 - e.alpha) % 360;
+      }
+
+      if (compassHeading !== null && !isNaN(compassHeading)) {
+        lastOrientationTime = now;
+        const roundedHeading = Math.round((compassHeading + 360) % 360);
+
+        setRotation(prev => {
+          const diff = Math.abs(prev - roundedHeading);
+          const shortestDiff = Math.min(diff, 360 - diff);
+          if (shortestDiff >= 2) {
+            return roundedHeading;
+          }
+          return prev;
+        });
+      }
+    };
+
+    // Request iOS orientation permission if required
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
+      (DeviceOrientationEvent as any).requestPermission()
+        .then((permissionState: string) => {
+          if (permissionState === 'granted') {
+            window.addEventListener('deviceorientation', handleOrientation, true);
+          }
+        })
+        .catch((err: any) => console.warn("DeviceOrientation permission:", err));
+    } else {
+      window.addEventListener('deviceorientationabsolute', handleOrientation, true);
+      window.addEventListener('deviceorientation', handleOrientation, true);
+    }
+
+    return () => {
+      window.removeEventListener('deviceorientationabsolute', handleOrientation, true);
+      window.removeEventListener('deviceorientation', handleOrientation, true);
+    };
+  }, [isOnline]);
+
   useEffect(() => {
     if (!isOnline || !user) return;
 
@@ -1250,7 +1307,13 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
 
             const prev = prevPosRef.current;
             let shouldUpdate = true;
-            let currentBearing = rotation;
+            let currentBearing = rotationRef.current;
+
+            // Direct device GPS heading if available
+            if (typeof pos.coords.heading === 'number' && !isNaN(pos.coords.heading) && pos.coords.heading >= 0) {
+              currentBearing = Math.round(pos.coords.heading);
+              setRotation(currentBearing);
+            }
 
             if (prev) {
               const dist = getDistanceInMeters(prev[0], prev[1], loc.lat, loc.lng);
@@ -1258,8 +1321,8 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
               if (dist < 5) {
                 shouldUpdate = false;
               } else {
-                // Minimum 10 meters to change rotation to prevent rotating around when stationary
-                if (dist >= 10) {
+                // Minimum 10 meters to change rotation if GPS heading wasn't provided
+                if (dist >= 10 && (typeof pos.coords.heading !== 'number' || isNaN(pos.coords.heading) || pos.coords.heading < 0)) {
                   currentBearing = calculateBearing(prev[0], prev[1], loc.lat, loc.lng);
                   setRotation(currentBearing);
                 }
@@ -2171,6 +2234,23 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
           >
             <span className="text-[10px] font-black tracking-wider">
               {is3DMode ? '3D' : '2D'}
+            </span>
+          </motion.button>
+
+          {/* Compass Direction Badge / Reset Button */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setRotation(0)}
+            className="w-10 h-10 bg-white/95 dark:bg-[#111118]/90 border border-neutral-200/50 dark:border-[#1e1e2e] rounded-xl shadow-lg flex flex-col items-center justify-center transition-all text-emerald-500 dark:text-[#00FF88]"
+            title={`Dira (Elekeo la Simu): ${rotation}° - Bofya kuelekeza Kaskazini (0°)`}
+          >
+            <Compass 
+              className="w-4 h-4 transition-transform duration-300 ease-out" 
+              style={{ transform: `rotate(${rotation}deg)` }} 
+            />
+            <span className="text-[6.5px] font-mono font-black mt-0.5 tracking-tighter leading-none">
+              {rotation}°
             </span>
           </motion.button>
 
