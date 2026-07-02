@@ -4,11 +4,16 @@ import { collection, query, where, onSnapshot, limit } from 'firebase/firestore'
 import { Ride } from '../types/ride.types';
 
 export function useDriverRideListener(driverId: string | undefined, isOnline: boolean) {
-  const [assignedRide, setAssignedRide] = useState<Ride | null>(null);
+  const [assignedRide, setAssignedRide] = useState<Ride | null>(() => {
+    // Initial state from localStorage for instant restoration
+    const savedRideId = localStorage.getItem('active_driver_ride_id');
+    return savedRideId ? ({ id: savedRideId, status: 'on_trip' } as any) : null;
+  });
 
   useEffect(() => {
-    if (!driverId || !isOnline) {
+    if (!driverId) {
       setAssignedRide(null);
+      localStorage.removeItem('active_driver_ride_id');
       return;
     }
 
@@ -21,16 +26,21 @@ export function useDriverRideListener(driverId: string | undefined, isOnline: bo
 
     const unsub = onSnapshot(q, (snap) => {
       if (!snap.empty) {
-        setAssignedRide({ id: snap.docs[0].id, ...snap.docs[0].data() } as Ride);
+        const rideId = snap.docs[0].id;
+        const rideData = { id: rideId, ...snap.docs[0].data() } as Ride;
+        setAssignedRide(rideData);
+        localStorage.setItem('active_driver_ride_id', rideId);
+        localStorage.setItem('active_ride_id', rideId);
       } else {
         setAssignedRide(null);
+        localStorage.removeItem('active_driver_ride_id');
       }
     }, (error) => {
       console.error("Error listening for assigned ride:", error);
     });
 
     return () => unsub();
-  }, [driverId, isOnline]);
+  }, [driverId]);
 
   return { assignedRide };
 }

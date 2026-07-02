@@ -19,10 +19,19 @@ export function useTripFlow(rideId: string | null) {
     
     const unsub = onSnapshot(doc(db, 'rides', rideId), (snap) => {
       if (snap.exists()) {
-        setRide({ id: snap.id, ...snap.data() } as Ride);
+        const data = snap.data();
+        setRide({ id: snap.id, ...data } as Ride);
+        if (['completed', 'cancelled'].includes(data.status)) {
+          localStorage.removeItem('active_ride_id');
+          localStorage.removeItem('active_driver_ride_id');
+        } else {
+          localStorage.setItem('active_ride_id', snap.id);
+        }
         setError(null);
       } else {
         setRide(null);
+        localStorage.removeItem('active_ride_id');
+        localStorage.removeItem('active_driver_ride_id');
         setError('Ride not found');
       }
       setIsLoading(false);

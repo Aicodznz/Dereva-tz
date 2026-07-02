@@ -134,16 +134,16 @@ function MapController({
     }
   });
 
-  // Apply 3D perspective tilt and live compass map rotation
+  // Apply live compass map rotation & optional clean 3D perspective tilt
   useEffect(() => {
     if (!map) return;
     const mapPane = map.getPane('mapPane');
     if (!mapPane) return;
 
-    const is3D = is3DMode || (activeRide && ['accepted', 'driver_arriving', 'on_trip'].includes(activeRide?.status));
-    const perspectiveTilt = is3D ? 'perspective(1000px) rotateX(58deg) ' : '';
+    // Perspective tilt ONLY if user explicitly enabled 3D mode (mild 25deg)
+    const perspectiveTilt = is3DMode ? 'perspective(1000px) rotateX(25deg) ' : '';
 
-    if (is3D || (activeRide && ['accepted', 'driver_arriving', 'on_trip'].includes(activeRide?.status))) {
+    if (rotation !== 0 || is3DMode) {
       mapPane.style.transform = `${perspectiveTilt}rotateZ(${-rotation}deg)`;
     } else {
       mapPane.style.transform = 'none';
@@ -151,7 +151,7 @@ function MapController({
 
     mapPane.style.transformOrigin = 'center center';
     mapPane.style.transition = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)';
-  }, [map, activeRide?.status, rotation, is3DMode]);
+  }, [map, rotation, is3DMode]);
 
   useEffect(() => {
     if (!position) return;
@@ -170,9 +170,9 @@ function MapController({
       const currentPos = L.latLng(position[0], position[1]);
       const lastPos = lastCenterRef.current ? L.latLng(lastCenterRef.current[0], lastCenterRef.current[1]) : null;
 
-      // Only panTo/setView if we have moved significantly to avoid constant jittering / playing of the marker
-      if (!lastPos || currentPos.distanceTo(lastPos) > 10) {
-        map.setView(position, desiredZoom, { animate: true, duration: 0.8 });
+      // Pan camera smoothly as driver moves (> 2 meters) to keep vehicle centered without lag
+      if (!lastPos || currentPos.distanceTo(lastPos) > 2) {
+        map.panTo(position, { animate: true, duration: 0.5 });
         lastCenterRef.current = position;
       }
     }
@@ -391,7 +391,21 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
   const activeStatusRef = React.useRef<string | null>(null);
 
   const [showTopInfo, setShowTopInfo] = useState(false);
-  const [rideId, setRideId] = useState<string | null>(null);
+  const [rideId, setRideIdState] = useState<string | null>(() => {
+    return localStorage.getItem('active_ride_id') || localStorage.getItem('active_driver_ride_id') || null;
+  });
+
+  const setRideId = React.useCallback((id: string | null) => {
+    if (id) {
+      localStorage.setItem('active_ride_id', id);
+      localStorage.setItem('active_driver_ride_id', id);
+    } else {
+      localStorage.removeItem('active_ride_id');
+      localStorage.removeItem('active_driver_ride_id');
+    }
+    setRideIdState(id);
+  }, []);
+
   const { ride: activeRide } = useRideStatus(rideId);
   const [realTripRoute, setRealTripRoute] = useState<[number, number][]>([]);
 
@@ -1078,6 +1092,9 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
   useEffect(() => {
     if (!isOnline || !activeRide) return;
 
+    // ONLY run mock simulation path if explicitly marked as a simulation ride!
+    if (!(activeRide as any).isSimulation && !(activeRide as any).simulated) return;
+
     const status = activeRide.status;
     const isMovingStatus = ['accepted', 'driver_arriving', 'on_trip'].includes(status);
     if (!isMovingStatus) return;
@@ -1299,8 +1316,8 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
           async (pos) => {
             const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
             
-            // Check if simulated ride is in progress. If so, suspend GPS tracking updates so they do not conflict.
-            const isSimulating = activeRide && ['accepted', 'driver_arriving', 'on_trip'].includes(activeRide.status);
+            // Check if simulated ride is in progress.
+            const isSimulating = activeRide && ['accepted', 'driver_arriving', 'on_trip'].includes(activeRide.status) && ((activeRide as any).isSimulation || (activeRide as any).simulated);
             if (isSimulating) {
               return;
             }
@@ -1317,12 +1334,11 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
 
             if (prev) {
               const dist = getDistanceInMeters(prev[0], prev[1], loc.lat, loc.lng);
-              // Minimum 5 meters to update position to prevent minor GPS drifting
-              if (dist < 5) {
+              // Ignore micro GPS noise (< 0.3 meters), update position immediately for real movement
+              if (dist < 0.3) {
                 shouldUpdate = false;
               } else {
-                // Minimum 10 meters to change rotation if GPS heading wasn't provided
-                if (dist >= 10 && (typeof pos.coords.heading !== 'number' || isNaN(pos.coords.heading) || pos.coords.heading < 0)) {
+                if (dist >= 2 && (typeof pos.coords.heading !== 'number' || isNaN(pos.coords.heading) || pos.coords.heading < 0)) {
                   currentBearing = calculateBearing(prev[0], prev[1], loc.lat, loc.lng);
                   setRotation(currentBearing);
                 }
@@ -1379,7 +1395,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
               lastErrorTime = now;
             }
           }, 
-          { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
       }
     };

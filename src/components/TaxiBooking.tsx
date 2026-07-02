@@ -522,7 +522,19 @@ export default function TaxiBooking() {
     return unsubscribe;
   }, []);
 
-  const [rideId, setRideId] = useState<string | null>(null);
+  const [rideId, setRideIdState] = useState<string | null>(() => {
+    return localStorage.getItem('active_ride_id') || null;
+  });
+
+  const setRideId = React.useCallback((id: string | null) => {
+    if (id) {
+      localStorage.setItem('active_ride_id', id);
+    } else {
+      localStorage.removeItem('active_ride_id');
+    }
+    setRideIdState(id);
+  }, []);
+
   const { ride: activeRide, cancelRide, deleteRide } = useTripFlow(rideId);
 
   const isSpectator = useMemo(() => {
