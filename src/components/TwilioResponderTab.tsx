@@ -42,6 +42,8 @@ import { db } from '../firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Sparkles } from 'lucide-react';
 import { AutomationStudioTabs } from './AutomationStudioTabs';
+import { handleMetaInput } from '../lib/metaBot';
+import { handleSMSInput } from '../lib/smsBot';
 
 interface Message {
   sender: 'customer' | 'bot';
@@ -546,38 +548,40 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
     setInputText('');
 
     try {
-      const response = await fetch('/api/twilio/simulate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          phone: testPhoneNumber,
-          message: text
-        })
-      });
+      let replyText = "";
+      try {
+        const response = await fetch('/api/twilio/simulate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            phone: testPhoneNumber,
+            message: text
+          })
+        });
 
-      if (!response.ok) {
-        throw new Error("Simulation endpoint returned error code: " + response.status);
+        if (response.ok) {
+          const data = await response.json();
+          replyText = data.reply;
+        }
+      } catch (err) {
+        console.warn("Server twilio simulate API not reached, using local fallback:", err);
       }
 
-      const data = await response.json();
-      
-      // Add Bot reply
+      if (!replyText) {
+        replyText = await handleSMSInput(testPhoneNumber, text, null);
+      }
+
       const botMsg: Message = {
         sender: 'bot',
-        text: data.reply,
+        text: replyText,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       setChatMessages(prev => [...prev, botMsg]);
 
     } catch (err: any) {
       toast.error("Hitilafu kwenye simulator: " + err.message);
-      setChatMessages(prev => [...prev, {
-        sender: 'bot',
-        text: "🚨 Mfumo unashindwa kuunganisha kwa sasa. Tafadhali hakikisha server imekamilika kurestart.",
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      }]);
     } finally {
       setIsLoading(false);
     }
@@ -753,27 +757,35 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
     setMetaInputText('');
 
     try {
-      const response = await fetch('/api/meta/simulate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          senderId: metaSenderId,
-          message: text,
-          channel: metaChannel
-        })
-      });
+      let replyText = "";
+      try {
+        const response = await fetch('/api/meta/simulate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            senderId: metaSenderId,
+            message: text,
+            channel: metaChannel
+          })
+        });
 
-      if (!response.ok) {
-        throw new Error("Meta Simulation endpoint returned error: " + response.status);
+        if (response.ok) {
+          const data = await response.json();
+          replyText = data.reply;
+        }
+      } catch (e) {
+        console.warn("Server meta simulate API not reached, using local fallback:", e);
       }
 
-      const data = await response.json();
-      
+      if (!replyText) {
+        replyText = await handleMetaInput(metaSenderId, text, metaChannel, null);
+      }
+
       const botMsg: Message = {
         sender: 'bot',
-        text: data.reply,
+        text: replyText,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       setMetaChatMessages(prev => [...prev, botMsg]);
@@ -785,11 +797,6 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
 
     } catch (err: any) {
       toast.error("Hitilafu kwenye Meta simulator: " + err.message);
-      setMetaChatMessages(prev => [...prev, {
-        sender: 'bot',
-        text: "🚨 Mfumo unashindwa kuunganisha kwa sasa. Tafadhali hakikisha server imekamilika kurestart.",
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      }]);
     } finally {
       setIsLoadingMeta(false);
     }
