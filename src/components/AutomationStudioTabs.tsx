@@ -963,7 +963,7 @@ export const AutomationStudioTabs: React.FC<AutomationStudioTabsProps> = ({
                     <li>Bofya <strong>"Edit"</strong> au <strong>"Configure a Webhook"</strong>.</li>
                     <li>Weka <strong>Callback URL</strong> na <strong>Verify Token</strong> kama ilivyoandikwa chini.</li>
                     <li>Bofya <strong>"Verify and Save"</strong> (Meta itathibitisha na kutoa Checkmark ya kijani 🟢).</li>
-                    <li>Bofya <strong>"Manage"</strong> kisha tick fields: <code>messages</code>, <code>messaging_postbacks</code>, <code>message_deliveries</code>.</li>
+                    <li>Bofya <strong>"Manage"</strong> kisha tick field ya <code>messages</code> (kwa WhatsApp Business) au <code>messages, messaging_postbacks</code> (kwa Messenger/Instagram).</li>
                   </ol>
                 </div>
 
