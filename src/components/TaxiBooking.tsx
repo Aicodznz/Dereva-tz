@@ -1877,12 +1877,26 @@ export default function TaxiBooking() {
           <!-- Elegant premium pointer/glow ring (transparent background) -->
           <div class="absolute w-[38px] h-[38px] rounded-full bg-transparent ${theme === 'dark' ? 'border-[#00E5A0]/60 shadow-[0_0_12px_rgba(0,229,160,0.35)]' : 'border-[#1E724C]/60 shadow-[0_0_12px_rgba(30,114,76,0.25)]'} border flex items-center justify-center">
             <!-- Central rotated vehicle wrapper -->
-            <div class="transition-transform duration-500 ease-out select-none pointer-events-none flex items-center justify-center w-7 h-7" style="transform: rotate(${rotation}deg);">
+            <div class="transition-transform duration-300 ease-out select-none pointer-events-none flex items-center justify-center w-7 h-7" style="transform: rotate(${rotation}deg);">
+              <!-- Directional Compass Flashlight Light Beam / Field-of-View Cone (Mwangaza wa Dira ya Simu) -->
+              <div class="absolute bottom-1/2 left-1/2 -translate-x-1/2 origin-bottom pointer-events-none" style="width: 90px; height: 80px; margin-bottom: 2px;">
+                <svg viewBox="0 0 100 80" class="w-full h-full overflow-visible">
+                  <defs>
+                    <radialGradient id="tbCompassBeamGrad_${theme === 'dark' ? 'dark' : 'light'}" cx="50%" cy="100%" r="100%">
+                      <stop offset="0%" stop-color="${theme === 'dark' ? '#00FF88' : '#3B82F6'}" stop-opacity="0.75"/>
+                      <stop offset="45%" stop-color="${theme === 'dark' ? '#00FF88' : '#3B82F6'}" stop-opacity="0.35"/>
+                      <stop offset="100%" stop-color="${theme === 'dark' ? '#00FF88' : '#3B82F6'}" stop-opacity="0"/>
+                    </radialGradient>
+                  </defs>
+                  <path d="M 50 80 L 12 0 A 85 85 0 0 1 88 0 Z" fill="url(#tbCompassBeamGrad_${theme === 'dark' ? 'dark' : 'light'})" />
+                </svg>
+              </div>
+
               <!-- Heading notch/pointer at front of vehicle -->
-              <div class="absolute top-[-2px] w-1.5 h-1.5 rotate-45 ${theme === 'dark' ? 'bg-[#00E5A0]' : 'bg-[#1E724C]'} rounded-[1px]"></div>
+              <div class="absolute top-[-2px] w-2 h-2 rotate-45 ${theme === 'dark' ? 'bg-[#00FF88]' : 'bg-[#3B82F6]'} rounded-[1px] shadow-[0_0_8px_rgba(0,255,136,0.9)] z-10"></div>
               
               <!-- Premium vehicle SVG -->
-              <div class="w-7 h-7 flex items-center justify-center">
+              <div class="w-7 h-7 flex items-center justify-center relative z-10">
                 ${getDriverSvg(type, theme === "dark")}
               </div>
             </div>
