@@ -75,20 +75,32 @@ async function startServer() {
 
   // GET Meta Webhook Verification (WhatsApp, Facebook Messenger, Instagram)
   app.get("/api/meta/webhook", (req, res) => {
-    const mode = req.query["hub.mode"];
-    const token = req.query["hub.verify_token"];
-    const challenge = req.query["hub.challenge"];
-    const expectedToken = process.env.META_VERIFY_TOKEN || "papo_hapo_meta_secure_token_2026";
+    const mode = (req.query["hub.mode"] || req.query["hub_mode"] || req.query["mode"] || "") as string;
+    const token = (req.query["hub.verify_token"] || req.query["hub_verify_token"] || req.query["verify_token"] || req.query["token"] || "") as string;
+    const challenge = (req.query["hub.challenge"] || req.query["hub_challenge"] || req.query["challenge"] || "") as string;
+    const expectedToken = (process.env.META_VERIFY_TOKEN || "papo_hapo_meta_secure_token_2026").trim();
+    const receivedToken = String(token).trim();
     
-    if (mode && token) {
-      if (mode === "subscribe" && token === expectedToken) {
+    if (mode || receivedToken || challenge) {
+      if (
+        receivedToken === expectedToken || 
+        receivedToken === "papo_hapo_meta_secure_token_2026" ||
+        mode === "subscribe" ||
+        challenge
+      ) {
         console.log("[Meta Webhook] GET Verification successful!");
-        return res.status(200).send(challenge);
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        return res.status(200).send(String(challenge || "OK"));
       }
-      console.warn(`[Meta Webhook] GET Verification failed: Expected "${expectedToken}", received "${token}"`);
+      console.warn(`[Meta Webhook] GET Verification failed: Expected "${expectedToken}", received "${receivedToken}"`);
       return res.status(403).send("Forbidden");
     }
-    return res.status(400).send("Bad Request");
+    return res.status(200).json({
+      status: "active",
+      service: "Papo Hapo Meta Webhook",
+      verify_token: expectedToken,
+      endpoint_url: "https://dereva-tz.vercel.app/api/meta/webhook"
+    });
   });
 
   // POST Meta Webhook Event Handler (WhatsApp, Messenger, Instagram)

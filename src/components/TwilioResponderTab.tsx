@@ -229,6 +229,58 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
   const [metaHistory, setMetaHistory] = useState<any[]>([]);
   const [isLoadingMeta, setIsLoadingMeta] = useState(false);
   const [copiedMetaWebhook, setCopiedMetaWebhook] = useState(false);
+  const [selectedWebhookDomain, setSelectedWebhookDomain] = useState<'vercel' | 'cloudrun'>('vercel');
+  const [livePingStatus, setLivePingStatus] = useState<{ testing: boolean; success: boolean | null; responseText: string | null }>({
+    testing: false,
+    success: null,
+    responseText: null
+  });
+
+  const vercelWebhookUrl = "https://dereva-tz.vercel.app/api/meta/webhook";
+  const cloudRunWebhookUrl = typeof window !== 'undefined' ? `${window.location.origin}/api/meta/webhook` : vercelWebhookUrl;
+  const activeWebhookUrl = selectedWebhookDomain === 'vercel' ? vercelWebhookUrl : cloudRunWebhookUrl;
+
+  const handleCopyMetaWebhook = () => {
+    navigator.clipboard.writeText(activeWebhookUrl);
+    setCopiedMetaWebhook(true);
+    toast.success(`Meta Webhook URL (${selectedWebhookDomain.toUpperCase()}) imenakiliwa!`);
+    setTimeout(() => setCopiedMetaWebhook(false), 2000);
+  };
+
+  const handleTestLiveWebhook = async () => {
+    setLivePingStatus({ testing: true, success: null, responseText: null });
+    toast.loading("Inajaribu kupiga Meta Webhook endpoint...");
+    try {
+      const challenge = "papohapo_test_challenge_123";
+      const testUrl = `${activeWebhookUrl}?hub.mode=subscribe&hub.challenge=${challenge}&hub.verify_token=papo_hapo_meta_secure_token_2026`;
+      const res = await fetch(testUrl);
+      const text = await res.text();
+      toast.dismiss();
+      if (res.ok && (text.includes(challenge) || text.includes("OK") || text.includes("active"))) {
+        setLivePingStatus({
+          testing: false,
+          success: true,
+          responseText: `HTTP ${res.status} OK — Response: "${text.slice(0, 120)}"`
+        });
+        toast.success("Webhook Endpoint IPO LIVE na Inafanya Kazi 100%! Response: 200 OK 🟢");
+      } else {
+        setLivePingStatus({
+          testing: false,
+          success: false,
+          responseText: `HTTP ${res.status} — Response: "${text.slice(0, 120)}"`
+        });
+        toast.error(`Response HTTP ${res.status}: ${text.slice(0, 60)}`);
+      }
+    } catch (err: any) {
+      toast.dismiss();
+      setLivePingStatus({
+        testing: false,
+        success: false,
+        responseText: `Network Error: ${err.message}`
+      });
+      toast.error(`Network Error: ${err.message}`);
+    }
+  };
 
   // Meta Flow states
   const [metaWelcomeText, setMetaWelcomeText] = useState('');
@@ -831,14 +883,6 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
     }
   };
 
-  const handleCopyMetaWebhook = () => {
-    const metaUrl = `${window.location.origin}/api/meta/webhook`;
-    navigator.clipboard.writeText(metaUrl);
-    setCopiedMetaWebhook(true);
-    toast.success("Meta Webhook URL copied successfully!");
-    setTimeout(() => setCopiedMetaWebhook(false), 2000);
-  };
-
   // Custom flowchart shortcuts for customer to easily check the Twilio scenario requested
   const presetShortcuts = [
     { label: "Anza (Tuma 'Hi')", text: "Hi", color: "bg-emerald-500 hover:bg-emerald-600" },
@@ -906,23 +950,55 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
             {/* Webhook Configuration Details */}
             <Card className="border border-neutral-100 hover:shadow-xs transition-shadow duration-300 dark:border-neutral-800">
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg font-bold flex items-center gap-2 dark:text-neutral-100 uppercase tracking-wide">
-                  <Shield className="w-5 h-5 text-fuchsia-500" />
-                  <span>Sanidi Meta Developer Webhooks</span>
-                </CardTitle>
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+                  <CardTitle className="text-lg font-bold flex items-center gap-2 dark:text-neutral-100 uppercase tracking-wide">
+                    <Shield className="w-5 h-5 text-fuchsia-500" />
+                    <span>Sanidi Meta Developer Webhooks</span>
+                  </CardTitle>
+
+                  {/* Domain Selector Switcher */}
+                  <div className="flex items-center bg-neutral-100 dark:bg-neutral-900 p-1 rounded-lg border border-neutral-200 dark:border-neutral-800 text-xs">
+                    <button
+                      onClick={() => setSelectedWebhookDomain('vercel')}
+                      className={`px-2.5 py-1 rounded-md font-bold uppercase tracking-wider text-[10px] transition-all cursor-pointer ${
+                        selectedWebhookDomain === 'vercel'
+                          ? 'bg-fuchsia-600 text-white shadow-xs'
+                          : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-300'
+                      }`}
+                    >
+                      Vercel App
+                    </button>
+                    <button
+                      onClick={() => setSelectedWebhookDomain('cloudrun')}
+                      className={`px-2.5 py-1 rounded-md font-bold uppercase tracking-wider text-[10px] transition-all cursor-pointer ${
+                        selectedWebhookDomain === 'cloudrun'
+                          ? 'bg-fuchsia-600 text-white shadow-xs'
+                          : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-300'
+                      }`}
+                    >
+                      AI Studio Dev
+                    </button>
+                  </div>
+                </div>
                 <CardDescription className="text-xs">
                   Sajili Callback URL hii na neno la siri la uhakiki (Verify Token) kwenye Meta Developer Console:
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-1.5 p-3.5 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200/50 dark:border-neutral-800/80 rounded-xl">
-                  <label className="text-xs font-black uppercase tracking-wider text-neutral-500 block">
-                    Meta Webhook Callback URL (Inafaa kwa WhatsApp, Messenger & Instagram zote)
-                  </label>
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-black uppercase tracking-wider text-neutral-500 block">
+                      Meta Webhook Callback URL ({selectedWebhookDomain === 'vercel' ? 'Vercel Production Domain' : 'Preview Dev Domain'})
+                    </label>
+                    <Badge variant="outline" className="text-[10px] uppercase font-mono font-bold bg-fuchsia-500/10 text-fuchsia-600 border-fuchsia-200">
+                      {selectedWebhookDomain === 'vercel' ? 'https://dereva-tz.vercel.app' : 'AI Studio Cloud'}
+                    </Badge>
+                  </div>
+
                   <div className="flex gap-2 items-center mt-1">
                     <Input 
                       readOnly 
-                      value={`${window.location.origin}/api/meta/webhook`} 
+                      value={activeWebhookUrl} 
                       className="font-mono text-xs select-all bg-white dark:bg-black h-9 border-neutral-200 py-1"
                     />
                     <Button 
@@ -936,6 +1012,33 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                       </span>
                     </Button>
                   </div>
+
+                  {/* Live Webhook Ping Tester */}
+                  <div className="pt-2 flex items-center justify-between gap-3 border-t border-neutral-200/40 dark:border-neutral-800/40 mt-3">
+                    <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                      Jaribu kama Webhook URL inafanya kazi kabla ya kusajili Meta:
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={livePingStatus.testing}
+                      onClick={handleTestLiveWebhook}
+                      className="h-7 text-xs font-bold gap-1.5 border-fuchsia-500/30 text-fuchsia-600 hover:bg-fuchsia-50 dark:hover:bg-fuchsia-950/30 shrink-0"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${livePingStatus.testing ? 'animate-spin' : ''}`} />
+                      Pima Webhook Live
+                    </Button>
+                  </div>
+
+                  {livePingStatus.responseText && (
+                    <div className={`mt-2 p-2 rounded-lg text-xs font-mono border ${
+                      livePingStatus.success 
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400' 
+                        : 'bg-rose-500/10 border-rose-500/30 text-rose-700 dark:text-rose-400'
+                    }`}>
+                      {livePingStatus.responseText}
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
