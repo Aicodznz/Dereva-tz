@@ -35,7 +35,8 @@ import {
   CreditCard,
   StopCircle,
   Trash2,
-  PlusCircle
+  PlusCircle,
+  LayoutGrid
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { db } from '../firebase';
@@ -229,6 +230,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
   const [metaHistory, setMetaHistory] = useState<any[]>([]);
   const [isLoadingMeta, setIsLoadingMeta] = useState(false);
   const [copiedMetaWebhook, setCopiedMetaWebhook] = useState(false);
+  const [mobileViewMode, setMobileViewMode] = useState<'all' | 'studio' | 'phone'>('all');
   const [selectedWebhookDomain, setSelectedWebhookDomain] = useState<'vercel' | 'cloudrun'>('vercel');
   const [livePingStatus, setLivePingStatus] = useState<{ testing: boolean; success: boolean | null; responseText: string | null }>({
     testing: false,
@@ -900,36 +902,79 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
     <div className="space-y-6 font-sans">
       
       {/* Tab Switching Header */}
-      <div className="flex bg-neutral-100 dark:bg-neutral-900 p-1 rounded-xl max-w-md border border-neutral-200/40 dark:border-neutral-800/60">
-        <button
-          onClick={() => setActiveTab('meta')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all duration-300 cursor-pointer ${
-            activeTab === 'meta' 
-              ? 'bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 shadow-sm border border-neutral-200/50 dark:border-neutral-800/30' 
-              : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-300'
-          }`}
-        >
-          <Zap className="w-4 h-4 text-fuchsia-500 fill-fuchsia-500" />
-          Meta Omnichannel (AI)
-        </button>
-        <button
-          onClick={() => setActiveTab('twilio')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all duration-300 cursor-pointer ${
-            activeTab === 'twilio' 
-              ? 'bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 shadow-sm border border-neutral-200/50 dark:border-neutral-800/30' 
-              : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-300'
-          }`}
-        >
-          <Smartphone className="w-4 h-4 text-emerald-500" />
-          Twilio SMS Bot
-        </button>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div className="flex bg-neutral-100 dark:bg-neutral-900 p-1 rounded-xl w-full sm:max-w-md border border-neutral-200/40 dark:border-neutral-800/60 shadow-xs">
+          <button
+            onClick={() => setActiveTab('meta')}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all duration-300 cursor-pointer ${
+              activeTab === 'meta' 
+                ? 'bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 shadow-sm border border-neutral-200/50 dark:border-neutral-800/30' 
+                : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-300'
+            }`}
+          >
+            <Zap className="w-4 h-4 text-fuchsia-500 fill-fuchsia-500" />
+            Meta Omnichannel (AI)
+          </button>
+          <button
+            onClick={() => setActiveTab('twilio')}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all duration-300 cursor-pointer ${
+              activeTab === 'twilio' 
+                ? 'bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 shadow-sm border border-neutral-200/50 dark:border-neutral-800/30' 
+                : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-300'
+            }`}
+          >
+            <Smartphone className="w-4 h-4 text-emerald-500" />
+            Twilio SMS Bot
+          </button>
+        </div>
+
+        {/* Responsive View Switcher for Mobile/Tablet */}
+        {activeTab === 'meta' && (
+          <div className="flex xl:hidden bg-neutral-100 dark:bg-neutral-900 p-1 rounded-xl border border-neutral-200/50 dark:border-neutral-800 text-xs font-bold uppercase tracking-wider w-full sm:w-auto">
+            <button
+              onClick={() => setMobileViewMode('all')}
+              className={`flex-1 sm:flex-initial py-1.5 px-3 rounded-lg transition-all text-[10px] flex items-center justify-center gap-1.5 cursor-pointer ${
+                mobileViewMode === 'all'
+                  ? 'bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 shadow-xs border border-neutral-200/50 dark:border-neutral-800/50'
+                  : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200'
+              }`}
+            >
+              <LayoutGrid className="w-3.5 h-3.5 text-indigo-500" />
+              <span>Zote Mbili</span>
+            </button>
+            <button
+              onClick={() => setMobileViewMode('studio')}
+              className={`flex-1 sm:flex-initial py-1.5 px-3 rounded-lg transition-all text-[10px] flex items-center justify-center gap-1.5 cursor-pointer ${
+                mobileViewMode === 'studio'
+                  ? 'bg-fuchsia-600 text-white shadow-xs'
+                  : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200'
+              }`}
+            >
+              <Zap className="w-3.5 h-3.5" />
+              <span>Flow Studio</span>
+            </button>
+            <button
+              onClick={() => setMobileViewMode('phone')}
+              className={`flex-1 sm:flex-initial py-1.5 px-3 rounded-lg transition-all text-[10px] flex items-center justify-center gap-1.5 cursor-pointer ${
+                mobileViewMode === 'phone'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200'
+              }`}
+            >
+              <Smartphone className="w-3.5 h-3.5" />
+              <span>Simu ya Jaribio</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {activeTab === 'meta' ? (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-fade-in">
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 xl:gap-8 items-start w-full min-w-0 animate-fade-in">
           
           {/* Left panel: Meta Config, Webhooks, Live Logs */}
-          <div className="lg:col-span-7 space-y-6">
+          <div className={`space-y-6 w-full min-w-0 xl:col-span-7 ${
+            mobileViewMode === 'phone' ? 'hidden xl:block' : 'block'
+          }`}>
             
             {/* Meta Intro banner */}
             <div className="bg-gradient-to-r from-violet-600 via-fuchsia-600 to-indigo-600 text-white p-6 rounded-2xl shadow-md relative overflow-hidden">
@@ -1014,7 +1059,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                   </div>
 
                   {/* Live Webhook Ping Tester */}
-                  <div className="pt-2 flex items-center justify-between gap-3 border-t border-neutral-200/40 dark:border-neutral-800/40 mt-3">
+                  <div className="pt-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-t border-neutral-200/40 dark:border-neutral-800/40 mt-3">
                     <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
                       Jaribu kama Webhook URL inafanya kazi kabla ya kusajili Meta:
                     </span>
@@ -1023,7 +1068,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                       variant="outline"
                       disabled={livePingStatus.testing}
                       onClick={handleTestLiveWebhook}
-                      className="h-7 text-xs font-bold gap-1.5 border-fuchsia-500/30 text-fuchsia-600 hover:bg-fuchsia-50 dark:hover:bg-fuchsia-950/30 shrink-0"
+                      className="h-7 text-xs font-bold gap-1.5 border-fuchsia-500/30 text-fuchsia-600 hover:bg-fuchsia-50 dark:hover:bg-fuchsia-950/30 shrink-0 self-end sm:self-auto"
                     >
                       <RefreshCw className={`w-3 h-3 ${livePingStatus.testing ? 'animate-spin' : ''}`} />
                       Pima Webhook Live
@@ -1151,12 +1196,12 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                         <span className="text-[10.5px] font-black uppercase tracking-widest text-fuchsia-700 dark:text-fuchsia-400">AI Copilot Chatflow Builder (V4.0)</span>
                         <span className="px-1.5 py-0.5 rounded bg-fuchsia-500/10 text-fuchsia-600 text-[8px] font-bold uppercase tracking-wider">Enterprise AI</span>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex flex-col sm:flex-row gap-2">
                         <Input 
                           value={copilotPrompt}
                           onChange={(e) => setCopilotPrompt(e.target.value)}
                           placeholder="Andika flow unayotaka (e.g. 'Jenga taxi booking flow inayouliza pickup, destination kisha kutoa fare...')"
-                          className="text-xs h-9 bg-white dark:bg-neutral-900 border-neutral-200"
+                          className="text-xs h-9 bg-white dark:bg-neutral-900 border-neutral-200 w-full"
                         />
                         <Button 
                           onClick={async () => {
@@ -1202,7 +1247,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                             }
                           }}
                           disabled={generatingFlow}
-                          className="h-9 text-xs px-4 bg-fuchsia-600 hover:bg-fuchsia-700 text-white font-extrabold uppercase shrink-0 animate-pulse-subtle"
+                          className="h-9 text-xs px-4 bg-fuchsia-600 hover:bg-fuchsia-700 text-white font-extrabold uppercase shrink-0 animate-pulse-subtle w-full sm:w-auto"
                         >
                           {generatingFlow ? (
                             <span className="flex items-center gap-1">
@@ -1215,15 +1260,15 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap justify-between items-center gap-3">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                       {/* Node quick inserters bar */}
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-[9px] font-black uppercase tracking-wider text-neutral-400 mr-1 block">Ongeza Node:</span>
+                      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-0.5 scrollbar-none w-full sm:max-w-[70%] touch-pan-x">
+                        <span className="text-[9px] font-black uppercase tracking-wider text-neutral-400 shrink-0 mr-1">Ongeza Node:</span>
                         <Button 
                           size="sm" 
                           variant="outline"
                           onClick={() => handleAddNode('message')}
-                          className="h-7 text-[9px] font-bold uppercase tracking-wider text-fuchsia-600 border-fuchsia-500/20 hover:bg-fuchsia-50"
+                          className="h-7 text-[9px] font-bold uppercase tracking-wider text-fuchsia-600 border-fuchsia-500/20 hover:bg-fuchsia-50 shrink-0"
                         >
                           <Send className="w-3 h-3 mr-1" /> Message
                         </Button>
@@ -1231,7 +1276,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                           size="sm" 
                           variant="outline"
                           onClick={() => handleAddNode('question')}
-                          className="h-7 text-[9px] font-bold uppercase tracking-wider text-emerald-600 border-emerald-500/20 hover:bg-emerald-50"
+                          className="h-7 text-[9px] font-bold uppercase tracking-wider text-emerald-600 border-emerald-500/20 hover:bg-emerald-50 shrink-0"
                         >
                           <HelpCircle className="w-3 h-3 mr-1" /> Question
                         </Button>
@@ -1239,7 +1284,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                           size="sm" 
                           variant="outline"
                           onClick={() => handleAddNode('ai_decision')}
-                          className="h-7 text-[9px] font-bold uppercase tracking-wider text-purple-600 border-purple-500/20 hover:bg-purple-50"
+                          className="h-7 text-[9px] font-bold uppercase tracking-wider text-purple-600 border-purple-500/20 hover:bg-purple-50 shrink-0"
                         >
                           <Brain className="w-3 h-3 mr-1" /> AI Router
                         </Button>
@@ -1247,7 +1292,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                           size="sm" 
                           variant="outline"
                           onClick={() => handleAddNode('create_order')}
-                          className="h-7 text-[9px] font-bold uppercase tracking-wider text-indigo-600 border-indigo-500/20 hover:bg-indigo-50"
+                          className="h-7 text-[9px] font-bold uppercase tracking-wider text-indigo-600 border-indigo-500/20 hover:bg-indigo-50 shrink-0"
                         >
                           <ShoppingBag className="w-3 h-3 mr-1" /> Order DB
                         </Button>
@@ -1255,7 +1300,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                           size="sm" 
                           variant="outline"
                           onClick={() => handleAddNode('ocr')}
-                          className="h-7 text-[9px] font-bold uppercase tracking-wider text-rose-600 border-rose-500/20 hover:bg-rose-50"
+                          className="h-7 text-[9px] font-bold uppercase tracking-wider text-rose-600 border-rose-500/20 hover:bg-rose-50 shrink-0"
                         >
                           <Brain className="w-3 h-3 mr-1" /> OCR
                         </Button>
@@ -1263,7 +1308,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                           size="sm" 
                           variant="outline"
                           onClick={() => handleAddNode('voice_bot')}
-                          className="h-7 text-[9px] font-bold uppercase tracking-wider text-teal-600 border-teal-500/20 hover:bg-teal-50"
+                          className="h-7 text-[9px] font-bold uppercase tracking-wider text-teal-600 border-teal-500/20 hover:bg-teal-50 shrink-0"
                         >
                           <Smartphone className="w-3 h-3 mr-1" /> Voice
                         </Button>
@@ -1271,7 +1316,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                           size="sm" 
                           variant="outline"
                           onClick={() => handleAddNode('image_understanding')}
-                          className="h-7 text-[9px] font-bold uppercase tracking-wider text-orange-600 border-orange-500/20 hover:bg-orange-50"
+                          className="h-7 text-[9px] font-bold uppercase tracking-wider text-orange-600 border-orange-500/20 hover:bg-orange-50 shrink-0"
                         >
                           <ShoppingBag className="w-3 h-3 mr-1" /> Vision
                         </Button>
@@ -1279,7 +1324,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                           size="sm" 
                           variant="outline"
                           onClick={() => handleAddNode('live_map')}
-                          className="h-7 text-[9px] font-bold uppercase tracking-wider text-sky-600 border-sky-500/20 hover:bg-sky-50"
+                          className="h-7 text-[9px] font-bold uppercase tracking-wider text-sky-600 border-sky-500/20 hover:bg-sky-50 shrink-0"
                         >
                           <Globe className="w-3 h-3 mr-1" /> Live Map
                         </Button>
@@ -1287,7 +1332,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                           size="sm" 
                           variant="outline"
                           onClick={() => handleAddNode('ab_testing')}
-                          className="h-7 text-[9px] font-bold uppercase tracking-wider text-violet-600 border-violet-500/20 hover:bg-violet-50"
+                          className="h-7 text-[9px] font-bold uppercase tracking-wider text-violet-600 border-violet-500/20 hover:bg-violet-50 shrink-0"
                         >
                           <GitBranch className="w-3 h-3 mr-1" /> A/B Test
                         </Button>
@@ -1295,7 +1340,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                           size="sm" 
                           variant="outline"
                           onClick={() => handleAddNode('auto_translation')}
-                          className="h-7 text-[9px] font-bold uppercase tracking-wider text-pink-600 border-pink-500/20 hover:bg-pink-50"
+                          className="h-7 text-[9px] font-bold uppercase tracking-wider text-pink-600 border-pink-500/20 hover:bg-pink-50 shrink-0"
                         >
                           <Globe className="w-3 h-3 mr-1" /> Translate
                         </Button>
@@ -1303,7 +1348,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                           size="sm" 
                           variant="outline"
                           onClick={() => handleAddNode('event_automation')}
-                          className="h-7 text-[9px] font-bold uppercase tracking-wider text-yellow-600 border-yellow-500/20 hover:bg-yellow-50"
+                          className="h-7 text-[9px] font-bold uppercase tracking-wider text-yellow-600 border-yellow-500/20 hover:bg-yellow-50 shrink-0"
                         >
                           <Zap className="w-3 h-3 mr-1" /> Event
                         </Button>
@@ -1311,13 +1356,13 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                           size="sm" 
                           variant="outline"
                           onClick={() => handleAddNode('end')}
-                          className="h-7 text-[9px] font-bold uppercase tracking-wider text-neutral-600 border-neutral-500/20 hover:bg-neutral-50"
+                          className="h-7 text-[9px] font-bold uppercase tracking-wider text-neutral-600 border-neutral-500/20 hover:bg-neutral-50 shrink-0"
                         >
                           <StopCircle className="w-3 h-3 mr-1" /> End
                         </Button>
                       </div>
 
-                      <div className="flex gap-2">
+                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                         <Button
                           size="sm"
                           variant="ghost"
@@ -1330,7 +1375,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                           }}
                           className="h-7 text-[9px] font-black uppercase text-neutral-400 hover:text-red-500"
                         >
-                          Rudisha Default
+                          Reset
                         </Button>
                         <Button
                           size="sm"
@@ -1340,7 +1385,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                           }}
                           className="h-7 text-[9px] font-extrabold uppercase tracking-wider bg-fuchsia-600 hover:bg-fuchsia-700 text-white shadow-sm"
                         >
-                          Hifadhi Mabadiliko
+                          Hifadhi Flow
                         </Button>
                       </div>
                     </div>
@@ -1352,7 +1397,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                       
                       <div 
                         id="studio-canvas"
-                        className="relative w-full h-[580px] overflow-auto rounded-2xl scrollbar-thin cursor-crosshair select-none"
+                        className="relative w-full h-[400px] sm:h-[500px] md:h-[580px] overflow-auto rounded-2xl scrollbar-thin cursor-crosshair select-none"
                         onClick={() => setSelectedNodeId(null)}
                       >
                         {/* Interactive SVG layer for custom curved connections */}
@@ -1974,10 +2019,12 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
           </div>
 
           {/* Right panel: Meta physical phone simulator */}
-          <div className="lg:col-span-5 flex flex-col items-center">
+          <div className={`w-full min-w-0 xl:col-span-5 flex flex-col items-center justify-start ${
+            mobileViewMode === 'studio' ? 'hidden xl:flex' : 'flex'
+          }`}>
             
             {/* Simulator Platform Selector */}
-            <div className="flex bg-neutral-100 dark:bg-neutral-900 p-1 rounded-full mb-4 w-full max-w-[340px] border border-neutral-200/40 dark:border-neutral-800/60 shadow-inner">
+            <div className="flex bg-neutral-100 dark:bg-neutral-900 p-1 rounded-full mb-4 w-full max-w-[320px] sm:max-w-[340px] border border-neutral-200/40 dark:border-neutral-800/60 shadow-inner">
               <button
                 onClick={() => setMetaChannel('whatsapp')}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-full text-[9.5px] font-black uppercase tracking-wider transition-all duration-300 cursor-pointer ${
@@ -2014,7 +2061,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
             </div>
 
             {/* physical frame wrapper */}
-            <div className="relative w-full max-w-[340px] h-[670px] bg-neutral-950 rounded-[48px] p-3.5 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)] border-4 border-neutral-900 ring-12 ring-neutral-900 flex flex-col justify-between overflow-hidden">
+            <div className="relative w-full max-w-[310px] xs:max-w-[330px] sm:max-w-[360px] h-[610px] sm:h-[670px] bg-neutral-950 rounded-[38px] sm:rounded-[48px] p-2.5 sm:p-3.5 shadow-2xl border-2 sm:border-4 border-neutral-800 ring-4 sm:ring-8 md:ring-12 ring-neutral-900/90 flex flex-col justify-between overflow-hidden mx-auto">
               
               {/* Notch */}
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-[22px] bg-neutral-950 rounded-b-2xl z-50 flex items-center justify-center">

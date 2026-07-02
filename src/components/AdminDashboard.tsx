@@ -2458,7 +2458,7 @@ export default function AdminDashboard() {
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.98 }}
-            className="max-w-6xl mx-auto space-y-8"
+            className="max-w-7xl mx-auto space-y-6 px-1 sm:px-4 lg:px-6"
           >
             <TwilioResponderTab vendorId="admin-global" vendorCategory="admin" />
           </motion.div>

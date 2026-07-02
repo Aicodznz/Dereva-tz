@@ -256,7 +256,7 @@ export const AutomationStudioTabs: React.FC<AutomationStudioTabsProps> = ({
   return (
     <div className="space-y-0">
       {/* V4.0 Studio Sub-Tabs Navigation */}
-      <div className="flex border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/50 overflow-x-auto scrollbar-none">
+      <div className="flex border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/50 overflow-x-auto scrollbar-none touch-pan-x">
         {[
           { id: 'canvas', label: 'Flow Builder', icon: <Zap className="w-4 h-4 text-fuchsia-500 fill-fuchsia-500/20" /> },
           { id: 'kb', label: 'AI Knowledge Base', icon: <Brain className="w-4 h-4 text-purple-500" /> },
@@ -270,7 +270,7 @@ export const AutomationStudioTabs: React.FC<AutomationStudioTabsProps> = ({
             <button
               key={tab.id}
               onClick={() => setStudioTab(tab.id as any)}
-              className={`flex items-center gap-2 px-6 py-3 text-xs font-black uppercase tracking-wider border-b-2 transition-all duration-200 shrink-0 ${
+              className={`flex items-center gap-2 px-3.5 sm:px-6 py-2.5 sm:py-3 text-[10.5px] sm:text-xs font-black uppercase tracking-wider border-b-2 transition-all duration-200 shrink-0 whitespace-nowrap cursor-pointer ${
                 active 
                   ? 'border-fuchsia-500 text-fuchsia-600 dark:text-fuchsia-400 bg-white dark:bg-neutral-950 shadow-xs' 
                   : 'border-transparent text-neutral-400 hover:text-neutral-600 hover:bg-neutral-50/80 dark:hover:bg-neutral-900'
@@ -285,8 +285,8 @@ export const AutomationStudioTabs: React.FC<AutomationStudioTabsProps> = ({
 
       {/* Tab 2: AI KNOWLEDGE BASE */}
       {studioTab === 'kb' && (
-        <div className="p-6 space-y-6">
-          <div className="flex justify-between items-start gap-4">
+        <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>
               <h4 className="text-sm font-black uppercase tracking-wider text-neutral-800 dark:text-neutral-100 flex items-center gap-2">
                 <Brain className="w-4.5 h-4.5 text-purple-500" />
@@ -309,7 +309,7 @@ export const AutomationStudioTabs: React.FC<AutomationStudioTabsProps> = ({
                   toast.error("Imeshindwa kuhifadhi maarifa: " + err.message);
                 }
               }}
-              className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-extrabold uppercase tracking-wider shadow-sm shrink-0 px-4 py-2"
+              className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-extrabold uppercase tracking-wider shadow-sm shrink-0 px-4 py-2 w-full sm:w-auto"
             >
               Hifadhi Maarifa
             </Button>
