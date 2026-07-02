@@ -1,20 +1,21 @@
 import React, { useState } from 'react';
-import { MapPin, Search, ChevronDown, Sun, Moon, ShoppingCart, MessageSquare, Receipt, LogOut } from 'lucide-react';
+import { MapPin, Search, ChevronDown, Sun, Moon, ShoppingCart, MessageSquare, Receipt, LogOut, Bike, Car } from 'lucide-react';
 import { useLanguage } from '../LanguageContext';
 import { useTheme } from 'next-themes';
 import { motion, AnimatePresence, useScroll, useMotionValueEvent } from 'motion/react';
 import { useHeader } from '../HeaderContext';
 import { useCart } from '../CartContext';
 import { useAuth } from '../AuthContext';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 export default function Header() {
   const { language, setLanguage, t, isRTL } = useLanguage();
   const { theme, setTheme } = useTheme();
   const { searchQuery, setSearchQuery, location: currentAddress, onLocationClick } = useHeader();
   const { cartCount, setIsCartOpen } = useCart();
-  const { profile, logout, user } = useAuth();
+  const { profile, logout, updateRole, user } = useAuth();
   const routerLocation = useLocation();
+  const navigate = useNavigate();
   const [showLangMenu, setShowLangMenu] = React.useState(false);
   const [isChangingLanguage, setIsChangingLanguage] = useState(false);
   const [targetLangName, setTargetLangName] = useState('');
@@ -174,7 +175,24 @@ export default function Header() {
 
           {/* User Profile */}
           {user && (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5">
+              {/* Driver Mode Toggle Badge if user is rider or has driver details */}
+              {(profile?.role === 'rider' || (profile?.role as string) === 'driver' || profile?.driverType || profile?.licensePlate) && (
+                <button
+                  onClick={async () => {
+                    if (profile?.role !== 'rider' && profile?.role !== 'driver') {
+                      await updateRole('rider');
+                    }
+                    navigate('/');
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 text-white font-black text-[10px] uppercase tracking-wider shadow-md hover:scale-105 active:scale-95 transition-all"
+                  title="Modi ya Dereva"
+                >
+                  <Bike className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Modi ya Dereva</span>
+                </button>
+              )}
+
               <div className="hidden lg:flex flex-col items-end leading-tight shrink-0">
                 <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400 dark:text-neutral-500">
                   {greeting.text} {greeting.emoji}

@@ -22,22 +22,16 @@ type DriverType = 'taxi' | 'delivery' | null;
 export default function RegisterDriver() {
   const { config } = useBusinessConfig();
   const { t } = useLanguage();
-  const { signUp, user, loading: authLoading } = useAuth();
+  const { signUp, user, profile, updateProfileData, updateRole, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [driverType, setDriverType] = useState<DriverType>(null);
   const [step, setStep] = useState(0);
 
-  useEffect(() => {
-    if (!authLoading && user) {
-      navigate('/');
-    }
-  }, [user, authLoading, navigate]);
-
   const [formData, setFormData] = useState({
-    fullName: '',
-    email: '',
-    phone: '',
+    fullName: profile?.fullName || profile?.displayName || user?.displayName || '',
+    email: profile?.email || user?.email || '',
+    phone: profile?.phoneNumber || '',
     password: '',
     city: '',
     // Vehicle
@@ -66,6 +60,17 @@ export default function RegisterDriver() {
     deliveryRegion: 'inside'
   });
 
+  useEffect(() => {
+    if (user && profile) {
+      setFormData(prev => ({
+        ...prev,
+        fullName: prev.fullName || profile.fullName || profile.displayName || user.displayName || '',
+        email: prev.email || profile.email || user.email || '',
+        phone: prev.phone || profile.phoneNumber || ''
+      }));
+    }
+  }, [user, profile]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -77,7 +82,9 @@ export default function RegisterDriver() {
       return;
     }
 
-    if (!formData.email || !formData.email.includes('@') || formData.email.length < 5) {
+    const targetEmail = (formData.email || user?.email || '').trim();
+
+    if (!targetEmail || !targetEmail.includes('@') || targetEmail.length < 5) {
       toast.error('Tafadhali weka barua pepe sahihi katika hatua ya kwanza.');
       setStep(1); // Go back to step 1 to fix email
       return;
@@ -90,15 +97,34 @@ export default function RegisterDriver() {
 
     setLoading(true);
     try {
-      await signUp(formData.email.trim(), formData.password, 'rider', {
-        ...formData,
-        phoneNumber: formData.phone,
-        driverType,
-        approvalStatus: 'pending',
-        status: 'offline',
-      });
-      toast.success(t('registration_submitted'));
-      navigate('/');
+      if (user) {
+        // Logged-in user upgrading account to driver
+        const driverData = {
+          ...formData,
+          phoneNumber: formData.phone || profile?.phoneNumber || '',
+          driverType,
+          role: 'rider',
+          approvalStatus: 'approved',
+          status: 'offline',
+        };
+
+        await updateProfileData(driverData as any);
+        await updateRole('rider');
+
+        toast.success("Akaunti yako imewezeshwa kuwa Dereva kikamilifu!");
+        navigate('/');
+      } else {
+        // New user registration
+        await signUp(targetEmail, formData.password, 'rider', {
+          ...formData,
+          phoneNumber: formData.phone,
+          driverType,
+          approvalStatus: 'pending',
+          status: 'offline',
+        });
+        toast.success(t('registration_submitted'));
+        navigate('/');
+      }
     } catch (error: any) {
       console.error('Registration error:', error);
       const errorCode = error.code || '';

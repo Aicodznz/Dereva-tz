@@ -26,13 +26,20 @@ export default function Dashboard() {
       }
       return <VendorDashboard />;
     case 'rider':
+    case 'driver':
       if (profile.driverType === 'delivery') {
         return <ParcelPartnerController />;
       }
       return <RiderDashboard />;
     case 'customer':
-      return <CustomerDashboard />;
     default:
+      // Fallback: If user has registered driver fields (driverType, licensePlate, vehicleType)
+      if (profile.driverType || profile.licensePlate || profile.vehicleType) {
+        if (profile.driverType === 'delivery') {
+          return <ParcelPartnerController />;
+        }
+        return <RiderDashboard />;
+      }
       return <CustomerDashboard />;
   }
 }

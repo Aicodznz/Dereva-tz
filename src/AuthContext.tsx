@@ -91,14 +91,65 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (docSnap.exists()) {
-          setProfile(docSnap.data() as UserProfile);
+          const rawData = docSnap.data() as any;
+          
+          // Auto-normalize driver role and recover rider state if driver details exist
+          let effectiveRole: UserRole = rawData.role || 'customer';
+          if ((effectiveRole as string) === 'driver') {
+            effectiveRole = 'rider';
+          } else if (effectiveRole === 'customer' || !effectiveRole) {
+            if (rawData.driverType || rawData.vehicleType || rawData.licensePlate || rawData.licenseNumber) {
+              effectiveRole = 'rider';
+            }
+          }
+
+          const normalizedProfile: UserProfile = {
+            ...rawData,
+            role: effectiveRole
+          };
+
+          setProfile(normalizedProfile);
           setStaffProfile(null);
           setLoading(false);
         } else {
-          // Profile does not exist, check if we should create it
+          // Check if driver document exists in 'drivers' collection
+          const driverDocRef = doc(db, 'drivers', user.uid);
+          const driverSnap = await getDoc(driverDocRef);
+
           const currentUser = auth.currentUser;
           if (currentUser) {
             const isAdminEmail = currentUser.email === 'aicodtznation@gmail.com';
+            
+            if (driverSnap.exists()) {
+              const driverData = driverSnap.data();
+              const driverProfile: any = {
+                uid: currentUser.uid,
+                email: currentUser.email || driverData.email || '',
+                displayName: driverData.fullName || driverData.displayName || currentUser.displayName || 'Dereva',
+                fullName: driverData.fullName || driverData.displayName || currentUser.displayName || 'Dereva',
+                photoURL: currentUser.photoURL || '',
+                role: 'rider',
+                phoneNumber: driverData.phoneNumber || '',
+                driverType: driverData.driverType || 'taxi',
+                vehicleType: driverData.vehicleType || '',
+                vehicleBrand: driverData.vehicleBrand || '',
+                vehicleModel: driverData.vehicleModel || '',
+                licensePlate: driverData.licensePlate || '',
+                approvalStatus: driverData.approvalStatus || 'approved',
+                status: driverData.status || 'offline',
+                walletBalance: 0,
+                points: 0,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+              };
+
+              await setDoc(doc(db, 'users', currentUser.uid), driverProfile);
+              setProfile(driverProfile);
+              setStaffProfile(null);
+              setLoading(false);
+              return;
+            }
+
             const newProfile: any = {
               uid: currentUser.uid,
               email: currentUser.email || '',
@@ -159,9 +210,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const updateRole = async (role: UserRole) => {
     if (!user) return;
     try {
+      const targetRole = (role === 'driver' as any) ? 'rider' : role;
       const docRef = doc(db, 'users', user.uid);
-      await updateDoc(docRef, { role });
-      setProfile(prev => prev ? { ...prev, role } : null);
+      await updateDoc(docRef, { role: targetRole });
+
+      if (targetRole === 'rider') {
+        const driverRef = doc(db, 'drivers', user.uid);
+        await setDoc(driverRef, {
+          uid: user.uid,
+          id: user.uid,
+          displayName: profile?.displayName || profile?.fullName || user.displayName || 'Dereva',
+          fullName: profile?.fullName || profile?.displayName || user.displayName || 'Dereva',
+          email: profile?.email || user.email || '',
+          phoneNumber: profile?.phoneNumber || '',
+          role: 'rider',
+          driverType: profile?.driverType || 'taxi',
+          vehicleType: profile?.vehicleType || '',
+          vehicleBrand: profile?.vehicleBrand || '',
+          licensePlate: profile?.licensePlate || '',
+          approvalStatus: profile?.approvalStatus || 'approved',
+          status: profile?.status || 'offline',
+          updatedAt: serverTimestamp(),
+        }, { merge: true });
+      }
+
+      setProfile(prev => prev ? { ...prev, role: targetRole } : null);
     } catch (error) {
       console.error('Update role error:', error);
     }
@@ -211,6 +284,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       await setDoc(doc(db, 'users', newUser.uid), newProfile);
       
+      // If rider/driver, also sync to drivers collection
+      if ((role === 'rider' || (role as string) === 'driver') && extraData) {
+        await setDoc(doc(db, 'drivers', newUser.uid), {
+          ...extraData,
+          uid: newUser.uid,
+          id: newUser.uid,
+          ownerUid: newUser.uid,
+          displayName: extraData.fullName || '',
+          fullName: extraData.fullName || '',
+          email: cleanEmail,
+          phoneNumber: extraData.phone || extraData.phoneNumber || '',
+          driverType: extraData.driverType || 'taxi',
+          vehicleType: extraData.vehicleType || '',
+          licensePlate: extraData.licensePlate || '',
+          approvalStatus: extraData.approvalStatus || 'pending',
+          status: 'offline',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        }, { merge: true });
+      }
+
       // If vendor, also create a vendor profile
       if (role === 'vendor' && extraData) {
         await setDoc(doc(db, 'vendors', newUser.uid), {

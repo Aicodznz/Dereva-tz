@@ -27,9 +27,13 @@ import {
   Bell,
   Star,
   Sun,
-  Moon
+  Moon,
+  Bike,
+  Car,
+  ShieldCheck,
+  RefreshCw
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useLanguage } from '../LanguageContext';
 import { useTheme } from 'next-themes';
@@ -42,7 +46,8 @@ import { db } from '../firebase';
 type ProfileView = 'menu' | 'edit' | 'orders' | 'chat' | 'password' | 'language';
 
 export default function Profile() {
-  const { profile, user, logout, updateProfileData, changePassword } = useAuth();
+  const { profile, user, logout, updateProfileData, updateRole, changePassword } = useAuth();
+  const navigate = useNavigate();
   const { t, language, setLanguage } = useLanguage();
   const { theme, setTheme } = useTheme();
   const [view, setView] = useState<ProfileView>('menu');
@@ -251,6 +256,63 @@ export default function Profile() {
                   <p className="text-lg font-black text-neutral-900 dark:text-white italic mt-1 leading-none">{totalActivityCount}</p>
                </div>
             </div>
+
+            {/* Driver Role Switcher / Driver Card */}
+            {(profile.role === 'rider' || (profile.role as string) === 'driver' || profile.driverType || profile.licensePlate) ? (
+              <div className="mt-6 p-4 rounded-3xl bg-gradient-to-br from-neutral-900 to-neutral-800 text-white shadow-xl space-y-3 text-left">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Bike className="w-5 h-5 text-orange-400" />
+                    <span className="font-black text-xs uppercase tracking-wider text-orange-400">Akaunti ya Dereva</span>
+                  </div>
+                  <Badge className="bg-emerald-500/20 text-emerald-400 font-bold text-[9px] uppercase border-none">
+                    {profile.approvalStatus || 'Approved'}
+                  </Badge>
+                </div>
+
+                <div className="text-xs space-y-1 opacity-90 font-mono">
+                  <p><strong className="text-neutral-400">Aina:</strong> {profile.driverType === 'delivery' ? 'Kifurushi (Delivery)' : 'Teksi / Bodaboda'}</p>
+                  {profile.vehicleType && <p><strong className="text-neutral-400">Chombo:</strong> {profile.vehicleType} {profile.vehicleBrand || ''}</p>}
+                  {profile.licensePlate && <p><strong className="text-neutral-400">Namba ya Bamba:</strong> {profile.licensePlate}</p>}
+                </div>
+
+                <div className="pt-2 flex flex-col sm:flex-row gap-2">
+                  <Button 
+                    onClick={async () => {
+                      if (profile.role !== 'rider') {
+                        await updateRole('rider');
+                      }
+                      navigate('/');
+                    }}
+                    className="flex-1 h-10 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-orange-600/20"
+                  >
+                    Ingia Dashboard ya Dereva
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={() => updateRole('customer')}
+                    className="h-10 border-neutral-700 text-neutral-300 hover:bg-neutral-800 rounded-2xl font-bold text-xs"
+                  >
+                    Badili kuwa Mteja
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-6 p-4 rounded-3xl bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 text-left space-y-3">
+                <div className="flex items-center gap-2">
+                  <Car className="w-5 h-5 text-orange-600" />
+                  <span className="font-black text-xs uppercase tracking-wider text-orange-700 dark:text-orange-400">Unataka Kazi ya Udereva?</span>
+                </div>
+                <p className="text-xs text-neutral-600 dark:text-neutral-300">
+                  Jiunge kama Dereva wa Teksi au Bodaboda wa Papo Hapo ili uanze kupata kipato leo.
+                </p>
+                <Link to="/register/driver">
+                  <Button className="w-full h-10 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl font-black text-xs uppercase tracking-wider mt-1">
+                    Sajili / Badili kuwa Dereva
+                  </Button>
+                </Link>
+              </div>
+            )}
           </div>
         </div>
 
