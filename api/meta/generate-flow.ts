@@ -7,7 +7,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(405).json({ message: 'Method Not Allowed' });
     }
 
-    const { prompt } = req.body || {};
+    const { prompt, currentNodes } = req.body || {};
     if (!prompt) {
       return res.status(400).json({ error: "Prompt is required to generate workflow." });
     }
@@ -23,7 +23,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
     });
 
-    const systemInstruction = `You are an expert conversational flowchart engineer for Papo Hapo Super App Automation Studio (V3.0). Generate a list of interconnected nodes representing a WhatsApp/Messenger/Instagram/SMS Chatbot automation flow based on the user's request.
+    const hasExistingNodes = Array.isArray(currentNodes) && currentNodes.length > 0;
+
+    const systemInstruction = hasExistingNodes ? `You are an expert conversational flowchart engineer for Papo Hapo Super App Automation Studio (V3.0).
+The user ALREADY HAS an existing chatbot workflow with the following nodes:
+${JSON.stringify(currentNodes, null, 2)}
+
+The user wants to CONTINUE, MODIFY, EDIT, or EXTEND this existing workflow with the following instruction:
+"${prompt}"
+
+CRITICAL INSTRUCTIONS FOR CONTINUING/MODIFYING FLOWS:
+1. Preserve existing valid nodes and node IDs where possible (e.g. "n_start", "n_menu", "n_router", "n_taxi_pickup", etc.).
+2. Apply the user's requested modifications or extensions.
+   - For example, if the user asks: "endelea au rekebisha kwamba akichagua TAXI au namba 1 basi aambiwe andike lokesheni anayo enda na abonyeze kitufe chakutuma location au aandike anapo kwenda na alipo":
+     * Update the TAXI question node ("n_taxi_pickup") text to explicitly ask for location/GPS or pickup address:
+       "🚖 Tafadhali andika mahali ulipo sasa (Pickup Address) au bonyeza kitufe cha Tuma Location / Shiriki Eneo Lako:"
+     * Ensure the follow-up node ("n_taxi_dest") asks for the destination address:
+       "📍 Asante! Sasa andika au chagua eneo unalokwenda (Destination):"
+     * Keep the "n_taxi_order" (create_order node) and "n_taxi_done" confirmation message properly linked!
+3. Ensure all nextNodeId, options nextNodeId, and intentMappings nextNodeId point to valid node IDs in the resulting array.
+4. Arrange node positions neatly in 2D space without overlapping.
+5. Return ONLY a valid JSON array of updated nodes. Do not wrap in markdown \`\`\`json blocks and do not add explanatory text.` : `You are an expert conversational flowchart engineer for Papo Hapo Super App Automation Studio (V3.0). Generate a list of interconnected nodes representing a WhatsApp/Messenger/Instagram/SMS Chatbot automation flow based on the user's request.
 The user request is: "${prompt}"
 
 Return ONLY a valid JSON array of nodes. Do not wrap it in \`\`\`json markdown blocks, and do not add any explanation or greeting text.
@@ -61,7 +81,7 @@ You MUST generate a complete, beautifully structured multi-service chatbot flowc
 
 And then create clean sub-branches for all 6 services:
 - TAXI BRANCH:
-  "n_taxi_pickup" (type: "question", position: {x: 800, y: 50}, data: { label: "Ulipo (Pickup)", text: "🚖 Tafadhali andika mahali ulipo (Pickup Location):", variableName: "pickup", nextNodeId: "n_taxi_dest" })
+  "n_taxi_pickup" (type: "question", position: {x: 800, y: 50}, data: { label: "Ulipo (Pickup & Location)", text: "🚖 Tafadhali andika mahali ulipo sasa (Pickup Location) au bonyeza kitufe cha Tuma Location:", variableName: "pickup", nextNodeId: "n_taxi_dest" })
   "n_taxi_dest" (type: "question", position: {x: 1040, y: 50}, data: { label: "Unapokwenda (Destination)", text: "📍 Unapokwenda wapi? (Destination):", variableName: "destination", nextNodeId: "n_taxi_order" })
   "n_taxi_order" (type: "create_order", position: {x: 1280, y: 50}, data: { label: "Ongeza Oda ya Taxi DB", serviceType: "taxi", nextNodeId: "n_taxi_done" })
   "n_taxi_done" (type: "message", position: {x: 1520, y: 50}, data: { label: "Thibitisha Taxi", text: "✅ Order ya Taxi imefanikiwa! Dereva aliye karibu anakuja kukufuata. Oda ID: {{booking_id}}" })

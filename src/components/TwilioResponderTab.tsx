@@ -1258,7 +1258,10 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                               const res = await fetch('/api/meta/generate-flow', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ prompt: copilotPrompt })
+                                body: JSON.stringify({ 
+                                  prompt: copilotPrompt,
+                                  currentNodes: metaNodes && metaNodes.length > 0 ? metaNodes : undefined
+                                })
                               });
                               if (!res.ok) throw new Error("Server error");
                               const data = await res.json();
@@ -1287,7 +1290,11 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                                 });
                                 setMetaEdges(derivedEdges);
                                 handleSaveWorkflowConfig(data.nodes, derivedEdges, useWorkflow);
-                                toast.success("AI Copilot imejenga Flow mpya ya Papo Hapo kikamilifu! 🤖✨");
+                                if (metaNodes && metaNodes.length > 0) {
+                                  toast.success("AI Copilot imerekebisha na kuendeleza Flow iliyopo kikamilifu! 🤖✨");
+                                } else {
+                                  toast.success("AI Copilot imejenga Flow mpya ya Papo Hapo kikamilifu! 🤖✨");
+                                }
                                 setTimeout(() => handleFitView(), 200);
                               } else {
                                 toast.error("Imeshindwa kutengeneza flow. Tafadhali jaribu tena.");
@@ -1325,6 +1332,16 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                         >
                           <Sparkles className="w-3 h-3 text-fuchsia-500" />
                           <span>🌟 Main Services Menu Flow (Taxi, Saluni, Mabasi, Chakula, Soko, Pharmacy)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCopilotPrompt("endelea au rekebisha kwamba akichagua TAXI au namba 1 basi aambiwe andike lokesheni anayo enda na abonyeze kitufe chakutuma location au aandike anapo kwenda na alipo");
+                            toast.info("Prompt ya kuendeleza TAXI na Tuma Location imewekwa! Bofya 'JENGA FLOW'.");
+                          }}
+                          className="px-2 py-0.5 rounded-md bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 text-[10px] font-bold border border-purple-200 dark:border-purple-800 transition-colors cursor-pointer flex items-center gap-1"
+                        >
+                          📍 Endeleza TAXI (Location & Eneo)
                         </button>
                         <button
                           type="button"
