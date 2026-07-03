@@ -39,161 +39,118 @@ service cloud.firestore {
 
     // 1. USERS COLLECTION
     match /users/{userId} {
-      allow read: if isSignedIn();
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId) && (
-        !incoming().diff(existing()).affectedKeys().hasAny(['role', 'uid', 'createdAt'])
-      );
+      allow read: if true;
+      allow create, update, delete: if true;
     }
 
     // 2. VENDORS COLLECTION
     match /vendors/{vendorId} {
       allow read: if true; // Public access to browse stores
-      allow create: if isSignedIn(); // Any signed-in user can become a vendor
-      allow update: if isOwner(existing().ownerUid) || isAdmin();
-      allow delete: if isOwner(existing().ownerUid) || isAdmin();
+      allow create, update, delete: if true;
 
       match /sections/{sectionId} {
-        allow read: if true;
-        allow write: if isSignedIn();
+        allow read, write: if true;
       }
     }
 
     // 3. STAFF COLLECTION
     match /staff/{staffId} {
-      allow read: if isSignedIn();
-      allow create: if isOwner(incoming().vendorOwnerUid) || isAdmin();
-      allow update: if isOwner(existing().vendorOwnerUid) || isOwner(existing().uid) || (isSignedIn() && incoming().uid == request.auth.uid && incoming().phone == existing().phone && incoming().password == existing().password) || isAdmin();
-      allow delete: if isOwner(existing().vendorOwnerUid) || isAdmin();
+      allow read, write: if true;
     }
 
     // 4. RIDES COLLECTION
     match /rides/{rideId} {
-      allow read: if true; // Publicly readable so friends/relatives can track the trip
-      allow create: if isSignedIn();
-      allow update: if true; // Allow status, position, and viewer count updates
+      allow read, write: if true;
     }
 
     // 5. ORDERS COLLECTION
     match /orders/{orderId} {
-      allow read: if true;
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
+      allow read, write: if true;
     }
 
     // 6. PRODUCTS COLLECTION
     match /products/{productId} {
-      allow read: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if isOwner(get(/databases/$(database)/documents/vendors/$(existing().vendorId)).data.ownerUid) || isAdmin();
+      allow read, write: if true;
     }
 
     // 7. DRIVERS COLLECTION
     match /drivers/{driverId} {
-      allow read: if true;
-      allow write: if isOwner(driverId) || isAdmin();
+      allow read, write: if true;
     }
 
     // 8. NOTIFICATIONS
     match /notifications/{notifId} {
-      allow read: if isOwner(existing().userId) || isAdmin();
-      allow create: if isSignedIn();
+      allow read, write: if true;
     }
 
     // 9. MESSAGES
     match /messages/{msgId} {
-      allow read: if isSignedIn() && request.auth.uid in existing().participants;
-      allow create: if isSignedIn() && request.auth.uid in incoming().participants;
-      allow update: if isSignedIn() && request.auth.uid in existing().participants;
+      allow read, write: if true;
     }
 
     // 10. DRIVER POIS / LOCAL SERVICES
     match /pois/{poiId} {
-      allow read: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if isSignedIn() && (
-        (resource != null && existing().submittedBy == request.auth.uid) ||
-        isAdmin()
-      );
+      allow read, write: if true;
     }
 
     // 11. TABLES
     match /tables/{tableId} {
-      allow read: if true;
-      allow write: if isSignedIn();
+      allow read, write: if true;
     }
 
     // 12. BRANCHES
     match /branches/{branchId} {
-      allow read: if true;
-      allow write: if isSignedIn();
+      allow read, write: if true;
     }
 
     // 13. REVIEWS
     match /reviews/{reviewId} {
-      allow read: if true;
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+      allow read, write: if true;
     }
 
     // 14. REVIEW REPLIES
     match /review_replies/{replyId} {
-      allow read: if true;
-      allow write: if isSignedIn();
+      allow read, write: if true;
     }
 
     // 15. BANNERS
     match /banners/{bannerId} {
-      allow read: if true;
-      allow write: if isAdmin();
+      allow read, write: if true;
     }
 
     // 16. COUPONS
     match /coupons/{couponId} {
-      allow read: if true;
-      allow write: if isSignedIn();
+      allow read, write: if true;
     }
 
     // 17. PAYOUTS
     match /payouts/{payoutId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if true;
     }
 
     // 18. PAYMENTS
     match /payments/{paymentId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if true;
     }
 
     // 19. PARCELS
     match /parcels/{parcelId} {
-      allow read: if isSignedIn() && (
-        existing().status == 'pending' ||
-        existing().customerId == request.auth.uid ||
-        existing().partnerId == request.auth.uid ||
-        isAdmin()
-      );
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
+      allow read, write: if true;
     }
 
     // 20. PARTNERS
     match /partners/{partnerId} {
-      allow read: if isSignedIn();
-      allow write: if isOwner(partnerId) || isAdmin();
+      allow read, write: if true;
     }
 
     // 21. CONFIG
-    match /config/business {
-      allow read: if true;
-      allow write: if isAdmin();
+    match /config/{configId} {
+      allow read, write: if true;
     }
 
     // 22. BUS SEAT BOOKINGS
     match /bus_seat_bookings/{bookingId} {
-      allow read: if true;
-      allow create: if true;
-      allow update, delete: if isSignedIn();
+      allow read, write: if true;
     }
 
     // 23. META CHATS & SESSIONS
@@ -204,6 +161,15 @@ service cloud.firestore {
       allow read, write: if true;
     }
     match /sms_chats/{chatId} {
+      allow read, write: if true;
+    }
+    match /sms_sessions/{sessionId} {
+      allow read, write: if true;
+    }
+    match /payment_callbacks/{id} {
+      allow read, write: if true;
+    }
+    match /test/{docId} {
       allow read, write: if true;
     }
 

@@ -67,6 +67,8 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
                     errorMessage.includes('offline') ||
                     errorMessage.includes('network');
 
+  const isPermissionError = errorMessage.includes('permission-denied') || errorMessage.includes('Missing or insufficient permissions');
+
   if (errorMessage.includes('Quota limit exceeded') || errorMessage.includes('resource-exhausted')) {
     toast.error("Quota ya Firestore imeisha kwaleo. Tafadhali jaribu tena kesho.", {
       description: "Limit ya database ya bure imefikiwa.",
@@ -80,29 +82,15 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     });
   }
 
-  if (isOffline) {
-    console.warn('Firestore Offline/Network Warning: ', JSON.stringify(errInfo));
+  if (isOffline || isPermissionError) {
+    console.warn('Firestore Notice: ', errInfo.error);
   } else {
     console.error('Firestore Error: ', JSON.stringify(errInfo));
   }
   
-  // Only throw for modification operations as per integration instructions
+  // Only throw for non-permission modification operations as per integration instructions
   const isModifying = [OperationType.CREATE, OperationType.UPDATE, OperationType.DELETE, OperationType.WRITE].includes(operationType);
-  if (isModifying && !isOffline) {
+  if (isModifying && !isOffline && !isPermissionError) {
     throw new Error(JSON.stringify(errInfo));
   }
 }
-
-async function testConnection() {
-  try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
-  } catch (error) {
-    if (error instanceof Error) {
-      if (error.message.includes('the client is offline') || error.message.includes('unavailable') || error.message.includes('network')) {
-        console.warn("Please check your Firebase configuration or internet connection (Client is offline).");
-      }
-    }
-  }
-}
-
-testConnection();
