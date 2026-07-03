@@ -1,6 +1,3 @@
-import fs from 'fs';
-import path from 'path';
-
 export interface SMSSession {
   phone: string;
   step: 'START' | 'SELECT_SERVICE' | 'BUS_ROUTE' | 'BUS_SELECT_OPERATOR' | 'BUS_SEAT' | 'BUS_PHONE' | 'TAXI_ROUTE' | 'TAXI_DRIVER_SELECT' | 'SALON_SUB' | 'SALON_SELECT' | 'STORE_SEARCH' | 'STORE_SELECT_ITEM' | 'STORE_PHONE';
