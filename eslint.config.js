@@ -2,12 +2,12 @@ import firebaseRulesPlugin from '@firebase/eslint-plugin-security-rules';
 
 export default [
   {
-    files: ['**/*.rules'],
-    plugins: {
-      'firebase-rules': firebaseRulesPlugin,
-    },
+    ...firebaseRulesPlugin.configs['flat/recommended'],
     rules: {
       ...firebaseRulesPlugin.configs['flat/recommended'].rules,
+      'firebase-rules/no-open-writes': 'warn',
+      'firebase-rules/no-open-reads': 'warn',
     }
   }
 ];
+
