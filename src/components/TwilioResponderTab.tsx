@@ -39,7 +39,9 @@ import {
   PlusCircle,
   LayoutGrid,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Save,
+  Folder
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { db } from '../firebase';
@@ -234,6 +236,13 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
   const [isLoadingMeta, setIsLoadingMeta] = useState(false);
   const [copiedMetaWebhook, setCopiedMetaWebhook] = useState(false);
   const [mobileViewMode, setMobileViewMode] = useState<'all' | 'studio' | 'phone'>('all');
+
+  // Custom Saved Flows States
+  const [savedFlows, setSavedFlows] = useState<any[]>([]);
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [saveFlowName, setSaveFlowName] = useState('');
+  const [saveFlowDesc, setSaveFlowDesc] = useState('');
+  const [lastAiGeneratedTime, setLastAiGeneratedTime] = useState<string | null>(null);
   const [selectedWebhookDomain, setSelectedWebhookDomain] = useState<'vercel' | 'cloudrun'>('vercel');
   const [livePingStatus, setLivePingStatus] = useState<{ testing: boolean; success: boolean | null; responseText: string | null }>({
     testing: false,
@@ -483,6 +492,9 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
           if (data.welcomeMessage) setMetaWelcomeText(data.welcomeMessage);
           if (data.triggers) setMetaTriggers(data.triggers);
           if (data.useWorkflow !== undefined) setUseWorkflow(data.useWorkflow);
+          if (data.savedFlows && Array.isArray(data.savedFlows)) {
+            setSavedFlows(data.savedFlows);
+          }
           if (data.nodes && data.nodes.length > 0) {
             setMetaNodes(data.nodes);
           } else {
@@ -786,6 +798,58 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
       }, { merge: true });
     } catch (err: any) {
       console.warn("Could not persist flowchart configuration in Firestore:", err);
+    }
+  };
+
+  const handleSaveCustomFlow = async (name: string, description: string, nodesToSave = metaNodes, edgesToSave = metaEdges) => {
+    if (!name.trim()) {
+      toast.error("Tafadhali weka jina la Flow kabla ya kuhifadhi!");
+      return;
+    }
+    const newFlow = {
+      id: 'flow_' + Date.now(),
+      name: name.trim(),
+      description: description.trim() || 'Custom saved automation flow',
+      createdAt: new Date().toLocaleDateString('sw-TZ', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+      nodes: nodesToSave,
+      edges: edgesToSave
+    };
+    const updatedFlows = [newFlow, ...savedFlows];
+    setSavedFlows(updatedFlows);
+    
+    try {
+      const docRef = doc(db, 'vendors', vendorId, 'settings', 'meta_config');
+      await setDoc(docRef, {
+        savedFlows: updatedFlows,
+        nodes: nodesToSave,
+        edges: edgesToSave,
+        updatedAt: new Date()
+      }, { merge: true });
+      toast.success(`Flow ya "${newFlow.name}" imehifadhiwa kikamilifu kwenye Orodha! 💾✨`);
+    } catch (err: any) {
+      toast.error("Imeshindwa kuhifadhi Flow: " + err.message);
+    }
+  };
+
+  const handleLoadSavedFlow = (flow: any) => {
+    setMetaNodes(flow.nodes || []);
+    setMetaEdges(flow.edges || []);
+    handleSaveWorkflowConfig(flow.nodes || [], flow.edges || [], useWorkflow);
+    toast.success(`Flow ya "${flow.name}" imepakiwa na sasa unaweza kuihariri! 🚀✏️`);
+  };
+
+  const handleDeleteSavedFlow = async (flowId: string) => {
+    const updated = savedFlows.filter(f => f.id !== flowId);
+    setSavedFlows(updated);
+    try {
+      const docRef = doc(db, 'vendors', vendorId, 'settings', 'meta_config');
+      await setDoc(docRef, {
+        savedFlows: updated,
+        updatedAt: new Date()
+      }, { merge: true });
+      toast.success("Flow imefutwa kutoka kwenye orodha ya zilizohifadhiwa!");
+    } catch (err: any) {
+      toast.error("Imeshindwa kufuta flow: " + err.message);
     }
   };
 
@@ -1218,6 +1282,14 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                   setMetaEdges={setMetaEdges}
                   handleSaveWorkflowConfig={handleSaveWorkflowConfig}
                   useWorkflow={useWorkflow}
+                  savedFlows={savedFlows}
+                  onLoadSavedFlow={handleLoadSavedFlow}
+                  onDeleteSavedFlow={handleDeleteSavedFlow}
+                  onOpenSaveModal={() => {
+                    setSaveFlowName(`Flow Custom - ${new Date().toLocaleDateString('sw-TZ')}`);
+                    setSaveFlowDesc('');
+                    setIsSaveModalOpen(true);
+                  }}
                   metaAppId={metaAppId}
                   setMetaAppId={setMetaAppId}
                   metaAppSecret={metaAppSecret}
@@ -1306,6 +1378,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                                 } else {
                                   toast.success("AI Copilot imejenga Flow mpya ya Papo Hapo kikamilifu! 🤖✨");
                                 }
+                                setLastAiGeneratedTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
                                 setTimeout(() => handleFitView(), 200);
                               } else {
                                 toast.error("Imeshindwa kutengeneza flow. Tafadhali jaribu tena.");
@@ -1374,6 +1447,30 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                         </button>
                       </div>
                     </div>
+
+                    {/* AI Generated Flow Quick Notification Banner */}
+                    {lastAiGeneratedTime && (
+                      <div className="p-3 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-emerald-500/10 border border-emerald-500/30 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 animate-fade-in my-1">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-emerald-500 animate-spin-slow shrink-0" />
+                          <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
+                            ✨ AI Copilot imejenga/imerekebisha Flow hii hivi karibuni ({lastAiGeneratedTime})! Unapenda kuitunza kwenye Maktaba?
+                          </span>
+                        </div>
+                        <Button
+                          size="sm"
+                          type="button"
+                          onClick={() => {
+                            setSaveFlowName(`AI Flow - ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+                            setSaveFlowDesc(copilotPrompt || 'Mtiririko uliotengenezwa na AI Copilot');
+                            setIsSaveModalOpen(true);
+                          }}
+                          className="h-7 text-[10px] font-black uppercase tracking-wider bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 shadow-xs cursor-pointer"
+                        >
+                          💾 Hifadhi Flow Hii ya AI
+                        </Button>
+                      </div>
+                    )}
 
                     {/* PROMINENT FULLSCREEN BANNER */}
                     <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-gradient-to-r from-fuchsia-600 via-purple-600 to-indigo-600 text-white rounded-2xl shadow-md">
@@ -1541,9 +1638,30 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                               handleSaveWorkflowConfig(metaNodes, metaEdges, useWorkflow);
                               toast.success("Mabadiliko yote ya flowchart yamehifadhiwa kwenye Firebase! 🚀");
                             }}
-                            className="h-8 text-[10px] font-extrabold uppercase tracking-wider bg-fuchsia-600 hover:bg-fuchsia-700 text-white shadow-sm rounded-lg px-4"
+                            className="h-8 text-[10px] font-extrabold uppercase tracking-wider bg-fuchsia-600 hover:bg-fuchsia-700 text-white shadow-sm rounded-lg px-4 cursor-pointer"
                           >
                             Hifadhi Mabadiliko
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              setSaveFlowName(`Flow Custom - ${new Date().toLocaleDateString('sw-TZ')}`);
+                              setSaveFlowDesc('');
+                              setIsSaveModalOpen(true);
+                            }}
+                            className="h-8 text-[10px] font-black uppercase tracking-wider bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-md rounded-lg px-3.5 flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <Save className="w-3.5 h-3.5" />
+                            <span>💾 Hifadhi Kama Flow Mpya</span>
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setStudioTab('templates')}
+                            className="h-8 text-[10px] font-bold uppercase tracking-wider text-fuchsia-600 dark:text-fuchsia-400 border-fuchsia-300 dark:border-fuchsia-800 hover:bg-fuchsia-50 dark:hover:bg-fuchsia-950/30 rounded-lg px-3 flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <Folder className="w-3.5 h-3.5 text-fuchsia-500" />
+                            <span>Flows Zangu ({savedFlows.length})</span>
                           </Button>
                         </div>
                       </div>
@@ -3025,6 +3143,84 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
 
           </div>
 
+        </div>
+      )}
+
+      {/* Save Custom Flow Modal Dialog */}
+      {isSaveModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800 pb-3">
+              <h3 className="font-extrabold text-sm uppercase tracking-wide text-neutral-800 dark:text-neutral-100 flex items-center gap-2">
+                <Save className="w-4 h-4 text-fuchsia-500" />
+                <span>Hifadhi Flow / Preset Zako</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsSaveModalOpen(false)}
+                className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
+              Weka jina na maelezo ya mtiririko huu ili wewe au mteja wako aweze kuuhariri au kuupakia upya baadaye kutoka kwenye Maktaba ya Flow.
+            </p>
+
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-neutral-500">Jina la Flow (Flow Name) *</label>
+                <Input
+                  value={saveFlowName}
+                  onChange={(e) => setSaveFlowName(e.target.value)}
+                  placeholder="mfano: Taxi & Food Menu Flow V2"
+                  className="text-xs h-9 bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 font-medium"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-neutral-500">Maelezo (Description)</label>
+                <Textarea
+                  value={saveFlowDesc}
+                  onChange={(e) => setSaveFlowDesc(e.target.value)}
+                  placeholder="Maelezo mepesi ya mtiririko huu..."
+                  rows={3}
+                  className="text-xs bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 font-medium"
+                />
+              </div>
+
+              <div className="p-2.5 bg-fuchsia-50 dark:bg-fuchsia-950/20 rounded-xl border border-fuchsia-200/50 dark:border-fuchsia-800/30 text-[10.5px] text-fuchsia-800 dark:text-fuchsia-300 flex items-center justify-between">
+                <span>Inajumuisha:</span>
+                <span className="font-mono font-bold">{metaNodes.length} Nodes & {metaEdges.length} Connections</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-100 dark:border-neutral-800">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsSaveModalOpen(false)}
+                className="h-9 text-xs font-bold cursor-pointer"
+              >
+                Ghairi
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  if (!saveFlowName.trim()) {
+                    toast.error("Tafadhali weka jina la Flow!");
+                    return;
+                  }
+                  handleSaveCustomFlow(saveFlowName, saveFlowDesc);
+                  setIsSaveModalOpen(false);
+                }}
+                className="h-9 text-xs font-black uppercase tracking-wider bg-fuchsia-600 hover:bg-fuchsia-700 text-white px-5 shadow-sm cursor-pointer"
+              >
+                Hifadhi Sasa (Save)
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 

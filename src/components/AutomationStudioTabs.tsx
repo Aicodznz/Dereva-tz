@@ -31,8 +31,23 @@ import {
   EyeOff,
   Play,
   BadgeCheck,
-  Lock
+  Lock,
+  Workflow,
+  Edit3,
+  Trash2,
+  Save,
+  Plus,
+  Folder
 } from 'lucide-react';
+
+export interface SavedFlow {
+  id: string;
+  name: string;
+  description: string;
+  createdAt: string;
+  nodes: any[];
+  edges: any[];
+}
 
 interface AutomationStudioTabsProps {
   studioTab: 'canvas' | 'kb' | 'crm' | 'broadcast' | 'templates' | 'meta_settings';
@@ -55,6 +70,12 @@ interface AutomationStudioTabsProps {
   setMetaEdges: (edges: any[]) => void;
   handleSaveWorkflowConfig: (nodes: any[], edges: any[], active: boolean) => void;
   useWorkflow: boolean;
+  
+  // Custom Saved Flows
+  savedFlows?: SavedFlow[];
+  onLoadSavedFlow?: (flow: SavedFlow) => void;
+  onDeleteSavedFlow?: (flowId: string) => void;
+  onOpenSaveModal?: () => void;
   
   // Meta Configuration Integration states
   metaAppId: string;
@@ -99,6 +120,10 @@ export const AutomationStudioTabs: React.FC<AutomationStudioTabsProps> = ({
   setMetaEdges,
   handleSaveWorkflowConfig,
   useWorkflow,
+  savedFlows = [],
+  onLoadSavedFlow,
+  onDeleteSavedFlow,
+  onOpenSaveModal,
   
   // Meta Configuration Integration states
   metaAppId,
@@ -545,18 +570,104 @@ export const AutomationStudioTabs: React.FC<AutomationStudioTabsProps> = ({
         </div>
       )}
 
-      {/* Tab 5: TEMPLATES MARKETPLACE */}
+      {/* Tab 5: TEMPLATES & SAVED FLOWS MARKETPLACE */}
       {studioTab === 'templates' && (
-        <div className="p-6 space-y-6">
-          <div>
-            <h4 className="text-sm font-black uppercase tracking-wider text-neutral-800 dark:text-neutral-100 flex items-center gap-2">
-              <ShoppingBag className="w-4.5 h-4.5 text-pink-500" />
-              <span>Papo Hapo Automation Templates Marketplace (V4.0)</span>
-            </h4>
-            <p className="text-xs text-neutral-500 mt-1">
-              Sakinisha (Install) mtiririko uliokamilika tayari uliotengenezwa mahususi kwa huduma tofauti za Papo Hapo Super App kwa sekunde moja tu!
-            </p>
+        <div className="p-6 space-y-8">
+          
+          {/* Section 1: Saved Custom Flows */}
+          <div className="p-5 bg-gradient-to-br from-fuchsia-500/10 via-purple-500/5 to-transparent border border-fuchsia-500/20 rounded-2xl space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h4 className="text-sm font-black uppercase tracking-wider text-neutral-800 dark:text-neutral-100 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-fuchsia-500" />
+                  <span>Maktaba ya Flow Zilizohifadhiwa (Saved Custom Flows)</span>
+                </h4>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                  Orodha ya mtiririko uliomwambia AI akutengenezee au uliohifadhi wewe mwenyewe. Unaweza kupakia na kuhariri flow yoyote wakati wowote!
+                </p>
+              </div>
+              {onOpenSaveModal && (
+                <Button
+                  size="sm"
+                  onClick={onOpenSaveModal}
+                  className="bg-fuchsia-600 hover:bg-fuchsia-700 text-white text-xs font-bold shrink-0 shadow-xs"
+                >
+                  <Save className="w-3.5 h-3.5 mr-1.5" />
+                  Hifadhi Flow ya Sasa
+                </Button>
+              )}
+            </div>
+
+            {savedFlows && savedFlows.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+                {savedFlows.map((flow) => (
+                  <div key={flow.id} className="p-4 bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 rounded-xl space-y-3 shadow-xs flex flex-col justify-between hover:border-fuchsia-400/50 transition-colors">
+                    <div className="space-y-1.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <h5 className="font-extrabold text-xs text-neutral-800 dark:text-neutral-100 flex items-center gap-1.5">
+                          <Workflow className="w-3.5 h-3.5 text-fuchsia-500 shrink-0" />
+                          <span className="line-clamp-1">{flow.name}</span>
+                        </h5>
+                        <span className="text-[9px] font-mono text-neutral-400 shrink-0">{flow.createdAt}</span>
+                      </div>
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 line-clamp-2">{flow.description}</p>
+                      <div className="flex items-center gap-2 text-[10px] text-neutral-400 font-mono pt-1">
+                        <span className="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 rounded font-bold text-fuchsia-600 dark:text-fuchsia-400">Nodes: {flow.nodes?.length || 0}</span>
+                        <span className="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 rounded font-bold text-indigo-600 dark:text-indigo-400">Links: {flow.edges?.length || 0}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-2 border-t border-neutral-100 dark:border-neutral-800">
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          if (onLoadSavedFlow) {
+                            onLoadSavedFlow(flow);
+                            setStudioTab('canvas');
+                          }
+                        }}
+                        className="flex-1 bg-fuchsia-600 hover:bg-fuchsia-700 text-white text-[11px] font-bold h-8 cursor-pointer"
+                      >
+                        <Edit3 className="w-3 h-3 mr-1" /> Pakia & Hariri
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          if (onDeleteSavedFlow && window.confirm(`Je, unataka kufuta flow ya "${flow.name}"?`)) {
+                            onDeleteSavedFlow(flow.id);
+                          }
+                        }}
+                        className="h-8 text-rose-500 border-rose-200 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-[11px] cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-6 text-center bg-white/60 dark:bg-neutral-900/40 rounded-xl border border-dashed border-fuchsia-300/40 dark:border-fuchsia-800/40 space-y-2">
+                <Workflow className="w-8 h-8 text-fuchsia-400 mx-auto opacity-70" />
+                <p className="text-xs font-bold text-neutral-600 dark:text-neutral-300">Bado hujazalisha au kuhifadhi Flow ya kwako mwenyewe!</p>
+                <p className="text-[11px] text-neutral-400 max-w-md mx-auto">
+                  Kwenye Flow Builder, unaweza kumwambia AI Copilot akutengenezee mtiririko kisha ubonyeze kitufe cha <strong>"💾 Hifadhi Flow"</strong>. Flow zako zote zitaonekana hapa ili uweze kuzihariri baadaye.
+                </p>
+              </div>
+            )}
           </div>
+
+          {/* Section 2: Pre-built Flow Templates Marketplace */}
+          <div className="space-y-4">
+            <div>
+              <h4 className="text-sm font-black uppercase tracking-wider text-neutral-800 dark:text-neutral-100 flex items-center gap-2">
+                <ShoppingBag className="w-4.5 h-4.5 text-pink-500" />
+                <span>Papo Hapo Automation Templates Marketplace (V4.0)</span>
+              </h4>
+              <p className="text-xs text-neutral-500 mt-1">
+                Sakinisha (Install) mtiririko uliokamilika tayari uliotengenezwa mahususi kwa huduma tofauti za Papo Hapo Super App kwa sekunde moja tu!
+              </p>
+            </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
@@ -720,6 +831,7 @@ export const AutomationStudioTabs: React.FC<AutomationStudioTabsProps> = ({
               </div>
             ))}
           </div>
+        </div>
         </div>
       )}
 
