@@ -426,6 +426,7 @@ const MapControl = ({
 };
 
 const MapRotationController = ({ 
+  rotation = 0,
   is3DMode = false
 }: { 
   rotation?: number; 
@@ -438,11 +439,15 @@ const MapRotationController = ({
     if (!map) return;
     const mapPane = map.getPane('mapPane');
     if (!mapPane) return;
-    const perspectiveTilt = is3DMode ? 'perspective(1000px) rotateX(58deg)' : 'none';
-    mapPane.style.transform = perspectiveTilt;
+    const perspectiveTilt = is3DMode ? 'perspective(1000px) rotateX(50deg) ' : '';
+    if (rotation !== 0 || is3DMode) {
+      mapPane.style.transform = `${perspectiveTilt}rotateZ(${-rotation}deg)`;
+    } else {
+      mapPane.style.transform = 'none';
+    }
     mapPane.style.transformOrigin = 'center center';
     mapPane.style.transition = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)';
-  }, [map, is3DMode]);
+  }, [map, rotation, is3DMode]);
 
   return null;
 };
@@ -3507,6 +3512,52 @@ export default function TaxiBooking() {
                       title={is3DMode ? "Badili kwenda Muonekano wa 2D" : "Badili kwenda Muonekano wa 3D"}
                     >
                       {is3DMode ? '3D' : '2D'}
+                    </button>
+
+                    <div className="w-[1px] h-4 bg-white/20 mx-0.5 self-center" />
+
+                    {/* Rotate Left ↺ */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setManualRotation((prev) => (prev - 30 + 360) % 360);
+                      }}
+                      className="p-1.5 rounded-xl text-neutral-400 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+                      title="Zungusha Ramani Kushoto (-30°)"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                    </button>
+
+                    {/* Rotate Right ↻ */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setManualRotation((prev) => (prev + 30) % 360);
+                      }}
+                      className="p-1.5 rounded-xl text-neutral-400 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+                      title="Zungusha Ramani Kulia (+30°)"
+                    >
+                      <RotateCw className="w-3.5 h-3.5" />
+                    </button>
+
+                    {/* Compass Reset North 🧭 */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setManualRotation(0);
+                      }}
+                      className={`px-2 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition-all ${
+                        manualRotation !== 0
+                          ? 'bg-amber-500/20 border border-amber-500/50 text-amber-300'
+                          : 'text-neutral-400 hover:text-white hover:bg-white/5'
+                      }`}
+                      title={`Kuelekeza Kaskazini (0°) - Pembe ya sasa: ${manualRotation}°`}
+                    >
+                      <Compass
+                        className="w-3.5 h-3.5 transition-transform duration-300"
+                        style={{ transform: `rotate(${manualRotation}deg)` }}
+                      />
+                      <span className="text-[9px] font-mono font-bold">{manualRotation}°</span>
                     </button>
                   </div>
 

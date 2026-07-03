@@ -1004,7 +1004,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
       }
     }, 10000);
 
-    // Ride tracking (every 4s for optimized database write queries and scalability)
+    // Ride tracking (every 1.1s for real-time smooth GPS tracking)
     let rideInterval: any;
     if (rideId && activeRide && (activeRide.status === 'accepted' || activeRide.status === 'driver_arriving' || activeRide.status === 'driver_arrived' || activeRide.status === 'on_trip')) {
       rideInterval = setInterval(async () => {
@@ -1019,7 +1019,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
         } catch (e) {
           console.warn("Ride location sync fail", e);
         }
-      }, 4000);
+      }, 1100);
     }
 
     return () => {
@@ -1104,9 +1104,8 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
       const index = simulatedIndexRef.current;
 
       if (path && path.length > 0 && index < path.length - 1) {
-        // Advance along the path. 
-        // We advance by 4 coordinate indices per tick every 4.4s to maintain realistic speed with 4x fewer database writes
-        const nextIndex = Math.min(index + 4, path.length - 1);
+        // Advance along the path step-by-step (1 step per 1.1s tick) for smooth 54 km/h urban traversal
+        const nextIndex = Math.min(index + 1, path.length - 1);
         simulatedIndexRef.current = nextIndex;
         
         const currentCoord = path[index];
@@ -1115,7 +1114,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
         if (nextCoord) {
           const bearing = calculateBearing(currentCoord[0], currentCoord[1], nextCoord[0], nextCoord[1]);
           
-          console.log(`[Simulation] Moving driver to [${nextCoord[0].toFixed(5)}, ${nextCoord[1].toFixed(5)}]. Bearing: ${bearing.toFixed(1)}`);
+          console.log(`[Simulation] Moving driver smoothly to [${nextCoord[0].toFixed(5)}, ${nextCoord[1].toFixed(5)}]. Bearing: ${bearing.toFixed(1)}`);
           
           setRotation(bearing);
           setPosition(nextCoord);
@@ -1142,7 +1141,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
           arrivedAtPickup();
         }
       }
-    }, 4400);
+    }, 1100);
 
     return () => clearInterval(simInterval);
   }, [isOnline, activeRide?.status, updateDriverLocation, arrivedAtPickup]);
@@ -2251,6 +2250,28 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
             <span className="text-[10px] font-black tracking-wider">
               {is3DMode ? '3D' : '2D'}
             </span>
+          </motion.button>
+
+          {/* Rotate Left ↺ */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setRotation((prev) => (prev - 30 + 360) % 360)}
+            className="w-10 h-10 bg-white/95 dark:bg-[#111118]/90 border border-neutral-200/50 dark:border-[#1e1e2e] rounded-xl shadow-lg flex items-center justify-center transition-all text-neutral-600 dark:text-neutral-300 hover:text-emerald-500 cursor-pointer"
+            title="Zungusha Ramani Kushoto (-30°)"
+          >
+            <RotateCcw className="w-4 h-4" />
+          </motion.button>
+
+          {/* Rotate Right ↻ */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setRotation((prev) => (prev + 30) % 360)}
+            className="w-10 h-10 bg-white/95 dark:bg-[#111118]/90 border border-neutral-200/50 dark:border-[#1e1e2e] rounded-xl shadow-lg flex items-center justify-center transition-all text-neutral-600 dark:text-neutral-300 hover:text-emerald-500 cursor-pointer"
+            title="Zungusha Ramani Kulia (+30°)"
+          >
+            <RotateCw className="w-4 h-4" />
           </motion.button>
 
           {/* Compass Direction Badge / Reset Button */}

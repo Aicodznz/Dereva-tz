@@ -51,22 +51,22 @@ export function useMatchmaking(ride: Ride | null) {
       return;
     }
 
-    // Check for inactivity every 3 seconds.
-    // Take over simulation if no update from driver for 15 seconds.
+    // Check for inactivity every 1.5 seconds.
+    // Take over simulation if no update from real driver GPS for 3 seconds (e.g. phone locked, screen off, app backgrounded or battery dead).
     const watchdog = setInterval(() => {
       const timeSinceLastUpdate = Date.now() - lastRealLocationUpdateRef.current;
-      if (timeSinceLastUpdate > 15000) {
+      if (timeSinceLastUpdate > 3000) {
         if (!isTakeoverActive) {
-          console.log("[Watchdog] Driver is offline/inactive. Activating client-side simulation takeover!");
+          console.log("[Watchdog] Driver is offline/backgrounded. Activating smooth client-side location projection takeover!");
           setIsTakeoverActive(true);
         }
       } else {
         if (isTakeoverActive) {
-          console.log("[Watchdog] Driver active. Deactivating simulation takeover.");
+          console.log("[Watchdog] Real driver GPS active. Deactivating simulation takeover.");
           setIsTakeoverActive(false);
         }
       }
-    }, 3000);
+    }, 1500);
 
     return () => clearInterval(watchdog);
   }, [ride?.id, ride?.status, isMockDriver, isTakeoverActive]);
@@ -191,7 +191,7 @@ export function useMatchmaking(ride: Ride | null) {
             const nextCoord = coords[stepIdx];
             let heading = 0;
             if (stepIdx > 0) {
-              const prevCoord = coords[Math.max(0, stepIdx - 4)];
+              const prevCoord = coords[Math.max(0, stepIdx - 1)];
               heading = getBearing(prevCoord[0], prevCoord[1], nextCoord[0], nextCoord[1]);
             } else {
               heading = getBearing(driverPos.lat, driverPos.lng, nextCoord[0], nextCoord[1]);
@@ -202,7 +202,7 @@ export function useMatchmaking(ride: Ride | null) {
               driverLocation: { lat: nextCoord[0], lng: nextCoord[1], heading },
               updatedAt: serverTimestamp()
             });
-            stepIdx += 4; // Move 4 steps at a time every 4.4s to optimize database writes
+            stepIdx += 1; // Move 1 step at a time every 1.1s for realistic ~54 km/h urban speed
           } else {
             console.log("[Simulation] Mock Driver arrived at pickup!");
             clearInterval(simulationIntervalRef.current);
@@ -219,7 +219,7 @@ export function useMatchmaking(ride: Ride | null) {
               updatedAt: serverTimestamp()
             });
           }
-        }, 4400);
+        }, 1100);
       };
 
       // Fetch real routing coordinates asynchronously
@@ -373,7 +373,7 @@ export function useMatchmaking(ride: Ride | null) {
 
           let heading = 0;
           if (currentIdx > 0) {
-            const prevCoord = interpolatedTripCoords[Math.max(0, currentIdx - 4)];
+            const prevCoord = interpolatedTripCoords[Math.max(0, currentIdx - 1)];
             heading = getBearing(prevCoord[0], prevCoord[1], nextCoord[0], nextCoord[1]);
           } else if (ride.driverLocation) {
             heading = getBearing(ride.driverLocation.lat, ride.driverLocation.lng, nextCoord[0], nextCoord[1]);
@@ -384,7 +384,7 @@ export function useMatchmaking(ride: Ride | null) {
             driverLocation: { lat: nextCoord[0], lng: nextCoord[1], heading },
             updatedAt: serverTimestamp()
           });
-          currentIdx += 4; // Advance 4 indices per tick every 4.4s to optimize database writes
+          currentIdx += 1; // Advance 1 index per tick every 1.1s for realistic ~54 km/h urban speed
         } else {
           console.log("[Simulation] Reached destination!");
           clearInterval(simulationIntervalRef.current);
@@ -396,7 +396,7 @@ export function useMatchmaking(ride: Ride | null) {
             updatedAt: serverTimestamp()
           });
         }
-      }, 4400);
+      }, 1100);
 
       return () => {
         if (simulationIntervalRef.current) {
