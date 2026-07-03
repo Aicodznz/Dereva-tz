@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -306,9 +307,19 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
   const [canvasScale, setCanvasScale] = useState(0.8);
   const [isExpandedCanvas, setIsExpandedCanvas] = useState(false);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isExpandedCanvas) {
+        setIsExpandedCanvas(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isExpandedCanvas]);
+
   const handleFitView = () => {
     if (!metaNodes || metaNodes.length === 0) return;
-    const canvasElement = document.getElementById('studio-canvas');
+    const canvasElement = document.getElementById('studio-canvas') || document.getElementById('studio-canvas-fullscreen');
     if (!canvasElement) return;
 
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
@@ -738,7 +749,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
     const offsetY = e.clientY - rect.top;
     
     const handleMouseMove = (moveEvent: MouseEvent) => {
-      const canvasElement = document.getElementById('studio-canvas');
+      const canvasElement = document.getElementById('studio-canvas') || document.getElementById('studio-canvas-fullscreen');
       if (!canvasElement) return;
       const canvasRect = canvasElement.getBoundingClientRect();
       
@@ -1469,6 +1480,18 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                       <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                         <Button
                           size="sm"
+                          type="button"
+                          onClick={() => {
+                            setIsExpandedCanvas(true);
+                            toast.success("Flow Builder imefunguka kwenye Skrini Nzima (Fullscreen)! 🖥️✨");
+                          }}
+                          className="h-7 text-[9px] font-black uppercase tracking-wider bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-700 hover:to-fuchsia-700 text-white shadow-md flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Maximize2 className="w-3 h-3" />
+                          <span>Skrini Nzima (Fullscreen)</span>
+                        </Button>
+                        <Button
+                          size="sm"
                           variant="ghost"
                           onClick={() => {
                             if (window.confirm("Je, una uhakika unataka kurudisha mtiririko wa soga kwenye muundo wa kwanza wa mfano?")) {
@@ -1495,9 +1518,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                     </div>
 
                     {/* Canvas Area Container */}
-                    <div className={`relative border border-neutral-200/60 dark:border-neutral-800 rounded-2xl bg-neutral-50 dark:bg-neutral-950/40 p-1.5 transition-all duration-300 ${
-                      isExpandedCanvas ? 'fixed inset-3 sm:inset-6 z-50 bg-white dark:bg-neutral-950 shadow-2xl flex flex-col p-3' : ''
-                    }`}>
+                    <div className="relative border border-neutral-200/60 dark:border-neutral-800 rounded-2xl bg-neutral-50 dark:bg-neutral-950/40 p-1.5 transition-all duration-300">
                       {/* Floating Canvas Controls Toolbar */}
                       <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-md rounded-xl border border-neutral-200/60 dark:border-neutral-800 mb-2 z-30 shadow-xs">
                         <div className="flex flex-wrap items-center gap-2">
@@ -1546,20 +1567,14 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
-                            onClick={() => setIsExpandedCanvas(!isExpandedCanvas)}
-                            className="px-3 py-1 text-[10px] font-black uppercase tracking-wider text-white bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-700 hover:to-purple-700 rounded-lg shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
+                            onClick={() => {
+                              setIsExpandedCanvas(true);
+                              toast.success("Flow Builder imefunguka kwenye Skrini Nzima (Fullscreen)! 🖥️✨");
+                            }}
+                            className="px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider text-white bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-700 hover:to-purple-700 rounded-lg shadow-md transition-all cursor-pointer flex items-center gap-1.5"
                           >
-                            {isExpandedCanvas ? (
-                              <>
-                                <Minimize2 className="w-3.5 h-3.5" />
-                                <span>Rudi View Kawaida</span>
-                              </>
-                            ) : (
-                              <>
-                                <Maximize2 className="w-3.5 h-3.5" />
-                                <span>🖥️ Skrini Nzima (Fullscreen)</span>
-                              </>
-                            )}
+                            <Maximize2 className="w-3.5 h-3.5" />
+                            <span>🖥️ Skrini Nzima (Fullscreen)</span>
                           </button>
                         </div>
                       </div>
@@ -1766,6 +1781,259 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                     </div>
                   </div>
                   </div>
+
+                  {/* Fullscreen Portal Overlay when isExpandedCanvas is true */}
+                  {isExpandedCanvas && typeof document !== 'undefined' && createPortal(
+                    <div className="fixed inset-0 z-[99999] bg-white dark:bg-neutral-950 flex flex-col p-3 sm:p-5 w-screen h-screen overflow-hidden font-sans">
+                      {/* Fullscreen Top Header */}
+                      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 bg-neutral-900 text-white rounded-2xl shadow-2xl shrink-0 mb-3 border border-neutral-800">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-fuchsia-600 to-purple-600 flex items-center justify-center shadow-md">
+                            <Sparkles className="w-4 h-4 text-white" />
+                          </div>
+                          <div>
+                            <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-white flex items-center gap-2">
+                              <span>Papo Hapo Studio Flow Builder</span>
+                              <span className="px-2 py-0.5 rounded-full bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/30 text-[9px] font-mono font-bold">FULLSCREEN MODE</span>
+                            </h3>
+                            <p className="text-[10px] text-neutral-400 hidden sm:block">Skrini Nzima — Hariri, vuta na uunganishe nodes zote kwa nafasi kubwa zaidi.</p>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="flex items-center bg-neutral-800 rounded-lg p-0.5 border border-neutral-700">
+                            <button
+                              type="button"
+                              onClick={() => setCanvasScale(prev => Math.max(0.35, +(prev - 0.15).toFixed(2)))}
+                              className="px-2.5 py-1 hover:bg-neutral-700 rounded-md text-xs font-bold text-neutral-200 transition-colors cursor-pointer"
+                            >
+                              -
+                            </button>
+                            <span className="px-2 text-[10px] font-mono font-bold text-fuchsia-400 min-w-[45px] text-center">
+                              {Math.round(canvasScale * 100)}%
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setCanvasScale(prev => Math.min(1.8, +(prev + 0.15).toFixed(2)))}
+                              className="px-2.5 py-1 hover:bg-neutral-700 rounded-md text-xs font-bold text-neutral-200 transition-colors cursor-pointer"
+                            >
+                              +
+                            </button>
+                          </div>
+
+                          <Button
+                            size="sm"
+                            type="button"
+                            onClick={() => setCanvasScale(1.0)}
+                            className="h-8 text-[10px] font-bold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 cursor-pointer"
+                          >
+                            100% Reset
+                          </Button>
+
+                          <Button
+                            size="sm"
+                            type="button"
+                            onClick={handleFitView}
+                            className="h-8 text-[10px] font-extrabold bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 cursor-pointer"
+                          >
+                            <Maximize2 className="w-3.5 h-3.5 mr-1 text-purple-400" />
+                            🎯 Center & Fit All Nodes
+                          </Button>
+
+                          <Button
+                            size="sm"
+                            type="button"
+                            onClick={() => {
+                              handleSaveWorkflowConfig(metaNodes, metaEdges, useWorkflow);
+                              toast.success("Mabadiliko yote yamehifadhiwa! 🚀");
+                            }}
+                            className="h-8 text-[10px] font-black uppercase bg-fuchsia-600 hover:bg-fuchsia-700 text-white shadow-md cursor-pointer"
+                          >
+                            Hifadhi Flow
+                          </Button>
+
+                          <Button
+                            size="sm"
+                            type="button"
+                            onClick={() => setIsExpandedCanvas(false)}
+                            className="h-8 text-[10px] font-black uppercase bg-red-600 hover:bg-red-700 text-white shadow-md flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <Minimize2 className="w-3.5 h-3.5" />
+                            <span>Toka Skrini Nzima (Exit)</span>
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Fullscreen Body */}
+                      <div className="flex-1 min-h-0 overflow-hidden relative border border-neutral-200/60 dark:border-neutral-800 rounded-2xl bg-neutral-50 dark:bg-neutral-900/40 p-1.5 flex flex-col">
+                        <div className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px] dark:bg-[radial-gradient(#262626_1px,transparent_1px)] opacity-50 rounded-2xl pointer-events-none" />
+                        
+                        <div 
+                          id="studio-canvas-fullscreen"
+                          className="relative w-full h-full overflow-auto rounded-2xl scrollbar-thin cursor-crosshair select-none flex-1"
+                          onClick={() => setSelectedNodeId(null)}
+                        >
+                          <div 
+                            className="relative"
+                            style={{ 
+                              width: "3200px", 
+                              height: "2200px",
+                              transform: `scale(${canvasScale})`,
+                              transformOrigin: "0 0"
+                            }}
+                          >
+                            <svg 
+                              className="absolute inset-0 pointer-events-none" 
+                              style={{ width: "3200px", height: "2200px" }}
+                            >
+                              <defs>
+                                <marker 
+                                  id="arrow-fs" 
+                                  viewBox="0 0 10 10" 
+                                  refX="6" 
+                                  refY="5" 
+                                  markerWidth="5" 
+                                  markerHeight="5" 
+                                  orient="auto-start-reverse"
+                                >
+                                  <path d="M 0 1 L 10 5 L 0 9 z" fill="#d946ef" />
+                                </marker>
+                              </defs>
+
+                              {metaNodes.map((node) => {
+                                const paths: React.ReactNode[] = [];
+                                if (node.data?.nextNodeId) {
+                                  const path = drawLink(node.id, node.data.nextNodeId);
+                                  if (path) paths.push(path);
+                                }
+                                if (node.type === 'ai_decision' && node.data?.intentMappings) {
+                                  node.data.intentMappings.forEach((mapping: any, idx: number) => {
+                                    if (mapping.nextNodeId) {
+                                      const path = drawLink(
+                                        node.id, 
+                                        mapping.nextNodeId, 
+                                        "#8b5cf6", 
+                                        mapping.keywords?.split(',')[0] || `Branch ${idx+1}`
+                                      );
+                                      if (path) paths.push(path);
+                                    }
+                                  });
+                                }
+                                return paths;
+                              })}
+                            </svg>
+
+                            <div className="absolute inset-0 pointer-events-auto" style={{ width: "3200px", height: "2200px" }}>
+                              {metaNodes.map((node) => {
+                                const isSelected = selectedNodeId === node.id;
+                                const isActive = activeWorkflowNodeId === node.id;
+                                
+                                let headerColor = "bg-neutral-100 border-neutral-300 dark:bg-neutral-800 dark:border-neutral-700 text-neutral-800 dark:text-neutral-200";
+                                let nodeIcon = <Settings className="w-4 h-4" />;
+                                
+                                if (node.type === 'start') {
+                                  headerColor = "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400";
+                                  nodeIcon = <Play className="w-3.5 h-3.5 fill-amber-500/10" />;
+                                } else if (node.type === 'message') {
+                                  headerColor = "bg-fuchsia-500/10 border-fuchsia-500/30 text-fuchsia-600 dark:text-fuchsia-400";
+                                  nodeIcon = <Send className="w-3.5 h-3.5" />;
+                                } else if (node.type === 'question') {
+                                  headerColor = "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400";
+                                  nodeIcon = <HelpCircle className="w-3.5 h-3.5" />;
+                                } else if (node.type === 'ai_decision') {
+                                  headerColor = "bg-purple-500/10 border-purple-500/30 text-purple-600 dark:text-purple-400";
+                                  nodeIcon = <Brain className="w-3.5 h-3.5" />;
+                                } else if (node.type === 'condition') {
+                                  headerColor = "bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400";
+                                  nodeIcon = <GitBranch className="w-3.5 h-3.5" />;
+                                } else if (node.type === 'create_order') {
+                                  headerColor = "bg-indigo-500/10 border-indigo-500/30 text-indigo-600 dark:text-indigo-400";
+                                  nodeIcon = <ShoppingBag className="w-3.5 h-3.5" />;
+                                } else if (node.type === 'end') {
+                                  headerColor = "bg-neutral-500/10 border-neutral-500/30 text-neutral-600 dark:text-neutral-400";
+                                  nodeIcon = <StopCircle className="w-3.5 h-3.5" />;
+                                }
+                                
+                                return (
+                                  <div
+                                    key={node.id}
+                                    style={{ left: `${node.position?.x || 0}px`, top: `${node.position?.y || 0}px` }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedNodeId(node.id);
+                                    }}
+                                    className={`absolute w-[190px] rounded-2xl border bg-white dark:bg-neutral-900 shadow-md hover:shadow-lg transition-all duration-300 select-none ${
+                                      isSelected ? 'ring-2 ring-fuchsia-500 border-fuchsia-500 shadow-fuchsia-500/10 scale-102 z-20' : 'z-10'
+                                    } ${
+                                      isActive ? 'ring-4 ring-emerald-500 ring-offset-2 dark:ring-offset-black animate-pulse z-30' : ''
+                                    }`}
+                                  >
+                                    <div 
+                                      onMouseDown={(e) => handleNodeDragStart(e, node.id)}
+                                      className={`flex items-center justify-between p-2 rounded-t-2xl border-b cursor-grab active:cursor-grabbing ${headerColor}`}
+                                    >
+                                      <div className="flex items-center gap-1.5 truncate max-w-[130px]">
+                                        {nodeIcon}
+                                        <span className="text-[10px] font-bold uppercase tracking-tight truncate">{node.data?.label || node.id}</span>
+                                      </div>
+                                      {node.id !== 'n_start' && (
+                                        <button 
+                                          type="button" 
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDeleteNode(node.id);
+                                          }} 
+                                          className="text-neutral-400 hover:text-red-500 p-0.5 rounded transition-colors"
+                                        >
+                                          <Trash2 className="w-3 h-3" />
+                                        </button>
+                                      )}
+                                    </div>
+
+                                    <div className="p-2 space-y-1.5 text-[9px]">
+                                      {node.type === 'start' && (
+                                        <p className="line-clamp-2 text-neutral-500 font-mono">Triggers: {node.data?.triggerKeywords || 'habari, mambo, hi'}</p>
+                                      )}
+                                      {(node.type === 'message' || node.type === 'question') && (
+                                        <>
+                                          <p className="line-clamp-2 font-medium text-neutral-700 dark:text-neutral-300 italic">"{node.data?.text || 'Bila ujumbe'}"</p>
+                                          {node.data?.variableName && (
+                                            <span className="inline-block px-1.5 py-0.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded text-[8px] font-mono font-bold">Var: {node.data.variableName}</span>
+                                          )}
+                                        </>
+                                      )}
+                                      {node.type === 'ai_decision' && (
+                                        <div className="space-y-0.5">
+                                          <p className="text-purple-600 dark:text-purple-400 font-bold">🤖 Intent Classifier</p>
+                                          <p className="text-[8px] text-neutral-400 font-mono">{node.data?.intentMappings?.length || 0} Matawi (Branches)</p>
+                                        </div>
+                                      )}
+                                      {node.type === 'create_order' && (
+                                        <p className="font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest text-[8px]">🛠️ DB UNDA ORDER: {node.data?.serviceType?.toUpperCase()}</p>
+                                      )}
+                                      {node.type === 'end' && (
+                                        <p className="line-clamp-1 text-neutral-400">⏹️ Kikomo cha soga</p>
+                                      )}
+                                      
+                                      {node.data?.nextNodeId && (
+                                        <div className="pt-1.5 border-t border-neutral-100 dark:border-neutral-800/60 flex items-center justify-between text-[8px] font-bold uppercase text-neutral-400 mt-1">
+                                          <span>Inafuata:</span>
+                                          <span className="font-mono bg-neutral-100 dark:bg-neutral-800 px-1 py-0.5 rounded text-neutral-600 dark:text-neutral-350 truncate max-w-[60%]">
+                                            {metaNodes.find(n => n.id === node.data.nextNodeId)?.data?.label || 'Mwisho'}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>,
+                    document.body
+                  )}
 
                   {/* Right side: Selected Node Inspector Panel (1/3 width) */}
                   <div className="p-5 space-y-4 bg-neutral-50/50 dark:bg-neutral-900/10">
