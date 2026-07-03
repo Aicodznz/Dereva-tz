@@ -558,8 +558,88 @@ export const AutomationStudioTabs: React.FC<AutomationStudioTabsProps> = ({
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
+              {
+                id: 'temp_papohapo_main',
+                title: '🌟 Papo Hapo Main Menu Flow (1-6)',
+                description: 'Mtiririko mzima unaoonyesha salamu na orodha kuu ya huduma 6 (Taxi, Saluni, Mabasi, Chakula, Soko, Pharmacy) na kuelekeza mteja kulingana na chaguo lake.',
+                nodes: [
+                  { id: 'n_start', type: 'start', position: { x: 50, y: 150 }, data: { label: 'Start Flow', nextNodeId: 'n_menu' } },
+                  { 
+                    id: 'n_menu', 
+                    type: 'question', 
+                    position: { x: 280, y: 150 }, 
+                    data: { 
+                      label: 'Karibu & Services Menu', 
+                      text: 'Karibu kwenye Mfumo wa Huduma za Papo Hapo! 🌟\n\nTafadhali chagua huduma unayotaka kwa kutuma namba yake:\n1. 🚕 TAXI\n2. 💇‍♀️ SALUNI (Salons)\n3. 🚌 MABASI (Bus Tickets)\n4. 🥗 CHAKULA (Restaurants)\n5. 🥦 SOKO (Groceries)\n6. 💊 PHARMACY', 
+                      variableName: 'service_choice',
+                      options: [
+                        { key: '1', value: 'TAXI', nextNodeId: 'n_taxi_pickup' },
+                        { key: '2', value: 'SALUNI', nextNodeId: 'n_salon_service' },
+                        { key: '3', value: 'MABASI', nextNodeId: 'n_bus_route' },
+                        { key: '4', value: 'CHAKULA', nextNodeId: 'n_food_item' },
+                        { key: '5', value: 'SOKO', nextNodeId: 'n_grocery_items' },
+                        { key: '6', value: 'PHARMACY', nextNodeId: 'n_pharmacy_med' }
+                      ],
+                      nextNodeId: 'n_router' 
+                    } 
+                  },
+                  { 
+                    id: 'n_router', 
+                    type: 'ai_decision', 
+                    position: { x: 520, y: 150 }, 
+                    data: { 
+                      label: 'AI Intent Classifier', 
+                      nextNodeId: 'n_taxi_pickup',
+                      intentMappings: [
+                        { keywords: "1, taxi, gari, safari, uber, bolt", nextNodeId: "n_taxi_pickup" },
+                        { keywords: "2, saluni, kinyozi, kusuka, salon, nywele", nextNodeId: "n_salon_service" },
+                        { keywords: "3, mabasi, bus, tiketi, safari ya mkoani, kiti", nextNodeId: "n_bus_route" },
+                        { keywords: "4, chakula, msosi, kuku, biryani, chips, mgahawa", nextNodeId: "n_food_item" },
+                        { keywords: "5, soko, mboga, nyanya, matunda, sokoni, grocery", nextNodeId: "n_grocery_items" },
+                        { keywords: "6, pharmacy, dawa, duka la dawa, panadol", nextNodeId: "n_pharmacy_med" }
+                      ]
+                    } 
+                  },
+                  { id: 'n_taxi_pickup', type: 'question', position: { x: 800, y: 50 }, data: { label: 'Ulipo (Pickup)', text: '🚖 Tafadhali andika mahali ulipo (Pickup Location):', variableName: 'pickup', nextNodeId: 'n_taxi_dest' } },
+                  { id: 'n_taxi_dest', type: 'question', position: { x: 1040, y: 50 }, data: { label: 'Unapokwenda (Destination)', text: '📍 Unapokwenda wapi? (Destination):', variableName: 'destination', nextNodeId: 'n_taxi_order' } },
+                  { id: 'n_taxi_order', type: 'create_order', position: { x: 1280, y: 50 }, data: { label: 'Oda ya Taxi DB', serviceType: 'taxi', nextNodeId: 'n_taxi_done' } },
+                  { id: 'n_taxi_done', type: 'message', position: { x: 1520, y: 50 }, data: { label: 'Thibitisha Taxi', text: '✅ Order ya Taxi imefanikiwa! Dereva aliye karibu anakuja kukufuata. Oda ID: {{booking_id}}' } },
+
+                  { id: 'n_salon_service', type: 'question', position: { x: 800, y: 220 }, data: { label: 'Huduma ya Saluni', text: '💇‍♀️ Unahitaji huduma gani ya Saluni? (k.m. Kusuka, Kinyozi, Nails):', variableName: 'salon_service', nextNodeId: 'n_salon_done' } },
+                  { id: 'n_salon_done', type: 'message', position: { x: 1040, y: 220 }, data: { label: 'Thibitisha Saluni', text: '✅ Booking yako ya Saluni imepokelewa! Saluni itawasiliana nawe kuthibitisha.' } },
+
+                  { id: 'n_bus_route', type: 'question', position: { x: 800, y: 390 }, data: { label: 'Njia ya Basi', text: '🚌 Unasafiri kutoka wapi kwenda wapi? (k.m. Dar es Salaam kwenda Arusha):', variableName: 'bus_route', nextNodeId: 'n_bus_done' } },
+                  { id: 'n_bus_done', type: 'message', position: { x: 1040, y: 390 }, data: { label: 'Thibitisha Basi', text: '✅ Tiketi yako ya Basi inaandaliwa! Utapokea SMS ya namba ya kiti na Control Number.' } },
+
+                  { id: 'n_food_item', type: 'question', position: { x: 800, y: 560 }, data: { label: 'Agiza Chakula', text: '🥗 Je ungependa kuagiza chakula gani? (k.m. Wali Samaki, Biryani):', variableName: 'food_item', nextNodeId: 'n_food_done' } },
+                  { id: 'n_food_done', type: 'message', position: { x: 1040, y: 560 }, data: { label: 'Thibitisha Chakula', text: '✅ Oda yako ya Chakula imepokelewa! Mkahawa unaandaa chakula na Rider anakuletea hivi punde.' } },
+
+                  { id: 'n_grocery_items', type: 'question', position: { x: 800, y: 730 }, data: { label: 'Orodha ya Soko', text: '🥦 Andika orodha ya vitu vya soko unavyohitaji:', variableName: 'grocery_list', nextNodeId: 'n_grocery_done' } },
+                  { id: 'n_grocery_done', type: 'message', position: { x: 1040, y: 730 }, data: { label: 'Thibitisha Soko', text: '✅ Oda yako ya Soko imepokelewa! Muuzaji wa soko anaipack na kukuletea nyumbani.' } },
+
+                  { id: 'n_pharmacy_med', type: 'question', position: { x: 800, y: 900 }, data: { label: 'Maelezo ya Dawa', text: '💊 Andika jina la dawa au maelezo ya dawa unayohitaji:', variableName: 'pharmacy_med', nextNodeId: 'n_pharmacy_done' } },
+                  { id: 'n_pharmacy_done', type: 'message', position: { x: 1040, y: 900 }, data: { label: 'Thibitisha Pharmacy', text: '✅ Ombi lako la Dawa limepokelewa na Pharmacy ya karibu! Tutawasiliana nawe.' } }
+                ],
+                edges: [
+                  { id: 'e_0', source: 'n_start', target: 'n_menu' },
+                  { id: 'e_1', source: 'n_menu', target: 'n_taxi_pickup' },
+                  { id: 'e_2', source: 'n_menu', target: 'n_salon_service' },
+                  { id: 'e_3', source: 'n_menu', target: 'n_bus_route' },
+                  { id: 'e_4', source: 'n_menu', target: 'n_food_item' },
+                  { id: 'e_5', source: 'n_menu', target: 'n_grocery_items' },
+                  { id: 'e_6', source: 'n_menu', target: 'n_pharmacy_med' },
+                  { id: 'e_t1', source: 'n_taxi_pickup', target: 'n_taxi_dest' },
+                  { id: 'e_t2', source: 'n_taxi_dest', target: 'n_taxi_order' },
+                  { id: 'e_t3', source: 'n_taxi_order', target: 'n_taxi_done' },
+                  { id: 'e_s1', source: 'n_salon_service', target: 'n_salon_done' },
+                  { id: 'e_b1', source: 'n_bus_route', target: 'n_bus_done' },
+                  { id: 'e_f1', source: 'n_food_item', target: 'n_food_done' },
+                  { id: 'e_g1', source: 'n_grocery_items', target: 'n_grocery_done' },
+                  { id: 'e_p1', source: 'n_pharmacy_med', target: 'n_pharmacy_done' }
+                ]
+              },
               {
                 id: 'temp_taxi',
                 title: '🚕 Ride Booking flow',

@@ -23,27 +23,89 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
     });
 
-    const systemInstruction = `You are an expert conversational flowchart engineer. Generate a list of interconnected nodes representing a WhatsApp/Messenger/Instagram Chatbot automation flow based on the user's request.
-The request is: "${prompt}"
+    const systemInstruction = `You are an expert conversational flowchart engineer for Papo Hapo Super App Automation Studio (V3.0). Generate a list of interconnected nodes representing a WhatsApp/Messenger/Instagram/SMS Chatbot automation flow based on the user's request.
+The user request is: "${prompt}"
 
-Return ONLY a valid JSON array of nodes. Do not wrap it in \`\`\`json markdown blocks, and do not add any explanation or greeting.
+Return ONLY a valid JSON array of nodes. Do not wrap it in \`\`\`json markdown blocks, and do not add any explanation or greeting text.
 
+CRITICAL SPECIAL INSTRUCTION FOR MAIN PAPO HAPO MENU / GREETING / HABARI / SERVICE REQUESTS:
+If the user's prompt mentions greetings ("habari", "hello", "hi", "mambo", "salama"), menu, main flow, or services (1. TAXI, 2. SALUNI, 3. MABASI, 4. CHAKULA, 5. SOKO, 6. PHARMACY):
+You MUST generate a complete, beautifully structured multi-service chatbot flowchart with the following exact structure:
+1. "n_start" (type: "start", position: {x: 50, y: 150}, nextNodeId: "n_menu")
+2. "n_menu" (type: "question", position: {x: 280, y: 150}, data: {
+     label: "Karibu & Main Menu",
+     text: "Karibu kwenye Mfumo wa Huduma za Papo Hapo! 🌟\\n\\nTafadhali chagua huduma unayotaka kwa kutuma namba yake:\\n1. 🚕 TAXI\\n2. 💇‍♀️ SALUNI (Salons)\\n3. 🚌 MABASI (Bus Tickets)\\n4. 🥗 CHAKULA (Restaurants)\\n5. 🥦 SOKO (Groceries)\\n6. 💊 PHARMACY",
+     variableName: "service_choice",
+     options: [
+       { key: "1", value: "TAXI", nextNodeId: "n_taxi_pickup" },
+       { key: "2", value: "SALUNI", nextNodeId: "n_salon_service" },
+       { key: "3", value: "MABASI", nextNodeId: "n_bus_route" },
+       { key: "4", value: "CHAKULA", nextNodeId: "n_food_item" },
+       { key: "5", value: "SOKO", nextNodeId: "n_grocery_items" },
+       { key: "6", value: "PHARMACY", nextNodeId: "n_pharmacy_med" }
+     ],
+     nextNodeId: "n_router"
+   })
+3. "n_router" (type: "ai_decision", position: {x: 520, y: 150}, data: {
+     label: "AI Intent Router",
+     nextNodeId: "n_taxi_pickup",
+     intentMappings: [
+       { keywords: "1, taxi, gari, safari, uber, bolt", nextNodeId: "n_taxi_pickup" },
+       { keywords: "2, saluni, kinyozi, kusuka, salon, nywele", nextNodeId: "n_salon_service" },
+       { keywords: "3, mabasi, bus, tiketi, safari ya mkoani, kiti", nextNodeId: "n_bus_route" },
+       { keywords: "4, chakula, msosi, kuku, biryani, chips, mgahawa", nextNodeId: "n_food_item" },
+       { keywords: "5, soko, mboga, nyanya, matunda, sokoni, grocery", nextNodeId: "n_grocery_items" },
+       { keywords: "6, pharmacy, dawa, duka la dawa, panadol", nextNodeId: "n_pharmacy_med" }
+     ]
+   })
+
+And then create clean sub-branches for all 6 services:
+- TAXI BRANCH:
+  "n_taxi_pickup" (type: "question", position: {x: 800, y: 50}, data: { label: "Ulipo (Pickup)", text: "🚖 Tafadhali andika mahali ulipo (Pickup Location):", variableName: "pickup", nextNodeId: "n_taxi_dest" })
+  "n_taxi_dest" (type: "question", position: {x: 1040, y: 50}, data: { label: "Unapokwenda (Destination)", text: "📍 Unapokwenda wapi? (Destination):", variableName: "destination", nextNodeId: "n_taxi_order" })
+  "n_taxi_order" (type: "create_order", position: {x: 1280, y: 50}, data: { label: "Ongeza Oda ya Taxi DB", serviceType: "taxi", nextNodeId: "n_taxi_done" })
+  "n_taxi_done" (type: "message", position: {x: 1520, y: 50}, data: { label: "Thibitisha Taxi", text: "✅ Order ya Taxi imefanikiwa! Dereva aliye karibu anakuja kukufuata. Oda ID: {{booking_id}}" })
+
+- SALUNI BRANCH:
+  "n_salon_service" (type: "question", position: {x: 800, y: 220}, data: { label: "Huduma ya Saluni", text: "💇‍♀️ Unahitaji huduma gani ya Saluni? (k.m. Kusuka, Kinyozi, Nails, Facial):", variableName: "salon_service", nextNodeId: "n_salon_time" })
+  "n_salon_time" (type: "question", position: {x: 1040, y: 220}, data: { label: "Muda wa Miadi", text: "🕒 Je ungependa miadi ya saa ngapi leo au kesho?", variableName: "salon_time", nextNodeId: "n_salon_done" })
+  "n_salon_done" (type: "message", position: {x: 1280, y: 220}, data: { label: "Thibitisha Saluni", text: "✅ Booking yako ya Saluni imepokelewa! Saluni itawasiliana nawe kuthibitisha nafasi." })
+
+- MABASI BRANCH:
+  "n_bus_route" (type: "question", position: {x: 800, y: 390}, data: { label: "Njia ya Basi", text: "🚌 Unasafiri kutoka wapi kwenda wapi? (k.m. Dar es Salaam kwenda Arusha):", variableName: "bus_route", nextNodeId: "n_bus_date" })
+  "n_bus_date" (type: "question", position: {x: 1040, y: 390}, data: { label: "Tarehe ya Safari", text: "📅 Andika tarehe ya safari yako:", variableName: "bus_date", nextNodeId: "n_bus_done" })
+  "n_bus_done" (type: "message", position: {x: 1280, y: 390}, data: { label: "Thibitisha Basi", text: "✅ Tiketi yako ya Basi inaandaliwa! Utapokea SMS ya namba ya kiti na M-Pesa Control Number." })
+
+- CHAKULA BRANCH:
+  "n_food_item" (type: "question", position: {x: 800, y: 560}, data: { label: "Agiza Chakula", text: "🥗 Je ungependa kuagiza chakula gani? (k.m. Wali Samaki, Kuku Choma, Biryani):", variableName: "food_item", nextNodeId: "n_food_addr" })
+  "n_food_addr" (type: "question", position: {x: 1040, y: 560}, data: { label: "Anwani ya Kuletewa", text: "🏠 Andika eneo la kuletewa chakula (Delivery Address):", variableName: "delivery_address", nextNodeId: "n_food_done" })
+  "n_food_done" (type: "message", position: {x: 1280, y: 560}, data: { label: "Thibitisha Chakula", text: "✅ Oda yako ya Chakula imepokelewa! Mkahawa unaandaa chakula na Rider anakuletea hivi punde." })
+
+- SOKO BRANCH:
+  "n_grocery_items" (type: "question", position: {x: 800, y: 730}, data: { label: "Orodha ya Soko", text: "🥦 Andika orodha ya vitu vya soko unavyohitaji (k.m. Nyanya, Vitunguu, Hoho, Matunda):", variableName: "grocery_list", nextNodeId: "n_grocery_done" })
+  "n_grocery_done" (type: "message", position: {x: 1040, y: 730}, data: { label: "Thibitisha Soko", text: "✅ Oda yako ya Soko imepokelewa! Muuzaji wa soko anaipack na kukuletea nyumbani." })
+
+- PHARMACY BRANCH:
+  "n_pharmacy_med" (type: "question", position: {x: 800, y: 900}, data: { label: "Maelezo ya Dawa", text: "💊 Andika jina la dawa au maelezo ya dawa unayohitaji:", variableName: "pharmacy_med", nextNodeId: "n_pharmacy_done" })
+  "n_pharmacy_done" (type: "message", position: {x: 1040, y: 900}, data: { label: "Thibitisha Pharmacy", text: "✅ Ombi lako la Dawa limepokelewa na Pharmacy ya karibu! Tutawasiliana nawe kutoa maelekezo ya matumizi." })
+
+GENERAL PROMPT INSTRUCTIONS FOR OTHER REQUESTS:
 Supported node types are:
 1. "start" - The beginning of the flow. Should have a single starting node with id "n_start" and nextNodeId pointing to the first interactive node.
 2. "message" - Sends a text message. Properties in "data": "label", "text" (Swahili/English friendly text), and "nextNodeId" (optional).
-3. "question" - Asks the user a question and captures their text input into a variable. Properties in "data": "label", "text", "variableName" (the name of the variable to store the response, e.g. "pickup", "destination", "quantity", "food_name"), and "nextNodeId".
-4. "ai_decision" - Real-time NLP classifier using keywords or AI. Properties in "data": "label", "nextNodeId" (default path), and "intentMappings" (an array of objects, e.g. { keywords: "taxi, gari, safari", nextNodeId: "n_taxi_welcome" }).
+3. "question" - Asks the user a question and captures their text input into a variable. Properties in "data": "label", "text", "variableName" (the name of the variable to store the response), "options" (array of {key, value, nextNodeId}), and "nextNodeId".
+4. "ai_decision" - Real-time NLP classifier using keywords or AI. Properties in "data": "label", "nextNodeId" (default path), and "intentMappings" (an array of objects, e.g. { keywords: "taxi, gari", nextNodeId: "n_taxi" }).
 5. "payment" - Request/process mobile payment. Properties in "data": "label", "paymentAmount" (number), "nextNodeId".
 6. "create_order" - Creates a database record for Papo Hapo Super App. Properties in "data": "label", "serviceType" (one of "taxi", "food", "parcel", "salon", "bus"), "nextNodeId".
 7. "end" - Goodbye or summary screen. Properties in "data": "label", "text". "nextNodeId" should be empty/null or omitted for "end" nodes.
 
 Every node must have:
-- "id": a unique string (e.g. "n_start", "n_welcome", "n_ask_location", "n_create_ride", "n_end")
+- "id": a unique string
 - "type": one of the types above
-- "position": an object with x and y coordinates (e.g. { x: 100, y: 150 }) arranged horizontally/vertically in a clean 2D layout (spacing nodes approx 200px apart so they don't overlap)
+- "position": object with x and y coordinates arranged neatly without overlapping
 - "data": the object containing specific keys for that node type.
 
-Arrange the nodes in a complete, highly realistic, logical flow to satisfy the user's intent. Ensure all path linkages (nextNodeId/intentMappings) refer to valid node ids in the same array! Keep language professional and in Swahili combined with easy English accents as typical of Dar es Salaam (e.g., "Karibu Papo Hapo", "Tafadhali chagua...").`;
+Ensure all nextNodeId and intentMappings point to existing valid node ids in the output JSON array! Keep language clear, engaging, professional, and in Swahili combined with easy English accents as typical of Tanzania.`;
 
     const response = await client.models.generateContent({
       model: "gemini-2.5-flash",

@@ -36,7 +36,9 @@ import {
   StopCircle,
   Trash2,
   PlusCircle,
-  LayoutGrid
+  LayoutGrid,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { db } from '../firebase';
@@ -299,6 +301,48 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [activeWorkflowNodeId, setActiveWorkflowNodeId] = useState<string | null>(null);
   const [simulatedVariables, setSimulatedVariables] = useState<Record<string, string>>({});
+  
+  // Canvas View Zoom, Pan and Fullscreen States
+  const [canvasScale, setCanvasScale] = useState(0.8);
+  const [isExpandedCanvas, setIsExpandedCanvas] = useState(false);
+
+  const handleFitView = () => {
+    if (!metaNodes || metaNodes.length === 0) return;
+    const canvasElement = document.getElementById('studio-canvas');
+    if (!canvasElement) return;
+
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    metaNodes.forEach(node => {
+      const x = node.position?.x || 0;
+      const y = node.position?.y || 0;
+      if (x < minX) minX = x;
+      if (x + 220 > maxX) maxX = x + 220;
+      if (y < minY) minY = y;
+      if (y + 160 > maxY) maxY = y + 160;
+    });
+
+    const flowWidth = Math.max(400, maxX - minX + 120);
+    const flowHeight = Math.max(300, maxY - minY + 120);
+
+    const containerWidth = canvasElement.clientWidth || 800;
+    const containerHeight = canvasElement.clientHeight || 500;
+
+    const scaleX = containerWidth / flowWidth;
+    const scaleY = containerHeight / flowHeight;
+    let optimalScale = Math.min(scaleX, scaleY);
+    optimalScale = Math.max(0.35, Math.min(1.0, optimalScale));
+
+    setCanvasScale(optimalScale);
+
+    setTimeout(() => {
+      if (canvasElement) {
+        canvasElement.scrollLeft = Math.max(0, (minX * optimalScale) - 20);
+        canvasElement.scrollTop = Math.max(0, (minY * optimalScale) - 20);
+      }
+    }, 50);
+
+    toast.info(`View ya Flow imewekwa sawa (${Math.round(optimalScale * 100)}%)! 🎯`);
+  };
 
   const [studioTab, setStudioTab] = useState<'canvas' | 'kb' | 'crm' | 'broadcast' | 'templates' | 'meta_settings'>('canvas');
   
@@ -698,8 +742,8 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
       if (!canvasElement) return;
       const canvasRect = canvasElement.getBoundingClientRect();
       
-      const x = Math.max(10, Math.min(1600, moveEvent.clientX - canvasRect.left - offsetX + canvasElement.scrollLeft));
-      const y = Math.max(10, Math.min(1000, moveEvent.clientY - canvasRect.top - offsetY + canvasElement.scrollTop));
+      const x = Math.max(10, Math.min(2800, (moveEvent.clientX - canvasRect.left - offsetX) / canvasScale + canvasElement.scrollLeft / canvasScale));
+      const y = Math.max(10, Math.min(2000, (moveEvent.clientY - canvasRect.top - offsetY) / canvasScale + canvasElement.scrollTop / canvasScale));
       
       setMetaNodes(prev => prev.map(n => n.id === nodeId ? { ...n, position: { x, y } } : n));
     };
@@ -1226,6 +1270,13 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                                   if (n.data?.nextNodeId) {
                                     derivedEdges.push({ id: `e_${n.id}`, source: n.id, target: n.data.nextNodeId });
                                   }
+                                  if (n.type === 'question' && n.data?.options) {
+                                    n.data.options.forEach((opt: any, idx: number) => {
+                                      if (opt.nextNodeId) {
+                                        derivedEdges.push({ id: `e_${n.id}_opt_${idx}`, source: n.id, target: opt.nextNodeId });
+                                      }
+                                    });
+                                  }
                                   if (n.type === 'ai_decision' && n.data?.intentMappings) {
                                     n.data.intentMappings.forEach((m: any, idx: number) => {
                                       if (m.nextNodeId) {
@@ -1236,7 +1287,8 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                                 });
                                 setMetaEdges(derivedEdges);
                                 handleSaveWorkflowConfig(data.nodes, derivedEdges, useWorkflow);
-                                toast.success("AI Copilot imejenga Flow mpya kikamilifu! 🤖✨");
+                                toast.success("AI Copilot imejenga Flow mpya ya Papo Hapo kikamilifu! 🤖✨");
+                                setTimeout(() => handleFitView(), 200);
                               } else {
                                 toast.error("Imeshindwa kutengeneza flow. Tafadhali jaribu tena.");
                               }
@@ -1257,6 +1309,41 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                             "Jenga Flow"
                           )}
                         </Button>
+                      </div>
+
+                      {/* Quick AI Prompt Presets */}
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                        <span className="text-[9.5px] font-black uppercase tracking-wider text-neutral-400">Mifano ya Haraka:</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const p = "Nitengezee flow mteja akiuliza au akitaip habari imletee:\nKaribu kwenye Mfumo wa Huduma za Papo Hapo! 🌟\nTafadhali chagua huduma unayotaka kwa kutuma namba yake:\n1. 🚕 TAXI\n2. 💇‍♀️ SALUNI (Salons)\n3. 🚌 MABASI (Bus Tickets)\n4. 🥗 CHAKULA (Restaurants)\n5. 🥦 SOKO (Groceries)\n6. 💊 PHARMACY";
+                            setCopilotPrompt(p);
+                            toast.info("Prompt ya Mfumo wa Huduma 1-6 imewekwa. Bofya 'JENGA FLOW' au jaribu kuisahihisha!");
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-fuchsia-500/10 hover:bg-fuchsia-500/20 text-fuchsia-700 dark:text-fuchsia-300 text-[10px] font-bold border border-fuchsia-200 dark:border-fuchsia-900/50 transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
+                        >
+                          <Sparkles className="w-3 h-3 text-fuchsia-500" />
+                          <span>🌟 Main Services Menu Flow (Taxi, Saluni, Mabasi, Chakula, Soko, Pharmacy)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCopilotPrompt("Jenga taxi booking flow inayouliza pickup location, destination, kisha kutoa fare na kutengeneza order DB");
+                          }}
+                          className="px-2 py-0.5 rounded-md bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 text-[10px] font-semibold transition-colors cursor-pointer"
+                        >
+                          🚕 Taxi Ride Flow
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCopilotPrompt("Jenga chakula & mgahawa order flow inayouliza chakula anachotaka na eneo la delivery");
+                          }}
+                          className="px-2 py-0.5 rounded-md bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 text-[10px] font-semibold transition-colors cursor-pointer"
+                        >
+                          🥗 Chakula Order Flow
+                        </button>
                       </div>
                     </div>
 
@@ -1391,64 +1478,142 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                     </div>
 
                     {/* Canvas Area Container */}
-                    <div className="relative border border-neutral-200/60 dark:border-neutral-800 rounded-2xl bg-neutral-50 dark:bg-neutral-950/40 p-1">
+                    <div className={`relative border border-neutral-200/60 dark:border-neutral-800 rounded-2xl bg-neutral-50 dark:bg-neutral-950/40 p-1.5 transition-all duration-300 ${
+                      isExpandedCanvas ? 'fixed inset-3 sm:inset-6 z-50 bg-white dark:bg-neutral-950 shadow-2xl flex flex-col p-3' : ''
+                    }`}>
+                      {/* Floating Canvas Controls Toolbar */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-md rounded-xl border border-neutral-200/60 dark:border-neutral-800 mb-2 z-30 shadow-xs">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-neutral-500 flex items-center gap-1">
+                            <Sparkles className="w-3 h-3 text-fuchsia-500" />
+                            <span>Zoom & View Controls:</span>
+                          </span>
+                          <div className="flex items-center bg-neutral-100 dark:bg-neutral-800 rounded-lg p-0.5 border border-neutral-200/60 dark:border-neutral-700">
+                            <button
+                              type="button"
+                              onClick={() => setCanvasScale(prev => Math.max(0.35, +(prev - 0.15).toFixed(2)))}
+                              title="Zoom Out (-)"
+                              className="px-2 py-1 hover:bg-white dark:hover:bg-neutral-700 rounded-md text-xs font-bold text-neutral-600 dark:text-neutral-300 transition-colors cursor-pointer"
+                            >
+                              -
+                            </button>
+                            <span className="px-2 text-[10px] font-mono font-bold text-fuchsia-600 dark:text-fuchsia-400 min-w-[45px] text-center">
+                              {Math.round(canvasScale * 100)}%
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setCanvasScale(prev => Math.min(1.8, +(prev + 0.15).toFixed(2)))}
+                              title="Zoom In (+)"
+                              className="px-2 py-1 hover:bg-white dark:hover:bg-neutral-700 rounded-md text-xs font-bold text-neutral-600 dark:text-neutral-300 transition-colors cursor-pointer"
+                            >
+                              +
+                            </button>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setCanvasScale(1.0)}
+                            className="px-2.5 py-1 text-[10px] font-bold text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200/50 dark:border-neutral-700 transition-colors cursor-pointer"
+                          >
+                            100% Reset
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleFitView}
+                            className="px-2.5 py-1 text-[10px] font-extrabold uppercase text-purple-700 dark:text-purple-300 bg-purple-500/10 hover:bg-purple-500/20 rounded-lg border border-purple-500/30 transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
+                          >
+                            <Maximize2 className="w-3 h-3 text-purple-500" />
+                            <span>🎯 Center & Fit All Nodes</span>
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setIsExpandedCanvas(!isExpandedCanvas)}
+                            className="px-3 py-1 text-[10px] font-black uppercase tracking-wider text-white bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-700 hover:to-purple-700 rounded-lg shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
+                          >
+                            {isExpandedCanvas ? (
+                              <>
+                                <Minimize2 className="w-3.5 h-3.5" />
+                                <span>Rudi View Kawaida</span>
+                              </>
+                            ) : (
+                              <>
+                                <Maximize2 className="w-3.5 h-3.5" />
+                                <span>🖥️ Skrini Nzima (Fullscreen)</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
                       {/* Grid background design */}
                       <div className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px] dark:bg-[radial-gradient(#262626_1px,transparent_1px)] opacity-50 rounded-2xl pointer-events-none" />
                       
                       <div 
                         id="studio-canvas"
-                        className="relative w-full h-[400px] sm:h-[500px] md:h-[580px] overflow-auto rounded-2xl scrollbar-thin cursor-crosshair select-none"
+                        className={`relative w-full ${isExpandedCanvas ? 'flex-1 h-[calc(100vh-180px)]' : 'h-[500px] sm:h-[600px] md:h-[680px]'} overflow-auto rounded-2xl scrollbar-thin cursor-crosshair select-none`}
                         onClick={() => setSelectedNodeId(null)}
                       >
-                        {/* Interactive SVG layer for custom curved connections */}
-                        <svg 
-                          className="absolute inset-0 pointer-events-none" 
-                          style={{ minWidth: "1600px", minHeight: "1000px", width: "1000%", height: "1000%" }}
+                        {/* Scaled Inner Canvas Wrapper */}
+                        <div 
+                          className="relative"
+                          style={{ 
+                            width: "3200px", 
+                            height: "2200px",
+                            transform: `scale(${canvasScale})`,
+                            transformOrigin: "0 0"
+                          }}
                         >
-                          <defs>
-                            <marker 
-                              id="arrow" 
-                              viewBox="0 0 10 10" 
-                              refX="6" 
-                              refY="5" 
-                              markerWidth="5" 
-                              markerHeight="5" 
-                              orient="auto-start-reverse"
-                            >
-                              <path d="M 0 1 L 10 5 L 0 9 z" fill="#d946ef" />
-                            </marker>
-                          </defs>
+                          {/* Interactive SVG layer for custom curved connections */}
+                          <svg 
+                            className="absolute inset-0 pointer-events-none" 
+                            style={{ width: "3200px", height: "2200px" }}
+                          >
+                            <defs>
+                              <marker 
+                                id="arrow" 
+                                viewBox="0 0 10 10" 
+                                refX="6" 
+                                refY="5" 
+                                markerWidth="5" 
+                                markerHeight="5" 
+                                orient="auto-start-reverse"
+                              >
+                                <path d="M 0 1 L 10 5 L 0 9 z" fill="#d946ef" />
+                              </marker>
+                            </defs>
 
-                          {/* Compute and Draw curves */}
-                          {metaNodes.map((node) => {
-                            // 1. Standard defaults
-                            const paths: React.ReactNode[] = [];
-                            if (node.data?.nextNodeId) {
-                              const path = drawLink(node.id, node.data.nextNodeId);
-                              if (path) paths.push(path);
-                            }
+                            {/* Compute and Draw curves */}
+                            {metaNodes.map((node) => {
+                              // 1. Standard defaults
+                              const paths: React.ReactNode[] = [];
+                              if (node.data?.nextNodeId) {
+                                const path = drawLink(node.id, node.data.nextNodeId);
+                                if (path) paths.push(path);
+                              }
 
-                            // 2. AI Intent mappings branches
-                            if (node.type === 'ai_decision' && node.data?.intentMappings) {
-                              node.data.intentMappings.forEach((mapping: any, idx: number) => {
-                                if (mapping.nextNodeId) {
-                                  const path = drawLink(
-                                    node.id, 
-                                    mapping.nextNodeId, 
-                                    "#8b5cf6", 
-                                    mapping.keywords?.split(',')[0] || `Branch ${idx+1}`
-                                  );
-                                  if (path) paths.push(path);
-                                }
-                              });
-                            }
+                              // 2. AI Intent mappings branches
+                              if (node.type === 'ai_decision' && node.data?.intentMappings) {
+                                node.data.intentMappings.forEach((mapping: any, idx: number) => {
+                                  if (mapping.nextNodeId) {
+                                    const path = drawLink(
+                                      node.id, 
+                                      mapping.nextNodeId, 
+                                      "#8b5cf6", 
+                                      mapping.keywords?.split(',')[0] || `Branch ${idx+1}`
+                                    );
+                                    if (path) paths.push(path);
+                                  }
+                                });
+                              }
 
-                            return paths;
-                          })}
-                        </svg>
+                              return paths;
+                            })}
+                          </svg>
 
-                        {/* Visual Node Cards rendered as divs on absolute layout */}
-                        <div className="absolute inset-0 pointer-events-auto" style={{ minWidth: "1600px", minHeight: "1000px" }}>
+                          {/* Visual Node Cards rendered as divs on absolute layout */}
+                          <div className="absolute inset-0 pointer-events-auto" style={{ width: "3200px", height: "2200px" }}>
                           {metaNodes.map((node) => {
                             const isSelected = selectedNodeId === node.id;
                             const isActive = activeWorkflowNodeId === node.id;
@@ -1582,6 +1747,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                         </div>
                       </div>
                     </div>
+                  </div>
                   </div>
 
                   {/* Right side: Selected Node Inspector Panel (1/3 width) */}
