@@ -1375,10 +1375,37 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                       </div>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                      {/* Node quick inserters bar */}
-                      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-0.5 scrollbar-none w-full sm:max-w-[70%] touch-pan-x">
-                        <span className="text-[9px] font-black uppercase tracking-wider text-neutral-400 shrink-0 mr-1">Ongeza Node:</span>
+                    {/* PROMINENT FULLSCREEN BANNER */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-gradient-to-r from-fuchsia-600 via-purple-600 to-indigo-600 text-white rounded-2xl shadow-md">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0">
+                          <Maximize2 className="w-4 h-4 text-white animate-pulse" />
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-black uppercase tracking-wider text-white">Visual Flowchart Studio Canvas</h4>
+                          <p className="text-[10px] text-fuchsia-100 font-medium">Bofya kitufe cha Skrini Nzima ili kufungua studio kwenye kioo kizima na kupata nafasi kubwa zaidi.</p>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        type="button"
+                        onClick={() => {
+                          setIsExpandedCanvas(true);
+                          toast.success("Flow Builder imefunguka kwenye Skrini Nzima (Fullscreen)! 🖥️✨");
+                        }}
+                        className="h-9 px-4 text-xs font-black uppercase tracking-wider bg-white text-fuchsia-700 hover:bg-neutral-100 shadow-xl flex items-center gap-2 cursor-pointer border-2 border-white/50 rounded-xl shrink-0"
+                      >
+                        <Maximize2 className="w-4 h-4 text-fuchsia-600" />
+                        <span>🖥️ Skrini Nzima (Fullscreen)</span>
+                      </Button>
+                    </div>
+
+                    {/* NODE QUICK INSERTERS BAR */}
+                    <div className="space-y-2.5">
+                      <div className="flex items-center gap-1.5 overflow-x-auto pb-2 pt-1 scrollbar-thin w-full touch-pan-x bg-neutral-100/80 dark:bg-neutral-800/60 p-2 rounded-xl border border-neutral-200/80 dark:border-neutral-700">
+                        <span className="text-[9.5px] font-black uppercase tracking-wider text-neutral-500 shrink-0 mr-1 flex items-center gap-1">
+                          <Plus className="w-3.5 h-3.5 text-fuchsia-500" /> Ongeza Node:
+                        </span>
                         <Button 
                           size="sm" 
                           variant="outline"
@@ -1477,50 +1504,55 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                         </Button>
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-                        <Button
-                          size="sm"
-                          type="button"
-                          onClick={() => {
-                            setIsExpandedCanvas(true);
-                            toast.success("Flow Builder imefunguka kwenye Skrini Nzima (Fullscreen)! 🖥️✨");
-                          }}
-                          className="h-7 text-[9px] font-black uppercase tracking-wider bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-700 hover:to-fuchsia-700 text-white shadow-md flex items-center gap-1.5 cursor-pointer"
-                        >
-                          <Maximize2 className="w-3 h-3" />
-                          <span>Skrini Nzima (Fullscreen)</span>
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            if (window.confirm("Je, una uhakika unataka kurudisha mtiririko wa soga kwenye muundo wa kwanza wa mfano?")) {
-                              setMetaNodes(getInitialNodes());
-                              handleSaveWorkflowConfig(getInitialNodes(), [], useWorkflow);
-                              toast.success("Flow ya kwanza imerejeshwa vizuri!");
-                            }
-                          }}
-                          className="h-7 text-[9px] font-black uppercase text-neutral-400 hover:text-red-500"
-                        >
-                          Reset
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            handleSaveWorkflowConfig(metaNodes, metaEdges, useWorkflow);
-                            toast.success("Mabadiliko yote ya flowchart yamehifadhiwa kwenye Firebase! 🚀");
-                          }}
-                          className="h-7 text-[9px] font-extrabold uppercase tracking-wider bg-fuchsia-600 hover:bg-fuchsia-700 text-white shadow-sm"
-                        >
-                          Hifadhi Flow
-                        </Button>
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            type="button"
+                            onClick={() => {
+                              setIsExpandedCanvas(true);
+                              toast.success("Flow Builder imefunguka kwenye Skrini Nzima (Fullscreen)! 🖥️✨");
+                            }}
+                            className="h-8 text-[10px] font-black uppercase tracking-wider bg-gradient-to-r from-fuchsia-600 via-purple-600 to-indigo-600 hover:from-fuchsia-700 hover:to-indigo-700 text-white shadow-md flex items-center gap-1.5 cursor-pointer rounded-lg px-3.5"
+                          >
+                            <Maximize2 className="w-3.5 h-3.5" />
+                            <span>🖥️ Skrini Nzima (Fullscreen)</span>
+                          </Button>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              if (window.confirm("Je, una uhakika unataka kurudisha mtiririko wa soga kwenye muundo wa kwanza wa mfano?")) {
+                                setMetaNodes(getInitialNodes());
+                                handleSaveWorkflowConfig(getInitialNodes(), [], useWorkflow);
+                                toast.success("Flow ya kwanza imerejeshwa vizuri!");
+                              }
+                            }}
+                            className="h-8 text-[10px] font-black uppercase text-neutral-600 dark:text-neutral-300 hover:text-red-500 border-neutral-300 dark:border-neutral-700"
+                          >
+                            Rudisha Default
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              handleSaveWorkflowConfig(metaNodes, metaEdges, useWorkflow);
+                              toast.success("Mabadiliko yote ya flowchart yamehifadhiwa kwenye Firebase! 🚀");
+                            }}
+                            className="h-8 text-[10px] font-extrabold uppercase tracking-wider bg-fuchsia-600 hover:bg-fuchsia-700 text-white shadow-sm rounded-lg px-4"
+                          >
+                            Hifadhi Mabadiliko
+                          </Button>
+                        </div>
                       </div>
                     </div>
 
                     {/* Canvas Area Container */}
                     <div className="relative border border-neutral-200/60 dark:border-neutral-800 rounded-2xl bg-neutral-50 dark:bg-neutral-950/40 p-1.5 transition-all duration-300">
                       {/* Floating Canvas Controls Toolbar */}
-                      <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-md rounded-xl border border-neutral-200/60 dark:border-neutral-800 mb-2 z-30 shadow-xs">
+                      <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md rounded-xl border border-neutral-200 dark:border-neutral-800 mb-2 z-30 shadow-xs">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-[10px] font-black uppercase tracking-wider text-neutral-500 flex items-center gap-1">
                             <Sparkles className="w-3 h-3 text-fuchsia-500" />
@@ -1571,7 +1603,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                               setIsExpandedCanvas(true);
                               toast.success("Flow Builder imefunguka kwenye Skrini Nzima (Fullscreen)! 🖥️✨");
                             }}
-                            className="px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider text-white bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-700 hover:to-purple-700 rounded-lg shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+                            className="px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider text-white bg-gradient-to-r from-fuchsia-600 via-purple-600 to-indigo-600 hover:from-fuchsia-700 hover:to-indigo-700 rounded-lg shadow-md transition-all cursor-pointer flex items-center gap-1.5"
                           >
                             <Maximize2 className="w-3.5 h-3.5" />
                             <span>🖥️ Skrini Nzima (Fullscreen)</span>
@@ -1581,6 +1613,19 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
 
                       {/* Grid background design */}
                       <div className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px] dark:bg-[radial-gradient(#262626_1px,transparent_1px)] opacity-50 rounded-2xl pointer-events-none" />
+
+                      {/* Floating Quick Fullscreen Badge */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsExpandedCanvas(true);
+                          toast.success("Flow Builder imefunguka kwenye Skrini Nzima (Fullscreen)! 🖥️✨");
+                        }}
+                        className="absolute bottom-4 right-4 z-40 px-3.5 py-2 bg-gradient-to-r from-fuchsia-600 via-purple-600 to-indigo-600 hover:from-fuchsia-700 hover:to-indigo-700 text-white font-black text-[10px] uppercase tracking-wider rounded-xl shadow-2xl flex items-center gap-2 cursor-pointer border border-fuchsia-300/40 backdrop-blur-md transition-all hover:scale-105"
+                      >
+                        <Maximize2 className="w-4 h-4" />
+                        <span>🖥️ Skrini Nzima (Fullscreen)</span>
+                      </button>
                       
                       <div 
                         id="studio-canvas"
