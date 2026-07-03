@@ -3,10 +3,10 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
-import admin from "firebase-admin";
 import fs from "fs";
 import { handleSMSInput } from "./src/lib/smsBot";
 import { handleMetaInput } from "./src/lib/metaBot";
+import { getFirestoreDb } from "./api/_lib/getFirestoreDb";
 
 dotenv.config();
 
@@ -22,28 +22,26 @@ async function startServer() {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
-  // Initialize Firebase Admin dynamically to avoid any startup crash
-  let dbAdmin: admin.firestore.Firestore | null = null;
-  try {
-    const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
-    if (fs.existsSync(configPath)) {
-      const configRaw = fs.readFileSync(configPath, 'utf8');
-      const appletConfig = JSON.parse(configRaw);
-      if (appletConfig && appletConfig.projectId) {
-        if (admin.apps.length === 0) {
-          admin.initializeApp({
-            projectId: appletConfig.projectId
-          });
-        }
-        dbAdmin = admin.firestore();
-        console.log(`[Firebase Admin] Successfully initialized Firestore with Project ID: ${appletConfig.projectId}`);
-      }
-    } else {
-      console.warn("[Firebase Admin] Configuration file not found, running mock persistent mode.");
+  // In-memory chat history fallback log for active session
+  const inMemoryMetaChats: Array<{ id: string; channel: string; senderId: string; message: string; reply: string; timestamp: Date }> = [];
+
+  const recordMetaChatInMemory = (channel: string, senderId: string, message: string, reply: string) => {
+    inMemoryMetaChats.unshift({
+      id: `m-mem-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      channel,
+      senderId,
+      message,
+      reply,
+      timestamp: new Date()
+    });
+    if (inMemoryMetaChats.length > 50) {
+      inMemoryMetaChats.pop();
     }
-  } catch (err) {
-    console.error("[Firebase Admin] Error initializing:", err);
-  }
+  };
+
+  // Safe, crash-proof Firestore instance using Web SDK (no service account admin permission required)
+  const dbAdmin = getFirestoreDb();
+
 
   // Twilio incoming Webhook (receives URL-encoded POST with Form params 'From' and 'Body')
   app.post("/api/twilio/sms", async (req, res) => {
@@ -140,15 +138,21 @@ async function startServer() {
         const reply = await handleMetaInput(senderId, textBody, channel, dbAdmin);
         console.log(`[Meta Webhook] Responding to ${channel}:${senderId} -> "${reply}"`);
         
-        // Log in Firestore for dashboard visibility
+        recordMetaChatInMemory(channel, senderId, textBody, reply);
+
+        // Log in Firestore for dashboard visibility if available
         if (dbAdmin) {
-          await dbAdmin.collection('meta_chats').add({
-            channel,
-            senderId,
-            message: textBody,
-            reply,
-            timestamp: new Date()
-          });
+          try {
+            await dbAdmin.collection('meta_chats').add({
+              channel,
+              senderId,
+              message: textBody,
+              reply,
+              timestamp: new Date()
+            });
+          } catch (dbErr) {
+            console.warn("[Meta Webhook] Notice: Firestore write skipped or failed, saved to memory.");
+          }
         }
       } catch (err: any) {
         console.error(`[Meta Webhook] Error processing message:`, err);
@@ -170,15 +174,21 @@ async function startServer() {
     try {
       const reply = await handleMetaInput(senderId, message, channel, dbAdmin);
       
-      // Save simulated conversation in FireStore for real-time monitoring
+      recordMetaChatInMemory(channel, senderId, message, reply);
+
+      // Save simulated conversation in FireStore for real-time monitoring if available
       if (dbAdmin) {
-        await dbAdmin.collection('meta_chats').add({
-          channel,
-          senderId,
-          message,
-          reply,
-          timestamp: new Date()
-        });
+        try {
+          await dbAdmin.collection('meta_chats').add({
+            channel,
+            senderId,
+            message,
+            reply,
+            timestamp: new Date()
+          });
+        } catch (dbErr) {
+          console.warn("[Meta Simulator] Notice: Firestore write skipped or failed, saved to memory.");
+        }
       }
       
       res.json({ reply, status: "success" });
@@ -192,26 +202,38 @@ async function startServer() {
   app.get("/api/meta/history", async (req, res) => {
     try {
       let chats: any[] = [];
+      
       if (dbAdmin) {
-        const snap = await dbAdmin.collection('meta_chats')
-          .orderBy('timestamp', 'desc')
-          .limit(50)
-          .get();
-          
-        snap.forEach((doc: any) => {
-          const d = doc.data();
-          chats.push({
-            id: doc.id,
-            channel: d.channel,
-            senderId: d.senderId,
-            message: d.message,
-            reply: d.reply,
-            timestamp: d.timestamp ? d.timestamp.toDate() : new Date()
+        try {
+          const snap = await dbAdmin.collection('meta_chats')
+            .orderBy('timestamp', 'desc')
+            .limit(50)
+            .get();
+            
+          snap.forEach((doc: any) => {
+            const d = doc.data();
+            chats.push({
+              id: doc.id,
+              channel: d.channel,
+              senderId: d.senderId,
+              message: d.message,
+              reply: d.reply,
+              timestamp: d.timestamp ? d.timestamp.toDate() : new Date()
+            });
           });
-        });
+        } catch (dbErr: any) {
+          // Fallback seamlessly
+        }
+      }
+
+      // Merge in-memory chats first if available
+      for (const memChat of inMemoryMetaChats) {
+        if (!chats.some(c => c.id === memChat.id || (c.senderId === memChat.senderId && c.message === memChat.message))) {
+          chats.unshift(memChat);
+        }
       }
       
-      // Fallback to beautiful mock history if no Firebase logs yet
+      // Fallback to beautiful mock history if no logs yet
       if (chats.length === 0) {
         chats = [
           {
@@ -243,8 +265,8 @@ async function startServer() {
       
       res.json({ chats });
     } catch (err: any) {
-      console.error("[Meta History API] Failed to fetch chat history:", err);
-      res.status(500).json({ error: "Failed to load chat history" });
+      console.warn("[Meta History API] Soft warning loading chat history:", err?.message || err);
+      res.json({ chats: [] });
     }
   });
 

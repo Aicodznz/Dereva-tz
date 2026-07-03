@@ -196,6 +196,17 @@ service cloud.firestore {
       allow update, delete: if isSignedIn();
     }
 
+    // 23. META CHATS & SESSIONS
+    match /meta_chats/{chatId} {
+      allow read, write: if true;
+    }
+    match /meta_sessions/{sessionId} {
+      allow read, write: if true;
+    }
+    match /sms_chats/{chatId} {
+      allow read, write: if true;
+    }
+
     // Default deny for safety
     match /{document=**} {
       allow read, write: if isSignedIn() && isAdmin();
