@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { GoogleGenAI } from '@google/genai';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -13,7 +14,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { GoogleGenAI } = await import("@google/genai");
     const client = new GoogleGenAI({ 
       apiKey,
       httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }

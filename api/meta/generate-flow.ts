@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { GoogleGenAI } from '@google/genai';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
@@ -17,7 +18,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ error: "GEMINI_API_KEY environment variable is not set." });
     }
 
-    const { GoogleGenAI } = await import("@google/genai");
     const client = new GoogleGenAI({
       apiKey,
       httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }

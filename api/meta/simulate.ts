@@ -1,4 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { getFirestoreDb } from '../_lib/getFirestoreDb';
+import { handleMetaInput } from '../../src/lib/metaBot';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
@@ -13,9 +15,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     console.log(`[Meta Simulator Vercel] Simulation from ${channel}:${senderId}: "${message}"`);
-
-    const { getFirestoreDb } = await import('../_lib/getFirestoreDb');
-    const { handleMetaInput } = await import('../../src/lib/metaBot');
 
     const dbAdmin = getFirestoreDb();
     const reply = await handleMetaInput(senderId, message, channel, dbAdmin);

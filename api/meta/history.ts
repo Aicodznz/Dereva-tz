@@ -1,10 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { getFirestoreDb } from '../_lib/getFirestoreDb';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     let chats: any[] = [];
     try {
-      const { getFirestoreDb } = await import('../_lib/getFirestoreDb');
       const dbAdmin = getFirestoreDb();
       if (dbAdmin) {
         const snap = await dbAdmin.collection('meta_chats').get();

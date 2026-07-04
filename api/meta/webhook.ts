@@ -1,4 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { getFirestoreDb } from '../_lib/getFirestoreDb';
+import { handleMetaInput } from '../../src/lib/metaBot';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
@@ -81,8 +83,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (senderId && textBody) {
         try {
-          const { handleMetaInput } = await import('../../src/lib/metaBot');
-          const { getFirestoreDb } = await import('../_lib/getFirestoreDb');
           const dbAdmin = getFirestoreDb();
 
           console.log(`[Meta Webhook Vercel] Processing message from ${channel}:${senderId}: "${textBody}"`);
