@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { handleSMSInput } from '../../src/lib/smsBot';
+import { handleSMSInput } from '../_lib/smsBot';
 import { getFirestoreDb } from '../_lib/getFirestoreDb';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

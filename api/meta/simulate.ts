@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getFirestoreDb } from '../_lib/getFirestoreDb';
-import { handleMetaInput } from '../../src/lib/metaBot';
+import { handleMetaInput } from '../_lib/metaBot';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
