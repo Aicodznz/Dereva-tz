@@ -1065,6 +1065,79 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
     }
   };
 
+  const findMatchingNodeForMessage = (msg: Message) => {
+    if (!metaNodes || metaNodes.length === 0) return null;
+
+    // 1. Exact match of text
+    let matched = metaNodes.find(n => n.data?.text && n.data.text.trim() === msg.text.trim());
+    if (matched) return matched;
+
+    // 2. Substring/includes match
+    matched = metaNodes.find(n => {
+      if (!n.data?.text) return false;
+      const nText = n.data.text.toLowerCase().trim();
+      const mText = msg.text.toLowerCase().trim();
+      return nText.includes(mText) || mText.includes(nText);
+    });
+    if (matched) return matched;
+
+    // 3. Label contains text
+    matched = metaNodes.find(n => {
+      if (!n.data?.label) return false;
+      const nLabel = n.data.label.toLowerCase().trim();
+      const mText = msg.text.toLowerCase().trim();
+      return nLabel.includes(mText) || mText.includes(nLabel);
+    });
+    if (matched) return matched;
+
+    // 4. Customer keywords in intent/decision nodes
+    if (msg.sender === 'customer') {
+      const decisionNodes = metaNodes.filter(n => n.type === 'ai_decision' || n.type === 'intent');
+      for (const dn of decisionNodes) {
+        if (dn.data?.intentMappings) {
+          for (const mapping of dn.data.intentMappings) {
+            if (mapping.keywords && msg.text.toLowerCase().split(' ').some((word: string) => mapping.keywords.toLowerCase().includes(word))) {
+              return dn;
+            }
+          }
+        }
+      }
+    }
+
+    // 5. Fallback: if we have an active node ID, match that
+    if (activeWorkflowNodeId) {
+      const currentActiveNode = metaNodes.find(n => n.id === activeWorkflowNodeId);
+      if (currentActiveNode) return currentActiveNode;
+    }
+
+    return null;
+  };
+
+  const handleEditMessageNode = (msg: Message) => {
+    const matchedNode = findMatchingNodeForMessage(msg);
+    if (matchedNode) {
+      setStudioTab('canvas');
+      setSelectedNodeId(matchedNode.id);
+      
+      toast.success(`Umepelekwa kwenye node "${matchedNode.data?.label || matchedNode.id}" ili uweze kuiboresha au kuifuta! 🚀✨`);
+      
+      // Attempt to scroll to the selected node element after a brief timeout to let tab switch
+      setTimeout(() => {
+        const element = document.getElementById(`node-card-${matchedNode.id}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          element.classList.add('ring-4', 'ring-fuchsia-500', 'duration-500');
+          setTimeout(() => {
+            element.classList.remove('ring-4', 'ring-fuchsia-500');
+          }, 2000);
+        }
+      }, 300);
+    } else {
+      setStudioTab('canvas');
+      toast.info("Imekupeleka kwenye Flow Builder. Bofya node yoyote unayotaka kuiboresha au kuifuta! 🛠️");
+    }
+  };
+
   useEffect(() => {
     // Only update if the chat is at its start / hasn't been engaged yet
     if (metaChatMessages.length === 1 && metaChatMessages[0].sender === 'bot') {
@@ -1987,6 +2060,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                             return (
                               <div
                                 key={node.id}
+                                id={`node-card-${node.id}`}
                                 style={{ left: `${node.position?.x || 0}px`, top: `${node.position?.y || 0}px` }}
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -3135,26 +3209,43 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                 {/* Scrolling Bubbles Window */}
                 <div className="flex-1 overflow-y-auto py-3 px-1.5 space-y-3 scrollbar-none scroll-smooth">
                   <AnimatePresence initial={false}>
-                    {metaChatMessages.map((msg, i) => (
-                      <motion.div
-                        key={i}
-                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        transition={{ duration: 0.15 }}
-                        className={`flex flex-col max-w-[85%] ${msg.sender === 'customer' ? 'ml-auto items-end animate-fade-in' : 'mr-auto items-start animate-fade-in'}`}
-                      >
-                        <div className={`p-2.5 rounded-2xl text-[11px] leading-relaxed shadow-sm font-sans ${
-                          msg.sender === 'customer' 
-                            ? (metaChannel === 'whatsapp' ? 'bg-emerald-600 text-white rounded-br-none' :
-                               metaChannel === 'instagram' ? 'bg-gradient-to-r from-pink-500 to-orange-500 text-white rounded-br-none' :
-                               'bg-blue-600 text-white rounded-br-none')
-                            : 'bg-white dark:bg-neutral-950 dark:text-neutral-100 border border-neutral-100 dark:border-neutral-805 rounded-bl-none text-neutral-800'
-                        }`}>
-                          <p className="whitespace-pre-wrap">{msg.text}</p>
-                        </div>
-                        <span className="text-[8px] text-neutral-400 font-mono mt-1 px-1">{msg.timestamp}</span>
-                      </motion.div>
-                    ))}
+                    {metaChatMessages.map((msg, i) => {
+                      const matchedNode = findMatchingNodeForMessage(msg);
+                      const hasMatch = !!matchedNode;
+                      return (
+                        <motion.div
+                          key={i}
+                          initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          transition={{ duration: 0.15 }}
+                          className={`flex flex-col max-w-[85%] ${msg.sender === 'customer' ? 'ml-auto items-end animate-fade-in' : 'mr-auto items-start animate-fade-in'}`}
+                        >
+                          <div 
+                            onClick={() => handleEditMessageNode(msg)}
+                            title={hasMatch ? `Mhariri wa Flow: Bofya kuhariri node "${matchedNode.data?.label || matchedNode.id}"` : "Mhariri wa Flow: Bofya kufungua Flow Builder"}
+                            className={`p-2.5 rounded-2xl text-[11px] leading-relaxed shadow-sm font-sans cursor-pointer group transition-all duration-150 hover:ring-2 hover:ring-fuchsia-500 hover:ring-offset-1 dark:hover:ring-offset-neutral-900 ${
+                              msg.sender === 'customer' 
+                                ? (metaChannel === 'whatsapp' ? 'bg-emerald-600 text-white rounded-br-none' :
+                                   metaChannel === 'instagram' ? 'bg-gradient-to-r from-pink-500 to-orange-500 text-white rounded-br-none' :
+                                   'bg-blue-600 text-white rounded-br-none')
+                                : 'bg-white dark:bg-neutral-950 dark:text-neutral-100 border border-neutral-100 dark:border-neutral-805 rounded-bl-none text-neutral-800'
+                            }`}
+                          >
+                            <p className="whitespace-pre-wrap">{msg.text}</p>
+                            <div className={`mt-1.5 pt-1.5 border-t ${msg.sender === 'customer' ? 'border-white/10' : 'border-neutral-100 dark:border-neutral-800'} flex items-center justify-between text-[8px] ${msg.sender === 'customer' ? 'text-white/60 group-hover:text-white' : 'text-neutral-400 group-hover:text-fuchsia-500'} transition-colors`}>
+                              <span className="flex items-center gap-1 font-bold uppercase tracking-wider">
+                                <span className={`w-1 h-1 rounded-full ${msg.sender === 'customer' ? 'bg-white/70' : 'bg-fuchsia-500'}`}></span>
+                                {msg.sender === 'customer' ? 'Mteja (Customer)' : (matchedNode ? `Node: ${matchedNode.data?.label || matchedNode.id}` : 'Chatflow Node')}
+                              </span>
+                              <span className={`opacity-0 group-hover:opacity-100 font-extrabold uppercase tracking-wider flex items-center gap-0.5 duration-150 ${msg.sender === 'customer' ? 'text-white' : 'text-fuchsia-600 dark:text-fuchsia-400'}`}>
+                                🛠️ Hariri Flow
+                              </span>
+                            </div>
+                          </div>
+                          <span className="text-[8px] text-neutral-400 font-mono mt-1 px-1">{msg.timestamp}</span>
+                        </motion.div>
+                      );
+                    })}
                     {isLoadingMeta && (
                       <div className="flex flex-col items-start max-w-[80%] mr-auto">
                         <div className="bg-white dark:bg-neutral-950 p-2.5 rounded-2xl rounded-bl-none border border-neutral-100 flex items-center gap-1.5">
