@@ -270,14 +270,14 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
     responseText: null
   });
 
-  const vercelWebhookUrl = "https://dereva-tz.vercel.app/api/meta/webhook";
+  const vercelWebhookUrl = "https://papohapo.onrender.com/api/meta/webhook";
   const cloudRunWebhookUrl = typeof window !== 'undefined' ? `${window.location.origin}/api/meta/webhook` : vercelWebhookUrl;
   const activeWebhookUrl = selectedWebhookDomain === 'vercel' ? vercelWebhookUrl : cloudRunWebhookUrl;
 
   const handleCopyMetaWebhook = () => {
     navigator.clipboard.writeText(activeWebhookUrl);
     setCopiedMetaWebhook(true);
-    toast.success(`Meta Webhook URL (${selectedWebhookDomain.toUpperCase()}) imenakiliwa!`);
+    toast.success(`Meta Webhook URL (${selectedWebhookDomain === 'vercel' ? 'RENDER' : 'CLOUD'}) imenakiliwa!`);
     setTimeout(() => setCopiedMetaWebhook(false), 2000);
   };
 
@@ -1154,7 +1154,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                           : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-300'
                       }`}
                     >
-                      Vercel App
+                      Render Server
                     </button>
                     <button
                       onClick={() => setSelectedWebhookDomain('cloudrun')}
@@ -1176,10 +1176,10 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                 <div className="space-y-1.5 p-3.5 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200/50 dark:border-neutral-800/80 rounded-xl">
                   <div className="flex justify-between items-center">
                     <label className="text-xs font-black uppercase tracking-wider text-neutral-500 block">
-                      Meta Webhook Callback URL ({selectedWebhookDomain === 'vercel' ? 'Vercel Production Domain' : 'Preview Dev Domain'})
+                      Meta Webhook Callback URL ({selectedWebhookDomain === 'vercel' ? 'Render Production Domain' : 'Preview Dev Domain'})
                     </label>
                     <Badge variant="outline" className="text-[10px] uppercase font-mono font-bold bg-fuchsia-500/10 text-fuchsia-600 border-fuchsia-200">
-                      {selectedWebhookDomain === 'vercel' ? 'https://dereva-tz.vercel.app' : 'AI Studio Cloud'}
+                      {selectedWebhookDomain === 'vercel' ? 'https://papohapo.onrender.com' : 'AI Studio Cloud'}
                     </Badge>
                   </div>
 

@@ -175,7 +175,7 @@ export const AutomationStudioTabs: React.FC<AutomationStudioTabsProps> = ({
     responseText: null
   });
 
-  const vercelWebhookUrl = "https://dereva-tz.vercel.app/api/meta/webhook";
+  const vercelWebhookUrl = "https://papohapo.onrender.com/api/meta/webhook";
   const cloudRunWebhookUrl = `${window.location.origin}/api/meta/webhook`;
   const currentWebhookUrl = selectedWebhookDomain === 'vercel' ? vercelWebhookUrl : cloudRunWebhookUrl;
 
@@ -1130,7 +1130,7 @@ export const AutomationStudioTabs: React.FC<AutomationStudioTabsProps> = ({
                           : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
                       }`}
                     >
-                      ▲ Vercel URL
+                      🚀 Render URL
                     </button>
                     <button
                       onClick={() => setSelectedWebhookDomain('cloudrun')}
@@ -1167,7 +1167,7 @@ export const AutomationStudioTabs: React.FC<AutomationStudioTabsProps> = ({
                         Callback URL (Webhook API Endpoint)
                       </label>
                       <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase">
-                        {selectedWebhookDomain === 'vercel' ? 'Active Production Webhook' : 'Development Cloud Run'}
+                        {selectedWebhookDomain === 'vercel' ? 'Active Render Webhook' : 'Development Cloud Run'}
                       </span>
                     </div>
                     <div className="flex gap-2">
