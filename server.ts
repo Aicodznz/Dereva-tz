@@ -15,7 +15,7 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.NODE_ENV === "production" && process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
