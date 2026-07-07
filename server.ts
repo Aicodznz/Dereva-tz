@@ -7,6 +7,7 @@ import fs from "fs";
 import { handleSMSInput } from "./src/lib/smsBot";
 import { handleMetaInput } from "./src/lib/metaBot";
 import { getFirestoreDb } from "./api/_lib/getFirestoreDb";
+import { getHistory, addMessageToHistory, clearHistory } from "./api/_lib/historyStore";
 
 dotenv.config();
 
@@ -19,21 +20,9 @@ async function startServer() {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
-  // In-memory chat history fallback log for active session
-  const inMemoryMetaChats: Array<{ id: string; channel: string; senderId: string; message: string; reply: string; timestamp: Date }> = [];
-
+  // Chat history log using local historyStore file
   const recordMetaChatInMemory = (channel: string, senderId: string, message: string, reply: string) => {
-    inMemoryMetaChats.unshift({
-      id: `m-mem-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-      channel,
-      senderId,
-      message,
-      reply,
-      timestamp: new Date()
-    });
-    if (inMemoryMetaChats.length > 50) {
-      inMemoryMetaChats.pop();
-    }
+    addMessageToHistory(channel, senderId, message, reply);
   };
 
   // Safe, crash-proof Firestore instance using Web SDK (no service account admin permission required)
@@ -198,40 +187,12 @@ async function startServer() {
   // Retrieve Meta live chat logs for Admin Console
   app.get("/api/meta/history", async (req, res) => {
     try {
-      let chats: any[] = [];
+      let chats: any[] = getHistory();
+      const clearedPath = path.join(process.cwd(), 'logs_cleared.txt');
+      const isCleared = fs.existsSync(clearedPath);
       
-      if (dbAdmin) {
-        try {
-          const snap = await dbAdmin.collection('meta_chats')
-            .orderBy('timestamp', 'desc')
-            .limit(50)
-            .get();
-            
-          snap.forEach((doc: any) => {
-            const d = doc.data();
-            chats.push({
-              id: doc.id,
-              channel: d.channel,
-              senderId: d.senderId,
-              message: d.message,
-              reply: d.reply,
-              timestamp: d.timestamp ? d.timestamp.toDate() : new Date()
-            });
-          });
-        } catch (dbErr: any) {
-          // Fallback seamlessly
-        }
-      }
-
-      // Merge in-memory chats first if available
-      for (const memChat of inMemoryMetaChats) {
-        if (!chats.some(c => c.id === memChat.id || (c.senderId === memChat.senderId && c.message === memChat.message))) {
-          chats.unshift(memChat);
-        }
-      }
-      
-      // Fallback to beautiful mock history if no logs yet
-      if (chats.length === 0) {
+      // Fallback to beautiful mock history if no logs yet and not explicitly cleared by the user
+      if (chats.length === 0 && !isCleared) {
         chats = [
           {
             id: "m-mock-1",
@@ -264,6 +225,35 @@ async function startServer() {
     } catch (err: any) {
       console.warn("[Meta History API] Soft warning loading chat history:", err?.message || err);
       res.json({ chats: [] });
+    }
+  });
+
+  // Save Meta Automation config locally
+  app.post("/api/meta/save-config", (req, res) => {
+    try {
+      const config = req.body;
+      if (!config) {
+        return res.status(400).json({ error: "Missing config body" });
+      }
+      const localPath = path.join(process.cwd(), 'meta_config.json');
+      fs.writeFileSync(localPath, JSON.stringify(config, null, 2), 'utf8');
+      console.log("[Meta Config Server] Config saved locally to:", localPath);
+      res.json({ status: "success", message: "Config saved successfully" });
+    } catch (error: any) {
+      console.error("[Meta Config Server] Error saving:", error);
+      res.status(500).json({ error: "Failed to save config", details: error.message });
+    }
+  });
+
+  // Clear Meta chat history logs
+  app.post("/api/meta/clear-logs", async (req, res) => {
+    try {
+      clearHistory();
+      console.log("[Meta Clear Logs Server] Chat history cleared locally.");
+      res.json({ status: "success", message: "Logs cleared successfully" });
+    } catch (error: any) {
+      console.error("[Meta Clear Logs Server] Error:", error);
+      res.status(500).json({ error: "Failed to clear logs", details: error.message });
     }
   });
 

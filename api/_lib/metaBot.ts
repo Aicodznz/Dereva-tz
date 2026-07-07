@@ -1,4 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
+import fs from 'fs';
+import path from 'path';
 
 export interface MetaSession {
   senderId: string;
@@ -617,14 +619,44 @@ export async function handleMetaInput(
   // Quick channel-specific visual prefixes for beautiful formatting
   const chSymbol = channel === 'whatsapp' ? '🟢 WhatsApp' : channel === 'instagram' ? '📸 Instagram' : '🔵 Messenger';
 
-  // Load custom meta config from Firebase if database is available
+  // Load custom meta config from local JSON or Firebase if database is available
   let customWelcome = "";
   let customTriggers: Array<{ keywords: string; response: string; title: string }> = [];
   let useWorkflow = false;
   let workflowNodes: any[] = [];
   let knowledgeBase = "";
+  let loadedLocally = false;
+
+  try {
+    const localPath = path.join(process.cwd(), 'meta_config.json');
+    if (fs.existsSync(localPath)) {
+      const fileContent = fs.readFileSync(localPath, 'utf8');
+      const configData = JSON.parse(fileContent);
+      if (configData) {
+        if (configData.welcomeMessage) {
+          customWelcome = configData.welcomeMessage;
+        }
+        if (configData.triggers) {
+          customTriggers = configData.triggers;
+        }
+        if (configData.useWorkflow !== undefined) {
+          useWorkflow = !!configData.useWorkflow;
+        }
+        if (configData.nodes && configData.nodes.length > 0) {
+          workflowNodes = configData.nodes;
+        }
+        if (configData.knowledgeBase) {
+          knowledgeBase = configData.knowledgeBase;
+        }
+        loadedLocally = true;
+        console.log("[Meta Bot] Loaded configuration from local meta_config.json file.");
+      }
+    }
+  } catch (localErr) {
+    console.warn("[Meta Bot] Failed to load local meta_config.json:", localErr);
+  }
   
-  if (dbAdmin) {
+  if (!loadedLocally && dbAdmin) {
     try {
       const configSnap = await dbAdmin.collection('vendors').doc('papo-hapo-express').collection('settings').doc('meta_config').get();
       if (configSnap.exists) {
@@ -646,7 +678,7 @@ export async function handleMetaInput(
         }
       }
     } catch (err) {
-      console.error("[Meta Bot] Error loading custom chat flow config:", err);
+      console.error("[Meta Bot] Error loading custom chat flow config from Firestore:", err);
     }
   }
 

@@ -1,8 +1,22 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getFirestoreDb } from '../_lib/getFirestoreDb';
 import { handleMetaInput } from '../_lib/metaBot';
+import { addMessageToHistory } from '../_lib/historyStore';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Support CORS
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+  );
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   try {
     if (req.method !== 'POST') {
       res.setHeader('Allow', ['POST']);
@@ -18,6 +32,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const dbAdmin = getFirestoreDb();
     const reply = await handleMetaInput(senderId, message, channel, dbAdmin);
+
+    // Persist log locally in history file
+    addMessageToHistory(channel, senderId, message, reply);
 
     if (dbAdmin) {
       try {

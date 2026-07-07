@@ -1,25 +1,28 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getFirestoreDb } from '../_lib/getFirestoreDb';
+import { getHistory } from '../_lib/historyStore';
+import fs from 'fs';
+import path from 'path';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  try {
-    let chats: any[] = [];
-    try {
-      const dbAdmin = getFirestoreDb();
-      if (dbAdmin) {
-        const snap = await dbAdmin.collection('meta_chats').get();
-        if (snap && snap.exists && snap.data()) {
-          const d = snap.data();
-          if (Array.isArray(d.chats)) {
-            chats = d.chats;
-          }
-        }
-      }
-    } catch (e) {
-      console.warn("[Meta History Vercel] Firestore query warning:", e);
-    }
+  // Support CORS
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+  );
 
-    if (chats.length === 0) {
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  try {
+    let chats: any[] = getHistory();
+    const clearedPath = path.join(process.cwd(), 'logs_cleared.txt');
+    const isCleared = fs.existsSync(clearedPath);
+
+    if (chats.length === 0 && !isCleared) {
       chats = [
         {
           id: "m-mock-1",

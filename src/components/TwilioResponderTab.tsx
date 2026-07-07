@@ -270,6 +270,32 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
     responseText: null
   });
 
+  const getWelcomeMessageText = () => {
+    if (useWorkflow) {
+      // Find start node and its first connected message node if any
+      const startNode = metaNodes.find(n => n.type === 'start');
+      if (startNode && startNode.data?.nextNodeId) {
+        const nextNode = metaNodes.find(n => n.id === startNode.data.nextNodeId);
+        if (nextNode && nextNode.data?.text) {
+          return nextNode.data.text;
+        }
+      }
+      
+      // Fallback if workflow start is found but no message yet
+      const firstMessageNode = metaNodes.find(n => n.type === 'message' || n.type === 'question');
+      if (firstMessageNode && firstMessageNode.data?.text) {
+        return firstMessageNode.data.text;
+      }
+    }
+
+    if (metaWelcomeText) {
+      const channelLabel = metaChannel === 'whatsapp' ? '🟢 WhatsApp' : metaChannel === 'instagram' ? '📸 Instagram' : '🔵 Messenger';
+      return metaWelcomeText.replace(/{channel}/g, channelLabel);
+    }
+
+    return "👋 Karibu Papo Hapo AI Assistant!\n\nMimi ni Chatbot wako mwenye uwezo wa AI. Unaweza kuandika ombi lako kwa Kiswahili au Sheng rahisi (mfano: \"Nahitaji taxi Mwenge kwenda Posta\", \"Kuna chips kuku?\", \"Nahitaji kukata tiketi ya basi\", au \"Naomba kinyozi leo\").\n\nNami nitagundua (Intent detection) na kukuletea orodha ya huduma punde! ✨";
+  };
+
   const vercelWebhookUrl = "https://papohapo.onrender.com/api/meta/webhook";
   const cloudRunWebhookUrl = typeof window !== 'undefined' ? `${window.location.origin}/api/meta/webhook` : vercelWebhookUrl;
   const activeWebhookUrl = selectedWebhookDomain === 'vercel' ? vercelWebhookUrl : cloudRunWebhookUrl;
@@ -487,6 +513,20 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
     }
   };
 
+  const handleClearLiveLogs = async () => {
+    try {
+      const response = await fetch('/api/meta/clear-logs', { method: 'POST' });
+      if (response.ok) {
+        toast.success("Logs za soga zimefutwa vizuri! 🧹");
+        fetchMetaHistory();
+      } else {
+        toast.error("Imeshindwa kufuta logs za soga.");
+      }
+    } catch (err: any) {
+      toast.error("Hitilafu imetokea wakati wa kufuta: " + err.message);
+    }
+  };
+
   // Load custom saved configs if any
   useEffect(() => {
     const fetchSMSConfig = async () => {
@@ -531,6 +571,22 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
           if (data.metaPhoneNumberId) setMetaPhoneNumberId(data.metaPhoneNumberId);
           if (data.metaAccessToken) setMetaAccessToken(data.metaAccessToken);
           if (data.metaVerifyToken) setMetaVerifyToken(data.metaVerifyToken);
+
+          // Synchronize loaded Firestore configuration to local backend API
+          try {
+            fetch('/api/meta/save-config', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                welcomeMessage: data.welcomeMessage || '',
+                triggers: data.triggers || [],
+                useWorkflow: data.useWorkflow !== undefined ? !!data.useWorkflow : false,
+                nodes: data.nodes || [],
+                edges: data.edges || [],
+                knowledgeBase: data.knowledgeBase || ''
+              })
+            }).catch(() => {});
+          } catch (e) {}
         } else {
           // Default fallbacks for simulator showcase
           setMetaWelcomeText(
@@ -805,19 +861,33 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
   };
 
   const handleSaveWorkflowConfig = async (nodesToSave = metaNodes, edgesToSave = metaEdges, workflowActive = useWorkflow, kbText = knowledgeBaseText) => {
+    const payload = {
+      welcomeMessage: metaWelcomeText,
+      triggers: metaTriggers,
+      useWorkflow: workflowActive,
+      nodes: nodesToSave,
+      edges: edgesToSave,
+      knowledgeBase: kbText
+    };
+
     try {
       const docRef = doc(db, 'vendors', vendorId, 'settings', 'meta_config');
       await setDoc(docRef, {
-        welcomeMessage: metaWelcomeText,
-        triggers: metaTriggers,
-        useWorkflow: workflowActive,
-        nodes: nodesToSave,
-        edges: edgesToSave,
-        knowledgeBase: kbText,
+        ...payload,
         updatedAt: new Date()
       }, { merge: true });
     } catch (err: any) {
       console.warn("Could not persist flowchart configuration in Firestore:", err);
+    }
+
+    try {
+      await fetch('/api/meta/save-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    } catch (apiErr) {
+      console.warn("Could not sync flowchart configuration to local backend:", apiErr);
     }
   };
 
@@ -995,11 +1065,24 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
     }
   };
 
+  useEffect(() => {
+    // Only update if the chat is at its start / hasn't been engaged yet
+    if (metaChatMessages.length === 1 && metaChatMessages[0].sender === 'bot') {
+      setMetaChatMessages([
+        {
+          sender: 'bot',
+          text: getWelcomeMessageText(),
+          timestamp: metaChatMessages[0].timestamp
+        }
+      ]);
+    }
+  }, [metaWelcomeText, useWorkflow, metaNodes, metaChannel]);
+
   const handleResetMetaChat = async () => {
     setMetaChatMessages([
       {
         sender: 'bot',
-        text: "👋 Karibu Papo Hapo AI Assistant!\n\nMimi ni Chatbot wako mwenye uwezo wa AI. Unaweza kuandika ombi lako kwa Kiswahili au Sheng rahisi (mfano: \"Nahitaji taxi Mwenge kwenda Posta\", \"Kuna chips kuku?\", \"Nahitaji kukata tiketi ya basi\", au \"Naomba kinyozi leo\").\n\nNami nitagundua (Intent detection) na kukuletea orodha ya huduma punde! ✨",
+        text: getWelcomeMessageText(),
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       }
     ]);
@@ -2873,15 +2956,26 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                       Fuatilia soga za wateja wako wanaowasiliana kupitia WhatsApp, Messenger na Instagram.
                     </CardDescription>
                   </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={fetchMetaHistory} 
-                    className="h-8 gap-1.5 text-xs font-bold uppercase text-neutral-500 hover:text-indigo-600"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    <span>Sync Live</span>
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={fetchMetaHistory} 
+                      className="h-8 gap-1.5 text-xs font-bold uppercase text-neutral-500 hover:text-indigo-600"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>Sync Live</span>
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={handleClearLiveLogs} 
+                      className="h-8 gap-1.5 text-xs font-bold uppercase text-red-500 hover:text-red-600 border-red-100 hover:bg-red-50 dark:border-red-950 dark:hover:bg-red-950/20"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Futa Logs</span>
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
