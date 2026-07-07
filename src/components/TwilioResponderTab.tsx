@@ -1047,9 +1047,9 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
           </button>
         </div>
 
-        {/* Responsive View Switcher for Mobile/Tablet */}
+        {/* Responsive View Switcher for All Screens */}
         {activeTab === 'meta' && (
-          <div className="flex xl:hidden bg-neutral-100 dark:bg-neutral-900 p-1 rounded-xl border border-neutral-200/50 dark:border-neutral-800 text-xs font-bold uppercase tracking-wider w-full sm:w-auto">
+          <div className="flex bg-neutral-100 dark:bg-neutral-900 p-1 rounded-xl border border-neutral-200/50 dark:border-neutral-800 text-xs font-bold uppercase tracking-wider w-full sm:w-auto">
             <button
               onClick={() => setMobileViewMode('all')}
               className={`flex-1 sm:flex-initial py-1.5 px-3 rounded-lg transition-all text-[10px] flex items-center justify-center gap-1.5 cursor-pointer ${
@@ -1091,8 +1091,12 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 xl:gap-8 items-start w-full min-w-0 animate-fade-in">
           
           {/* Left panel: Meta Config, Webhooks, Live Logs */}
-          <div className={`space-y-6 w-full min-w-0 xl:col-span-7 ${
-            mobileViewMode === 'phone' ? 'hidden xl:block' : 'block'
+          <div className={`space-y-6 w-full min-w-0 ${
+            mobileViewMode === 'phone' 
+              ? 'hidden' 
+              : mobileViewMode === 'studio' 
+                ? 'col-span-12 xl:col-span-12' 
+                : 'xl:col-span-7 col-span-12'
           }`}>
             
             {/* Meta Intro banner */}
@@ -1472,31 +1476,6 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                       </div>
                     )}
 
-                    {/* PROMINENT FULLSCREEN BANNER */}
-                    <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-gradient-to-r from-fuchsia-600 via-purple-600 to-indigo-600 text-white rounded-2xl shadow-md">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0">
-                          <Maximize2 className="w-4 h-4 text-white animate-pulse" />
-                        </div>
-                        <div>
-                          <h4 className="text-xs font-black uppercase tracking-wider text-white">Visual Flowchart Studio Canvas</h4>
-                          <p className="text-[10px] text-fuchsia-100 font-medium">Bofya kitufe cha Skrini Nzima ili kufungua studio kwenye kioo kizima na kupata nafasi kubwa zaidi.</p>
-                        </div>
-                      </div>
-                      <Button
-                        size="sm"
-                        type="button"
-                        onClick={() => {
-                          setIsExpandedCanvas(true);
-                          toast.success("Flow Builder imefunguka kwenye Skrini Nzima (Fullscreen)! 🖥️✨");
-                        }}
-                        className="h-9 px-4 text-xs font-black uppercase tracking-wider bg-white text-fuchsia-700 hover:bg-neutral-100 shadow-xl flex items-center gap-2 cursor-pointer border-2 border-white/50 rounded-xl shrink-0"
-                      >
-                        <Maximize2 className="w-4 h-4 text-fuchsia-600" />
-                        <span>🖥️ Skrini Nzima (Fullscreen)</span>
-                      </Button>
-                    </div>
-
                     {/* NODE QUICK INSERTERS BAR */}
                     <div className="space-y-2.5">
                       <div className="flex items-center gap-1.5 overflow-x-auto pb-2 pt-1 scrollbar-thin w-full touch-pan-x bg-neutral-100/80 dark:bg-neutral-800/60 p-2 rounded-xl border border-neutral-200/80 dark:border-neutral-700">
@@ -1601,22 +1580,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                         </Button>
                       </div>
 
-                      <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
-                        <div className="flex items-center gap-2">
-                          <Button
-                            size="sm"
-                            type="button"
-                            onClick={() => {
-                              setIsExpandedCanvas(true);
-                              toast.success("Flow Builder imefunguka kwenye Skrini Nzima (Fullscreen)! 🖥️✨");
-                            }}
-                            className="h-8 text-[10px] font-black uppercase tracking-wider bg-gradient-to-r from-fuchsia-600 via-purple-600 to-indigo-600 hover:from-fuchsia-700 hover:to-indigo-700 text-white shadow-md flex items-center gap-1.5 cursor-pointer rounded-lg px-3.5"
-                          >
-                            <Maximize2 className="w-3.5 h-3.5" />
-                            <span>🖥️ Skrini Nzima (Fullscreen)</span>
-                          </Button>
-                        </div>
-
+                      <div className="flex flex-wrap items-center justify-end gap-2 pt-0.5">
                         <div className="flex items-center gap-2">
                           <Button
                             size="sm"
@@ -1733,18 +1697,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                       <div className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px] dark:bg-[radial-gradient(#262626_1px,transparent_1px)] opacity-50 rounded-2xl pointer-events-none" />
 
                       {/* Floating Quick Fullscreen Badge */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsExpandedCanvas(true);
-                          toast.success("Flow Builder imefunguka kwenye Skrini Nzima (Fullscreen)! 🖥️✨");
-                        }}
-                        className="absolute bottom-4 right-4 z-40 px-3.5 py-2 bg-gradient-to-r from-fuchsia-600 via-purple-600 to-indigo-600 hover:from-fuchsia-700 hover:to-indigo-700 text-white font-black text-[10px] uppercase tracking-wider rounded-xl shadow-2xl flex items-center gap-2 cursor-pointer border border-fuchsia-300/40 backdrop-blur-md transition-all hover:scale-105"
-                      >
-                        <Maximize2 className="w-4 h-4" />
-                        <span>🖥️ Skrini Nzima (Fullscreen)</span>
-                      </button>
-                      
+
                       <div 
                         id="studio-canvas"
                         className={`relative w-full ${isExpandedCanvas ? 'flex-1 h-[calc(100vh-180px)]' : 'h-[500px] sm:h-[600px] md:h-[680px]'} overflow-auto rounded-2xl scrollbar-thin cursor-crosshair select-none`}
@@ -2633,8 +2586,12 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
           </div>
 
           {/* Right panel: Meta physical phone simulator */}
-          <div className={`w-full min-w-0 xl:col-span-5 flex flex-col items-center justify-start ${
-            mobileViewMode === 'studio' ? 'hidden xl:flex' : 'flex'
+          <div className={`w-full min-w-0 flex flex-col items-center justify-start ${
+            mobileViewMode === 'studio' 
+              ? 'hidden' 
+              : mobileViewMode === 'phone' 
+                ? 'col-span-12 xl:col-span-12' 
+                : 'xl:col-span-5 col-span-12'
           }`}>
             
             {/* Simulator Platform Selector */}
