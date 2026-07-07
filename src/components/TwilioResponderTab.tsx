@@ -45,7 +45,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { db } from '../firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { Sparkles } from 'lucide-react';
 import { AutomationStudioTabs } from './AutomationStudioTabs';
 import { handleMetaInput } from '../lib/metaBot';
@@ -270,6 +270,42 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
     responseText: null
   });
 
+  const getDynamicWelcomeText = (channelLabel: string) => {
+    const DEFAULT_SERVICES = [
+      { key: 'taxi', id: 'teksi', emoji: '🚖', title: 'TAXI', desc: 'Agiza boda, bajaji au gari' },
+      { key: 'food', id: 'chakula', emoji: '🍔', title: 'CHAKULA', desc: 'Chips, Pizza, Burger, Biryani' },
+      { key: 'grocery', id: 'sokoni', emoji: '🛍️', title: 'SOKONI', desc: 'Groceries, Nyanya, Vitunguu, Mchele' },
+      { key: 'parcel', id: 'vifurushi', emoji: '📦', title: 'PARCEL', desc: 'Tuma au wasilisha mzigo haraka' },
+      { key: 'salon', id: 'saluni', emoji: '💇‍♀️', title: 'SALUNI', desc: 'Hair cut, Nails, Spa, Makeup' },
+      { key: 'hotel', id: 'hoteli', emoji: '🏨', title: 'HOTELI', desc: 'Weka vyumba vya hoteli karibu nawe' },
+      { key: 'car_rental', id: 'car_rental', emoji: '🚗', title: 'KODI GARI', desc: 'Kodisha Prado, Cruiser, Harrier' },
+      { key: 'pharmacy', id: 'dawa', emoji: '💊', title: 'PHARMACY', desc: 'Agiza Dawa na vifaa vya afya' },
+      { key: 'bus_ticket', id: 'bus_ticket', emoji: '🚌', title: 'MABASI', desc: 'Kata tiketi za mabasi ya mikoani' }
+    ];
+
+    const active = DEFAULT_SERVICES.filter(item => {
+      const sData = businessServices[item.id];
+      return !sData || sData.enabled !== false;
+    }).map((item, idx) => {
+      const sData = businessServices[item.id] || {};
+      return {
+        ...item,
+        displayNum: idx + 1,
+        isMaintenance: sData.maintenance === true
+      };
+    });
+
+    let welcome = `👋 *Karibu Papo Hapo Super App Bot!* (${channelLabel})\n\nMimi ni Assistant wako wa Papo Hapo. Unaweza kupata na kuagiza huduma zote kwa haraka kupitia hapa!\n\n*Tafadhali chagua au andika unachotaka:* \n`;
+    
+    active.forEach(srv => {
+      const maintTag = srv.isMaintenance ? " *(MABORESHO ⚠️)*" : "";
+      welcome += `${srv.emoji} *${srv.displayNum}. ${srv.title}* (${srv.desc})${maintTag}\n`;
+    });
+
+    welcome += `\n*Andika namba au taja unachohitaji moja kwa moja! (Mfano: "Naomba taxi kwenda Posta")* ✨`;
+    return welcome;
+  };
+
   const getWelcomeMessageText = () => {
     if (useWorkflow) {
       // Find start node and its first connected message node if any
@@ -288,12 +324,15 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
       }
     }
 
+    const channelLabel = metaChannel === 'whatsapp' ? '🟢 WhatsApp' : metaChannel === 'instagram' ? '📸 Instagram' : '🔵 Messenger';
     if (metaWelcomeText) {
-      const channelLabel = metaChannel === 'whatsapp' ? '🟢 WhatsApp' : metaChannel === 'instagram' ? '📸 Instagram' : '🔵 Messenger';
-      return metaWelcomeText.replace(/{channel}/g, channelLabel);
+      // If they customized the welcome text from default, keep it. Otherwise make it dynamic.
+      if (!metaWelcomeText.includes("TAXI") && !metaWelcomeText.includes("CHAKULA") && !metaWelcomeText.includes("SOKONI")) {
+        return metaWelcomeText.replace(/{channel}/g, channelLabel);
+      }
     }
 
-    return "👋 Karibu Papo Hapo AI Assistant!\n\nMimi ni Chatbot wako mwenye uwezo wa AI. Unaweza kuandika ombi lako kwa Kiswahili au Sheng rahisi (mfano: \"Nahitaji taxi Mwenge kwenda Posta\", \"Kuna chips kuku?\", \"Nahitaji kukata tiketi ya basi\", au \"Naomba kinyozi leo\").\n\nNami nitagundua (Intent detection) na kukuletea orodha ya huduma punde! ✨";
+    return getDynamicWelcomeText(channelLabel);
   };
 
   const vercelWebhookUrl = "https://papohapo.onrender.com/api/meta/webhook";
@@ -344,6 +383,21 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
 
   // Meta Flow states
   const [metaWelcomeText, setMetaWelcomeText] = useState('');
+  const [businessServices, setBusinessServices] = useState<any>({});
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'config', 'business'), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data && data.services) {
+          setBusinessServices(data.services);
+        }
+      }
+    }, (error) => {
+      console.warn("Could not fetch business config for simulator services:", error);
+    });
+    return () => unsub();
+  }, []);
   const [metaTriggers, setMetaTriggers] = useState<any[]>([]);
   const [newTriggerTitle, setNewTriggerTitle] = useState('');
   const [newTriggerKeywords, setNewTriggerKeywords] = useState('');

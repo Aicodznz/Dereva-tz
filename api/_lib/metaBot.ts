@@ -604,6 +604,50 @@ Respond strictly with the matching category ID. If none fits nicely, return "def
 }
 
 /**
+ * Generates the dynamic welcome message based on active/enabled services
+ */
+export function generateDynamicWelcomeMessage(servicesConfig: any, chSymbol: string, customWelcome?: string): string {
+  if (customWelcome) {
+    return customWelcome.replace(/{channel}/g, chSymbol);
+  }
+
+  const DEFAULT_SERVICES = [
+    { key: 'taxi', id: 'teksi', emoji: '🚖', title: 'TAXI', desc: 'Agiza boda, bajaji au gari' },
+    { key: 'food', id: 'chakula', emoji: '🍔', title: 'CHAKULA', desc: 'Chips, Pizza, Burger, Biryani' },
+    { key: 'grocery', id: 'sokoni', emoji: '🛍️', title: 'SOKONI', desc: 'Groceries, Nyanya, Vitunguu, Mchele' },
+    { key: 'parcel', id: 'vifurushi', emoji: '📦', title: 'PARCEL', desc: 'Tuma au wasilisha mzigo haraka' },
+    { key: 'salon', id: 'saluni', emoji: '💇‍♀️', title: 'SALUNI', desc: 'Hair cut, Nails, Spa, Makeup' },
+    { key: 'hotel', id: 'hoteli', emoji: '🏨', title: 'HOTELI', desc: 'Weka vyumba vya hoteli karibu nawe' },
+    { key: 'car_rental', id: 'car_rental', emoji: '🚗', title: 'KODI GARI', desc: 'Kodisha Prado, Cruiser, Harrier' },
+    { key: 'pharmacy', id: 'dawa', emoji: '💊', title: 'PHARMACY', desc: 'Agiza Dawa na vifaa vya afya' },
+    { key: 'bus_ticket', id: 'bus_ticket', emoji: '🚌', title: 'MABASI', desc: 'Kata tiketi za mabasi ya mikoani' }
+  ];
+
+  const activeServices = DEFAULT_SERVICES.filter(item => {
+    const sData = servicesConfig[item.id];
+    return !sData || sData.enabled !== false;
+  }).map((item, idx) => {
+    const sData = servicesConfig[item.id] || {};
+    const isMaintenance = sData.maintenance === true;
+    return {
+      ...item,
+      displayNum: (idx + 1).toString(),
+      isMaintenance
+    };
+  });
+
+  let welcome = `👋 *Karibu Papo Hapo Super App Bot!* (${chSymbol})\n\nMimi ni Assistant wako wa Papo Hapo. Unaweza kupata na kuagiza huduma zote kwa haraka kupitia hapa!\n\n*Tafadhali chagua au andika unachotaka:* \n`;
+                
+  activeServices.forEach(srv => {
+    const maintTag = srv.isMaintenance ? " *(MABORESHO ⚠️)*" : "";
+    welcome += `${srv.emoji} *${srv.displayNum}. ${srv.title}* (${srv.desc})${maintTag}\n`;
+  });
+  
+  welcome += `\n*Andika namba au taja unachohitaji moja kwa moja! (Mfano: "Naomba taxi kwenda Posta")* ✨`;
+  return welcome;
+}
+
+/**
  * Handles input from Meta channels (WhatsApp, Facebook, Instagram)
  */
 export async function handleMetaInput(
@@ -731,24 +775,48 @@ export async function handleMetaInput(
     }
   }
 
+  // Load business services config
+  let servicesConfig: any = {};
+  if (dbAdmin) {
+    try {
+      const bizSnap = await dbAdmin.collection('config').doc('business').get();
+      if (bizSnap.exists) {
+        servicesConfig = bizSnap.data().services || {};
+      }
+    } catch (bizErr) {
+      console.warn("[Meta Bot] Failed to fetch config/business for services:", bizErr);
+    }
+  }
+
+  const DEFAULT_SERVICES = [
+    { key: 'taxi', id: 'teksi', emoji: '🚖', title: 'TAXI', desc: 'Agiza boda, bajaji au gari' },
+    { key: 'food', id: 'chakula', emoji: '🍔', title: 'CHAKULA', desc: 'Chips, Pizza, Burger, Biryani' },
+    { key: 'grocery', id: 'sokoni', emoji: '🛍️', title: 'SOKONI', desc: 'Groceries, Nyanya, Vitunguu, Mchele' },
+    { key: 'parcel', id: 'vifurushi', emoji: '📦', title: 'PARCEL', desc: 'Tuma au wasilisha mzigo haraka' },
+    { key: 'salon', id: 'saluni', emoji: '💇‍♀️', title: 'SALUNI', desc: 'Hair cut, Nails, Spa, Makeup' },
+    { key: 'hotel', id: 'hoteli', emoji: '🏨', title: 'HOTELI', desc: 'Weka vyumba vya hoteli karibu nawe' },
+    { key: 'car_rental', id: 'car_rental', emoji: '🚗', title: 'KODI GARI', desc: 'Kodisha Prado, Cruiser, Harrier' },
+    { key: 'pharmacy', id: 'dawa', emoji: '💊', title: 'PHARMACY', desc: 'Agiza Dawa na vifaa vya afya' },
+    { key: 'bus_ticket', id: 'bus_ticket', emoji: '🚌', title: 'MABASI', desc: 'Kata tiketi za mabasi ya mikoani' }
+  ];
+
+  const activeServices = DEFAULT_SERVICES.filter(item => {
+    const sData = servicesConfig[item.id];
+    return !sData || sData.enabled !== false;
+  }).map((item, idx) => {
+    const sData = servicesConfig[item.id] || {};
+    const isMaintenance = sData.maintenance === true;
+    return {
+      ...item,
+      displayNum: (idx + 1).toString(),
+      isMaintenance,
+      maintenanceMessage: sData.message || `Huduma ya ${item.title} ipo kwenye matengenezo kwa sasa.`
+    };
+  });
+
   // Master Welcome Message
   const getWelcomeMessage = () => {
-    if (customWelcome) {
-      return customWelcome.replace(/{channel}/g, chSymbol);
-    }
-    return `👋 *Karibu Papo Hapo Super App Bot!* (${chSymbol})\n\n` +
-           `Mimi ni Assistant wako wa Papo Hapo. Unaweza kupata na kuagiza huduma zote kwa haraka kupitia hapa!\n\n` +
-           `*Tafadhali chagua au andika unachotaka:* \n` +
-           `🚖 *1. TAXI* (Agiza boda, bajaji au gari)\n` +
-           `🍔 *2. CHAKULA* (Chips, Pizza, Burger, Biryani)\n` +
-           `🛍️ *3. SOKONI* (Groceries, Nyanya, Vitunguu, Mchele)\n` +
-           `📦 *4. PARCEL* (Tuma au wasilisha mzigo haraka)\n` +
-           `💇‍♀️ *5. SALUNI* (Hair cut, Nails, Spa, Makeup)\n` +
-           `🏨 *6. HOTELI* (Weka vyumba vya hoteli karibu nawe)\n` +
-           `🚗 *7. KODI GARI* (Kodisha Prado, Cruiser, Harrier)\n` +
-           `💊 *8. PHARMACY* (Agiza Dawa na vifaa vya afya)\n` +
-           `🚌 *9. MABASI* (Kata tiketi za mabasi ya mikoani)\n\n` +
-           `*Andika namba au taja unachohitaji moja kwa moja! (Mfano: "Naomba taxi kwenda Posta")* ✨`;
+    return generateDynamicWelcomeMessage(servicesConfig, chSymbol, customWelcome);
   };
 
   // If user says "hi" or triggers restart
@@ -763,8 +831,16 @@ export async function handleMetaInput(
     if (!isGreeting && cleanInput.length > 3) {
       const { intent } = await classifyIntent(cleanInput);
       if (intent !== 'greeting' && intent !== 'other') {
-        session.service = intent as any;
-        return await routeToServiceFlow(session, cleanInput, dbAdmin, channel);
+        const matchedSrv = activeServices.find(srv => srv.key === intent);
+        if (matchedSrv) {
+          if (matchedSrv.isMaintenance) {
+            return `⚠️ *MATENGENEZO / MAINTENANCE* ⚠️\n\n${matchedSrv.maintenanceMessage}`;
+          }
+          session.service = intent as any;
+          return await routeToServiceFlow(session, cleanInput, dbAdmin, channel);
+        } else {
+          return `⚠️ Samahani, huduma ya ${intent.toUpperCase()} haipatikani kwa sasa.`;
+        }
       }
     }
     
@@ -775,32 +851,33 @@ export async function handleMetaInput(
 
   // If we are collecting initial selection
   if (session.step === 'COLLECTING_ROUTE' && !session.service) {
-    // Check numeric first
-    if (cleanInput === '1') {
-      session.service = 'taxi';
-    } else if (cleanInput === '2') {
-      session.service = 'food';
-    } else if (cleanInput === '3') {
-      session.service = 'grocery';
-    } else if (cleanInput === '4') {
-      session.service = 'parcel';
-    } else if (cleanInput === '5') {
-      session.service = 'salon';
-    } else if (cleanInput === '6') {
-      session.service = 'hotel';
-    } else if (cleanInput === '7') {
-      session.service = 'car_rental';
-    } else if (cleanInput === '8') {
-      session.service = 'pharmacy';
-    } else if (cleanInput === '9') {
-      session.service = 'bus_ticket';
+    // Check if numeric input matches any display number of active services
+    const matchedSrvByNum = activeServices.find(srv => srv.displayNum === cleanInput);
+    if (matchedSrvByNum) {
+      if (matchedSrvByNum.isMaintenance) {
+        return `⚠️ *MATENGENEZO / MAINTENANCE* ⚠️\n\n${matchedSrvByNum.maintenanceMessage}`;
+      }
+      session.service = matchedSrvByNum.key as any;
     } else {
+      // If it's a number that doesn't match the current dynamic options, block
+      if (['1','2','3','4','5','6','7','8','9'].includes(cleanInput)) {
+        return `⚠️ Samahani, huduma hii haipatikani kwa sasa au imefungwa. Tafadhali chagua namba iliyopo kwenye menu!`;
+      }
+
       // Use NLP classifier for conversational selection!
       const { intent } = await classifyIntent(cleanInput);
       if (intent !== 'other' && intent !== 'greeting') {
-        session.service = intent as any;
+        const matchedSrv = activeServices.find(srv => srv.key === intent);
+        if (matchedSrv) {
+          if (matchedSrv.isMaintenance) {
+            return `⚠️ *MATENGENEZO / MAINTENANCE* ⚠️\n\n${matchedSrv.maintenanceMessage}`;
+          }
+          session.service = intent as any;
+        } else {
+          return `⚠️ Samahani, huduma ya ${intent.toUpperCase()} haipatikani kwa sasa.`;
+        }
       } else {
-        return `⚠️ Samahani, sijaelewa ombi lako. Tafadhali andika namba kuanzia *1 mpaka 9* kulingana na menu, au andika jambo rahisi mfano: *Naomba Taxi* au *Nataka kucha*.`;
+        return `⚠️ Samahani, sijaelewa ombi lako. Tafadhali chagua moja ya namba zilizopo kwenye menu, au andika jambo rahisi kama *Hi* kuanza upya.`;
       }
     }
     
@@ -808,6 +885,16 @@ export async function handleMetaInput(
   }
 
   // Active Flow handling
+  const activeSrv = activeServices.find(srv => srv.key === session.service);
+  if (activeSrv && activeSrv.isMaintenance) {
+    // Intercept if active flow got put into maintenance mid-way
+    session.step = 'START';
+    session.service = undefined;
+    session.details = {};
+    await saveMetaSession(session, dbAdmin);
+    return `⚠️ *MATENGENEZO / MAINTENANCE* ⚠️\n\n${activeSrv.maintenanceMessage}`;
+  }
+
   return await routeToServiceFlow(session, cleanInput, dbAdmin, channel);
 }
 
@@ -1382,18 +1469,17 @@ async function routeToServiceFlow(
   session.details = {};
   await saveMetaSession(session, dbAdmin);
   
+  let servicesConfig: any = {};
+  if (dbAdmin) {
+    try {
+      const bizSnap = await dbAdmin.collection('config').doc('business').get();
+      if (bizSnap.exists) {
+        servicesConfig = bizSnap.data().services || {};
+      }
+    } catch (bizErr) {
+      console.warn("[Meta Bot] Failed to fetch services config in routeToServiceFlow:", bizErr);
+    }
+  }
   const chSymbol = channel === 'whatsapp' ? '🟢 WhatsApp' : channel === 'instagram' ? '📸 Instagram' : '🔵 Messenger';
-  return `👋 *Karibu Papo Hapo Super App Bot!* (${chSymbol})\n\n` +
-         `Mimi ni Assistant wako wa Papo Hapo. Unaweza kupata na kuagiza huduma zote kwa haraka kupitia hapa!\n\n` +
-         `*Tafadhali chagua au andika unachotaka:* \n` +
-         `🚖 *1. TAXI* (Agiza boda, bajaji au gari)\n` +
-         `🍔 *2. CHAKULA* (Chips, Pizza, Burger, Biryani)\n` +
-         `🛍️ *3. SOKONI* (Groceries, Nyanya, Vitunguu, Mchele)\n` +
-         `📦 *4. PARCEL* (Tuma au wasilisha mzigo haraka)\n` +
-         `💇‍♀️ *5. SALUNI* (Hair cut, Nails, Spa, Makeup)\n` +
-         `🏨 *6. HOTELI* (Weka vyumba vya hoteli karibu nawe)\n` +
-         `🚗 *7. KODI GARI* (Kodisha Prado, Cruiser, Harrier)\n` +
-         `💊 *8. PHARMACY* (Agiza Dawa na vifaa vya afya)\n` +
-         `🚌 *9. MABASI* (Kata tiketi za mabasi ya mikoani)\n\n` +
-         `*Andika namba au taja unachohitaji moja kwa moja! (Mfano: "Naomba taxi kwenda Posta")* ✨`;
+  return generateDynamicWelcomeMessage(servicesConfig, chSymbol);
 }
