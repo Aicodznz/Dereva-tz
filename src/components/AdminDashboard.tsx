@@ -1113,21 +1113,26 @@ export default function AdminDashboard() {
       </div>
 
       {/* Tabs Menu (Desktop) */}
-      <div className="hidden md:flex flex-wrap gap-2 p-1.5 bg-neutral-100 dark:bg-neutral-800 rounded-[2rem] w-fit transition-colors px-4 md:px-1.5">
-        {adminTabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as AdminTab)}
-            className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-black uppercase tracking-tight transition-all ${
-              activeTab === tab.id 
-                ? 'bg-neutral-900 dark:bg-white dark:text-neutral-900 text-white shadow-xl shadow-neutral-200 dark:shadow-neutral-950' 
-                : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-white dark:hover:bg-neutral-700'
-            }`}
-          >
-            <tab.icon className="w-4 h-4" />
-            {tab.label}
-          </button>
-        ))}
+      <div className="hidden md:block bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 rounded-3xl p-5 shadow-sm transition-all">
+        <div className="flex flex-wrap gap-2">
+          {adminTabs.map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as AdminTab)}
+                className={`flex items-center gap-2.5 px-5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 border cursor-pointer ${
+                  isActive 
+                    ? 'bg-neutral-950 border-neutral-950 dark:bg-white dark:border-white text-white dark:text-neutral-900 shadow-md shadow-neutral-900/10' 
+                    : 'bg-neutral-50 dark:bg-neutral-800/40 border-neutral-200/60 dark:border-neutral-800/60 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-850'
+                }`}
+              >
+                <tab.icon className={`w-4 h-4 transition-transform duration-200 ${isActive ? 'text-red-500 scale-110' : 'text-neutral-400 dark:text-neutral-500'}`} />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Mobile Stats Summary (Only on Overview) */}
