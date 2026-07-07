@@ -264,6 +264,24 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
   const [saveFlowDesc, setSaveFlowDesc] = useState('');
   const [lastAiGeneratedTime, setLastAiGeneratedTime] = useState<string | null>(null);
   const [selectedWebhookDomain, setSelectedWebhookDomain] = useState<'vercel' | 'cloudrun'>('vercel');
+  const [customProductionDomain, setCustomProductionDomain] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('custom_production_domain') || 'https://papohapo.onrender.com';
+    }
+    return 'https://papohapo.onrender.com';
+  });
+
+  const handleDomainChange = (val: string) => {
+    let cleanVal = val.trim();
+    if (cleanVal && !cleanVal.startsWith('http://') && !cleanVal.startsWith('https://')) {
+      cleanVal = 'https://' + cleanVal;
+    }
+    setCustomProductionDomain(cleanVal);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('custom_production_domain', cleanVal);
+    }
+  };
+
   const [livePingStatus, setLivePingStatus] = useState<{ testing: boolean; success: boolean | null; responseText: string | null }>({
     testing: false,
     success: null,
@@ -399,7 +417,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
     return applyBusinessConfigToWelcomeText(rawText, businessServices);
   };
 
-  const vercelWebhookUrl = "https://papohapo.onrender.com/api/meta/webhook";
+  const vercelWebhookUrl = `${customProductionDomain.replace(/\/$/, '')}/api/meta/webhook`;
   const cloudRunWebhookUrl = typeof window !== 'undefined' ? `${window.location.origin}/api/meta/webhook` : vercelWebhookUrl;
   const activeWebhookUrl = selectedWebhookDomain === 'vercel' ? vercelWebhookUrl : cloudRunWebhookUrl;
 
@@ -1529,8 +1547,8 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                     <label className="text-xs font-black uppercase tracking-wider text-neutral-500 block">
                       Meta Webhook Callback URL ({selectedWebhookDomain === 'vercel' ? 'Render Production Domain' : 'Preview Dev Domain'})
                     </label>
-                    <Badge variant="outline" className="text-[10px] uppercase font-mono font-bold bg-fuchsia-500/10 text-fuchsia-600 border-fuchsia-200">
-                      {selectedWebhookDomain === 'vercel' ? 'https://papohapo.onrender.com' : 'AI Studio Cloud'}
+                    <Badge variant="outline" className="text-[10px] uppercase font-mono font-bold bg-fuchsia-500/10 text-fuchsia-600 border-fuchsia-200 max-w-[200px] truncate">
+                      {selectedWebhookDomain === 'vercel' ? customProductionDomain : 'AI Studio Cloud'}
                     </Badge>
                   </div>
 
@@ -1551,6 +1569,24 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                       </span>
                     </Button>
                   </div>
+
+                  {selectedWebhookDomain === 'vercel' && (
+                    <div className="mt-2.5 pt-2 border-t border-neutral-200/40 dark:border-neutral-800/40 space-y-1.5">
+                      <div className="flex justify-between items-center">
+                        <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block">
+                          Anwani ya Render (Kama siyo papohapo.onrender.com, badilisha hapa):
+                        </label>
+                      </div>
+                      <div className="flex gap-2 items-center">
+                        <Input 
+                          value={customProductionDomain}
+                          onChange={(e) => handleDomainChange(e.target.value)}
+                          placeholder="https://jina-lako.onrender.com"
+                          className="font-mono text-xs bg-white dark:bg-black h-8 border-neutral-200/60 py-1"
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   {/* Live Webhook Ping Tester */}
                   <div className="pt-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-t border-neutral-200/40 dark:border-neutral-800/40 mt-3">
