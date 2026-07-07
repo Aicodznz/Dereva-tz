@@ -15,9 +15,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 1. GET METHOD: Meta Webhook Verification or Status Check
     if (req.method === 'GET') {
-      const mode = (req.query["hub.mode"] || req.query["hub_mode"] || req.query["mode"] || "") as string;
-      const token = (req.query["hub.verify_token"] || req.query["hub_verify_token"] || req.query["verify_token"] || req.query["token"] || "") as string;
-      const challenge = (req.query["hub.challenge"] || req.query["hub_challenge"] || req.query["challenge"] || "") as string;
+      // Helper to extract nested or flat query parameters
+      const getQueryParam = (key: string): string => {
+        if (req.query[key]) return String(req.query[key]);
+        if (key.startsWith("hub.")) {
+          const subKey = key.substring(4);
+          const hub = req.query.hub;
+          if (hub && typeof hub === 'object' && (hub as any)[subKey]) {
+            return String((hub as any)[subKey]);
+          }
+        }
+        const altKey = key.replace(".", "_");
+        if (req.query[altKey]) return String(req.query[altKey]);
+        return "";
+      };
+
+      const mode = getQueryParam("hub.mode") || (req.query["mode"] as string) || "";
+      const token = getQueryParam("hub.verify_token") || (req.query["verify_token"] as string) || (req.query["token"] as string) || "";
+      const challenge = getQueryParam("hub.challenge") || (req.query["challenge"] as string) || "";
       
       const expectedToken = (process.env.META_VERIFY_TOKEN || "papo_hapo_meta_secure_token_2026").trim();
       const receivedToken = String(token).trim();

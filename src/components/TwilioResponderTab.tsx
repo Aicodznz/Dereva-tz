@@ -306,33 +306,97 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
     return welcome;
   };
 
+  const applyBusinessConfigToWelcomeText = (text: string, servicesConfig: any): string => {
+    if (!text) return text;
+    if (!servicesConfig || Object.keys(servicesConfig).length === 0) return text;
+
+    const DEFAULT_SERVICES = [
+      { key: 'taxi', id: 'teksi', emoji: '🚖', title: 'TAXI', desc: 'Agiza boda, bajaji au gari' },
+      { key: 'food', id: 'chakula', emoji: '🍔', title: 'CHAKULA', desc: 'Chips, Pizza, Burger, Biryani' },
+      { key: 'grocery', id: 'sokoni', emoji: '🛍️', title: 'SOKONI', desc: 'Groceries, Nyanya, Vitunguu, Mchele' },
+      { key: 'parcel', id: 'vifurushi', emoji: '📦', title: 'PARCEL', desc: 'Tuma au wasilisha mzigo haraka' },
+      { key: 'salon', id: 'saluni', emoji: '💇‍♀️', title: 'SALUNI', desc: 'Hair cut, Nails, Spa, Makeup' },
+      { key: 'hotel', id: 'hoteli', emoji: '🏨', title: 'HOTELI', desc: 'Weka vyumba vya hoteli karibu nawe' },
+      { key: 'car_rental', id: 'car_rental', emoji: '🚗', title: 'KODI GARI', desc: 'Kodisha Prado, Cruiser, Harrier' },
+      { key: 'pharmacy', id: 'dawa', emoji: '💊', title: 'PHARMACY', desc: 'Agiza Dawa na vifaa vya afya' },
+      { key: 'bus_ticket', id: 'bus_ticket', emoji: '🚌', title: 'MABASI', desc: 'Kata tiketi za mabasi ya mikoani' }
+    ];
+
+    const hasServiceList = text.includes("TAXI") || text.includes("CHAKULA") || text.includes("SOKONI");
+    if (!hasServiceList) return text;
+
+    const active = DEFAULT_SERVICES.filter(item => {
+      const sData = servicesConfig[item.id];
+      return !sData || sData.enabled !== false;
+    }).map((item, idx) => {
+      const sData = servicesConfig[item.id] || {};
+      return {
+        ...item,
+        displayNum: idx + 1,
+        isMaintenance: sData.maintenance === true
+      };
+    });
+
+    const firstServiceIndex = text.search(/(🚖|🍔|🛍️|📦|💇‍♀️|🏨|🚗|💊|🚌|\*\d\.)/);
+    let welcomeHeader = `👋 *Karibu Papo Hapo Super App Bot!*\n\nMimi ni Assistant wako wa Papo Hapo. Unaweza kupata na kuagiza huduma zote kwa haraka kupitia hapa!\n\n*Tafadhali chagua au andika unachotaka:* \n`;
+    if (firstServiceIndex !== -1) {
+      welcomeHeader = text.substring(0, firstServiceIndex);
+    }
+
+    let welcomeBody = "";
+    active.forEach(srv => {
+      const maintTag = srv.isMaintenance ? " *(MABORESHO ⚠️)*" : "";
+      welcomeBody += `${srv.emoji} *${srv.displayNum}. ${srv.title}* (${srv.desc})${maintTag}\n`;
+    });
+
+    let welcomeFooter = `\n*Andika namba au taja unachohitaji moja kwa moja! (Mfano: "Naomba taxi kwenda Posta")* ✨`;
+    const footerStart = text.indexOf("*Andika namba");
+    if (footerStart !== -1) {
+      welcomeFooter = "\n" + text.substring(footerStart);
+    } else {
+      const lastMabasi = text.indexOf("MABASI");
+      if (lastMabasi !== -1) {
+        const nextNewline = text.indexOf("\n", lastMabasi);
+        if (nextNewline !== -1) {
+          welcomeFooter = text.substring(nextNewline);
+        }
+      }
+    }
+
+    return welcomeHeader + welcomeBody + welcomeFooter;
+  };
+
   const getWelcomeMessageText = () => {
+    let rawText = "";
     if (useWorkflow) {
       // Find start node and its first connected message node if any
       const startNode = metaNodes.find(n => n.type === 'start');
       if (startNode && startNode.data?.nextNodeId) {
         const nextNode = metaNodes.find(n => n.id === startNode.data.nextNodeId);
         if (nextNode && nextNode.data?.text) {
-          return nextNode.data.text;
+          rawText = nextNode.data.text;
         }
       }
       
       // Fallback if workflow start is found but no message yet
-      const firstMessageNode = metaNodes.find(n => n.type === 'message' || n.type === 'question');
-      if (firstMessageNode && firstMessageNode.data?.text) {
-        return firstMessageNode.data.text;
+      if (!rawText) {
+        const firstMessageNode = metaNodes.find(n => n.type === 'message' || n.type === 'question');
+        if (firstMessageNode && firstMessageNode.data?.text) {
+          rawText = firstMessageNode.data.text;
+        }
       }
     }
 
-    const channelLabel = metaChannel === 'whatsapp' ? '🟢 WhatsApp' : metaChannel === 'instagram' ? '📸 Instagram' : '🔵 Messenger';
-    if (metaWelcomeText) {
-      // If they customized the welcome text from default, keep it. Otherwise make it dynamic.
-      if (!metaWelcomeText.includes("TAXI") && !metaWelcomeText.includes("CHAKULA") && !metaWelcomeText.includes("SOKONI")) {
-        return metaWelcomeText.replace(/{channel}/g, channelLabel);
+    if (!rawText) {
+      const channelLabel = metaChannel === 'whatsapp' ? '🟢 WhatsApp' : metaChannel === 'instagram' ? '📸 Instagram' : '🔵 Messenger';
+      if (metaWelcomeText) {
+        rawText = metaWelcomeText.replace(/{channel}/g, channelLabel);
+      } else {
+        rawText = getDynamicWelcomeText(channelLabel);
       }
     }
 
-    return getDynamicWelcomeText(channelLabel);
+    return applyBusinessConfigToWelcomeText(rawText, businessServices);
   };
 
   const vercelWebhookUrl = "https://papohapo.onrender.com/api/meta/webhook";
@@ -383,7 +447,14 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
 
   // Meta Flow states
   const [metaWelcomeText, setMetaWelcomeText] = useState('');
+  const [welcomeInputText, setWelcomeInputText] = useState('');
   const [businessServices, setBusinessServices] = useState<any>({});
+
+  useEffect(() => {
+    if (metaWelcomeText) {
+      setWelcomeInputText(metaWelcomeText);
+    }
+  }, [metaWelcomeText]);
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'config', 'business'), (snap) => {
@@ -915,8 +986,15 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
   };
 
   const handleSaveWorkflowConfig = async (nodesToSave = metaNodes, edgesToSave = metaEdges, workflowActive = useWorkflow, kbText = knowledgeBaseText) => {
+    // Keep metaWelcomeText synchronized if the n_welcome node text was updated on the canvas
+    const welcomeNode = nodesToSave.find(n => n.id === 'n_welcome');
+    const computedWelcome = welcomeNode && welcomeNode.data?.text ? welcomeNode.data.text : metaWelcomeText;
+    if (computedWelcome && computedWelcome !== metaWelcomeText) {
+      setMetaWelcomeText(computedWelcome);
+    }
+
     const payload = {
-      welcomeMessage: metaWelcomeText,
+      welcomeMessage: computedWelcome,
       triggers: metaTriggers,
       useWorkflow: workflowActive,
       nodes: nodesToSave,
@@ -942,6 +1020,56 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
       });
     } catch (apiErr) {
       console.warn("Could not sync flowchart configuration to local backend:", apiErr);
+    }
+  };
+
+  const handleSaveWelcomeMessageDirect = async (newMsg: string) => {
+    setMetaWelcomeText(newMsg);
+    setWelcomeInputText(newMsg);
+
+    // Sync to n_welcome node if it exists so visual canvas is fully in sync
+    const updatedNodes = metaNodes.map(n => {
+      if (n.id === 'n_welcome') {
+        return {
+          ...n,
+          data: {
+            ...n.data,
+            text: newMsg
+          }
+        };
+      }
+      return n;
+    });
+    setMetaNodes(updatedNodes);
+
+    const payload = {
+      welcomeMessage: newMsg,
+      triggers: metaTriggers,
+      useWorkflow: useWorkflow,
+      nodes: updatedNodes,
+      edges: metaEdges,
+      knowledgeBase: knowledgeBaseText
+    };
+
+    try {
+      const docRef = doc(db, 'vendors', vendorId, 'settings', 'meta_config');
+      await setDoc(docRef, {
+        ...payload,
+        updatedAt: new Date()
+      }, { merge: true });
+      toast.success("Ujumbe wa Karibu umehifadhiwa kikamilifu kwenye Database na kusawazishwa kwenye Flow! 🟢💾");
+    } catch (err: any) {
+      toast.error("Imeshindwa kuhifadhi Ujumbe wa Karibu: " + err.message);
+    }
+
+    try {
+      await fetch('/api/meta/save-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    } catch (apiErr) {
+      console.warn("Could not sync welcome message to local backend:", apiErr);
     }
   };
 
@@ -1121,6 +1249,19 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
 
   const findMatchingNodeForMessage = (msg: Message) => {
     if (!metaNodes || metaNodes.length === 0) return null;
+
+    // Special match for welcome / greeting menu
+    if (
+      msg.text.includes("Karibu") || 
+      msg.text.includes("Super App Bot") || 
+      msg.text.includes("Papo Hapo Assistant") || 
+      msg.text.includes("Tafadhali chagua") ||
+      msg.text.includes("TAXI") ||
+      msg.text.includes("CHAKULA")
+    ) {
+      const welcomeNode = metaNodes.find(n => n.id === 'n_welcome' || (n.data?.label && n.data.label.toLowerCase().includes('welcome')) || (n.data?.label && n.data.label.toLowerCase().includes('karibu')));
+      if (welcomeNode) return welcomeNode;
+    }
 
     // 1. Exact match of text
     let matched = metaNodes.find(n => n.data?.text && n.data.text.trim() === msg.text.trim());
@@ -1452,6 +1593,73 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                       Gemini NLP Classifier Active
                     </span>
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Dedicated Welcome Message Editor Card */}
+            <Card className="border border-neutral-150 dark:border-neutral-850 shadow-sm bg-linear-to-br from-white to-neutral-50/20 dark:from-neutral-950 dark:to-neutral-900/10">
+              <CardHeader className="pb-3 border-b border-neutral-100 dark:border-neutral-800/80">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5 text-fuchsia-500" />
+                  <div>
+                    <CardTitle className="text-sm font-black dark:text-neutral-100 uppercase tracking-wider flex items-center gap-2">
+                      <span>Ujumbe wa Karibu (Welcome Menu Settings)</span>
+                      <Badge variant="outline" className="text-[9px] uppercase font-mono font-bold bg-fuchsia-500/10 text-fuchsia-600 border-fuchsia-200">
+                        Sanidi Maneno Husika 🛠️
+                      </Badge>
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Boresha herufi na maneno ya orodha ya huduma inayotumwa kwa wateja (WhatsApp, Instagram, na Messenger).
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 space-y-3.5">
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block">Maandishi ya Ujumbe (Welcome Menu Body)</label>
+                    <button
+                      onClick={() => {
+                        const defaultTxt = getDynamicWelcomeText(metaChannel === 'whatsapp' ? '🟢 WhatsApp' : metaChannel === 'instagram' ? '📸 Instagram' : '🔵 Messenger');
+                        setWelcomeInputText(defaultTxt);
+                        toast.info("Ujumbe wa asili wa mfumo umerejeshwa kwenye kisanduku!");
+                      }}
+                      className="text-[9px] font-bold text-fuchsia-600 hover:underline uppercase tracking-wide cursor-pointer"
+                    >
+                      Rudisha Mfano wa Kawaida
+                    </button>
+                  </div>
+                  <Textarea
+                    rows={8}
+                    value={welcomeInputText}
+                    onChange={(e) => setWelcomeInputText(e.target.value)}
+                    placeholder="Andika ujumbe wa karibu hapa..."
+                    className="text-xs bg-white dark:bg-neutral-900 font-sans leading-relaxed border-neutral-200"
+                  />
+                  <div className="flex justify-between items-center text-[10px] text-neutral-400">
+                    <span>Inatumia Markdown (*neno* kwa herufi nene)</span>
+                    <span>Herufi: {(welcomeInputText || '').length}</span>
+                  </div>
+                </div>
+
+                <div className="p-3.5 bg-fuchsia-50/30 dark:bg-fuchsia-950/10 border border-fuchsia-100/50 dark:border-fuchsia-900/20 rounded-xl space-y-1 text-left">
+                  <div className="flex items-center gap-1.5 text-[10.5px] font-bold text-fuchsia-700 dark:text-fuchsia-400">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>UTAMBULISHO WA KIOTOMATIKI (ACTIVE INTEGRATION)</span>
+                  </div>
+                  <p className="text-[10px] text-neutral-500 dark:text-neutral-400 leading-relaxed">
+                    Ujumbe huu umeunganishwa kikamilifu na <strong>Flow Builder</strong> pamoja na skrini ya <strong>Huduma na Matengenezo</strong>. Ukificha huduma, kuifuta, au kuiweka kwenye matengenezo kule juu, itaondolewa au kuwekewa alama ya <code>⚠️ (MABORESHO)</code> kiotomatiki wakati wa kutuma ili mteja asione huduma ulizozizuia.
+                  </p>
+                </div>
+
+                <div className="flex justify-end pt-1">
+                  <Button
+                    onClick={() => handleSaveWelcomeMessageDirect(welcomeInputText)}
+                    className="bg-fuchsia-600 hover:bg-fuchsia-700 text-white text-xs font-black uppercase tracking-wider py-2 px-5 cursor-pointer rounded-xl h-9 shadow-xs"
+                  >
+                    Hifadhi Ujumbe & Sawazisha Flow 💾
+                  </Button>
                 </div>
               </CardContent>
             </Card>

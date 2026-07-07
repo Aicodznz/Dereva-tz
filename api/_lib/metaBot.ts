@@ -304,6 +304,19 @@ export async function executeNodeChain(
   session.details.variables['customer.phone'] = session.details.phone || "0712345678";
   session.details.variables['channel'] = chSymbol;
 
+  // Retrieve business services configuration for real-time dynamic filtering
+  let servicesConfig: any = {};
+  if (dbAdmin) {
+    try {
+      const bizSnap = await dbAdmin.collection('config').doc('business').get();
+      if (bizSnap.exists) {
+        servicesConfig = bizSnap.data().services || {};
+      }
+    } catch (bizErr) {
+      console.warn("[Meta Bot] Failed to fetch services config in executeNodeChain:", bizErr);
+    }
+  }
+
   while (currentNode && loopCount < maxLoops) {
     loopCount++;
     const nodeType = currentNode.type;
@@ -326,6 +339,10 @@ export async function executeNodeChain(
         const regex = new RegExp(`{{\\s*${key}\\s*}}`, 'g');
         text = text.replace(regex, String(val));
       }
+
+      // Dynamic filtering of services list based on real-time business config
+      text = applyBusinessConfigToWelcomeText(text, servicesConfig);
+
       replyText += (replyText ? "\n\n" : "") + text;
 
       const nextId = nodeData.nextNodeId;
@@ -367,6 +384,10 @@ export async function executeNodeChain(
           const regex = new RegExp(`{{\\s*${key}\\s*}}`, 'g');
           text = text.replace(regex, String(val));
         }
+
+        // Dynamic filtering of services list based on real-time business config
+        text = applyBusinessConfigToWelcomeText(text, servicesConfig);
+
         replyText += (replyText ? "\n\n" : "") + text;
 
         session.details.currentNodeId = currentNode.id;
@@ -604,11 +625,80 @@ Respond strictly with the matching category ID. If none fits nicely, return "def
 }
 
 /**
+ * Helper to dynamically apply current business services configuration (enabled/disabled/maintenance)
+ * to any custom welcome message or node text that contains the services list.
+ */
+export function applyBusinessConfigToWelcomeText(text: string, servicesConfig: any): string {
+  if (!text) return text;
+  if (!servicesConfig || Object.keys(servicesConfig).length === 0) return text;
+
+  const DEFAULT_SERVICES = [
+    { key: 'taxi', id: 'teksi', emoji: '🚖', title: 'TAXI', desc: 'Agiza boda, bajaji au gari' },
+    { key: 'food', id: 'chakula', emoji: '🍔', title: 'CHAKULA', desc: 'Chips, Pizza, Burger, Biryani' },
+    { key: 'grocery', id: 'sokoni', emoji: '🛍️', title: 'SOKONI', desc: 'Groceries, Nyanya, Vitunguu, Mchele' },
+    { key: 'parcel', id: 'vifurushi', emoji: '📦', title: 'PARCEL', desc: 'Tuma au wasilisha mzigo haraka' },
+    { key: 'salon', id: 'saluni', emoji: '💇‍♀️', title: 'SALUNI', desc: 'Hair cut, Nails, Spa, Makeup' },
+    { key: 'hotel', id: 'hoteli', emoji: '🏨', title: 'HOTELI', desc: 'Weka vyumba vya hoteli karibu nawe' },
+    { key: 'car_rental', id: 'car_rental', emoji: '🚗', title: 'KODI GARI', desc: 'Kodisha Prado, Cruiser, Harrier' },
+    { key: 'pharmacy', id: 'dawa', emoji: '💊', title: 'PHARMACY', desc: 'Agiza Dawa na vifaa vya afya' },
+    { key: 'bus_ticket', id: 'bus_ticket', emoji: '🚌', title: 'MABASI', desc: 'Kata tiketi za mabasi ya mikoani' }
+  ];
+
+  // Detect if the text contains the main uppercase services list identifiers
+  const hasServiceList = text.includes("TAXI") || text.includes("CHAKULA") || text.includes("SOKONI");
+  if (!hasServiceList) return text;
+
+  // Filter and build the list of active/enabled services
+  const active = DEFAULT_SERVICES.filter(item => {
+    const sData = servicesConfig[item.id];
+    return !sData || sData.enabled !== false;
+  }).map((item, idx) => {
+    const sData = servicesConfig[item.id] || {};
+    return {
+      ...item,
+      displayNum: idx + 1,
+      isMaintenance: sData.maintenance === true
+    };
+  });
+
+  // Find where the list starts by looking for service emojis or bullet patterns
+  const firstServiceIndex = text.search(/(🚖|🍔|🛍️|📦|💇‍♀️|🏨|🚗|💊|🚌|\*\d\.)/);
+  let welcomeHeader = `👋 *Karibu Papo Hapo Super App Bot!*\n\nMimi ni Assistant wako wa Papo Hapo. Unaweza kupata na kuagiza huduma zote kwa haraka kupitia hapa!\n\n*Tafadhali chagua au andika unachotaka:* \n`;
+  if (firstServiceIndex !== -1) {
+    welcomeHeader = text.substring(0, firstServiceIndex);
+  }
+
+  let welcomeBody = "";
+  active.forEach(srv => {
+    const maintTag = srv.isMaintenance ? " *(MABORESHO ⚠️)*" : "";
+    welcomeBody += `${srv.emoji} *${srv.displayNum}. ${srv.title}* (${srv.desc})${maintTag}\n`;
+  });
+
+  // Find where the footer starts
+  let welcomeFooter = `\n*Andika namba au taja unachohitaji moja kwa moja! (Mfano: "Naomba taxi kwenda Posta")* ✨`;
+  const footerStart = text.indexOf("*Andika namba");
+  if (footerStart !== -1) {
+    welcomeFooter = "\n" + text.substring(footerStart);
+  } else {
+    const lastMabasi = text.indexOf("MABASI");
+    if (lastMabasi !== -1) {
+      const nextNewline = text.indexOf("\n", lastMabasi);
+      if (nextNewline !== -1) {
+        welcomeFooter = text.substring(nextNewline);
+      }
+    }
+  }
+
+  return welcomeHeader + welcomeBody + welcomeFooter;
+}
+
+/**
  * Generates the dynamic welcome message based on active/enabled services
  */
 export function generateDynamicWelcomeMessage(servicesConfig: any, chSymbol: string, customWelcome?: string): string {
   if (customWelcome) {
-    return customWelcome.replace(/{channel}/g, chSymbol);
+    const replaced = customWelcome.replace(/{channel}/g, chSymbol);
+    return applyBusinessConfigToWelcomeText(replaced, servicesConfig);
   }
 
   const DEFAULT_SERVICES = [
