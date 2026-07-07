@@ -1043,6 +1043,42 @@ export default function AdminDashboard() {
     { id: 'settings', label: t('admin_settings'), icon: Settings },
   ], [t]);
 
+  const tabCategories = useMemo(() => [
+    {
+      title: "Kuu (Core)",
+      items: [
+        { id: 'overview', label: t('admin_overview') || 'Overview', icon: BarChart3 },
+        { id: 'live_map', label: 'Monitor', icon: Globe },
+        { id: 'analytics', label: 'Insights', icon: BarChart3 },
+      ]
+    },
+    {
+      title: "Usimamizi (Management)",
+      items: [
+        { id: 'vendors', label: t('admin_businesses') || 'Businesses', icon: Store },
+        { id: 'drivers', label: 'Drivers', icon: Bike },
+        { id: 'products', label: t('admin_products') || 'Products', icon: ShoppingBag },
+        { id: 'users', label: t('admin_communities') || 'Communities', icon: Users },
+        { id: 'orders', label: t('admin_sales_feed') || 'Sales Feed', icon: ShoppingBag },
+      ]
+    },
+    {
+      title: "Engagement & Masoko",
+      items: [
+        { id: 'banners', label: t('admin_marketing') || 'Marketing', icon: Megaphone },
+        { id: 'notifications', label: t('admin_broadcast') || 'Broadcast', icon: Bell },
+      ]
+    },
+    {
+      title: "Mfumo (System)",
+      items: [
+        { id: 'twilio_responder', label: 'Meta Bot Studio', icon: MessageSquare },
+        { id: 'payouts', label: 'Payouts', icon: Wallet },
+        { id: 'settings', label: t('admin_settings') || 'Settings', icon: Settings },
+      ]
+    }
+  ], [t]);
+
   const filteredUsers = allUsers.filter(u => 
     u.displayName.toLowerCase().includes(searchQuery.toLowerCase()) || 
     u.email.toLowerCase().includes(searchQuery.toLowerCase())
@@ -1054,86 +1090,150 @@ export default function AdminDashboard() {
   );
 
   return (
-    <div className="space-y-8 pb-32 max-w-7xl mx-auto px-4">
-      {/* Mobile Top Header */}
-      <div className="md:hidden sticky top-0 z-[110] bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border-b border-neutral-200 dark:border-neutral-800 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-red-600 text-white rounded-2xl shadow-lg shadow-red-200">
+    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 flex flex-col md:flex-row">
+      {/* Desktop Sidebar */}
+      <aside className="hidden md:flex flex-col w-72 bg-neutral-950 text-neutral-200 border-r border-neutral-800/60 h-screen sticky top-0 z-50 shrink-0 select-none">
+        {/* Brand Logo */}
+        <div className="p-6 border-b border-neutral-800/80 flex items-center gap-3 bg-neutral-950">
+          <div className="p-2 bg-gradient-to-tr from-red-600 to-orange-500 text-white rounded-2xl shadow-md shadow-red-600/20">
             <ShieldAlert className="w-5 h-5" />
           </div>
-          <h1 className="text-xl font-black text-neutral-900 dark:text-white uppercase italic tracking-tighter">Admin</h1>
-        </div>
-        <div className="flex items-center gap-3">
-          <Link to="/" className="w-10 h-10 bg-neutral-100 dark:bg-neutral-800 rounded-xl flex items-center justify-center text-neutral-500">
-            <Home className="w-5 h-5" />
-          </Link>
-          <Link to="/profile" className="w-10 h-10 rounded-xl overflow-hidden border-2 border-orange-600/20 shadow-sm">
-            <img 
-               src={auth.currentUser?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${auth.currentUser?.uid}`} 
-               alt="Admin" 
-               className="w-full h-full object-cover shadow-sm"
-            />
-          </Link>
-        </div>
-      </div>
-
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-4 md:px-0">
-        <div className="hidden md:flex items-center gap-4">
-          <div className="p-4 bg-red-600 text-white rounded-[2rem] shadow-lg shadow-red-200">
-            <ShieldAlert className="w-10 h-10" />
-          </div>
           <div>
-            <h1 className="text-4xl font-black text-neutral-900 dark:text-white tracking-tighter uppercase italic">{t('admin_control_panel')}</h1>
-            <p className="text-neutral-500 font-medium">Platform-wide management & financial oversight.</p>
+            <div className="flex items-center gap-1.5">
+              <span className="text-base font-black tracking-tight text-white uppercase italic">PAPO HAPO</span>
+              <span className="text-[8px] px-1.5 py-0.5 bg-red-600/10 text-red-500 rounded-md border border-red-500/10 font-bold uppercase tracking-wider">LIVE</span>
+            </div>
+            <p className="text-[9px] font-bold text-neutral-500 tracking-[0.15em] uppercase mt-0.5">Admin Console</p>
           </div>
         </div>
-        <div className="hidden md:flex items-center gap-3">
-          <Link to="/">
-            <Button variant="ghost" className="rounded-2xl font-bold gap-2">
-              <Home className="w-4 h-4" />
-              <span>Papo Hapo Home</span>
-            </Button>
-          </Link>
-          <Link to="/profile">
-            <Button variant="outline" className="rounded-2xl border-neutral-200 font-bold">Switch Profile</Button>
-          </Link>
-          <Button 
-            variant="ghost" 
-            onClick={handleSignOut}
-            className="rounded-2xl font-bold gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
-          >
-            <LogOut className="w-4 h-4" />
-            <span>{t('sign_out')}</span>
-          </Button>
-          <div className="bg-neutral-900 dark:bg-neutral-800 border border-neutral-800 dark:border-neutral-700 text-white px-4 py-2 rounded-2xl flex items-center gap-2 transition-colors">
-            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-xs font-black uppercase tracking-widest">Admin Live</span>
-          </div>
-        </div>
-      </div>
 
-      {/* Tabs Menu (Desktop) */}
-      <div className="hidden md:block bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 rounded-3xl p-5 shadow-sm transition-all">
-        <div className="flex flex-wrap gap-2">
-          {adminTabs.map((tab) => {
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as AdminTab)}
-                className={`flex items-center gap-2.5 px-5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 border cursor-pointer ${
-                  isActive 
-                    ? 'bg-neutral-950 border-neutral-950 dark:bg-white dark:border-white text-white dark:text-neutral-900 shadow-md shadow-neutral-900/10' 
-                    : 'bg-neutral-50 dark:bg-neutral-800/40 border-neutral-200/60 dark:border-neutral-800/60 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-850'
-                }`}
-              >
-                <tab.icon className={`w-4 h-4 transition-transform duration-200 ${isActive ? 'text-red-500 scale-110' : 'text-neutral-400 dark:text-neutral-500'}`} />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
+        {/* Navigation Categories */}
+        <div className="flex-1 overflow-y-auto px-4 py-6 space-y-7 custom-scrollbar">
+          {tabCategories.map((category) => (
+            <div key={category.title} className="space-y-1.5">
+              <p className="px-3 text-[9px] font-extrabold text-neutral-500 tracking-[0.15em] uppercase">
+                {category.title}
+              </p>
+              <div className="space-y-1">
+                {category.items.map((tab) => {
+                  const isActive = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id as AdminTab)}
+                      className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
+                        isActive
+                          ? 'bg-red-600 text-white shadow-lg shadow-red-600/15'
+                          : 'text-neutral-400 hover:text-white hover:bg-neutral-900/50'
+                      }`}
+                    >
+                      <tab.icon className={`w-4 h-4 shrink-0 transition-transform duration-200 ${isActive ? 'scale-110' : 'text-neutral-500 group-hover:text-neutral-300'}`} />
+                      <span>{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
-      </div>
+
+        {/* Bottom Profile Section */}
+        <div className="p-4 border-t border-neutral-800/80 bg-neutral-900/40 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg overflow-hidden border border-neutral-700 bg-neutral-800">
+                <img
+                  src={auth.currentUser?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${auth.currentUser?.uid}`}
+                  alt="Admin"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-white truncate max-w-[130px]">{auth.currentUser?.displayName || 'Administrator'}</p>
+                <p className="text-[9px] text-neutral-500 font-semibold truncate max-w-[130px]">{auth.currentUser?.email || 'admin@papohapo.com'}</p>
+              </div>
+            </div>
+            <button
+              onClick={handleSignOut}
+              className="p-1.5 text-neutral-400 hover:text-red-500 hover:bg-neutral-800/80 rounded-lg transition-all cursor-pointer"
+              title="Sign Out"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <div className="flex-1 min-w-0 flex flex-col bg-neutral-50 dark:bg-neutral-950">
+        
+        {/* Mobile Sticky Top Header */}
+        <header className="md:hidden sticky top-0 z-[110] bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md border-b border-neutral-200 dark:border-neutral-800 px-5 py-3.5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-red-600 text-white rounded-xl shadow-md shadow-red-200 dark:shadow-none">
+              <ShieldAlert className="w-4 h-4" />
+            </div>
+            <div>
+              <h1 className="text-base font-black text-neutral-900 dark:text-white uppercase italic tracking-tight">Admin</h1>
+              <p className="text-[9px] font-bold text-neutral-400 capitalize -mt-0.5">{activeTab.replace('_', ' ')}</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <Link to="/" className="w-9 h-9 bg-neutral-100 dark:bg-neutral-800 rounded-xl flex items-center justify-center text-neutral-500">
+              <Home className="w-4 h-4" />
+            </Link>
+            <button
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="w-9 h-9 bg-neutral-100 dark:bg-neutral-800 rounded-xl flex items-center justify-center text-neutral-500 cursor-pointer"
+            >
+              <Menu className="w-4 h-4" />
+            </button>
+          </div>
+        </header>
+
+        {/* Desktop Header Top-bar */}
+        <header className="hidden md:flex items-center justify-between px-8 py-4 bg-white dark:bg-neutral-900 border-b border-neutral-200/80 dark:border-neutral-800/80 sticky top-0 z-40">
+          <div>
+            <p className="text-[10px] font-black uppercase text-neutral-400 tracking-wider">Jopo la Uongozi</p>
+            <h2 className="text-xl font-extrabold text-neutral-900 dark:text-white tracking-tight capitalize">
+              {activeTab === 'overview' ? 'Overview & Analytics' : activeTab.replace('_', ' ')}
+            </h2>
+          </div>
+
+          <div className="flex items-center gap-4">
+            {/* Quick search */}
+            <div className="relative w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+              <Input
+                type="text"
+                placeholder="Tafuta..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-10 rounded-xl bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-xs focus-visible:ring-1 focus-visible:ring-red-500"
+              />
+            </div>
+
+            <Link to="/">
+              <Button variant="ghost" className="rounded-xl font-bold gap-2 text-xs h-10">
+                <Home className="w-4 h-4" />
+                <span>Papo Hapo Home</span>
+              </Button>
+            </Link>
+
+            <Link to="/profile">
+              <Button variant="outline" className="rounded-xl border-neutral-200/80 text-xs font-bold h-10">Switch Profile</Button>
+            </Link>
+
+            <div className="bg-neutral-900 dark:bg-neutral-800 border border-neutral-800 dark:border-neutral-700 text-white px-4 py-1.5 rounded-xl flex items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+              <span className="text-[10px] font-black uppercase tracking-widest">Live</span>
+            </div>
+          </div>
+        </header>
+
+        {/* Content Panel Area */}
+        <main className="p-4 md:p-8 space-y-8 flex-1 max-w-[1600px] w-full mx-auto">
 
       {/* Mobile Stats Summary (Only on Overview) */}
       {activeTab === 'overview' && (
@@ -5706,7 +5806,7 @@ export default function AdminDashboard() {
           </div>
         )}
       </AnimatePresence>
-      {/* Admin Mobile More Menu Drawer */}
+            {/* Admin Mobile More Menu Drawer */}
       <AnimatePresence>
         {isMobileMenuOpen && (
           <>
@@ -5718,45 +5818,78 @@ export default function AdminDashboard() {
                className="md:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[200]"
             />
             <motion.div 
-               initial={{ x: '100%' }}
+               initial={{ x: '-100%' }}
                animate={{ x: 0 }}
-               exit={{ x: '100%' }}
-               className="md:hidden fixed top-0 right-0 h-full w-full max-w-[300px] bg-white dark:bg-neutral-900 z-[201] shadow-2xl flex flex-col p-6 overflow-y-auto"
+               exit={{ x: '-100%' }}
+               className="md:hidden fixed top-0 left-0 h-full w-full max-w-[320px] bg-neutral-950 text-neutral-100 z-[201] shadow-2xl flex flex-col p-6 overflow-y-auto"
             >
-               <div className="flex items-center justify-between mb-8">
-                  <h2 className="text-xl font-black uppercase italic tracking-tighter">More Tabs</h2>
-                  <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 bg-neutral-100 dark:bg-neutral-800 rounded-xl">
-                     <X className="w-5 h-5" />
+               <div className="flex items-center justify-between mb-8 border-b border-neutral-800 pb-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 bg-red-600 text-white rounded-xl">
+                      <ShieldAlert className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h2 className="text-sm font-black uppercase tracking-tight text-white">Menu ya Admin</h2>
+                      <p className="text-[9px] text-neutral-500 uppercase tracking-widest">Papo Hapo Admin</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 bg-neutral-900 rounded-xl">
+                     <X className="w-4 h-4 text-neutral-400" />
                   </button>
                </div>
-               <div className="flex flex-col gap-2">
-                  {adminTabs.slice(3).map((tab) => (
-                     <button
-                        key={tab.id}
-                        onClick={() => {
-                           setActiveTab(tab.id as AdminTab);
-                           setIsMobileMenuOpen(false);
-                        }}
-                        className={`flex items-center gap-4 px-6 p-4 rounded-2xl text-sm font-black uppercase tracking-tight transition-all ${
-                          activeTab === tab.id 
-                            ? 'bg-neutral-900 dark:bg-white dark:text-neutral-900 text-white' 
-                            : 'text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800'
-                        }`}
-                     >
-                        <tab.icon className="w-5 h-5" />
-                        <span>{tab.label}</span>
-                     </button>
-                  ))}
-                  
-                  <div className="mt-8 pt-8 border-t border-neutral-100 dark:border-neutral-800">
-                    <button
-                        onClick={handleSignOut}
-                        className="flex items-center gap-4 px-6 p-4 rounded-2xl text-sm font-black uppercase tracking-tight text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 w-full transition-all"
-                    >
-                        <LogOut className="w-5 h-5" />
-                        <span>{t('sign_out')}</span>
-                    </button>
-                  </div>
+
+               <div className="flex-1 space-y-6">
+                 {tabCategories.map((category) => (
+                   <div key={category.title} className="space-y-2">
+                     <p className="px-2 text-[9px] font-bold text-neutral-500 tracking-[0.15em] uppercase">
+                       {category.title}
+                     </p>
+                     <div className="space-y-1">
+                       {category.items.map((tab) => {
+                         const isActive = activeTab === tab.id;
+                         return (
+                           <button
+                             key={tab.id}
+                             onClick={() => {
+                               setActiveTab(tab.id as AdminTab);
+                               setIsMobileMenuOpen(false);
+                             }}
+                             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                               isActive 
+                                 ? 'bg-red-600 text-white shadow-md shadow-red-600/10' 
+                                 : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
+                             }`}
+                           >
+                             <tab.icon className="w-4 h-4" />
+                             <span>{tab.label}</span>
+                           </button>
+                         );
+                       })}
+                     </div>
+                   </div>
+                 ))}
+               </div>
+               
+               <div className="mt-6 pt-4 border-t border-neutral-850 flex items-center justify-between">
+                 <div className="flex items-center gap-2">
+                   <div className="w-8 h-8 rounded-lg overflow-hidden border border-neutral-800 bg-neutral-900">
+                     <img
+                       src={auth.currentUser?.photoURL || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + (auth.currentUser ? auth.currentUser.uid : 'admin')}
+                       alt="Admin"
+                       className="w-full h-full object-cover"
+                     />
+                   </div>
+                   <div className="min-w-0">
+                     <p className="text-xs font-bold text-white truncate max-w-[120px]">{(auth.currentUser && auth.currentUser.displayName) || 'Administrator'}</p>
+                   </div>
+                 </div>
+                 <button
+                     onClick={handleSignOut}
+                     className="p-2 text-red-500 hover:bg-red-500/10 rounded-xl transition-all"
+                     title="Sign Out"
+                 >
+                     <LogOut className="w-4 h-4" />
+                 </button>
                </div>
             </motion.div>
           </>
@@ -5796,6 +5929,8 @@ export default function AdminDashboard() {
            </button>
         </div>
       </motion.nav>
+        </main>
+      </div>
     </div>
   );
 }
