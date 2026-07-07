@@ -195,6 +195,26 @@ export function getInitialNodes() {
   ];
 }
 
+export function getFreshNodes() {
+  return [
+    {
+      id: 'n_start',
+      type: 'start',
+      position: { x: 50, y: 150 },
+      data: { label: 'Mwanzo (Start)', nextNodeId: 'n_end' }
+    },
+    {
+      id: 'n_end',
+      type: 'end',
+      position: { x: 450, y: 150 },
+      data: { 
+        label: 'Mwisho (End)', 
+        text: 'Asante kwa kuchagua huduma zetu! Tunakuthamini sana. 🙏' 
+      }
+    }
+  ];
+}
+
 interface TwilioResponderTabProps {
   vendorId: string;
   vendorCategory: string;
@@ -1565,6 +1585,14 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                         <Button 
                           size="sm" 
                           variant="outline"
+                          onClick={() => handleAddNode('condition')}
+                          className="h-7 text-[9px] font-bold uppercase tracking-wider text-amber-600 border-amber-500/20 hover:bg-amber-50 shrink-0"
+                        >
+                          <GitBranch className="w-3 h-3 mr-1" /> Kama (Condition)
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
                           onClick={() => handleAddNode('event_automation')}
                           className="h-7 text-[9px] font-bold uppercase tracking-wider text-yellow-600 border-yellow-500/20 hover:bg-yellow-50 shrink-0"
                         >
@@ -1582,6 +1610,21 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
 
                       <div className="flex flex-wrap items-center justify-end gap-2 pt-0.5">
                         <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              if (window.confirm("Je, una uhakika unataka kufuta node zote za sasa na kuanza upya na flowchart safi kabisa?")) {
+                                const freshNodes = getFreshNodes();
+                                setMetaNodes(freshNodes);
+                                handleSaveWorkflowConfig(freshNodes, [], useWorkflow);
+                                toast.success("Chatflow zote zimefutwa, umeanza upya na canvas safi! 🧹✨");
+                              }
+                            }}
+                            className="h-8 text-[10px] font-black uppercase text-red-600 dark:text-red-400 hover:text-white hover:bg-red-600 border-red-300 dark:border-red-900"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 mr-1 inline" /> Futa Zote & Anza Upya
+                          </Button>
                           <Button
                             size="sm"
                             variant="outline"
@@ -1754,6 +1797,48 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                                     if (path) paths.push(path);
                                   }
                                 });
+                              }
+
+                              // 3. Question routing branches
+                              if (node.type === 'question' && node.data?.options) {
+                                node.data.options.forEach((opt: any, idx: number) => {
+                                  if (opt.nextNodeId) {
+                                    const path = drawLink(
+                                      node.id, 
+                                      opt.nextNodeId, 
+                                      "#10b981", 
+                                      `Kama: ${opt.value || opt.key || `Chaguo ${idx+1}`}`
+                                    );
+                                    if (path) paths.push(path);
+                                  }
+                                });
+                              }
+
+                              // 4. Conditions routing branches
+                              if (node.type === 'condition' && node.data?.conditions) {
+                                node.data.conditions.forEach((cond: any, idx: number) => {
+                                  if (cond.nextNodeId) {
+                                    const path = drawLink(
+                                      node.id, 
+                                      cond.nextNodeId, 
+                                      "#f59e0b", 
+                                      `Kama: ${cond.variable} ${cond.operator === 'equals' ? '=' : cond.operator} ${cond.value || ''}`
+                                    );
+                                    if (path) paths.push(path);
+                                  }
+                                });
+                              }
+
+                              // 5. A/B splits
+                              if (node.type === 'ab_testing') {
+                                if (node.data?.flowANodeId) {
+                                  const path = drawLink(node.id, node.data.flowANodeId, "#ec4899", "A (50%)");
+                                  if (path) paths.push(path);
+                                }
+                                if (node.data?.flowBNodeId) {
+                                  const path = drawLink(node.id, node.data.flowBNodeId, "#3b82f6", "B (50%)");
+                                  if (path) paths.push(path);
+                                }
                               }
 
                               return paths;
@@ -2035,6 +2120,49 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                                     }
                                   });
                                 }
+
+                                // 3. Question routing branches
+                                if (node.type === 'question' && node.data?.options) {
+                                  node.data.options.forEach((opt: any, idx: number) => {
+                                    if (opt.nextNodeId) {
+                                      const path = drawLink(
+                                        node.id, 
+                                        opt.nextNodeId, 
+                                        "#10b981", 
+                                        `Kama: ${opt.value || opt.key || `Chaguo ${idx+1}`}`
+                                      );
+                                      if (path) paths.push(path);
+                                    }
+                                  });
+                                }
+
+                                // 4. Conditions routing branches
+                                if (node.type === 'condition' && node.data?.conditions) {
+                                  node.data.conditions.forEach((cond: any, idx: number) => {
+                                    if (cond.nextNodeId) {
+                                      const path = drawLink(
+                                        node.id, 
+                                        cond.nextNodeId, 
+                                        "#f59e0b", 
+                                        `Kama: ${cond.variable} ${cond.operator === 'equals' ? '=' : cond.operator} ${cond.value || ''}`
+                                      );
+                                      if (path) paths.push(path);
+                                    }
+                                  });
+                                }
+
+                                // 5. A/B splits
+                                if (node.type === 'ab_testing') {
+                                  if (node.data?.flowANodeId) {
+                                    const path = drawLink(node.id, node.data.flowANodeId, "#ec4899", "A (50%)");
+                                    if (path) paths.push(path);
+                                  }
+                                  if (node.data?.flowBNodeId) {
+                                    const path = drawLink(node.id, node.data.flowBNodeId, "#3b82f6", "B (50%)");
+                                    if (path) paths.push(path);
+                                  }
+                                }
+
                                 return paths;
                               })}
                             </svg>
@@ -2227,6 +2355,225 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                                     placeholder="Mfano: pickup"
                                     className="h-8 text-xs font-mono bg-neutral-50/50 dark:bg-neutral-900"
                                   />
+                                </div>
+
+                                {/* Multi-choice/Options branch routing UI */}
+                                <div className="space-y-3 pt-3 border-t border-dashed border-neutral-200 dark:border-neutral-800">
+                                  <div className="flex justify-between items-center">
+                                    <label className="text-[9px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Njia za Majibu Maalum (Options Routing)</label>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => {
+                                        const options = node.data?.options || [];
+                                        updateNodeData({
+                                          options: [...options, { key: `${options.length + 1}`, value: '', nextNodeId: 'n_end' }]
+                                        });
+                                      }}
+                                      className="h-6 text-[8px] font-black text-emerald-600 uppercase tracking-widest hover:bg-emerald-50 dark:hover:bg-emerald-950/20 p-1 cursor-pointer"
+                                    >
+                                      + Ongeza Njia (Branch)
+                                    </Button>
+                                  </div>
+
+                                  <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                                    {(node.data?.options || []).map((opt: any, idx: number) => (
+                                      <div key={idx} className="p-2.5 bg-neutral-100/50 dark:bg-neutral-900 border border-neutral-200/50 dark:border-neutral-800/80 rounded-xl space-y-2">
+                                        <div className="flex justify-between items-center">
+                                          <span className="text-[8.5px] font-black uppercase tracking-wider text-neutral-400">Njia #{idx + 1}</span>
+                                          <button 
+                                            type="button"
+                                            onClick={() => {
+                                              const options = [...(node.data?.options || [])];
+                                              options.splice(idx, 1);
+                                              updateNodeData({ options });
+                                            }}
+                                            className="text-neutral-400 hover:text-red-500 text-[8.5px] font-black uppercase cursor-pointer"
+                                          >
+                                            Futa
+                                          </button>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                          <div className="space-y-1">
+                                            <label className="text-[8px] font-bold text-neutral-450 uppercase">Kijibu (e.g., 1)</label>
+                                            <Input 
+                                              value={opt.key || ''}
+                                              onChange={(e) => {
+                                                const options = [...(node.data?.options || [])];
+                                                options[idx].key = e.target.value;
+                                                updateNodeData({ options });
+                                              }}
+                                              placeholder="1"
+                                              className="h-7 text-[10px] bg-white dark:bg-neutral-950 font-mono"
+                                            />
+                                          </div>
+                                          <div className="space-y-1">
+                                            <label className="text-[8px] font-bold text-neutral-450 uppercase">Jibu kamili</label>
+                                            <Input 
+                                              value={opt.value || ''}
+                                              onChange={(e) => {
+                                                const options = [...(node.data?.options || [])];
+                                                options[idx].value = e.target.value;
+                                                updateNodeData({ options });
+                                              }}
+                                              placeholder="Ndio"
+                                              className="h-7 text-[10px] bg-white dark:bg-neutral-950"
+                                            />
+                                          </div>
+                                        </div>
+                                        <div className="space-y-1">
+                                          <label className="text-[8px] font-bold text-neutral-450 uppercase">Inapokwenda (Target Node)</label>
+                                          <select
+                                            value={opt.nextNodeId || ''}
+                                            onChange={(e) => {
+                                              const options = [...(node.data?.options || [])];
+                                              options[idx].nextNodeId = e.target.value;
+                                              updateNodeData({ options });
+                                            }}
+                                            className="w-full text-[10px] h-7 px-2 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 text-neutral-800 dark:text-neutral-200 focus:outline-none"
+                                          >
+                                            <option value="">-- Chagua Node --</option>
+                                            {metaNodes.filter(n => n.id !== node.id).map(n => (
+                                              <option key={n.id} value={n.id}>{n.data?.label || n.id}</option>
+                                            ))}
+                                          </select>
+                                        </div>
+                                      </div>
+                                    ))}
+                                    {(node.data?.options || []).length === 0 && (
+                                      <p className="text-[9px] text-neutral-400 text-center py-2 italic leading-relaxed">
+                                        Hakuna njia bado. Bonyeza "+ Ongeza Njia" hapo juu ili kuweka routing ya: mtu akijibu "1" au "Ndio" impeleke kwenye ujumbe fulani!
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {node.type === 'condition' && (
+                              <div className="space-y-3 pt-1 border-t border-neutral-100 dark:border-neutral-800/50">
+                                <div className="space-y-1">
+                                  <label className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Njia ya Fallback (Else Pathway)</label>
+                                  <select
+                                    value={node.data?.nextNodeId || ''}
+                                    onChange={(e) => updateNodeData({ nextNodeId: e.target.value })}
+                                    className="w-full text-xs h-8.5 px-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900 text-neutral-800 dark:text-neutral-200 focus:outline-none"
+                                  >
+                                    <option value="">-- Chagua Node (Kama masharti hayakufikiwa) --</option>
+                                    {metaNodes.filter(n => n.id !== node.id).map(n => (
+                                      <option key={n.id} value={n.id}>{n.data?.label || n.id}</option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                {/* List of conditions */}
+                                <div className="space-y-3 pt-3 border-t border-dashed border-neutral-200 dark:border-neutral-800">
+                                  <div className="flex justify-between items-center">
+                                    <label className="text-[9px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">Masharti (Conditions Branching)</label>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => {
+                                        const conditions = node.data?.conditions || [];
+                                        updateNodeData({
+                                          conditions: [...conditions, { variable: 'pickup', operator: 'equals', value: '', nextNodeId: 'n_end' }]
+                                        });
+                                      }}
+                                      className="h-6 text-[8px] font-black text-amber-600 uppercase tracking-widest hover:bg-amber-50 dark:hover:bg-amber-950/20 p-1 cursor-pointer"
+                                    >
+                                      + Ongeza Sharti (If-Else)
+                                    </Button>
+                                  </div>
+
+                                  <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                                    {(node.data?.conditions || []).map((cond: any, idx: number) => (
+                                      <div key={idx} className="p-2.5 bg-neutral-100/50 dark:bg-neutral-900 border border-neutral-200/50 dark:border-neutral-800/80 rounded-xl space-y-2 text-left">
+                                        <div className="flex justify-between items-center">
+                                          <span className="text-[8.5px] font-black uppercase tracking-wider text-neutral-400">Sharti #{idx + 1}</span>
+                                          <button 
+                                            type="button"
+                                            onClick={() => {
+                                              const conditions = [...(node.data?.conditions || [])];
+                                              conditions.splice(idx, 1);
+                                              updateNodeData({ conditions });
+                                            }}
+                                            className="text-neutral-400 hover:text-red-500 text-[8.5px] font-black uppercase cursor-pointer"
+                                          >
+                                            Futa
+                                          </button>
+                                        </div>
+                                        <div className="space-y-1">
+                                          <label className="text-[8px] font-bold text-neutral-450 uppercase">Kigezo (Variable Name)</label>
+                                          <Input 
+                                            value={cond.variable || ''}
+                                            onChange={(e) => {
+                                              const conditions = [...(node.data?.conditions || [])];
+                                              conditions[idx].variable = e.target.value;
+                                              updateNodeData({ conditions });
+                                            }}
+                                            placeholder="pickup"
+                                            className="h-7 text-[10px] bg-white dark:bg-neutral-950 font-mono"
+                                          />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                          <div className="space-y-1">
+                                            <label className="text-[8px] font-bold text-neutral-450 uppercase">Operator</label>
+                                            <select
+                                              value={cond.operator || 'equals'}
+                                              onChange={(e) => {
+                                                const conditions = [...(node.data?.conditions || [])];
+                                                conditions[idx].operator = e.target.value;
+                                                updateNodeData({ conditions });
+                                              }}
+                                              className="w-full text-[10px] h-7 px-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 text-neutral-800 dark:text-neutral-200 focus:outline-none"
+                                            >
+                                              <option value="equals">Inafanana (Equals)</option>
+                                              <option value="contains">Inajumuisha (Contains)</option>
+                                              <option value="exists">Ipo (Exists)</option>
+                                            </select>
+                                          </div>
+                                          <div className="space-y-1">
+                                            <label className="text-[8px] font-bold text-neutral-450 uppercase">Thamani</label>
+                                            <Input 
+                                              disabled={cond.operator === 'exists'}
+                                              value={cond.value || ''}
+                                              onChange={(e) => {
+                                                const conditions = [...(node.data?.conditions || [])];
+                                                conditions[idx].value = e.target.value;
+                                                updateNodeData({ conditions });
+                                              }}
+                                              placeholder="Mwenge"
+                                              className="h-7 text-[10px] bg-white dark:bg-neutral-950 disabled:opacity-50"
+                                            />
+                                          </div>
+                                        </div>
+                                        <div className="space-y-1">
+                                          <label className="text-[8px] font-bold text-neutral-450 uppercase">Inapokwenda (Target Node)</label>
+                                          <select
+                                            value={cond.nextNodeId || ''}
+                                            onChange={(e) => {
+                                              const conditions = [...(node.data?.conditions || [])];
+                                              conditions[idx].nextNodeId = e.target.value;
+                                              updateNodeData({ conditions });
+                                            }}
+                                            className="w-full text-[10px] h-7 px-2 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 text-neutral-800 dark:text-neutral-200 focus:outline-none"
+                                          >
+                                            <option value="">-- Chagua Node --</option>
+                                            {metaNodes.filter(n => n.id !== node.id).map(n => (
+                                              <option key={n.id} value={n.id}>{n.data?.label || n.id}</option>
+                                            ))}
+                                          </select>
+                                        </div>
+                                      </div>
+                                    ))}
+                                    {(node.data?.conditions || []).length === 0 && (
+                                      <p className="text-[9px] text-neutral-400 text-center py-2 italic leading-relaxed">
+                                        Hakuna masharti bado. Bonyeza "+ Ongeza Sharti" hapo juu ili kuweka routing za: kama variable `pickup` ni `Mwenge` iende node fulani!
+                                      </p>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             )}
