@@ -266,9 +266,9 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
   const [selectedWebhookDomain, setSelectedWebhookDomain] = useState<'vercel' | 'cloudrun'>('vercel');
   const [customProductionDomain, setCustomProductionDomain] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('custom_production_domain') || 'https://papohapo.onrender.com';
+      return localStorage.getItem('custom_production_domain') || 'https://dereva-tz.vercel.app';
     }
-    return 'https://papohapo.onrender.com';
+    return 'https://dereva-tz.vercel.app';
   });
 
   const handleDomainChange = (val: string) => {
@@ -1574,14 +1574,22 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                     <div className="mt-2.5 pt-2 border-t border-neutral-200/40 dark:border-neutral-800/40 space-y-1.5">
                       <div className="flex justify-between items-center">
                         <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block">
-                          Anwani ya Render (Kama siyo papohapo.onrender.com, badilisha hapa):
+                          Anwani ya Uzalishaji (Production Domain):
                         </label>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => handleDomainChange('https://dereva-tz.vercel.app')}
+                          className="h-5 px-1.5 text-[9px] uppercase font-bold text-fuchsia-600 hover:text-fuchsia-700 hover:bg-fuchsia-50 dark:hover:bg-fuchsia-950/30"
+                        >
+                          Rejesha Chaguomsingi
+                        </Button>
                       </div>
                       <div className="flex gap-2 items-center">
                         <Input 
                           value={customProductionDomain}
                           onChange={(e) => handleDomainChange(e.target.value)}
-                          placeholder="https://jina-lako.onrender.com"
+                          placeholder="https://dereva-tz.vercel.app"
                           className="font-mono text-xs bg-white dark:bg-black h-8 border-neutral-200/60 py-1"
                         />
                       </div>
