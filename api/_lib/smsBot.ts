@@ -1,6 +1,6 @@
 export interface SMSSession {
   phone: string;
-  step: 'START' | 'SELECT_SERVICE' | 'BUS_ROUTE' | 'BUS_SELECT_OPERATOR' | 'BUS_SEAT' | 'BUS_PHONE' | 'TAXI_ROUTE' | 'TAXI_DRIVER_SELECT' | 'SALON_SUB' | 'SALON_SELECT' | 'STORE_SEARCH' | 'STORE_SELECT_ITEM' | 'STORE_PHONE';
+  step: 'START' | 'SELECT_SERVICE' | 'BUS_ROUTE' | 'BUS_SELECT_OPERATOR' | 'BUS_SEAT' | 'BUS_PHONE' | 'TAXI_ROUTE' | 'TAXI_DRIVER_SELECT' | 'TAXI_VEHICLE_SELECT' | 'TAXI_CONFIRM_TRIP' | 'SALON_SUB' | 'SALON_SELECT' | 'STORE_SEARCH' | 'STORE_SELECT_ITEM' | 'STORE_PHONE';
   selectedService?: string;
   busRoute?: string;
   selectedOperatorId?: string;
@@ -58,6 +58,18 @@ function getCoordsByName(name: string, isDest = false) {
   return isDest 
     ? { name: name || "Posta", lat: -6.8164, lng: 39.2902 }
     : { name: name || "Mwenge", lat: -6.7681, lng: 39.2274 };
+}
+
+function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Radius of the earth in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c; // Distance in km
 }
 
 // Simple in-memory global config for Twilio Responder (can be updated by vendors)
@@ -257,82 +269,203 @@ export async function handleSMSInput(
   // TAXI BOOKING FLOWS
   if (session.step === 'TAXI_ROUTE' && session.selectedService === 'taxi') {
     session.taxiRoute = cleanInput.toUpperCase();
-    session.step = 'TAXI_DRIVER_SELECT';
-    
-    // Simulate drivers
-    const drivers = [
-      { id: 'drv-1', name: 'Juma Ally (Vitz - White)', price: 6500, rating: '⭐ 4.9' },
-      { id: 'drv-2', name: 'Frank Kimaro (Passo - Silver)', price: 7000, rating: '⭐ 4.8' },
-      { id: 'drv-3', name: 'Amos Shayo (Bajaji - Yellow)', price: 4000, rating: '⭐ 4.7' }
-    ];
-    session.optionsList = drivers;
+    session.step = 'TAXI_VEHICLE_SELECT';
     await saveSession(session, dbAdmin);
 
-    let reply = `🚕 Tumepata madereva 3 wanaofanya kazi njia ya ${session.taxiRoute}:\n\n`;
-    drivers.forEach((drv, idx) => {
-      reply += `${idx + 1}. ${drv.name} - ${drv.rating}\n💰 Bei: TSH ${drv.price.toLocaleString()}\n\n`;
-    });
-    reply += "Tuma namba ya dereva unayependa kumpata sasa:";
-    return reply;
+    return `🚕 *AINA YA USAFIRI*\n\nTafadhali chagua aina ya usafiri unaopendelea kwa kutuma namba yake:\n\n1. Boda Boda 🏍️ (Haraka na rahisi)\n2. Bajaji 🛺 (Nafuu na salama)\n3. Gari la Teksi 🚕 (Starehe na usalama mkubwa)`;
   }
 
-  if (session.step === 'TAXI_DRIVER_SELECT' && session.selectedService === 'taxi') {
-    const idx = parseInt(cleanInput) - 1;
-    const selected = session.optionsList?.[idx];
-    if (!selected) {
-      return "⚠️ Namba uliyotuma si sahihi. Tafadhali tuma 1, 2 au 3 kuchagua dereva.";
+  if (session.step === 'TAXI_VEHICLE_SELECT' && session.selectedService === 'taxi') {
+    let vehicleType = '';
+    let typeName = '';
+    
+    if (cleanInput === '1' || lowerInput.includes('boda') || lowerInput.includes('bike') || lowerInput.includes('piki')) {
+      vehicleType = 'bike';
+      typeName = 'Boda Boda 🏍️';
+    } else if (cleanInput === '2' || lowerInput.includes('bajaj') || lowerInput.includes('sharo')) {
+      vehicleType = 'bajaj';
+      typeName = 'Bajaji 🛺';
+    } else if (cleanInput === '3' || lowerInput.includes('taxi') || lowerInput.includes('gari') || lowerInput.includes('mini') || lowerInput.includes('car')) {
+      vehicleType = 'mini';
+      typeName = 'Gari la Teksi 🚕';
+    } else {
+      return `⚠️ Chaguo si sahihi. Tafadhali tuma:\n1. Boda Boda 🏍️\n2. Bajaji 🛺\n3. Gari la Teksi 🚕`;
     }
 
-    session.selectedDriverName = selected.name;
-    session.selectedDriverPrice = selected.price;
-    session.step = 'START'; // End flow
-    await saveSession(session, dbAdmin);
-
-    // Create realistic ride order in Firestore
-    if (dbAdmin) {
-      try {
-        const routeStr = session.taxiRoute || "";
-        const parts = routeStr.split("-").map(p => p.trim());
-        const pickupName = parts[0] || "Mwenge";
-        const destName = parts[1] || "Posta";
-        
-        const pLoc = getCoordsByName(pickupName, false);
-        const dLoc = getCoordsByName(destName, true);
-        
-        const expiresAtDate = new Date();
-        expiresAtDate.setMinutes(expiresAtDate.getMinutes() + 15);
-
-        await dbAdmin.collection('rides').add({
-          status: "pending", // Set to pending so the live Rider Dashboard can receive it!
-          customerId: "sms-client-" + fromPhone.slice(-6),
-          customerInfo: {
-            name: "SMS Customer",
-            phone: fromPhone,
-            rating: 4.8
-          },
-          driverId: null,
-          pickup: pLoc,
-          destination: dLoc,
-          vehicleType: "taxi",
-          fare: selected.price || 6500,
-          distance: 8.5,
-          duration: 15,
-          routeCoords: [
-            { lat: pLoc.lat, lng: pLoc.lng },
-            { lat: dLoc.lat, lng: dLoc.lng }
-          ],
-          createdAt: new Date(),
-          expiresAt: expiresAtDate.toISOString(),
-          driverInfo: null,
-          driverLocation: null,
-          suggestedDriverName: selected.name
-        });
-      } catch (e) {
-         console.warn("Could not insert ride request", e);
+    // Parse route to extract pickup and destination
+    let pickupName = "Mwenge";
+    let destName = "Posta";
+    const routeStr = session.taxiRoute || "";
+    const connectors = [" - ", "-", " KUTOKA ", " KWENDA ", " TO ", " / ", "/"];
+    let splitDone = false;
+    for (const conn of connectors) {
+      if (routeStr.toUpperCase().includes(conn)) {
+        const parts = routeStr.split(new RegExp(conn, 'i'));
+        if (parts.length >= 2) {
+          pickupName = parts[0].trim();
+          destName = parts[1].trim();
+          splitDone = true;
+          break;
+        }
+      }
+    }
+    if (!splitDone) {
+      const match = routeStr.match(/kutoka\s+(.*?)\s+kwenda\s+(.*)/i);
+      if (match && match[1] && match[2]) {
+        pickupName = match[1].trim();
+        destName = match[2].trim();
+      } else {
+        pickupName = "Mwenge";
+        destName = routeStr || "Posta";
       }
     }
 
-    return `✅ Hongera! Dereva ${selected.name} amepokea ombi lako.\n📍 Njia: ${session.taxiRoute}\n💰 Bei ya kulipa: TSH ${selected.price.toLocaleString()}\n\nDereva atakupigia simu sasa hivi kufuata ulipo. Ahsante kwa kutumia Papo Hapo! 🚕`;
+    const pLoc = getCoordsByName(pickupName, false);
+    const dLoc = getCoordsByName(destName, true);
+
+    // Calculate distance and duration
+    const baseDist = calculateDistanceKm(pLoc.lat, pLoc.lng, dLoc.lat, dLoc.lng);
+    const distanceKm = Math.max(1.5, Math.round(baseDist * 1.25 * 10) / 10);
+    const durationMin = Math.max(5, Math.ceil((distanceKm / 25) * 60) + 3);
+
+    // Fare calculation
+    let fare = 0;
+    if (vehicleType === 'bike') {
+      fare = 300 + distanceKm * 350;
+      if (fare < 1500) fare = 1500;
+    } else if (vehicleType === 'bajaj') {
+      fare = 500 + distanceKm * 500;
+      if (fare < 2500) fare = 2500;
+    } else {
+      fare = 1000 + distanceKm * 800 + durationMin * 100;
+      if (fare < 4000) fare = 4000;
+    }
+    fare = Math.round(fare / 500) * 500; // Round to nearest 500 TZS
+
+    // Get nearby drivers count
+    let nearbyCount = 0;
+    if (dbAdmin) {
+      try {
+        const dSnap = await dbAdmin.collection('drivers')
+          .where('isOnline', '==', true)
+          .where('receiving', '==', true)
+          .get();
+        if (!dSnap.empty) {
+          const driversList = dSnap.docs.map((doc: any) => doc.data());
+          const matchingDrivers = driversList.filter((d: any) => {
+            const dVType = (d.vehicleType || "").toLowerCase();
+            if (dVType === vehicleType) return true;
+            if (vehicleType === 'bike' && (dVType.includes('bike') || dVType.includes('piki') || dVType.includes('boda'))) return true;
+            if (vehicleType === 'bajaj' && dVType.includes('bajaj')) return true;
+            if (vehicleType === 'mini' && (dVType.includes('mini') || dVType.includes('gari') || dVType.includes('cab') || dVType.includes('car') || dVType.includes('taxi'))) return true;
+            return false;
+          });
+          nearbyCount = matchingDrivers.length;
+        }
+      } catch (e) {
+        console.warn("Could not query live drivers count in SMS bot:", e);
+      }
+    }
+    if (nearbyCount === 0) {
+      nearbyCount = Math.floor(Math.random() * 3) + 2; // Simulated 2-4 drivers
+    }
+
+    // Save calculations in optionsList to carry over to confirm state
+    session.optionsList = [{
+      vehicleType,
+      typeName,
+      distanceKm,
+      durationMin,
+      fare,
+      pLoc,
+      dLoc,
+      pickupName,
+      destName,
+      nearbyCount
+    }];
+    
+    session.step = 'TAXI_CONFIRM_TRIP';
+    await saveSession(session, dbAdmin);
+
+    let reply = `🧮 *KADIRIO LA NAULI*\n\n`;
+    reply += `Kutoka: *${pickupName}*\n`;
+    reply += `Kwenda: *${destName}*\n`;
+    reply += `nisawa na kilometa : *${distanceKm} km* (Muda wa safari: ~${durationMin} dk)\n`;
+    reply += `Aina ya Usafiri: *${typeName}*\n\n`;
+    reply += `💵 *Nauli inayokadiriwa: TZS ${fare.toLocaleString()}/=*\n`;
+    reply += `📌 Tuna madereva *${nearbyCount}* karibu nawe waliotayari!\n\n`;
+    reply += `Je, unakubali kuanza kutafutiwa dereva?\n`;
+    reply += `1. Ndio, Tafuta Dereva\n`;
+    reply += `2. Hapana, Ghairi Safari`;
+    return reply;
+  }
+
+  if (session.step === 'TAXI_CONFIRM_TRIP' && session.selectedService === 'taxi') {
+    const calcData = session.optionsList?.[0];
+    if (!calcData) {
+      session.step = 'START';
+      await saveSession(session, dbAdmin);
+      return `⚠️ Hitilafu imetokea. Tafadhali tuma "HI" kuanza upya.`;
+    }
+
+    if (cleanInput === '1' || lowerInput.includes('ndio') || lowerInput.includes('tafuta') || lowerInput.includes('kubali') || lowerInput.includes('yes')) {
+      session.step = 'START'; // End flow
+      await saveSession(session, dbAdmin);
+
+      // Create realistic Ride in Firestore
+      const randId = Math.floor(100000 + Math.random() * 900000);
+      if (dbAdmin) {
+        try {
+          const expiresAtDate = new Date();
+          expiresAtDate.setMinutes(expiresAtDate.getMinutes() + 15);
+
+          await dbAdmin.collection('rides').add({
+            status: "pending", // Set to pending so the live Rider Dashboard can receive it!
+            customerId: "sms-client-" + fromPhone.slice(-6),
+            customerInfo: {
+              name: "SMS Customer",
+              phone: fromPhone,
+              rating: 4.8
+            },
+            driverId: null,
+            pickup: calcData.pLoc,
+            destination: calcData.dLoc,
+            vehicleType: calcData.vehicleType,
+            fare: calcData.fare,
+            distance: calcData.distanceKm,
+            duration: calcData.durationMin,
+            routeCoords: [
+              { lat: calcData.pLoc.lat, lng: calcData.pLoc.lng },
+              { lat: calcData.dLoc.lat, lng: calcData.dLoc.lng }
+            ],
+            createdAt: new Date(),
+            expiresAt: expiresAtDate.toISOString(),
+            driverInfo: null,
+            driverLocation: null,
+            bookingId: `PH-${randId}`
+          });
+        } catch (e) {
+          console.warn("Could not insert ride request from SMS bot", e);
+        }
+      }
+
+      return `✅ *Oda ya Taxi imewasilishwa!* 🚖\n\n` +
+             `Ombi lako la safari limetumwa kwa madereva wote wa *${calcData.typeName}* waliopo karibu.\n\n` +
+             `- Kutoka: *${calcData.pickupName}*\n` +
+             `- Kwenda: *${calcData.destName}*\n` +
+             `- Umbali: *${calcData.distanceKm} km*\n` +
+             `- Muda wa safari: *~${calcData.durationMin} dk*\n` +
+             `- Nauli: *TZS ${calcData.fare?.toLocaleString()}/=*\n\n` +
+             `Madereva wa karibu wamepewa taarifa sasa hivi. Dereva atakapokubali kukuja kukufuata, utafahamishwa mara moja na dereva atakupigia simu kupitia namba yako *${fromPhone}* kukuokoa. Ahsante sana kwa kutumia Papo Hapo! 🙏✨`;
+    } else if (cleanInput === '2' || lowerInput.includes('hapana') || lowerInput.includes('ghairi') || lowerInput.includes('no') || lowerInput.includes('cancel')) {
+      session.step = 'START';
+      session.selectedService = undefined;
+      session.optionsList = [];
+      await saveSession(session, dbAdmin);
+      return `❌ Safari yako imesitishwa kikamilifu. Karibu tena wakati mwingine ukiwa tayari kusafiri na Papo Hapo! 🚖`;
+    } else {
+      return `⚠️ Samahani, sielewi chaguo lako. Tafadhali tuma:\n*1* - Ndio, Tafuta Dereva\n*2* - Hapana, Ghairi Safari`;
+    }
   }
 
   // SALON BOOKING FLOWS

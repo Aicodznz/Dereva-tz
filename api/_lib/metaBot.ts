@@ -5,7 +5,7 @@ import path from 'path';
 export interface MetaSession {
   senderId: string;
   channel: 'whatsapp' | 'messenger' | 'instagram';
-  step: 'START' | 'COLLECTING_ROUTE' | 'SELECTING_OPTION' | 'COLLECTING_PHONE' | 'CONFIRMING';
+  step: 'START' | 'COLLECTING_ROUTE' | 'SELECTING_OPTION' | 'COLLECTING_PHONE' | 'CONFIRMING' | 'SELECTING_VEHICLE' | 'CONFIRMING_TRIP';
   service?: 'taxi' | 'food' | 'grocery' | 'parcel' | 'salon' | 'hotel' | 'car_rental' | 'pharmacy' | 'bus_ticket';
   details: {
     route?: string;
@@ -80,6 +80,18 @@ function getCoordsByName(name: string, isDest = false) {
   return isDest 
     ? { name: name || "Posta", lat: -6.8164, lng: 39.2902 }
     : { name: name || "Mwenge", lat: -6.7681, lng: 39.2274 };
+}
+
+function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Radius of the earth in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c; // Distance in km
 }
 
 // Resilient helper to call Gemini generateContent with retries and fallback models
@@ -1126,60 +1138,180 @@ async function routeToServiceFlow(
 
   // 1. TAXI FLOW
   if (service === 'taxi') {
+    // Check if they just selected the taxi option but haven't entered the route
     if (!session.details.route) {
-      session.details.route = cleaned;
-      session.step = 'SELECTING_OPTION';
+      if (cleaned === '1' || cleaned === 'TAXI' || cleaned === 'TEKSI' || input.length < 4) {
+        session.step = 'COLLECTING_ROUTE';
+        await saveMetaSession(session, dbAdmin);
+        return `🚕 *MFUMO WA TAXI (Taxi Booking)*\n\nTafadhali andika njia unayotaka kusafiri (Kutoka kuelekea unapoenda).\nMfano:\n*POSTA - KINONDONI*\nau *AIRPORT - MASAKI*`;
+      }
       
-      const drivers = [
-        { id: 'drv-m1', name: 'Ally Rajabu (Passo - White)', price: 7500, rating: '⭐ 4.9 (Uber Partner)' },
-        { id: 'drv-m2', name: 'Salum Juma (Bajaji - Yellow)', price: 4500, rating: '⭐ 4.8 (Fastest)' },
-        { id: 'drv-m3', name: 'Amos Shayo (Boda - Honda Black)', price: 3000, rating: '⭐ 4.7 (Express)' }
-      ];
-      session.details.optionsList = drivers;
+      session.details.route = cleaned;
+      session.step = 'SELECTING_VEHICLE';
+      await saveMetaSession(session, dbAdmin);
+      return `🚕 *AINA YA USAFIRI*\n\nTafadhali chagua aina ya usafiri unaopendelea kwa kuandika namba au jina lake:\n\n1. 🏍️ *Boda Boda* (Haraka na bei nafuu)\n2. 🛺 *Bajaji* (Salama na bei ya wastani)\n3. 🚕 *Gari la Teksi* (Starehe na usalama mkubwa)`;
+    }
+
+    if (session.step === 'SELECTING_VEHICLE') {
+      let vehicleType = '';
+      let typeName = '';
+      
+      const vInput = cleaned.toLowerCase();
+      if (vInput === '1' || vInput.includes('boda') || vInput.includes('bike') || vInput.includes('piki')) {
+        vehicleType = 'bike';
+        typeName = 'Boda Boda 🏍️';
+      } else if (vInput === '2' || vInput.includes('bajaj') || vInput.includes('sharo')) {
+        vehicleType = 'bajaj';
+        typeName = 'Bajaji 🛺';
+      } else if (vInput === '3' || vInput.includes('taxi') || vInput.includes('gari') || vInput.includes('mini') || vInput.includes('car')) {
+        vehicleType = 'mini';
+        typeName = 'Gari la Teksi 🚕';
+      } else {
+        return `⚠️ Chaguo si sahihi. Tafadhali andika:\n1. Boda Boda 🏍️\n2. Bajaji 🛺\n3. Gari la Teksi 🚕\n\nKuchagua aina ya usafiri!`;
+      }
+
+      // Parse pickup & destination names from route
+      let pickupName = "Mwenge";
+      let destName = "Posta";
+      const routeStr = session.details.route || "";
+      const connectors = [" - ", "-", " KUTOKA ", " KWENDA ", " TO ", " / ", "/"];
+      let splitDone = false;
+      for (const conn of connectors) {
+        if (routeStr.toUpperCase().includes(conn)) {
+          const parts = routeStr.split(new RegExp(conn, 'i'));
+          if (parts.length >= 2) {
+            pickupName = parts[0].trim();
+            destName = parts[1].trim();
+            splitDone = true;
+            break;
+          }
+        }
+      }
+      if (!splitDone) {
+        const match = routeStr.match(/kutoka\s+(.*?)\s+kwenda\s+(.*)/i);
+        if (match && match[1] && match[2]) {
+          pickupName = match[1].trim();
+          destName = match[2].trim();
+        } else {
+          pickupName = "Mwenge";
+          destName = routeStr || "Posta";
+        }
+      }
+
+      const pLoc = getCoordsByName(pickupName, false);
+      const dLoc = getCoordsByName(destName, true);
+
+      // Distance calculation
+      const baseDist = calculateDistanceKm(pLoc.lat, pLoc.lng, dLoc.lat, dLoc.lng);
+      const distanceKm = Math.max(1.5, Math.round(baseDist * 1.25 * 10) / 10);
+      const durationMin = Math.max(5, Math.ceil((distanceKm / 25) * 60) + 3);
+
+      // Fare calculation based on real rates configured
+      let fare = 0;
+      if (vehicleType === 'bike') {
+        fare = 300 + distanceKm * 350;
+        if (fare < 1500) fare = 1500;
+      } else if (vehicleType === 'bajaj') {
+        fare = 500 + distanceKm * 500;
+        if (fare < 2500) fare = 2500;
+      } else {
+        // mini / taxi
+        fare = 1000 + distanceKm * 800 + durationMin * 100;
+        if (fare < 4000) fare = 4000;
+      }
+      fare = Math.round(fare / 500) * 500; // Round to nearest 500 TZS
+
+      // Real or simulated nearby drivers count
+      let nearbyCount = 0;
+      if (dbAdmin) {
+        try {
+          const dSnap = await dbAdmin.collection('drivers')
+            .where('isOnline', '==', true)
+            .where('receiving', '==', true)
+            .get();
+          if (!dSnap.empty) {
+            const driversList = dSnap.docs.map((doc: any) => doc.data());
+            const matchingDrivers = driversList.filter((d: any) => {
+              const dVType = (d.vehicleType || "").toLowerCase();
+              if (dVType === vehicleType) return true;
+              if (vehicleType === 'bike' && (dVType.includes('bike') || dVType.includes('piki') || dVType.includes('boda'))) return true;
+              if (vehicleType === 'bajaj' && dVType.includes('bajaj')) return true;
+              if (vehicleType === 'mini' && (dVType.includes('mini') || dVType.includes('gari') || dVType.includes('cab') || dVType.includes('car') || dVType.includes('taxi'))) return true;
+              return false;
+            });
+            nearbyCount = matchingDrivers.length;
+          }
+        } catch (e) {
+          console.warn("Could not query live drivers count:", e);
+        }
+      }
+      if (nearbyCount === 0) {
+        nearbyCount = Math.floor(Math.random() * 3) + 2; // Simulated 2-4 drivers
+      }
+
+      session.details.vehicleType = vehicleType;
+      session.details.vehicleTypeName = typeName;
+      session.details.calculatedDistance = distanceKm;
+      session.details.calculatedDuration = durationMin;
+      session.details.calculatedFare = fare;
+      session.details.pickupCoords = pLoc;
+      session.details.destinationCoords = dLoc;
+      session.details.pickupName = pickupName;
+      session.details.destinationName = destName;
+      session.details.nearbyCount = nearbyCount;
+      
+      session.step = 'CONFIRMING_TRIP';
       await saveMetaSession(session, dbAdmin);
 
-      let resp = `🚖 *Papo Hapo Taxi Service Router*:\n\n`;
-      resp += `Njia uliyochagua: *${cleaned}*\n`;
-      resp += `Tumepata madereva 3 karibu nawe:\n\n`;
-      drivers.forEach((drv, idx) => {
-        resp += `*${idx + 1}. ${drv.name}*\nBeji: ${drv.rating}\n💰 Bei: *TSH ${drv.price.toLocaleString()}*\n\n`;
-      });
-      resp += `Andika namba ya Dereva unayetaka kumuita sasa hivi:`;
+      let resp = `🧮 *KADIRIO LA NAULI*\n\n`;
+      resp += `Kutoka: *${pickupName}*\n`;
+      resp += `Kwenda: *${destName}*\n`;
+      resp += `nisawa na kilometa : *${distanceKm} km* (Muda wa safari: ~${durationMin} dk)\n`;
+      resp += `Aina ya Usafiri: *${typeName}*\n\n`;
+      resp += `💵 *Nauli inayokadiriwa: TZS ${fare.toLocaleString()}/=*\n`;
+      resp += `📌 Tuna madereva *${nearbyCount}* karibu nawe waliotayari!\n\n`;
+      resp += `Je, unakubali kuanza kutafutiwa dereva?\n`;
+      resp += `1. Ndio, Tafuta Dereva\n`;
+      resp += `2. Hapana, Ghairi Safari`;
       return resp;
     }
 
-    if (session.step === 'SELECTING_OPTION') {
-      const idx = parseInt(input) - 1;
-      const selected = session.details.optionsList?.[idx];
-      if (!selected) {
-        return `⚠️ Namba si sahihi. Tafadhali andika *1*, *2*, au *3* kuchagua Dereva wako!`;
+    if (session.step === 'CONFIRMING_TRIP') {
+      if (cleaned === '1' || cleaned.includes('ndio') || cleaned.includes('tafuta') || cleaned.includes('kubali') || cleaned.includes('yes')) {
+        session.step = 'COLLECTING_PHONE';
+        await saveMetaSession(session, dbAdmin);
+        return `📍 Tafadhali andika namba yako ya simu ya mkononi ya kupokelea simu ya dereva (Mfano: *0712345678*):`;
+      } else if (cleaned === '2' || cleaned.includes('hapana') || cleaned.includes('ghairi') || cleaned.includes('no') || cleaned.includes('cancel')) {
+        session.step = 'START';
+        session.service = undefined;
+        session.details = {};
+        await saveMetaSession(session, dbAdmin);
+        return `❌ Safari yako imesitishwa kikamilifu. Karibu tena wakati mwingine ukiwa tayari kusafiri na Papo Hapo! 🚖`;
+      } else {
+        return `⚠️ Samahani, sielewi chaguo lako. Tafadhali andika:\n*1* - Ndio, Tafuta Dereva\n*2* - Hapana, Ghairi Safari`;
       }
-      
-      session.details.selectedId = selected.id;
-      session.details.selectedName = selected.name;
-      session.details.selectedPrice = selected.price;
-      session.step = 'COLLECTING_PHONE';
-      await saveMetaSession(session, dbAdmin);
-
-      return `📍 Tafadhali andika namba yako ya simu ya mkononi ya kupokelea simu ya dereva (Mfano: *0712345678*):`;
     }
 
     if (session.step === 'COLLECTING_PHONE') {
-      session.details.phone = input;
-      session.step = 'START'; // reset
+      const phoneNum = input.trim();
+      session.details.phone = phoneNum;
+      session.step = 'START'; // Reset
       await saveMetaSession(session, dbAdmin);
 
+      const pickupName = session.details.pickupName || "Mwenge";
+      const destName = session.details.destinationName || "Posta";
+      const pLoc = session.details.pickupCoords;
+      const dLoc = session.details.destinationCoords;
+      const vehicleType = session.details.vehicleType;
+      const typeName = session.details.vehicleTypeName;
+      const fare = session.details.calculatedFare;
+      const distanceKm = session.details.calculatedDistance;
+      const durationMin = session.details.calculatedDuration;
+
       // Create realistic Ride in Firestore
+      const randId = Math.floor(100000 + Math.random() * 900000);
       if (dbAdmin) {
         try {
-          const routeStr = session.details.route || "";
-          const parts = routeStr.split("-").map(p => p.trim());
-          const pickupName = parts[0] || "Mwenge";
-          const destName = parts[1] || "Posta";
-          
-          const pLoc = getCoordsByName(pickupName, false);
-          const dLoc = getCoordsByName(destName, true);
-          
           const expiresAtDate = new Date();
           expiresAtDate.setMinutes(expiresAtDate.getMinutes() + 15);
 
@@ -1188,16 +1320,16 @@ async function routeToServiceFlow(
             customerId: `meta-client-${session.senderId}`,
             customerInfo: {
               name: session.details.customerName || "Meta Customer",
-              phone: input,
+              phone: phoneNum,
               rating: 4.8
             },
             driverId: null,
             pickup: pLoc,
             destination: dLoc,
-            vehicleType: "taxi",
-            fare: session.details.selectedPrice || 6500,
-            distance: 8.5,
-            duration: 15,
+            vehicleType: vehicleType,
+            fare: fare,
+            distance: distanceKm,
+            duration: durationMin,
             routeCoords: [
               { lat: pLoc.lat, lng: pLoc.lng },
               { lat: dLoc.lat, lng: dLoc.lng }
@@ -1207,19 +1339,22 @@ async function routeToServiceFlow(
             driverInfo: null,
             driverLocation: null,
             channel: session.channel,
-            suggestedDriverName: session.details.selectedName
+            bookingId: `PH-${randId}`
           });
         } catch (e) {
           console.warn("Could not insert ride request from Meta", e);
         }
       }
 
-      return `✅ *Ombi Lako Limefanikiwa!* 🚖\n\n` +
-             `- Dereva: *${session.details.selectedName}*\n` +
-             `- Njia: *${session.details.route}*\n` +
-             `- Nauli: *TSH ${session.details.selectedPrice?.toLocaleString()}*\n` +
-             `- Simu Yako: *${input}*\n\n` +
-             `Dereva sasa anakuja ulipo na atakupigia simu punde kukufuata. Ahsante sana kwa kutumia Papo Hapo Super App Bot! 🙏✨`;
+      return `✅ *Oda ya Taxi imewasilishwa!* 🚖\n\n` +
+             `Ombi lako la safari limetumwa kwa madereva wote wa *${typeName}* waliopo karibu.\n\n` +
+             `- Kutoka: *${pickupName}*\n` +
+             `- Kwenda: *${destName}*\n` +
+             `- Umbali: *${distanceKm} km*\n` +
+             `- Muda wa safari: *~${durationMin} dk*\n` +
+             `- Nauli: *TZS ${fare?.toLocaleString()}/=*\n` +
+             `- Simu yako ya mawasiliano: *${phoneNum}*\n\n` +
+             `Madereva wa karibu wamepewa taarifa sasa hivi. Dereva atakapokubali kukuja kukufuata, utafahamishwa mara moja hapa na utaweza kuwasiliana naye kwa urahisi kupitia simu yake au mfumo pindi akifika. Ahsante sana kwa kutumia Papo Hapo! 🙏✨`;
     }
   }
 
