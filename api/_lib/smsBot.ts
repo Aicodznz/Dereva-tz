@@ -22,6 +22,44 @@ export interface SMSSession {
 // In-memory fallback sessions state
 const inMemorySessions = new Map<string, SMSSession>();
 
+function getCoordsByName(name: string, isDest = false) {
+  const n = (name || "").toLowerCase();
+  if (n.includes("posta")) {
+    return { name: name || "Posta", lat: -6.8164, lng: 39.2902 };
+  }
+  if (n.includes("mwenge")) {
+    return { name: name || "Mwenge", lat: -6.7681, lng: 39.2274 };
+  }
+  if (n.includes("kariakoo")) {
+    return { name: name || "Kariakoo", lat: -6.8200, lng: 39.2750 };
+  }
+  if (n.includes("masaki")) {
+    return { name: name || "Masaki", lat: -6.7450, lng: 39.2850 };
+  }
+  if (n.includes("kinondoni")) {
+    return { name: name || "Kinondoni", lat: -6.7900, lng: 39.2600 };
+  }
+  if (n.includes("sinza")) {
+    return { name: name || "Sinza", lat: -6.7780, lng: 39.2200 };
+  }
+  if (n.includes("mikocheni")) {
+    return { name: name || "Mikocheni", lat: -6.7550, lng: 39.2500 };
+  }
+  if (n.includes("kimara")) {
+    return { name: name || "Kimara", lat: -6.7850, lng: 39.1650 };
+  }
+  if (n.includes("airport") || n.includes("uwanja")) {
+    return { name: name || "Airport", lat: -6.8780, lng: 39.2080 };
+  }
+  if (n.includes("ubungo")) {
+    return { name: name || "Ubungo", lat: -6.7970, lng: 39.2080 };
+  }
+  // Fallback
+  return isDest 
+    ? { name: name || "Posta", lat: -6.8164, lng: 39.2902 }
+    : { name: name || "Mwenge", lat: -6.7681, lng: 39.2274 };
+}
+
 // Simple in-memory global config for Twilio Responder (can be updated by vendors)
 export interface TwilioConfig {
   isEnabled: boolean;
@@ -253,15 +291,42 @@ export async function handleSMSInput(
     // Create realistic ride order in Firestore
     if (dbAdmin) {
       try {
-         await dbAdmin.collection('rides').add({
-           customerId: "sms-client-" + fromPhone.slice(-6),
-           customerPhone: fromPhone,
-           driverName: selected.name,
-           status: "accepted",
-           route: session.taxiRoute,
-           fare: selected.price,
-           createdAt: new Date()
-         });
+        const routeStr = session.taxiRoute || "";
+        const parts = routeStr.split("-").map(p => p.trim());
+        const pickupName = parts[0] || "Mwenge";
+        const destName = parts[1] || "Posta";
+        
+        const pLoc = getCoordsByName(pickupName, false);
+        const dLoc = getCoordsByName(destName, true);
+        
+        const expiresAtDate = new Date();
+        expiresAtDate.setMinutes(expiresAtDate.getMinutes() + 15);
+
+        await dbAdmin.collection('rides').add({
+          status: "pending", // Set to pending so the live Rider Dashboard can receive it!
+          customerId: "sms-client-" + fromPhone.slice(-6),
+          customerInfo: {
+            name: "SMS Customer",
+            phone: fromPhone,
+            rating: 4.8
+          },
+          driverId: null,
+          pickup: pLoc,
+          destination: dLoc,
+          vehicleType: "taxi",
+          fare: selected.price || 6500,
+          distance: 8.5,
+          duration: 15,
+          routeCoords: [
+            { lat: pLoc.lat, lng: pLoc.lng },
+            { lat: dLoc.lat, lng: dLoc.lng }
+          ],
+          createdAt: new Date(),
+          expiresAt: expiresAtDate.toISOString(),
+          driverInfo: null,
+          driverLocation: null,
+          suggestedDriverName: selected.name
+        });
       } catch (e) {
          console.warn("Could not insert ride request", e);
       }

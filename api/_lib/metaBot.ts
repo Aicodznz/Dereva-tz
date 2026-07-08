@@ -44,6 +44,44 @@ function getAI() {
   return aiClient;
 }
 
+function getCoordsByName(name: string, isDest = false) {
+  const n = (name || "").toLowerCase();
+  if (n.includes("posta")) {
+    return { name: name || "Posta", lat: -6.8164, lng: 39.2902 };
+  }
+  if (n.includes("mwenge")) {
+    return { name: name || "Mwenge", lat: -6.7681, lng: 39.2274 };
+  }
+  if (n.includes("kariakoo")) {
+    return { name: name || "Kariakoo", lat: -6.8200, lng: 39.2750 };
+  }
+  if (n.includes("masaki")) {
+    return { name: name || "Masaki", lat: -6.7450, lng: 39.2850 };
+  }
+  if (n.includes("kinondoni")) {
+    return { name: name || "Kinondoni", lat: -6.7900, lng: 39.2600 };
+  }
+  if (n.includes("sinza")) {
+    return { name: name || "Sinza", lat: -6.7780, lng: 39.2200 };
+  }
+  if (n.includes("mikocheni")) {
+    return { name: name || "Mikocheni", lat: -6.7550, lng: 39.2500 };
+  }
+  if (n.includes("kimara")) {
+    return { name: name || "Kimara", lat: -6.7850, lng: 39.1650 };
+  }
+  if (n.includes("airport") || n.includes("uwanja")) {
+    return { name: name || "Airport", lat: -6.8780, lng: 39.2080 };
+  }
+  if (n.includes("ubungo")) {
+    return { name: name || "Ubungo", lat: -6.7970, lng: 39.2080 };
+  }
+  // Fallback
+  return isDest 
+    ? { name: name || "Posta", lat: -6.8164, lng: 39.2902 }
+    : { name: name || "Mwenge", lat: -6.7681, lng: 39.2274 };
+}
+
 // Resilient helper to call Gemini generateContent with retries and fallback models
 export async function generateContentWithRetry(params: any, maxRetries = 2) {
   let attempt = 0;
@@ -558,6 +596,47 @@ Respond strictly with the matching category ID. If none fits nicely, return "def
         `Created via Papo Hapo Automation Studio Flow node: ${currentNode.id}`,
         channel
       );
+
+      // Also add to the 'rides' collection so that any online taxi drivers receive it!
+      if (serviceType.toLowerCase() === 'taxi' || serviceType.toLowerCase() === 'teksi') {
+        try {
+          const pLoc = getCoordsByName(pickup, false);
+          const dLoc = getCoordsByName(dest, true);
+          
+          const expiresAtDate = new Date();
+          expiresAtDate.setMinutes(expiresAtDate.getMinutes() + 15);
+
+          await dbAdmin.collection('rides').add({
+            status: "pending",
+            customerId: `meta-client-${session.senderId}`,
+            customerInfo: {
+              name: session.details.variables['customer.name'] || "Meta Customer",
+              phone: phone,
+              rating: 4.8
+            },
+            driverId: null,
+            pickup: pLoc,
+            destination: dLoc,
+            vehicleType: "taxi",
+            fare: 6500,
+            distance: 8.5,
+            duration: 15,
+            routeCoords: [
+              { lat: pLoc.lat, lng: pLoc.lng },
+              { lat: dLoc.lat, lng: dLoc.lng }
+            ],
+            createdAt: new Date(),
+            expiresAt: expiresAtDate.toISOString(),
+            driverInfo: null,
+            driverLocation: null,
+            channel: channel,
+            bookingId: `PH-${randId}`
+          });
+          console.log(`[Meta Bot] Added ride to Firestore rides collection with status 'pending' for booking ID: PH-${randId}`);
+        } catch (rideErr) {
+          console.error("[Meta Bot] Error adding ride to Firestore rides:", rideErr);
+        }
+      }
 
       replyText += (replyText ? "\n\n" : "") + `🚖 *Booking ya ${serviceType.toUpperCase()} Imefanikiwa!* \n` +
                    `- Namba ya Oda: *PH-${randId}*\n` +
@@ -1093,15 +1172,42 @@ async function routeToServiceFlow(
       // Create realistic Ride in Firestore
       if (dbAdmin) {
         try {
+          const routeStr = session.details.route || "";
+          const parts = routeStr.split("-").map(p => p.trim());
+          const pickupName = parts[0] || "Mwenge";
+          const destName = parts[1] || "Posta";
+          
+          const pLoc = getCoordsByName(pickupName, false);
+          const dLoc = getCoordsByName(destName, true);
+          
+          const expiresAtDate = new Date();
+          expiresAtDate.setMinutes(expiresAtDate.getMinutes() + 15);
+
           await dbAdmin.collection('rides').add({
+            status: "pending", // Set to pending so the live Rider Dashboard can receive it!
             customerId: `meta-client-${session.senderId}`,
-            customerPhone: input,
-            driverName: session.details.selectedName,
-            status: "accepted",
-            route: session.details.route,
-            fare: session.details.selectedPrice,
+            customerInfo: {
+              name: session.details.customerName || "Meta Customer",
+              phone: input,
+              rating: 4.8
+            },
+            driverId: null,
+            pickup: pLoc,
+            destination: dLoc,
+            vehicleType: "taxi",
+            fare: session.details.selectedPrice || 6500,
+            distance: 8.5,
+            duration: 15,
+            routeCoords: [
+              { lat: pLoc.lat, lng: pLoc.lng },
+              { lat: dLoc.lat, lng: dLoc.lng }
+            ],
+            createdAt: new Date(),
+            expiresAt: expiresAtDate.toISOString(),
+            driverInfo: null,
+            driverLocation: null,
             channel: session.channel,
-            createdAt: new Date()
+            suggestedDriverName: session.details.selectedName
           });
         } catch (e) {
           console.warn("Could not insert ride request from Meta", e);
