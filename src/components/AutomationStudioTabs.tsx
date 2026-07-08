@@ -169,13 +169,31 @@ export const AutomationStudioTabs: React.FC<AutomationStudioTabsProps> = ({
 
   // Webhook Domain & Live Ping Test States
   const [selectedWebhookDomain, setSelectedWebhookDomain] = useState<'vercel' | 'cloudrun'>('vercel');
+  const [customProductionDomain, setCustomProductionDomain] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('custom_production_domain') || 'https://dereva-tz.vercel.app';
+    }
+    return 'https://dereva-tz.vercel.app';
+  });
+
+  const handleDomainChange = (val: string) => {
+    let cleanVal = val.trim();
+    if (cleanVal && !cleanVal.startsWith('http://') && !cleanVal.startsWith('https://')) {
+      cleanVal = 'https://' + cleanVal;
+    }
+    setCustomProductionDomain(cleanVal);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('custom_production_domain', cleanVal);
+    }
+  };
+
   const [livePingStatus, setLivePingStatus] = useState<{ testing: boolean; success: boolean | null; responseText: string | null }>({
     testing: false,
     success: null,
     responseText: null
   });
 
-  const vercelWebhookUrl = "https://papohapo.onrender.com/api/meta/webhook";
+  const vercelWebhookUrl = `${customProductionDomain.replace(/\/$/, '')}/api/meta/webhook`;
   const cloudRunWebhookUrl = `${window.location.origin}/api/meta/webhook`;
   const currentWebhookUrl = selectedWebhookDomain === 'vercel' ? vercelWebhookUrl : cloudRunWebhookUrl;
 
@@ -1184,6 +1202,32 @@ export const AutomationStudioTabs: React.FC<AutomationStudioTabsProps> = ({
                         <span>{copiedUrl ? 'Imenakiliwa!' : 'Copy URL'}</span>
                       </Button>
                     </div>
+
+                    {selectedWebhookDomain === 'vercel' && (
+                      <div className="mt-2 pt-2 border-t border-neutral-200/40 dark:border-neutral-800/40 space-y-1.5">
+                        <div className="flex justify-between items-center">
+                          <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block">
+                            Anwani ya Uzalishaji (Production Domain):
+                          </label>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => handleDomainChange('https://dereva-tz.vercel.app')}
+                            className="h-5 px-1.5 text-[9px] uppercase font-bold text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                          >
+                            Rejesha Chaguomsingi
+                          </Button>
+                        </div>
+                        <div className="flex gap-2 items-center">
+                          <Input 
+                            value={customProductionDomain}
+                            onChange={(e) => handleDomainChange(e.target.value)}
+                            placeholder="https://dereva-tz.vercel.app"
+                            className="font-mono text-xs bg-white dark:bg-black h-8 border-neutral-200/60 py-1"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Verify Token Input */}
