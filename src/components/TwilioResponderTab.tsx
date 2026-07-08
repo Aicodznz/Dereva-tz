@@ -263,6 +263,8 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
   const [saveFlowName, setSaveFlowName] = useState('');
   const [saveFlowDesc, setSaveFlowDesc] = useState('');
   const [lastAiGeneratedTime, setLastAiGeneratedTime] = useState<string | null>(null);
+  const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
+  const [showResetDefaultConfirm, setShowResetDefaultConfirm] = useState(false);
   const [selectedWebhookDomain, setSelectedWebhookDomain] = useState<'vercel' | 'cloudrun'>('vercel');
   const [customProductionDomain, setCustomProductionDomain] = useState<string>(() => {
     if (typeof window !== 'undefined') {
@@ -2072,35 +2074,83 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
 
                       <div className="flex flex-wrap items-center justify-end gap-2 pt-0.5">
                         <div className="flex items-center gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              if (window.confirm("Je, una uhakika unataka kufuta node zote za sasa na kuanza upya na flowchart safi kabisa?")) {
-                                const freshNodes = getFreshNodes();
-                                setMetaNodes(freshNodes);
-                                handleSaveWorkflowConfig(freshNodes, [], useWorkflow);
-                                toast.success("Chatflow zote zimefutwa, umeanza upya na canvas safi! 🧹✨");
-                              }
-                            }}
-                            className="h-8 text-[10px] font-black uppercase text-red-600 dark:text-red-400 hover:text-white hover:bg-red-600 border-red-300 dark:border-red-900"
-                          >
-                            <Trash2 className="w-3.5 h-3.5 mr-1 inline" /> Futa Zote & Anza Upya
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              if (window.confirm("Je, una uhakika unataka kurudisha mtiririko wa soga kwenye muundo wa kwanza wa mfano?")) {
-                                setMetaNodes(getInitialNodes());
-                                handleSaveWorkflowConfig(getInitialNodes(), [], useWorkflow);
-                                toast.success("Flow ya kwanza imerejeshwa vizuri!");
-                              }
-                            }}
-                            className="h-8 text-[10px] font-black uppercase text-neutral-600 dark:text-neutral-300 hover:text-red-500 border-neutral-300 dark:border-neutral-700"
-                          >
-                            Rudisha Default
-                          </Button>
+                          {showClearAllConfirm ? (
+                            <div className="flex items-center gap-1.5 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 px-2 py-1 rounded-md shrink-0">
+                              <span className="text-[9px] font-black uppercase text-red-600 dark:text-red-400">Hakika kufuta zote?</span>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => {
+                                  const freshNodes = getFreshNodes();
+                                  setMetaNodes(freshNodes);
+                                  handleSaveWorkflowConfig(freshNodes, [], useWorkflow);
+                                  toast.success("Chatflow zote zimefutwa, umeanza upya na canvas safi! 🧹✨");
+                                  setShowClearAllConfirm(false);
+                                }}
+                                className="h-6 text-[9px] px-2 font-bold uppercase"
+                              >
+                                Ndiyo
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setShowClearAllConfirm(false)}
+                                className="h-6 text-[9px] px-2 border-neutral-300 dark:border-neutral-700 bg-white dark:bg-black"
+                              >
+                                Hapana
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setShowClearAllConfirm(true);
+                                setShowResetDefaultConfirm(false);
+                              }}
+                              className="h-8 text-[10px] font-black uppercase text-red-600 dark:text-red-400 hover:text-white hover:bg-red-600 border-red-300 dark:border-red-900 shrink-0"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 mr-1 inline" /> Futa Zote & Anza Upya
+                            </Button>
+                          )}
+
+                          {showResetDefaultConfirm ? (
+                            <div className="flex items-center gap-1.5 bg-neutral-50 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 px-2 py-1 rounded-md shrink-0">
+                              <span className="text-[9px] font-black uppercase text-neutral-600 dark:text-neutral-400">Rudisha default?</span>
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  setMetaNodes(getInitialNodes());
+                                  handleSaveWorkflowConfig(getInitialNodes(), [], useWorkflow);
+                                  toast.success("Flow ya kwanza imerejeshwa vizuri!");
+                                  setShowResetDefaultConfirm(false);
+                                }}
+                                className="h-6 text-[9px] px-2 font-bold uppercase bg-neutral-700 dark:bg-neutral-800 hover:bg-neutral-800 dark:hover:bg-neutral-700 text-white"
+                              >
+                                Ndiyo
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setShowResetDefaultConfirm(false)}
+                                className="h-6 text-[9px] px-2 border-neutral-300 dark:border-neutral-700 bg-white dark:bg-black"
+                              >
+                                Hapana
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setShowResetDefaultConfirm(true);
+                                setShowClearAllConfirm(false);
+                              }}
+                              className="h-8 text-[10px] font-black uppercase text-neutral-600 dark:text-neutral-300 hover:text-red-500 border-neutral-300 dark:border-neutral-700 shrink-0"
+                            >
+                              Rudisha Default
+                            </Button>
+                          )}
                           <Button
                             size="sm"
                             onClick={() => {

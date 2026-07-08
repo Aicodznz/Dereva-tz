@@ -161,6 +161,7 @@ export const AutomationStudioTabs: React.FC<AutomationStudioTabsProps> = ({
   const [showSecret, setShowSecret] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [copiedToken, setCopiedToken] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   // Floating Chat Widget Preview States
   const [widgetEnabled, setWidgetEnabled] = useState(true);
@@ -635,32 +636,62 @@ export const AutomationStudioTabs: React.FC<AutomationStudioTabsProps> = ({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 pt-2 border-t border-neutral-100 dark:border-neutral-800">
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          if (onLoadSavedFlow) {
-                            onLoadSavedFlow(flow);
-                            setStudioTab('canvas');
-                          }
-                        }}
-                        className="flex-1 bg-fuchsia-600 hover:bg-fuchsia-700 text-white text-[11px] font-bold h-8 cursor-pointer"
-                      >
-                        <Edit3 className="w-3 h-3 mr-1" /> Pakia & Hariri
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          if (onDeleteSavedFlow && window.confirm(`Je, unataka kufuta flow ya "${flow.name}"?`)) {
-                            onDeleteSavedFlow(flow.id);
-                          }
-                        }}
-                        className="h-8 text-rose-500 border-rose-200 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-[11px] cursor-pointer"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
+                    {confirmDeleteId === flow.id ? (
+                      <div className="flex flex-col gap-2 w-full pt-2 border-t border-rose-200 dark:border-rose-900/40 bg-rose-50/60 dark:bg-rose-950/20 p-2.5 rounded-xl transition-all duration-200">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400">Hakika kufuta hii flow?</span>
+                          <span className="text-[9px] text-neutral-400 dark:text-neutral-500">(Haiwezi kurudishwa)</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              if (onDeleteSavedFlow) {
+                                onDeleteSavedFlow(flow.id);
+                              }
+                              setConfirmDeleteId(null);
+                            }}
+                            className="flex-1 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-extrabold h-8 text-xs cursor-pointer rounded-lg transition-colors duration-150 shadow-xs"
+                          >
+                            Ndiyo, Futa 🗑️
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setConfirmDeleteId(null)}
+                            className="flex-1 h-8 text-xs font-bold border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 cursor-pointer rounded-lg transition-colors duration-150"
+                          >
+                            Siyo, Ghairi ❌
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 pt-2 border-t border-neutral-100 dark:border-neutral-800/80 w-full">
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            if (onLoadSavedFlow) {
+                              onLoadSavedFlow(flow);
+                              setStudioTab('canvas');
+                            }
+                          }}
+                          className="flex-1 bg-fuchsia-600 hover:bg-fuchsia-700 active:bg-fuchsia-800 text-white text-[11px] font-bold h-8 cursor-pointer rounded-lg transition-colors duration-150"
+                        >
+                          <Edit3 className="w-3 h-3 mr-1" /> Pakia & Hariri
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setConfirmDeleteId(flow.id);
+                          }}
+                          className="h-8 w-8 text-rose-500 border-rose-200 hover:border-rose-400 hover:text-white hover:bg-rose-500 dark:hover:bg-rose-950/40 text-[11px] cursor-pointer rounded-lg transition-all duration-150 flex items-center justify-center shrink-0"
+                          title="Futa Flow"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
