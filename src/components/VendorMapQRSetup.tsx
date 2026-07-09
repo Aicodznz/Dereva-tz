@@ -7,12 +7,14 @@ import 'leaflet/dist/leaflet.css';
 import QRCodeStyling from 'qr-code-styling';
 import { 
   MapPin, Compass, QrCode, Save, Sparkles, Store, Scissors, 
-  Coffee, Gift, Heart, Star, Download, Printer, Upload, CheckCircle2 
+  Coffee, Gift, Heart, Star, Download, Printer, Upload, CheckCircle2,
+  Route, Layers, Gamepad2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import ARTourCreator from './ARTourCreator';
 
 // Leaflet default icon fix
 const DefaultIcon = L.icon({
@@ -49,6 +51,7 @@ const COLORS_LIST = [
 ];
 
 export default function VendorMapQRSetup({ vendorProfile }: VendorMapQRSetupProps) {
+  const [subTab, setSubTab] = useState<'duka' | 'routes'>('duka');
   const [lat, setLat] = useState<number>(vendorProfile?.location?.lat || -6.7924);
   const [lng, setLng] = useState<number>(vendorProfile?.location?.lng || 39.2083);
   const [arDirections, setArDirections] = useState<string>(vendorProfile?.arDirections || '');
@@ -184,21 +187,35 @@ export default function VendorMapQRSetup({ vendorProfile }: VendorMapQRSetupProp
         <head>
           <title>AR Navigation QR Stand - ${vendorProfile?.businessName}</title>
           <style>
+            @page {
+              size: auto;
+              margin: 10mm;
+            }
             body {
               font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
               text-align: center;
-              padding: 40px;
+              padding: 10px;
+              margin: 0;
               color: #0f172a;
-              background-color: #f8fafc;
+              background-color: #ffffff;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              min-height: 90vh;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
             }
             .container {
-              max-width: 500px;
-              margin: 0 auto;
+              max-width: 440px;
+              width: 100%;
+              margin: auto;
               background: white;
-              padding: 50px 30px;
-              border-radius: 40px;
-              box-shadow: 0 20px 40px rgba(0,0,0,0.05);
-              border: 3px solid ${arColor};
+              padding: 35px 25px;
+              border-radius: 30px;
+              box-shadow: 0 10px 25px rgba(0,0,0,0.03);
+              border: 4px solid ${arColor};
+              page-break-inside: avoid;
+              box-sizing: border-box;
             }
             .header-badge {
               display: inline-block;
@@ -210,39 +227,64 @@ export default function VendorMapQRSetup({ vendorProfile }: VendorMapQRSetupProp
               font-weight: 900;
               text-transform: uppercase;
               letter-spacing: 2px;
-              margin-bottom: 25px;
+              margin-bottom: 20px;
             }
             h1 {
-              font-size: 32px;
+              font-size: 28px;
               font-weight: 900;
-              margin: 0 0 10px 0;
+              margin: 0 0 8px 0;
               text-transform: uppercase;
               letter-spacing: -1px;
+              word-wrap: break-word;
             }
             p.sub {
-              font-size: 14px;
+              font-size: 13px;
               color: #64748b;
-              margin: 0 0 40px 0;
+              margin: 0 0 30px 0;
               font-weight: 500;
+              line-height: 1.5;
             }
             .qr-holder {
               display: inline-block;
               background: white;
-              padding: 20px;
-              border-radius: 30px;
+              padding: 15px;
+              border-radius: 24px;
               border: 2px solid #f1f5f9;
-              box-shadow: 0 10px 25px rgba(0,0,0,0.02);
-              margin-bottom: 40px;
+              box-shadow: 0 10px 20px rgba(0,0,0,0.01);
+              margin-bottom: 30px;
+            }
+            .qr-holder svg {
+              display: block;
+              max-width: 100%;
+              height: auto;
             }
             .footer-banner {
               background-color: #0f172a;
               color: white;
-              padding: 18px;
-              border-radius: 20px;
-              font-size: 12px;
+              padding: 15px;
+              border-radius: 16px;
+              font-size: 11px;
               font-weight: 800;
               letter-spacing: 1px;
               text-transform: uppercase;
+            }
+            @media print {
+              html, body {
+                height: 99%;
+              }
+              body {
+                padding: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              }
+              .container {
+                border-radius: 24px;
+                box-shadow: none !important;
+                border: 4px solid ${arColor} !important;
+                margin: auto !important;
+                max-height: 98vh;
+              }
             }
           </style>
         </head>
@@ -257,13 +299,15 @@ export default function VendorMapQRSetup({ vendorProfile }: VendorMapQRSetupProp
           <script>
             // Clone the SVG from the parent window
             const parentSvg = window.opener.document.querySelector("#qr-canvas-holder svg").cloneNode(true);
-            parentSvg.setAttribute("width", "300");
-            parentSvg.setAttribute("height", "300");
+            parentSvg.setAttribute("width", "260");
+            parentSvg.setAttribute("height", "260");
             document.getElementById("print-qr").appendChild(parentSvg);
             
             // Auto-trigger print
             window.onload = function() {
-              window.print();
+              setTimeout(function() {
+                window.print();
+              }, 300);
             }
           </script>
         </body>
@@ -273,215 +317,247 @@ export default function VendorMapQRSetup({ vendorProfile }: VendorMapQRSetupProp
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pb-20 text-left font-sans">
-      
-      {/* LEFT COLUMN: Map & Fields */}
-      <div className="lg:col-span-8 space-y-6">
-        
-        {/* Step 1: Map Location Picker */}
-        <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 rounded-[2.5rem] overflow-hidden shadow-2xl transition-all">
-          <CardContent className="p-8 space-y-6">
-            <div className="flex items-start justify-between">
-              <div>
-                <span className="px-3 py-1 bg-orange-100 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-900/40 rounded-full text-[10px] font-black uppercase tracking-widest text-orange-600 dark:text-orange-400">
-                  Step 1
-                </span>
-                <h3 className="text-xl font-black text-neutral-900 dark:text-white mt-2 uppercase tracking-tight">Kuweka Eneo kwenye Ramani</h3>
-                <p className="text-xs text-neutral-500 mt-1">Chagua eneo duka lako lilipo kwa kubonyeza kwenye ramani au kuburuta kigingi chekundu.</p>
-              </div>
-              <div className="p-3 bg-neutral-100 dark:bg-neutral-800 rounded-2xl shrink-0">
-                <MapPin className="w-6 h-6 text-orange-600" />
-              </div>
-            </div>
-
-            {/* Geographic coordinates */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 dark:text-neutral-500">Latitude</label>
-                <Input 
-                  type="number" 
-                  value={lat} 
-                  onChange={(e) => setLat(Number(e.target.value))}
-                  className="bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 rounded-xl font-mono text-sm"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 dark:text-neutral-500">Longitude</label>
-                <Input 
-                  type="number" 
-                  value={lng} 
-                  onChange={(e) => setLng(Number(e.target.value))}
-                  className="bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 rounded-xl font-mono text-sm"
-                />
-              </div>
-            </div>
-
-            {/* Map Canvas */}
-            <div className="h-80 w-full rounded-[2rem] overflow-hidden border border-neutral-200 dark:border-neutral-800 relative z-10">
-              <MapContainer 
-                center={[lat, lng]} 
-                zoom={16} 
-                className="w-full h-full"
-              >
-                <TileLayer
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  attribution='&copy; OpenStreetMap contributors'
-                />
-                <DraggableMarker />
-                <MapEvents />
-              </MapContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Step 2: AR Directions Setup */}
-        <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 rounded-[2.5rem] overflow-hidden shadow-2xl transition-all">
-          <CardContent className="p-8 space-y-6">
-            <div className="flex items-start justify-between">
-              <div>
-                <span className="px-3 py-1 bg-orange-100 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-900/40 rounded-full text-[10px] font-black uppercase tracking-widest text-orange-600 dark:text-orange-400">
-                  Step 2
-                </span>
-                <h3 className="text-xl font-black text-neutral-900 dark:text-white mt-2 uppercase tracking-tight">AR Navigation Parameters</h3>
-                <p className="text-xs text-neutral-500 mt-1">Sanidi maelezo ya kina ya Augmented Reality yatakayoonekana kwenye kamera ya mteja wakati akija kwako.</p>
-              </div>
-              <div className="p-3 bg-neutral-100 dark:bg-neutral-800 rounded-2xl shrink-0">
-                <Compass className="w-6 h-6 text-orange-600" />
-              </div>
-            </div>
-
-            {/* Text directions */}
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 dark:text-neutral-500">Maelezo ya Kufika (Text Directions)</label>
-              <textarea
-                value={arDirections}
-                onChange={(e) => setArDirections(e.target.value)}
-                placeholder="Mfano: Panda ghorofa ya kwanza, duka letu lipo mlango wa tatu mkono wa kulia karibu na ngazi ya dharura."
-                className="w-full h-24 bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-orange-500 dark:text-white resize-none"
-              />
-            </div>
-
-            {/* Photo Image Url */}
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 dark:text-neutral-500">Picha ya Duka/Mlangoni (Storefront Image URL)</label>
-              <Input 
-                type="text" 
-                value={arImageUrl}
-                onChange={(e) => setArImageUrl(e.target.value)}
-                placeholder="https://images.unsplash.com/photo-... (Picha ya duka lako ili mteja alitambue mlangoni)"
-                className="bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 rounded-2xl h-12"
-              />
-            </div>
-
-            {/* Icon selection */}
-            <div className="space-y-3">
-              <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 dark:text-neutral-500">Chagua Alama ya AR (Floating 3D Icon)</label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {AR_ICONS_LIST.map((item) => {
-                  const Icon = item.icon;
-                  const isSelected = arIcon === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => setArIcon(item.id)}
-                      className={`p-4 rounded-2xl border flex flex-col items-center gap-2 transition-all ${isSelected ? 'bg-orange-50 dark:bg-orange-950/20 border-orange-500 text-orange-600 font-extrabold' : 'bg-neutral-50 dark:bg-neutral-950 border-neutral-100 dark:border-neutral-800 text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'}`}
-                    >
-                      <Icon className="w-5 h-5 shrink-0" />
-                      <span className="text-[10px] uppercase tracking-wider">{item.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Color selection */}
-            <div className="space-y-3">
-              <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 dark:text-neutral-500">Chagua Rangi ya Alama ya AR (Neon Glowing Color)</label>
-              <div className="flex flex-wrap gap-2.5">
-                {COLORS_LIST.map((col) => {
-                  const isSelected = arColor === col.value;
-                  return (
-                    <button
-                      key={col.id}
-                      onClick={() => setArColor(col.value)}
-                      style={{ backgroundColor: col.value }}
-                      className={`w-10 h-10 rounded-full transition-all relative ${isSelected ? 'ring-4 ring-offset-2 ring-orange-500 dark:ring-offset-neutral-950 scale-110 shadow-lg' : 'hover:scale-105'}`}
-                      title={col.label}
-                    >
-                      {isSelected && (
-                        <CheckCircle2 className="w-5 h-5 text-white absolute inset-0 m-auto" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Submit changes button */}
-            <Button
-              onClick={handleSaveConfig}
-              disabled={isSaving}
-              className="w-full h-14 bg-orange-600 hover:bg-orange-700 text-white font-black uppercase tracking-wider text-xs rounded-2xl shadow-xl shadow-orange-950/20 gap-2 mt-4"
-            >
-              {isSaving ? (
-                <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-              ) : (
-                <Save className="w-5 h-5" />
-              )}
-              Hifadhi Maelezo & Ramani ya AR
-            </Button>
-          </CardContent>
-        </Card>
-
+    <div className="space-y-6">
+      {/* Sub-tab Navigation */}
+      <div className="flex border-b border-neutral-200 dark:border-neutral-800 pb-px gap-4">
+        <button
+          onClick={() => setSubTab('duka')}
+          className={`pb-4 px-2 text-sm font-black uppercase tracking-wider border-b-2 transition-all flex items-center gap-2 ${
+            subTab === 'duka'
+              ? 'border-orange-500 text-orange-600 dark:text-orange-400'
+              : 'border-transparent text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
+          }`}
+        >
+          <Store className="w-4 h-4" />
+          Ramani & AR Setup ya Duka
+        </button>
+        <button
+          onClick={() => setSubTab('routes')}
+          className={`pb-4 px-2 text-sm font-black uppercase tracking-wider border-b-2 transition-all flex items-center gap-2 ${
+            subTab === 'routes'
+              ? 'border-orange-500 text-orange-600 dark:text-orange-400'
+              : 'border-transparent text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
+          }`}
+        >
+          <Route className="w-4 h-4 animate-pulse" />
+          AR Routes (Njia za AR & Tours)
+        </button>
       </div>
 
-      {/* RIGHT COLUMN: Printable QR Code Stand & Preview */}
-      <div className="lg:col-span-4 space-y-6">
-        
-        <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 rounded-[2.5rem] overflow-hidden shadow-2xl transition-all sticky top-6">
-          <CardContent className="p-8 space-y-6 flex flex-col items-center text-center">
-            <div>
-              <span className="px-3 py-1 bg-orange-100 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-900/40 rounded-full text-[10px] font-black uppercase tracking-widest text-orange-600 dark:text-orange-400">
-                Step 3
-              </span>
-              <h3 className="text-xl font-black text-neutral-900 dark:text-white mt-2 uppercase tracking-tight">AR Navigation QR Stand</h3>
-              <p className="text-xs text-neutral-500 mt-1">Chapa au pakua QR Code hii. Wateja wakiskani watafungua duka lako mlangoni katika hali ya AR Camera!</p>
-            </div>
+      {subTab === 'routes' ? (
+        <ARTourCreator vendorProfile={vendorProfile} />
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pb-20 text-left font-sans">
+          
+          {/* LEFT COLUMN: Map & Fields */}
+          <div className="lg:col-span-8 space-y-6">
+            
+            {/* Step 1: Map Location Picker */}
+            <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 rounded-[2.5rem] overflow-hidden shadow-2xl transition-all">
+              <CardContent className="p-8 space-y-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <span className="px-3 py-1 bg-orange-100 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-900/40 rounded-full text-[10px] font-black uppercase tracking-widest text-orange-600 dark:text-orange-400">
+                      Step 1
+                    </span>
+                    <h3 className="text-xl font-black text-neutral-900 dark:text-white mt-2 uppercase tracking-tight">Kuweka Eneo kwenye Ramani</h3>
+                    <p className="text-xs text-neutral-500 mt-1">Chagua eneo duka lako lilipo kwa kubonyeza kwenye ramani au kuburuta kigingi chekundu.</p>
+                  </div>
+                  <div className="p-3 bg-neutral-100 dark:bg-neutral-800 rounded-2xl shrink-0">
+                    <MapPin className="w-6 h-6 text-orange-600" />
+                  </div>
+                </div>
 
-            {/* QR Styling Container */}
-            <div 
-              id="qr-canvas-holder" 
-              className="p-5 bg-white border-2 border-neutral-100 dark:border-neutral-800 rounded-[2.5rem] shadow-inner flex items-center justify-center [&>svg]:rounded-2xl [&>canvas]:rounded-2xl shrink-0"
-            >
-              <div ref={qrRef} className="shrink-0" />
-            </div>
+                {/* Geographic coordinates */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 dark:text-neutral-500">Latitude</label>
+                    <Input 
+                      type="number" 
+                      value={lat} 
+                      onChange={(e) => setLat(Number(e.target.value))}
+                      className="bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 rounded-xl font-mono text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 dark:text-neutral-500">Longitude</label>
+                    <Input 
+                      type="number" 
+                      value={lng} 
+                      onChange={(e) => setLng(Number(e.target.value))}
+                      className="bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 rounded-xl font-mono text-sm"
+                    />
+                  </div>
+                </div>
 
-            {/* Meta label */}
-            <div className="w-full p-4 bg-orange-500/5 rounded-2xl border border-orange-500/10 text-center">
-              <span className="text-[9px] font-black uppercase tracking-widest text-orange-600 dark:text-orange-400 block mb-1">Target link</span>
-              <span className="text-[10px] font-mono font-bold text-neutral-600 dark:text-neutral-400 break-all">{qrLinkData}</span>
-            </div>
+                {/* Map Canvas */}
+                <div className="h-80 w-full rounded-[2rem] overflow-hidden border border-neutral-200 dark:border-neutral-800 relative z-10">
+                  <MapContainer 
+                    center={[lat, lng]} 
+                    zoom={16} 
+                    className="w-full h-full"
+                  >
+                    <TileLayer
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      attribution='&copy; OpenStreetMap contributors'
+                    />
+                    <DraggableMarker />
+                    <MapEvents />
+                  </MapContainer>
+                </div>
+              </CardContent>
+            </Card>
 
-            {/* Action Buttons */}
-            <div className="w-full space-y-3">
-              <Button
-                onClick={downloadQRCode}
-                variant="outline"
-                className="w-full h-12 border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-950 rounded-xl text-xs font-bold uppercase tracking-wider gap-2 shadow-xs text-neutral-800 dark:text-neutral-200"
-              >
-                <Download className="w-4 h-4" /> Download PNG
-              </Button>
-              <Button
-                onClick={printQRStand}
-                className="w-full h-14 bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 rounded-xl text-xs font-black uppercase tracking-widest gap-2 shadow-lg"
-              >
-                <Printer className="w-4 h-4" /> Chapa QR Table Stand
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+            {/* Step 2: AR Directions Setup */}
+            <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 rounded-[2.5rem] overflow-hidden shadow-2xl transition-all">
+              <CardContent className="p-8 space-y-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <span className="px-3 py-1 bg-orange-100 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-900/40 rounded-full text-[10px] font-black uppercase tracking-widest text-orange-600 dark:text-orange-400">
+                      Step 2
+                    </span>
+                    <h3 className="text-xl font-black text-neutral-900 dark:text-white mt-2 uppercase tracking-tight">AR Navigation Parameters</h3>
+                    <p className="text-xs text-neutral-500 mt-1">Sanidi maelezo ya kina ya Augmented Reality yatakayoonekana kwenye kamera ya mteja wakati akija kwako.</p>
+                  </div>
+                  <div className="p-3 bg-neutral-100 dark:bg-neutral-800 rounded-2xl shrink-0">
+                    <Compass className="w-6 h-6 text-orange-600" />
+                  </div>
+                </div>
 
-      </div>
+                {/* Text directions */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 dark:text-neutral-500">Maelezo ya Kufika (Text Directions)</label>
+                  <textarea
+                    value={arDirections}
+                    onChange={(e) => setArDirections(e.target.value)}
+                    placeholder="Mfano: Panda ghorofa ya kwanza, duka letu lipo mlango wa tatu mkono wa kulia karibu na ngazi ya dharura."
+                    className="w-full h-24 bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-orange-500 dark:text-white resize-none"
+                  />
+                </div>
+
+                {/* Photo Image Url */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 dark:text-neutral-500">Picha ya Duka/Mlangoni (Storefront Image URL)</label>
+                  <Input 
+                    type="text" 
+                    value={arImageUrl}
+                    onChange={(e) => setArImageUrl(e.target.value)}
+                    placeholder="https://images.unsplash.com/photo-... (Picha ya duka lako ili mteja alitambue mlangoni)"
+                    className="bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 rounded-2xl h-12"
+                  />
+                </div>
+
+                {/* Icon selection */}
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 dark:text-neutral-500">Chagua Alama ya AR (Floating 3D Icon)</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {AR_ICONS_LIST.map((item) => {
+                      const Icon = item.icon;
+                      const isSelected = arIcon === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => setArIcon(item.id)}
+                          className={`p-4 rounded-2xl border flex flex-col items-center gap-2 transition-all ${isSelected ? 'bg-orange-50 dark:bg-orange-950/20 border-orange-500 text-orange-600 font-extrabold' : 'bg-neutral-50 dark:bg-neutral-950 border-neutral-100 dark:border-neutral-800 text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'}`}
+                        >
+                          <Icon className="w-5 h-5 shrink-0" />
+                          <span className="text-[10px] uppercase tracking-wider">{item.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Color selection */}
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 dark:text-neutral-500">Chagua Rangi ya Alama ya AR (Neon Glowing Color)</label>
+                  <div className="flex flex-wrap gap-2.5">
+                    {COLORS_LIST.map((col) => {
+                      const isSelected = arColor === col.value;
+                      return (
+                        <button
+                          key={col.id}
+                          onClick={() => setArColor(col.value)}
+                          style={{ backgroundColor: col.value }}
+                          className={`w-10 h-10 rounded-full transition-all relative ${isSelected ? 'ring-4 ring-offset-2 ring-orange-500 dark:ring-offset-neutral-950 scale-110 shadow-lg' : 'hover:scale-105'}`}
+                          title={col.label}
+                        >
+                          {isSelected && (
+                            <CheckCircle2 className="w-5 h-5 text-white absolute inset-0 m-auto" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Submit changes button */}
+                <Button
+                  onClick={handleSaveConfig}
+                  disabled={isSaving}
+                  className="w-full h-14 bg-orange-600 hover:bg-orange-700 text-white font-black uppercase tracking-wider text-xs rounded-2xl shadow-xl shadow-orange-950/20 gap-2 mt-4"
+                >
+                  {isSaving ? (
+                    <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <Save className="w-5 h-5" />
+                  )}
+                  Hifadhi Maelezo & Ramani ya AR
+                </Button>
+              </CardContent>
+            </Card>
+
+          </div>
+
+          {/* RIGHT COLUMN: Printable QR Code Stand & Preview */}
+          <div className="lg:col-span-4 space-y-6">
+            
+            <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 rounded-[2.5rem] overflow-hidden shadow-2xl transition-all sticky top-6">
+              <CardContent className="p-8 space-y-6 flex flex-col items-center text-center">
+                <div>
+                  <span className="px-3 py-1 bg-orange-100 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-900/40 rounded-full text-[10px] font-black uppercase tracking-widest text-orange-600 dark:text-orange-400">
+                    Step 3
+                  </span>
+                  <h3 className="text-xl font-black text-neutral-900 dark:text-white mt-2 uppercase tracking-tight">AR Navigation QR Stand</h3>
+                  <p className="text-xs text-neutral-500 mt-1">Chapa au pakua QR Code hii. Wateja wakiskani watafungua duka lako mlangoni katika hali ya AR Camera!</p>
+                </div>
+
+                {/* QR Styling Container */}
+                <div 
+                  id="qr-canvas-holder" 
+                  className="p-5 bg-white border-2 border-neutral-100 dark:border-neutral-800 rounded-[2.5rem] shadow-inner flex items-center justify-center [&>svg]:rounded-2xl [&>canvas]:rounded-2xl shrink-0"
+                >
+                  <div ref={qrRef} className="shrink-0" />
+                </div>
+
+                {/* Meta label */}
+                <div className="w-full p-4 bg-orange-500/5 rounded-2xl border border-orange-500/10 text-center">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-orange-600 dark:text-orange-400 block mb-1">Target link</span>
+                  <span className="text-[10px] font-mono font-bold text-neutral-600 dark:text-neutral-400 break-all">{qrLinkData}</span>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="w-full space-y-3">
+                  <Button
+                    onClick={downloadQRCode}
+                    variant="outline"
+                    className="w-full h-12 border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-950 rounded-xl text-xs font-bold uppercase tracking-wider gap-2 shadow-xs text-neutral-800 dark:text-neutral-200"
+                  >
+                    <Download className="w-4 h-4" /> Download PNG
+                  </Button>
+                  <Button
+                    onClick={printQRStand}
+                    className="w-full h-14 bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 rounded-xl text-xs font-black uppercase tracking-widest gap-2 shadow-lg"
+                  >
+                    <Printer className="w-4 h-4" /> Chapa QR Table Stand
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }

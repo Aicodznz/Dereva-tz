@@ -156,6 +156,9 @@ export default function ServiceDetail() {
     }
     const currentServiceId = id || '';
     const sState = businessConfig?.services?.[currentServiceId];
+    if (sState && sState.enabled === false) {
+      return false;
+    }
     if (sState?.maintenance === true && sState?.hideProductsDuringMaintenance === true) {
       return false;
     }

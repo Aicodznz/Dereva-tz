@@ -85,6 +85,7 @@ interface LocationPickerProps {
   preSelectedVendorId?: string;
   isMapViewOnly?: boolean;
   useParcelIcon?: boolean;
+  arRouteId?: string | null;
 }
 
 function MapController({ center, zoom }: { center: L.LatLng, zoom?: number }) {
@@ -158,7 +159,7 @@ function LocationMarker({ position, setPosition, onPositionChange, isMapViewOnly
   );
 }
 
-export default function LocationPicker({ isOpen, onClose, onSelect, initialLocation, vendors = [], preSelectedVendorId, isMapViewOnly = false, useParcelIcon = false }: LocationPickerProps) {
+export default function LocationPicker({ isOpen, onClose, onSelect, initialLocation, vendors = [], preSelectedVendorId, isMapViewOnly = false, useParcelIcon = false, arRouteId = null }: LocationPickerProps) {
   const navigate = useNavigate();
   const [position, setPosition] = useState<L.LatLng>(
     new L.LatLng(initialLocation?.lat || -6.7924, initialLocation?.lng || 39.2083) // Default to DSM
@@ -300,17 +301,24 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
 
   // Handle pre-selected vendor
   useEffect(() => {
-    if (isOpen && preSelectedVendorId && vendors.length > 0) {
-      const vendor = vendors.find(v => v.id === preSelectedVendorId);
-      if (vendor && vendor.location) {
-        const newPos = new L.LatLng(vendor.location.lat, vendor.location.lng);
-        setPosition(newPos);
-        // We don't set userOrigin here as we want to measure distance from where they are
-        setSelectedVendor(vendor);
-        setAddress(vendor.address || vendor.businessName);
+    if (isOpen && (preSelectedVendorId || arRouteId)) {
+      if (preSelectedVendorId && vendors.length > 0) {
+        const vendor = vendors.find(v => v.id === preSelectedVendorId);
+        if (vendor && vendor.location) {
+          const newPos = new L.LatLng(vendor.location.lat, vendor.location.lng);
+          setPosition(newPos);
+          // We don't set userOrigin here as we want to measure distance from where they are
+          setSelectedVendor(vendor);
+          setAddress(vendor.address || vendor.businessName);
+        }
+      }
+      
+      // Auto-open AR viewer directly for deep-linked scanning!
+      if (isMapViewOnly) {
+        setIsAROpen(true);
       }
     }
-  }, [isOpen, preSelectedVendorId, vendors]);
+  }, [isOpen, preSelectedVendorId, arRouteId, vendors, isMapViewOnly]);
 
   const getNearestPopularPlace = (lat: number, lng: number): string => {
     let nearestName = "Police Quarters, Mikocheni, Kinondoni Municipal, Dar es Salaam, Coastal Zone, 14111, Tanzania";
@@ -979,6 +987,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
           initialTargetVendorId={selectedVendor?.id} 
           onClose={() => setIsAROpen(false)}
           userCoords={{ lat: position.lat, lng: position.lng }}
+          arRouteId={arRouteId}
         />
       )}
     </AnimatePresence>,

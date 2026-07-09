@@ -2855,9 +2855,9 @@ export default function TaxiBooking() {
 
       if (driverLoc) {
         const distToPickup = getDistanceLocal(driverLoc, pickupPos);
-        if (activeRide.status === "driver_arrived" || distToPickup < 15) {
+        if (activeRide.status === "driver_arrived" || distToPickup < 5) {
           etaPickupText = "DEREVA KASHAFIKA!";
-        } else if (distToPickup < 60) {
+        } else if (distToPickup < 40) {
           etaPickupText = "DEREVA ANASHAWASILI...";
         } else {
           const durSecs = distToPickup / 6.5; // average 23 km/h

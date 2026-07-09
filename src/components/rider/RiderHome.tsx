@@ -187,6 +187,20 @@ function MapController({
     }
   };
 
+  if (!autoFollow) {
+    return (
+      <div className="leaflet-bottom leaflet-right" style={{ pointerEvents: 'auto', marginBottom: '84px', marginRight: '16px', zIndex: 1000 }}>
+        <button
+          onClick={handleRecenter}
+          className="flex items-center gap-2 bg-purple-600 hover:bg-purple-500 text-white font-black uppercase text-xs px-4 py-3 rounded-full shadow-[0_8px_30px_rgba(124,58,237,0.4)] border border-purple-400 transition-all duration-300 transform scale-100 hover:scale-105 active:scale-95 animate-bounce"
+        >
+          <Compass className="w-4 h-4 text-white" />
+          <span>Ikite (Recenter)</span>
+        </button>
+      </div>
+    );
+  }
+
   return null;
 }
 

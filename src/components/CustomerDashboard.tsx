@@ -36,6 +36,7 @@ export default function CustomerDashboard() {
   const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
   const [isMapViewOnly, setIsMapViewOnly] = useState(false);
   const [selectedVendorId, setSelectedVendorId] = useState<string | undefined>(undefined);
+  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [tableSession, setTableSession] = useState<any>(null);
   const [location, setLocation] = useState(() => {
     const saved = localStorage.getItem('omniserve_user_location');
@@ -280,8 +281,14 @@ export default function CustomerDashboard() {
   // QR Scan / AR Deep-linking
   useEffect(() => {
     const arVendorId = searchParams.get('ar_vendor_id') || searchParams.get('scan_qr');
-    if (arVendorId) {
-      setSelectedVendorId(arVendorId);
+    const arRouteId = searchParams.get('ar_route_id');
+    if (arRouteId) {
+      setSelectedRouteId(arRouteId);
+    }
+    if (arVendorId || arRouteId) {
+      if (arVendorId) {
+        setSelectedVendorId(arVendorId);
+      }
       setIsMapViewOnly(true);
       setIsLocationPickerOpen(true);
     }
@@ -708,12 +715,14 @@ export default function CustomerDashboard() {
           setIsLocationPickerOpen(false);
           setIsMapViewOnly(false);
           setSelectedVendorId(undefined);
+          setSelectedRouteId(null);
         }}
         onSelect={handleLocationSelect}
         initialLocation={location}
         vendors={vendors}
         preSelectedVendorId={selectedVendorId}
         isMapViewOnly={isMapViewOnly}
+        arRouteId={selectedRouteId}
       />
 
       {tableSession && (
