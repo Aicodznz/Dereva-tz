@@ -11,7 +11,7 @@ import {
   Search, Bell, MapPin, ChevronRight, ShoppingBag, Tag, Plus, ShoppingBasket,
   FileText, Smartphone, Box, Dog, Bus, Sparkles, Wrench, Key
 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../AuthContext';
 import { useBusinessConfig } from '../BusinessConfigContext';
@@ -28,6 +28,7 @@ export default function CustomerDashboard() {
   const { t, isRTL } = useLanguage();
   const { addItem } = useCart();
   const { config: businessConfig } = useBusinessConfig();
+  const [searchParams] = useSearchParams();
   const [vendors, setVendors] = useState<VendorProfile[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [banners, setBanners] = useState<{id: string, title: string, sub: string, img: string, category?: string}[]>([]);
@@ -275,6 +276,16 @@ export default function CustomerDashboard() {
 
   const storeScrollRef = useRef<HTMLDivElement>(null);
   const bannerScrollRef = useRef<HTMLDivElement>(null);
+
+  // QR Scan / AR Deep-linking
+  useEffect(() => {
+    const arVendorId = searchParams.get('ar_vendor_id') || searchParams.get('scan_qr');
+    if (arVendorId) {
+      setSelectedVendorId(arVendorId);
+      setIsMapViewOnly(true);
+      setIsLocationPickerOpen(true);
+    }
+  }, [searchParams]);
 
   // Geolocation
   useEffect(() => {

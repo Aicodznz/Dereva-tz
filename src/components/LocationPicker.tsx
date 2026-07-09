@@ -3,13 +3,14 @@ import { createPortal } from 'react-dom';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Search, MapPin, X, Navigation, Loader2, Star, ArrowRight, Package, Clock, RotateCw, Layers } from 'lucide-react';
+import { Search, MapPin, X, Navigation, Loader2, Star, ArrowRight, Package, Clock, RotateCw, Layers, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
+import ARMapView from './map/ARMapView';
 
 // Fix for default marker icon in Leaflet - using CDN for maximum stability in preview environment
 const DefaultIcon = L.icon({
@@ -178,6 +179,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
   const [isMapExpanded, setIsMapExpanded] = useState(false);
   const [recentPlaces, setRecentPlaces] = useState<{ address: string; lat: number; lng: number }[]>([]);
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [isAROpen, setIsAROpen] = useState(false);
 
   const categories = [
     { id: 'all', label: 'Zote', icon: <Layers size={14} /> },
@@ -881,6 +883,18 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                              <div className="flex items-center gap-1.5 mt-1 overflow-hidden">
                                 <MapPin className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
                                 <p className="text-[11px] text-neutral-400 font-bold truncate uppercase tracking-tighter">{selectedVendor.address || 'Shop No. 22, Elegant Tower, New...'}</p>
+                              </div>
+                              <div className="flex items-center gap-2 mt-3.5 justify-start">
+                                 <button 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setIsAROpen(true);
+                                    }}
+                                    className="flex items-center gap-2 bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 text-white px-4 py-2.5 rounded-2xl shadow-lg shadow-orange-950/20 transition-all font-black text-[10px] uppercase tracking-wider shrink-0 cursor-pointer"
+                                 >
+                                    <Camera className="w-4 h-4 animate-pulse" />
+                                    <span>AR Camera / Scan QR</span>
+                                 </button>
                              </div>
                           </div>
                        </div>
@@ -953,6 +967,14 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
           )}
         </motion.div>
       </div>
+      {isAROpen && (
+        <ARMapView 
+          vendors={vendors} 
+          initialTargetVendorId={selectedVendor?.id} 
+          onClose={() => setIsAROpen(false)}
+          userCoords={{ lat: position.lat, lng: position.lng }}
+        />
+      )}
     </AnimatePresence>,
     document.body
   );

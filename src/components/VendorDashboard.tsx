@@ -132,7 +132,7 @@ import {
 } from 'recharts';
 import { format } from 'date-fns';
 
-type TabType = 'overview' | 'orders' | 'products' | 'pos' | 'inventory_stats' | 'customers' | 'coupons' | 'staff' | 'settings' | 'tables' | 'market_pulse' | 'freshness' | 'messages' | 'branches' | 'twilio_responder' | 'rest_inventory' | 'rest_expenses' | 'rest_reports';
+type TabType = 'overview' | 'orders' | 'products' | 'pos' | 'inventory_stats' | 'customers' | 'coupons' | 'staff' | 'settings' | 'tables' | 'market_pulse' | 'freshness' | 'messages' | 'branches' | 'twilio_responder' | 'rest_inventory' | 'rest_expenses' | 'rest_reports' | 'map_qr_setup';
 
 const chartData = [
   { name: 'Mon', sales: 4000, orders: 24 },
@@ -149,6 +149,7 @@ import { useBusinessConfig } from '../BusinessConfigContext';
 import LocationPicker from './LocationPicker';
 import Chat from './Chat';
 import { TwilioResponderTab } from './TwilioResponderTab';
+import VendorMapQRSetup from './VendorMapQRSetup';
 
 interface MiniQrProps {
   data: string;
@@ -1547,6 +1548,7 @@ export default function VendorDashboard() {
       { id: 'coupons', label: 'Promotions', icon: Tag },
       { id: 'customers', label: 'CRM', icon: Users },
       { id: 'twilio_responder', label: 'SMS Auto Responder', icon: MessageCircle },
+      { id: 'map_qr_setup', label: 'Ramani & AR Setup', icon: QrCode },
       { id: 'staff', label: 'Staff', icon: UserCog },
       { id: 'settings', label: t('settings') || 'Settings', icon: Settings },
     ];
@@ -6944,6 +6946,18 @@ export default function VendorDashboard() {
                 className="max-w-7xl mx-auto space-y-6 px-1 sm:px-4 lg:px-6"
               >
                 <TwilioResponderTab vendorId={vendorProfile?.id || 'papo-hapo-express'} vendorCategory={vendorProfile?.category || 'bus_ticket'} />
+              </motion.div>
+            )}
+
+            {activeTab === 'map_qr_setup' && (
+              <motion.div
+                key="map_qr_setup"
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                className="max-w-7xl mx-auto space-y-6 px-1 sm:px-4 lg:px-6"
+              >
+                <VendorMapQRSetup vendorProfile={vendorProfile} />
               </motion.div>
             )}
 
