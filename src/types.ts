@@ -96,6 +96,12 @@ export interface VendorProfile {
     watermarkIcon?: 'none' | 'bus' | 'shield' | 'ticket' | 'star' | 'globe' | string;
     rulesText?: string;
   };
+  
+  // AR / Map Setup fields
+  arDirections?: string;
+  arIcon?: string;
+  arColor?: string;
+  arImageUrl?: string;
 }
 
 export interface Product {

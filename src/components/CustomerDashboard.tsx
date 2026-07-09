@@ -9,7 +9,7 @@ import { Skeleton } from './ui/Skeleton';
 import { 
   Utensils, ShoppingCart, Pill, Package, Car, Scissors, Hotel, Star, 
   Search, Bell, MapPin, ChevronRight, ShoppingBag, Tag, Plus, ShoppingBasket,
-  FileText, Smartphone, Box, Dog, Bus, Sparkles, Wrench, Key
+  FileText, Smartphone, Box, Dog, Bus, Sparkles, Wrench, Key, Camera
 } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
@@ -831,8 +831,14 @@ export default function CustomerDashboard() {
                 >
                 <div className="relative h-full bg-white dark:bg-neutral-900 rounded-[1.5rem] sm:rounded-[2.5rem] border border-neutral-200/60 dark:border-white/5 shadow-[0_10px_30px_rgba(0,0,0,0.06)] sm:shadow-[0_20px_50px_rgba(0,0,0,0.06)] group-hover:shadow-[0_40px_80px_rgba(234,88,12,0.15)] transition-all duration-500 overflow-hidden group/card border-b-2 sm:border-b-4 border-b-neutral-100 active:scale-[0.98]">
                 <div className="h-20 sm:h-40 md:h-48 relative overflow-hidden">
+                  {vendor.arImageUrl && (
+                    <div className="absolute top-2 sm:top-5 left-2 sm:left-5 z-10 bg-black/60 backdrop-blur-md px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border border-white/10 flex items-center gap-1 sm:gap-1.5 pointer-events-none">
+                       <Camera className="w-2.5 sm:w-3.5 h-2.5 sm:h-3.5 text-orange-500 animate-pulse" />
+                       <span className="text-[6px] sm:text-[8px] font-black uppercase tracking-widest text-white">Muonekano wa Duka</span>
+                    </div>
+                  )}
                   <img 
-                    src={vendor.bannerUrl || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=600&q=80'} 
+                    src={vendor.arImageUrl || vendor.bannerUrl || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=600&q=80'} 
                     alt={vendor.businessName} 
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 ease-out"
                     referrerPolicy="no-referrer"
