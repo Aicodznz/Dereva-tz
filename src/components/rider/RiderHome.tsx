@@ -88,8 +88,8 @@ function MapController({
       setTimeout(() => {
         try {
           map.invalidateSize();
-          if (position) {
-            const desiredZoom = activeRide && ['accepted', 'driver_arriving', 'on_trip'].includes(activeRide?.status) ? 18.5 : map.getZoom() || 17;
+          if (position && !hasCentered.current) {
+            const desiredZoom = activeRide && ['accepted', 'driver_arriving', 'on_trip'].includes(activeRide?.status) ? 18.5 : 17;
             map.setView(position, desiredZoom, { animate: false });
           }
         } catch (e) {
@@ -98,7 +98,7 @@ function MapController({
       }, delay)
     );
     return () => timers.forEach(clearTimeout);
-  }, [map, activeRide?.status, activeRide?.id, position]);
+  }, [map, activeRide?.status, activeRide?.id]);
 
   // Handle dynamic map resize constraints beautifully via ResizeObserver on mobile/tablet viewports
   useEffect(() => {
@@ -1602,8 +1602,10 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
   let etaPickupTextD = "baada ya dakika 5 min";
   if (activeRide && position) {
     const distToPickup = getDistanceDriver([position[0], position[1]], [activeRide.pickup.lat, activeRide.pickup.lng]);
-    if (distToPickup < 60 || activeRide.status === "driver_arrived") {
+    if (activeRide.status === "driver_arrived" || distToPickup < 15) {
       etaPickupTextD = "UMESHAWASILI!";
+    } else if (distToPickup < 60) {
+      etaPickupTextD = "UNAWASILI SASA...";
     } else {
       const durSecs = distToPickup / 6.5;
       const realDurSecs = Math.max(0, durSecs - (secondsOffset % 30));

@@ -358,11 +358,13 @@ const MapControl = ({
         const posKey = `${position[0]},${position[1]}_${containerResizedCount}`;
         if (lastSinglePosRef.current !== posKey) {
           lastSinglePosRef.current = posKey;
-          map.setView(position, map.getZoom() || 15, { animate: true, duration: 0.8 });
+          if (autoFollow) {
+            map.setView(position, map.getZoom() || 15, { animate: true, duration: 0.8 });
+          }
         }
       }
     }
-  }, [step, routeCoords, position, map, containerResizedCount]);
+  }, [step, routeCoords, position, map, containerResizedCount, autoFollow]);
 
   useEffect(() => {
     if (!position || !autoFollow) return;
@@ -510,6 +512,7 @@ export default function TaxiBooking() {
   const [manualRotation, setManualRotation] = useState(0);
   const [is3DMode, setIs3DMode] = useState(false);
   const justSelectedRef = useRef(false);
+  const [userLivePos, setUserLivePos] = useState<[number, number] | null>(null);
 
   const [taxiBanners, setTaxiBanners] = useState<{ id?: string; title: string; sub: string; img: string; active?: boolean }[]>([]);
 
@@ -1106,6 +1109,26 @@ export default function TaxiBooking() {
   // Load initial readable names & detect current location
   useEffect(() => {
     handleCurrentLocation(true);
+  }, []);
+
+  // Watch customer's actual GPS location in real-time
+  useEffect(() => {
+    if ("geolocation" in navigator) {
+      const watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          if (lat && lng) {
+            setUserLivePos([lat, lng]);
+          }
+        },
+        (err) => {
+          console.warn("[TaxiBooking] watchPosition error:", err);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 10000 }
+      );
+      return () => navigator.geolocation.clearWatch(watchId);
+    }
   }, []);
 
   const { routeCoords, totalDistance, totalDuration } = useRouting(
@@ -2832,8 +2855,10 @@ export default function TaxiBooking() {
 
       if (driverLoc) {
         const distToPickup = getDistanceLocal(driverLoc, pickupPos);
-        if (distToPickup < 60) {
+        if (activeRide.status === "driver_arrived" || distToPickup < 15) {
           etaPickupText = "DEREVA KASHAFIKA!";
+        } else if (distToPickup < 60) {
+          etaPickupText = "DEREVA ANASHAWASILI...";
         } else {
           const durSecs = distToPickup / 6.5; // average 23 km/h
           const realDurSecs = Math.max(0, durSecs - (secondsOffset % 30));
@@ -3290,6 +3315,24 @@ export default function TaxiBooking() {
                     )}
                     {destination && (
                       <Marker position={destPos} icon={getEndPin(etaDestText)} />
+                    )}
+
+                    {/* User's Current Live GPS Location (Blue Dot) */}
+                    {userLivePos && (
+                      <Marker
+                        position={userLivePos}
+                        icon={L.divIcon({
+                          className: "user-gps-marker",
+                          html: `
+                            <div class="relative flex items-center justify-center w-6 h-6">
+                              <div class="absolute w-4 h-4 rounded-full bg-blue-500/30 animate-ping"></div>
+                              <div class="w-3 h-3 rounded-full bg-blue-600 border-2 border-white shadow-md"></div>
+                            </div>
+                          `,
+                          iconSize: [24, 24],
+                          iconAnchor: [12, 12],
+                        })}
+                      />
                     )}
 
                     {/* Assigned Driver Marker */}
