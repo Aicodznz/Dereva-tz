@@ -402,17 +402,68 @@ export default function CustomerDashboard() {
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const effectiveSearchQuery = contextSearchQuery;
 
-  const filteredVendors = vendors.filter(v => 
-    v.businessName.toLowerCase().includes(effectiveSearchQuery.toLowerCase()) ||
-    v.category?.toLowerCase().includes(effectiveSearchQuery.toLowerCase()) ||
-    v.description?.toLowerCase().includes(effectiveSearchQuery.toLowerCase())
-  );
+  const filteredVendors = vendors.filter(v => {
+    // Filter out vendors of hidden services
+    if (v.category) {
+      const categoryToServiceId: Record<string, string> = {
+        hotel: 'hoteli',
+        restaurant: 'chakula',
+        grocery: 'sokoni',
+        pharmacy: 'dawa',
+        ecommerce: 'maduka',
+        salon: 'saluni',
+        bus_ticket: 'bus_ticket',
+        car_rental: 'car_rental',
+        car_sale: 'car_sale',
+        taxi: 'teksi',
+        parcel: 'vifurushi'
+      };
+      const serviceId = categoryToServiceId[v.category] || v.category;
+      const sState = (businessConfig?.services || {})[serviceId];
+      if (sState && sState.enabled === false) {
+        return false;
+      }
+    }
+
+    return v.businessName.toLowerCase().includes(effectiveSearchQuery.toLowerCase()) ||
+      v.category?.toLowerCase().includes(effectiveSearchQuery.toLowerCase()) ||
+      v.description?.toLowerCase().includes(effectiveSearchQuery.toLowerCase());
+  });
 
   const filteredProducts = products.filter(p => {
     const vendor = vendors.find(v => v.id === p.vendorId);
     if (vendor && vendor.hideProducts === true) {
       return false;
     }
+
+    // Filter out products of hidden services
+    const serviceCategory = vendor?.category || p.vendorCategory || p.category;
+    if (serviceCategory) {
+      const categoryToServiceId: Record<string, string> = {
+        hotel: 'hoteli',
+        restaurant: 'chakula',
+        grocery: 'sokoni',
+        pharmacy: 'dawa',
+        ecommerce: 'maduka',
+        salon: 'saluni',
+        bus_ticket: 'bus_ticket',
+        car_rental: 'car_rental',
+        car_sale: 'car_sale',
+        taxi: 'teksi',
+        parcel: 'vifurushi'
+      };
+      const serviceId = categoryToServiceId[serviceCategory] || serviceCategory;
+      const sState = (businessConfig?.services || {})[serviceId];
+      if (sState) {
+        if (sState.enabled === false) {
+          return false;
+        }
+        if (sState.maintenance === true && sState.hideProductsDuringMaintenance === true) {
+          return false;
+        }
+      }
+    }
+
     return p.name.toLowerCase().includes(effectiveSearchQuery.toLowerCase()) ||
            p.description?.toLowerCase().includes(effectiveSearchQuery.toLowerCase()) ||
            p.category?.toLowerCase().includes(effectiveSearchQuery.toLowerCase());
@@ -1217,7 +1268,7 @@ export default function CustomerDashboard() {
               );
             })
           )}
-          {products.length === 0 && (
+          {filteredProducts.length === 0 && (
             <div className="min-w-full py-8 text-center bg-neutral-50 dark:bg-neutral-900/50 rounded-3xl border border-dashed border-neutral-200 dark:border-neutral-800 col-span-full">
               <p className="text-neutral-400 text-xs italic">{t('no_products_found') || 'Hakuna bidhaa maarufu kwa sasa.'}</p>
             </div>
