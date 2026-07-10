@@ -112,6 +112,7 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
   const [isScanning, setIsScanning] = useState(false);
   const [scanSuccess, setScanSuccess] = useState<string | null>(null);
   const [audioEnabled, setAudioEnabled] = useState(true);
+  const [isStopMediaCollapsed, setIsStopMediaCollapsed] = useState(true);
 
   // Compass Drag / Manual Control States
   const isDraggingRef = useRef(false);
@@ -987,6 +988,79 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
           </div>
         )}
 
+        {/* Persistent/Collapsible Active Stop HUD for flat media view */}
+        {arRoute && !scanMode && arRoute.stops && arRoute.stops[currentStopIndex] && (
+          <div className="absolute top-[184px] inset-x-5 z-40 bg-black/90 backdrop-blur-xl border border-white/10 p-4 rounded-3xl flex flex-col gap-2 shadow-2xl pointer-events-auto max-h-[48vh] overflow-y-auto no-scrollbar">
+            {(() => {
+              const stop = arRoute.stops[currentStopIndex];
+              return (
+                <>
+                  <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                    <div className="text-left min-w-0">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-orange-400">Kituo cha Sasa ({currentStopIndex + 1})</span>
+                      <h4 className="text-xs font-black uppercase text-white leading-tight truncate max-w-[150px]">
+                        {stop.stopName || stop.name}
+                      </h4>
+                    </div>
+                    <button 
+                      onClick={() => setIsStopMediaCollapsed(!isStopMediaCollapsed)}
+                      className="px-3 py-1.5 bg-orange-600 hover:bg-orange-500 rounded-xl text-[9px] font-black uppercase tracking-wider text-white transition-all flex items-center gap-1 shrink-0"
+                    >
+                      <span>{isStopMediaCollapsed ? 'Fungua Picha/Video 👁️' : 'Funga Picha/Video ❌'}</span>
+                    </button>
+                  </div>
+
+                  {!isStopMediaCollapsed && (
+                    <div className="space-y-3 pt-1 text-left">
+                      {(stop.stopDescription || stop.voiceText || stop.description) && (
+                        <p className="text-[10px] text-neutral-300 font-medium leading-relaxed">
+                          {stop.stopDescription || stop.voiceText || stop.description}
+                        </p>
+                      )}
+
+                      {/* Image */}
+                      {(stop.imageUrl || stop.image) && (
+                        <div className="w-full h-32 rounded-2xl overflow-hidden border border-white/10 bg-neutral-900 relative">
+                          <img 
+                            src={stop.imageUrl || stop.image} 
+                            alt={stop.stopName || "Stop Image"} 
+                            className="w-full h-full object-cover"
+                            referrerPolicy="no-referrer"
+                          />
+                        </div>
+                      )}
+
+                      {/* Video */}
+                      {(stop.videoUrl || stop.video) && (
+                        <div className="w-full p-2 bg-neutral-900 border border-white/10 rounded-2xl text-left">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-orange-400">🎥 Video Clip:</span>
+                          <div className="mt-1 aspect-video rounded-xl overflow-hidden bg-black flex items-center justify-center relative">
+                            {renderVideoPlayer(stop.videoUrl || stop.video)}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* External Link */}
+                      {(stop.linkUrl || stop.link) && (
+                        <div className="w-full">
+                          <a 
+                            href={stop.linkUrl || stop.link} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="w-full py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-black uppercase tracking-wider block text-center transition-all shadow-lg"
+                          >
+                            🌐 Fungua Kiungo / Open External Link
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+        )}
+
         {/* 2. MAIN AR VIRTUAL MARKER OVERLAY */}
         {!scanMode && (targetVendor || arRoute) && (
           <div className="absolute inset-0 pointer-events-none">
@@ -1787,7 +1861,7 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
         </div>
 
         {/* Store selector slider/list for fast navigation switches */}
-        {!arRoute && (
+        {!arRoute && !initialTargetVendorId && (
           <div className="flex flex-col gap-2">
             <p className="text-[10px] text-neutral-500 font-black uppercase tracking-[0.2em]">Chagua duka la kupata maelekezo</p>
             <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 max-w-full">

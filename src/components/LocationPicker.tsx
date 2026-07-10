@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Search, MapPin, X, Navigation, Loader2, Star, ArrowRight, Package, Clock, RotateCw, Layers, Camera } from 'lucide-react';
@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firestore';
 import ARMapView from './map/ARMapView';
 
 // Fix for default marker icon in Leaflet - using CDN for maximum stability in preview environment
@@ -181,6 +181,43 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
   const [recentPlaces, setRecentPlaces] = useState<{ address: string; lat: number; lng: number }[]>([]);
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [isAROpen, setIsAROpen] = useState(false);
+  const [activeRoute, setActiveRoute] = useState<any>(null);
+
+  // Load AR Route for 2D map tracing if arRouteId is provided or preSelectedVendorId is set
+  useEffect(() => {
+    async function loadRoute() {
+      if (arRouteId) {
+        try {
+          const routeDoc = await getDoc(doc(db, 'ar_routes', arRouteId));
+          if (routeDoc.exists()) {
+            setActiveRoute({ id: routeDoc.id, ...routeDoc.data() });
+          }
+        } catch (e) {
+          console.error("Error loading route in LocationPicker:", e);
+        }
+      } else if (preSelectedVendorId) {
+        try {
+          const q = query(
+            collection(db, 'ar_routes'),
+            where('vendorId', '==', preSelectedVendorId)
+          );
+          const snap = await getDocs(q);
+          if (!snap.empty) {
+            setActiveRoute({ id: snap.docs[0].id, ...snap.docs[0].data() });
+          } else {
+            setActiveRoute(null);
+          }
+        } catch (e) {
+          console.error("Error loading route for vendor in LocationPicker:", e);
+        }
+      } else {
+        setActiveRoute(null);
+      }
+    }
+    if (isOpen) {
+      loadRoute();
+    }
+  }, [isOpen, arRouteId, preSelectedVendorId]);
 
   const categories = [
     { id: 'all', label: 'Zote', icon: <Layers size={14} /> },
@@ -194,6 +231,14 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
   ];
 
   const filteredVendors = React.useMemo(() => {
+    if (preSelectedVendorId) {
+      const found = vendors.filter(v => v.id === preSelectedVendorId);
+      if (found.length > 0) return found;
+      if (selectedVendor && selectedVendor.id === preSelectedVendorId) {
+        return [selectedVendor];
+      }
+      return [];
+    }
     return vendors.filter(v => {
       if (categoryFilter === 'all') return true;
       const cat = (v.category || '').toLowerCase();
@@ -208,7 +253,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
       
       return true;
     });
-  }, [vendors, categoryFilter]);
+  }, [vendors, categoryFilter, preSelectedVendorId, selectedVendor]);
 
   // Load recent places from localStorage
   useEffect(() => {
@@ -299,25 +344,36 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
     }
   };
 
-  // Handle pre-selected vendor
+  // Handle pre-selected vendor or direct QR load with direct Firestore fetching fallback
   useEffect(() => {
-    if (isOpen && (preSelectedVendorId || arRouteId)) {
-      if (preSelectedVendorId && vendors.length > 0) {
-        const vendor = vendors.find(v => v.id === preSelectedVendorId);
+    async function initPreselected() {
+      if (!isOpen) return;
+      if (preSelectedVendorId) {
+        let vendor = vendors.find(v => v.id === preSelectedVendorId);
+        if (!vendor) {
+          try {
+            const docRef = await getDoc(doc(db, 'vendors', preSelectedVendorId));
+            if (docRef.exists()) {
+              vendor = { id: docRef.id, ...docRef.data() } as any;
+            }
+          } catch (e) {
+            console.error("Error loading deep-linked vendor directly in LocationPicker:", e);
+          }
+        }
         if (vendor && vendor.location) {
           const newPos = new L.LatLng(vendor.location.lat, vendor.location.lng);
           setPosition(newPos);
-          // We don't set userOrigin here as we want to measure distance from where they are
           setSelectedVendor(vendor);
           setAddress(vendor.address || vendor.businessName);
         }
       }
       
       // Auto-open AR viewer directly for deep-linked scanning!
-      if (isMapViewOnly) {
+      if (isMapViewOnly && (preSelectedVendorId || arRouteId)) {
         setIsAROpen(true);
       }
     }
+    initPreselected();
   }, [isOpen, preSelectedVendorId, arRouteId, vendors, isMapViewOnly]);
 
   const getNearestPopularPlace = (lat: number, lng: number): string => {
@@ -730,6 +786,51 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                         }}
                       />
                     ))}
+
+                    {/* Render active route's path / polyline on the 2D map */}
+                    {activeRoute && activeRoute.stops && activeRoute.stops.length > 0 && (
+                      <>
+                        <Polyline 
+                          positions={activeRoute.stops.map((stop: any) => [stop.lat, stop.lng])} 
+                          color="#f97316" 
+                          weight={5} 
+                          dashArray="5, 10" 
+                          lineCap="round"
+                        />
+                        {/* Render active route's stops as numbered/custom emoji markers */}
+                        {activeRoute.stops.map((stop: any, idx: number) => {
+                          const charType = stop.character || 'guide';
+                          const stopEmoji = [
+                            { id: 'lion', icon: '🦁' },
+                            { id: 'castle', icon: '🏰' },
+                            { id: 'guide', icon: '🤖' },
+                            { id: 'treasure', icon: '🎁' },
+                            { id: 'coin', icon: '🪙' },
+                            { id: 'dragon', icon: '🐉' },
+                            { id: 'bread', icon: '🍞' },
+                            { id: 'soda', icon: '🥤' },
+                            { id: 'tv', icon: '📺' },
+                            { id: 'teacher', icon: '👩‍🏫' },
+                            { id: 'fireworks', icon: '🎉' },
+                          ].find(c => c.id === charType)?.icon || '📍';
+
+                          const stopIcon = L.divIcon({
+                            html: `<div class="flex items-center justify-center w-8 h-8 rounded-full bg-orange-600 border-2 border-white shadow-lg text-sm text-white">${stopEmoji}</div>`,
+                            className: 'custom-stop-icon',
+                            iconSize: [32, 32],
+                            iconAnchor: [16, 16],
+                          });
+
+                          return (
+                            <Marker 
+                              key={`stop-marker-${idx}`}
+                              position={[stop.lat, stop.lng]}
+                              icon={stopIcon}
+                            />
+                          );
+                        })}
+                      </>
+                    )}
                   </>
                 )}
               </MapContainer>
