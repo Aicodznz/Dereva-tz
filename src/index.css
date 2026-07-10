@@ -400,3 +400,15 @@
   outline: none;
   background-color: #0d0d12 !important; /* Elegant off-black fallback background */
 }
+
+@keyframes scan {
+  0% {
+    transform: translateY(12px);
+  }
+  50% {
+    transform: translateY(calc(100vh - 120px));
+  }
+  100% {
+    transform: translateY(12px);
+  }
+}

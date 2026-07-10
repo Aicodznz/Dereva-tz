@@ -113,6 +113,9 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
   const [scanSuccess, setScanSuccess] = useState<string | null>(null);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [isStopMediaCollapsed, setIsStopMediaCollapsed] = useState(true);
+  const [arMode, setArMode] = useState<'locked' | 'world' | 'nav'>('locked');
+  const [isScanningEnvironment, setIsScanningEnvironment] = useState(false);
+  const [scanProgress, setScanProgress] = useState(0);
 
   // Compass Drag / Manual Control States
   const isDraggingRef = useRef(false);
@@ -396,6 +399,36 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
     }
   };
 
+  // Environment Recognition Scanning Simulation
+  useEffect(() => {
+    let interval: any = null;
+    if (isScanningEnvironment) {
+      interval = setInterval(() => {
+        setScanProgress(prev => {
+          if (prev >= 100) {
+            clearInterval(interval);
+            setIsScanningEnvironment(false);
+            setHasArrived(true);
+            triggerBeep(880, 0.4); // Celebratory tone
+            setTimeout(() => triggerBeep(1100, 0.5), 150);
+            return 100;
+          }
+          const increment = Math.floor(Math.random() * 8) + 5;
+          const nextVal = Math.min(100, prev + increment);
+          
+          // Periodic high pitch laser click sound for tech scanning realism
+          if (Math.floor(nextVal / 12) > Math.floor(prev / 12)) {
+            triggerBeep(1300, 0.03);
+          }
+          return nextVal;
+        });
+      }, 120);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isScanningEnvironment]);
+
   // Helper formula to compute bearing between two points
   const calculateBearing = (lat1: number, lon1: number, lat2: number, lon2: number) => {
     const dLon = (lon2 - lon1) * Math.PI / 180;
@@ -463,11 +496,45 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
 
   const activeDistance = simulatedDistance !== null ? simulatedDistance : Math.round(rawDistance);
 
+  const getNavigationArrow = (offsetDeg: number) => {
+    // offsetDeg is between -180 and 180. Normalize to 0 to 360
+    const normalized = (offsetDeg + 360) % 360;
+    if (normalized >= 337.5 || normalized < 22.5) return { icon: '⬆', label: 'Nenda Mbele Moja kwa Moja / Go Straight ⬆' };
+    if (normalized >= 22.5 && normalized < 67.5) return { icon: '↗', label: 'Pinda Kulia Kidogo / Slight Right ↗' };
+    if (normalized >= 67.5 && normalized < 112.5) return { icon: '➡', label: 'Pinda Kulia / Turn Right ➡' };
+    if (normalized >= 112.5 && normalized < 157.5) return { icon: '↘', label: 'Pinda Kulia Nyuma / Sharp Right ↘' };
+    if (normalized >= 157.5 && normalized < 202.5) return { icon: '⬇', label: 'Geuka Nyuma / Make a U-Turn ⬇' };
+    if (normalized >= 202.5 && normalized < 247.5) return { icon: '↙', label: 'Pinda Kushoto Nyuma / Sharp Left ↙' };
+    if (normalized >= 247.5 && normalized < 292.5) return { icon: '⬅', label: 'Pinda Kushoto / Turn Left ⬅' };
+    return { icon: '↖', label: 'Pinda Kushoto Kidogo / Slight Left ↖' };
+  };
+
+  const startEnvironmentScan = () => {
+    if (activeDistance > 30) {
+      const proceed = confirm(`Uko mbali sana na eneo hili (${activeDistance} Mita).\n\nIli kufungua maudhui (Unlock Content), WebAR inahitaji uwe ndani ya umbali wa mita 30 ili kuanza kutambua mazingira.\n\nJe, ungependa kuiga kuwa umefika hapo hapo (Simulated GPS Arrival) ili kuanza Visual Environmental Scan ya sekunde chache kujaribu uwezo wa app?`);
+      if (proceed) {
+        setSimulatedDistance(12);
+        setIsSimulatingWalk(false);
+        setIsScanningEnvironment(true);
+        setScanProgress(0);
+        triggerBeep(600, 0.15);
+      }
+      return;
+    }
+    setIsScanningEnvironment(true);
+    setScanProgress(0);
+    triggerBeep(600, 0.15);
+  };
+
   // Compute horizontal angle offset to target
   // angleOffset is in degrees, between -180 and 180
   let angleOffset = (targetBearing - currentHeading);
   if (angleOffset > 180) angleOffset -= 360;
   if (angleOffset < -180) angleOffset += 360;
+
+  if (arMode === 'locked') {
+    angleOffset = 0; // Force centered in screen-lock mode
+  }
 
   // Determine if target vendor is inside field of view (approx 60 degrees)
   const FOV = 60;
@@ -515,6 +582,10 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
         let offset = (bearing - currentHeading);
         if (offset > 180) offset -= 360;
         if (offset < -180) offset += 360;
+
+        if (arMode === 'locked' && idx === currentStopIndex) {
+          offset = 0; // Force active stop to be centered on screen
+        }
 
         const isVisible = Math.abs(offset) < (FOV / 2);
         const horizPercent = 50 + (offset / (FOV / 2)) * 50;
@@ -789,6 +860,67 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
               muted 
               className="absolute inset-0 w-full h-full object-cover pointer-events-none"
             />
+
+            {/* 8thWall-style Environment Recognition Scanning Overlay */}
+            {isScanningEnvironment && (
+              <div className="absolute inset-0 bg-black/60 backdrop-blur-xs z-50 flex flex-col items-center justify-center pointer-events-auto">
+                {/* Tech circular scan dial */}
+                <div className="relative w-64 h-64 border border-dashed border-orange-500/40 rounded-full flex items-center justify-center animate-[spin_20s_linear_infinite]">
+                  {/* Spinning tech arcs */}
+                  <div className="absolute inset-2 border-2 border-orange-500/80 border-t-transparent border-b-transparent rounded-full animate-[spin_4s_linear_infinite_reverse]" />
+                  <div className="absolute inset-6 border border-dashed border-yellow-500/40 rounded-full" />
+                  <div className="absolute inset-10 border border-orange-500/20 rounded-full animate-pulse" />
+                </div>
+
+                {/* Crosshairs & Scanning Grid Matrix */}
+                <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                  {/* Corner crosshairs */}
+                  <div className="absolute top-12 left-12 w-6 h-6 border-t-2 border-l-2 border-orange-500" />
+                  <div className="absolute top-12 right-12 w-6 h-6 border-t-2 border-r-2 border-orange-500" />
+                  <div className="absolute bottom-12 left-12 w-6 h-6 border-b-2 border-l-2 border-orange-500" />
+                  <div className="absolute bottom-12 right-12 w-6 h-6 border-b-2 border-r-2 border-orange-500" />
+
+                  {/* Floating feature point markers / track dots */}
+                  <div className="absolute top-1/3 left-1/4 w-2 h-2 bg-yellow-500 rounded-full animate-ping" />
+                  <div className="absolute top-1/4 right-1/3 w-1.5 h-1.5 bg-orange-400 rounded-full animate-pulse [animation-delay:0.3s]" />
+                  <div className="absolute bottom-1/3 left-1/3 w-2.5 h-2.5 bg-yellow-400 rounded-full animate-ping [animation-delay:0.7s]" />
+                  <div className="absolute bottom-1/4 right-1/4 w-1.5 h-1.5 bg-orange-500 rounded-full animate-pulse [animation-delay:0.5s]" />
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 border border-orange-500/60 rounded-full animate-ping" />
+
+                  {/* Vertical sweep laser line */}
+                  <div className="absolute inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-orange-500/90 to-transparent shadow-[0_0_15px_#f97316] animate-[scan_2.5s_ease-in-out_infinite]" />
+                </div>
+
+                {/* Scan progress info card */}
+                <div className="absolute bottom-[20%] flex flex-col items-center gap-3 bg-black/90 border border-orange-500/30 px-6 py-4 rounded-3xl text-center max-w-xs shadow-[0_20px_50px_rgba(249,115,22,0.2)]">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-orange-500 animate-ping" />
+                    <span className="text-[10px] font-black uppercase tracking-[0.25em] text-orange-500">
+                      📷 Scan mazingira
+                    </span>
+                  </div>
+                  <h3 className="text-sm font-black uppercase text-white leading-tight">
+                    {scanProgress < 100 ? 'Inatafuta alama za mazingira...' : 'Mazingira yametambuliwa! ✅'}
+                  </h3>
+                  
+                  {/* Progress Bar */}
+                  <div className="w-48 h-2.5 bg-neutral-900 rounded-full overflow-hidden border border-white/10 mt-1 relative">
+                    <div 
+                      className="h-full bg-gradient-to-r from-orange-600 via-yellow-500 to-orange-500 rounded-full transition-all duration-100"
+                      style={{ width: `${scanProgress}%` }}
+                    />
+                  </div>
+                  
+                  <span className="font-mono text-xs font-black text-orange-400">{scanProgress}%</span>
+                  
+                  <p className="text-[9px] text-neutral-400 leading-normal">
+                    {scanProgress < 100 
+                      ? 'Tafadhali zungusha kamera polepole ili kuruhusu algorithms za WebAR kupata SLAM surface anchors...' 
+                      : 'Hongera! Kituo kimefunguliwa kwa mafanikio! Fungua sasa kupata tuzo yako.'}
+                  </p>
+                </div>
+              </div>
+            )}
             
             {/* Shutter feedback flash */}
             {isCapturing && (
@@ -930,7 +1062,53 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
             <X className="w-5 h-5" />
           </button>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            {/* 3-Mode Selector Segmented Control */}
+            <div className="bg-black/60 backdrop-blur-lg border border-white/15 p-1 rounded-full flex items-center gap-1 shadow-lg">
+              <button
+                onClick={() => {
+                  setArMode('locked');
+                  triggerBeep(440, 0.05);
+                }}
+                className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider transition-all ${
+                  arMode === 'locked' 
+                    ? 'bg-orange-600 text-white shadow-md shadow-orange-950/40 animate-pulse' 
+                    : 'text-neutral-400 hover:text-neutral-200'
+                }`}
+                title="Locked Mode - Character remains stable at screen center"
+              >
+                🔒 Locked
+              </button>
+              <button
+                onClick={() => {
+                  setArMode('world');
+                  triggerBeep(520, 0.05);
+                }}
+                className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider transition-all ${
+                  arMode === 'world' 
+                    ? 'bg-cyan-600 text-white shadow-md shadow-cyan-950/40' 
+                    : 'text-neutral-400 hover:text-neutral-200'
+                }`}
+                title="AR World Mode - Character stays at actual physical coordinate"
+              >
+                🌍 World
+              </button>
+              <button
+                onClick={() => {
+                  setArMode('nav');
+                  triggerBeep(640, 0.05);
+                }}
+                className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider transition-all ${
+                  arMode === 'nav' 
+                    ? 'bg-purple-600 text-white shadow-md shadow-purple-950/40 animate-pulse' 
+                    : 'text-neutral-400 hover:text-neutral-200'
+                }`}
+                title="Navigation Mode - Dynamic waypoint wayfinding arrows"
+              >
+                🎯 Nav
+              </button>
+            </div>
+
             <button 
               onClick={() => setAudioEnabled(!audioEnabled)}
               className="w-11 h-11 bg-black/60 backdrop-blur-lg border border-white/15 rounded-full flex items-center justify-center hover:bg-black/80 transition-colors shadow-lg"
@@ -1064,8 +1242,116 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
         {/* 2. MAIN AR VIRTUAL MARKER OVERLAY */}
         {!scanMode && (targetVendor || arRoute) && (
           <div className="absolute inset-0 pointer-events-none">
-            {/* IF IT IS AN AR TOUR (ROUTE), RENDER ALL UPCOMING STOPS SPATIALLY */}
-            {arRoute ? (
+            {arMode === 'nav' ? (
+              /* DEDICATED NAV MODE WAYFINDING HUD */
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none p-6 z-30">
+                {/* 3D Directional Arrow Pointer Ring */}
+                <div className="relative w-44 h-44 bg-[#0B0C10]/90 backdrop-blur-xl rounded-full border-2 border-purple-500/30 flex flex-col items-center justify-center shadow-[0_15px_45px_rgba(168,85,247,0.35)] pointer-events-auto mt-24">
+                  {/* Outer pulsating radar rings */}
+                  <div className="absolute inset-0 rounded-full border border-purple-500/50 animate-ping opacity-25" />
+                  <div className="absolute -inset-4 rounded-full border border-purple-500/30 animate-pulse opacity-40 [animation-duration:3s]" />
+                  
+                  {/* Dynamic Heading Arrow rotated based on angleOffset */}
+                  <motion.div 
+                    animate={{ rotate: angleOffset }}
+                    transition={{ type: "spring", stiffness: 120, damping: 15 }}
+                    className="w-20 h-20 flex items-center justify-center text-6xl text-purple-400 font-black relative"
+                  >
+                    ⬆
+                    {/* Shadow visual glow on arrow */}
+                    <span className="absolute inset-0 flex items-center justify-center text-6xl text-purple-500/40 blur-md select-none pointer-events-none">⬆</span>
+                  </motion.div>
+
+                  {/* Tiny Bearing Label */}
+                  <span className="text-[8px] font-mono font-black text-neutral-400 mt-0.5">
+                    BEARING: {targetBearing}° | DEV: {Math.round(currentHeading)}°
+                  </span>
+                </div>
+
+                {/* Status indicator below the pointer dial */}
+                <div className="mt-6 flex flex-col items-center text-center bg-[#0B0C10]/95 backdrop-blur-xl border border-purple-500/40 p-5 rounded-[2.25rem] w-80 shadow-2xl pointer-events-auto">
+                  <span className="px-2.5 py-1 bg-purple-500/10 border border-purple-500/30 rounded-full text-[8px] font-black uppercase tracking-widest text-purple-400 mb-2.5 animate-pulse">
+                    🎯 Wayfinding Active
+                  </span>
+
+                  <h3 className="text-[10px] font-black uppercase tracking-wider text-neutral-400 leading-none mb-1">
+                    Unapoelekea / Destination
+                  </h3>
+                  <h2 className="text-sm font-black uppercase text-white tracking-tight mb-2 truncate max-w-full">
+                    {arRoute 
+                      ? (arRoute.stops[currentStopIndex]?.stopName || arRoute.stops[currentStopIndex]?.name)
+                      : targetVendor?.businessName
+                    }
+                  </h2>
+
+                  {/* Wayfinding guidance status */}
+                  <p className="text-[10px] text-purple-300 font-extrabold uppercase tracking-widest mb-3 leading-none">
+                    {getNavigationArrow(angleOffset).label}
+                  </p>
+
+                  {/* Interactive Dynamic Distance Countdown Meter */}
+                  <div className="w-full bg-neutral-950/60 p-3.5 rounded-2xl border border-white/5 flex flex-col items-center mb-4">
+                    <span className="text-[8px] text-neutral-500 font-extrabold uppercase tracking-widest mb-1">Mita zilizobaki (Distance)</span>
+                    <div className="flex items-baseline gap-1 animate-pulse">
+                      <span className="font-mono text-3xl font-black text-purple-400 tracking-tighter">
+                        {activeDistance}
+                      </span>
+                      <span className="text-xs font-bold text-neutral-400">mita</span>
+                    </div>
+
+                    {/* Progress slider bar towards destination */}
+                    <div className="w-full h-1.5 bg-neutral-900 rounded-full mt-2 overflow-hidden">
+                      <div 
+                        className="h-full bg-gradient-to-r from-purple-600 to-pink-500 transition-all duration-300"
+                        style={{ width: `${Math.max(5, Math.min(100, (1 - (activeDistance / 120)) * 100))}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Bottom Action Controls */}
+                  <div className="w-full space-y-2">
+                    {hasArrived ? (
+                      <div className="w-full py-3.5 bg-green-500/15 border border-green-500/35 text-green-400 rounded-2xl font-black uppercase tracking-wider text-[11px] flex flex-col items-center justify-center gap-1.5 shadow-lg">
+                        <CheckCircle className="w-5 h-5 text-green-400 animate-bounce" />
+                        <span className="font-extrabold text-white text-[11px]">🎉 UMEFIKA! / YOU HAVE ARRIVED!</span>
+                        <span className="text-[9px] text-green-300">Hongera sana! Karibu kwenye eneo husika.</span>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Interactive "Scan Environment" or Walking Simulations */}
+                        <Button
+                          onClick={startEnvironmentScan}
+                          className="w-full py-3.5 bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-500 hover:to-pink-400 text-white rounded-xl font-black uppercase tracking-wider text-[10px] flex items-center justify-center gap-1.5 transition-all shadow-[0_10px_25px_rgba(168,85,247,0.3)] animate-pulse"
+                        >
+                          <Camera className="w-4 h-4" />
+                          <span>📷 Scan mazingira / Scan Surface</span>
+                        </Button>
+
+                        {/* Walking simulation triggers */}
+                        <Button 
+                          onClick={() => setIsSimulatingWalk(!isSimulatingWalk)}
+                          className={`w-full py-2.5 rounded-xl font-black uppercase tracking-wider text-[9px] flex items-center justify-center gap-1.5 transition-all ${isSimulatingWalk ? 'bg-amber-600 text-white animate-pulse' : 'bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10'}`}
+                        >
+                          <Sparkles className="w-3 h-3 animate-spin" />
+                          {isSimulatingWalk ? 'Ninasafiri (Simulating...)' : 'Simulate Walk / Simulia Kutembea 🚶‍♂️'}
+                        </Button>
+                      </>
+                    )}
+
+                    {/* Next stop trigger once arrived in nav mode */}
+                    {hasArrived && arRoute && (
+                      <Button 
+                        onClick={handleNextStop}
+                        className="w-full py-3.5 bg-green-600 hover:bg-green-500 text-white rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg mt-2 animate-bounce"
+                      >
+                        <span>{currentStopIndex >= arRoute.stops.length - 1 ? 'Kamilisha Utalii' : 'Nenda Kituo Kinachofuata'}</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : arRoute ? (
               <>
                 {upcomingStopsRenderData.map((item) => {
                   if (!item || !item.isVisible) return null;
@@ -1271,14 +1557,24 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
                               )}
                             </div>
                           ) : (
-                            /* Walking simulation buttons for testers/users */
-                            <Button 
-                              onClick={() => setIsSimulatingWalk(!isSimulatingWalk)}
-                              className={`w-full py-4 rounded-2xl font-black uppercase tracking-wider text-xs flex items-center justify-center gap-2 transition-all ${isSimulatingWalk ? 'bg-amber-600 hover:bg-amber-700 text-white animate-pulse' : 'bg-orange-600 hover:bg-orange-500 text-white shadow-lg'}`}
-                            >
-                              <Sparkles className="w-4 h-4 animate-spin" />
-                              {isSimulatingWalk ? 'Inatembea (Simulating...)' : 'Anza Safari (Simulate Walk)'}
-                            </Button>
+                            /* Walking simulation and visual scanning triggers */
+                            <div className="w-full space-y-2.5 pointer-events-auto">
+                              <Button 
+                                onClick={startEnvironmentScan}
+                                className="w-full py-4 bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 transition-all shadow-[0_12px_35px_rgba(249,115,22,0.35)] animate-pulse"
+                              >
+                                <Camera className="w-4 h-4 text-white" />
+                                <span>📷 Scan mazingira / Scan Surface</span>
+                              </Button>
+                              
+                              <Button 
+                                onClick={() => setIsSimulatingWalk(!isSimulatingWalk)}
+                                className={`w-full py-3 rounded-2xl font-black uppercase tracking-wider text-[9px] flex items-center justify-center gap-2 transition-all ${isSimulatingWalk ? 'bg-amber-600 hover:bg-amber-700 text-white animate-pulse' : 'bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10'}`}
+                              >
+                                <Sparkles className="w-3.5 h-3.5 animate-spin" />
+                                {isSimulatingWalk ? 'Ninasafiri (Simulating...)' : 'Simulate Walk / Simulia Kutembea 🚶‍♂️'}
+                              </Button>
+                            </div>
                           )}
                         </motion.div>
 
@@ -1447,16 +1743,27 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
 
                       {/* Simulator walk controls */}
                       {!hasArrived ? (
-                        <Button 
-                          onClick={() => setIsSimulatingWalk(!isSimulatingWalk)}
-                          className={`w-full py-5 rounded-2xl font-black uppercase tracking-wider text-xs flex items-center justify-center gap-2 transition-all ${isSimulatingWalk ? 'bg-amber-600 hover:bg-amber-700 text-white animate-pulse' : 'bg-orange-600 hover:bg-orange-500 text-white shadow-lg shadow-orange-950/40'}`}
-                        >
-                          <Sparkles className="w-4 h-4 animate-spin" />
-                          {isSimulatingWalk ? 'Ninasafiri (Simulating...)' : 'Anza Kutembea (Simulate Walk)'}
-                        </Button>
+                        <div className="w-full space-y-2.5">
+                          <Button 
+                            onClick={startEnvironmentScan}
+                            className="w-full py-4 bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 transition-all shadow-[0_12px_35px_rgba(249,115,22,0.35)] animate-pulse"
+                          >
+                            <Camera className="w-4 h-4 text-white" />
+                            <span>📷 Scan mazingira / Scan Surface</span>
+                          </Button>
+                          <Button 
+                            onClick={() => setIsSimulatingWalk(!isSimulatingWalk)}
+                            className={`w-full py-3 rounded-2xl font-black uppercase tracking-wider text-[9px] flex items-center justify-center gap-2 transition-all ${isSimulatingWalk ? 'bg-amber-600 hover:bg-amber-700 text-white animate-pulse' : 'bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10'}`}
+                          >
+                            <Sparkles className="w-3.5 h-3.5 animate-spin" />
+                            {isSimulatingWalk ? 'Ninasafiri (Simulating...)' : 'Simulate Walk / Simulia Kutembea 🚶‍♂️'}
+                          </Button>
+                        </div>
                       ) : (
-                        <div className="w-full py-3 bg-green-500/10 border border-green-500/20 text-green-400 rounded-2xl font-black uppercase tracking-wider text-[11px] flex items-center justify-center gap-2">
-                          <CheckCircle className="w-4 h-4" /> Amefika Dukani! Karibu Sana!
+                        <div className="w-full py-3.5 bg-green-500/15 border border-green-500/35 text-green-400 rounded-2xl font-black uppercase tracking-wider text-[11px] flex flex-col items-center justify-center gap-1.5 shadow-lg shadow-green-950/25">
+                          <CheckCircle className="w-5 h-5 text-green-400 animate-bounce" />
+                          <span className="font-extrabold text-white text-xs">HONGERA! WELCOME!</span>
+                          <span className="text-[10px] text-green-300">Amefika Dukani kwa Mafanikio! 🎉</span>
                         </div>
                       )}
                     </motion.div>
@@ -1861,7 +2168,7 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
         </div>
 
         {/* Store selector slider/list for fast navigation switches */}
-        {!arRoute && !initialTargetVendorId && (
+        {!arRoute && !initialTargetVendorId && !targetVendor && (
           <div className="flex flex-col gap-2">
             <p className="text-[10px] text-neutral-500 font-black uppercase tracking-[0.2em]">Chagua duka la kupata maelekezo</p>
             <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 max-w-full">
