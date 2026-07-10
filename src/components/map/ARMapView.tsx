@@ -120,36 +120,71 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
 
   // Initialize target vendor
   useEffect(() => {
-    if (initialTargetVendorId) {
-      const found = vendors.find(v => v.id === initialTargetVendorId);
-      if (found) {
-        setTargetVendor(found);
-        setHasArrived(false);
-        // Start simulation distance from real/simulated GPS
-        const realDist = calculateDistanceMeters(
-          userLocation.lat, 
-          userLocation.lng, 
-          found.location?.lat || userLocation.lat, 
-          found.location?.lng || userLocation.lng
-        );
-        setSimulatedDistance(Math.round(Math.max(15, realDist)));
+    async function initTargetVendor() {
+      if (initialTargetVendorId) {
+        // Try finding in current memory list
+        let found = vendors.find(v => v.id === initialTargetVendorId);
+        
+        if (!found) {
+          // Fetch directly from Firestore to prevent showing the wrong restaurant!
+          try {
+            const vendorDoc = await getDoc(doc(db, 'vendors', initialTargetVendorId));
+            if (vendorDoc.exists()) {
+              found = { id: vendorDoc.id, ...vendorDoc.data() } as any;
+            }
+          } catch (err) {
+            console.error("Error fetching vendor directly:", err);
+          }
+        }
+
+        if (found) {
+          setTargetVendor(found);
+          setHasArrived(false);
+          // Start simulation distance from real/simulated GPS
+          const realDist = calculateDistanceMeters(
+            userLocation.lat, 
+            userLocation.lng, 
+            found.location?.lat || userLocation.lat, 
+            found.location?.lng || userLocation.lng
+          );
+          setSimulatedDistance(Math.round(Math.max(15, realDist)));
+        }
+      } else if (vendors.length > 0) {
+        // Default to closest vendor
+        setTargetVendor(vendors[0]);
+        setSimulatedDistance(120); // default simulation start
       }
-    } else if (vendors.length > 0) {
-      // Default to closest vendor
-      setTargetVendor(vendors[0]);
-      setSimulatedDistance(120); // default simulation start
     }
+    initTargetVendor();
   }, [initialTargetVendorId, vendors]);
 
-  // Fetch Route from Firestore if arRouteId is provided
+  // Fetch Route from Firestore (either by arRouteId or by vendorId if deep-linked via QR)
   useEffect(() => {
     async function fetchRoute() {
-      if (!arRouteId) return;
       setIsLoadingRoute(true);
       try {
-        const routeDoc = await getDoc(doc(db, 'ar_routes', arRouteId));
-        if (routeDoc.exists()) {
-          const routeData = { id: routeDoc.id, ...routeDoc.data() } as any;
+        let routeData: any = null;
+        
+        if (arRouteId) {
+          const routeDoc = await getDoc(doc(db, 'ar_routes', arRouteId));
+          if (routeDoc.exists()) {
+            routeData = { id: routeDoc.id, ...routeDoc.data() };
+          }
+        } else if (initialTargetVendorId) {
+          // Query for any AR route associated with this vendor
+          const q = query(
+            collection(db, 'ar_routes'),
+            where('vendorId', '==', initialTargetVendorId)
+          );
+          const querySnapshot = await getDocs(q);
+          if (!querySnapshot.empty) {
+            // Find the first matching route
+            const firstDoc = querySnapshot.docs[0];
+            routeData = { id: firstDoc.id, ...firstDoc.data() };
+          }
+        }
+
+        if (routeData) {
           setArRoute(routeData);
           setCurrentStopIndex(0);
           setTourCompleted(false);
@@ -165,7 +200,7 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
             setSimulatedDistance(Math.round(Math.max(15, realDist)));
           }
         } else {
-          console.error("Route not found in Firestore:", arRouteId);
+          setArRoute(null);
         }
       } catch (err) {
         console.error("Error fetching route:", err);
@@ -174,7 +209,7 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
       }
     }
     fetchRoute();
-  }, [arRouteId]);
+  }, [arRouteId, initialTargetVendorId]);
 
   // Handle stop arrivals (Narration & Quiz)
   useEffect(() => {

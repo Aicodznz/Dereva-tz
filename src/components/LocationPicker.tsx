@@ -984,7 +984,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
       {isAROpen && (
         <ARMapView 
           vendors={vendors} 
-          initialTargetVendorId={selectedVendor?.id} 
+          initialTargetVendorId={preSelectedVendorId || selectedVendor?.id} 
           onClose={() => setIsAROpen(false)}
           userCoords={{ lat: position.lat, lng: position.lng }}
           arRouteId={arRouteId}
