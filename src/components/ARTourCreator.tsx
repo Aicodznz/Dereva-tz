@@ -10,7 +10,8 @@ import QRCodeStyling from 'qr-code-styling';
 import { 
   MapPin, Compass, QrCode, Save, Sparkles, Trash2, Plus, ArrowRight, Play, 
   Volume2, Gift, HelpCircle, Award, Printer, Download, Eye, Layers, Route,
-  Gamepad2, Compass as CompassIcon, Sparkles as SparklesIcon, Check, X, Edit, RotateCcw
+  Gamepad2, Compass as CompassIcon, Sparkles as SparklesIcon, Check, X, Edit, RotateCcw,
+  Camera
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
@@ -66,6 +67,10 @@ interface Stop {
   sound: string;
   rewardPoints: number;
   rewardCoupon: string;
+  photoFrame?: string;
+  imageUrl?: string;
+  videoUrl?: string;
+  linkUrl?: string;
   quiz?: {
     question: string;
     options: string[];
@@ -101,8 +106,81 @@ export default function ARTourCreator({ vendorProfile }: ARTourCreatorProps) {
   const [stops, setStops] = useState<Stop[]>([]);
   const [selectedStopIdx, setSelectedStopIdx] = useState<number | null>(null);
 
+  // Live Mapping States for Vendors on-site
+  const [showLiveMapper, setShowLiveMapper] = useState(false);
+  const [liveLocation, setLiveLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [isCapturingLiveLocation, setIsCapturingLiveLocation] = useState(false);
+  const [mapperStream, setMapperStream] = useState<MediaStream | null>(null);
+  const liveVideoRef = useRef<HTMLVideoElement>(null);
+
   // Map states
   const [mapCenter, setMapCenter] = useState<[number, number]>([-6.7924, 39.2083]);
+
+  // Start Camera for Live Mapping Setup
+  const startLiveMapping = async () => {
+    setShowLiveMapper(true);
+    setIsCapturingLiveLocation(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' },
+        audio: false
+      });
+      setMapperStream(stream);
+      
+      // Grab accurate coordinates
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            setLiveLocation({ lat, lng });
+            setIsCapturingLiveLocation(false);
+            // Auto update selected stop coordinates
+            if (selectedStopIdx !== null) {
+              const updated = [...stops];
+              updated[selectedStopIdx] = {
+                ...updated[selectedStopIdx],
+                lat,
+                lng
+              };
+              setStops(updated);
+              setMapCenter([lat, lng]);
+              toast.success("📍 GPS imesasishwa kiotomatiki kwa kutumia eneo lako halisi!");
+            }
+          },
+          (err) => {
+            console.error("GPS capture error:", err);
+            setIsCapturingLiveLocation(false);
+            toast.error("Imeshindwa kupata GPS halisi ya simu.");
+          },
+          { enableHighAccuracy: true, timeout: 12000 }
+        );
+      }
+    } catch (err) {
+      console.error("Camera access error inside Live Mapping:", err);
+      setIsCapturingLiveLocation(false);
+      toast.error("Hali ya Visual Mapping inahitaji kamera ya simu kufanya mapping.");
+    }
+  };
+
+  // Close Live Mapping
+  const stopLiveMapping = () => {
+    if (mapperStream) {
+      mapperStream.getTracks().forEach(track => track.stop());
+    }
+    setMapperStream(null);
+    setShowLiveMapper(false);
+  };
+
+  // Bind stream once liveVideoRef exists
+  useEffect(() => {
+    if (liveVideoRef.current && mapperStream) {
+      liveVideoRef.current.srcObject = mapperStream;
+      liveVideoRef.current.play().catch(err => {
+        console.warn("Failed auto-play for liveVideoRef:", err);
+      });
+    }
+  }, [mapperStream, showLiveMapper]);
 
   // QR state for printed stand
   const [selectedRouteForQR, setSelectedRouteForQR] = useState<ArRouteData | null>(null);
@@ -1035,6 +1113,23 @@ export default function ARTourCreator({ vendorProfile }: ARTourCreatorProps) {
                     <h4 className="text-sm font-black text-neutral-900 dark:text-white uppercase">Sanidi Kituo</h4>
                   </div>
 
+                  {/* Visual Mapping na Kamera Button */}
+                  <div className="p-4 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900/40 rounded-2xl flex flex-col items-center gap-2 text-center">
+                    <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400">
+                      <Camera className="w-5 h-5 animate-pulse" />
+                      <span className="text-xs font-black uppercase tracking-wider">Visual Mapping na Kamera</span>
+                    </div>
+                    <p className="text-[10.5px] text-neutral-600 dark:text-neutral-400 font-medium leading-relaxed">
+                      Vendor, nenda kwenye eneo halisi, bonyeza kifungo hiki ili kufungua kamera ya simu na kuweka GPS kiotomatiki kwa kutumia eneo ulilosimama!
+                    </p>
+                    <Button 
+                      onClick={startLiveMapping}
+                      className="w-full bg-orange-600 hover:bg-orange-700 text-white font-black uppercase text-[10px] tracking-wider rounded-xl py-2.5 shadow-md flex items-center justify-center gap-1.5"
+                    >
+                      <span>📍 Anza Visual Mapping na GPS</span>
+                    </Button>
+                  </div>
+
                   {/* Stop Name */}
                   <div className="space-y-1">
                     <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Jina la Kituo (Title)</label>
@@ -1136,6 +1231,60 @@ export default function ARTourCreator({ vendorProfile }: ARTourCreatorProps) {
                     </div>
                   </div>
 
+                  {/* Photo Frame Selection */}
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Photo Frame Overlay (Sura ya Picha)</label>
+                    <select
+                      value={stops[selectedStopIdx].photoFrame || 'none'}
+                      onChange={(e) => updateCurrentStopField('photoFrame', e.target.value)}
+                      className="w-full h-10 bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-xl px-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-orange-500 dark:text-white"
+                    >
+                      <option value="none">Hakuna Frame (Kawaida)</option>
+                      <option value="retro_polaroid">Polaroid Ya Picha 📸</option>
+                      <option value="cyberpunk_glow">Cyberpunk Glowing HUD 🤖</option>
+                      <option value="vintage_safari">Vintage Safari Leaf Frame 🌿</option>
+                      <option value="modern">Modern Camera Focus REC 📹</option>
+                    </select>
+                  </div>
+
+                  {/* Rich Multimedia Fields */}
+                  <div className="space-y-3 p-4 bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-neutral-700 dark:text-neutral-300">Rich Media (Picha, Video & Viungo)</span>
+                    
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Kiungo cha Picha (Image URL)</label>
+                      <Input 
+                        type="text" 
+                        value={stops[selectedStopIdx].imageUrl || ''}
+                        onChange={(e) => updateCurrentStopField('imageUrl', e.target.value)}
+                        placeholder="https://example.com/picha.jpg"
+                        className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 rounded-xl h-9 text-xs"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Kiungo cha Video Clip (Video URL)</label>
+                      <Input 
+                        type="text" 
+                        value={stops[selectedStopIdx].videoUrl || ''}
+                        onChange={(e) => updateCurrentStopField('videoUrl', e.target.value)}
+                        placeholder="https://example.com/video.mp4"
+                        className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 rounded-xl h-9 text-xs"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Kiungo cha Nje/Website (Redirect Link)</label>
+                      <Input 
+                        type="text" 
+                        value={stops[selectedStopIdx].linkUrl || ''}
+                        onChange={(e) => updateCurrentStopField('linkUrl', e.target.value)}
+                        placeholder="https://duka-lako.com/bidhaa"
+                        className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 rounded-xl h-9 text-xs"
+                      />
+                    </div>
+                  </div>
+
                   {/* Interactive Quiz Toggle */}
                   <div className="p-4 bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl space-y-3">
                     <div className="flex items-center justify-between">
@@ -1219,6 +1368,147 @@ export default function ARTourCreator({ vendorProfile }: ARTourCreatorProps) {
 
           </div>
 
+        </div>
+      )}
+
+      {/* 📍 LIVE VISUAL MAPPING OVERLAY MODAL */}
+      {showLiveMapper && selectedStopIdx !== null && stops[selectedStopIdx] && (
+        <div className="fixed inset-0 bg-black z-[999] flex flex-col overflow-hidden text-white font-sans select-none">
+          
+          {/* Header */}
+          <div className="p-4 bg-neutral-900 border-b border-neutral-800 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-pulse" />
+              <h3 className="text-xs font-black uppercase tracking-wider text-orange-500">Live Visual Mapping & Setup</h3>
+            </div>
+            <button 
+              onClick={stopLiveMapping}
+              className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Camera Viewport Area */}
+          <div className="flex-1 relative bg-black flex items-center justify-center overflow-hidden">
+            <video 
+              ref={liveVideoRef}
+              autoPlay 
+              playsInline 
+              muted 
+              className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+            />
+
+            {/* Simulated 3D Character Overlay mapping on-site */}
+            <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center p-6 text-center">
+              {(() => {
+                const stop = stops[selectedStopIdx];
+                const charType = stop.character || 'guide';
+                const charFound = [
+                  { id: 'lion', name: 'Simba wa 3D 🦁', icon: '🦁' },
+                  { id: 'castle', name: 'Jengo la Kale 🏰', icon: '🏰' },
+                  { id: 'guide', name: 'Guide wa Katuni 🤖', icon: '🤖' },
+                  { id: 'treasure', name: 'Sanduku la Hazina 🎁', icon: '🎁' },
+                  { id: 'coin', name: 'Sarafu ya Dhahabu 🪙', icon: '🪙' },
+                  { id: 'dragon', name: 'Joka la Ndoto 🐉', icon: '🐉' },
+                  { id: 'bread', name: 'Mkate mtamu 🍞', icon: '🍞' },
+                  { id: 'soda', name: 'Kinywaji baridi 🥤', icon: '🥤' },
+                  { id: 'tv', name: 'TV/Televisheni 📺', icon: '📺' },
+                  { id: 'teacher', name: 'Mwalimu msomi 👩‍🏫', icon: '👩‍🏫' },
+                  { id: 'fireworks', name: 'Fataki za Sherehe 🎉', icon: '🎉' },
+                ].find(c => c.id === charType);
+
+                return (
+                  <div className="flex flex-col items-center justify-center animate-bounce">
+                    <div className="w-24 h-24 rounded-full bg-orange-600/30 border-4 border-orange-500 flex items-center justify-center text-5xl shadow-[0_0_30px_rgba(234,88,12,0.6)]">
+                      <span>{charFound?.icon || '📍'}</span>
+                    </div>
+                    <span className="mt-3 px-3 py-1 bg-black/80 rounded-full border border-orange-500 text-[10px] font-black uppercase text-orange-400 shadow-md">
+                      Placing: {charFound?.name || 'Kiongozi'}
+                    </span>
+                    <span className="text-[9px] text-neutral-300 mt-1 font-mono">
+                      (Tap or move phone to place)
+                    </span>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* GPS Lock status */}
+            <div className="absolute top-4 left-4 right-4 bg-black/75 p-3 rounded-2xl border border-white/10 text-xs pointer-events-auto flex flex-col gap-1.5 backdrop-blur-md">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-neutral-400">GPS Status:</span>
+                {isCapturingLiveLocation ? (
+                  <span className="text-yellow-500 font-black animate-pulse uppercase text-[10px]">Inatafuta Mawimbi ya GPS...</span>
+                ) : (
+                  <span className="text-green-500 font-black uppercase text-[10px]">GPS LOCKED OK ●</span>
+                )}
+              </div>
+              <div className="font-mono text-[10px] text-neutral-300 flex justify-between">
+                <span>Lat: {stops[selectedStopIdx].lat?.toFixed(6) || '---'}</span>
+                <span>Lng: {stops[selectedStopIdx].lng?.toFixed(6) || '---'}</span>
+              </div>
+            </div>
+
+            {/* Custom Photo Frame preview on-site */}
+            {stops[selectedStopIdx].photoFrame && stops[selectedStopIdx].photoFrame !== 'none' && (
+              <div className="absolute inset-0 border-4 border-dashed border-orange-500/30 pointer-events-none flex items-center justify-center">
+                <span className="bg-black/60 px-3 py-1.5 rounded-full text-[10px] font-bold text-orange-400 border border-orange-500/30">
+                  📸 Active Frame: {stops[selectedStopIdx].photoFrame}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Quick Setup Options & Controls at Bottom */}
+          <div className="p-4 bg-neutral-950 border-t border-neutral-800 space-y-4 max-h-[40vh] overflow-y-auto">
+            <div className="space-y-1">
+              <span className="text-[10px] font-black uppercase tracking-wider text-orange-500">Hatua 1: Hakiki & Weka GPS Enneo Halisi</span>
+              <Button 
+                onClick={startLiveMapping}
+                disabled={isCapturingLiveLocation}
+                className="w-full py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-lg flex items-center justify-center gap-2"
+              >
+                <MapPin className="w-4 h-4 animate-bounce" />
+                {isCapturingLiveLocation ? 'Inatengeneza GPS ya sasa hivi...' : '📍 Sasisha GPS ya Kituo kwa Eneo Langu!'}
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              <div className="space-y-1">
+                <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Jaribu Sauti (TTS)</label>
+                <Button 
+                  onClick={() => testSpeech(stops[selectedStopIdx].voiceText)}
+                  className="w-full py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-xs font-bold"
+                >
+                  <Volume2 className="w-4 h-4 mr-1.5" /> Jaribu Sauti
+                </Button>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Photo Frame</label>
+                <select
+                  value={stops[selectedStopIdx].photoFrame || 'none'}
+                  onChange={(e) => updateCurrentStopField('photoFrame', e.target.value)}
+                  className="w-full h-9 bg-neutral-900 border border-neutral-800 rounded-xl px-2 text-[10px] font-bold text-white focus:outline-none"
+                >
+                  <option value="none">No Frame</option>
+                  <option value="retro_polaroid">Polaroid</option>
+                  <option value="cyberpunk_glow">Cyberpunk HUD</option>
+                  <option value="vintage_safari">Safari</option>
+                  <option value="modern">REC View</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <Button 
+                onClick={stopLiveMapping}
+                className="w-full py-3 bg-orange-600 hover:bg-orange-500 text-white rounded-xl text-xs font-black uppercase tracking-widest"
+              >
+                Kamilisha na Hifadhi Setup ya AR 🎉
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 

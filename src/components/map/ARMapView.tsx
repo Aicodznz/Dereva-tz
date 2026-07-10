@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { db } from '../../firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import { toast } from 'sonner';
 
 interface ARMapViewProps {
   vendors: any[];
@@ -60,6 +61,7 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false);
 
   // Scan States
   const [scanMode, setScanMode] = useState(false);
@@ -134,19 +136,23 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
   useEffect(() => {
     if (hasArrived && arRoute && arRoute.stops && arRoute.stops[currentStopIndex]) {
       const stop = arRoute.stops[currentStopIndex];
+      const narrationText = stop.audioNarration || stop.voiceText || '';
       // Speak Narration using Web Speech API
-      if (audioEnabled && stop.audioNarration) {
+      if (audioEnabled && narrationText) {
         try {
           window.speechSynthesis?.cancel(); // Clear any ongoing speech
-          const utterance = new SpeechSynthesisUtterance(stop.audioNarration);
+          const utterance = new SpeechSynthesisUtterance(narrationText);
           utterance.lang = stop.narrationVoice || 'sw-TZ';
           window.speechSynthesis?.speak(utterance);
         } catch (e) {
           console.warn("Web Speech synthesis is blocked or unsupported:", e);
         }
       }
+      
+      const hasQuiz = stop.hasQuiz || !!stop.quiz;
+      const questionText = stop.quizQuestion || stop.quiz?.question;
       // Open quiz if configured
-      if (stop.hasQuiz && stop.quizQuestion) {
+      if (hasQuiz && questionText) {
         setShowQuiz(true);
         setQuizSolved(false);
         setQuizSelectedOption('');
@@ -157,6 +163,7 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
 
   // Request camera access
   useEffect(() => {
+    let activeStream: MediaStream | null = null;
     async function startCamera() {
       try {
         setCameraError(null);
@@ -164,11 +171,9 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
           video: { facingMode: 'environment' },
           audio: false
         });
+        activeStream = stream;
         setCameraStream(stream);
         setIsCameraActive(true);
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
       } catch (err: any) {
         console.warn('Camera access error:', err);
         setCameraError(
@@ -180,11 +185,21 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
     startCamera();
 
     return () => {
-      if (cameraStream) {
-        cameraStream.getTracks().forEach(track => track.stop());
+      if (activeStream) {
+        activeStream.getTracks().forEach(track => track.stop());
       }
     };
   }, []);
+
+  // Bind camera stream to videoRef once video element is rendered
+  useEffect(() => {
+    if (videoRef.current && cameraStream) {
+      videoRef.current.srcObject = cameraStream;
+      videoRef.current.play().catch(err => {
+        console.warn("Failed to play camera stream automatically:", err);
+      });
+    }
+  }, [cameraStream, isCameraActive]);
 
   // Request and listen to device orientation (Compass)
   useEffect(() => {
@@ -441,10 +456,24 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
   const handleQuizSubmit = () => {
     if (!arRoute || !arRoute.stops) return;
     const stop = arRoute.stops[currentStopIndex];
-    if (quizSelectedOption.trim().toLowerCase() === stop.quizAnswer.trim().toLowerCase()) {
+    
+    let isCorrect = false;
+    let correctAnswerStr = "";
+    
+    if (stop.quiz) {
+      correctAnswerStr = stop.quiz.options[stop.quiz.answer] || "";
+      isCorrect = quizSelectedOption.trim().toLowerCase() === correctAnswerStr.trim().toLowerCase();
+    } else if (stop.quizAnswer) {
+      correctAnswerStr = stop.quizAnswer;
+      isCorrect = quizSelectedOption.trim().toLowerCase() === correctAnswerStr.trim().toLowerCase();
+    }
+    
+    if (isCorrect) {
       setQuizSolved(true);
-      setQuizRewardInfo(stop.quizReward || "Hongera sana! Umepata pointi 100 za Uaminifu!");
-      setQuizScore(prev => prev + 100);
+      const points = stop.rewardPoints || 100;
+      const couponStr = stop.rewardCoupon ? ` na kadi ya kuponi ya kishindo: ${stop.rewardCoupon}` : "";
+      setQuizRewardInfo(stop.quizReward || `Hongera sana! Umepata pointi ${points} za Uaminifu${couponStr}!`);
+      setQuizScore(prev => prev + points);
       setQuizError(null);
       triggerBeep(880, 0.35);
     } else {
@@ -531,13 +560,107 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
         className="relative flex-1 bg-neutral-950 flex flex-col items-center justify-center cursor-grab active:cursor-grabbing overflow-hidden"
       >
         {isCameraActive ? (
-          <video 
-            ref={videoRef}
-            autoPlay 
-            playsInline 
-            muted 
-            className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-          />
+          <>
+            <video 
+              ref={videoRef}
+              autoPlay 
+              playsInline 
+              muted 
+              className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+            />
+            
+            {/* Shutter feedback flash */}
+            {isCapturing && (
+              <motion.div 
+                initial={{ opacity: 1 }}
+                animate={{ opacity: 0 }}
+                transition={{ duration: 0.4 }}
+                className="absolute inset-0 bg-white z-50 pointer-events-none"
+              />
+            )}
+
+            {/* Photo Frame Overlay on Camera View */}
+            {arRoute && arRoute.stops && arRoute.stops[currentStopIndex] && arRoute.stops[currentStopIndex].photoFrame && arRoute.stops[currentStopIndex].photoFrame !== 'none' && (
+              (() => {
+                const stop = arRoute.stops[currentStopIndex];
+                return (
+                  <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-4 z-20">
+                    {stop.photoFrame === 'retro_polaroid' && (
+                      <div className="absolute inset-0 border-[16px] border-white border-b-[80px] shadow-2xl flex flex-col justify-end items-center p-4">
+                        <span className="font-mono text-neutral-800 font-bold text-xs uppercase tracking-widest pointer-events-auto">
+                          📸 {stop.stopName || stop.name || 'AR ADVENTURE'}
+                        </span>
+                        <span className="font-mono text-neutral-400 text-[9px] mt-1">
+                          {new Date().toLocaleDateString('sw-TZ')}
+                        </span>
+                      </div>
+                    )}
+                    {stop.photoFrame === 'cyberpunk_glow' && (
+                      <div className="absolute inset-0 border-2 border-cyan-500/80 animate-pulse shadow-[inset_0_0_20px_rgba(6,182,212,0.3)]">
+                        <div className="absolute top-2 left-2 text-[8px] font-mono text-cyan-400 bg-black/60 px-2 py-0.5 rounded uppercase tracking-widest">
+                          SYS_LOCK: SEC_B7 // TARGET ACQUIRED
+                        </div>
+                        <div className="absolute bottom-2 right-2 text-[8px] font-mono text-cyan-400 bg-black/60 px-2 py-0.5 rounded">
+                          GPS_ALT: {stop.lat?.toFixed(5)}, {stop.lng?.toFixed(5)}
+                        </div>
+                        {/* Tech lines */}
+                        <div className="absolute top-1/4 left-0 w-4 h-0.5 bg-cyan-500" />
+                        <div className="absolute top-1/4 right-0 w-4 h-0.5 bg-cyan-500" />
+                        <div className="absolute bottom-1/4 left-0 w-4 h-0.5 bg-cyan-500" />
+                        <div className="absolute bottom-1/4 right-0 w-4 h-0.5 bg-cyan-500" />
+                      </div>
+                    )}
+                    {stop.photoFrame === 'vintage_safari' && (
+                      <div className="absolute inset-0 border-[8px] border-emerald-900/90 shadow-inner flex flex-col justify-between p-4">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm">🌿</span>
+                          <span className="font-sans font-black text-[9px] tracking-widest text-emerald-300 uppercase bg-emerald-950/80 px-2.5 py-1 rounded-full border border-emerald-800">
+                            WILD SAFARI TOURS
+                          </span>
+                          <span className="text-sm">🌿</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs text-emerald-200">
+                          <span>🐘</span>
+                          <span>🦁</span>
+                        </div>
+                      </div>
+                    )}
+                    {stop.photoFrame === 'modern' && (
+                      <div className="absolute inset-0 border-2 border-orange-500/50">
+                        <div className="absolute top-1/2 left-4 w-6 h-0.5 bg-orange-500/70" />
+                        <div className="absolute top-1/2 right-4 w-6 h-0.5 bg-orange-500/70" />
+                        <div className="absolute left-1/2 top-4 w-0.5 h-6 bg-orange-500/70" />
+                        <div className="absolute left-1/2 bottom-4 w-0.5 h-6 bg-orange-500/70" />
+                        <div className="absolute top-4 right-4 text-[9px] font-bold text-orange-400 bg-black/50 px-2 py-0.5 rounded-full">
+                          REC ●
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()
+            )}
+
+            {/* Shutter Button when Photo Frame is Active */}
+            {arRoute && arRoute.stops && arRoute.stops[currentStopIndex] && arRoute.stops[currentStopIndex].photoFrame && arRoute.stops[currentStopIndex].photoFrame !== 'none' && (
+              <div className="absolute bottom-24 right-4 z-30 pointer-events-auto">
+                <button
+                  onClick={() => {
+                    setIsCapturing(true);
+                    triggerBeep(1200, 0.08);
+                    setTimeout(() => {
+                      setIsCapturing(false);
+                      toast.success("📸 Picha imepigwa na kuhifadhiwa kwenye maktaba yako ya safari! 🎉");
+                    }, 400);
+                  }}
+                  className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl hover:scale-110 active:scale-95 transition-all border-4 border-neutral-300"
+                  title="Piga Picha"
+                >
+                  <Camera className="w-5 h-5 text-neutral-800" />
+                </button>
+              </div>
+            )}
+          </>
         ) : (
           /* High quality virtual camera backup view */
           <div className="absolute inset-0 bg-gradient-to-b from-neutral-900 via-neutral-950 to-neutral-900 flex flex-col items-center justify-center">
@@ -669,28 +792,27 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
                     /* AR TOUR STOP MARKER */
                     (() => {
                       const stop = arRoute.stops[currentStopIndex];
-                      let stopEmoji = '📍';
-                      let stopCharName = '3D Character';
+                      
                       const charType = stop.character || 'guide';
-                      if (charType === 'lion') {
-                        stopEmoji = '🦁';
-                        stopCharName = 'Simba wa 3D';
-                      } else if (charType === 'mascot') {
-                        stopEmoji = '🤖';
-                        stopCharName = 'Guide Katuni';
-                      } else if (charType === 'castle') {
-                        stopEmoji = '🏰';
-                        stopCharName = 'Jengo la Kale';
-                      } else if (charType === 'guide') {
-                        stopEmoji = '💁‍♂️';
-                        stopCharName = 'Tour Guide';
-                      } else if (charType === 'chest') {
-                        stopEmoji = '🎁';
-                        stopCharName = 'Treasure Box';
-                      } else if (charType === 'fireworks') {
-                        stopEmoji = '🎉';
-                        stopCharName = 'Ponzi 3D';
-                      }
+                      const charFound = [
+                        { id: 'lion', name: 'Simba wa 3D 🦁', icon: '🦁' },
+                        { id: 'castle', name: 'Jengo la Kale 🏰', icon: '🏰' },
+                        { id: 'guide', name: 'Guide wa Katuni 🤖', icon: '🤖' },
+                        { id: 'treasure', name: 'Sanduku la Hazina 🎁', icon: '🎁' },
+                        { id: 'coin', name: 'Sarafu ya Dhahabu 🪙', icon: '🪙' },
+                        { id: 'dragon', name: 'Joka la Ndoto 🐉', icon: '🐉' },
+                        { id: 'bread', name: 'Mkate mtamu 🍞', icon: '🍞' },
+                        { id: 'soda', name: 'Kinywaji baridi 🥤', icon: '🥤' },
+                        { id: 'tv', name: 'TV/Televisheni 📺', icon: '📺' },
+                        { id: 'teacher', name: 'Mwalimu msomi 👩‍🏫', icon: '👩‍🏫' },
+                        { id: 'fireworks', name: 'Fataki za Sherehe 🎉', icon: '🎉' },
+                      ].find(c => c.id === charType);
+
+                      const stopEmoji = charFound?.icon || '📍';
+                      const stopCharName = charFound?.name || 'Kiongozi';
+
+                      const hasQuiz = stop.hasQuiz || !!stop.quiz;
+                      const quizQuestion = stop.quizQuestion || stop.quiz?.question;
 
                       return (
                         <>
@@ -704,8 +826,48 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
                             Kituo cha AR Locked
                           </span>
 
-                          <h3 className="text-base font-black uppercase text-white leading-none tracking-tight mb-1">{stop.stopName}</h3>
-                          <p className="text-[10px] text-neutral-300 font-medium leading-relaxed mb-3">{stop.stopDescription}</p>
+                          <h3 className="text-base font-black uppercase text-white leading-none tracking-tight mb-1">{stop.stopName || stop.name}</h3>
+                          <p className="text-[10px] text-neutral-300 font-medium leading-relaxed mb-3">{stop.stopDescription || stop.voiceText}</p>
+
+                          {/* Rich Media: Image */}
+                          {(stop.imageUrl || stop.image) && (
+                            <div className="w-full h-28 rounded-2xl overflow-hidden border border-white/10 mb-3 bg-neutral-900 relative pointer-events-auto">
+                              <img 
+                                src={stop.imageUrl || stop.image} 
+                                alt={stop.name || "AR Image"} 
+                                className="w-full h-full object-cover"
+                                referrerPolicy="no-referrer"
+                              />
+                            </div>
+                          )}
+
+                          {/* Rich Media: Video */}
+                          {(stop.videoUrl || stop.video) && (
+                            <div className="w-full p-2 bg-neutral-900 border border-white/10 rounded-2xl mb-3 text-left pointer-events-auto">
+                              <span className="text-[9px] font-black uppercase tracking-widest text-orange-400">🎥 Video Clip:</span>
+                              <div className="mt-1 aspect-video rounded-xl overflow-hidden bg-black flex items-center justify-center relative">
+                                <video 
+                                  src={stop.videoUrl || stop.video} 
+                                  controls 
+                                  className="w-full h-full object-contain"
+                                />
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Rich Media: External Link */}
+                          {(stop.linkUrl || stop.link) && (
+                            <div className="w-full mb-3 pointer-events-auto">
+                              <a 
+                                href={stop.linkUrl || stop.link} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-black uppercase tracking-wider block text-center transition-colors"
+                              >
+                                🌐 Fungua Kiungo / Link
+                              </a>
+                            </div>
+                          )}
 
                           {/* Distance feedback */}
                           <div className="flex items-center justify-center gap-1.5 text-orange-500 font-mono font-black text-2xl tracking-tighter mb-4">
@@ -715,34 +877,70 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
 
                           {/* Interactive Stop Experience */}
                           {hasArrived ? (
-                            <div className="w-full space-y-3">
-                              {stop.hasQuiz && !quizSolved ? (
+                            <div className="w-full space-y-3 pointer-events-auto">
+                              {hasQuiz && !quizSolved ? (
                                 <div className="p-3 bg-neutral-900 border border-orange-500/30 rounded-2xl text-left">
                                   <h4 className="text-[10px] font-black uppercase text-orange-500 mb-1 flex items-center gap-1">
                                     <HelpCircle className="w-3.5 h-3.5" /> Fumbo la Kituo:
                                   </h4>
-                                  <p className="text-xs text-neutral-100 font-bold mb-3 leading-relaxed">{stop.quizQuestion}</p>
+                                  <p className="text-xs text-neutral-100 font-bold mb-3 leading-relaxed">{quizQuestion}</p>
                                   
                                   <div className="space-y-1.5">
-                                    <input 
-                                      type="text" 
-                                      placeholder="Andika jibu lako hapa..." 
-                                      value={quizSelectedOption}
-                                      onChange={(e) => {
-                                        setQuizSelectedOption(e.target.value);
-                                        setQuizError(null);
-                                      }}
-                                      className="w-full px-3 py-2 bg-white/5 border border-white/10 hover:border-orange-500/30 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500"
-                                    />
-                                    {quizError && (
-                                      <p className="text-[10px] text-red-500 font-bold">{quizError}</p>
+                                    {stop.quiz ? (
+                                      <div className="space-y-1.5">
+                                        {stop.quiz.options.map((opt: string, oIdx: number) => {
+                                          const isSelected = quizSelectedOption === opt;
+                                          return (
+                                            <button
+                                              key={oIdx}
+                                              onClick={() => {
+                                                setQuizSelectedOption(opt);
+                                                setQuizError(null);
+                                              }}
+                                              className={`w-full py-1.5 px-3 rounded-xl text-left text-[11px] font-bold border transition-all ${
+                                                isSelected 
+                                                  ? 'bg-orange-600 text-white border-orange-500 shadow-md'
+                                                  : 'bg-white/5 text-neutral-300 border-white/10 hover:bg-white/10'
+                                              }`}
+                                            >
+                                              {oIdx + 1}. {opt}
+                                            </button>
+                                          );
+                                        })}
+                                        {quizError && (
+                                          <p className="text-[10px] text-red-500 font-bold mt-1">{quizError}</p>
+                                        )}
+                                        <Button 
+                                          onClick={handleQuizSubmit}
+                                          disabled={!quizSelectedOption}
+                                          className="w-full py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-xl text-xs font-black uppercase tracking-wider"
+                                        >
+                                          Hakiki Jibu
+                                        </Button>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <input 
+                                          type="text" 
+                                          placeholder="Andika jibu lako hapa..." 
+                                          value={quizSelectedOption}
+                                          onChange={(e) => {
+                                            setQuizSelectedOption(e.target.value);
+                                            setQuizError(null);
+                                          }}
+                                          className="w-full px-3 py-2 bg-white/5 border border-white/10 hover:border-orange-500/30 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500"
+                                        />
+                                        {quizError && (
+                                          <p className="text-[10px] text-red-500 font-bold">{quizError}</p>
+                                        )}
+                                        <Button 
+                                          onClick={handleQuizSubmit}
+                                          className="w-full py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-xl text-xs font-black uppercase tracking-wider"
+                                        >
+                                          Hakiki Jibu
+                                        </Button>
+                                      </>
                                     )}
-                                    <Button 
-                                      onClick={handleQuizSubmit}
-                                      className="w-full py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-xl text-xs font-black uppercase tracking-wider"
-                                    >
-                                      Hakiki Jibu
-                                    </Button>
                                   </div>
                                 </div>
                               ) : (
