@@ -30,6 +30,50 @@ export const AR_ICONS: Record<string, any> = {
   mappin: MapPin,
 };
 
+// Robust helper to render raw videos, YouTube videos, or Vimeo links correctly for users
+const renderVideoPlayer = (url: string) => {
+  if (!url) return null;
+  // Check for YouTube
+  const youtubeRegExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+  const match = url.match(youtubeRegExp);
+  if (match && match[2].length === 11) {
+    const videoId = match[2];
+    return (
+      <iframe
+        className="w-full h-full rounded-xl border-0"
+        src={`https://www.youtube.com/embed/${videoId}?autoplay=0&rel=0`}
+        title="YouTube video player"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowFullScreen
+      />
+    );
+  }
+  // Check for Vimeo
+  const vimeoRegExp = /vimeo\.com\/(\d+)/;
+  const vimeoMatch = url.match(vimeoRegExp);
+  if (vimeoMatch) {
+    const videoId = vimeoMatch[1];
+    return (
+      <iframe
+        className="w-full h-full rounded-xl border-0"
+        src={`https://player.vimeo.com/video/${videoId}`}
+        title="Vimeo video player"
+        allow="autoplay; fullscreen; picture-in-picture"
+        allowFullScreen
+      />
+    );
+  }
+  // Fallback to HTML5 video for raw mp4/webm uploads
+  return (
+    <video 
+      src={url} 
+      controls 
+      playsInline
+      className="w-full h-full object-contain bg-black rounded-xl"
+    />
+  );
+};
+
 export default function ARMapView({ vendors, initialTargetVendorId, onClose, userCoords, arRouteId = null }: ARMapViewProps) {
   // Route / Tour States
   const [arRoute, setArRoute] = useState<any>(null);
@@ -364,6 +408,70 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
   // Determine if target vendor is inside field of view (approx 60 degrees)
   const FOV = 60;
   const isTargetVisibleInCamera = Math.abs(angleOffset) < (FOV / 2);
+
+  // Pre-calculate render parameters for all future/upcoming stops in the tour
+  const upcomingStopsRenderData = (arRoute && arRoute.stops) 
+    ? arRoute.stops.map((stop: any, idx: number) => {
+        if (idx < currentStopIndex) return null; // already visited, don't show
+
+        // Calculate bearing and raw distance for this specific stop
+        const bearing = Math.round(
+          calculateBearing(
+            userLocation.lat,
+            userLocation.lng,
+            stop.lat,
+            stop.lng
+          )
+        );
+        const rawDist = calculateDistanceMeters(
+          userLocation.lat,
+          userLocation.lng,
+          stop.lat,
+          stop.lng
+        );
+
+        // In walking simulation mode, we want the active stop distance to scale from simulatedDistance
+        let dist = Math.round(rawDist);
+        if (idx === currentStopIndex && simulatedDistance !== null) {
+          dist = simulatedDistance;
+        } else if (idx > currentStopIndex && simulatedDistance !== null) {
+          // Future stops should be located relative to the simulated position of the active stop.
+          // To make it look realistic, their simulated distance is the remaining distance of the active stop
+          // PLUS the distance between the active stop and this future stop!
+          const activeStop = arRoute.stops[currentStopIndex];
+          const distBetweenStops = calculateDistanceMeters(
+            activeStop.lat,
+            activeStop.lng,
+            stop.lat,
+            stop.lng
+          );
+          dist = Math.round(simulatedDistance + distBetweenStops);
+        }
+
+        let offset = (bearing - currentHeading);
+        if (offset > 180) offset -= 360;
+        if (offset < -180) offset += 360;
+
+        const isVisible = Math.abs(offset) < (FOV / 2);
+        const horizPercent = 50 + (offset / (FOV / 2)) * 50;
+
+        // Scale: closer is larger
+        const scale = Math.max(0.35, Math.min(1.2, 80 / (dist + 15)));
+        const opacity = isVisible ? Math.max(0.15, Math.min(1.0, 1.2 - Math.abs(offset) / (FOV / 2))) : 0;
+
+        return {
+          idx,
+          stop,
+          bearing,
+          distance: dist,
+          angleOffset: offset,
+          isVisible,
+          horizontalPercent: horizPercent,
+          scale,
+          opacity
+        };
+      }).filter(Boolean)
+    : [];
 
   // Screen coordinates for floating 3D spatial indicator card
   // Map angleOffset (-FOV/2 to +FOV/2) to horizontal percent (0% to 100%)
@@ -770,60 +878,72 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
         {/* 2. MAIN AR VIRTUAL MARKER OVERLAY */}
         {!scanMode && (targetVendor || arRoute) && (
           <div className="absolute inset-0 pointer-events-none">
-            {isTargetVisibleInCamera ? (
-              <motion.div 
-                style={{
-                  left: `${horizontalPercent}%`,
-                  top: '50%',
-                  transform: 'translate(-50%, -50%)',
-                }}
-                className="absolute flex flex-col items-center justify-center transition-all duration-75"
-              >
-                {/* 3D Floating Tag Card */}
-                <motion.div 
-                  style={{ scale: distanceScale }}
-                  animate={{ y: [0, -12, 0] }}
-                  transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
-                  className="bg-[#0B0C10]/95 backdrop-blur-xl border-2 border-orange-500/80 p-5 rounded-[2.25rem] w-80 text-center shadow-[0_25px_60px_rgba(249,115,22,0.25)] flex flex-col items-center relative overflow-hidden pointer-events-auto"
-                >
-                  <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-orange-500 via-yellow-400 to-orange-500" />
-                  
-                  {arRoute && arRoute.stops && arRoute.stops[currentStopIndex] ? (
-                    /* AR TOUR STOP MARKER */
-                    (() => {
-                      const stop = arRoute.stops[currentStopIndex];
-                      
-                      const charType = stop.character || 'guide';
-                      const charFound = [
-                        { id: 'lion', name: 'Simba wa 3D 🦁', icon: '🦁' },
-                        { id: 'castle', name: 'Jengo la Kale 🏰', icon: '🏰' },
-                        { id: 'guide', name: 'Guide wa Katuni 🤖', icon: '🤖' },
-                        { id: 'treasure', name: 'Sanduku la Hazina 🎁', icon: '🎁' },
-                        { id: 'coin', name: 'Sarafu ya Dhahabu 🪙', icon: '🪙' },
-                        { id: 'dragon', name: 'Joka la Ndoto 🐉', icon: '🐉' },
-                        { id: 'bread', name: 'Mkate mtamu 🍞', icon: '🍞' },
-                        { id: 'soda', name: 'Kinywaji baridi 🥤', icon: '🥤' },
-                        { id: 'tv', name: 'TV/Televisheni 📺', icon: '📺' },
-                        { id: 'teacher', name: 'Mwalimu msomi 👩‍🏫', icon: '👩‍🏫' },
-                        { id: 'fireworks', name: 'Fataki za Sherehe 🎉', icon: '🎉' },
-                      ].find(c => c.id === charType);
+            {/* IF IT IS AN AR TOUR (ROUTE), RENDER ALL UPCOMING STOPS SPATIALLY */}
+            {arRoute ? (
+              <>
+                {upcomingStopsRenderData.map((item) => {
+                  if (!item || !item.isVisible) return null;
+                  const stop = item.stop;
+                  const isCurrentActive = item.idx === currentStopIndex;
 
-                      const stopEmoji = charFound?.icon || '📍';
-                      const stopCharName = charFound?.name || 'Kiongozi';
+                  const charType = stop.character || 'guide';
+                  const stopEmoji = [
+                    { id: 'lion', icon: '🦁' },
+                    { id: 'castle', icon: '🏰' },
+                    { id: 'guide', icon: '🤖' },
+                    { id: 'treasure', icon: '🎁' },
+                    { id: 'coin', icon: '🪙' },
+                    { id: 'dragon', icon: '🐉' },
+                    { id: 'bread', icon: '🍞' },
+                    { id: 'soda', icon: '🥤' },
+                    { id: 'tv', icon: '📺' },
+                    { id: 'teacher', icon: '👩‍🏫' },
+                    { id: 'fireworks', icon: '🎉' },
+                  ].find(c => c.id === charType)?.icon || '📍';
 
-                      const hasQuiz = stop.hasQuiz || !!stop.quiz;
-                      const quizQuestion = stop.quizQuestion || stop.quiz?.question;
-
-                      return (
-                        <>
+                  if (isCurrentActive) {
+                    /* ACTIVE TARGET STOP: LARGE INTERACTIVE CARD */
+                    return (
+                      <motion.div 
+                        key={item.idx}
+                        style={{
+                          left: `${item.horizontalPercent}%`,
+                          top: '45%',
+                          transform: 'translate(-50%, -50%)',
+                        }}
+                        className="absolute flex flex-col items-center justify-center transition-all duration-75 z-20"
+                      >
+                        {/* 3D Floating Tag Card */}
+                        <motion.div 
+                          style={{ scale: item.scale }}
+                          animate={{ y: [0, -12, 0] }}
+                          transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
+                          className="bg-[#0B0C10]/95 backdrop-blur-xl border-2 border-orange-500/80 p-5 rounded-[2.25rem] w-80 text-center shadow-[0_25px_60px_rgba(249,115,22,0.35)] flex flex-col items-center relative overflow-hidden pointer-events-auto"
+                        >
+                          <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-orange-500 via-yellow-400 to-orange-500" />
+                          
                           {/* Animated 3D Avatar Simulator */}
                           <div className="w-20 h-20 rounded-full bg-orange-600/20 border-2 border-orange-500/60 flex items-center justify-center text-4xl mb-3 shadow-lg relative overflow-hidden animate-[pulse_1.5s_infinite]">
                             <span className="animate-bounce">{stopEmoji}</span>
-                            <span className="absolute bottom-1 text-[8px] font-black uppercase text-orange-400 bg-black/50 px-1.5 py-0.5 rounded-full">{stopCharName}</span>
+                            <span className="absolute bottom-1 text-[8px] font-black uppercase text-orange-400 bg-black/50 px-1.5 py-0.5 rounded-full">
+                              {[
+                                { id: 'lion', name: 'Simba wa 3D 🦁' },
+                                { id: 'castle', name: 'Jengo la Kale 🏰' },
+                                { id: 'guide', name: 'Guide wa Katuni 🤖' },
+                                { id: 'treasure', name: 'Sanduku la Hazina 🎁' },
+                                { id: 'coin', name: 'Sarafu ya Dhahabu 🪙' },
+                                { id: 'dragon', name: 'Joka la Ndoto 🐉' },
+                                { id: 'bread', name: 'Mkate mtamu 🍞' },
+                                { id: 'soda', name: 'Kinywaji baridi 🥤' },
+                                { id: 'tv', name: 'TV/Televisheni 📺' },
+                                { id: 'teacher', name: 'Mwalimu msomi 👩‍🏫' },
+                                { id: 'fireworks', name: 'Fataki za Sherehe 🎉' },
+                              ].find(c => c.id === charType)?.name || 'Kiongozi'}
+                            </span>
                           </div>
 
-                          <span className="px-2.5 py-1 bg-orange-500/10 border border-orange-500/20 rounded-full text-[8.5px] font-black uppercase tracking-widest text-orange-500 mb-1.5">
-                            Kituo cha AR Locked
+                          <span className="px-2.5 py-1 bg-orange-500/10 border border-orange-500/20 rounded-full text-[8.5px] font-black uppercase tracking-widest text-orange-500 mb-1.5 animate-pulse">
+                            Kituo cha AR Active
                           </span>
 
                           <h3 className="text-base font-black uppercase text-white leading-none tracking-tight mb-1">{stop.stopName || stop.name}</h3>
@@ -846,11 +966,7 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
                             <div className="w-full p-2 bg-neutral-900 border border-white/10 rounded-2xl mb-3 text-left pointer-events-auto">
                               <span className="text-[9px] font-black uppercase tracking-widest text-orange-400">🎥 Video Clip:</span>
                               <div className="mt-1 aspect-video rounded-xl overflow-hidden bg-black flex items-center justify-center relative">
-                                <video 
-                                  src={stop.videoUrl || stop.video} 
-                                  controls 
-                                  className="w-full h-full object-contain"
-                                />
+                                {renderVideoPlayer(stop.videoUrl || stop.video)}
                               </div>
                             </div>
                           )}
@@ -872,18 +988,20 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
                           {/* Distance feedback */}
                           <div className="flex items-center justify-center gap-1.5 text-orange-500 font-mono font-black text-2xl tracking-tighter mb-4">
                             <Navigation className="w-5 h-5 fill-current animate-[spin_5s_linear_infinite]" />
-                            <span>{activeDistance} Mita</span>
+                            <span>{item.distance} Mita</span>
                           </div>
 
                           {/* Interactive Stop Experience */}
                           {hasArrived ? (
                             <div className="w-full space-y-3 pointer-events-auto">
-                              {hasQuiz && !quizSolved ? (
+                              {(stop.hasQuiz || !!stop.quiz) && !quizSolved ? (
                                 <div className="p-3 bg-neutral-900 border border-orange-500/30 rounded-2xl text-left">
                                   <h4 className="text-[10px] font-black uppercase text-orange-500 mb-1 flex items-center gap-1">
                                     <HelpCircle className="w-3.5 h-3.5" /> Fumbo la Kituo:
                                   </h4>
-                                  <p className="text-xs text-neutral-100 font-bold mb-3 leading-relaxed">{quizQuestion}</p>
+                                  <p className="text-xs text-neutral-100 font-bold mb-3 leading-relaxed">
+                                    {stop.quizQuestion || stop.quiz?.question}
+                                  </p>
                                   
                                   <div className="space-y-1.5">
                                     {stop.quiz ? (
@@ -958,7 +1076,7 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
 
                                   <Button 
                                     onClick={handleNextStop}
-                                    className="w-full py-4 bg-green-600 hover:bg-green-500 text-white rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg"
+                                    className="w-full py-4 bg-green-600 hover:bg-green-500 text-white rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg animate-bounce"
                                   >
                                     <span>{currentStopIndex >= arRoute.stops.length - 1 ? 'Kamilisha Utalii' : 'Nenda Kituo Kinachofuata'}</span>
                                     <ArrowRight className="w-4 h-4" />
@@ -976,12 +1094,116 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
                               {isSimulatingWalk ? 'Inatembea (Simulating...)' : 'Anza Safari (Simulate Walk)'}
                             </Button>
                           )}
-                        </>
-                      );
-                    })()
-                  ) : targetVendor ? (
-                    /* ORIGINAL SINGLE-VENDOR STOREMARKER */
-                    <>
+                        </motion.div>
+
+                        {/* Ground neon projection ring */}
+                        <div className="w-40 h-8 bg-transparent border-[3px] border-orange-500/40 rounded-full shadow-[0_0_20px_#ea580c] scale-[0.6] blur-[1px] mt-6 animate-[pulse_2s_infinite]" />
+                      </motion.div>
+                    );
+                  } else {
+                    /* FUTURE UPCOMING STOP: SMALL 3D PIN IN SPACE */
+                    return (
+                      <motion.div
+                        key={item.idx}
+                        style={{
+                          left: `${item.horizontalPercent}%`,
+                          top: '38%',
+                          transform: 'translate(-50%, -50%)',
+                        }}
+                        className="absolute flex flex-col items-center justify-center transition-all duration-75 z-10"
+                      >
+                        <motion.div
+                          style={{ scale: item.scale }}
+                          animate={{ y: [0, -8, 0] }}
+                          transition={{ repeat: Infinity, duration: 3, ease: "easeInOut", delay: (item.idx * 0.4) }}
+                          className="bg-neutral-950/90 backdrop-blur-md border border-dashed border-orange-500/40 p-3 rounded-2xl w-44 text-center shadow-[0_15px_30px_rgba(234,88,12,0.15)] flex flex-col items-center relative overflow-hidden pointer-events-auto"
+                        >
+                          <div className="w-9 h-9 rounded-full bg-orange-600/10 border border-orange-500/30 flex items-center justify-center text-xl mb-1 shadow-inner">
+                            <span className="animate-pulse">{stopEmoji}</span>
+                          </div>
+                          
+                          <span className="px-1.5 py-0.5 bg-orange-500/10 border border-orange-500/20 rounded-full text-[7.5px] font-black uppercase tracking-widest text-orange-400 mb-1">
+                            Kituo #{item.idx + 1}
+                          </span>
+                          
+                          <h4 className="text-[10px] font-black text-white leading-tight mb-1 truncate max-w-[150px]">
+                            {stop.stopName || stop.name}
+                          </h4>
+                          
+                          <div className="flex items-center gap-1 text-[8.5px] text-neutral-400 font-mono">
+                            <Navigation className="w-2.5 h-2.5 fill-current text-orange-500 rotate-45" />
+                            <span>{item.distance} Mita</span>
+                          </div>
+                        </motion.div>
+                        
+                        {/* Connecting visual dotted line to ground indicator */}
+                        <div className="w-0.5 h-5 border-l border-dashed border-orange-500/30" />
+                        <div className="w-2 h-2 rounded-full bg-orange-500/60 animate-ping" />
+                      </motion.div>
+                    );
+                  }
+                })}
+
+                {/* OUT OF FOV HELPERS (GUIDE THE USER TOWARDS THE ACTIVE STOP) */}
+                {!isTargetVisibleInCamera && (
+                  <div className="absolute inset-x-8 top-1/2 -translate-y-1/2 flex items-center justify-between z-30">
+                    {angleOffset < 0 ? (
+                      <motion.div 
+                        animate={{ x: [-5, 5, -5] }}
+                        transition={{ repeat: Infinity, duration: 1.5 }}
+                        onClick={() => setSimulatedHeading(prev => (prev + 15) % 360)}
+                        className="p-4 bg-orange-600/95 border border-orange-500 rounded-2xl flex items-center gap-3 shadow-2xl pointer-events-auto cursor-pointer"
+                      >
+                        <Navigation className="w-5 h-5 -rotate-90 fill-current text-white" />
+                        <div className="text-left">
+                          <p className="text-[10px] font-black uppercase tracking-wider">Pinda Kushoto</p>
+                          <p className="text-[9px] text-orange-200 font-bold uppercase">Zunguka kushoto kuona Kituo #{currentStopIndex + 1}</p>
+                        </div>
+                      </motion.div>
+                    ) : (
+                      <div />
+                    )}
+
+                    {angleOffset > 0 ? (
+                      <motion.div 
+                        animate={{ x: [5, -5, 5] }}
+                        transition={{ repeat: Infinity, duration: 1.5 }}
+                        onClick={() => setSimulatedHeading(prev => (prev - 15 + 360) % 360)}
+                        className="p-4 bg-orange-600/95 border border-orange-500 rounded-2xl flex items-center gap-3 shadow-2xl pointer-events-auto cursor-pointer text-right"
+                      >
+                        <div className="text-right">
+                          <p className="text-[10px] font-black uppercase tracking-wider">Pinda Kulia</p>
+                          <p className="text-[9px] text-orange-200 font-bold uppercase">Zunguka kulia kuona Kituo #{currentStopIndex + 1}</p>
+                        </div>
+                        <Navigation className="w-5 h-5 rotate-90 fill-current text-white" />
+                      </motion.div>
+                    ) : (
+                      <div />
+                    )}
+                  </div>
+                )}
+              </>
+            ) : (
+              /* ORIGINAL SINGLE VENDOR STORE DESTINATION CARD */
+              <>
+                {isTargetVisibleInCamera ? (
+                  <motion.div 
+                    style={{
+                      left: `${horizontalPercent}%`,
+                      top: '50%',
+                      transform: 'translate(-50%, -50%)',
+                    }}
+                    className="absolute flex flex-col items-center justify-center transition-all duration-75"
+                  >
+                    {/* 3D Floating Tag Card */}
+                    <motion.div 
+                      style={{ scale: distanceScale }}
+                      animate={{ y: [0, -12, 0] }}
+                      transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
+                      className="bg-[#0B0C10]/95 backdrop-blur-xl border-2 border-orange-500/80 p-5 rounded-[2.25rem] w-80 text-center shadow-[0_25px_60px_rgba(249,115,22,0.25)] flex flex-col items-center relative overflow-hidden pointer-events-auto"
+                    >
+                      <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-orange-500 via-yellow-400 to-orange-500" />
+                      
                       {/* Glowing custom icon Selected by Vendor */}
                       <div className="w-16 h-16 rounded-3xl bg-orange-600 flex items-center justify-center text-white shadow-lg border border-orange-400/30 mb-3.5 relative overflow-hidden group">
                         <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent" />
@@ -1033,7 +1255,7 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
                       <div className="w-full p-3 bg-white/5 rounded-2xl border border-white/5 text-left mb-4">
                         <p className="text-[10px] text-neutral-400 font-extrabold uppercase tracking-wider mb-1">Maelezo ya Kufika:</p>
                         <p className="text-[11px] text-neutral-100 font-medium leading-relaxed">
-                          {targetVendor.arDirections || 'Fika dukani kwa kufuata mshale wa GPS hapo juu.'}
+                          {targetVendor.arDirections || 'Fika dukani kwa kufuata mshale vya GPS hapo juu.'}
                         </p>
                       </div>
 
@@ -1051,51 +1273,144 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
                           <CheckCircle className="w-4 h-4" /> Amefika Dukani! Karibu Sana!
                         </div>
                       )}
-                    </>
-                  ) : null}
-                </motion.div>
+                    </motion.div>
 
-                {/* Ground neon projection ring */}
-                <div className="w-40 h-8 bg-transparent border-[3px] border-orange-500/40 rounded-full shadow-[0_0_20px_#ea580c] scale-[0.6] blur-[1px] mt-6 animate-[pulse_2s_infinite]" />
-              </motion.div>
-            ) : (
-              /* Out of Field-of-View Arrow Helper (Guiding user left/right) */
-              <div className="absolute inset-x-8 top-1/2 -translate-y-1/2 flex items-center justify-between z-30">
-                {angleOffset < 0 ? (
-                  <motion.div 
-                    animate={{ x: [-5, 5, -5] }}
-                    transition={{ repeat: Infinity, duration: 1.5 }}
-                    onClick={() => setSimulatedHeading(prev => (prev + 15) % 360)}
-                    className="p-4 bg-orange-600/95 border border-orange-500 rounded-2xl flex items-center gap-3 shadow-2xl pointer-events-auto cursor-pointer"
-                  >
-                    <Navigation className="w-5 h-5 -rotate-90 fill-current text-white" />
-                    <div className="text-left">
-                      <p className="text-[10px] font-black uppercase tracking-wider">Mzunguko wa Kushoto</p>
-                      <p className="text-[9px] text-orange-200 font-bold uppercase">Zunguka kushoto kuona duka</p>
-                    </div>
+                    {/* Ground neon projection ring */}
+                    <div className="w-40 h-8 bg-transparent border-[3px] border-orange-500/40 rounded-full shadow-[0_0_20px_#ea580c] scale-[0.6] blur-[1px] mt-6 animate-[pulse_2s_infinite]" />
                   </motion.div>
                 ) : (
-                  <div />
+                  /* Out of Field-of-View Arrow Helper (Guiding user left/right) */
+                  <div className="absolute inset-x-8 top-1/2 -translate-y-1/2 flex items-center justify-between z-30">
+                    {angleOffset < 0 ? (
+                      <motion.div 
+                        animate={{ x: [-5, 5, -5] }}
+                        transition={{ repeat: Infinity, duration: 1.5 }}
+                        onClick={() => setSimulatedHeading(prev => (prev + 15) % 360)}
+                        className="p-4 bg-orange-600/95 border border-orange-500 rounded-2xl flex items-center gap-3 shadow-2xl pointer-events-auto cursor-pointer"
+                      >
+                        <Navigation className="w-5 h-5 -rotate-90 fill-current text-white" />
+                        <div className="text-left">
+                          <p className="text-[10px] font-black uppercase tracking-wider">Mzunguko wa Kushoto</p>
+                          <p className="text-[9px] text-orange-200 font-bold uppercase">Zunguka kushoto kuona duka</p>
+                        </div>
+                      </motion.div>
+                    ) : (
+                      <div />
+                    )}
+
+                    {angleOffset > 0 ? (
+                      <motion.div 
+                        animate={{ x: [5, -5, 5] }}
+                        transition={{ repeat: Infinity, duration: 1.5 }}
+                        onClick={() => setSimulatedHeading(prev => (prev - 15 + 360) % 360)}
+                        className="p-4 bg-orange-600/95 border border-orange-500 rounded-2xl flex items-center gap-3 shadow-2xl pointer-events-auto cursor-pointer text-right"
+                      >
+                        <div className="text-right">
+                          <p className="text-[10px] font-black uppercase tracking-wider">Mzunguko wa Kulia</p>
+                          <p className="text-[9px] text-orange-200 font-bold uppercase">Zunguka kulia kuona duka</p>
+                        </div>
+                        <Navigation className="w-5 h-5 rotate-90 fill-current text-white" />
+                      </motion.div>
+                    ) : (
+                      <div />
+                    )}
+                  </div>
                 )}
+              </>
+            )}
+          </div>
+        )}
 
-                {angleOffset > 0 ? (
-                  <motion.div 
-                    animate={{ x: [5, -5, 5] }}
-                    transition={{ repeat: Infinity, duration: 1.5 }}
-                    onClick={() => setSimulatedHeading(prev => (prev - 15 + 360) % 360)}
-                    className="p-4 bg-orange-600/95 border border-orange-500 rounded-2xl flex items-center gap-3 shadow-2xl pointer-events-auto cursor-pointer text-right"
-                  >
-                    <div className="text-right">
-                      <p className="text-[10px] font-black uppercase tracking-wider">Mzunguko wa Kulia</p>
-                      <p className="text-[9px] text-orange-200 font-bold uppercase">Zunguka kulia kuona duka</p>
+        {/* 2.5 ANT-WAY LIVE WAYFINDING HUD PANEL */}
+        {arRoute && !scanMode && (
+          <div className="absolute bottom-4 inset-x-5 z-30 flex flex-col gap-2 pointer-events-none">
+            {/* The Ant-Way Trail Board */}
+            <div className="bg-black/90 backdrop-blur-md border border-orange-500/20 px-4 py-3 rounded-2xl flex flex-col gap-1.5 shadow-2xl pointer-events-auto">
+              <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-widest text-neutral-400">
+                <span className="flex items-center gap-1">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-orange-500 animate-ping" />
+                  Njia ya Ant-Way (Wayfinding Trail)
+                </span>
+                <span className="text-orange-500 font-mono">UTALII WA AR</span>
+              </div>
+              
+              {/* Direction/Chevron Indicator */}
+              <div className="flex items-center justify-center py-1.5 bg-white/5 border border-white/5 rounded-xl">
+                {(() => {
+                  const absAngleOffset = Math.abs(angleOffset);
+                  
+                  if (absAngleOffset <= 10) {
+                    return (
+                      <div className="flex items-center gap-2 text-green-500 font-black uppercase tracking-widest text-xs animate-pulse">
+                        <Navigation className="w-4 h-4 fill-current rotate-0" />
+                        <span>MWELEKEO SAHIHI (GO STRAIGHT)</span>
+                        <div className="flex gap-0.5 ml-1">
+                          <span className="animate-pulse">▲</span>
+                          <span className="animate-pulse delay-75">▲</span>
+                        </div>
+                      </div>
+                    );
+                  } else if (angleOffset < 0) {
+                    return (
+                      <div className="flex items-center gap-2 text-orange-500 font-black uppercase tracking-widest text-xs">
+                        <div className="flex gap-0.5 mr-1">
+                          <span className="animate-bounce">◀</span>
+                          <span className="animate-bounce delay-75">◀</span>
+                        </div>
+                        <span>PINDA KUSHOTO ({Math.round(absAngleOffset)}°)</span>
+                      </div>
+                    );
+                  } else {
+                    return (
+                      <div className="flex items-center gap-2 text-orange-500 font-black uppercase tracking-widest text-xs">
+                        <span>PINDA KULIA ({Math.round(absAngleOffset)}°)</span>
+                        <div className="flex gap-0.5 ml-1">
+                          <span className="animate-bounce">▶</span>
+                          <span className="animate-bounce delay-75">▶</span>
+                        </div>
+                      </div>
+                    );
+                  }
+                })()}
+              </div>
+
+              {/* Waypoint nodes list with animated connection */}
+              <div className="flex items-center justify-between gap-1.5 mt-1 overflow-x-auto no-scrollbar py-0.5">
+                <div className="flex items-center gap-1">
+                  <span className="text-[10px]">👤</span>
+                  <span className="text-[9px] font-black text-white/60">Wewe</span>
+                </div>
+                
+                <div className="flex-1 h-0.5 border-t border-dashed border-orange-500/40 relative min-w-[30px]">
+                  <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-0.5 bg-orange-500 origin-left animate-[shimmer_1.5s_infinite]" style={{ width: '100%' }} />
+                </div>
+
+                <div className="flex items-center gap-1.5 px-2 py-1 bg-orange-500/15 border border-orange-500/30 rounded-xl max-w-[120px]">
+                  <span className="text-[10px]">📍</span>
+                  <div className="text-left leading-none truncate">
+                    <p className="text-[9px] font-black uppercase text-orange-400">Sasa</p>
+                    <p className="text-[8px] font-bold text-neutral-300 truncate max-w-[80px]">
+                      {arRoute.stops[currentStopIndex].stopName || arRoute.stops[currentStopIndex].name}
+                    </p>
+                  </div>
+                </div>
+
+                {currentStopIndex < arRoute.stops.length - 1 && (
+                  <>
+                    <div className="flex-1 h-0.5 border-t border-dashed border-white/20 min-w-[30px]" />
+                    <div className="flex items-center gap-1.5 px-2 py-1 bg-white/5 border border-white/10 rounded-xl max-w-[120px]">
+                      <span className="text-[10px]">🔮</span>
+                      <div className="text-left leading-none truncate">
+                        <p className="text-[9px] font-black uppercase text-neutral-500">Kijacho</p>
+                        <p className="text-[8px] font-bold text-neutral-400 truncate max-w-[80px]">
+                          {arRoute.stops[currentStopIndex + 1].stopName || arRoute.stops[currentStopIndex + 1].name}
+                        </p>
+                      </div>
                     </div>
-                    <Navigation className="w-5 h-5 rotate-90 fill-current text-white" />
-                  </motion.div>
-                ) : (
-                  <div />
+                  </>
                 )}
               </div>
-            )}
+            </div>
           </div>
         )}
 
