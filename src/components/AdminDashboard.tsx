@@ -611,10 +611,23 @@ export default function AdminDashboard() {
         }
       ];
 
+      const existingSnap = await getDocs(collection(db, 'vendors'));
+      const existingNames = new Set(existingSnap.docs.map(doc => doc.data().businessName?.trim().toLowerCase()));
+
+      let createdCount = 0;
       for (const v of demoVendors) {
+        if (existingNames.has(v.businessName.trim().toLowerCase())) {
+          console.log(`Duka "${v.businessName}" tayari lipo. Skipping.`);
+          continue;
+        }
         await addDoc(collection(db, 'vendors'), v);
+        createdCount++;
       }
-      toast.success("3 Demo Stores created! Check the Map now.");
+      if (createdCount > 0) {
+        toast.success(`${createdCount} Demo Stores created! Check the Map now.`);
+      } else {
+        toast.info("Zote zilikuwa tayari zimeundwa! / All stores already exist.");
+      }
     } catch (err) {
       console.error(err);
       toast.error("Failed to seed stores.");
@@ -928,6 +941,16 @@ export default function AdminDashboard() {
       toast.error('Vendor status updated to suspended.');
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `vendors/${id}`);
+    }
+  };
+
+  const handleDeleteVendor = async (id: string) => {
+    if (!window.confirm("Je, una uhakika unataka kufuta duka hili kabisa? Kitendo hiki hakiwezi kurudishwa.")) return;
+    try {
+      await deleteDoc(doc(db, 'vendors', id));
+      toast.success('Duka limefutwa kikamilifu!');
+    } catch (error: any) {
+      toast.error('Imeshindwa kufuta duka: ' + error.message);
     }
   };
 
@@ -1896,11 +1919,10 @@ export default function AdminDashboard() {
                     </Card>
                  </div>
               </div>
-           </motion.div>
-        )}
+            </motion.div>
+         )}
 
-
-        {activeTab === 'vendors' && (
+         {activeTab === 'vendors' && (
           <motion.div key="vendors" className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <Card className="rounded-[2.5rem] border-none shadow-xl bg-orange-50 text-orange-900 transition-colors">
@@ -1909,7 +1931,7 @@ export default function AdminDashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {vendors.filter(v => v.status === 'pending').map((v, idx) => (
+                    {filteredVendors.filter(v => v.status === 'pending').map((v, idx) => (
                       <div 
                         key={v.id || `pend-${idx}`} 
                         onClick={() => setSelectedVendorForReview(v)}
@@ -1930,7 +1952,7 @@ export default function AdminDashboard() {
                          </div>
                       </div>
                     ))}
-                    {vendors.filter(v => v.status === 'pending').length === 0 && (
+                    {filteredVendors.filter(v => v.status === 'pending').length === 0 && (
                       <p className="text-center py-8 text-neutral-400 font-bold italic text-sm">No pending applications</p>
                     )}
                   </div>
@@ -1940,7 +1962,7 @@ export default function AdminDashboard() {
               <div className="space-y-6">
                 <h3 className="text-2xl font-black italic uppercase tracking-tighter text-neutral-900 dark:text-white transition-colors">Active Network</h3>
                  <div className="grid grid-cols-1 gap-4">
-                    {vendors.filter(v => v.status === 'active').map((v, idx) => (
+                    {filteredVendors.filter(v => v.status === 'active').map((v, idx) => (
                       <Card 
                         key={v.id || `actv-${idx}`} 
                         onClick={() => setSelectedVendorForReview(v)}
@@ -1977,12 +1999,15 @@ export default function AdminDashboard() {
                                   {v.phoneNumber && (
                                     <a href={`https://wa.me/${v.phoneNumber.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer">
                                        <Button size="icon" variant="ghost" className="rounded-xl text-green-600 hover:bg-green-50">
-                                         <MessageCircle className="w-5 h-5" />
+                                          <MessageCircle className="w-5 h-5" />
                                        </Button>
                                     </a>
                                   )}
-                                  <Button variant="ghost" onClick={() => handleReject(v.id!)} className="text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl size-10">
+                                  <Button variant="ghost" onClick={() => handleReject(v.id!)} className="text-orange-400 hover:text-orange-600 hover:bg-orange-50 rounded-xl size-10" title="Suspend/Reject">
                                      <Ban className="w-5 h-5" />
+                                  </Button>
+                                  <Button variant="ghost" onClick={() => handleDeleteVendor(v.id!)} className="text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl size-10" title="Delete Permanent">
+                                     <Trash2 className="w-5 h-5" />
                                   </Button>
                                </div>
                             </div>
@@ -5780,7 +5805,7 @@ export default function AdminDashboard() {
                 </Card>
               </div>
 
-              <div className="p-8 border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/50 flex gap-4">
+              <div className="p-8 border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/50 flex flex-col sm:flex-row gap-4">
                 <Button 
                   onClick={() => {
                     handleApprove(selectedVendorForReview.id!);
@@ -5797,9 +5822,19 @@ export default function AdminDashboard() {
                     setSelectedVendorForReview(null);
                   }}
                   variant="outline"
-                  className="flex-1 h-14 border-red-200 text-red-500 hover:bg-red-50 rounded-[1.5rem] font-black uppercase tracking-widest text-xs"
+                  className="flex-1 h-14 border-orange-200 text-orange-500 hover:bg-orange-50 rounded-[1.5rem] font-black uppercase tracking-widest text-xs"
                 >
                   Reject & Suspend
+                </Button>
+                <Button 
+                  onClick={() => {
+                    handleDeleteVendor(selectedVendorForReview.id!);
+                    setSelectedVendorForReview(null);
+                  }}
+                  variant="destructive"
+                  className="flex-1 h-14 bg-red-600 hover:bg-red-700 text-white rounded-[1.5rem] font-black uppercase tracking-widest text-xs shadow-xl shadow-red-100"
+                >
+                  Futa Kabisa (Delete)
                 </Button>
               </div>
             </motion.div>

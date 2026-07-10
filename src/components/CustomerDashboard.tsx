@@ -129,9 +129,20 @@ export default function CustomerDashboard() {
         }
       ];
 
+      // Fetch existing vendors to prevent duplicate seeding
+      const existingSnap = await getDocs(collection(db, 'vendors'));
+      const existingNames = new Set(existingSnap.docs.map(doc => doc.data().businessName?.trim().toLowerCase()));
+
+      let createdCount = 0;
       for (const v of demoVendorsList) {
+        if (existingNames.has(v.businessName.trim().toLowerCase())) {
+          console.log(`Duka "${v.businessName}" tayari lipo. Skipping duplicate seed.`);
+          continue;
+        }
+
         const vendorDocRef = await addDoc(collection(db, 'vendors'), v);
         const vId = vendorDocRef.id;
+        createdCount++;
 
         // Add corresponding products
         let demoProducts: any[] = [];
@@ -264,7 +275,11 @@ export default function CustomerDashboard() {
         }
       }
 
-      toast.success("🎉 Maduka na bidhaa za mfano zimesakinishwa kikamilifu karibu nawe!");
+      if (createdCount > 0) {
+        toast.success(`🎉 ${createdCount} Maduka na bidhaa za mfano zimesakinishwa kikamilifu karibu nawe!`);
+      } else {
+        toast.info("Zote zilikuwa tayari zimeundwa! / All stores already exist.");
+      }
     } catch (err) {
       console.error(err);
       toast.error("Imefeli kusakinisha maduka ya mfano.");
@@ -839,7 +854,16 @@ export default function CustomerDashboard() {
           >
             Yote (All)
           </button>
-          {services.filter(s => s.id !== 'ramani').map((s) => (
+          {services
+            .filter(s => {
+              if (s.id === 'ramani') return false;
+              const sState = (businessConfig?.services || {})[s.id];
+              if (s.id === 'bus_ticket') {
+                return sState?.enabled === true;
+              }
+              return !sState || sState.enabled !== false;
+            })
+            .map((s) => (
             <button
               key={`filter-${s.id}`}
               onClick={() => setSelectedCategory(s.category === selectedCategory ? null : s.category)}
@@ -1016,6 +1040,9 @@ export default function CustomerDashboard() {
           {services
             .filter((s) => {
               const sState = (businessConfig?.services || {})[s.id];
+              if (s.id === 'bus_ticket') {
+                return sState?.enabled === true;
+              }
               return !sState || sState.enabled !== false;
             })
             .map((service, idx) => {

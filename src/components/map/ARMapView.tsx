@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { db } from '../../firebase';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { toast } from 'sonner';
+import { useBusinessConfig } from '../../BusinessConfigContext';
 
 interface ARMapViewProps {
   vendors: any[];
@@ -75,6 +76,17 @@ const renderVideoPlayer = (url: string) => {
 };
 
 export default function ARMapView({ vendors, initialTargetVendorId, onClose, userCoords, arRouteId = null }: ARMapViewProps) {
+  const { config: businessConfig } = useBusinessConfig();
+  const activeVendors = React.useMemo(() => {
+    const isBusTicketEnabled = businessConfig?.services?.bus_ticket?.enabled === true;
+    return vendors.filter(v => {
+      if (v.category === 'bus_ticket') {
+        return isBusTicketEnabled;
+      }
+      return true;
+    });
+  }, [vendors, businessConfig]);
+
   // Route / Tour States
   const [arRoute, setArRoute] = useState<any>(null);
   const [currentStopIndex, setCurrentStopIndex] = useState<number>(0);
@@ -127,7 +139,7 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
     async function initTargetVendor() {
       if (initialTargetVendorId) {
         // Try finding in current memory list
-        let found = vendors.find(v => v.id === initialTargetVendorId);
+        let found = activeVendors.find(v => v.id === initialTargetVendorId);
         
         if (!found) {
           // Fetch directly from Firestore to prevent showing the wrong restaurant!
@@ -153,14 +165,14 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
           );
           setSimulatedDistance(Math.round(Math.max(15, realDist)));
         }
-      } else if (vendors.length > 0) {
-        // Default to closest vendor
-        setTargetVendor(vendors[0]);
+      } else if (activeVendors.length > 0) {
+        // Default to closest active vendor
+        setTargetVendor(activeVendors[0]);
         setSimulatedDistance(120); // default simulation start
       }
     }
     initTargetVendor();
-  }, [initialTargetVendorId, vendors]);
+  }, [initialTargetVendorId, activeVendors]);
 
   // Fetch Route from Firestore (either by arRouteId or by vendorId if deep-linked via QR)
   useEffect(() => {
@@ -2078,7 +2090,7 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
               </p>
 
               <div className="space-y-2 max-h-48 overflow-y-auto no-scrollbar pr-1">
-                {vendors.map((v) => (
+                {activeVendors.map((v) => (
                   <button 
                     key={v.id}
                     onClick={() => handleSimulateScan(v.id)}
@@ -2172,7 +2184,7 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
           <div className="flex flex-col gap-2">
             <p className="text-[10px] text-neutral-500 font-black uppercase tracking-[0.2em]">Chagua duka la kupata maelekezo</p>
             <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 max-w-full">
-              {vendors.map((v) => {
+              {activeVendors.map((v) => {
                 const isSelected = targetVendor?.id === v.id;
                 return (
                   <button

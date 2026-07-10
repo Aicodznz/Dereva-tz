@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
 import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firestore';
 import ARMapView from './map/ARMapView';
+import { useBusinessConfig } from '../BusinessConfigContext';
 
 // Fix for default marker icon in Leaflet - using CDN for maximum stability in preview environment
 const DefaultIcon = L.icon({
@@ -161,6 +162,7 @@ function LocationMarker({ position, setPosition, onPositionChange, isMapViewOnly
 
 export default function LocationPicker({ isOpen, onClose, onSelect, initialLocation, vendors = [], preSelectedVendorId, isMapViewOnly = false, useParcelIcon = false, arRouteId = null }: LocationPickerProps) {
   const navigate = useNavigate();
+  const { config: businessConfig } = useBusinessConfig();
   const [position, setPosition] = useState<L.LatLng>(
     new L.LatLng(initialLocation?.lat || -6.7924, initialLocation?.lng || 39.2083) // Default to DSM
   );
@@ -315,15 +317,26 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
   ];
 
   const filteredVendors = React.useMemo(() => {
+    const isBusTicketEnabled = businessConfig?.services?.bus_ticket?.enabled === true;
+    const availableVendors = vendors.filter(v => {
+      if (v.category === 'bus_ticket') {
+        return isBusTicketEnabled;
+      }
+      return true;
+    });
+
     if (preSelectedVendorId) {
-      const found = vendors.filter(v => v.id === preSelectedVendorId);
+      const found = availableVendors.filter(v => v.id === preSelectedVendorId);
       if (found.length > 0) return found;
       if (selectedVendor && selectedVendor.id === preSelectedVendorId) {
-        return [selectedVendor];
+        if (selectedVendor.category !== 'bus_ticket' || isBusTicketEnabled) {
+          return [selectedVendor];
+        }
       }
       return [];
     }
-    return vendors.filter(v => {
+
+    return availableVendors.filter(v => {
       if (categoryFilter === 'all') return true;
       const cat = (v.category || '').toLowerCase();
       
@@ -337,7 +350,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
       
       return true;
     });
-  }, [vendors, categoryFilter, preSelectedVendorId, selectedVendor]);
+  }, [vendors, categoryFilter, preSelectedVendorId, selectedVendor, businessConfig]);
 
   // Load recent places from localStorage
   useEffect(() => {
