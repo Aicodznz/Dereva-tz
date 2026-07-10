@@ -170,6 +170,7 @@ export default function ARTourCreator({ vendorProfile }: ARTourCreatorProps) {
     }
     setMapperStream(null);
     setShowLiveMapper(false);
+    toast.success("Taarifa za kituo na GPS zimehifadhiwa kwenye drafti! Bonyeza 'Hifadhi Njia' chini ili kusave safari nzima. 🎉");
   };
 
   // Bind stream once liveVideoRef exists
@@ -1461,9 +1462,10 @@ export default function ARTourCreator({ vendorProfile }: ARTourCreatorProps) {
           </div>
 
           {/* Quick Setup Options & Controls at Bottom */}
-          <div className="p-4 bg-neutral-950 border-t border-neutral-800 space-y-4 max-h-[40vh] overflow-y-auto">
-            <div className="space-y-1">
-              <span className="text-[10px] font-black uppercase tracking-wider text-orange-500">Hatua 1: Hakiki & Weka GPS Enneo Halisi</span>
+          <div className="p-4 bg-neutral-950 border-t border-neutral-800 space-y-4 max-h-[50vh] md:max-h-[60vh] overflow-y-auto no-scrollbar pb-8">
+            {/* Step 1: GPS Lock */}
+            <div className="space-y-1 bg-neutral-900/50 p-3 rounded-2xl border border-white/5">
+              <span className="text-[10px] font-black uppercase tracking-wider text-orange-500 block">Hatua 1: Hakiki & Weka GPS Eneo Halisi</span>
               <Button 
                 onClick={startLiveMapping}
                 disabled={isCapturingLiveLocation}
@@ -1474,30 +1476,223 @@ export default function ARTourCreator({ vendorProfile }: ARTourCreatorProps) {
               </Button>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 pt-1">
+            {/* Step 2: Edit Details */}
+            <div className="space-y-4 bg-neutral-900/50 p-3 rounded-2xl border border-white/5">
+              <span className="text-[10px] font-black uppercase tracking-wider text-orange-500 block">Hatua 2: Hariri Maelezo ya Kituo / AR Details</span>
+              
+              {/* Stop Name */}
               <div className="space-y-1">
-                <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Jaribu Sauti (TTS)</label>
-                <Button 
-                  onClick={() => testSpeech(stops[selectedStopIdx].voiceText)}
-                  className="w-full py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-xs font-bold"
-                >
-                  <Volume2 className="w-4 h-4 mr-1.5" /> Jaribu Sauti
-                </Button>
+                <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Jina la Kituo (Title)</label>
+                <Input 
+                  type="text" 
+                  value={stops[selectedStopIdx].name}
+                  onChange={(e) => updateCurrentStopField('name', e.target.value)}
+                  className="bg-neutral-900 border-neutral-800 text-white rounded-xl h-10 text-xs font-semibold focus:ring-orange-500"
+                />
               </div>
+
+              {/* Character Selection */}
               <div className="space-y-1">
-                <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Photo Frame</label>
+                <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Kikaragosi cha 3D / AR Guide</label>
+                <select
+                  value={stops[selectedStopIdx].character}
+                  onChange={(e) => updateCurrentStopField('character', e.target.value)}
+                  className="w-full h-10 bg-neutral-900 border border-neutral-800 rounded-xl px-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-orange-500 text-white"
+                >
+                  {CHARACTERS_LIST.map(char => (
+                    <option key={char.id} value={char.id}>{char.icon} {char.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Audio Guide text-to-speech */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Sauti ya AR (Audio Narration TTS)</label>
+                  <button 
+                    onClick={() => testSpeech(stops[selectedStopIdx].voiceText)}
+                    className="text-[9px] font-black uppercase tracking-widest text-orange-400 hover:text-orange-300 flex items-center gap-1 bg-neutral-800 px-2.5 py-1 rounded-md"
+                    title="Test with Voice"
+                  >
+                    <Volume2 className="w-3.5 h-3.5 animate-bounce" />
+                    Sikiliza Sauti
+                  </button>
+                </div>
+                <textarea
+                  value={stops[selectedStopIdx].voiceText}
+                  onChange={(e) => updateCurrentStopField('voiceText', e.target.value)}
+                  placeholder="Mfan: Karibu sana kwenye mji mkongwe, jengo hili lina historia ndefu..."
+                  className="w-full h-20 bg-neutral-900 border border-neutral-800 rounded-xl p-3 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-orange-500 text-white resize-none leading-relaxed"
+                />
+              </div>
+
+              {/* Animation & Sound */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Miondoko (Animation)</label>
+                  <select
+                    value={stops[selectedStopIdx].animation}
+                    onChange={(e) => updateCurrentStopField('animation', e.target.value)}
+                    className="w-full h-9 bg-neutral-900 border border-neutral-800 rounded-xl px-2 text-[11px] font-semibold focus:outline-none text-white"
+                  >
+                    <option value="wave">Kupungia (Wave)</option>
+                    <option value="roar">Nguruma (Roar)</option>
+                    <option value="spin">Kuzunguka (Spin)</option>
+                    <option value="bounce">Kudunda (Bounce)</option>
+                    <option value="float">Kueleama (Float)</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Mlio (Sound)</label>
+                  <select
+                    value={stops[selectedStopIdx].sound}
+                    onChange={(e) => updateCurrentStopField('sound', e.target.value)}
+                    className="w-full h-9 bg-neutral-900 border border-neutral-800 rounded-xl px-2 text-[11px] font-semibold focus:outline-none text-white"
+                  >
+                    <option value="welcome">Welcome chime</option>
+                    <option value="roar">Roar effect</option>
+                    <option value="collect">Collect coin</option>
+                    <option value="chime">Magic chime</option>
+                    <option value="applause">Applause</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Points & Coupon */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Zawadi (Points)</label>
+                  <Input 
+                    type="number" 
+                    value={stops[selectedStopIdx].rewardPoints}
+                    onChange={(e) => updateCurrentStopField('rewardPoints', Number(e.target.value))}
+                    className="bg-neutral-900 border-neutral-800 text-white rounded-xl h-9 text-xs font-semibold focus:ring-orange-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Kuponi / Coupon Code</label>
+                  <Input 
+                    type="text" 
+                    value={stops[selectedStopIdx].rewardCoupon}
+                    onChange={(e) => updateCurrentStopField('rewardCoupon', e.target.value)}
+                    placeholder="Mfan: TOUR10"
+                    className="bg-neutral-900 border-neutral-800 text-white rounded-xl h-9 text-xs font-semibold uppercase focus:ring-orange-500"
+                  />
+                </div>
+              </div>
+
+              {/* Photo Frame */}
+              <div className="space-y-1">
+                <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Photo Frame Overlay (Sura ya Picha)</label>
                 <select
                   value={stops[selectedStopIdx].photoFrame || 'none'}
                   onChange={(e) => updateCurrentStopField('photoFrame', e.target.value)}
-                  className="w-full h-9 bg-neutral-900 border border-neutral-800 rounded-xl px-2 text-[10px] font-bold text-white focus:outline-none"
+                  className="w-full h-10 bg-neutral-900 border border-neutral-800 rounded-xl px-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-orange-500 text-white"
                 >
-                  <option value="none">No Frame</option>
-                  <option value="retro_polaroid">Polaroid</option>
-                  <option value="cyberpunk_glow">Cyberpunk HUD</option>
-                  <option value="vintage_safari">Safari</option>
-                  <option value="modern">REC View</option>
+                  <option value="none">Hakuna Frame (Kawaida)</option>
+                  <option value="retro_polaroid">Polaroid Ya Picha 📸</option>
+                  <option value="cyberpunk_glow">Cyberpunk Glowing HUD 🤖</option>
+                  <option value="vintage_safari">Vintage Safari Leaf Frame 🌿</option>
+                  <option value="modern">Modern Camera Focus REC 📹</option>
                 </select>
               </div>
+
+              {/* Rich Media */}
+              <div className="space-y-3 p-3 bg-neutral-950 border border-neutral-800 rounded-2xl">
+                <span className="text-[10px] font-black uppercase tracking-wider text-neutral-300">Rich Media (Picha, Video & Viungo)</span>
+                
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Kiungo cha Picha (Image URL)</label>
+                  <Input 
+                    type="text" 
+                    value={stops[selectedStopIdx].imageUrl || ''}
+                    onChange={(e) => updateCurrentStopField('imageUrl', e.target.value)}
+                    placeholder="https://example.com/picha.jpg"
+                    className="bg-neutral-900 border-neutral-800 text-white rounded-xl h-9 text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Kiungo cha Video Clip (Video URL)</label>
+                  <Input 
+                    type="text" 
+                    value={stops[selectedStopIdx].videoUrl || ''}
+                    onChange={(e) => updateCurrentStopField('videoUrl', e.target.value)}
+                    placeholder="https://example.com/video.mp4"
+                    className="bg-neutral-900 border-neutral-800 text-white rounded-xl h-9 text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Kiungo cha Nje/Website (Redirect Link)</label>
+                  <Input 
+                    type="text" 
+                    value={stops[selectedStopIdx].linkUrl || ''}
+                    onChange={(e) => updateCurrentStopField('linkUrl', e.target.value)}
+                    placeholder="https://duka-lako.com/bidhaa"
+                    className="bg-neutral-900 border-neutral-800 text-white rounded-xl h-9 text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Quiz section */}
+              <div className="p-3 bg-neutral-950 border border-neutral-800 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <HelpCircle className="w-4 h-4 text-orange-500" />
+                    <span className="text-[10px] font-black uppercase tracking-wider text-neutral-300">Swali la Quiz la AR</span>
+                  </div>
+                  <input 
+                    type="checkbox" 
+                    checked={!!stops[selectedStopIdx].quiz}
+                    onChange={(e) => toggleQuiz(e.target.checked)}
+                    className="w-4 h-4 rounded text-orange-600 focus:ring-orange-500 border-neutral-700 bg-neutral-900"
+                  />
+                </div>
+
+                {stops[selectedStopIdx].quiz && (
+                  <div className="space-y-3 pt-2 border-t border-neutral-800 animate-fadeIn">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Swali la Quiz</label>
+                      <Input 
+                        type="text" 
+                        value={stops[selectedStopIdx].quiz.question}
+                        onChange={(e) => updateCurrentStopQuiz('question', e.target.value)}
+                        className="bg-neutral-900 border-neutral-800 text-white rounded-xl h-9 text-xs"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Chaguzi (Options)</label>
+                      {stops[selectedStopIdx].quiz.options.map((opt, oIdx) => (
+                        <div key={oIdx} className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold text-neutral-500 w-4">{String.fromCharCode(65 + oIdx)}.</span>
+                          <Input 
+                            type="text" 
+                            value={opt}
+                            onChange={(e) => updateCurrentStopQuiz(`option_${oIdx}`, e.target.value)}
+                            className="bg-neutral-900 border-neutral-800 text-white rounded-xl h-8 text-xs flex-1"
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Jibu Sahihi (Correct Answer)</label>
+                      <select
+                        value={stops[selectedStopIdx].quiz.answer}
+                        onChange={(e) => updateCurrentStopQuiz('answer', Number(e.target.value))}
+                        className="w-full h-8 bg-neutral-900 border border-neutral-800 rounded-xl px-2 text-xs text-white focus:outline-none"
+                      >
+                        {stops[selectedStopIdx].quiz.options.map((opt, oIdx) => (
+                          <option key={oIdx} value={oIdx}>Option {String.fromCharCode(65 + oIdx)}: {opt.substring(0, 20)}...</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+
             </div>
 
             <div className="pt-2">
