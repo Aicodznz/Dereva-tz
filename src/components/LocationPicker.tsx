@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Search, MapPin, X, Navigation, Loader2, Star, ArrowRight, Package, Clock, RotateCw, Layers, Camera } from 'lucide-react';
+import { Search, MapPin, X, Navigation, Loader2, Star, ArrowRight, Package, Clock, RotateCw, Layers, Camera, Volume2, CheckCircle2, Play, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { motion, AnimatePresence } from 'motion/react';
@@ -182,6 +182,90 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [isAROpen, setIsAROpen] = useState(false);
   const [activeRoute, setActiveRoute] = useState<any>(null);
+
+  // Stop & Media Interactive States on 2D map
+  const [selectedStopIdx, setSelectedStopIdx] = useState<number | null>(null);
+  const [quizSelectedOption, setQuizSelectedOption] = useState<string>('');
+  const [quizSolved, setQuizSolved] = useState(false);
+  const [quizRewardInfo, setQuizRewardInfo] = useState<string | null>(null);
+  const [quizError, setQuizError] = useState<string | null>(null);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  // Clear speech synthesizer when closing or switching stops
+  useEffect(() => {
+    return () => {
+      window.speechSynthesis.cancel();
+    };
+  }, []);
+
+  const playVoiceText = (text: string) => {
+    if (!text) return;
+    try {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      const swKeywords = ["kituo", "sasa", "duka", "karibu", "jinsi", "ya", "kushinda", "habari", "mambo", "funga", "fungua", "tembelea", "sauti"];
+      const isSwahili = swKeywords.some(word => text.toLowerCase().includes(word));
+      
+      if (isSwahili) {
+        utterance.lang = "sw-TZ";
+      } else {
+        utterance.lang = "en-US";
+      }
+      
+      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => setIsSpeaking(false);
+      
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {
+      console.error("Speech synthesis failed:", e);
+    }
+  };
+
+  const stopVoiceText = () => {
+    window.speechSynthesis.cancel();
+    setIsSpeaking(false);
+  };
+
+  const renderVideoPlayerLocal = (url: string) => {
+    if (!url) return null;
+    const youtubeRegExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const match = url.match(youtubeRegExp);
+    if (match && match[2].length === 11) {
+      const videoId = match[2];
+      return (
+        <iframe
+          className="w-full h-full rounded-2xl border-0"
+          src={`https://www.youtube.com/embed/${videoId}?autoplay=0&rel=0`}
+          title="YouTube video player"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+        />
+      );
+    }
+    const vimeoRegExp = /vimeo\.com\/(\d+)/;
+    const vimeoMatch = url.match(vimeoRegExp);
+    if (vimeoMatch) {
+      const videoId = vimeoMatch[1];
+      return (
+        <iframe
+          className="w-full h-full rounded-2xl border-0"
+          src={`https://player.vimeo.com/video/${videoId}`}
+          title="Vimeo video player"
+          allow="autoplay; fullscreen; picture-in-picture"
+          allowFullScreen
+        />
+      );
+    }
+    return (
+      <video 
+        src={url} 
+        controls 
+        playsInline
+        className="w-full h-full object-contain bg-black rounded-2xl"
+      />
+    );
+  };
 
   // Load AR Route for 2D map tracing if arRouteId is provided or preSelectedVendorId is set
   useEffect(() => {
@@ -769,6 +853,9 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                         reverseGeocode(pos.lat, pos.lng);
                         setUserOrigin(pos);
                         setSelectedVendor(null); // Clear selection when user moves marker
+                        setSelectedStopIdx(null); // Clear active stop preview
+                        window.speechSynthesis.cancel();
+                        setIsSpeaking(false);
                       }} 
                     />
                     
@@ -781,6 +868,9 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                         eventHandlers={{
                           click: () => {
                             setSelectedVendor(v);
+                            setSelectedStopIdx(null); // Close active stop preview
+                            window.speechSynthesis.cancel();
+                            setIsSpeaking(false);
                             setPosition(new L.LatLng(v.location.lat, v.location.lng));
                           }
                         }}
@@ -826,6 +916,18 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                               key={`stop-marker-${idx}`}
                               position={[stop.lat, stop.lng]}
                               icon={stopIcon}
+                              eventHandlers={{
+                                click: () => {
+                                  setSelectedStopIdx(idx);
+                                  setSelectedVendor(null); // Close active vendor card
+                                  setQuizSelectedOption('');
+                                  setQuizSolved(false);
+                                  setQuizError(null);
+                                  setQuizRewardInfo(null);
+                                  window.speechSynthesis.cancel();
+                                  setIsSpeaking(false);
+                                }
+                              }}
                             />
                           );
                         })}
@@ -1014,6 +1116,279 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                           </div>
                        </div>
                     </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Interactive Indoor Stop & Media Overlay */}
+              <AnimatePresence>
+                {selectedStopIdx !== null && activeRoute && activeRoute.stops && activeRoute.stops[selectedStopIdx] && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 50, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 50, scale: 0.95 }}
+                    className="absolute top-20 left-4 right-4 z-[1001] max-h-[68vh] overflow-y-auto no-scrollbar bg-neutral-900/95 backdrop-blur-xl rounded-[2.5rem] border border-white/15 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.5)] text-left flex flex-col gap-4 text-white"
+                  >
+                    {(() => {
+                      const stop = activeRoute.stops[selectedStopIdx];
+                      const stopName = stop.stopName || stop.name || `Kituo cha ${selectedStopIdx + 1}`;
+                      const stopDesc = stop.stopDescription || stop.voiceText || stop.description;
+                      const hasVoice = !!stopDesc;
+                      const hasQuiz = stop.hasQuiz || !!stop.quiz;
+
+                      // Extract character name and emoji
+                      const charType = stop.character || 'guide';
+                      const charObj = [
+                        { id: 'lion', name: 'Simba Jasiri', icon: '🦁' },
+                        { id: 'castle', name: 'Mlinzi wa Ngome', icon: '🏰' },
+                        { id: 'guide', name: 'Mwongozo wako wa Smart', icon: '🤖' },
+                        { id: 'treasure', name: 'Fumbo la Hazina', icon: '🎁' },
+                        { id: 'coin', name: 'Sarafu ya Dhahabu', icon: '🪙' },
+                        { id: 'dragon', name: 'Joka Mpole', icon: '🐉' },
+                        { id: 'bread', name: 'Mpishi wa Mikate', icon: '🍞' },
+                        { id: 'soda', name: 'Muuzaji wa Vinywaji', icon: '🥤' },
+                        { id: 'tv', name: 'Televisheni ya Ajabu', icon: '📺' },
+                        { id: 'teacher', name: 'Mwalimu Mkuu', icon: '👩‍🏫' },
+                        { id: 'fireworks', name: 'Mtaalamu wa Sherehe', icon: '🎉' },
+                      ].find(c => c.id === charType) || { id: 'guide', name: 'Mwongozo wa AI', icon: '🤖' };
+
+                      return (
+                        <>
+                          {/* Card Header */}
+                          <div className="flex items-start justify-between border-b border-white/10 pb-3">
+                            <div className="min-w-0">
+                              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-orange-400">
+                                Kituo cha Ndani / Stop {selectedStopIdx + 1} la {activeRoute.stops.length}
+                              </span>
+                              <h4 className="text-lg font-black uppercase text-white tracking-tight leading-tight mt-0.5 truncate">
+                                {stopName}
+                              </h4>
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <span className="text-base">{charObj.icon}</span>
+                                <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
+                                  Kiongozi: {charObj.name}
+                                </span>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => {
+                                setSelectedStopIdx(null);
+                                stopVoiceText();
+                              }}
+                              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors shrink-0"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+
+                          {/* Media Display Area - High Robustness */}
+                          <div className="space-y-4">
+                            {/* 1. Stop Description & Voice Readout */}
+                            {stopDesc && (
+                              <div className="bg-white/5 border border-white/5 p-4 rounded-3xl relative">
+                                <p className="text-xs text-neutral-200 font-medium leading-relaxed mb-3">
+                                  {stopDesc}
+                                </p>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => {
+                                      if (isSpeaking) {
+                                        stopVoiceText();
+                                      } else {
+                                        playVoiceText(stopDesc);
+                                      }
+                                    }}
+                                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-2 transition-all ${
+                                      isSpeaking 
+                                        ? 'bg-red-600 text-white animate-pulse' 
+                                        : 'bg-orange-600 hover:bg-orange-500 text-white shadow-md'
+                                    }`}
+                                  >
+                                    <Volume2 className="w-3.5 h-3.5" />
+                                    <span>{isSpeaking ? 'Zima Sauti / Mute' : 'Sikiliza Maelekezo (Sauti) 🔊'}</span>
+                                  </button>
+                                  {isSpeaking && (
+                                    <div className="flex gap-1 items-center">
+                                      <span className="w-1 h-3 bg-orange-400 animate-bounce rounded-full" style={{ animationDelay: '0s' }}></span>
+                                      <span className="w-1 h-4 bg-orange-400 animate-bounce rounded-full" style={{ animationDelay: '0.1s' }}></span>
+                                      <span className="w-1 h-2 bg-orange-400 animate-bounce rounded-full" style={{ animationDelay: '0.2s' }}></span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* 2. Image Display */}
+                            {(stop.imageUrl || stop.image) && (
+                              <div className="w-full h-44 rounded-3xl overflow-hidden border border-white/10 bg-neutral-950 relative group">
+                                <img
+                                  src={stop.imageUrl || stop.image}
+                                  alt={stopName}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                  referrerPolicy="no-referrer"
+                                />
+                                <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10">
+                                  <span className="text-[8px] font-black uppercase tracking-widest text-white">📷 Picha ya Kituo</span>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* 3. Video Embed / Player */}
+                            {(stop.videoUrl || stop.video) && (
+                              <div className="w-full p-3 bg-white/5 border border-white/5 rounded-3xl">
+                                <span className="text-[9px] font-black uppercase tracking-widest text-orange-400 block mb-2">🎥 Video Guide:</span>
+                                <div className="aspect-video w-full rounded-2xl overflow-hidden bg-black flex items-center justify-center relative border border-white/10">
+                                  {renderVideoPlayerLocal(stop.videoUrl || stop.video)}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* 4. External Redirect Link */}
+                            {(stop.linkUrl || stop.link) && (
+                              <a
+                                href={stop.linkUrl || stop.link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-blue-900/30"
+                              >
+                                <ExternalLink className="w-4 h-4" />
+                                <span>Fungua Tovuti Iliyowekwa / Visit Website Link</span>
+                              </a>
+                            )}
+
+                            {/* 5. Interactive Quiz Station */}
+                            {hasQuiz && (
+                              <div className="bg-gradient-to-br from-amber-950/40 to-orange-950/40 border border-orange-500/20 p-5 rounded-3xl space-y-3">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-lg">🎮</span>
+                                  <span className="text-[10px] font-black uppercase tracking-widest text-amber-400">
+                                    Fumbo la Bonasi / Quiz Challenge
+                                  </span>
+                                </div>
+
+                                {!quizSolved ? (
+                                  <div className="space-y-3">
+                                    <p className="text-xs font-bold text-white leading-relaxed">
+                                      {stop.quizQuestion || stop.quiz?.question || "Je, unaweza kujibu swali hili kuhusu kituo hiki?"}
+                                    </p>
+                                    <div className="grid grid-cols-1 gap-2">
+                                      {(stop.quiz?.options || stop.quizOptions || []).map((opt: string, oIdx: number) => {
+                                        const isSelected = quizSelectedOption === opt;
+                                        return (
+                                          <button
+                                            key={`quiz-opt-${oIdx}`}
+                                            onClick={() => {
+                                              setQuizSelectedOption(opt);
+                                              setQuizError(null);
+                                            }}
+                                            className={`w-full text-left p-3 rounded-2xl text-[11px] font-bold transition-all border ${
+                                              isSelected
+                                                ? 'bg-orange-600/30 border-orange-500 text-white shadow-lg'
+                                                : 'bg-white/5 border-transparent text-neutral-300 hover:bg-white/10'
+                                            }`}
+                                          >
+                                            <span className="inline-block w-5 h-5 rounded-lg bg-white/10 text-center leading-5 text-[9px] mr-2">
+                                              {String.fromCharCode(65 + oIdx)}
+                                            </span>
+                                            {opt}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                    {quizError && (
+                                      <p className="text-[10px] text-red-500 font-bold">{quizError}</p>
+                                    )}
+                                    <Button
+                                      onClick={() => {
+                                        if (!quizSelectedOption) {
+                                          setQuizError("Tafadhali chagua jibu moja kwanza!");
+                                          return;
+                                        }
+                                        // Determine correct answer
+                                        let correctAnswerStr = "";
+                                        if (stop.quiz) {
+                                          correctAnswerStr = stop.quiz.options[stop.quiz.answer] || "";
+                                        } else if (stop.quizAnswer) {
+                                          correctAnswerStr = stop.quizAnswer;
+                                        }
+                                        
+                                        const isCorrect = quizSelectedOption.trim().toLowerCase() === correctAnswerStr.trim().toLowerCase();
+                                        if (isCorrect) {
+                                          const pts = stop.quiz?.points || stop.rewardPoints || 10;
+                                          const couponStr = stop.rewardCoupon ? ` na kupewa Kuponi: ${stop.rewardCoupon}` : "";
+                                          setQuizRewardInfo(stop.quizReward || `Hongera sana! Umepata pointi ${pts} za Uaminifu${couponStr}! 🎉`);
+                                          setQuizSolved(true);
+                                        } else {
+                                          setQuizError("Jibu si sahihi. Jaribu tena au kagua maelezo ya kituo!");
+                                        }
+                                      }}
+                                      className="w-full h-11 bg-orange-600 hover:bg-orange-500 text-white rounded-2xl text-[10px] font-black uppercase tracking-wider"
+                                    >
+                                      Hifadhi na Thibitisha Jibu / Submit Answer
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <div className="bg-green-600/20 border border-green-500/20 p-4 rounded-2xl flex flex-col items-center text-center gap-2">
+                                    <CheckCircle2 className="w-10 h-10 text-green-500 animate-bounce" />
+                                    <h5 className="text-xs font-black uppercase tracking-wider text-green-400">Hongera Sana! Sahihi!</h5>
+                                    <p className="text-[11px] text-green-100 font-medium mt-1 leading-relaxed">
+                                      {quizRewardInfo}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Footer with Prev/Next Stop Switchers & Open in AR Mode */}
+                          <div className="flex flex-col gap-2.5 pt-2 border-t border-white/10 mt-2">
+                            <div className="flex gap-2">
+                              <button
+                                disabled={selectedStopIdx === 0}
+                                onClick={() => {
+                                  setSelectedStopIdx(selectedStopIdx - 1);
+                                  setQuizSelectedOption('');
+                                  setQuizSolved(false);
+                                  setQuizError(null);
+                                  setQuizRewardInfo(null);
+                                  window.speechSynthesis.cancel();
+                                  setIsSpeaking(false);
+                                }}
+                                className="flex-1 py-3 bg-white/5 hover:bg-white/10 disabled:opacity-30 rounded-2xl text-[9px] font-black uppercase tracking-wider text-white transition-all"
+                              >
+                                ⬅️ Nyuma / Prev
+                              </button>
+                              <button
+                                disabled={selectedStopIdx === activeRoute.stops.length - 1}
+                                onClick={() => {
+                                  setSelectedStopIdx(selectedStopIdx + 1);
+                                  setQuizSelectedOption('');
+                                  setQuizSolved(false);
+                                  setQuizError(null);
+                                  setQuizRewardInfo(null);
+                                  window.speechSynthesis.cancel();
+                                  setIsSpeaking(false);
+                                }}
+                                className="flex-1 py-3 bg-white/5 hover:bg-white/10 disabled:opacity-30 rounded-2xl text-[9px] font-black uppercase tracking-wider text-white transition-all"
+                              >
+                                Mbele / Next ➡️
+                              </button>
+                            </div>
+
+                            <button
+                              onClick={() => {
+                                stopVoiceText();
+                                setIsAROpen(true);
+                              }}
+                              className="w-full py-3.5 bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 text-white rounded-2xl shadow-xl shadow-orange-950/40 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all transform active:scale-95"
+                            >
+                              <Camera className="w-4 h-4 animate-pulse" />
+                              <span>Fungua AR Camera ya Kituo Hiki / Open in AR Mode</span>
+                            </button>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </motion.div>
                 )}
               </AnimatePresence>
