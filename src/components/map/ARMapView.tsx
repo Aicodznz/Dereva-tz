@@ -8,7 +8,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { db } from '../../firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { toast } from 'sonner';
 
 interface ARMapViewProps {
@@ -310,6 +310,34 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
     return () => clearInterval(timer);
   }, [isSimulatingWalk, simulatedDistance, targetVendor, arRoute]);
 
+  // Auto arrive when user gets close to the target coordinates (<= 6 meters)
+  useEffect(() => {
+    let rawDistance = 120;
+    if (arRoute && arRoute.stops && arRoute.stops[currentStopIndex]) {
+      const currentStop = arRoute.stops[currentStopIndex];
+      rawDistance = calculateDistanceMeters(
+        userLocation.lat,
+        userLocation.lng,
+        currentStop.lat,
+        currentStop.lng
+      );
+    } else if (targetVendor && targetVendor.location) {
+      rawDistance = calculateDistanceMeters(
+        userLocation.lat,
+        userLocation.lng,
+        targetVendor.location.lat,
+        targetVendor.location.lng
+      );
+    }
+
+    const currentDist = simulatedDistance !== null ? simulatedDistance : Math.round(rawDistance);
+
+    if (currentDist <= 6 && !hasArrived && (arRoute || targetVendor)) {
+      setHasArrived(true);
+      triggerBeep(880, 0.3); // High celebratory tone
+    }
+  }, [simulatedDistance, userLocation, currentStopIndex, arRoute, targetVendor, hasArrived]);
+
   // Audio tone generator for scanning and navigation alignment feedback
   const triggerBeep = (frequency = 440, duration = 0.1) => {
     if (!audioEnabled || typeof window === 'undefined') return;
@@ -514,23 +542,72 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
   }, [isTargetVisibleInCamera, angleOffset, activeDistance]);
 
   // Handle Mock QR scanning
-  const handleSimulateScan = (vendorId: string) => {
+  const handleSimulateScan = async (vendorId: string) => {
     setIsScanning(true);
     triggerBeep(330, 0.15);
-    setTimeout(() => {
-      triggerBeep(523.25, 0.1); // Scanner beep
-      const found = vendors.find(v => v.id === vendorId);
-      if (found) {
-        setTargetVendor(found);
-        setHasArrived(false);
-        setSimulatedDistance(Math.round(Math.max(10, Math.floor(Math.random() * 40) + 15)));
-        setScanSuccess(found.businessName);
-        setScanMode(false);
-        triggerBeep(1046.5, 0.35); // Success tone
-      }
-      setIsScanning(false);
-      setTimeout(() => setScanSuccess(null), 3000);
-    }, 1500);
+    try {
+      // Query Firestore to see if this vendor has an AR route
+      const routesQuery = query(
+        collection(db, 'ar_routes'),
+        where('vendorId', '==', vendorId)
+      );
+      const querySnapshot = await getDocs(routesQuery);
+
+      setTimeout(() => {
+        triggerBeep(523.25, 0.1); // Scanner beep
+        const found = vendors.find(v => v.id === vendorId);
+        if (found) {
+          setTargetVendor(found);
+          setHasArrived(false);
+          setScanSuccess(found.businessName);
+          setScanMode(false);
+          triggerBeep(1046.5, 0.35); // Success tone
+
+          if (!querySnapshot.empty) {
+            // Yes! The vendor has an AR route. Load it!
+            const firstRouteDoc = querySnapshot.docs[0];
+            const routeData = firstRouteDoc.data();
+            setArRoute({ id: firstRouteDoc.id, ...routeData });
+            setCurrentStopIndex(0);
+            
+            if (routeData.stops && routeData.stops.length > 0) {
+              const firstStop = routeData.stops[0];
+              const dist = calculateDistanceMeters(
+                userLocation.lat,
+                userLocation.lng,
+                firstStop.lat,
+                firstStop.lng
+              );
+              setSimulatedDistance(Math.round(Math.max(15, dist)));
+            }
+          } else {
+            // No custom AR route, fallback to single point navigation
+            setArRoute(null);
+            setSimulatedDistance(Math.round(Math.max(10, Math.floor(Math.random() * 40) + 15)));
+          }
+        }
+        setIsScanning(false);
+        setTimeout(() => setScanSuccess(null), 3000);
+      }, 1500);
+    } catch (err) {
+      console.error("Error matching route during scan:", err);
+      // Fallback
+      setTimeout(() => {
+        triggerBeep(523.25, 0.1);
+        const found = vendors.find(v => v.id === vendorId);
+        if (found) {
+          setTargetVendor(found);
+          setHasArrived(false);
+          setArRoute(null);
+          setSimulatedDistance(Math.round(Math.max(10, Math.floor(Math.random() * 40) + 15)));
+          setScanSuccess(found.businessName);
+          setScanMode(false);
+          triggerBeep(1046.5, 0.35);
+        }
+        setIsScanning(false);
+        setTimeout(() => setScanSuccess(null), 3000);
+      }, 1500);
+    }
   };
 
   // Tour / Treasure Hunt handlers
@@ -1325,13 +1402,13 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
         {arRoute && !scanMode && (
           <div className="absolute bottom-4 inset-x-5 z-30 flex flex-col gap-2 pointer-events-none">
             {/* The Ant-Way Trail Board */}
-            <div className="bg-black/90 backdrop-blur-md border border-orange-500/20 px-4 py-3 rounded-2xl flex flex-col gap-1.5 shadow-2xl pointer-events-auto">
+            <div className="bg-[#0B0C10]/95 backdrop-blur-md border border-orange-500/30 px-4 py-3.5 rounded-3xl flex flex-col gap-2 shadow-[0_20px_50px_rgba(0,0,0,0.5)] pointer-events-auto max-h-[80vh] overflow-y-auto no-scrollbar">
               <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-widest text-neutral-400">
                 <span className="flex items-center gap-1">
                   <span className="inline-block w-1.5 h-1.5 rounded-full bg-orange-500 animate-ping" />
                   Njia ya Ant-Way (Wayfinding Trail)
                 </span>
-                <span className="text-orange-500 font-mono">UTALII WA AR</span>
+                <span className="text-orange-500 font-mono font-bold">UTALII WA AR</span>
               </div>
               
               {/* Direction/Chevron Indicator */}
@@ -1375,7 +1452,7 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
               </div>
 
               {/* Waypoint nodes list with animated connection */}
-              <div className="flex items-center justify-between gap-1.5 mt-1 overflow-x-auto no-scrollbar py-0.5">
+              <div className="flex items-center justify-between gap-1.5 mt-0.5 overflow-x-auto no-scrollbar py-0.5 border-b border-white/10 pb-2">
                 <div className="flex items-center gap-1">
                   <span className="text-[10px]">👤</span>
                   <span className="text-[9px] font-black text-white/60">Wewe</span>
@@ -1385,10 +1462,10 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
                   <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-0.5 bg-orange-500 origin-left animate-[shimmer_1.5s_infinite]" style={{ width: '100%' }} />
                 </div>
 
-                <div className="flex items-center gap-1.5 px-2 py-1 bg-orange-500/15 border border-orange-500/30 rounded-xl max-w-[120px]">
+                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-orange-500/15 border border-orange-500/30 rounded-xl max-w-[120px]">
                   <span className="text-[10px]">📍</span>
                   <div className="text-left leading-none truncate">
-                    <p className="text-[9px] font-black uppercase text-orange-400">Sasa</p>
+                    <p className="text-[9px] font-black uppercase text-orange-400">Kituo sasa</p>
                     <p className="text-[8px] font-bold text-neutral-300 truncate max-w-[80px]">
                       {arRoute.stops[currentStopIndex].stopName || arRoute.stops[currentStopIndex].name}
                     </p>
@@ -1410,6 +1487,155 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
                   </>
                 )}
               </div>
+
+              {/* Enhanced Media & Info Drawer Content */}
+              {(() => {
+                const stop = arRoute.stops[currentStopIndex];
+                if (!stop) return null;
+                const hasMedia = stop.imageUrl || stop.image || stop.videoUrl || stop.video || stop.linkUrl || stop.link;
+                const charType = stop.character || 'guide';
+                let charEmoji = '🤖';
+                if (charType === 'lion') charEmoji = '🦁';
+                else if (charType === 'castle') charEmoji = '🏰';
+                else if (charType === 'treasure') charEmoji = '🎁';
+                else if (charType === 'coin') charEmoji = '🪙';
+                else if (charType === 'dragon') charEmoji = '🐉';
+                else if (charType === 'bread') charEmoji = '🍞';
+                else if (charType === 'soda') charEmoji = '🥤';
+                else if (charType === 'tv') charEmoji = '📺';
+                else if (charType === 'teacher') charEmoji = '👩‍🏫';
+                else if (charType === 'fireworks') charEmoji = '🎉';
+
+                return (
+                  <div className="flex flex-col gap-2 mt-1">
+                    {/* Header showing Active Stop */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-base">{charEmoji}</span>
+                        <span className="text-xs font-black uppercase tracking-wider text-orange-400">
+                          {stop.stopName || stop.name}
+                        </span>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${hasArrived ? "bg-green-500/10 border border-green-500/20 text-green-400" : "bg-orange-500/10 border border-orange-500/20 text-orange-500 animate-pulse"}`}>
+                        {hasArrived ? "📍 Umefika!" : `${activeDistance} Mita`}
+                      </span>
+                    </div>
+
+                    {/* Narrator Voice Description */}
+                    <div className="bg-white/5 border border-white/5 rounded-xl p-2.5 text-[10px] text-neutral-300 font-medium leading-relaxed">
+                      <span className="text-[8.5px] font-black uppercase tracking-widest text-neutral-500 block mb-0.5">Sauti ya Kiongozi (Narrator):</span>
+                      {stop.voiceText || stop.stopDescription || "Tafadhali nenda mbele kuelekea kituo hiki kulingana na dira ya GPS hapo juu."}
+                    </div>
+
+                    {/* Rich Media List (Always accessible) */}
+                    {hasMedia && (
+                      <div className="space-y-2 mt-1 bg-white/5 border border-white/5 p-2 rounded-2xl max-h-[160px] overflow-y-auto no-scrollbar">
+                        {/* Image */}
+                        {(stop.imageUrl || stop.image) && (
+                          <div className="rounded-xl overflow-hidden border border-white/10 bg-neutral-900 aspect-video relative">
+                            <img 
+                              src={stop.imageUrl || stop.image} 
+                              alt={stop.stopName || stop.name} 
+                              className="w-full h-full object-cover"
+                              referrerPolicy="no-referrer"
+                            />
+                            <div className="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/70 rounded text-[7px] text-white uppercase font-black tracking-widest">
+                              Picha ya Kituo
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Video */}
+                        {(stop.videoUrl || stop.video) && (
+                          <div className="p-1 bg-black/40 border border-white/5 rounded-xl">
+                            <span className="text-[8px] font-black uppercase tracking-widest text-orange-400 block p-1">🎥 Video Clip ya Kituo:</span>
+                            <div className="aspect-video rounded-lg overflow-hidden bg-black flex items-center justify-center relative">
+                              {renderVideoPlayer(stop.videoUrl || stop.video)}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* External Link */}
+                        {(stop.linkUrl || stop.link) && (
+                          <div className="pt-0.5">
+                            <a 
+                              href={stop.linkUrl || stop.link} 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              className="w-full py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-[9px] font-black uppercase tracking-wider block text-center transition-all shadow-md shadow-blue-950/40"
+                            >
+                              🌐 Fungua Tovuti / Visit External Link
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Interactive Quiz when Arrived */}
+                    {hasArrived && (stop.hasQuiz || !!stop.quiz) && !quizSolved && (
+                      <div className="p-2.5 bg-orange-950/20 border border-orange-500/20 rounded-xl text-left">
+                        <h4 className="text-[8.5px] font-black uppercase text-orange-400 mb-1 flex items-center gap-1">
+                          <HelpCircle className="w-3 h-3" /> Fumbo / Quiz ya Kituo:
+                        </h4>
+                        <p className="text-[10px] text-neutral-100 font-bold mb-2 leading-relaxed">
+                          {stop.quiz?.question || stop.quizQuestion || "Je, unaweza kutatua fumbo hili?"}
+                        </p>
+                        
+                        <div className="space-y-1">
+                          {(stop.quiz?.options || stop.quizOptions || []).map((opt: string, oIdx: number) => (
+                            <button
+                              key={oIdx}
+                              onClick={() => setQuizSelectedOption(opt)}
+                              className={`w-full text-left p-2 rounded-lg text-[9px] font-bold transition-all border ${quizSelectedOption === opt ? 'bg-orange-500/20 border-orange-500 text-white shadow-sm' : 'bg-white/5 border-transparent text-neutral-400 hover:bg-white/10'}`}
+                            >
+                              {oIdx + 1}. {opt}
+                            </button>
+                          ))}
+                        </div>
+                        
+                        <button
+                          disabled={!quizSelectedOption}
+                          onClick={handleQuizSubmit}
+                          className="w-full mt-2.5 py-1.5 bg-orange-600 hover:bg-orange-500 text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition-colors disabled:opacity-50"
+                        >
+                          Wasilisha Jibu la Fumbo
+                        </button>
+                        
+                        {quizError && <p className="text-[9px] text-red-500 mt-1 font-semibold">{quizError}</p>}
+                      </div>
+                    )}
+
+                    {/* Quiz Solved Reward Display */}
+                    {quizSolved && quizRewardInfo && (
+                      <div className="p-2.5 bg-green-950/20 border border-green-500/20 rounded-xl text-center">
+                        <p className="text-[9px] text-green-400 font-black uppercase tracking-wider">🎉 Fumbo Limetatuliwa kwa Mafanikio!</p>
+                        <p className="text-xs text-white font-black mt-0.5">{quizRewardInfo}</p>
+                      </div>
+                    )}
+
+                    {/* Simulation and Navigation Control Buttons */}
+                    <div className="mt-1 flex gap-2">
+                      {!hasArrived ? (
+                        <button 
+                          onClick={() => setIsSimulatingWalk(!isSimulatingWalk)}
+                          className={`flex-1 py-2 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all ${isSimulatingWalk ? 'bg-amber-600 text-white animate-pulse' : 'bg-orange-600 hover:bg-orange-500 text-white shadow-md shadow-orange-950/20'}`}
+                        >
+                          <Sparkles className="w-3.5 h-3.5 animate-spin" />
+                          {isSimulatingWalk ? 'Inatembea...' : 'Anza Safari (Simulate Walk)'}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={handleNextStop}
+                          className="w-full py-2.5 bg-green-600 hover:bg-green-500 text-white rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-colors shadow-lg shadow-green-950/30 font-black"
+                        >
+                          <CheckCircle className="w-3.5 h-3.5" />
+                          <span>{currentStopIndex >= arRoute.stops.length - 1 ? 'Kamilisha Utalii' : 'Nenda Kituo Kinachofuata'}</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         )}
@@ -1526,35 +1752,37 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
         </div>
 
         {/* Store selector slider/list for fast navigation switches */}
-        <div className="flex flex-col gap-2">
-          <p className="text-[10px] text-neutral-500 font-black uppercase tracking-[0.2em]">Chagua duka la kupata maelekezo</p>
-          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 max-w-full">
-            {vendors.map((v) => {
-              const isSelected = targetVendor?.id === v.id;
-              return (
-                <button
-                  key={v.id}
-                  onClick={() => {
-                    setTargetVendor(v);
-                    setHasArrived(false);
-                    const realDist = calculateDistanceMeters(
-                      userLocation.lat, 
-                      userLocation.lng, 
-                      v.location?.lat || userLocation.lat, 
-                      v.location?.lng || userLocation.lng
-                    );
-                    setSimulatedDistance(Math.round(Math.max(15, realDist)));
-                    triggerBeep(523.25, 0.05);
-                  }}
-                  className={`px-4 py-3 rounded-2xl whitespace-nowrap text-xs font-black uppercase tracking-wider transition-all border flex items-center gap-2 ${isSelected ? 'bg-orange-600 border-orange-500 text-white shadow-lg shadow-orange-950/20' : 'bg-white/5 border-white/5 text-neutral-400 hover:text-white'}`}
-                >
-                  <Store className="w-4 h-4 shrink-0" />
-                  {v.businessName}
-                </button>
-              );
-            })}
+        {!arRoute && (
+          <div className="flex flex-col gap-2">
+            <p className="text-[10px] text-neutral-500 font-black uppercase tracking-[0.2em]">Chagua duka la kupata maelekezo</p>
+            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 max-w-full">
+              {vendors.map((v) => {
+                const isSelected = targetVendor?.id === v.id;
+                return (
+                  <button
+                    key={v.id}
+                    onClick={() => {
+                      setTargetVendor(v);
+                      setHasArrived(false);
+                      const realDist = calculateDistanceMeters(
+                        userLocation.lat, 
+                        userLocation.lng, 
+                        v.location?.lat || userLocation.lat, 
+                        v.location?.lng || userLocation.lng
+                      );
+                      setSimulatedDistance(Math.round(Math.max(15, realDist)));
+                      triggerBeep(523.25, 0.05);
+                    }}
+                    className={`px-4 py-3 rounded-2xl whitespace-nowrap text-xs font-black uppercase tracking-wider transition-all border flex items-center gap-2 ${isSelected ? 'bg-orange-600 border-orange-500 text-white shadow-lg shadow-orange-950/20' : 'bg-white/5 border-white/5 text-neutral-400 hover:text-white'}`}
+                  >
+                    <Store className="w-4 h-4 shrink-0" />
+                    {v.businessName}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
