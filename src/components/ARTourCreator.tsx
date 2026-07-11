@@ -105,6 +105,7 @@ export default function ARTourCreator({ vendorProfile }: ARTourCreatorProps) {
   const [routeCategory, setRouteCategory] = useState('tourism');
   const [stops, setStops] = useState<Stop[]>([]);
   const [selectedStopIdx, setSelectedStopIdx] = useState<number | null>(null);
+  const [mapType, setMapType] = useState<'standard' | 'satellite'>('satellite');
 
   // Live Mapping States for Vendors on-site
   const [showLiveMapper, setShowLiveMapper] = useState(false);
@@ -1008,14 +1009,38 @@ export default function ARTourCreator({ vendorProfile }: ARTourCreatorProps) {
 
                 {/* Leaflet Builder Map */}
                 <div className="h-[400px] w-full rounded-2xl overflow-hidden border border-neutral-200 dark:border-neutral-800 relative z-10">
+                  {/* Floating Map Style Selector */}
+                  <div className="absolute top-4 left-4 z-[1000] bg-white/90 dark:bg-neutral-900/95 backdrop-blur-md px-1.5 py-1.5 rounded-xl flex items-center gap-1 shadow-lg border border-neutral-200/50 dark:border-neutral-800/50">
+                    <button 
+                      type="button"
+                      onClick={() => setMapType('standard')}
+                      className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${mapType === 'standard' ? 'bg-orange-600 text-white shadow-md' : 'text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'}`}
+                    >
+                      Kawaida (Map)
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => setMapType('satellite')}
+                      className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${mapType === 'satellite' ? 'bg-orange-600 text-white shadow-md' : 'text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'}`}
+                    >
+                      Satelaiti (Satellite)
+                    </button>
+                  </div>
+
                   <MapContainer 
                     center={mapCenter} 
                     zoom={17} 
                     className="w-full h-full"
                   >
                     <TileLayer
-                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                      attribution='&copy; OpenStreetMap contributors'
+                      url={mapType === 'satellite' 
+                        ? "https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
+                        : "https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+                      }
+                      subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
+                      maxZoom={22}
+                      maxNativeZoom={19}
+                      attribution="&copy; Google Maps"
                     />
                     
                     {stops.map((stop, sIdx) => (

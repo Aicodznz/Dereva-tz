@@ -58,6 +58,7 @@ export default function VendorMapQRSetup({ vendorProfile }: VendorMapQRSetupProp
   const [arIcon, setArIcon] = useState<string>(vendorProfile?.arIcon || 'store');
   const [arColor, setArColor] = useState<string>(vendorProfile?.arColor || '#ea580c');
   const [arImageUrl, setArImageUrl] = useState<string>(vendorProfile?.arImageUrl || '');
+  const [mapType, setMapType] = useState<'standard' | 'satellite'>('satellite');
   
   const [isSaving, setIsSaving] = useState(false);
   const qrRef = useRef<HTMLDivElement>(null);
@@ -392,14 +393,38 @@ export default function VendorMapQRSetup({ vendorProfile }: VendorMapQRSetupProp
 
                 {/* Map Canvas */}
                 <div className="h-80 w-full rounded-[2rem] overflow-hidden border border-neutral-200 dark:border-neutral-800 relative z-10">
+                  {/* Floating Map Style Selector */}
+                  <div className="absolute top-4 left-4 z-[1000] bg-white/90 dark:bg-neutral-900/95 backdrop-blur-md px-1.5 py-1.5 rounded-xl flex items-center gap-1 shadow-lg border border-neutral-200/50 dark:border-neutral-800/50">
+                    <button 
+                      type="button"
+                      onClick={() => setMapType('standard')}
+                      className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${mapType === 'standard' ? 'bg-orange-600 text-white shadow-md' : 'text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'}`}
+                    >
+                      Kawaida (Map)
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => setMapType('satellite')}
+                      className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${mapType === 'satellite' ? 'bg-orange-600 text-white shadow-md' : 'text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'}`}
+                    >
+                      Satelaiti (Satellite)
+                    </button>
+                  </div>
+
                   <MapContainer 
                     center={[lat, lng]} 
                     zoom={16} 
                     className="w-full h-full"
                   >
                     <TileLayer
-                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                      attribution='&copy; OpenStreetMap contributors'
+                      url={mapType === 'satellite' 
+                        ? "https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
+                        : "https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+                      }
+                      subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
+                      maxZoom={22}
+                      maxNativeZoom={19}
+                      attribution="&copy; Google Maps"
                     />
                     <DraggableMarker />
                     <MapEvents />
