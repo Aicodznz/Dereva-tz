@@ -11,6 +11,54 @@ import { db } from '../../firebase';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { toast } from 'sonner';
 import { useBusinessConfig } from '../../BusinessConfigContext';
+import { MapContainer, TileLayer, Marker, Polyline, useMap, Popup } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Fix for default marker icon in Leaflet
+const DefaultIcon = L.icon({
+    iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41]
+});
+
+// Pulse user location icon
+const UserLocationIcon = L.divIcon({
+  html: `<div class="relative flex items-center justify-center w-6 h-6">
+    <div class="absolute w-6 h-6 bg-blue-500 rounded-full animate-ping opacity-75"></div>
+    <div class="relative w-3.5 h-3.5 bg-blue-600 border-2 border-white rounded-full shadow-lg"></div>
+  </div>`,
+  className: 'bg-transparent',
+  iconSize: [24, 24],
+  iconAnchor: [12, 12]
+});
+
+// Custom stop icons
+const createStopIcon = (num: number, isActive: boolean) => {
+  const bg = isActive ? 'bg-orange-600 border-orange-400' : 'bg-neutral-800 border-neutral-600';
+  const text = isActive ? 'text-white' : 'text-neutral-300';
+  const size = isActive ? 'w-8 h-8' : 'w-6 h-6';
+  const fontSize = isActive ? 'text-xs' : 'text-[10px]';
+  return L.divIcon({
+    html: `<div class="${size} ${bg} border-2 rounded-full flex items-center justify-center shadow-lg transform transition-transform scale-110">
+      <span class="${fontSize} font-black ${text}">${num}</span>
+    </div>`,
+    className: 'bg-transparent',
+    iconSize: isActive ? [32, 32] : [24, 24],
+    iconAnchor: isActive ? [16, 16] : [12, 12]
+  });
+};
+
+function MapController({ center }: { center: { lat: number; lng: number } }) {
+  const map = useMap();
+  useEffect(() => {
+    if (center) {
+      map.setView([center.lat, center.lng], map.getZoom());
+    }
+  }, [center, map]);
+  return null;
+}
 
 interface ARMapViewProps {
   vendors: any[];
@@ -129,6 +177,11 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
   const [isScanningEnvironment, setIsScanningEnvironment] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
 
+  // Satellite Map overlay states for customer
+  const [showSatelliteMap, setShowSatelliteMap] = useState(false);
+  const [mapStyle, setMapStyle] = useState<'standard' | 'satellite'>('satellite');
+  const [mapReady, setMapReady] = useState(false);
+
   // Compass Drag / Manual Control States
   const isDraggingRef = useRef(false);
   const startXRef = useRef(0);
@@ -163,7 +216,7 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
             found.location?.lat || userLocation.lat, 
             found.location?.lng || userLocation.lng
           );
-          setSimulatedDistance(Math.round(Math.max(15, realDist)));
+          setSimulatedDistance(Math.round(realDist));
         }
       } else if (activeVendors.length > 0) {
         // Default to closest active vendor
@@ -204,6 +257,19 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
           setArRoute(routeData);
           setCurrentStopIndex(0);
           setTourCompleted(false);
+          
+          // Fetch associated vendor if route is deep-linked
+          if (routeData.vendorId) {
+            try {
+              const vendorDoc = await getDoc(doc(db, 'vendors', routeData.vendorId));
+              if (vendorDoc.exists()) {
+                setTargetVendor({ id: vendorDoc.id, ...vendorDoc.data() });
+              }
+            } catch (err) {
+              console.error("Error fetching associated vendor for route:", err);
+            }
+          }
+
           // Set distance to the first stop
           if (routeData.stops && routeData.stops[0]) {
             const firstStop = routeData.stops[0];
@@ -213,7 +279,7 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
               firstStop.lat,
               firstStop.lng
             );
-            setSimulatedDistance(Math.round(Math.max(15, realDist)));
+            setSimulatedDistance(Math.round(realDist));
           }
         } else {
           setArRoute(null);
@@ -792,7 +858,7 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
                 firstStop.lat,
                 firstStop.lng
               );
-              setSimulatedDistance(Math.round(Math.max(15, dist)));
+              setSimulatedDistance(Math.round(dist));
             }
           } else {
             // No custom AR route, fallback to single point navigation
@@ -848,7 +914,7 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
         nextStop.lat,
         nextStop.lng
       );
-      setSimulatedDistance(Math.round(Math.max(15, nextDist)));
+      setSimulatedDistance(Math.round(nextDist));
     }
   };
 
@@ -1221,6 +1287,16 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
               className="w-11 h-11 bg-black/60 backdrop-blur-lg border border-white/15 rounded-full flex items-center justify-center hover:bg-black/80 transition-colors shadow-lg"
             >
               {audioEnabled ? <Volume2 className="w-5 h-5 text-green-500" /> : <VolumeX className="w-5 h-5 text-neutral-400" />}
+            </button>
+            <button 
+              onClick={() => {
+                setShowSatelliteMap(true);
+                triggerBeep(520, 0.05);
+              }}
+              className="px-4 h-11 bg-black/60 backdrop-blur-lg border border-white/15 hover:bg-black/80 text-white rounded-full flex items-center gap-2 text-xs font-black uppercase tracking-widest transition-all shadow-lg"
+            >
+              <MapPin className="w-4 h-4 text-orange-500 animate-pulse" />
+              <span>Ramani</span>
             </button>
             <button 
               onClick={() => setScanMode(!scanMode)}
@@ -2303,7 +2379,7 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
                         v.location?.lat || userLocation.lat, 
                         v.location?.lng || userLocation.lng
                       );
-                      setSimulatedDistance(Math.round(Math.max(15, realDist)));
+                      setSimulatedDistance(Math.round(realDist));
                       triggerBeep(523.25, 0.05);
                     }}
                     className={`px-4 py-3 rounded-2xl whitespace-nowrap text-xs font-black uppercase tracking-wider transition-all border flex items-center gap-2 ${isSelected ? 'bg-orange-600 border-orange-500 text-white shadow-lg shadow-orange-950/20' : 'bg-white/5 border-white/5 text-neutral-400 hover:text-white'}`}
@@ -2317,6 +2393,175 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
           </div>
         )}
       </div>
+
+      {/* CUSTOMER SATELLITE MAP OVERLAY */}
+      <AnimatePresence>
+        {showSatelliteMap && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="absolute inset-0 z-50 bg-[#0B0C10] flex flex-col pointer-events-auto"
+          >
+            {/* Map Header */}
+            <div className="p-4 bg-neutral-900 border-b border-neutral-800 flex items-center justify-between z-10 shrink-0">
+              <div className="flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-orange-500" />
+                <div>
+                  <h3 className="text-sm font-black text-white uppercase tracking-tight">Ramani ya Vituo vya Safari</h3>
+                  <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest">
+                    {arRoute ? arRoute.routeName : (targetVendor?.businessName || 'Ramani ya Satellite')}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {/* Layer Toggle Button */}
+                <button
+                  onClick={() => {
+                    setMapStyle(prev => prev === 'satellite' ? 'standard' : 'satellite');
+                    triggerBeep(520, 0.05);
+                  }}
+                  className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-xl text-[9px] font-black uppercase tracking-wider text-white flex items-center gap-1.5 transition-all"
+                >
+                  🌍 {mapStyle === 'satellite' ? 'Kawaida (Standard)' : 'Satelaiti (Satellite)'}
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowSatelliteMap(false);
+                    triggerBeep(450, 0.05);
+                  }}
+                  className="w-10 h-10 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-xl flex items-center justify-center transition-all text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Map View Area */}
+            <div className="flex-1 relative bg-neutral-950 overflow-hidden">
+              <MapContainer
+                center={userLocation}
+                zoom={18}
+                maxZoom={22}
+                style={{ height: '100%', width: '100%' }}
+                zoomControl={false}
+                dragging={true}
+                doubleClickZoom={true}
+                scrollWheelZoom={true}
+                touchZoom={true}
+                whenReady={() => setTimeout(() => setMapReady(true), 150)}
+              >
+                <TileLayer
+                  url={mapStyle === 'satellite'
+                    ? "https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
+                    : "https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+                  }
+                  subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
+                  maxZoom={22}
+                  maxNativeZoom={19}
+                  attribution="&copy; Google Maps"
+                />
+                {mapReady && (
+                  <>
+                    {/* Live center controller */}
+                    <MapController center={userLocation} />
+
+                    {/* Customer's Pulsing Live Location Marker */}
+                    <Marker position={[userLocation.lat, userLocation.lng]} icon={UserLocationIcon} />
+
+                    {/* Stops / Stations Route Markers & Trail Line */}
+                    {arRoute && arRoute.stops && arRoute.stops.length > 0 && (
+                      <>
+                        {/* Polylines to show the trail in order */}
+                        <Polyline
+                          positions={arRoute.stops.map((s: any) => [s.lat, s.lng])}
+                          color="#ea580c"
+                          weight={4}
+                          opacity={0.8}
+                          dashArray="10, 10"
+                        />
+
+                        {/* Markers for each tour stop */}
+                        {arRoute.stops.map((stop: any, idx: number) => {
+                          const isCurrent = idx === currentStopIndex;
+                          const isPassed = idx < currentStopIndex;
+                          return (
+                            <Marker
+                              key={idx}
+                              position={[stop.lat, stop.lng]}
+                              icon={createStopIcon(idx + 1, isCurrent)}
+                            >
+                              {/* Popup displaying Stop Details */}
+                              <Popup>
+                                <div className="p-3 max-w-[200px] text-center space-y-1 bg-neutral-900 text-white rounded-xl">
+                                  <h4 className="font-black text-xs uppercase text-orange-500">
+                                    Kituo #{idx + 1}: {stop.stopName || stop.name}
+                                  </h4>
+                                  <p className="text-[10px] text-neutral-300 leading-tight">
+                                    {stop.description || 'Scan kuanza changamoto na kupata zawadi kwenye kituo hiki!'}
+                                  </p>
+                                  {isCurrent && (
+                                    <span className="inline-block px-2 py-0.5 mt-1 bg-orange-600/20 border border-orange-500/30 rounded text-[8px] font-black uppercase text-orange-400 tracking-wider">
+                                      Active Destination
+                                    </span>
+                                  )}
+                                  {isPassed && (
+                                    <span className="inline-block px-2 py-0.5 mt-1 bg-green-600/20 border border-green-500/30 rounded text-[8px] font-black uppercase text-green-400 tracking-wider">
+                                      Kituo Kilikamilika
+                                    </span>
+                                  )}
+                                </div>
+                              </Popup>
+                            </Marker>
+                          );
+                        })}
+                      </>
+                    )}
+
+                    {/* If single targetVendor but no route, show single vendor marker */}
+                    {!arRoute && targetVendor && targetVendor.location && (
+                      <Marker
+                        position={[targetVendor.location.lat, targetVendor.location.lng]}
+                        icon={createStopIcon(1, true)}
+                      />
+                    )}
+                  </>
+                )}
+              </MapContainer>
+
+              {/* Floating "Center to My GPS Location" control */}
+              <button
+                onClick={() => {
+                  if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(pos => {
+                      setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+                      triggerBeep(640, 0.08);
+                      toast.success("Eneo lako limerejeshwa katikati!");
+                    });
+                  }
+                }}
+                className="absolute bottom-6 right-6 z-10 w-12 h-12 bg-neutral-900 border border-neutral-800 rounded-2xl flex items-center justify-center text-white hover:bg-neutral-800 transition-all shadow-xl shadow-black/40"
+                title="Weka eneo langu katikati ya ramani"
+              >
+                <Navigation className="w-5 h-5 fill-current text-blue-500 rotate-45" />
+              </button>
+            </div>
+
+            {/* Map Footer status */}
+            <div className="p-4 bg-neutral-950 border-t border-neutral-900 text-center text-[10px] text-neutral-400 font-mono font-bold uppercase tracking-widest shrink-0">
+              {arRoute ? (
+                <span>
+                  Mtembezi wa Safari: Kituo {currentStopIndex + 1} cha {arRoute.stops?.length || 0} ({activeDistance} mita zilizobaki)
+                </span>
+              ) : (
+                <span>Kuelekea Duka la muuzaji: {activeDistance} mita zilizobaki</span>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
