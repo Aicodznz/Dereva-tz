@@ -1391,7 +1391,7 @@ export default function ARTourCreator({ vendorProfile }: ARTourCreatorProps) {
           </div>
 
           {/* Camera Viewport Area */}
-          <div className="flex-1 relative bg-black flex items-center justify-center overflow-hidden">
+          <div className="h-[28vh] flex-shrink-0 relative bg-black flex items-center justify-center overflow-hidden border-b border-orange-500/20">
             <video 
               ref={liveVideoRef}
               autoPlay 
@@ -1462,7 +1462,13 @@ export default function ARTourCreator({ vendorProfile }: ARTourCreatorProps) {
           </div>
 
           {/* Quick Setup Options & Controls at Bottom */}
-          <div className="p-4 bg-neutral-950 border-t border-neutral-800 space-y-4 max-h-[50vh] md:max-h-[60vh] overflow-y-auto no-scrollbar pb-8">
+          <div className="flex-1 bg-neutral-950 p-4 space-y-4 overflow-y-auto pb-10">
+            {/* Scroll Indicator helper */}
+            <div className="flex items-center justify-between bg-orange-950/40 border border-orange-500/20 px-3 py-2 rounded-xl text-[10px] text-orange-400 font-bold animate-pulse">
+              <span>Sogeza chini kujaza maelezo ya kituo hiki 👇</span>
+              <span className="font-black">SCROLL DOWN FOR DETAILS</span>
+            </div>
+
             {/* Step 1: GPS Lock */}
             <div className="space-y-1 bg-neutral-900/50 p-3 rounded-2xl border border-white/5">
               <span className="text-[10px] font-black uppercase tracking-wider text-orange-500 block">Hatua 1: Hakiki & Weka GPS Eneo Halisi</span>
@@ -1695,12 +1701,22 @@ export default function ARTourCreator({ vendorProfile }: ARTourCreatorProps) {
 
             </div>
 
-            <div className="pt-2">
+            <div className="pt-2 grid grid-cols-2 gap-3 pb-6">
               <Button 
                 onClick={stopLiveMapping}
-                className="w-full py-3 bg-orange-600 hover:bg-orange-500 text-white rounded-xl text-xs font-black uppercase tracking-widest"
+                className="py-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl text-xs font-bold uppercase tracking-wider border border-white/5"
               >
-                Kamilisha na Hifadhi Setup ya AR 🎉
+                Hifadhi Draft & Rudi Back 🔙
+              </Button>
+              <Button 
+                onClick={async () => {
+                  stopLiveMapping();
+                  await handleSaveRoute();
+                }}
+                disabled={isSaving}
+                className="py-3 bg-orange-600 hover:bg-orange-500 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-lg shadow-orange-500/20"
+              >
+                {isSaving ? "Inahifadhi..." : "HIFADHI & KUSEVU NJIA NZIMA 💾"}
               </Button>
             </div>
           </div>
