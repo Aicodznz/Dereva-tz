@@ -338,6 +338,101 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
     };
   }, []);
 
+  // Real-time High Accuracy Geolocation Watcher for customer navigation
+  useEffect(() => {
+    if (typeof window === 'undefined' || !navigator.geolocation) return;
+    
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setUserLocation({ lat, lng });
+        
+        let targetLat = lat;
+        let targetLng = lng;
+        if (arRoute && arRoute.stops && arRoute.stops[currentStopIndex]) {
+          targetLat = arRoute.stops[currentStopIndex].lat;
+          targetLng = arRoute.stops[currentStopIndex].lng;
+        } else if (targetVendor && targetVendor.location) {
+          targetLat = targetVendor.location.lat;
+          targetLng = targetVendor.location.lng;
+        }
+        
+        const dist = calculateDistanceMeters(lat, lng, targetLat, targetLng);
+        // If customer gets very close physically (<= 15 meters), sync distance
+        if (dist <= 15) {
+          setSimulatedDistance(Math.round(dist));
+        }
+      },
+      (err) => {
+        console.warn("GPS live watch position warning:", err);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+    
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+    };
+  }, [arRoute, currentStopIndex, targetVendor]);
+
+  const [isSyncingGPS, setIsSyncingGPS] = useState(false);
+
+  const handleSyncGPS = () => {
+    setIsSyncingGPS(true);
+    if (!navigator.geolocation) {
+      toast.error("Vifaa vya GPS havipatikani kwenye simu yako.");
+      setIsSyncingGPS(false);
+      return;
+    }
+    
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setUserLocation({ lat, lng });
+        
+        let targetLat = lat;
+        let targetLng = lng;
+        if (arRoute && arRoute.stops && arRoute.stops[currentStopIndex]) {
+          targetLat = arRoute.stops[currentStopIndex].lat;
+          targetLng = arRoute.stops[currentStopIndex].lng;
+        } else if (targetVendor && targetVendor.location) {
+          targetLat = targetVendor.location.lat;
+          targetLng = targetVendor.location.lng;
+        }
+        
+        const dist = Math.round(calculateDistanceMeters(lat, lng, targetLat, targetLng));
+        setIsSyncingGPS(false);
+        
+        const proceed = confirm(`GPS yako imesasishwa! Eneo hili lipo umbali wa mita ${dist} kutoka ulipo sasa hivi.\n\nJe, ungependa kuiga kuwa umefika hapo hapo (Simulated GPS Arrival) sasa hivi ili kuanza Environmental Scan?`);
+        if (proceed) {
+          setSimulatedDistance(12);
+          setIsSimulatingWalk(false);
+          setIsScanningEnvironment(true);
+          setScanProgress(0);
+          triggerBeep(600, 0.15);
+          toast.success("Umeunganishwa kwenye eneo la kituo kiotomatiki!");
+        } else {
+          setSimulatedDistance(dist);
+        }
+      },
+      (err) => {
+        console.error("Manual GPS sync error:", err);
+        setIsSyncingGPS(false);
+        const proceed = confirm("Imeshindwa kupata GPS halisi ya simu. Je, ungependa kuiga kuwa umefika hapo hapo dukani (Simulated GPS Arrival) ili uanzishe scan?");
+        if (proceed) {
+          setSimulatedDistance(12);
+          setIsSimulatingWalk(false);
+          setIsScanningEnvironment(true);
+          setScanProgress(0);
+          triggerBeep(600, 0.15);
+          toast.success("Umeunganishwa kwenye eneo la duka!");
+        }
+      },
+      { enableHighAccuracy: true, timeout: 6000 }
+    );
+  };
+
   // Walk simulator interval
   useEffect(() => {
     let timer: any;
@@ -1763,6 +1858,16 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
                             <Camera className="w-4 h-4 text-white" />
                             <span>📷 Scan mazingira / Scan Surface</span>
                           </Button>
+
+                          <Button 
+                            onClick={handleSyncGPS}
+                            disabled={isSyncingGPS}
+                            className="w-full py-3 bg-red-600 hover:bg-red-500 text-white border border-red-500/20 rounded-2xl font-black uppercase tracking-wider text-[9px] flex items-center justify-center gap-2 transition-all shadow-md"
+                          >
+                            <MapPin className="w-3.5 h-3.5 text-white animate-bounce" />
+                            <span>{isSyncingGPS ? 'Inatafuta GPS...' : '📍 Mimi nipo hapa / Sasisha GPS'}</span>
+                          </Button>
+
                           <Button 
                             onClick={() => setIsSimulatingWalk(!isSimulatingWalk)}
                             className={`w-full py-3 rounded-2xl font-black uppercase tracking-wider text-[9px] flex items-center justify-center gap-2 transition-all ${isSimulatingWalk ? 'bg-amber-600 hover:bg-amber-700 text-white animate-pulse' : 'bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10'}`}
