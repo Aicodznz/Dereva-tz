@@ -491,6 +491,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
   const [vehicleHeading, setVehicleHeading] = useState(0);
   const simulatedPathRef = React.useRef<[number, number][]>([]);
   const simulatedIndexRef = React.useRef<number>(0);
+  const initialPositionRef = React.useRef<[number, number] | null>(null);
   const activeStatusRef = React.useRef<string | null>(null);
 
   const [showTopInfo, setShowTopInfo] = useState(false);
@@ -515,8 +516,6 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
   // Road Alerts / Status generator around current position or active route
   const roadAlerts = useMemo(() => {
     const alerts = [];
-    const lat = position[0];
-    const lng = position[1];
 
     if (activeRide) {
       const hasRealTripRoute = realTripRoute && realTripRoute.length > 0;
@@ -586,7 +585,14 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
         }
       }
     } else {
-      // Offline / Waiting mode nearby alerts
+      // Offline / Waiting mode nearby alerts - STABILIZED so they don't drift as driver moves around!
+      if (!initialPositionRef.current && position) {
+        initialPositionRef.current = position;
+      }
+      const staticPos = initialPositionRef.current || position;
+      const lat = staticPos[0];
+      const lng = staticPos[1];
+
       alerts.push(
         { id: 'ra1', type: 'traffic_light', title: 'Taa za Trafiki (Ubungo)', desc: 'Taa za barabarani zinafanya kazi vizuri. Chunga ishara za rangi!', lat: lat + 0.0015, lng: lng - 0.001 },
         { id: 'ra2', type: 'construction', title: 'Barabara Inajengwa', desc: 'Matengenezo ya barabara kuu, mabehewa ya ujenzi yamepaki.', lat: lat + 0.0025, lng: lng + 0.002 },
@@ -1308,6 +1314,13 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
           console.log(`[Simulation] Moving driver smoothly to [${nextCoord[0].toFixed(5)}, ${nextCoord[1].toFixed(5)}]. Bearing: ${bearing.toFixed(1)}`);
           
           setVehicleHeading(bearing);
+          setRotation(prev => {
+            let diff = bearing - prev;
+            while (diff < -180) diff += 360;
+            while (diff > 180) diff -= 360;
+            const next = (prev + diff * 0.2) % 360;
+            return next < 0 ? next + 360 : next;
+          });
           setPosition(nextCoord);
           
           try {
@@ -1451,12 +1464,17 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
         const roundedHeading = Math.round((compassHeading + 360) % 360);
 
         setRotation(prev => {
-          const diff = Math.abs(prev - roundedHeading);
-          const shortestDiff = Math.min(diff, 360 - diff);
-          if (shortestDiff >= 2) {
-            return roundedHeading;
-          }
-          return prev;
+          let diff = roundedHeading - prev;
+          while (diff < -180) diff += 360;
+          while (diff > 180) diff -= 360;
+          
+          const absDiff = Math.abs(diff);
+          if (absDiff < 5) return prev; // Filter out small noise and jitter
+          
+          // Smoothen using a dampening factor of 0.15 (smoothly glides rather than snapping)
+          const step = diff * 0.15;
+          const next = (prev + step) % 360;
+          return next < 0 ? next + 360 : next;
         });
       }
     };
@@ -1520,6 +1538,14 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
             if (typeof pos.coords.heading === 'number' && !isNaN(pos.coords.heading) && pos.coords.heading >= 0) {
               currentBearing = Math.round(pos.coords.heading);
               setVehicleHeading(currentBearing);
+              setRotation(prev => {
+                let diff = currentBearing - prev;
+                while (diff < -180) diff += 360;
+                while (diff > 180) diff -= 360;
+                if (Math.abs(diff) < 5) return prev;
+                const next = (prev + diff * 0.15) % 360;
+                return next < 0 ? next + 360 : next;
+              });
             }
 
             if (prev) {
@@ -1531,6 +1557,14 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
                 if (dist >= 2 && (typeof pos.coords.heading !== 'number' || isNaN(pos.coords.heading) || pos.coords.heading < 0)) {
                   currentBearing = calculateBearing(prev[0], prev[1], loc.lat, loc.lng);
                   setVehicleHeading(currentBearing);
+                  setRotation(prev => {
+                    let diff = currentBearing - prev;
+                    while (diff < -180) diff += 360;
+                    while (diff > 180) diff -= 360;
+                    if (Math.abs(diff) < 5) return prev;
+                    const next = (prev + diff * 0.15) % 360;
+                    return next < 0 ? next + 360 : next;
+                  });
                 }
                 setPosition([loc.lat, loc.lng]);
                 prevPosRef.current = [loc.lat, loc.lng];
