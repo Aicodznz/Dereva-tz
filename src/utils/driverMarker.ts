@@ -265,13 +265,17 @@ export function getDriverSvg(type: string, isDark: boolean = true): string {
 export function createDriverMarkerIcon(
   initials: string,
   isOnline: boolean,
-  rotation: number = 0,
+  vehicleHeading: number = 0,
   vehicleType: string = 'mini',
-  theme: string = 'dark'
+  theme: string = 'dark',
+  compassHeading?: number
 ) {
   const isDark = theme === 'dark';
   const vehicleSvg = getDriverSvg(vehicleType, isDark);
   const pulseClass = isOnline ? 'animate-pulse' : '';
+  
+  // If compassHeading is not provided, fallback to vehicleHeading
+  const finalCompassHeading = typeof compassHeading === 'number' ? compassHeading : vehicleHeading;
 
   // Use a beautifully crafted wrapper representing a professional radar tracking compass dial (bg-transparent so it never obscures the map with a solid black or white disk)
   const ringColor = isDark 
@@ -292,9 +296,9 @@ export function createDriverMarkerIcon(
         
         <!-- Compass Outer Body -->
         <div class="absolute w-[44px] h-[44px] rounded-full border ${ringColor} flex items-center justify-center select-none pointer-events-none">
-          <!-- Directional indicator pointing relative to rotation -->
-          <div class="absolute inset-0 flex items-center justify-center transition-transform duration-300 ease-out" style="transform: rotate(${rotation}deg);">
-            
+          
+          <!-- COMPASS BEAM / FLASHLIGHT: Rotates with phone compass orientation -->
+          <div class="absolute inset-0 flex items-center justify-center transition-transform duration-300 ease-out" style="transform: rotate(${finalCompassHeading}deg);">
             <!-- Compass Heading Flashlight Light Beam / Field-of-View Cone (Mwangaza wa Dira ya Simu) -->
             <div class="absolute bottom-1/2 left-1/2 -translate-x-1/2 origin-bottom pointer-events-none" style="width: 100px; height: 90px; margin-bottom: 2px;">
               <svg viewBox="0 0 100 90" class="w-full h-full overflow-visible">
@@ -312,12 +316,16 @@ export function createDriverMarkerIcon(
 
             <!-- The pointing arrow accent at the very front -->
             <div class="absolute top-[1px] w-2 h-2 rotate-45 ${isDark ? 'bg-[#00FF88]' : 'bg-[#3B82F6]'} rounded-[1px] shadow-[0_0_8px_rgba(0,255,136,0.9)] z-10"></div>
-            
+          </div>
+
+          <!-- VEHICLE ICON: Rotates with travel heading (vehicleHeading) -->
+          <div class="absolute inset-0 flex items-center justify-center transition-transform duration-300 ease-out" style="transform: rotate(${vehicleHeading}deg);">
             <!-- Beautiful vehicle render -->
             <div class="w-8 h-8 flex items-center justify-center relative z-10">
               ${vehicleSvg}
             </div>
           </div>
+
         </div>
         
         <!-- Small badge for online status -->

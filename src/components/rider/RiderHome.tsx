@@ -143,9 +143,11 @@ function MapController({
 
     // Perspective tilt ONLY if user explicitly enabled 3D mode (mild 25deg)
     const perspectiveTilt = is3DMode ? 'perspective(1000px) rotateX(25deg) ' : '';
+    // Scale up slightly when rotated to ensure no white/empty corners are visible
+    const scaleFactor = rotation !== 0 ? 'scale(1.42) ' : '';
 
     if (rotation !== 0 || is3DMode) {
-      container.style.transform = `${perspectiveTilt}rotateZ(${-rotation}deg)`;
+      container.style.transform = `${perspectiveTilt}${scaleFactor}rotateZ(${-rotation}deg)`;
     } else {
       container.style.transform = 'none';
     }
@@ -173,11 +175,16 @@ function MapController({
 
       // Pan camera smoothly as driver moves (> 2 meters) to keep vehicle centered without lag
       if (!lastPos || currentPos.distanceTo(lastPos) > 2) {
-        map.panTo(position, { animate: true, duration: 0.5 });
+        if (rotation !== 0) {
+          // Avoid animated panTo when rotated, as it triggers Leaflet's screen-to-latlng calculation bug under CSS transforms and shakes
+          map.setView(position, map.getZoom(), { animate: false });
+        } else {
+          map.panTo(position, { animate: true, duration: 0.5 });
+        }
         lastCenterRef.current = position;
       }
     }
-  }, [position?.[0], position?.[1], !!activeRide, autoFollow, activeRide?.status]);
+  }, [position?.[0], position?.[1], !!activeRide, autoFollow, activeRide?.status, rotation]);
   
   const handleRecenter = () => {
     setAutoFollow(true);
@@ -249,7 +256,8 @@ function DriverMarker({ position, rotation, vType }: { position: [number, number
         true,
         rotation,
         vType,
-        theme
+        theme,
+        rotation
       )}
     />
   );
@@ -2144,7 +2152,8 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
                 isOnline,
                 vehicleHeading,
                 profile?.vehicleType || 'mini',
-                theme
+                theme,
+                rotation
               )}
             />
 
