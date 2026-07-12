@@ -344,7 +344,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [position, setPosition] = useState<[number, number]>([-6.7924, 39.2083]);
   const [activePoiCategory, setActivePoiCategory] = useState<string | null>(null);
-  const [poisCollapsed, setPoisCollapsed] = useState<boolean>(false);
+  const [poisCollapsed, setPoisCollapsed] = useState<boolean>(true);
   const [mapType, setMapType] = useState<'standard' | 'satellite'>('standard');
   const [manualRotation, setManualRotation] = useState(0);
   const [is3DMode, setIs3DMode] = useState(false);
@@ -1386,6 +1386,65 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
     }
   };
 
+  const renderProfileAvatar = (size: 'sm' | 'md' = 'md') => {
+    const driverRating = profile?.rating !== undefined && profile?.rating > 0 ? Number(profile.rating) : 4.9;
+    
+    // Determine Rank details
+    let rankName = 'BRONZE';
+    let rankBg = 'from-amber-700 to-amber-950';
+    let rankIcon = '🥉';
+    
+    if (driverRating >= 4.8) {
+      rankName = 'GOLD';
+      rankBg = 'from-yellow-400 via-amber-500 to-yellow-600';
+      rankIcon = '👑';
+    } else if (driverRating >= 4.5) {
+      rankName = 'SILVER';
+      rankBg = 'from-slate-300 to-slate-500';
+      rankIcon = '⭐';
+    }
+
+    const isSm = size === 'sm';
+    const avatarSizeClass = isSm ? 'w-7 h-7' : 'w-10 h-10';
+    
+    return (
+      <div className="relative flex items-center gap-1.5 pointer-events-auto shrink-0">
+        {/* Rank & Rating Details floating next to avatar */}
+        {!isSm && (
+          <div className="flex flex-col items-end justify-center mr-1">
+            <span className={`text-[8px] font-black tracking-widest px-1.5 py-0.5 rounded-md bg-gradient-to-r ${rankBg} text-white shadow-sm flex items-center gap-0.5 border border-white/10`}>
+              <span>{rankIcon}</span>
+              <span>{rankName}</span>
+            </span>
+            <span className="text-[10px] font-black italic text-neutral-850 dark:text-neutral-100 flex items-center gap-0.5 mt-0.5">
+              <span className="text-amber-500">★</span>
+              <span>{driverRating.toFixed(1)}</span>
+            </span>
+          </div>
+        )}
+
+        <button
+          onClick={onProfileClick}
+          className={`relative ${avatarSizeClass} rounded-full border-2 border-emerald-500/40 dark:border-[#00FF88]/30 overflow-visible bg-white dark:bg-neutral-900 shadow-xl hover:border-emerald-500 dark:hover:border-[#00FF88] active:scale-90 transition-all cursor-pointer inline-flex items-center justify-center p-0`}
+          title={`Wasifu wako - Rank: ${rankName} (${driverRating.toFixed(1)} ★)`}
+        >
+          <img 
+            src={profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid || 'Juma'}`} 
+            alt="Driver" 
+            referrerPolicy="no-referrer"
+            className="w-full h-full rounded-full object-cover"
+          />
+          {/* Mobile Badge if small */}
+          {isSm && (
+            <div className="absolute -bottom-1 -right-1 bg-amber-500 text-white text-[7px] font-black px-1 rounded-full border border-white dark:border-[#111118] flex items-center shadow-md">
+              <span>{driverRating.toFixed(1)}</span>
+            </div>
+          )}
+        </button>
+      </div>
+    );
+  };
+
   const toggleStatus = async () => {
     if (isOnline && activeRide) {
        toast.error("Una safari inayoendelea. Maliza kwanza.");
@@ -1988,18 +2047,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
                         </div>
                       </div>
                       {/* Driver profile avatar when active */}
-                      <button 
-                        onClick={onProfileClick}
-                        className="w-7 h-7 rounded-full border-2 border-emerald-500/30 dark:border-[#00FF88]/30 overflow-hidden bg-neutral-900 shadow-md hover:border-emerald-500 dark:hover:border-[#00FF88] active:scale-90 transition-all cursor-pointer animate-pulse"
-                        title="Fungua wasifu wako"
-                      >
-                        <img 
-                          src={profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid || 'Juma'}`} 
-                          alt="Driver" 
-                          referrerPolicy="no-referrer"
-                          className="w-full h-full object-cover"
-                        />
-                      </button>
+                      {renderProfileAvatar('sm')}
                     </div>
                   </div>
 
@@ -2023,18 +2071,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
             ) : (
               <div className="flex justify-end w-full">
                 {/* Driver Profile Picture on Top Right */}
-                <button
-                  onClick={onProfileClick}
-                  className="w-10 h-10 rounded-full border-2 border-emerald-500/40 dark:border-[#00FF88]/30 overflow-hidden bg-white dark:bg-neutral-900 shadow-xl hover:border-emerald-500 dark:hover:border-[#00FF88] active:scale-90 transition-all cursor-pointer inline-flex items-center justify-center p-0"
-                  title="Fungua wasifu wako"
-                >
-                  <img 
-                    src={profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid || 'Juma'}`} 
-                    alt="Driver" 
-                    referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover"
-                  />
-                </button>
+                {renderProfileAvatar('md')}
               </div>
             )}
 
@@ -2536,28 +2573,6 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
             <span className="text-[6px] font-black mt-0.5 uppercase tracking-tighter leading-none">Hali Njia</span>
           </motion.button>
 
-          {/* Rotate Left ↺ */}
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setRotation((prev) => (prev - 30 + 360) % 360)}
-            className="w-10 h-10 bg-white/95 dark:bg-[#111118]/90 border border-neutral-200/50 dark:border-[#1e1e2e] rounded-xl shadow-lg flex items-center justify-center transition-all text-neutral-600 dark:text-neutral-300 hover:text-emerald-500 cursor-pointer"
-            title="Zungusha Ramani Kushoto (-30°)"
-          >
-            <RotateCcw className="w-4 h-4" />
-          </motion.button>
-
-          {/* Rotate Right ↻ */}
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setRotation((prev) => (prev + 30) % 360)}
-            className="w-10 h-10 bg-white/95 dark:bg-[#111118]/90 border border-neutral-200/50 dark:border-[#1e1e2e] rounded-xl shadow-lg flex items-center justify-center transition-all text-neutral-600 dark:text-neutral-300 hover:text-emerald-500 cursor-pointer"
-            title="Zungusha Ramani Kulia (+30°)"
-          >
-            <RotateCw className="w-4 h-4" />
-          </motion.button>
-
           {/* Compass Direction Badge / Reset Button */}
           <motion.button
             whileHover={{ scale: 1.05 }}
@@ -2625,13 +2640,6 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
                 {showEarnings ? <Eye className="w-3.5 h-3.5" /> : <TrendingUp className="w-3.5 h-3.5" />}
                 <span className="text-[6px] font-black mt-0.5 uppercase tracking-tighter leading-none">Mapato</span>
               </motion.button>
-              
-              <button 
-                className="w-10 h-10 bg-white/95 dark:bg-[#111118]/90 border border-neutral-200/50 dark:border-[#1e1e2e] rounded-xl shadow-lg flex items-center justify-center text-neutral-500 dark:text-neutral-400 active:scale-95 hover:text-neutral-800 dark:hover:text-white transition-all"
-                title="Badilisha muonekano wa ramani"
-              >
-                <MapIcon className="w-4 h-4" />
-              </button>
             </>
           )}
         </div>
@@ -2794,47 +2802,57 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
         </div>
       )}
 
-      {/* Bottom Sheet Redesign */}
-      <motion.div 
-        initial={{ y: 0 }}
-        animate={{ y: isMinimized ? 1000 : 0 }}
-        transition={{ type: 'spring', damping: 30, stiffness: 200 }}
-        drag="y"
-        dragConstraints={{ top: 0, bottom: 0 }}
-        dragElastic={0.1}
-        onDragEnd={(_, info) => {
-          // We no longer trigger setIsMinimized(true) here. 
-          // Minimization must be explicitly done via the eye button.
-        }}
-        className="absolute inset-x-0 bottom-0 z-50 cursor-grab active:cursor-grabbing"
-      >
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-10 h-1.5 bg-neutral-600/30 rounded-full mt-3 z-[9999]" />
-        
-        <AnimatePresence mode="wait">
-          {!isOnline && (
-             <motion.div 
-               key="offline"
-               initial={{ y: 100 }} animate={{ y: 0 }} exit={{ y: 100 }}
-               className="bg-white dark:bg-[#111118] border-t border-neutral-200 dark:border-[#1e1e2e] pt-10 pb-10 px-10 flex flex-col items-center gap-6 rounded-t-[40px] shadow-[0_-20px_60px_rgba(0,0,0,0.15)] dark:shadow-[0_-20px_60px_rgba(0,0,0,0.8)]"
-             >
-                <div className="text-center space-y-2">
-                   <h3 className="text-xl font-black italic tracking-tighter text-neutral-700 dark:text-neutral-400">UKO OFFLINE</h3>
-                   <p className="text-xs font-bold text-neutral-600 dark:text-neutral-400">Bonyeza chini kuanza safari</p>
-                </div>
-                <motion.button
-                  onClick={toggleStatus}
-                  disabled={isGoingOnline}
-                  whileTap={{ scale: 0.95 }}
-                  className="w-24 h-24 bg-red-500 rounded-[2rem] border-8 border-neutral-50 dark:border-[#0a0a0f] shadow-2xl flex items-center justify-center cursor-pointer"
-                >
-                  {isGoingOnline ? <RefreshCw className="w-8 h-8 text-white animate-spin" /> : <Power className="w-8 h-8 text-white" />}
-                </motion.button>
-             </motion.div>
-          )}
+      {/* Elegant Floating Power Button when Offline */}
+      {!isOnline && !isMinimized && (
+        <div className="absolute inset-x-0 bottom-8 z-50 flex flex-col items-center justify-center pointer-events-none">
+          {/* Subtle floating instruction label */}
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-3 px-4 py-1.5 bg-neutral-900/90 dark:bg-neutral-950/90 text-white rounded-full text-[10px] font-black tracking-widest uppercase shadow-lg border border-white/10 flex items-center gap-1.5 pointer-events-auto backdrop-blur-md"
+          >
+            <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+            <span>UKO OFFLINE — GONGA UANZE</span>
+          </motion.div>
+          
+          <motion.button
+            onClick={toggleStatus}
+            disabled={isGoingOnline}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            className="w-20 h-20 bg-gradient-to-tr from-red-600 to-rose-500 rounded-full border-4 border-white dark:border-[#0a0a0f] shadow-[0_10px_30px_rgba(239,68,68,0.5)] flex items-center justify-center cursor-pointer pointer-events-auto transition-all"
+            title="Gonga ili uwe Online"
+          >
+            {isGoingOnline ? (
+              <RefreshCw className="w-7 h-7 text-white animate-spin" />
+            ) : (
+              <Power className="w-7 h-7 text-white" />
+            )}
+          </motion.button>
+        </div>
+      )}
 
-          {isOnline && !incomingRequest && !activeRide && (
-            <motion.div 
-               key="waiting"
+      {/* Bottom Sheet Redesign - Only when Online */}
+      {isOnline && (
+        <motion.div 
+          initial={{ y: 0 }}
+          animate={{ y: isMinimized ? 1000 : 0 }}
+          transition={{ type: 'spring', damping: 30, stiffness: 200 }}
+          drag="y"
+          dragConstraints={{ top: 0, bottom: 0 }}
+          dragElastic={0.1}
+          onDragEnd={(_, info) => {
+            // We no longer trigger setIsMinimized(true) here. 
+            // Minimization must be explicitly done via the eye button.
+          }}
+          className="absolute inset-x-0 bottom-0 z-50 cursor-grab active:cursor-grabbing"
+        >
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-10 h-1.5 bg-neutral-600/30 rounded-full mt-3 z-[9999]" />
+          
+          <AnimatePresence mode="wait">
+            {!incomingRequest && !activeRide && (
+              <motion.div 
+                 key="waiting"
                initial={{ y: 100 }} animate={{ y: 0 }} exit={{ y: 100 }}
                className="bg-white dark:bg-[#111118] border-t border-neutral-200 dark:border-[#1e1e2e] p-8 rounded-t-[40px] shadow-[0_-20px_60px_rgba(0,0,0,0.15)] dark:shadow-[0_-20px_60px_rgba(0,0,0,0.8)] text-neutral-850 dark:text-white"
              >
@@ -2972,6 +2990,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
             )}
           </AnimatePresence>
       </motion.div>
+      )}
 
       {/* Chat Overlay */}
       <AnimatePresence>
