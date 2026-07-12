@@ -318,8 +318,8 @@ export function createDriverMarkerIcon(
             <div class="absolute top-[1px] w-2 h-2 rotate-45 ${isDark ? 'bg-[#00FF88]' : 'bg-[#3B82F6]'} rounded-[1px] shadow-[0_0_8px_rgba(0,255,136,0.9)] z-10"></div>
           </div>
 
-          <!-- VEHICLE ICON: Rotates with travel heading (vehicleHeading) -->
-          <div class="absolute inset-0 flex items-center justify-center transition-transform duration-300 ease-out" style="transform: rotate(${vehicleHeading}deg);">
+          <!-- VEHICLE ICON: Rotates with compass heading (finalCompassHeading) so it points exactly where the flashlight is facing -->
+          <div class="absolute inset-0 flex items-center justify-center transition-transform duration-300 ease-out" style="transform: rotate(${finalCompassHeading}deg);">
             <!-- Beautiful vehicle render -->
             <div class="w-8 h-8 flex items-center justify-center relative z-10">
               ${vehicleSvg}
