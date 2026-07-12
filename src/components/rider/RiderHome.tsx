@@ -135,26 +135,19 @@ function MapController({
     }
   });
 
-  // Apply live compass map rotation & optional clean 3D perspective tilt
+  // Apply live optional clean 3D perspective tilt (No map rotation as per user request, map remains North-Up)
   useEffect(() => {
     if (!map) return;
     const container = map.getContainer();
     if (!container) return;
 
     // Perspective tilt ONLY if user explicitly enabled 3D mode (mild 25deg)
-    const perspectiveTilt = is3DMode ? 'perspective(1000px) rotateX(25deg) ' : '';
-    // Scale up slightly when rotated to ensure no white/empty corners are visible
-    const scaleFactor = rotation !== 0 ? 'scale(1.42) ' : '';
+    const perspectiveTilt = is3DMode ? 'perspective(1000px) rotateX(25deg)' : 'none';
 
-    if (rotation !== 0 || is3DMode) {
-      container.style.transform = `${perspectiveTilt}${scaleFactor}rotateZ(${-rotation}deg)`;
-    } else {
-      container.style.transform = 'none';
-    }
-
+    container.style.transform = perspectiveTilt;
     container.style.transformOrigin = 'center center';
     container.style.transition = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)';
-  }, [map, rotation, is3DMode]);
+  }, [map, is3DMode]);
 
   useEffect(() => {
     if (!position) return;
@@ -175,16 +168,11 @@ function MapController({
 
       // Pan camera smoothly as driver moves (> 2 meters) to keep vehicle centered without lag
       if (!lastPos || currentPos.distanceTo(lastPos) > 2) {
-        if (rotation !== 0) {
-          // Avoid animated panTo when rotated, as it triggers Leaflet's screen-to-latlng calculation bug under CSS transforms and shakes
-          map.setView(position, map.getZoom(), { animate: false });
-        } else {
-          map.panTo(position, { animate: true, duration: 0.5 });
-        }
+        map.panTo(position, { animate: true, duration: 0.5 });
         lastCenterRef.current = position;
       }
     }
-  }, [position?.[0], position?.[1], !!activeRide, autoFollow, activeRide?.status, rotation]);
+  }, [position?.[0], position?.[1], !!activeRide, autoFollow, activeRide?.status]);
   
   const handleRecenter = () => {
     setAutoFollow(true);
