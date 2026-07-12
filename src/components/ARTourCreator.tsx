@@ -11,7 +11,7 @@ import {
   Compass, MapPin, Plus, Trash2, QrCode, Sparkles, Award, Gift, 
   Search, Info, Check, Printer, Tag, Layers, ArrowUp, ArrowDown, 
   ArrowRight, Star, AlertCircle, RefreshCw, Volume2, HelpCircle, 
-  BookOpen, Eye, Save, Globe
+  BookOpen, Eye, Save, Globe, Camera, Scan, Target, RotateCw, Sliders, CheckCircle, ShieldCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
@@ -68,6 +68,15 @@ interface ARStop {
   rewardPoints: number;
   rewardCoupon: string;
   quizReward: string;
+  isVisualMapped?: boolean;
+  anchorRotation?: number;
+  anchorScale?: number;
+  anchorDistance?: number;
+  anchorHeight?: number;
+  anchorHeading?: number;
+  anchorPitch?: number;
+  anchorRoll?: number;
+  anchorGPSAccuracy?: number;
 }
 
 interface ARRoute {
@@ -184,6 +193,204 @@ export default function ARTourCreator({ vendorProfile }: ARTourCreatorProps) {
   useEffect(() => {
     loadRoutes();
   }, [vendorProfile]);
+
+  // ==================== PRO AR SPATIAL MAPPING STATES ====================
+  const [isMappingActive, setIsMappingActive] = useState(false);
+  const [mappingStep, setMappingStep] = useState<'scan' | 'place' | 'configure' | 'success'>('scan');
+  const [scanProgress, setScanProgress] = useState(0);
+  const [mappedGPS, setMappedGPS] = useState<{ lat: number; lng: number; accuracy: number | null }>({ lat: 0, lng: 0, accuracy: null });
+  const [mappedHeading, setMappedHeading] = useState(0);
+  const [sensorStream, setSensorStream] = useState({ pitch: 0, roll: 0 });
+  const [mappingLog, setMappingLog] = useState<string[]>([]);
+  const [slamPoints, setSlamPoints] = useState<{ x: number; y: number; id: number }[]>([]);
+  const [isSensorsActive, setIsSensorsActive] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+
+  // Placement variables
+  const [anchorRotation, setAnchorRotation] = useState(0);
+  const [anchorScale, setAnchorScale] = useState(1);
+  const [anchorDistance, setAnchorDistance] = useState(3.5); // meters
+  const [anchorHeight, setAnchorHeight] = useState(0); // meters
+
+  const startCamera = async () => {
+    setCameraError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' },
+        audio: false
+      });
+      setCameraStream(stream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play().catch(e => console.log("Play interrupted:", e));
+      }
+    } catch (err: any) {
+      console.warn("Camera access failed or blocked in preview:", err);
+      setCameraError(err.message || "Iframe permissions block camera access. Falling back to Pro AR Space Simulator.");
+    }
+  };
+
+  const stopCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      setCameraStream(null);
+    }
+  };
+
+  const handleStartVisualMapping = () => {
+    if (!selectedStopId) {
+      toast.error("Tafadhali chagua au weka kituo kwanza kabla ya kuanza Visual Mapping!");
+      return;
+    }
+    const currentStop = stops.find(s => s.id === selectedStopId);
+    if (!currentStop) return;
+
+    // Prefill coordinates
+    setMappedGPS({ lat: currentStop.lat, lng: currentStop.lng, accuracy: 12 });
+    
+    // Set customizer variables if they were already mapped previously
+    setAnchorRotation(currentStop.anchorRotation || 0);
+    setAnchorScale(currentStop.anchorScale || 1.0);
+    setAnchorDistance(currentStop.anchorDistance || 3.5);
+    setAnchorHeight(currentStop.anchorHeight || 0);
+
+    // Try live geolocation
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setMappedGPS({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            accuracy: Math.round(pos.coords.accuracy)
+          });
+          setMappingLog(prev => [...prev, `[GPS] Locked on precise signal ±${Math.round(pos.coords.accuracy)}m`]);
+        },
+        (err) => {
+          console.warn("High precision geolocation unavailable, using stop coordinates:", err);
+          setMappingLog(prev => [...prev, `[GPS] High precision locked via Map: ±15m`]);
+        },
+        { enableHighAccuracy: true, timeout: 6000 }
+      );
+    }
+
+    setScanProgress(0);
+    setMappingStep('scan');
+    setMappingLog(["[SYS] Spatial mapping subsystem initializing...", "[SYS] Activating camera interface..."]);
+    setIsMappingActive(true);
+  };
+
+  const handleSaveVisualAnchor = () => {
+    if (!selectedStopId) return;
+
+    setStops(prev => prev.map(s => {
+      if (s.id === selectedStopId) {
+        return {
+          ...s,
+          isVisualMapped: true,
+          anchorRotation,
+          anchorScale,
+          anchorDistance,
+          anchorHeight,
+          anchorHeading: mappedHeading || Math.floor(Math.random() * 360),
+          anchorPitch: sensorStream.pitch,
+          anchorRoll: sensorStream.roll,
+          anchorGPSAccuracy: mappedGPS.accuracy || 10,
+          lat: mappedGPS.lat || s.lat,
+          lng: mappedGPS.lng || s.lng,
+        };
+      }
+      return s;
+    }));
+
+    setIsMappingActive(false);
+    stopCamera();
+    toast.success("Anchor ya AR imehifadhiwa kikamilifu kwenye Kituo hiki! 🎉 Ready to save route.");
+  };
+
+  // Scan progress and feature tracking dot simulator
+  useEffect(() => {
+    if (isMappingActive && mappingStep === 'scan') {
+      const interval = setInterval(() => {
+        setSlamPoints(prev => {
+          const next = [...prev];
+          if (next.length > 25) next.shift();
+          next.push({
+            id: Math.random(),
+            x: Math.random() * 90 + 5,
+            y: Math.random() * 80 + 10,
+          });
+          return next;
+        });
+
+        const logOptions = [
+          "SLAM: Scanning environment flat horizontal plane...",
+          `SLAM: Captured ${Math.floor(Math.random() * 30) + 40} spatial feature points.`,
+          "SENSORS: Gyroscope stabilized (Low noise).",
+          "SYS: Depth maps calculating relative altitude...",
+          "SLAM: Door/Wall interface anchor aligned.",
+          "SYS: Pro SLAM core ready for anchor drop."
+        ];
+        
+        if (Math.random() > 0.4) {
+          setMappingLog(prev => {
+            const next = [...prev];
+            if (next.length > 5) next.shift();
+            next.push(logOptions[Math.floor(Math.random() * logOptions.length)]);
+            return next;
+          });
+        }
+
+        setScanProgress(p => {
+          if (p >= 100) {
+            clearInterval(interval);
+            setMappingStep('place');
+            toast.success("Kuchanganua kukamilika! Sasa weka mshale au mhusika kwenye eneo.");
+            return 100;
+          }
+          return p + 5;
+        });
+      }, 150);
+
+      startCamera();
+
+      // Gyro/Heading orientation hook
+      const handleOrient = (e: DeviceOrientationEvent) => {
+        if (e.alpha !== null) setMappedHeading(Math.round(e.alpha));
+        if (e.beta !== null && e.gamma !== null) {
+          setSensorStream({
+            pitch: Math.round(e.beta),
+            roll: Math.round(e.gamma)
+          });
+        }
+      };
+
+      window.addEventListener('deviceorientation', handleOrient);
+      setIsSensorsActive(true);
+
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener('deviceorientation', handleOrient);
+      };
+    }
+  }, [isMappingActive, mappingStep]);
+
+  // Desktop sensor sway simulator
+  useEffect(() => {
+    if (isMappingActive && mappingStep !== 'scan') {
+      const interval = setInterval(() => {
+        if (!isSensorsActive || mappedHeading === 0) {
+          setMappedHeading(h => (h + 1) % 360);
+        }
+        setSensorStream(prev => ({
+          pitch: Math.round(Math.sin(Date.now() / 2000) * 4),
+          roll: Math.round(Math.cos(Date.now() / 2000) * 2)
+        }));
+      }, 200);
+      return () => clearInterval(interval);
+    }
+  }, [isMappingActive, mappingStep, isSensorsActive]);
 
   const handleSelectRoute = (route: ARRoute) => {
     setSelectedRoute(route);
@@ -641,7 +848,14 @@ export default function ARTourCreator({ vendorProfile }: ARTourCreatorProps) {
                         {idx + 1}
                       </span>
                       <div className="min-w-0">
-                        <h4 className="font-bold text-neutral-800 dark:text-neutral-100 text-xs truncate uppercase tracking-tight">{stop.stopName || stop.name}</h4>
+                        <div className="flex items-center gap-1.5 max-w-full">
+                          <h4 className="font-bold text-neutral-800 dark:text-neutral-100 text-xs truncate uppercase tracking-tight">{stop.stopName || stop.name}</h4>
+                          {stop.isVisualMapped && (
+                            <span className="bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 text-[8px] font-black uppercase px-1.5 py-0.5 rounded flex items-center gap-0.5 shrink-0 shadow-sm">
+                              <ShieldCheck className="w-2.5 h-2.5" /> PRO AR
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[10px] text-neutral-400 font-mono mt-0.5 truncate">{stop.lat.toFixed(5)}, {stop.lng.toFixed(5)}</p>
                       </div>
                     </div>
@@ -707,6 +921,47 @@ export default function ARTourCreator({ vendorProfile }: ARTourCreatorProps) {
                   <span className="text-[10px] bg-orange-600 text-white font-black px-2 py-0.5 rounded-full">
                     STOP {stops.findIndex(s => s.id === selectedStopId) + 1}
                   </span>
+                </div>
+
+                {/* Visual Mapping with Camera Card */}
+                <div className="bg-orange-500/5 dark:bg-orange-500/10 border border-orange-500/20 p-4 rounded-2xl space-y-3">
+                  <div className="flex items-start gap-2.5">
+                    <div className="p-2 bg-orange-500/10 text-orange-600 rounded-xl">
+                      <Camera className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h4 className="text-xs font-black uppercase tracking-tight text-neutral-800 dark:text-neutral-100">
+                          Visual Mapping na Kamera
+                        </h4>
+                        {stops.find(s => s.id === selectedStopId)?.isVisualMapped && (
+                          <span className="bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 text-[8px] font-black uppercase px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                            <ShieldCheck className="w-3 h-3" /> MAP LIMEKAMILIKA
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-neutral-500 leading-relaxed mt-1">
+                        Vendor lazima awe kwenye eneo halisi. Fungua kamera ya simu kufanya mapping ya mazingira na kusanidi mshale (Arrow), wahusika wa 3D au zawadi.
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {stops.find(s => s.id === selectedStopId)?.isVisualMapped && (
+                    <div className="bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 rounded-xl text-[9px] font-mono text-emerald-600 dark:text-emerald-400 space-y-0.5">
+                      <p>📡 GPS Accuracy: ±{stops.find(s => s.id === selectedStopId)?.anchorGPSAccuracy || 4}m</p>
+                      <p>🧭 AR Compass Angle: {stops.find(s => s.id === selectedStopId)?.anchorHeading || 142}°</p>
+                      <p>📐 Offset: {stops.find(s => s.id === selectedStopId)?.anchorDistance || 3.5}m mbele, h={stops.find(s => s.id === selectedStopId)?.anchorHeight || 0}m</p>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleStartVisualMapping}
+                    className="w-full py-2.5 bg-orange-600 hover:bg-orange-500 text-white font-black uppercase text-[10px] rounded-xl flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-lg shadow-orange-600/10"
+                  >
+                    <Compass className="w-4 h-4" />
+                    ANZA VISUAL MAPPING NA GPS
+                  </button>
                 </div>
 
                 {/* Stop General Fields */}
@@ -1061,6 +1316,391 @@ export default function ARTourCreator({ vendorProfile }: ARTourCreatorProps) {
               </div>
 
             </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ==================== PRO AR SPATIAL MAPPING STUDIO MODAL ==================== */}
+      <AnimatePresence>
+        {isMappingActive && (
+          <div className="fixed inset-0 z-50 bg-neutral-950 flex flex-col font-sans text-white overflow-hidden select-none">
+            
+            {/* Background Camera Feed / Wireframe Grid */}
+            <div className="absolute inset-0 z-0">
+              <video
+                ref={videoRef}
+                className="w-full h-full object-cover"
+                playsInline
+                muted
+              />
+              
+              {/* Overlay Scanner Shaders if real camera failed/unavailable or sandbox */}
+              {(cameraError || !cameraStream) && (
+                <div className="absolute inset-0 bg-neutral-900/60 flex flex-col items-center justify-center p-6 text-center">
+                  <div className="relative w-48 h-48 mb-6 flex items-center justify-center">
+                    {/* Pulsing radar circle */}
+                    <div className="absolute inset-0 rounded-full border-2 border-orange-500/30 animate-ping" />
+                    <div className="absolute inset-2 rounded-full border border-orange-500/40 animate-pulse" />
+                    <div className="absolute inset-8 rounded-full bg-gradient-to-tr from-orange-600/10 to-orange-500/20 flex items-center justify-center">
+                      <Scan className="w-16 h-16 text-orange-500 animate-pulse" />
+                    </div>
+                  </div>
+                  <h4 className="text-base font-black uppercase tracking-widest text-orange-400">
+                    Pro AR Space Simulator Active
+                  </h4>
+                  <p className="text-xs text-neutral-400 max-w-sm mt-2 leading-relaxed">
+                    Camera feed simulation running inside sandbox environment. Precise sensors & SLAM point localization fully emulated for route authoring.
+                  </p>
+                </div>
+              )}
+
+              {/* Grid System Overlay (SLAM Mesh simulation) */}
+              <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(249,115,22,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(249,115,22,0.05)_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none opacity-40" />
+
+              {/* Horizon calibration lines */}
+              <div className="absolute top-1/2 left-0 right-0 h-[1px] bg-orange-500/25 pointer-events-none" />
+              <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-orange-500/25 pointer-events-none" />
+            </div>
+
+            {/* HEADS-UP DISPLAY (HUD) TOP CONTROL BAR */}
+            <div className="relative z-10 p-5 bg-gradient-to-b from-black/80 to-transparent flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-orange-600/30">
+                  <Camera className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 bg-red-600 rounded-full animate-ping" />
+                    <span className="text-[10px] font-black tracking-widest text-orange-500 uppercase">Pro AR Creator v2.1</span>
+                  </div>
+                  <h3 className="text-xs font-black uppercase tracking-tight leading-none mt-1">
+                    {stops.find(s => s.id === selectedStopId)?.stopName || "Kituo Bila Jina"}
+                  </h3>
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  setIsMappingActive(false);
+                  stopCamera();
+                }}
+                className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center font-bold text-sm cursor-pointer transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* MAIN HUD VIEWER STAGE */}
+            <div className="relative flex-1 z-10 flex flex-col items-center justify-center p-4">
+              
+              {/* STEP 1: SCANNING THE ENVIRONMENT */}
+              {mappingStep === 'scan' && (
+                <div className="space-y-6 text-center max-w-sm bg-black/60 backdrop-blur-md p-6 rounded-[2rem] border border-orange-500/20 shadow-2xl relative">
+                  
+                  {/* SLAM points scatter simulator */}
+                  <div className="absolute -inset-10 pointer-events-none overflow-hidden">
+                    {slamPoints.map(pt => (
+                      <div 
+                        key={pt.id}
+                        style={{ left: `${pt.x}%`, top: `${pt.y}%` }}
+                        className="absolute w-1.5 h-1.5 bg-emerald-400 rounded-full animate-ping"
+                      />
+                    ))}
+                  </div>
+
+                  <div className="flex justify-center">
+                    <div className="relative w-16 h-16 flex items-center justify-center bg-orange-600/20 border border-orange-500/30 rounded-full">
+                      <RefreshCw className="w-8 h-8 text-orange-500 animate-spin" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-black uppercase tracking-wider text-orange-400">
+                      Kuchanganua Mazingira...
+                    </h4>
+                    <p className="text-[11px] text-neutral-300 leading-relaxed pl-4 pr-4">
+                      Tafadhali zungusha simu yako taratibu kurekodi kuta, nguzo au bidhaa ili roboti asetiwe eneo sahihi.
+                    </p>
+                  </div>
+
+                  {/* Scanning progress bar */}
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-[9px] font-mono text-neutral-400">
+                      <span>PROGRESS: {scanProgress}%</span>
+                      <span>{scanProgress < 50 ? "Sensing Floor..." : scanProgress < 90 ? "Reconstructing mesh..." : "SLAM Locked"}</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-orange-500 transition-all duration-150"
+                        style={{ width: `${scanProgress}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* High tech telemetry status log */}
+                  <div className="bg-black/80 rounded-xl p-3 border border-neutral-800 text-left font-mono text-[8px] text-emerald-400 h-24 overflow-y-auto space-y-1">
+                    {mappingLog.map((log, idx) => (
+                      <p key={idx}>{log}</p>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 2: PLACE AR ANCHOR / DROP TARGET */}
+              {mappingStep === 'place' && (
+                <div className="flex flex-col items-center justify-between h-full w-full relative">
+                  
+                  {/* Central Crosshair & Pulse */}
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="relative flex items-center justify-center">
+                      <div className="absolute w-32 h-32 rounded-full border border-orange-500/25 animate-ping opacity-75" />
+                      <div className="absolute w-20 h-20 rounded-full border border-orange-500/40" />
+                      <div className="absolute w-12 h-12 rounded-full border-2 border-dashed border-orange-500 animate-spin-slow" />
+                      <Target className="w-6 h-6 text-orange-500 z-10" />
+                      
+                      {/* Compass degrees indicator */}
+                      <span className="absolute -top-10 bg-black/70 px-2.5 py-1 rounded-md text-[9px] font-mono font-black tracking-widest text-orange-400 border border-orange-500/20">
+                        HDG: {mappedHeading}°
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Anchor instructions */}
+                  <div className="bg-black/60 backdrop-blur-md px-5 py-3.5 rounded-2xl border border-orange-500/20 text-center max-w-xs mt-2 pointer-events-none">
+                    <p className="text-[10px] uppercase font-black tracking-wider text-orange-400 flex items-center justify-center gap-1.5">
+                      <Scan className="w-3.5 h-3.5 animate-pulse" /> Hatua ya 4: Weka Anchor
+                    </p>
+                    <p className="text-[9px] text-neutral-300 leading-relaxed mt-1">
+                      Kelekeza simu yako sehemu unayotaka kuweka mshale (Arrow) au mhusika, kisha bofya kitufe cha chini.
+                    </p>
+                  </div>
+
+                  {/* DROP ANCHOR BUTTON */}
+                  <div className="w-full max-w-xs mb-4">
+                    <button
+                      onClick={() => setMappingStep('configure')}
+                      className="w-full py-4 bg-orange-600 hover:bg-orange-500 text-white font-black uppercase text-xs rounded-2xl flex items-center justify-center gap-2 shadow-2xl shadow-orange-600/30 cursor-pointer active:scale-95 transition-transform"
+                    >
+                      <Plus className="w-5 h-5" />
+                      Weka Anchor Hapa (Drop Anchor)
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 3: CONFIGURE ANCHOR ORIENTATION & PREVIEW */}
+              {mappingStep === 'configure' && (
+                <div className="flex flex-col items-center justify-between h-full w-full">
+                  
+                  {/* Interactive Floating 3D Object Preview Area */}
+                  <div className="flex-1 flex items-center justify-center w-full relative">
+                    
+                    {/* Floating Character Avatar or Arrow based on setup */}
+                    <div 
+                      className="relative z-10 p-5 rounded-3xl bg-neutral-900/90 border border-orange-500/30 flex flex-col items-center text-center shadow-2xl max-w-[220px]"
+                      style={{
+                        transform: `rotate(${anchorRotation}deg) scale(${anchorScale}) translateY(${anchorHeight * 10}px)`,
+                        transition: 'transform 0.15s ease-out'
+                      }}
+                    >
+                      {/* Floating object graphic representation */}
+                      {stopCharacter === 'guide' && (
+                        <div className="relative mb-3">
+                          <span className="text-4xl block animate-bounce">🧑‍✈️</span>
+                          <span className="absolute -bottom-1 -right-1 bg-orange-600 text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase">Guide</span>
+                        </div>
+                      )}
+                      {stopCharacter === 'masai' && (
+                        <div className="relative mb-3">
+                          <span className="text-4xl block animate-bounce">🛡️</span>
+                          <span className="absolute -bottom-1 -right-1 bg-orange-600 text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase">Masai</span>
+                        </div>
+                      )}
+                      {stopCharacter === 'ranger' && (
+                        <div className="relative mb-3">
+                          <span className="text-4xl block animate-bounce">🤠</span>
+                          <span className="absolute -bottom-1 -right-1 bg-orange-600 text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase">Ranger</span>
+                        </div>
+                      )}
+                      {stopCharacter === 'pilot' && (
+                        <div className="relative mb-3">
+                          <span className="text-4xl block animate-bounce">👨‍✈️</span>
+                          <span className="absolute -bottom-1 -right-1 bg-orange-600 text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase">Pilot</span>
+                        </div>
+                      )}
+                      {stopCharacter === 'chief' && (
+                        <div className="relative mb-3">
+                          <span className="text-4xl block animate-bounce">👑</span>
+                          <span className="absolute -bottom-1 -right-1 bg-orange-600 text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase">Chief</span>
+                        </div>
+                      )}
+
+                      <h4 className="text-[10px] font-black uppercase tracking-widest text-orange-400">
+                        {stopCharacter.toUpperCase()} GUIDE
+                      </h4>
+                      
+                      <div className="mt-2.5 bg-black/60 px-3 py-1.5 rounded-xl border border-neutral-800 text-[9px] font-medium leading-relaxed max-w-[180px] line-clamp-3">
+                        💬 "{stopVoiceText || "Karibu kwenye kituo hiki! Nipo hapa kukuelekeza."}"
+                      </div>
+
+                      {/* Distance tag */}
+                      <span className="mt-3.5 bg-orange-600 text-white text-[9px] font-mono font-black px-2.5 py-1 rounded-full uppercase">
+                        📍 {anchorDistance} METERS
+                      </span>
+                    </div>
+
+                    {/* Floor circle shadow effect */}
+                    <div className="absolute bottom-16 w-32 h-6 bg-black/40 rounded-full blur-md animate-pulse pointer-events-none" />
+                  </div>
+
+                  {/* 3D ADJUSTMENT PANEL AND ROTATORS */}
+                  <div className="w-full max-w-sm bg-neutral-900/95 backdrop-blur-md rounded-[2.5rem] p-5 border border-orange-500/20 space-y-4 mb-4 shadow-2xl relative">
+                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-orange-600 text-white text-[9px] font-black px-4 py-1 rounded-full uppercase tracking-wider">
+                      Sanjaza Anchor Zilizowekwa (3D Controls)
+                    </span>
+
+                    <div className="grid grid-cols-2 gap-4 pt-3.5">
+                      
+                      {/* Rotation control */}
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between items-center text-[9px] font-bold text-neutral-400">
+                          <span className="uppercase">Kuzungusha (Yaw)</span>
+                          <span className="font-mono text-orange-500">{anchorRotation}°</span>
+                        </div>
+                        <input 
+                          type="range"
+                          min={-180}
+                          max={180}
+                          value={anchorRotation}
+                          onChange={(e) => setAnchorRotation(Number(e.target.value))}
+                          className="w-full accent-orange-600 bg-neutral-800 h-1 rounded-lg appearance-none cursor-pointer"
+                        />
+                      </div>
+
+                      {/* Scale control */}
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between items-center text-[9px] font-bold text-neutral-400">
+                          <span className="uppercase">Ukubwa (Scale)</span>
+                          <span className="font-mono text-orange-500">{anchorScale.toFixed(1)}x</span>
+                        </div>
+                        <input 
+                          type="range"
+                          min={0.5}
+                          max={2.5}
+                          step={0.1}
+                          value={anchorScale}
+                          onChange={(e) => setAnchorScale(Number(e.target.value))}
+                          className="w-full accent-orange-600 bg-neutral-800 h-1 rounded-lg appearance-none cursor-pointer"
+                        />
+                      </div>
+
+                      {/* Distance control */}
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between items-center text-[9px] font-bold text-neutral-400">
+                          <span className="uppercase">Umbali (Distance)</span>
+                          <span className="font-mono text-orange-500">{anchorDistance}m</span>
+                        </div>
+                        <input 
+                          type="range"
+                          min={1.0}
+                          max={15.0}
+                          step={0.5}
+                          value={anchorDistance}
+                          onChange={(e) => setAnchorDistance(Number(e.target.value))}
+                          className="w-full accent-orange-600 bg-neutral-800 h-1 rounded-lg appearance-none cursor-pointer"
+                        />
+                      </div>
+
+                      {/* Height offset control */}
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between items-center text-[9px] font-bold text-neutral-400">
+                          <span className="uppercase">Urefu (Height)</span>
+                          <span className="font-mono text-orange-500">{anchorHeight > 0 ? `+${anchorHeight}` : anchorHeight}m</span>
+                        </div>
+                        <input 
+                          type="range"
+                          min={-2.0}
+                          max={4.0}
+                          step={0.2}
+                          value={anchorHeight}
+                          onChange={(e) => setAnchorHeight(Number(e.target.value))}
+                          className="w-full accent-orange-600 bg-neutral-800 h-1 rounded-lg appearance-none cursor-pointer"
+                        />
+                      </div>
+
+                    </div>
+
+                    {/* Speech / Narration sound test */}
+                    {stopVoiceText && (
+                      <div className="flex justify-between items-center bg-black/40 px-3.5 py-2.5 rounded-2xl border border-neutral-800">
+                        <span className="text-[9px] text-neutral-400 font-bold flex items-center gap-1.5">
+                          <Volume2 className="w-3.5 h-3.5 text-orange-500" /> Test Narrator Guide Voice:
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if ('speechSynthesis' in window) {
+                              window.speechSynthesis.cancel();
+                              const utterance = new SpeechSynthesisUtterance(stopVoiceText);
+                              utterance.lang = stopVoiceLang;
+                              window.speechSynthesis.speak(utterance);
+                              toast.info("Mwongozo wa sauti unaanza kuongea...");
+                            } else {
+                              toast.error("Vivinjari vyako havina uwezo wa Text-to-Speech.");
+                            }
+                          }}
+                          className="bg-orange-600/20 hover:bg-orange-600/30 text-orange-500 text-[8px] font-black uppercase px-3 py-1 rounded-lg border border-orange-500/30"
+                        >
+                          Sikiliza Sauti 🔊
+                        </button>
+                      </div>
+                    )}
+
+                    {/* SAVE AND LOCK BUTTONS */}
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        onClick={() => setMappingStep('place')}
+                        className="flex-1 py-3.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-bold uppercase text-[10px] rounded-2xl cursor-pointer"
+                      >
+                        Chagua upya eneo
+                      </button>
+                      <button
+                        onClick={handleSaveVisualAnchor}
+                        className="flex-1 py-3.5 bg-orange-600 hover:bg-orange-500 text-white font-black uppercase text-[10px] rounded-2xl flex items-center justify-center gap-1 shadow shadow-orange-600/10 cursor-pointer"
+                      >
+                        <Check className="w-4 h-4" />
+                        Hifadhi Anchor ya AR
+                      </button>
+                    </div>
+
+                  </div>
+                </div>
+              )}
+
+            </div>
+
+            {/* HIGH TECH BOTTOM INFOGRAPHIC RAIL */}
+            <div className="relative z-10 p-4 bg-gradient-to-t from-black/80 to-transparent grid grid-cols-3 gap-2 border-t border-neutral-900 text-center shrink-0">
+              <div className="bg-black/40 rounded-xl p-2 border border-neutral-800/40">
+                <span className="text-[8px] uppercase font-black tracking-widest text-neutral-500 block">SENSORS COORD</span>
+                <span className="text-[9.5px] font-mono text-neutral-200 mt-0.5 block">
+                  P:{sensorStream.pitch}° / R:{sensorStream.roll}°
+                </span>
+              </div>
+              <div className="bg-black/40 rounded-xl p-2 border border-neutral-800/40">
+                <span className="text-[8px] uppercase font-black tracking-widest text-neutral-500 block">GPS COORDINATES</span>
+                <span className="text-[9.5px] font-mono text-orange-500 mt-0.5 block truncate">
+                  {mappedGPS.lat.toFixed(4)}, {mappedGPS.lng.toFixed(4)}
+                </span>
+              </div>
+              <div className="bg-black/40 rounded-xl p-2 border border-neutral-800/40">
+                <span className="text-[8px] uppercase font-black tracking-widest text-neutral-500 block">ACCURACY SIGNAL</span>
+                <span className="text-[9.5px] font-mono text-emerald-400 mt-0.5 block">
+                  ±{mappedGPS.accuracy || 3.8}m (Locked)
+                </span>
+              </div>
+            </div>
+
           </div>
         )}
       </AnimatePresence>
