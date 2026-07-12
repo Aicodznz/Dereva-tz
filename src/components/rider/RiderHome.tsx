@@ -185,14 +185,19 @@ function MapController({
 
   if (!autoFollow) {
     return (
-      <div className="leaflet-bottom leaflet-right" style={{ pointerEvents: 'auto', marginBottom: '84px', marginRight: '16px', zIndex: 1000 }}>
-        <button
+      <div className="leaflet-bottom leaflet-right" style={{ pointerEvents: 'auto', marginBottom: '96px', marginRight: '16px', zIndex: 1000 }}>
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
           onClick={handleRecenter}
-          className="flex items-center gap-2 bg-purple-600 hover:bg-purple-500 text-white font-black uppercase text-xs px-4 py-3 rounded-full shadow-[0_8px_30px_rgba(124,58,237,0.4)] border border-purple-400 transition-all duration-300 transform scale-100 hover:scale-105 active:scale-95 animate-bounce"
+          className="w-10 h-10 bg-purple-600 border border-purple-500 text-white rounded-xl shadow-[0_4px_12px_rgba(124,58,237,0.4)] flex flex-col items-center justify-center animate-pulse cursor-pointer"
+          title="Ikite (Recenter)"
         >
-          <Compass className="w-4 h-4 text-white" />
-          <span>Ikite (Recenter)</span>
-        </button>
+          <Compass className="w-4.5 h-4.5 text-white" />
+          <span className="text-[6.5px] font-black mt-0.5 uppercase tracking-tighter leading-none">
+            Ikite
+          </span>
+        </motion.button>
       </div>
     );
   }
@@ -1447,7 +1452,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
     if (driverRating >= 4.8) {
       // 🥇 GOLD OCTAGONAL BADGE - "DEREVA BORA"
       return (
-        <div className="relative w-24 h-28 flex flex-col items-center justify-center pointer-events-auto shrink-0 select-none">
+        <div className="relative w-15 h-[72px] flex flex-col items-center justify-center pointer-events-auto shrink-0 select-none">
           <button 
             onClick={onProfileClick}
             className="absolute inset-0 w-full h-full cursor-pointer focus:outline-none"
@@ -1477,6 +1482,9 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
                   <stop offset="70%" stopColor="#F4D03F" />
                   <stop offset="100%" stopColor="#B7950B" />
                 </linearGradient>
+                <clipPath id="avatarClipGold">
+                  <circle cx="50" cy="58" r="21" />
+                </clipPath>
               </defs>
 
               {/* Outer Octagon Shape */}
@@ -1508,6 +1516,17 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
               {/* Inner dark circle behind avatar */}
               <circle cx="50" cy="58" r="21" fill="url(#innerGrad)" />
 
+              {/* Center Avatar Image with clipPath */}
+              <image 
+                href={profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid || 'Juma'}`}
+                x="29" 
+                y="37" 
+                width="42" 
+                height="42" 
+                clipPath="url(#avatarClipGold)"
+                preserveAspectRatio="xMidYMid slice"
+              />
+
               {/* Ribbon Banner at the bottom */}
               <path 
                 d="M 5 88 L 95 88 L 90 99 L 10 99 Z" 
@@ -1533,38 +1552,22 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
                 {/* Small golden pin/loop */}
                 <circle cx="8" cy="-1" r="1.5" fill="url(#goldGrad)" />
               </g>
+
+              {/* Rating score overlay integrated into the SVG bottom area */}
+              <g transform="translate(50, 79)">
+                <rect x="-15" y="-6" width="30" height="11" rx="3.5" fill="#111118" stroke="#F1C40F" strokeWidth="0.8" />
+                <text y="2.2" fill="#F1C40F" fontSize="7.5" fontWeight="950" textAnchor="middle">
+                  ★ {driverRating.toFixed(1)}
+                </text>
+              </g>
             </svg>
-
-            {/* Absolute positioned profile image overlay */}
-            <div 
-              className="absolute rounded-full overflow-hidden border border-[#F1C40F]/50 shadow-inner"
-              style={{
-                width: '42%',
-                height: '38%',
-                top: '38.5%',
-                left: '29%',
-              }}
-            >
-              <img 
-                src={profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid || 'Juma'}`} 
-                alt="Driver" 
-                referrerPolicy="no-referrer"
-                className="w-full h-full object-cover rounded-full"
-              />
-            </div>
-
-            {/* Rating score overlay */}
-            <div className="absolute top-[68%] bg-black/85 dark:bg-[#111118]/95 border border-[#F1C40F] px-1.5 py-0.5 rounded-md text-[7px] font-black text-[#F1C40F] flex items-center gap-0.5 shadow-md">
-              <span>★</span>
-              <span>{driverRating.toFixed(1)}</span>
-            </div>
           </button>
         </div>
       );
     } else if (driverRating >= 4.5) {
       // 🥈 SILVER SHIELD BADGE - "DEREVA MKUU"
       return (
-        <div className="relative w-24 h-28 flex flex-col items-center justify-center pointer-events-auto shrink-0 select-none">
+        <div className="relative w-15 h-[72px] flex flex-col items-center justify-center pointer-events-auto shrink-0 select-none">
           <button 
             onClick={onProfileClick}
             className="absolute inset-0 w-full h-full cursor-pointer focus:outline-none"
@@ -1595,6 +1598,9 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
                   <stop offset="70%" stopColor="#E5E8E8" />
                   <stop offset="100%" stopColor="#AEB6BF" />
                 </linearGradient>
+                <clipPath id="avatarClipSilver">
+                  <circle cx="50" cy="58" r="21" />
+                </clipPath>
               </defs>
 
               {/* Outer Heraldic Shield Shape */}
@@ -1628,6 +1634,17 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
               {/* Inner dark circle behind avatar */}
               <circle cx="50" cy="58" r="21" fill="url(#innerGrad)" />
 
+              {/* Center Avatar Image with clipPath */}
+              <image 
+                href={profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid || 'Juma'}`}
+                x="29" 
+                y="37" 
+                width="42" 
+                height="42" 
+                clipPath="url(#avatarClipSilver)"
+                preserveAspectRatio="xMidYMid slice"
+              />
+
               {/* Ribbon Banner at the bottom */}
               <path 
                 d="M 5 88 L 95 88 L 90 99 L 10 99 Z" 
@@ -1653,38 +1670,22 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
                 {/* Small silver pin */}
                 <circle cx="8" cy="-1" r="1.5" fill="url(#silverGrad)" />
               </g>
+
+              {/* Rating score overlay integrated into the SVG bottom area */}
+              <g transform="translate(50, 79)">
+                <rect x="-15" y="-6" width="30" height="11" rx="3.5" fill="#111118" stroke="#AEB6BF" strokeWidth="0.8" />
+                <text y="2.2" fill="url(#silverGrad)" fontSize="7.5" fontWeight="950" textAnchor="middle">
+                  ★ {driverRating.toFixed(1)}
+                </text>
+              </g>
             </svg>
-
-            {/* Absolute positioned profile image overlay */}
-            <div 
-              className="absolute rounded-full overflow-hidden border border-slate-300/50 shadow-inner"
-              style={{
-                width: '42%',
-                height: '38%',
-                top: '38.5%',
-                left: '29%',
-              }}
-            >
-              <img 
-                src={profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid || 'Juma'}`} 
-                alt="Driver" 
-                referrerPolicy="no-referrer"
-                className="w-full h-full object-cover rounded-full"
-              />
-            </div>
-
-            {/* Rating score overlay */}
-            <div className="absolute top-[68%] bg-black/85 dark:bg-[#111118]/95 border border-slate-300 px-1.5 py-0.5 rounded-md text-[7px] font-black text-white flex items-center gap-0.5 shadow-md">
-              <span>★</span>
-              <span>{driverRating.toFixed(1)}</span>
-            </div>
           </button>
         </div>
       );
     } else {
       // 🥉 BRONZE/STEEL DIAMOND BADGE - "DEREVA UZOEFU"
       return (
-        <div className="relative w-24 h-28 flex flex-col items-center justify-center pointer-events-auto shrink-0 select-none">
+        <div className="relative w-15 h-[72px] flex flex-col items-center justify-center pointer-events-auto shrink-0 select-none">
           <button 
             onClick={onProfileClick}
             className="absolute inset-0 w-full h-full cursor-pointer focus:outline-none"
@@ -1711,6 +1712,9 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
                   <stop offset="50%" stopColor="#E59866" />
                   <stop offset="100%" stopColor="#873600" />
                 </linearGradient>
+                <clipPath id="avatarClipBronze">
+                  <circle cx="50" cy="58" r="21" />
+                </clipPath>
               </defs>
 
               {/* Outer Diamond Shape */}
@@ -1742,6 +1746,17 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
               {/* Inner dark circle behind avatar */}
               <circle cx="50" cy="58" r="21" fill="url(#innerGrad)" />
 
+              {/* Center Avatar Image with clipPath */}
+              <image 
+                href={profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid || 'Juma'}`}
+                x="29" 
+                y="37" 
+                width="42" 
+                height="42" 
+                clipPath="url(#avatarClipBronze)"
+                preserveAspectRatio="xMidYMid slice"
+              />
+
               {/* Ribbon Banner at the bottom */}
               <path 
                 d="M 5 88 L 95 88 L 90 99 L 10 99 Z" 
@@ -1767,31 +1782,15 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
                 {/* Small bronze pin */}
                 <circle cx="8" cy="-1" r="1.5" fill="url(#bronzeGrad)" />
               </g>
+
+              {/* Rating score overlay integrated into the SVG bottom area */}
+              <g transform="translate(50, 79)">
+                <rect x="-15" y="-6" width="30" height="11" rx="3.5" fill="#111118" stroke="#D35400" strokeWidth="0.8" />
+                <text y="2.2" fill="#F5B041" fontSize="7.5" fontWeight="950" textAnchor="middle">
+                  ★ {driverRating.toFixed(1)}
+                </text>
+              </g>
             </svg>
-
-            {/* Absolute positioned profile image overlay */}
-            <div 
-              className="absolute rounded-full overflow-hidden border border-orange-600/50 shadow-inner"
-              style={{
-                width: '42%',
-                height: '38%',
-                top: '38.5%',
-                left: '29%',
-              }}
-            >
-              <img 
-                src={profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid || 'Juma'}`} 
-                alt="Driver" 
-                referrerPolicy="no-referrer"
-                className="w-full h-full object-cover rounded-full"
-              />
-            </div>
-
-            {/* Rating score overlay */}
-            <div className="absolute top-[68%] bg-black/85 dark:bg-[#111118]/95 border border-orange-500 px-1.5 py-0.5 rounded-md text-[7px] font-black text-orange-400 flex items-center gap-0.5 shadow-md">
-              <span>★</span>
-              <span>{driverRating.toFixed(1)}</span>
-            </div>
           </button>
         </div>
       );
@@ -3127,34 +3126,6 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
         </div>
       )}
 
-      {/* Earnings Toggle Overlay */}
-      {!activeRide && !incomingRequest && !isMinimized && (
-        <div className="absolute top-28 left-1/2 -translate-x-1/2 z-40">
-          <AnimatePresence>
-            {showEarnings && (
-               <motion.div 
-                 initial={{ opacity: 0, y: -20, scale: 0.9 }}
-                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                 exit={{ opacity: 0, y: -20, scale: 0.9 }}
-                 onClick={() => setShowEarningsModal(true)}
-                 className="bg-white/95 dark:bg-[#111118]/90 backdrop-blur-xl border border-neutral-200/50 dark:border-[#1e1e2e] px-4 py-2 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_15px_40px_rgba(0,0,0,0.5)] cursor-pointer flex flex-col items-center gap-0.5 active:scale-95 transition-all text-neutral-850 dark:text-white"
-               >
-                  <div className="flex items-center gap-2">
-                    <p className="text-[8px] font-black text-neutral-500 uppercase tracking-widest italic">Mapato Leo</p>
-                    <div className="flex items-center gap-1 bg-[#7F77DD]/10 px-1.5 py-0.5 rounded-full border border-[#7F77DD]/20">
-                      <TrendingUp className="w-2.5 h-2.5 text-[#7F77DD]" />
-                      <span className="text-[8px] font-black text-[#7F77DD] uppercase">{stats.todayTrips} SAFARI</span>
-                    </div>
-                  </div>
-                  <h2 className="text-lg font-black italic tracking-tighter leading-none">
-                    TZS {(stats?.todayEarnings ?? 0).toLocaleString()}
-                  </h2>
-               </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      )}
-
       {/* Elegant Floating Power Button when Offline */}
       {!isOnline && !isMinimized && (
         <div className="absolute inset-x-0 bottom-8 z-50 flex flex-col items-center justify-center pointer-events-none">
@@ -3162,24 +3133,37 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
           <motion.div 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-3 px-4 py-1.5 bg-neutral-900/90 dark:bg-neutral-950/90 text-white rounded-full text-[10px] font-black tracking-widest uppercase shadow-lg border border-white/10 flex items-center gap-1.5 pointer-events-auto backdrop-blur-md"
+            className="mb-2 px-3 py-1 bg-neutral-900/90 dark:bg-neutral-950/90 text-white rounded-full text-[8.5px] font-bold tracking-wider uppercase shadow-lg border border-white/10 flex items-center gap-1.5 pointer-events-auto backdrop-blur-md"
           >
-            <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
-            <span>UKO OFFLINE — GONGA UANZE</span>
+            <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-ping" />
+            <span>Uko Offline — Gonga uanze</span>
           </motion.div>
           
           <motion.button
             onClick={toggleStatus}
             disabled={isGoingOnline}
+            animate={{
+              scale: [1, 1.05, 1],
+              boxShadow: [
+                "0 4px 15px rgba(239,68,68,0.35)",
+                "0 10px 25px rgba(239,68,68,0.65)",
+                "0 4px 15px rgba(239,68,68,0.35)"
+              ]
+            }}
+            transition={{
+              duration: 2.2,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
-            className="w-20 h-20 bg-gradient-to-tr from-red-600 to-rose-500 rounded-full border-4 border-white dark:border-[#0a0a0f] shadow-[0_10px_30px_rgba(239,68,68,0.5)] flex items-center justify-center cursor-pointer pointer-events-auto transition-all"
+            className="w-14 h-14 bg-gradient-to-tr from-red-600 to-rose-500 rounded-full border-2 border-white dark:border-[#0a0a0f] flex items-center justify-center cursor-pointer pointer-events-auto transition-all"
             title="Gonga ili uwe Online"
           >
             {isGoingOnline ? (
-              <RefreshCw className="w-7 h-7 text-white animate-spin" />
+              <RefreshCw className="w-5 h-5 text-white animate-spin" />
             ) : (
-              <Power className="w-7 h-7 text-white" />
+              <Power className="w-5 h-5 text-white" />
             )}
           </motion.button>
         </div>
