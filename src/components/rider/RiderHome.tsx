@@ -2887,23 +2887,25 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
           </motion.button>
 
           {/* Recenter Button (IKITE) */}
-          {!autoFollow && (
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => {
-                setRecenterTrigger(prev => prev + 1);
-                setAutoFollow(true);
-              }}
-              className="w-10 h-10 bg-purple-600 hover:bg-purple-500 border border-purple-500 text-white rounded-xl shadow-[0_4px_15px_rgba(124,58,237,0.45)] flex flex-col items-center justify-center cursor-pointer active:scale-95 transition-all animate-bounce"
-              title="Ikite (Recenter Map)"
-            >
-              <Compass className="w-4 h-4 text-white animate-pulse" />
-              <span className="text-[6.5px] font-black mt-0.5 uppercase tracking-tighter leading-none">
-                Ikite
-              </span>
-            </motion.button>
-          )}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => {
+              setRecenterTrigger(prev => prev + 1);
+              setAutoFollow(true);
+            }}
+            className={`w-10 h-10 border rounded-xl shadow-lg flex flex-col items-center justify-center cursor-pointer transition-all ${
+              autoFollow 
+                ? 'bg-purple-600 border-purple-500 text-white shadow-[0_0_12px_rgba(124,58,237,0.4)] animate-pulse'
+                : 'bg-white/95 dark:bg-[#111118]/90 border-neutral-200/50 dark:border-[#1e1e2e] text-neutral-500 hover:text-neutral-850 dark:hover:text-white hover:border-purple-500/50'
+            }`}
+            title="Ikite (Recenter Map)"
+          >
+            <Compass className={`w-4 h-4 ${autoFollow ? 'text-white' : 'text-purple-500'}`} />
+            <span className="text-[6.5px] font-black mt-0.5 uppercase tracking-tighter leading-none">
+              Ikite
+            </span>
+          </motion.button>
 
           {/* Toggle Road Alerts (Taa, Kona, Matengenezo, Njia Imefungwa) */}
           <motion.button
@@ -3110,7 +3112,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
 
       {/* Elegant Floating Power Button when Offline */}
       {!isOnline && !isMinimized && (
-        <div className="absolute inset-x-0 bottom-24 z-50 flex flex-col items-center justify-center pointer-events-none">
+        <div className="absolute inset-x-0 bottom-28 z-50 flex flex-col items-center justify-center pointer-events-none">
           {/* Subtle floating instruction label */}
           <motion.div 
             initial={{ opacity: 0, y: 10 }}
@@ -3158,7 +3160,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
           initial={{ y: 50, opacity: 0 }} 
           animate={{ y: 0, opacity: 1 }} 
           exit={{ y: 50, opacity: 0 }}
-          className="absolute bottom-6 left-4 right-4 max-w-sm mx-auto bg-white/95 dark:bg-[#111118]/95 backdrop-blur-xl border border-neutral-200/60 dark:border-[#1e1e2e] p-3 rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.15)] dark:shadow-[0_15px_40px_rgba(0,0,0,0.5)] text-neutral-850 dark:text-white flex items-center justify-between z-50 pointer-events-auto"
+          className="absolute bottom-28 left-4 right-4 max-w-sm mx-auto bg-white/95 dark:bg-[#111118]/95 backdrop-blur-xl border border-neutral-200/60 dark:border-[#1e1e2e] p-3 rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.15)] dark:shadow-[0_15px_40px_rgba(0,0,0,0.5)] text-neutral-850 dark:text-white flex items-center justify-between z-50 pointer-events-auto"
         >
           <div className="flex items-center gap-3">
             <span className="relative flex h-2.5 w-2.5">
@@ -3166,22 +3168,26 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
             </span>
             <div className="flex flex-col">
-              <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest leading-none">ACTIVE & ONLINE</span>
+              <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest leading-none">ACTIVE</span>
               <span className="text-xs font-bold text-neutral-700 dark:text-neutral-200 mt-0.5 leading-none">Unangoja maombi ya safari...</span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={() => setShowEarningsModal(true)}
-              className="h-8 px-2.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-[10px] font-black uppercase tracking-wider text-neutral-600 dark:text-neutral-300 flex items-center gap-1 active:scale-95 transition-all cursor-pointer"
-              title="Uhakiki wa Mapato"
-            >
-              <TrendingUp className="w-3.5 h-3.5 text-neutral-500 dark:text-neutral-400" />
-              <span>Mapato</span>
-            </button>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-200/50 dark:border-[#1e1e2e] py-1 px-2.5 rounded-xl">
+              <div className="flex flex-col items-center min-w-[32px]">
+                <span className="text-[7px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-wider leading-none">SAFARI</span>
+                <span className="text-xs font-extrabold text-neutral-800 dark:text-neutral-200 leading-none mt-0.5">{stats?.todayTrips ?? 0}</span>
+              </div>
+              <div className="h-4 w-[1px] bg-neutral-200 dark:bg-neutral-800" />
+              <div className="flex flex-col items-center min-w-[32px]">
+                <span className="text-[7px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-wider leading-none">MASAA</span>
+                <span className="text-xs font-extrabold text-neutral-800 dark:text-neutral-200 leading-none mt-0.5">{stats?.activeHours ?? 0}h</span>
+              </div>
+            </div>
+            
             <button 
               onClick={toggleStatus}
-              className="w-8 h-8 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 rounded-lg flex items-center justify-center text-red-500 active:scale-95 transition-all cursor-pointer"
+              className="w-8 h-8 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 rounded-xl flex items-center justify-center text-red-500 active:scale-95 transition-all cursor-pointer"
               title="Gonga kuzima (Offline)"
             >
               <Power className="w-4 h-4" />
