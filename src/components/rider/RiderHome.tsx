@@ -68,18 +68,23 @@ function MapController({
   rotation, 
   manualRotation = 0,
   onRotate,
-  is3DMode = false
+  is3DMode = false,
+  autoFollow,
+  setAutoFollow,
+  recenterTrigger
 }: { 
   position: [number, number], 
   activeRide: any, 
   rotation: number, 
   manualRotation?: number,
   onRotate?: (newRotation: number) => void,
-  is3DMode?: boolean
+  is3DMode?: boolean,
+  autoFollow: boolean,
+  setAutoFollow: (val: boolean) => void,
+  recenterTrigger: number
 }) {
   const map = useMap();
   const hasCentered = React.useRef(false);
-  const [autoFollow, setAutoFollow] = React.useState(true);
   const lastCenterRef = React.useRef<[number, number] | null>(null);
 
   // Trigger invalidateSize sequentially to fix size issues when loaded on mobile phone or tablet layout
@@ -174,33 +179,13 @@ function MapController({
     }
   }, [position?.[0], position?.[1], !!activeRide, autoFollow, activeRide?.status]);
   
-  const handleRecenter = () => {
-    setAutoFollow(true);
-    if (position) {
+  useEffect(() => {
+    if (recenterTrigger > 0 && position) {
       const desiredZoom = activeRide && ['accepted', 'driver_arriving', 'on_trip'].includes(activeRide?.status) ? 18.5 : 18;
       map.flyTo(position, desiredZoom, { animate: true, duration: 1.2 });
       lastCenterRef.current = position;
     }
-  };
-
-  if (!autoFollow) {
-    return (
-      <div className="leaflet-bottom leaflet-right" style={{ pointerEvents: 'auto', marginBottom: '96px', marginRight: '16px', zIndex: 1000 }}>
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={handleRecenter}
-          className="w-10 h-10 bg-purple-600 border border-purple-500 text-white rounded-xl shadow-[0_4px_12px_rgba(124,58,237,0.4)] flex flex-col items-center justify-center animate-pulse cursor-pointer"
-          title="Ikite (Recenter)"
-        >
-          <Compass className="w-4.5 h-4.5 text-white" />
-          <span className="text-[6.5px] font-black mt-0.5 uppercase tracking-tighter leading-none">
-            Ikite
-          </span>
-        </motion.button>
-      </div>
-    );
-  }
+  }, [recenterTrigger, map, position, activeRide]);
 
   return null;
 }
@@ -346,6 +331,8 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
   const { user, profile } = useAuth();
   const { setTheme: setNextTheme, resolvedTheme } = useTheme();
   const [isOnline, setIsOnline] = useState(false);
+  const [autoFollow, setAutoFollow] = useState(true);
+  const [recenterTrigger, setRecenterTrigger] = useState(0);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [position, setPosition] = useState<[number, number]>([-6.7924, 39.2083]);
   const [activePoiCategory, setActivePoiCategory] = useState<string | null>(null);
@@ -2694,7 +2681,17 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
               </>
             )}
 
-            <MapController position={position} activeRide={activeRide} rotation={rotation} manualRotation={manualRotation} onRotate={setManualRotation} is3DMode={is3DMode} />
+            <MapController 
+              position={position} 
+              activeRide={activeRide} 
+              rotation={rotation} 
+              manualRotation={manualRotation} 
+              onRotate={setManualRotation} 
+              is3DMode={is3DMode} 
+              autoFollow={autoFollow}
+              setAutoFollow={setAutoFollow}
+              recenterTrigger={recenterTrigger}
+            />
             <MapBoundsUpdater activeRide={activeRide} position={position} />
 
             {/* Render POIs when a category is selected */}
@@ -2889,22 +2886,24 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
             </span>
           </motion.button>
 
-          {/* 2D / 3D Perspective Toggle */}
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setIs3DMode(!is3DMode)}
-            className={`w-10 h-10 border rounded-xl shadow-lg flex flex-col items-center justify-center transition-all ${
-              is3DMode
-                ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-600 dark:text-[#00FF88] shadow-[0_0_12px_rgba(0,255,136,0.3)]'
-                : 'bg-white/95 dark:bg-[#111118]/90 border-neutral-200/50 dark:border-[#1e1e2e] text-neutral-500 hover:text-neutral-850 dark:hover:text-white'
-            }`}
-            title={is3DMode ? "Badili kwenda Muonekano wa 2D" : "Badili kwenda Muonekano wa 3D"}
-          >
-            <span className="text-[10px] font-black tracking-wider">
-              {is3DMode ? '3D' : '2D'}
-            </span>
-          </motion.button>
+          {/* Recenter Button (IKITE) */}
+          {!autoFollow && (
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                setRecenterTrigger(prev => prev + 1);
+                setAutoFollow(true);
+              }}
+              className="w-10 h-10 bg-purple-600 hover:bg-purple-500 border border-purple-500 text-white rounded-xl shadow-[0_4px_15px_rgba(124,58,237,0.45)] flex flex-col items-center justify-center cursor-pointer active:scale-95 transition-all animate-bounce"
+              title="Ikite (Recenter Map)"
+            >
+              <Compass className="w-4 h-4 text-white animate-pulse" />
+              <span className="text-[6.5px] font-black mt-0.5 uppercase tracking-tighter leading-none">
+                Ikite
+              </span>
+            </motion.button>
+          )}
 
           {/* Toggle Road Alerts (Taa, Kona, Matengenezo, Njia Imefungwa) */}
           <motion.button
@@ -2923,23 +2922,6 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
           >
             <AlertTriangle className="w-4 h-4 animate-pulse" />
             <span className="text-[6px] font-black mt-0.5 uppercase tracking-tighter leading-none">Hali Njia</span>
-          </motion.button>
-
-          {/* Compass Direction Badge / Reset Button */}
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setRotation(0)}
-            className="w-10 h-10 bg-white/95 dark:bg-[#111118]/90 border border-neutral-200/50 dark:border-[#1e1e2e] rounded-xl shadow-lg flex flex-col items-center justify-center transition-all text-emerald-500 dark:text-[#00FF88]"
-            title={`Dira (Elekeo la Simu): ${rotation}° - Bofya kuelekeza Kaskazini (0°)`}
-          >
-            <Compass 
-              className="w-4 h-4 transition-transform duration-300 ease-out" 
-              style={{ transform: `rotate(${rotation}deg)` }} 
-            />
-            <span className="text-[6.5px] font-mono font-black mt-0.5 tracking-tighter leading-none">
-              {rotation}°
-            </span>
           </motion.button>
 
           {activeRide && (
@@ -3128,7 +3110,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
 
       {/* Elegant Floating Power Button when Offline */}
       {!isOnline && !isMinimized && (
-        <div className="absolute inset-x-0 bottom-8 z-50 flex flex-col items-center justify-center pointer-events-none">
+        <div className="absolute inset-x-0 bottom-24 z-50 flex flex-col items-center justify-center pointer-events-none">
           {/* Subtle floating instruction label */}
           <motion.div 
             initial={{ opacity: 0, y: 10 }}
@@ -3169,8 +3151,47 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
         </div>
       )}
 
-      {/* Bottom Sheet Redesign - Only when Online */}
-      {isOnline && (
+      {/* Sleek Floating Status Pill - When Online & Waiting for requests (Replaces large bottom sheet) */}
+      {isOnline && !incomingRequest && !activeRide && !incomingOrder && (
+        <motion.div 
+          key="waiting-pill"
+          initial={{ y: 50, opacity: 0 }} 
+          animate={{ y: 0, opacity: 1 }} 
+          exit={{ y: 50, opacity: 0 }}
+          className="absolute bottom-6 left-4 right-4 max-w-sm mx-auto bg-white/95 dark:bg-[#111118]/95 backdrop-blur-xl border border-neutral-200/60 dark:border-[#1e1e2e] p-3 rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.15)] dark:shadow-[0_15px_40px_rgba(0,0,0,0.5)] text-neutral-850 dark:text-white flex items-center justify-between z-50 pointer-events-auto"
+        >
+          <div className="flex items-center gap-3">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+            </span>
+            <div className="flex flex-col">
+              <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest leading-none">ACTIVE & ONLINE</span>
+              <span className="text-xs font-bold text-neutral-700 dark:text-neutral-200 mt-0.5 leading-none">Unangoja maombi ya safari...</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setShowEarningsModal(true)}
+              className="h-8 px-2.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-[10px] font-black uppercase tracking-wider text-neutral-600 dark:text-neutral-300 flex items-center gap-1 active:scale-95 transition-all cursor-pointer"
+              title="Uhakiki wa Mapato"
+            >
+              <TrendingUp className="w-3.5 h-3.5 text-neutral-500 dark:text-neutral-400" />
+              <span>Mapato</span>
+            </button>
+            <button 
+              onClick={toggleStatus}
+              className="w-8 h-8 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 rounded-lg flex items-center justify-center text-red-500 active:scale-95 transition-all cursor-pointer"
+              title="Gonga kuzima (Offline)"
+            >
+              <Power className="w-4 h-4" />
+            </button>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Interactive Bottom Sheet Container - Only for active states */}
+      {isOnline && (incomingRequest || activeRide || incomingOrder) && (
         <motion.div 
           initial={{ y: 0 }}
           animate={{ y: isMinimized ? 1000 : 0 }}
@@ -3178,89 +3199,11 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
           drag="y"
           dragConstraints={{ top: 0, bottom: 0 }}
           dragElastic={0.1}
-          onDragEnd={(_, info) => {
-            // We no longer trigger setIsMinimized(true) here. 
-            // Minimization must be explicitly done via the eye button.
-          }}
           className="absolute inset-x-0 bottom-0 z-50 cursor-grab active:cursor-grabbing"
         >
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-10 h-1.5 bg-neutral-600/30 rounded-full mt-3 z-[9999]" />
           
           <AnimatePresence mode="wait">
-            {!incomingRequest && !activeRide && (
-              <motion.div 
-                 key="waiting"
-               initial={{ y: 100 }} animate={{ y: 0 }} exit={{ y: 100 }}
-               className="bg-white dark:bg-[#111118] border-t border-neutral-200 dark:border-[#1e1e2e] p-8 rounded-t-[40px] shadow-[0_-20px_60px_rgba(0,0,0,0.15)] dark:shadow-[0_-20px_60px_rgba(0,0,0,0.8)] text-neutral-850 dark:text-white"
-             >
-                <div className="flex items-center justify-between mb-8">
-                   <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                         <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                         <span className="text-xs font-black text-emerald-500 uppercase tracking-widest italic">ACTIVE & RECEIVING</span>
-                      </div>
-                      <h4 className="text-lg font-black italic tracking-tighter uppercase">Unangoja maombi...</h4>
-                   </div>
-                   <button 
-                     onClick={toggleStatus}
-                     className="w-12 h-12 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-center text-red-500"
-                   >
-                     <Power className="w-6 h-6" />
-                   </button>
-                </div>
-                 <div className="grid grid-cols-3 gap-2 mb-6">
-                   {stats.todayEarnings !== undefined ? (
-                     <button 
-                       onClick={() => setShowEarningsModal(true)}
-                       className="bg-neutral-100/70 dark:bg-[#1a1a2e] border border-neutral-200/50 dark:border-[#7F77DD]/20 p-3 rounded-2xl flex flex-col items-center shadow-md dark:shadow-lg transition-all hover:scale-105 active:scale-95 cursor-pointer w-full text-center"
-                     >
-                        <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-500 mb-0.5" />
-                        <p className="text-[7px] font-black text-neutral-500 dark:text-neutral-400 uppercase">Mapato</p>
-                        <p className="text-xs font-black italic text-neutral-850 dark:text-white flex flex-col items-center leading-tight">
-                          <span className="text-[8px] opacity-70 not-italic">TZS</span>
-                          {showEarnings ? (stats?.todayEarnings ?? 0).toLocaleString() : "••••••"}
-                        </p>
-                     </button>
-                   ) : (
-                     <Skeleton className="h-16 rounded-2xl bg-white/5" />
-                   )}
-                   
-                   {stats.todayTrips !== undefined ? (
-                     <button 
-                       onClick={() => setShowEarningsModal(true)}
-                       className="bg-neutral-100/70 dark:bg-[#1a1a2e] border border-neutral-200/50 dark:border-[#7F77DD]/20 p-3 rounded-2xl flex flex-col items-center shadow-md dark:shadow-lg transition-all hover:scale-105 active:scale-95 cursor-pointer w-full text-center"
-                     >
-                        <Navigation2 className="w-4 h-4 text-emerald-500 mb-0.5" />
-                        <p className="text-[7px] font-black text-neutral-500 dark:text-neutral-400 uppercase">Safari</p>
-                        <p className="text-sm font-black italic text-neutral-850 dark:text-white">{stats.todayTrips}</p>
-                     </button>
-                   ) : (
-                     <Skeleton className="h-16 rounded-2xl bg-white/5" />
-                   )}
-
-                   {stats.activeHours !== undefined ? (
-                     <div className="bg-neutral-100/70 dark:bg-[#1a1a2e] border border-neutral-200/50 dark:border-[#7F77DD]/20 p-3 rounded-2xl flex flex-col items-center shadow-md dark:shadow-lg transition-transform hover:scale-105">
-                        <Clock className="w-4 h-4 text-amber-500 mb-0.5" />
-                        <p className="text-[7px] font-black text-neutral-500 dark:text-neutral-400 uppercase">Saa</p>
-                        <p className="text-sm font-black italic text-neutral-850 dark:text-white">{stats.activeHours}h</p>
-                     </div>
-                   ) : (
-                     <Skeleton className="h-16 rounded-2xl bg-white/5" />
-                   )}
-                </div>
-
-                <div className="bg-[#7F77DD]/5 border border-[#7F77DD]/10 rounded-2xl p-4 flex items-center gap-4">
-                   <div className="w-10 h-10 bg-[#7F77DD]/20 rounded-xl flex items-center justify-center text-[#7F77DD]"><TrendingUp className="w-6 h-6" /></div>
-                   <div>
-                      <p className="text-[9px] font-black text-[#7F77DD] uppercase tracking-widest italic leading-none mb-1">Busy Zone Alert</p>
-                      <p className="text-[11px] font-bold text-neutral-600 dark:text-neutral-400">Mahitaji makubwa Ubungo, Mlimani City. Elekea huko!</p>
-                   </div>
-                </div>
-         </motion.div>
-      )}
-    </AnimatePresence>
-
-        <AnimatePresence>
             {incomingRequest && (
               <IncomingRideCard 
                 ride={incomingRequest}
