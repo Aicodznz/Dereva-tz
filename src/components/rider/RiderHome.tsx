@@ -488,6 +488,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
 
 
   const [rotation, setRotation] = useState(0);
+  const [vehicleHeading, setVehicleHeading] = useState(0);
   const simulatedPathRef = React.useRef<[number, number][]>([]);
   const simulatedIndexRef = React.useRef<number>(0);
   const activeStatusRef = React.useRef<string | null>(null);
@@ -1176,6 +1177,8 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
   positionRef.current = position;
   const rotationRef = React.useRef(rotation);
   rotationRef.current = rotation;
+  const vehicleHeadingRef = React.useRef(vehicleHeading);
+  vehicleHeadingRef.current = vehicleHeading;
 
   useEffect(() => {
     if (!isOnline || !user?.uid) return;
@@ -1184,7 +1187,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
     const presenceInterval = setInterval(async () => {
       try {
         await updateDoc(doc(db, 'drivers', user.uid), {
-          location: { lat: positionRef.current[0], lng: positionRef.current[1], heading: rotationRef.current },
+          location: { lat: positionRef.current[0], lng: positionRef.current[1], heading: vehicleHeadingRef.current },
           lastActive: serverTimestamp()
         });
       } catch (e) {
@@ -1197,10 +1200,10 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
     if (rideId && activeRide && (activeRide.status === 'accepted' || activeRide.status === 'driver_arriving' || activeRide.status === 'driver_arrived' || activeRide.status === 'on_trip')) {
       rideInterval = setInterval(async () => {
         try {
-          await updateDriverLocation(positionRef.current[0], positionRef.current[1], rotationRef.current);
+          await updateDriverLocation(positionRef.current[0], positionRef.current[1], vehicleHeadingRef.current);
           if (user?.uid) {
             await updateDoc(doc(db, 'drivers', user.uid), {
-              location: { lat: positionRef.current[0], lng: positionRef.current[1], heading: rotationRef.current },
+              location: { lat: positionRef.current[0], lng: positionRef.current[1], heading: vehicleHeadingRef.current },
               updatedAt: serverTimestamp()
             });
           }
@@ -1304,7 +1307,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
           
           console.log(`[Simulation] Moving driver smoothly to [${nextCoord[0].toFixed(5)}, ${nextCoord[1].toFixed(5)}]. Bearing: ${bearing.toFixed(1)}`);
           
-          setRotation(bearing);
+          setVehicleHeading(bearing);
           setPosition(nextCoord);
           
           try {
@@ -1511,12 +1514,12 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
 
             const prev = prevPosRef.current;
             let shouldUpdate = true;
-            let currentBearing = rotationRef.current;
+            let currentBearing = vehicleHeadingRef.current;
 
             // Direct device GPS heading if available
             if (typeof pos.coords.heading === 'number' && !isNaN(pos.coords.heading) && pos.coords.heading >= 0) {
               currentBearing = Math.round(pos.coords.heading);
-              setRotation(currentBearing);
+              setVehicleHeading(currentBearing);
             }
 
             if (prev) {
@@ -1527,7 +1530,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
               } else {
                 if (dist >= 2 && (typeof pos.coords.heading !== 'number' || isNaN(pos.coords.heading) || pos.coords.heading < 0)) {
                   currentBearing = calculateBearing(prev[0], prev[1], loc.lat, loc.lng);
-                  setRotation(currentBearing);
+                  setVehicleHeading(currentBearing);
                 }
                 setPosition([loc.lat, loc.lng]);
                 prevPosRef.current = [loc.lat, loc.lng];
@@ -2105,7 +2108,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
               icon={createDriverMarkerIcon(
                 (profile?.displayName || 'D').split(' ').map(n => n[0]).join(''),
                 isOnline,
-                rotation,
+                vehicleHeading,
                 profile?.vehicleType || 'mini',
                 theme
               )}
