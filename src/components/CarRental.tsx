@@ -17,7 +17,7 @@ interface CarRentalItem {
   id: string;
   name: string;
   brand: string;
-  type: 'suv' | 'hatchback' | 'wedding' | 'safari';
+  type: 'suv' | 'hatchback' | 'wedding';
   image: string;
   pricePerDay: number;
   transmission: string;
@@ -174,23 +174,23 @@ const RENTAL_CARS: CarRentalItem[] = [
       'https://images.unsplash.com/photo-1609521263047-f8f205293f24?auto=format&fit=crop&w=600&q=80'
     ]
   },
-  // Safari & Tour Vehicles
+  // Business Rugged SUV / Off-Road
   {
-    id: 'rent-safari-cruiser',
-    name: 'Toyota Land Cruiser Safari',
+    id: 'rent-cruiser-v8',
+    name: 'Toyota Land Cruiser V8',
     brand: 'Toyota',
-    type: 'safari',
+    type: 'suv',
     image: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=600&q=80',
     pricePerDay: 300000,
-    transmission: 'Manual',
+    transmission: 'Automatic',
     fuel: 'Diesel',
-    seats: 8,
+    seats: 7,
     rating: 4.9,
-    engine: '4200 cc',
+    engine: '4500 cc',
     ac: true,
     carNumber: 'T 980 DJS',
-    about: 'Custom built for Tanzanian National Parks. Features a pop-up roof for 360-degree game viewing, high ground clearance, heavy-duty suspension, dual fuel tanks, and two spare wheels.',
-    features: ['Pop-up viewing roof', 'Built-in inverter', 'Fridge for beverages', 'Radio Communication', 'High Ground Clearance', 'Dual Spare Wheels'],
+    about: 'Custom built for business travel, rugged terrain, and ultimate off-road confidence. Features high ground clearance, heavy-duty suspension, dual fuel tanks, and rich executive comforts.',
+    features: ['High Ground Clearance', 'Dual Spare Wheels', 'Fridge for beverages', 'Radio Communication', 'Premium Sound System', 'Spacious Cargo Space'],
     gallery: [
       'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=600&q=80',
       'https://images.unsplash.com/photo-1469037561872-0247f0624060?auto=format&fit=crop&w=600&q=80'
@@ -262,7 +262,7 @@ export default function CarRental() {
   // Navigation states
   const [currentView, setCurrentView] = useState<'list' | 'detail' | 'book' | 'summary' | 'verification' | 'active-booking'>('list');
   const [activeMode, setActiveMode] = useState<'rent' | 'buy'>('rent');
-  const [selectedCategory, setSelectedCategory] = useState<'all' | 'suv' | 'hatchback' | 'wedding' | 'safari'>('all');
+  const [selectedCategory, setSelectedCategory] = useState<'all' | 'suv' | 'hatchback' | 'wedding'>('all');
   const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
   
   // Selection States
@@ -692,8 +692,7 @@ export default function CarRental() {
                   { id: 'all', label: 'SUV & Hatchback' },
                   { id: 'suv', label: 'SUV' },
                   { id: 'hatchback', label: 'Hatchback' },
-                  { id: 'wedding', label: 'Wedding Cars 👰' },
-                  { id: 'safari', label: 'Safari & Tours 🦁' }
+                  { id: 'wedding', label: 'Wedding Cars 👰' }
                 ].map((cat) => (
                   <button
                     key={cat.id}

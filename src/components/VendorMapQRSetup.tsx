@@ -14,7 +14,6 @@ import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import ARTourCreator from './ARTourCreator';
 
 // Leaflet default icon fix
 const DefaultIcon = L.icon({
@@ -51,7 +50,6 @@ const COLORS_LIST = [
 ];
 
 export default function VendorMapQRSetup({ vendorProfile }: VendorMapQRSetupProps) {
-  const [subTab, setSubTab] = useState<'duka' | 'routes'>('duka');
   const [lat, setLat] = useState<number>(vendorProfile?.location?.lat || -6.7924);
   const [lng, setLng] = useState<number>(vendorProfile?.location?.lng || 39.2083);
   const [arDirections, setArDirections] = useState<string>(vendorProfile?.arDirections || '');
@@ -319,36 +317,15 @@ export default function VendorMapQRSetup({ vendorProfile }: VendorMapQRSetupProp
 
   return (
     <div className="space-y-6">
-      {/* Sub-tab Navigation */}
-      <div className="flex border-b border-neutral-200 dark:border-neutral-800 pb-px gap-4">
-        <button
-          onClick={() => setSubTab('duka')}
-          className={`pb-4 px-2 text-sm font-black uppercase tracking-wider border-b-2 transition-all flex items-center gap-2 ${
-            subTab === 'duka'
-              ? 'border-orange-500 text-orange-600 dark:text-orange-400'
-              : 'border-transparent text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
-          }`}
-        >
-          <Store className="w-4 h-4" />
-          Ramani & AR Setup ya Duka
-        </button>
-        <button
-          onClick={() => setSubTab('routes')}
-          className={`pb-4 px-2 text-sm font-black uppercase tracking-wider border-b-2 transition-all flex items-center gap-2 ${
-            subTab === 'routes'
-              ? 'border-orange-500 text-orange-600 dark:text-orange-400'
-              : 'border-transparent text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
-          }`}
-        >
-          <Route className="w-4 h-4 animate-pulse" />
-          AR Routes (Njia za AR & Tours)
-        </button>
+      <div className="flex items-center gap-3 border-b border-neutral-200 dark:border-neutral-800 pb-4">
+        <Store className="w-6 h-6 text-orange-500 animate-pulse" />
+        <div>
+          <h2 className="text-lg font-black uppercase tracking-wider text-neutral-900 dark:text-white leading-none">Ramani & AR Setup ya Duka</h2>
+          <p className="text-xs text-neutral-500 mt-1">Sanidi eneo lako halisi na maelekezo ya kamera ya AR kwa wateja wanaokuja dukani kwako</p>
+        </div>
       </div>
 
-      {subTab === 'routes' ? (
-        <ARTourCreator vendorProfile={vendorProfile} />
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pb-20 text-left font-sans">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pb-20 text-left font-sans">
           
           {/* LEFT COLUMN: Map & Fields */}
           <div className="lg:col-span-8 space-y-6">
@@ -582,7 +559,6 @@ export default function VendorMapQRSetup({ vendorProfile }: VendorMapQRSetupProp
 
           </div>
         </div>
-      )}
     </div>
   );
 }

@@ -291,9 +291,9 @@ const DEFAULT_PRICING_RULES: Record<string, any> = {
     nightMultiplier: 1.20,
     nightStart: "10:00 PM",
     nightEnd: "06:00 AM",
-    taxName: "Tourism Development Tax",
+    taxName: "Service Fee",
     taxRate: 5,
-    taxDescription: "Kodi ya Huduma ya Utalii",
+    taxDescription: "Tozo ya Huduma ya Biashara",
     taxActive: true,
     rates: {
       mini: { baseFare: 1200, pricePerKm: 880, pricePerMin: 110, waitingRate: 130, surgeRush: 1.3, surgeRain: 1.6 },

@@ -2584,7 +2584,7 @@ export default function TaxiBooking() {
         nightMultiplier: 1.20,
         nightStart: "10:00 PM",
         nightEnd: "06:00 AM",
-        taxName: "Tourism Development Tax",
+        taxName: "Service Fee",
         taxRate: 5,
         taxActive: true,
         rates: {
