@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import ARIndoorNavigationCreator from './ARIndoorNavigationCreator';
+import ARTourCreator from './ARTourCreator';
 
 // Leaflet default icon fix
 const DefaultIcon = L.icon({
@@ -346,7 +346,7 @@ export default function VendorMapQRSetup({ vendorProfile }: VendorMapQRSetupProp
       </div>
 
       {subTab === 'indoor' ? (
-        <ARIndoorNavigationCreator vendorProfile={vendorProfile} />
+        <ARTourCreator vendorProfile={vendorProfile} />
       ) : (
         <>
           <div className="flex items-center gap-3 border-b border-neutral-200 dark:border-neutral-800 pb-4">
