@@ -9,7 +9,8 @@ import {
   Navigation2, MessageSquare, MapPin, Star, X as CloseX,
   Clock, TrendingUp, Info, Wifi, Battery, Map as MapIcon,
   CheckCircle2, ArrowRight, RefreshCw, DollarSign, Package, Home, LogOut,
-  Volume2, VolumeX, Sun, Moon, Wrench, Sparkles, Plus, Minus, RotateCcw, RotateCw, Compass
+  Volume2, VolumeX, Sun, Moon, Wrench, Sparkles, Plus, Minus, RotateCcw, RotateCw, Compass,
+  AlertTriangle, TrafficCone
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -137,20 +138,20 @@ function MapController({
   // Apply live compass map rotation & optional clean 3D perspective tilt
   useEffect(() => {
     if (!map) return;
-    const mapPane = map.getPane('mapPane');
-    if (!mapPane) return;
+    const container = map.getContainer();
+    if (!container) return;
 
     // Perspective tilt ONLY if user explicitly enabled 3D mode (mild 25deg)
     const perspectiveTilt = is3DMode ? 'perspective(1000px) rotateX(25deg) ' : '';
 
     if (rotation !== 0 || is3DMode) {
-      mapPane.style.transform = `${perspectiveTilt}rotateZ(${-rotation}deg)`;
+      container.style.transform = `${perspectiveTilt}rotateZ(${-rotation}deg)`;
     } else {
-      mapPane.style.transform = 'none';
+      container.style.transform = 'none';
     }
 
-    mapPane.style.transformOrigin = 'center center';
-    mapPane.style.transition = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)';
+    container.style.transformOrigin = 'center center';
+    container.style.transition = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)';
   }, [map, rotation, is3DMode]);
 
   useEffect(() => {
@@ -265,6 +266,74 @@ let DefaultIcon = L.icon({
 
 L.Marker.prototype.options.icon = DefaultIcon;
 
+const createTrafficLightIcon = (color: 'red' | 'yellow' | 'green') => {
+  return L.divIcon({
+    html: `
+      <div class="relative flex flex-col items-center">
+        <div class="w-7 h-14 bg-neutral-900 border border-neutral-700 rounded-full flex flex-col justify-between items-center p-1.5 shadow-2xl">
+          <div class="w-3 h-3 rounded-full ${color === 'red' ? 'bg-red-500 shadow-[0_0_8px_#ef4444]' : 'bg-red-950'} transition-all duration-300"></div>
+          <div class="w-3 h-3 rounded-full ${color === 'yellow' ? 'bg-yellow-400 shadow-[0_0_8px_#facc15]' : 'bg-yellow-950'} transition-all duration-300"></div>
+          <div class="w-3 h-3 rounded-full ${color === 'green' ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-emerald-950'} transition-all duration-300 animate-pulse"></div>
+        </div>
+        <div class="w-1 h-3 bg-neutral-700"></div>
+      </div>
+    `,
+    className: 'custom-leaflet-traffic-light',
+    iconSize: [28, 68],
+    iconAnchor: [14, 68]
+  });
+};
+
+const createConstructionIcon = () => {
+  return L.divIcon({
+    html: `
+      <div class="relative flex items-center justify-center w-10 h-10">
+        <div class="absolute inset-0 rounded-full bg-orange-500/20 animate-ping"></div>
+        <div class="absolute inset-1 rounded-full border border-orange-500/40 bg-orange-500/10 animate-pulse"></div>
+        <div class="relative w-8 h-8 rounded-full bg-orange-600 border border-orange-400 flex items-center justify-center text-sm shadow-xl text-white">
+          🚧
+        </div>
+      </div>
+    `,
+    className: 'custom-leaflet-construction',
+    iconSize: [40, 40],
+    iconAnchor: [20, 20]
+  });
+};
+
+const createClosedRoadIcon = () => {
+  return L.divIcon({
+    html: `
+      <div class="relative flex items-center justify-center w-10 h-10">
+        <div class="absolute inset-0 rounded-full bg-red-500/20 animate-ping"></div>
+        <div class="absolute inset-1 rounded-full border border-red-500/40 bg-red-500/10 animate-pulse"></div>
+        <div class="relative w-8 h-8 rounded-full bg-red-600 border border-red-400 flex items-center justify-center text-sm shadow-xl text-white">
+          ⛔
+        </div>
+      </div>
+    `,
+    className: 'custom-leaflet-closed-road',
+    iconSize: [40, 40],
+    iconAnchor: [20, 20]
+  });
+};
+
+const createCornerIcon = (direction: 'left' | 'right') => {
+  return L.divIcon({
+    html: `
+      <div class="relative flex items-center justify-center w-8 h-8">
+        <div class="absolute inset-0 rounded-full border border-amber-500 bg-amber-500/10 animate-pulse"></div>
+        <div class="relative w-6 h-6 rounded-full bg-amber-500 border border-amber-400 flex items-center justify-center font-bold text-xs shadow-xl text-neutral-900 font-sans">
+          ${direction === 'left' ? '↰' : '↱'}
+        </div>
+      </div>
+    `,
+    className: 'custom-leaflet-corner',
+    iconSize: [32, 32],
+    iconAnchor: [16, 16]
+  });
+};
+
 interface RiderHomeProps {
   onNavVisibilityChange?: (visible: boolean) => void;
   onProfileClick?: () => void;
@@ -283,6 +352,10 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
   const [mapType, setMapType] = useState<'standard' | 'satellite'>('standard');
   const [manualRotation, setManualRotation] = useState(0);
   const [is3DMode, setIs3DMode] = useState(false);
+  const [showRoadAlerts, setShowRoadAlerts] = useState(true);
+  const [showEarningsModal, setShowEarningsModal] = useState(false);
+  const [earningsTab, setEarningsTab] = useState<'mwezi' | 'mwaka' | 'jumla'>('mwezi');
+  const [trafficColor, setTrafficColor] = useState<'red' | 'yellow' | 'green'>('green');
 
   // States for adding a POI
   const [isAddPoiModalOpen, setIsAddPoiModalOpen] = useState(false);
@@ -399,6 +472,21 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
     return listByCategory;
   }, [simulatedPois, firestorePois, user?.uid]);
   const [lastPosition, setLastPosition] = useState<[number, number] | null>(null);
+
+  // Traffic light color changing cycle (switches green/yellow/red every 5s)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTrafficColor(prev => {
+        if (prev === 'green') return 'yellow';
+        if (prev === 'yellow') return 'red';
+        return 'green';
+      });
+    }, 5000);
+    return () => clearInterval(timer);
+  }, []);
+
+
+
   const [rotation, setRotation] = useState(0);
   const simulatedPathRef = React.useRef<[number, number][]>([]);
   const simulatedIndexRef = React.useRef<number>(0);
@@ -422,6 +510,92 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
 
   const { ride: activeRide } = useRideStatus(rideId);
   const [realTripRoute, setRealTripRoute] = useState<[number, number][]>([]);
+
+  // Road Alerts / Status generator around current position or active route
+  const roadAlerts = useMemo(() => {
+    const alerts = [];
+    const lat = position[0];
+    const lng = position[1];
+
+    if (activeRide) {
+      const hasRealTripRoute = realTripRoute && realTripRoute.length > 0;
+      const hasFullRoute = activeRide.routeCoords && activeRide.routeCoords.length > 0;
+      const route = hasRealTripRoute
+        ? realTripRoute
+        : (hasFullRoute 
+            ? getNormalizedCoords(activeRide.routeCoords)
+            : generateSimulatedRoads([activeRide.pickup.lat, activeRide.pickup.lng], [activeRide.destination.lat, activeRide.destination.lng]));
+
+      if (route.length > 5) {
+        // Traffic light at 35% of the route
+        const midIdx = Math.floor(route.length * 0.35);
+        alerts.push({
+          id: 'ra-route-light',
+          type: 'traffic_light',
+          title: 'Taa za Trafiki',
+          desc: 'Taa ya barabara kwenye njia yako. Punguza kasi au simama ikileta nyekundu!',
+          lat: route[midIdx][0],
+          lng: route[midIdx][1]
+        });
+
+        // Construction site at 65% of the route
+        const constIdx = Math.floor(route.length * 0.65);
+        alerts.push({
+          id: 'ra-route-construction',
+          type: 'construction',
+          title: 'Barabara Inatengenezwa',
+          desc: 'Kuna mafundi wanatengeneza barabara mbele yako. Punguza kasi sana!',
+          lat: route[constIdx][0],
+          lng: route[constIdx][1]
+        });
+
+        // Closed road marker
+        const closedIdx = Math.min(route.length - 2, Math.floor(route.length * 0.8));
+        alerts.push({
+          id: 'ra-route-closed',
+          type: 'closed',
+          title: 'Mchepuko / Njia Imefungwa',
+          desc: 'Kipande hiki kimefungwa kwa muda, fuata ishara za barabarani kuelekea mchepuko.',
+          lat: route[closedIdx][0],
+          lng: route[closedIdx][1]
+        });
+
+        // Corner detections along the route!
+        for (let i = 2; i < route.length - 2; i += 4) {
+          const p1 = route[i - 2];
+          const p2 = route[i];
+          const p3 = route[i + 2];
+          
+          const bearing1 = calculateBearing(p1[0], p1[1], p2[0], p2[1]);
+          const bearing2 = calculateBearing(p2[0], p2[1], p3[0], p3[1]);
+          let diff = (bearing2 - bearing1 + 360) % 360;
+          if (diff > 180) diff = 360 - diff;
+          
+          if (diff > 35 && diff < 120) {
+            const isLeft = (bearing2 - bearing1 + 360) % 360 > 180;
+            alerts.push({
+              id: `ra-route-corner-${i}`,
+              type: isLeft ? 'corner_left' : 'corner_right',
+              title: isLeft ? 'Kona Kali Kushoto' : 'Kona Kali Kulia',
+              desc: `Kona kali inayofuata mbele ya mita chache. Chunga usalama wako.`,
+              lat: p2[0],
+              lng: p2[1]
+            });
+          }
+        }
+      }
+    } else {
+      // Offline / Waiting mode nearby alerts
+      alerts.push(
+        { id: 'ra1', type: 'traffic_light', title: 'Taa za Trafiki (Ubungo)', desc: 'Taa za barabarani zinafanya kazi vizuri. Chunga ishara za rangi!', lat: lat + 0.0015, lng: lng - 0.001 },
+        { id: 'ra2', type: 'construction', title: 'Barabara Inajengwa', desc: 'Matengenezo ya barabara kuu, mabehewa ya ujenzi yamepaki.', lat: lat + 0.0025, lng: lng + 0.002 },
+        { id: 'ra3', type: 'closed', title: 'Njia Imefungwa - Morocco Access', desc: 'Barabara imefungwa, magari yote yanatakiwa kuchepuka.', lat: lat - 0.002, lng: lng + 0.003 },
+        { id: 'ra4', type: 'corner_left', title: 'Kona Kali Kushoto', desc: 'Kona hatari ya mzunguko wa kuelekea mchepuko wa dharura.', lat: lat - 0.001, lng: lng - 0.002 },
+        { id: 'ra5', type: 'corner_right', title: 'Kona Kali Kulia', desc: 'Kona kali ya kuingia mtaa salama upande wa kulia.', lat: lat + 0.001, lng: lng + 0.002 }
+      );
+    }
+    return alerts;
+  }, [position, activeRide, realTripRoute]);
 
   const driverApproachRouteRef = React.useRef<[number, number][]>([]);
   const lastActiveRideIdStatusRef = React.useRef<string>("");
@@ -2207,6 +2381,47 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
               ));
             })()}
 
+            {/* Render Road Alerts (Taa za barabarani, Kona, Matengenezo, Njia imefungwa) */}
+            {showRoadAlerts && roadAlerts.map((alert: any) => {
+              let icon;
+              if (alert.type === 'traffic_light') {
+                icon = createTrafficLightIcon(trafficColor);
+              } else if (alert.type === 'construction') {
+                icon = createConstructionIcon();
+              } else if (alert.type === 'closed') {
+                icon = createClosedRoadIcon();
+              } else {
+                icon = createCornerIcon(alert.type === 'corner_left' ? 'left' : 'right');
+              }
+
+              return (
+                <Marker 
+                  key={alert.id} 
+                  position={[alert.lat, alert.lng]} 
+                  icon={icon}
+                >
+                  <Popup>
+                    <div className="p-3 max-w-[200px] text-center space-y-1 bg-white dark:bg-[#111118] text-neutral-850 dark:text-white rounded-xl">
+                      <div className="flex items-center gap-1.5 justify-center mb-1">
+                        {alert.type === 'traffic_light' && <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping" />}
+                        {alert.type === 'construction' && <span className="text-orange-500 font-bold">🚧</span>}
+                        {alert.type === 'closed' && <span className="text-red-500 font-bold">⛔</span>}
+                        <h4 className="font-black text-[11px] uppercase tracking-wider text-neutral-900 dark:text-neutral-100 leading-tight">
+                          {alert.title}
+                        </h4>
+                      </div>
+                      <p className="text-[10px] text-neutral-500 dark:text-neutral-400 leading-tight">
+                        {alert.desc}
+                      </p>
+                      <div className="pt-2 text-[8px] font-bold text-neutral-400 uppercase tracking-widest font-mono">
+                        TAARIFA YA HALI YA NJIA
+                      </div>
+                    </div>
+                  </Popup>
+                </Marker>
+              );
+            })}
+
           </MapContainer>
         </div>
       </div>
@@ -2266,6 +2481,25 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
             <span className="text-[10px] font-black tracking-wider">
               {is3DMode ? '3D' : '2D'}
             </span>
+          </motion.button>
+
+          {/* Toggle Road Alerts (Taa, Kona, Matengenezo, Njia Imefungwa) */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => {
+              setShowRoadAlerts(!showRoadAlerts);
+              toast.success(showRoadAlerts ? "Vituo vya trafiki, kona, na barabara zilizofungwa vimefichwa!" : "Vituo vya trafiki, kona, na barabara zilizofungwa vimeoneshwa kwenye ramani!");
+            }}
+            className={`w-10 h-10 border rounded-xl shadow-lg flex flex-col items-center justify-center transition-all ${
+              showRoadAlerts 
+                ? 'bg-[#ef4444] border-[#ef4444] text-white shadow-[0_0_12px_rgba(239,68,68,0.4)]' 
+                : 'bg-white/95 dark:bg-[#111118]/90 border-neutral-200/50 dark:border-[#1e1e2e] text-neutral-500 hover:text-neutral-850 dark:hover:text-white'
+            }`}
+            title="Onyesha / Ficha Taa za Trafiki, Kona, na Barabara"
+          >
+            <AlertTriangle className="w-4 h-4 animate-pulse" />
+            <span className="text-[6px] font-black mt-0.5 uppercase tracking-tighter leading-none">Hali Njia</span>
           </motion.button>
 
           {/* Rotate Left ↺ */}
@@ -2507,7 +2741,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
                  initial={{ opacity: 0, y: -20, scale: 0.9 }}
                  animate={{ opacity: 1, y: 0, scale: 1 }}
                  exit={{ opacity: 0, y: -20, scale: 0.9 }}
-                 onClick={toggleEarnings}
+                 onClick={() => setShowEarningsModal(true)}
                  className="bg-white/95 dark:bg-[#111118]/90 backdrop-blur-xl border border-neutral-200/50 dark:border-[#1e1e2e] px-4 py-2 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_15px_40px_rgba(0,0,0,0.5)] cursor-pointer flex flex-col items-center gap-0.5 active:scale-95 transition-all text-neutral-850 dark:text-white"
                >
                   <div className="flex items-center gap-2">
@@ -2587,24 +2821,30 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
                 </div>
                  <div className="grid grid-cols-3 gap-2 mb-6">
                    {stats.todayEarnings !== undefined ? (
-                     <div className="bg-neutral-100/70 dark:bg-[#1a1a2e] border border-neutral-200/50 dark:border-[#7F77DD]/20 p-3 rounded-2xl flex flex-col items-center shadow-md dark:shadow-lg transition-transform hover:scale-105">
+                     <button 
+                       onClick={() => setShowEarningsModal(true)}
+                       className="bg-neutral-100/70 dark:bg-[#1a1a2e] border border-neutral-200/50 dark:border-[#7F77DD]/20 p-3 rounded-2xl flex flex-col items-center shadow-md dark:shadow-lg transition-all hover:scale-105 active:scale-95 cursor-pointer w-full text-center"
+                     >
                         <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-500 mb-0.5" />
                         <p className="text-[7px] font-black text-neutral-500 dark:text-neutral-400 uppercase">Mapato</p>
                         <p className="text-xs font-black italic text-neutral-850 dark:text-white flex flex-col items-center leading-tight">
                           <span className="text-[8px] opacity-70 not-italic">TZS</span>
                           {showEarnings ? (stats?.todayEarnings ?? 0).toLocaleString() : "••••••"}
                         </p>
-                     </div>
+                     </button>
                    ) : (
                      <Skeleton className="h-16 rounded-2xl bg-white/5" />
                    )}
                    
                    {stats.todayTrips !== undefined ? (
-                     <div className="bg-neutral-100/70 dark:bg-[#1a1a2e] border border-neutral-200/50 dark:border-[#7F77DD]/20 p-3 rounded-2xl flex flex-col items-center shadow-md dark:shadow-lg transition-transform hover:scale-105">
+                     <button 
+                       onClick={() => setShowEarningsModal(true)}
+                       className="bg-neutral-100/70 dark:bg-[#1a1a2e] border border-neutral-200/50 dark:border-[#7F77DD]/20 p-3 rounded-2xl flex flex-col items-center shadow-md dark:shadow-lg transition-all hover:scale-105 active:scale-95 cursor-pointer w-full text-center"
+                     >
                         <Navigation2 className="w-4 h-4 text-emerald-500 mb-0.5" />
                         <p className="text-[7px] font-black text-neutral-500 dark:text-neutral-400 uppercase">Safari</p>
                         <p className="text-sm font-black italic text-neutral-850 dark:text-white">{stats.todayTrips}</p>
-                     </div>
+                     </button>
                    ) : (
                      <Skeleton className="h-16 rounded-2xl bg-white/5" />
                    )}
@@ -2924,6 +3164,213 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
             </motion.div>
           </div>
         )}
+
+        {/* modal ya tathmini ya mapato ya dereva */}
+        <AnimatePresence>
+          {showEarningsModal && (
+            <div className="absolute inset-0 z-[120] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 overflow-y-auto">
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0, y: 30 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.9, opacity: 0, y: 30 }}
+                className="bg-[#0c0c12] border border-neutral-800 rounded-3xl w-full max-w-xl shadow-[0_20px_50px_rgba(127,119,221,0.2)] flex flex-col overflow-hidden max-h-[90vh]"
+              >
+                {/* Header */}
+                <div className="p-5 border-b border-[#1e1e2e] flex items-center justify-between bg-[#111118]/80">
+                  <div>
+                    <h3 className="text-base font-black italic tracking-wide text-white uppercase flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#7F77DD] animate-pulse" />
+                      Ripoti ya Mapato & Safari
+                    </h3>
+                    <p className="text-[10px] text-neutral-400 uppercase font-bold tracking-wider">Mchanganuo wa mwezi, mwaka na miaka yote</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowEarningsModal(false)}
+                    className="w-8 h-8 rounded-full bg-[#161622] hover:bg-neutral-800 text-neutral-400 flex items-center justify-center transition-all"
+                  >
+                    <CloseX className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Body */}
+                <div className="p-5 space-y-5 overflow-y-auto flex-1 text-sm font-sans text-neutral-300">
+                  {/* Tabs Selector */}
+                  <div className="flex bg-[#111118] border border-neutral-800 p-1 rounded-2xl">
+                    {[
+                      { id: 'mwezi', name: 'Mwezi Huu' },
+                      { id: 'mwaka', name: 'Mwaka Huu' },
+                      { id: 'jumla', name: 'Miaka yote (Jumla)' }
+                    ].map((tab) => (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setEarningsTab(tab.id as any)}
+                        className={`flex-1 py-2 text-xs font-black uppercase rounded-xl transition-all ${
+                          earningsTab === tab.id
+                            ? 'bg-[#7F77DD] text-white shadow-md'
+                            : 'text-neutral-400 hover:text-white hover:bg-neutral-800/40'
+                        }`}
+                      >
+                        {tab.name}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Earnings & Safari summary cards */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-[#111118] border border-neutral-800/60 p-4 rounded-2xl flex flex-col items-center justify-center text-center">
+                      <TrendingUp className="w-5 h-5 text-[#7F77DD] mb-1" />
+                      <span className="text-[8px] font-black uppercase tracking-widest text-neutral-500">Muda Huu</span>
+                      <h4 className="text-sm font-black italic tracking-tight text-white mt-1">
+                        TZS {(() => {
+                          if (earningsTab === 'mwezi') return (stats.thisMonthEarnings || 0).toLocaleString();
+                          if (earningsTab === 'mwaka') return (stats.thisYearEarnings || 0).toLocaleString();
+                          return (stats.lifetimeEarnings || 0).toLocaleString();
+                        })()}
+                      </h4>
+                    </div>
+
+                    <div className="bg-[#111118] border border-neutral-800/60 p-4 rounded-2xl flex flex-col items-center justify-center text-center">
+                      <Navigation2 className="w-5 h-5 text-emerald-500 mb-1" />
+                      <span className="text-[8px] font-black uppercase tracking-widest text-neutral-500">Safari</span>
+                      <h4 className="text-base font-black italic tracking-tight text-white mt-1">
+                        {(() => {
+                          if (earningsTab === 'mwezi') return stats.thisMonthTrips || 0;
+                          if (earningsTab === 'mwaka') return stats.thisYearTrips || 0;
+                          return stats.lifetimeTrips || 0;
+                        })()}
+                      </h4>
+                    </div>
+
+                    <div className="bg-[#111118] border border-neutral-800/60 p-4 rounded-2xl flex flex-col items-center justify-center text-center">
+                      <Clock className="w-5 h-5 text-amber-500 mb-1" />
+                      <span className="text-[8px] font-black uppercase tracking-widest text-neutral-500">Saa Amilifu</span>
+                      <h4 className="text-base font-black italic tracking-tight text-white mt-1">
+                        {(() => {
+                          const trips = earningsTab === 'mwezi' 
+                            ? (stats.thisMonthTrips || 0) 
+                            : (earningsTab === 'mwaka' ? (stats.thisYearTrips || 0) : (stats.lifetimeTrips || 0));
+                          return (trips * 0.5).toFixed(1) + 'h';
+                        })()}
+                      </h4>
+                    </div>
+                  </div>
+
+                  {/* Performance Chart Block */}
+                  <div className="bg-[#111118] border border-[#1e1e2e] p-4 rounded-3xl space-y-3">
+                    <h4 className="text-xs font-black uppercase tracking-wider text-neutral-400 flex items-center gap-1.5">
+                      <Gauge className="w-3.5 h-3.5 text-[#7F77DD]" />
+                      Mchanganuo wa Grafu
+                    </h4>
+
+                    {/* Rendering Custom Bento Bar Chart */}
+                    {(() => {
+                      let chartData: { label: string; amount: number; count: number }[] = [];
+                      if (earningsTab === 'mwezi') {
+                        // Show last few months of monthly stats
+                        chartData = Object.entries(stats.monthlyStats || {}).map(([key, val]: [string, any]) => ({
+                          label: key,
+                          amount: val.earnings,
+                          count: val.trips
+                        }));
+                        // If empty, put default mock for current month
+                        if (chartData.length === 0) {
+                          const swahiliMonths = ["Januari", "Februari", "Machi", "Aprili", "Mei", "Juni", "Julai", "Agosti", "Septemba", "Oktoba", "Novemba", "Desemba"];
+                          const currentMonthName = swahiliMonths[new Date().getMonth()];
+                          chartData = [{ label: `${currentMonthName} ${new Date().getFullYear()}`, amount: stats.thisMonthEarnings || 0, count: stats.thisMonthTrips || 0 }];
+                        }
+                      } else if (earningsTab === 'mwaka') {
+                        // Show yearly stats per year
+                        chartData = Object.entries(stats.yearlyStats || {}).map(([key, val]: [string, any]) => ({
+                          label: key,
+                          amount: val.earnings,
+                          count: val.trips
+                        }));
+                        if (chartData.length === 0) {
+                          chartData = [{ label: `${new Date().getFullYear()}`, amount: stats.thisYearEarnings || 0, count: stats.thisYearTrips || 0 }];
+                        }
+                      } else {
+                        // Multi-year comparison
+                        chartData = Object.entries(stats.yearlyStats || {}).map(([key, val]: [string, any]) => ({
+                          label: `Mwaka ${key}`,
+                          amount: val.earnings,
+                          count: val.trips
+                        }));
+                        if (chartData.length === 0) {
+                          chartData = [{ label: `Mwaka ${new Date().getFullYear()}`, amount: stats.lifetimeEarnings || 0, count: stats.lifetimeTrips || 0 }];
+                        }
+                      }
+
+                      const maxAmount = Math.max(...chartData.map(d => d.amount), 1);
+
+                      return (
+                        <div className="space-y-4 pt-2">
+                          {chartData.map((data, idx) => {
+                            const percentage = (data.amount / maxAmount) * 100;
+                            return (
+                              <div key={idx} className="space-y-1">
+                                <div className="flex justify-between text-xs font-bold uppercase tracking-wide">
+                                  <span className="text-neutral-300">{data.label}</span>
+                                  <span className="text-emerald-500">TZS {data.amount.toLocaleString()} ({data.count} safari)</span>
+                                </div>
+                                <div className="w-full h-3 bg-[#1e1e2e] rounded-full overflow-hidden">
+                                  <motion.div
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${percentage}%` }}
+                                    transition={{ duration: 0.8, ease: 'easeOut' }}
+                                    className="h-full bg-gradient-to-r from-[#7F77DD] to-emerald-500 rounded-full"
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Histori ya Safari (Completed Rides history) */}
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-black uppercase tracking-wider text-neutral-400 flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-emerald-500" />
+                      Histori ya Safari Zilizokamilika
+                    </h4>
+
+                    <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                      {(!stats.completedRides || stats.completedRides.length === 0) ? (
+                        <div className="bg-[#111118]/60 border border-neutral-800/60 p-6 rounded-2xl text-center text-xs text-neutral-500 uppercase tracking-wider font-bold">
+                          Hakuna safari zilizokamilika bado.
+                        </div>
+                      ) : (
+                        stats.completedRides.map((ride: any) => (
+                          <div key={ride.id} className="bg-[#111118] border border-neutral-800/60 p-3 rounded-2xl flex items-center justify-between gap-3 text-xs">
+                            <div className="space-y-0.5 min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[9px] font-black uppercase text-[#7F77DD]">{ride.formattedDate}</span>
+                                <span className="bg-emerald-500/10 text-emerald-500 text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full border border-emerald-500/20 leading-none">Imelipwa</span>
+                              </div>
+                              <p className="text-[10px] font-bold text-neutral-300 truncate mt-1">
+                                📍 {ride.pickup?.name || 'Mahali fulani'} → 🏁 {ride.destination?.name || 'Mahali fulani'}
+                              </p>
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              <p className="font-black italic text-white text-sm">
+                                TZS {(ride.fare || 0).toLocaleString()}
+                              </p>
+                              <p className="text-[7.5px] uppercase font-black text-neutral-500">Mshahara</p>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
         {/* Real-time Responsive Popup Chat for Active Ride */}
         {activeRide && activeRide.customerId && !isChatOpen && (
           <ActiveRideChatPopup

@@ -439,16 +439,16 @@ const MapRotationController = ({
 
   useEffect(() => {
     if (!map) return;
-    const mapPane = map.getPane('mapPane');
-    if (!mapPane) return;
+    const container = map.getContainer();
+    if (!container) return;
     const perspectiveTilt = is3DMode ? 'perspective(1000px) rotateX(50deg) ' : '';
     if (rotation !== 0 || is3DMode) {
-      mapPane.style.transform = `${perspectiveTilt}rotateZ(${-rotation}deg)`;
+      container.style.transform = `${perspectiveTilt}rotateZ(${-rotation}deg)`;
     } else {
-      mapPane.style.transform = 'none';
+      container.style.transform = 'none';
     }
-    mapPane.style.transformOrigin = 'center center';
-    mapPane.style.transition = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)';
+    container.style.transformOrigin = 'center center';
+    container.style.transition = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)';
   }, [map, rotation, is3DMode]);
 
   return null;
