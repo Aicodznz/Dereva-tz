@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { MapPin, Navigation2, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { Ride } from '../../types/trip.types';
 import { useTheme } from 'next-themes';
 
@@ -50,50 +50,61 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel
     <div 
       className="absolute inset-0 flex flex-col items-center bg-transparent pointer-events-none z-[100]"
     >
-      <div className="flex-1 w-full flex flex-col items-center p-6 pt-24 pb-32 overflow-y-auto no-scrollbar pointer-events-none">
-        {/* Top Ride Details Card */}
+      <div className="flex-1 w-full flex flex-col items-center justify-between p-4 pt-20 pb-20 overflow-y-auto no-scrollbar pointer-events-none">
+        {/* Top Ride Details Card - Clean, compact, modern */}
         <AnimatePresence>
           {!isMinimized && (
             <motion.div 
-              initial={{ y: -30, opacity: 0 }}
+              initial={{ y: -20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              exit={{ y: -30, opacity: 0 }}
-              className={`w-full max-w-sm border rounded-[32px] p-5 shadow-2xl z-20 shrink-0 mb-8 pointer-events-auto ${theme === 'dark' ? 'bg-[#111118]/95 border-neutral-800' : 'bg-white border-neutral-200/80'}`}
+              exit={{ y: -20, opacity: 0 }}
+              className={`w-full max-w-[340px] border rounded-[24px] p-3.5 shadow-[0_12px_36px_rgba(0,0,0,0.12)] z-20 shrink-0 pointer-events-auto ${theme === 'dark' ? 'bg-[#111118]/90 border-neutral-800/80' : 'bg-white/90 border-neutral-200/80'} backdrop-blur-md`}
             >
-              <div className="space-y-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0 border border-emerald-500/20">
-                    <MapPin className="w-5 h-5 text-emerald-600" />
+              <div className="flex flex-col gap-2.5">
+                {/* Compact Address Row */}
+                <div className="flex gap-2.5 relative">
+                  {/* Timeline connectors */}
+                  <div className="flex flex-col items-center py-1 shrink-0 select-none">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 ring-4 ring-emerald-500/10" />
+                    <div className="w-[1.5px] bg-neutral-200 dark:bg-neutral-850 h-5 my-0.5 border-dashed border-l border-neutral-300 dark:border-neutral-700" />
+                    <div className="w-2 h-2 rounded-full bg-red-500 ring-4 ring-red-500/10" />
                   </div>
-                  <div className="overflow-hidden">
-                    <p className="text-[8px] font-black text-neutral-400 uppercase tracking-[0.2em] mb-0.5">UNATOKEA</p>
-                    <p className={`text-sm font-bold truncate leading-tight ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`}>{ride?.pickup?.address || "Eneo lako..."}</p>
+                  
+                  {/* Text Details */}
+                  <div className="flex-1 min-w-0 space-y-2">
+                    {/* Pickup Address */}
+                    <div className="min-w-0">
+                      <p className="text-[7.5px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-wider leading-none mb-0.5">UNATOKEA</p>
+                      <p className={`text-[11.5px] font-bold truncate leading-tight ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`}>{ride?.pickup?.address || "Eneo lako..."}</p>
+                    </div>
+                    {/* Destination Address */}
+                    <div className="min-w-0">
+                      <p className="text-[7.5px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-wider leading-none mb-0.5">UNAKWENDA</p>
+                      <p className={`text-[11.5px] font-bold truncate leading-tight ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`}>{ride?.destination?.address || "Andika..."}</p>
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center shrink-0 border border-red-500/20">
-                    <Navigation2 className="w-5 h-5 text-red-500" />
-                  </div>
-                  <div className="overflow-hidden">
-                    <p className="text-[8px] font-black text-neutral-400 uppercase tracking-[0.2em] mb-0.5">UNAKWENDA</p>
-                    <p className={`text-sm font-bold truncate leading-tight ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`}>{ride?.destination?.address || "Andika..."}</p>
-                  </div>
-                </div>
+                {/* Divider */}
+                <div className={`border-t ${theme === 'dark' ? 'border-neutral-850' : 'border-neutral-100'}`} />
 
-                <div className={`pt-3 border-t flex items-center justify-between ${theme === 'dark' ? 'border-neutral-800' : 'border-neutral-100'}`}>
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl border ${theme === 'dark' ? 'bg-neutral-900 border-neutral-800' : 'bg-neutral-100 border-neutral-200'}`}>
+                {/* Ride details & Cost horizontally */}
+                <div className="flex items-center justify-between text-xs">
+                  {/* Vehicle Type */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-base">
                       {ride?.vehicleType === 'mini' ? '🚗' : ride?.vehicleType === 'bajaj' ? '🛺' : '🏍️'}
-                    </div>
+                    </span>
                     <div>
-                      <p className="text-[9px] font-black text-neutral-400 uppercase tracking-widest mb-0.5">{ride?.vehicleType || 'Gari'}</p>
-                      <p className={`text-xs font-black italic ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-700'}`}>Usafiri wa Haraka</p>
+                      <p className={`text-[11px] font-black uppercase ${theme === 'dark' ? 'text-neutral-300' : 'text-neutral-800'}`}>{ride?.vehicleType || 'Gari'}</p>
+                      <p className="text-[8px] font-semibold text-neutral-400 uppercase tracking-wide">Usafiri wa Haraka</p>
                     </div>
                   </div>
+
+                  {/* Cost Details */}
                   <div className="text-right">
-                    <p className="text-[9px] font-black text-neutral-400 uppercase tracking-widest mb-0.5">GHARAMA</p>
-                    <p className="text-lg font-black text-indigo-500">TZS {ride?.fare?.toLocaleString()}</p>
+                    <p className="text-[8px] font-black text-neutral-400 uppercase tracking-widest leading-none mb-0.5">GHARAMA</p>
+                    <p className="text-xs font-black text-indigo-500 leading-none">TZS {ride?.fare?.toLocaleString()}</p>
                   </div>
                 </div>
               </div>
@@ -101,44 +112,52 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel
           )}
         </AnimatePresence>
 
-        <div className="flex-1" />
-
-        {/* Bottom Status & Cancel */}
+        {/* Bottom Status & Cancel - Cohesive, sleek and compact */}
         <AnimatePresence>
           {!isMinimized && (
             <motion.div 
-              initial={{ y: 30, opacity: 0 }}
+              initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 30, opacity: 0 }}
-              className="w-full max-w-sm space-y-5 mt-4 shrink-0 pb-10 pointer-events-auto"
+              exit={{ y: 20, opacity: 0 }}
+              className="w-full max-w-[340px] shrink-0 pointer-events-auto"
             >
-              <div className="text-center">
-                <h2 className="text-xl font-black text-indigo-600 drop-shadow-sm mb-3 tracking-tight italic uppercase animate-pulse">
-                  Utafutaji unaendelea{dots}
-                </h2>
-                <AnimatePresence mode="wait">
-                  <motion.div 
-                    key={statusIndex}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className={`px-6 py-2 backdrop-blur-xl rounded-full border inline-block mb-4 shadow-md ${theme === 'dark' ? 'bg-[#111118]/95 border-neutral-800' : 'bg-white/95 border-neutral-200/80'}`}
-                  >
-                    <p className={`text-[9px] font-black uppercase tracking-[0.2em] italic ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-700'}`}>
-                      {ride ? statuses[statusIndex] : "Inatayarisha..."}
-                    </p>
-                  </motion.div>
-                </AnimatePresence>
-              </div>
+              <div className={`border rounded-[24px] p-3.5 shadow-[0_12px_40px_rgba(0,0,0,0.18)] ${theme === 'dark' ? 'bg-[#111118]/90 border-neutral-800/80 text-neutral-200' : 'bg-white/90 border-neutral-200/80 text-neutral-800'} backdrop-blur-md`}>
+                
+                {/* Header status row with small pulsing glowing circle */}
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="relative flex h-2 w-2 shrink-0">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                  </div>
+                  <h2 className="text-[11px] font-black text-indigo-500 tracking-wider uppercase leading-none">
+                    Utafutaji unaendelea{dots}
+                  </h2>
+                </div>
 
-              {!isSpectator && (
-                <button 
-                  onClick={onCancel}
-                  className="w-full h-16 bg-red-600 hover:bg-red-700 text-white rounded-[24px] font-black italic uppercase text-sm tracking-[0.2em] shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
-                >
-                  <X className="w-6 h-6 stroke-[3]" />
-                  GHAIRI SAFARI
-                </button>
-              )}
+                {/* Sub status animation description */}
+                <AnimatePresence mode="wait">
+                  <motion.p 
+                    key={statusIndex}
+                    initial={{ opacity: 0, y: 3 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -3 }}
+                    className={`text-[9.5px] font-semibold uppercase tracking-wide italic min-h-[14px] leading-tight ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-600'}`}
+                  >
+                    {ride ? statuses[statusIndex] : "Inatayarisha..."}
+                  </motion.p>
+                </AnimatePresence>
+
+                {/* Cancel Button - Compact & beautiful red style */}
+                {!isSpectator && (
+                  <button 
+                    onClick={onCancel}
+                    className="w-full mt-3 h-10 bg-red-500/10 hover:bg-red-500/20 active:scale-95 text-red-500 border border-red-500/25 rounded-xl font-black uppercase text-[9.5px] tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5 stroke-[3]" />
+                    GHAIRI SAFARI
+                  </button>
+                )}
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
