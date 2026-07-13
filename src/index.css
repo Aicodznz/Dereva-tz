@@ -401,6 +401,14 @@
   background-color: #0d0d12 !important; /* Elegant off-black fallback background */
 }
 
+/* Beautiful soft modern slate-dark mode map tiles style */
+.dark .leaflet-tile-container {
+  filter: invert(92%) hue-rotate(200deg) brightness(88%) contrast(92%) saturate(90%) !important;
+}
+.dark .leaflet-container {
+  background-color: #111118 !important;
+}
+
 @keyframes scan {
   0% {
     transform: translateY(12px);

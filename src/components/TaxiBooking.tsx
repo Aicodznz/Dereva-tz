@@ -3178,11 +3178,6 @@ export default function TaxiBooking() {
                     width: 100% !important; 
                     background: ${theme === 'dark' ? '#111118' : '#ffffff'} !important; 
                   } 
-                  ${theme === 'dark' ? `
-                  .leaflet-tile-container {
-                    filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%) !important;
-                  }
-                  ` : ''}
                   .custom-div-icon { 
                     background: none; 
                     border: none; 
