@@ -3170,61 +3170,19 @@ export default function TaxiBooking() {
                   </div>
                 </div>
 
-                {/* 2025 African Tech Premium Floating Info Cards */}
-                {activeRide && ["found", "arriving", "on_trip"].includes(step) && (
-                  <div className="absolute top-24 right-6 left-6 md:left-auto md:w-[320px] z-[9999] flex flex-col gap-3 pointer-events-none animate-fade-in font-sans">
-                    {/* Pickup Card - Only visible when the driver is coming to get them */}
-                    {activeRide.status !== "on_trip" && (
-                      <div className="bg-[#080A12]/85 backdrop-blur-[20px] border border-white/10 rounded-2xl p-4 md:p-5 shadow-[0_12px_40px_rgba(0,0,0,0.5)] flex flex-col relative overflow-hidden pointer-events-auto">
-                        <div className="absolute top-0 left-0 w-1.5 h-full bg-[#00E5A0]" />
-                        <div className="flex items-center justify-between mb-2 pl-2">
-                          <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-[#00E5A0] animate-ping" />
-                            <span className="text-[10px] font-black tracking-[0.15em] text-[#00E5A0] font-heading">🟢 PICKUP MTEJA</span>
-                          </div>
-                        </div>
-                        <div className="h-[1px] w-full bg-white/5 mb-3" />
-                        <div className="flex flex-col pl-2">
-                          <span className="text-[10px] font-black text-[#8A8FA8] uppercase tracking-[0.08em] mb-1 font-heading">Dereva atakuja baada ya</span>
-                          <div className="flex items-baseline gap-1.5">
-                            <span className="text-xl md:text-2xl font-mono font-black text-white bg-white/5 px-2.5 py-1 rounded-lg border border-white/5 tracking-wider">
-                              {(() => {
-                                const driverLoc: [number, number] | null = driverLivePos
-                                  ? [driverLivePos.lat, driverLivePos.lng]
-                                  : activeRide.driverLocation
-                                  ? [activeRide.driverLocation.lat, activeRide.driverLocation.lng]
-                                  : null;
-                                if (driverLoc) {
-                                  const distToPickup = getDistanceLocal(driverLoc, pickupPos);
-                                  if (distToPickup < 60) {
-                                    return "[ ARRIVED ]";
-                                  } else {
-                                    const durSecs = distToPickup / 6.5; 
-                                    const mins = Math.max(0, Math.floor(durSecs / 60));
-                                    const secs = Math.max(0, Math.floor(durSecs % 60));
-                                    return `[ ${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')} ]`;
-                                  }
-                                }
-                                return "[ 05:00 ]";
-                              })()}
-                            </span>
-                            <span className="text-[9px] font-semibold text-[#8A8FA8] italic">countdown</span>
-                          </div>
-                          <p className="text-[10px] text-white/70 mt-3 truncate bg-white/5 py-1.5 px-3 rounded-lg border border-white/5 font-sans">
-                            Kutoka: <span className="font-semibold text-white">{activeRide.pickup.address}</span>
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
+                {/* Floating Cards removed as requested */}
 
                 <style>{`
                   .leaflet-container { 
                     height: 100% !important; 
                     width: 100% !important; 
-                    background: ${theme === 'dark' ? '#0a0a0f' : '#ffffff'} !important; 
+                    background: ${theme === 'dark' ? '#111118' : '#ffffff'} !important; 
                   } 
+                  ${theme === 'dark' ? `
+                  .leaflet-tile-container {
+                    filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%) !important;
+                  }
+                  ` : ''}
                   .custom-div-icon { 
                     background: none; 
                     border: none; 

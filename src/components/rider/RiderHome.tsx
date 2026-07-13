@@ -2382,6 +2382,16 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
 
       {/* Map Layer */}
       <div className="absolute inset-0 z-0 bg-neutral-100 dark:bg-[#0a0a0f]">
+        <style>{`
+          .leaflet-container {
+            background: ${theme === 'dark' ? '#111118' : '#ffffff'} !important;
+          }
+          ${theme === 'dark' ? `
+          .leaflet-tile-container {
+            filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%) !important;
+          }
+          ` : ''}
+        `}</style>
         <div className={`absolute inset-0 transition-opacity duration-1000 ${theme === 'dark' ? 'opacity-100' : 'opacity-0'}`}>
            <div className="absolute inset-0 bg-[#0a0a0f]" />
         </div>

@@ -113,101 +113,118 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
                 setIsCollapsed(true);
               }
             }}
-            className={`absolute bottom-0 left-0 right-0 w-full rounded-t-[40px] border-t p-8 pb-12 shadow-[0_-15px_35px_rgba(0,0,0,0.08)] z-[60] transition-all touch-none pointer-events-auto ${theme === 'dark' ? 'bg-[#111118]/95 border-neutral-800' : 'bg-white/95 border-neutral-200/80'} ${isArrived ? 'ring-4 ring-emerald-500/10' : ''}`}
+            className={`absolute bottom-0 left-0 right-0 w-full rounded-t-[32px] border-t p-5 pb-8 shadow-[0_-15px_35px_rgba(0,0,0,0.15)] z-[60] transition-all touch-none pointer-events-auto ${theme === 'dark' ? 'bg-[#111118]/95 border-neutral-800' : 'bg-white/95 border-neutral-200/80'} ${isArrived ? 'ring-2 ring-emerald-500/20' : ''}`}
           >
-            <div className="relative flex items-center justify-center mb-6">
-              <div className={`w-12 h-1.5 rounded-full cursor-grab active:cursor-grabbing ${theme === 'dark' ? 'bg-neutral-800' : 'bg-neutral-200'}`} />
+            <div className="relative flex items-center justify-center mb-4">
+              <div className={`w-10 h-1 rounded-full cursor-grab active:cursor-grabbing ${theme === 'dark' ? 'bg-neutral-800' : 'bg-neutral-200'}`} />
               <button 
                 onClick={() => setIsCollapsed(true)}
-                className={`absolute right-0 text-[10px] font-black uppercase tracking-[0.15em] px-3 py-1 rounded-full transition-colors pointer-events-auto ${theme === 'dark' ? 'text-neutral-400 bg-neutral-900 hover:bg-neutral-850 hover:text-neutral-200' : 'text-neutral-500 hover:text-neutral-800 bg-neutral-100 hover:bg-neutral-200'}`}
+                className={`absolute right-0 text-[9px] font-black uppercase tracking-[0.15em] px-2.5 py-0.5 rounded-full transition-colors pointer-events-auto ${theme === 'dark' ? 'text-neutral-400 bg-neutral-900 hover:bg-neutral-850 hover:text-neutral-200' : 'text-neutral-500 hover:text-neutral-800 bg-neutral-100 hover:bg-neutral-200'}`}
               >
                 Ficha Maelezo
               </button>
             </div>
         
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-emerald-500 bg-neutral-50 flex items-center justify-center shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full overflow-hidden border border-emerald-500 bg-neutral-50 flex items-center justify-center shadow-sm shrink-0">
                   {ride.driverInfo?.photo ? (
                     <img src={ride.driverInfo.photo} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   ) : (
-                    <div className="text-xl font-bold text-emerald-600 font-heading">{ride.driverInfo?.name?.charAt(0) || 'D'}</div>
+                    <div className="text-lg font-bold text-emerald-600 font-heading">{ride.driverInfo?.name?.charAt(0) || 'D'}</div>
                   )}
                 </div>
-                <div>
-                  <h4 className={`text-xl font-black uppercase font-heading tracking-wide leading-none mb-1 ${theme === 'dark' ? 'text-neutral-100' : 'text-neutral-800'}`}>
+                <div className="min-w-0">
+                  <h4 className={`text-base font-black uppercase font-heading tracking-wide leading-none mb-1 truncate ${theme === 'dark' ? 'text-neutral-100' : 'text-neutral-800'}`}>
                     {ride.driverInfo?.name || "Dereva Swahili"}
                   </h4>
-                  <p className={`text-[11px] font-semibold uppercase tracking-wider ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-500'}`}>
+                  <p className={`text-[10px] font-semibold uppercase tracking-wider ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-500'}`}>
                     {ride.driverInfo?.vehicle.model} · <span className="text-indigo-400 font-mono font-black">{ride.driverInfo?.vehicle.plate}</span>
                   </p>
                 </div>
               </div>
-              <div className={`flex flex-col items-end justify-center px-3 py-1.5 rounded-xl border ${theme === 'dark' ? 'bg-neutral-900 border-neutral-800' : 'bg-neutral-50 border-neutral-100'}`}>
-                <div className="flex items-center gap-1.5 text-yellow-500">
-                  <Star className="w-4.5 h-4.5 fill-current" />
-                  <span className="text-sm font-black font-mono">{ride.driverInfo?.rating || "4.8"}</span>
+              <div className={`flex flex-col items-end justify-center px-2 py-1 rounded-lg border shrink-0 ${theme === 'dark' ? 'bg-neutral-900 border-neutral-800' : 'bg-neutral-50 border-neutral-100'}`}>
+                <div className="flex items-center gap-1 text-yellow-500">
+                  <Star className="w-3.5 h-3.5 fill-current" />
+                  <span className="text-xs font-black font-mono">{ride.driverInfo?.rating || "4.8"}</span>
                 </div>
               </div>
             </div>
 
-            {/* Premium Pill Action Buttons Row */}
-            {!isSpectator && (
-              <div className="grid grid-cols-3 gap-3 mb-8">
-                <button 
-                  onClick={onCall} 
-                  className={`h-12 border rounded-full flex items-center justify-center gap-2 active:scale-95 transition-all pointer-events-auto ${theme === 'dark' ? 'bg-[#161622] border-neutral-800 text-neutral-200 hover:bg-neutral-800' : 'bg-neutral-50 border-neutral-200 text-neutral-800 hover:bg-neutral-100'}`}
-                >
-                  <Phone className="w-4 h-4 text-emerald-500" />
-                  <span className="text-[10px] font-black uppercase tracking-[0.08em] font-heading">Call</span>
-                </button>
-                <button 
-                  onClick={onMessage} 
-                  className={`h-12 border rounded-full flex items-center justify-center gap-2 active:scale-95 transition-all pointer-events-auto ${theme === 'dark' ? 'bg-[#161622] border-neutral-800 text-neutral-200 hover:bg-neutral-800' : 'bg-neutral-50 border-neutral-200 text-neutral-800 hover:bg-neutral-100'}`}
-                >
-                  <MessageSquare className="w-4 h-4 text-indigo-400" />
-                  <span className="text-[10px] font-black uppercase tracking-[0.08em] font-heading">Chat</span>
-                </button>
-                <button 
-                  onClick={onCancel || (() => {})} 
-                  className={`h-12 border rounded-full flex items-center justify-center gap-2 active:scale-95 transition-all pointer-events-auto ${theme === 'dark' ? 'bg-red-950/20 border-red-900/40 text-red-400 hover:bg-red-950/40' : 'bg-red-50 border-red-100 text-red-600 hover:bg-red-100'}`}
-                >
-                  <span className="text-[10px] font-black uppercase tracking-[0.08em] font-heading">✕ Cancel</span>
-                </button>
-              </div>
-            )}
-
-            <div className={`p-5 rounded-3xl border flex items-center justify-between transition-all duration-500 ${
-              isArrived 
-                ? (theme === 'dark' ? 'bg-emerald-950/20 border-emerald-900/40' : 'bg-emerald-50 border-emerald-500/30 shadow-[0_4px_20px_rgba(16,185,129,0.05)]') 
-                : (theme === 'dark' ? 'bg-[#161622] border-neutral-800' : 'bg-neutral-50 border-neutral-200/60')
+            {/* Elegant, Modern Countdown & Pickup Info Container directly below profile pic */}
+            <div className={`mb-4 p-3 rounded-xl border transition-all duration-300 text-left ${
+              theme === 'dark' 
+                ? 'bg-[#161622]/40 border-neutral-800/80 shadow-[0_4px_12px_rgba(0,0,0,0.1)]' 
+                : 'bg-neutral-50 border-neutral-200/60 shadow-sm'
             }`}>
-              <div className="flex items-center gap-4">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-all ${isArrived ? 'bg-emerald-100 animate-bounce' : (theme === 'dark' ? 'bg-neutral-800' : 'bg-neutral-200/50')}`}>
-                  {isArrived ? '🎉' : '🟢'}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <span className={`text-[9px] font-black uppercase tracking-wider ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-500'}`}>
+                    {isArrived ? 'HALI YA SAFARI' : 'DEREVA ATAKUJA BAADA YA'}
+                  </span>
+                  <span className={`text-[9px] font-black uppercase tracking-wider ${theme === 'dark' ? 'text-indigo-400' : 'text-indigo-600'}`}>
+                    {distance !== null ? `${distance.toFixed(1)} km imebaki` : ''}
+                  </span>
                 </div>
-                <div>
-                  <p className="text-[8px] font-black text-neutral-400 uppercase tracking-widest mb-0.5">Hali ya Safari</p>
-                  <h4 className={`text-xs font-black uppercase font-heading tracking-wide transition-colors ${isArrived ? 'text-emerald-500' : (theme === 'dark' ? 'text-neutral-300' : 'text-neutral-700')}`}>
-                    {isArrived ? 'Dereva Amefika!' : 'Anakuja Kukuchukua'}
-                  </h4>
+                
+                <div className="flex items-center gap-1.5">
+                  <div className={`px-2.5 py-1 rounded-lg font-mono font-black tracking-widest text-xs ${
+                    isArrived 
+                      ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                      : 'bg-indigo-500/10 text-indigo-500 border border-indigo-500/20'
+                  }`}>
+                    {isArrived ? (
+                      <span className="animate-pulse">DEREVA KASHAFIKA!</span>
+                    ) : eta ? (
+                      `[ ${eta.minutes.toString().padStart(2, '0')}:${eta.seconds.toString().padStart(2, '0')} ]`
+                    ) : (
+                      '--:--'
+                    )}
+                  </div>
+                  {!isArrived && (
+                    <span className={`text-[8px] font-semibold italic ${theme === 'dark' ? 'text-neutral-500' : 'text-neutral-400'}`}>
+                      countdown
+                    </span>
+                  )}
+                </div>
+
+                <div className="h-[1px] w-full bg-neutral-200/10 dark:bg-white/5 my-0.5" />
+
+                <div className="flex items-center gap-1.5 text-left min-w-0">
+                  <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isArrived ? 'bg-emerald-500 animate-ping' : 'bg-indigo-500'}`} />
+                  <p className={`text-[10.5px] truncate leading-none ${theme === 'dark' ? 'text-neutral-300' : 'text-neutral-700'}`}>
+                    <span className={`font-black text-[8px] uppercase tracking-wider mr-1 ${theme === 'dark' ? 'text-neutral-500' : 'text-neutral-400'}`}>KUTOKA:</span>
+                    <span className="font-bold">{ride.pickup.address}</span>
+                  </p>
                 </div>
               </div>
-              {!isArrived && distance !== null && (
-                <div className="text-right">
-                  <p className="text-[8px] font-black text-neutral-400 uppercase tracking-widest mb-0.5">Umbali</p>
-                  <h4 className={`text-xs font-black px-2 py-0.5 rounded border inline-block font-mono tracking-wide ${theme === 'dark' ? 'text-neutral-300 bg-neutral-900 border-neutral-800' : 'text-neutral-700 bg-neutral-100 border-neutral-200'}`}>{distance.toFixed(1)} km · {eta?.minutes} min</h4>
-                </div>
-              )}
-              {isArrived && onImComing && !isSpectator && (
-                <button 
-                  onClick={onImComing}
-                  className="px-6 h-10 bg-emerald-600 hover:bg-emerald-700 rounded-full text-[10px] font-black uppercase tracking-[0.1em] text-white hover:brightness-110 active:scale-95 transition-all"
-                >
-                  Nimeingia Garini
-                </button>
-              )}
             </div>
+ 
+             {/* Premium Pill Action Buttons Row */}
+             {!isSpectator && (
+               <div className="grid grid-cols-3 gap-2">
+                 <button 
+                   onClick={onCall} 
+                   className={`h-10 border rounded-xl flex items-center justify-center gap-1.5 active:scale-95 transition-all pointer-events-auto ${theme === 'dark' ? 'bg-[#161622] border-neutral-800 text-neutral-200 hover:bg-neutral-800' : 'bg-neutral-50 border-neutral-200 text-neutral-800 hover:bg-neutral-100'}`}
+                 >
+                   <Phone className="w-3.5 h-3.5 text-emerald-500" />
+                   <span className="text-[9px] font-black uppercase tracking-[0.08em] font-heading">Call</span>
+                 </button>
+                 <button 
+                   onClick={onMessage} 
+                   className={`h-10 border rounded-xl flex items-center justify-center gap-1.5 active:scale-95 transition-all pointer-events-auto ${theme === 'dark' ? 'bg-[#161622] border-neutral-800 text-neutral-200 hover:bg-neutral-800' : 'bg-neutral-50 border-neutral-200 text-neutral-800 hover:bg-neutral-100'}`}
+                 >
+                   <MessageSquare className="w-3.5 h-3.5 text-indigo-400" />
+                   <span className="text-[9px] font-black uppercase tracking-[0.08em] font-heading">Chat</span>
+                 </button>
+                 <button 
+                   onClick={onCancel || (() => {})} 
+                   className={`h-10 border rounded-xl flex items-center justify-center gap-1.5 active:scale-95 transition-all pointer-events-auto ${theme === 'dark' ? 'bg-red-950/20 border-red-900/40 text-red-400 hover:bg-red-950/40' : 'bg-red-50 border-red-100 text-red-600 hover:bg-red-100'}`}
+                 >
+                   <span className="text-[9px] font-black uppercase tracking-[0.08em] font-heading">✕ Cancel</span>
+                 </button>
+               </div>
+             )}
           </motion.div>
         )}
       </AnimatePresence>
