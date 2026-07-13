@@ -2356,97 +2356,10 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
             exit={{ y: -100, opacity: 0 }}
             className="absolute top-4 inset-x-4 z-[9999] flex flex-col gap-2"
           >
-            {/* Main Header / Navigation Card */}
-            {activeRide ? (
-              (!isHeaderHidden && (
-                <div className="glass-morphism rounded-[18px] py-1.5 px-3 flex flex-col gap-2 shadow-[0_12px_30px_rgba(0,0,0,0.15)] dark:shadow-[0_12px_30px_rgba(0,0,0,0.4)] border border-neutral-200/50 dark:border-white/10 relative">
-                  {/* Small direct hide button */}
-                  <button 
-                    onClick={() => setIsHeaderHidden(true)}
-                    className="absolute right-2 top-2 w-5 h-5 rounded-full bg-neutral-200/60 dark:bg-black/40 flex items-center justify-center hover:bg-neutral-300 dark:hover:bg-black/60 transition-colors cursor-pointer z-10"
-                    title="Ficha Maelezo ya Safari"
-                  >
-                    <EyeOff className="w-3 h-3 text-neutral-500 dark:text-[#8B8BA0] hover:text-neutral-800 dark:hover:text-white" />
-                  </button>
-                  <div className="flex justify-between items-center bg-neutral-100/60 dark:bg-black/20 p-2 rounded-xl border border-neutral-200/30 dark:border-white/5 pr-6">
-                    <div className="flex flex-col min-w-0">
-                      <p className="text-[8px] font-black text-neutral-500 dark:text-[#8B8BA0] uppercase tracking-widest mb-0.5">UNAKOKWENDA</p>
-                      <h2 className="text-xs font-black text-neutral-800 dark:text-white italic uppercase truncate max-w-[150px] sm:max-w-[200px]">
-                        {activeRide.status === 'on_trip' ? activeRide.destination.address : activeRide.pickup.address || 'Pickup Eneo'}
-                      </h2>
-                    </div>
-                    <div className="flex items-center gap-2.5 text-right shrink-0">
-                      <div className="flex flex-col">
-                        <p className="text-[8px] font-black text-neutral-500 dark:text-[#8B8BA0] uppercase tracking-widest text-right mb-0.5">ETA</p>
-                        <div className="flex items-center gap-1 justify-end">
-                          <span className="text-sm font-black text-emerald-600 dark:text-[#00FF88] italic">
-                            {Math.round((steps?.[0]?.duration || 0) / 60) + 2} MIN
-                          </span>
-                          <div className="w-1.5 h-1.5 bg-emerald-500 dark:bg-[#00FF88] rounded-full animate-pulse" />
-                        </div>
-                      </div>
-                      {/* Driver profile avatar when active */}
-                      {renderProfileAvatar('sm')}
-                    </div>
-                  </div>
-
-                  <div className="space-y-1 px-1">
-                    <div className="flex justify-between items-center text-[7.5px] font-black uppercase tracking-widest">
-                      <span className="text-neutral-500 dark:text-[#8B8BA0]">TRIP PROGRESS</span>
-                      <span className="text-emerald-500 dark:text-[#00FF88]">
-                        {activeRide.status === 'on_trip' ? '65%' : 'ENROUTE'}
-                      </span>
-                    </div>
-                    <div className="h-1 w-full bg-neutral-200 dark:bg-white/5 rounded-full overflow-hidden">
-                      <motion.div 
-                        initial={{ width: 0 }}
-                        animate={{ width: activeRide.status === 'on_trip' ? '65%' : '35%' }}
-                        className="h-full bg-emerald-500 dark:bg-[#00FF88] shadow-[0_0_8px_#00FF88]"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="flex justify-end w-full">
-                {/* Driver Profile Picture on Top Right */}
-                {renderProfileAvatar('md')}
-              </div>
-            )}
-
-            {/* Instruction Bar when Active */}
-            <AnimatePresence>
-              {activeRide && steps && steps.length > 0 && !isInstructionsHidden && (
-                <motion.div
-                  initial={{ x: -20, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  exit={{ x: -20, opacity: 0 }}
-                  className="bg-[#00FF88] text-[#0A0A0F] py-2 px-3 rounded-xl shadow-2xl flex items-center gap-3 relative"
-                >
-                  <div className="w-8 h-8 bg-black/10 rounded-lg flex items-center justify-center shrink-0">
-                    <Navigation className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1 min-w-0 pr-2">
-                    <p className="text-[8px] font-black opacity-60 uppercase tracking-widest mb-0.5">MALINGANISHO</p>
-                    <p className="text-xs font-black italic tracking-tight uppercase leading-none truncate">
-                      {steps[0].instruction}
-                    </p>
-                  </div>
-                  <div className="text-right shrink-0 pl-2 border-l border-black/10 pr-6">
-                     <p className="text-[8px] font-black opacity-60 uppercase tracking-widest">MITA</p>
-                     <p className="text-sm font-black italic tracking-tighter leading-none">{Math.round(steps[0].distance)}</p>
-                  </div>
-                  {/* Small direct close/hide button */}
-                  <button 
-                    onClick={() => setIsInstructionsHidden(true)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-black/10 flex items-center justify-center hover:bg-black/25 transition-colors cursor-pointer"
-                    title="Ficha Maelekezo"
-                  >
-                    <EyeOff className="w-3 h-3 text-black/60" />
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            {/* Main Header / Navigation Card - Left only the profile icon */}
+            <div className="flex justify-end w-full">
+              {renderProfileAvatar('md')}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

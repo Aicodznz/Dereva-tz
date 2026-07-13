@@ -61,101 +61,109 @@ export default function DriverTripSheet({ ride, onArrive, onStart, onComplete, o
   };
 
   return (
-    <motion.div 
-      initial={{ y: 300 }} 
-      animate={{ y: isMinimized ? '88%' : 0 }}
-      transition={{ type: 'spring', damping: 25, stiffness: 120 }}
-      className="fixed bottom-0 left-0 right-0 z-[1000] bg-[#111118]/95 backdrop-blur-xl border-t border-[#1e1e2e] p-6 pb-12 rounded-t-[40px] shadow-[0_-20px_60px_rgba(0,0,0,0.8)]"
-    >
-      <div className="flex flex-col gap-6">
+    <div className="fixed bottom-4 inset-x-0 z-[1000] px-4 pointer-events-none flex justify-center">
+      <motion.div 
+        initial={{ y: 300 }} 
+        animate={{ y: isMinimized ? 'calc(100% - 60px)' : 0 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 120 }}
+        className="w-full max-w-[390px] pointer-events-auto rounded-[24px] border border-neutral-200/50 dark:border-neutral-800/80 p-4 space-y-3.5 shadow-[0_16px_40px_rgba(0,0,0,0.3)] backdrop-blur-md bg-white/95 dark:bg-[#111118]/95 text-neutral-850 dark:text-white transition-all duration-300"
+      >
+        {/* Compact Drag Handle & Minimize Toggle */}
         <div 
-           className="h-12 -mt-6 flex flex-col items-center justify-center cursor-pointer group"
+           className="flex flex-col items-center justify-center cursor-pointer group py-1"
            onClick={onToggleMinimize}
         >
-           <div className={`w-16 h-1.5 rounded-full transition-all duration-500 mb-2 ${isMinimized ? 'bg-orange-600' : 'bg-[#1e1e2e] group-hover:bg-[#7F77DD]'}`} />
-           <p className="text-[8px] font-black uppercase text-neutral-500 tracking-[0.2em]">
-             {isMinimized ? 'Gusa kuona safari' : 'Shusha kuona ramani'}
+           <div className={`w-12 h-1 rounded-full transition-all duration-300 mb-1.5 ${isMinimized ? 'bg-indigo-500 animate-pulse' : 'bg-neutral-300 dark:bg-neutral-800 group-hover:bg-[#7F77DD]'}`} />
+           <p className="text-[7.5px] font-black uppercase text-neutral-400 dark:text-neutral-500 tracking-[0.25em]">
+             {isMinimized ? 'GUSA KUONA SAFARI' : 'SHUSHA KUONA RAMANI'}
            </p>
         </div>
+
+        {/* Status Badge */}
         <div className="text-center">
-             <p className="text-[10px] font-black text-[#7F77DD] uppercase tracking-[0.3em] italic">
-               {isArriving ? 'Unakwenda kumchukua' : isArrived ? 'Umefika kwa mteja' : 'Safari inaendelea'}
-             </p>
+          <span className={`inline-block px-2.5 py-1 rounded-full italic font-black text-[9px] tracking-widest uppercase ${
+            isArriving 
+              ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' 
+              : isArrived 
+                ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' 
+                : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+          }`}>
+            {isArriving ? '⚡ UNAKOPITA KUMFUATA MTEJA' : isArrived ? '⚡ UMEFIKA KWA MTEJA' : '⚡ SAFARI INAENDELEA'}
+          </span>
         </div>
 
         {isMinimized ? (
-          <div className="flex items-center justify-between bg-[#0a0a0f] p-4 rounded-2xl border border-[#1e1e2e] cursor-pointer" onClick={onToggleMinimize}>
-             <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-neutral-800 overflow-hidden border border-[#1e1e2e]">
+          <div className="flex items-center justify-between bg-neutral-50/50 dark:bg-[#0a0a0f]/60 p-2.5 rounded-xl border border-neutral-150 dark:border-neutral-850/50 cursor-pointer" onClick={onToggleMinimize}>
+             <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-neutral-800 overflow-hidden border border-neutral-200 dark:border-neutral-800">
                    <img 
                       src={ride.customerInfo?.photo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${ride.customerId}`} 
                       alt={ride.customerInfo?.name}
                       className="w-full h-full object-cover"
                    />
                 </div>
-                <div>
-                   <h3 className="text-sm font-black italic text-white uppercase">{ride.customerInfo?.name}</h3>
-                   <p className="text-[9px] font-bold text-emerald-500">TZS {(ride.fare || 0).toLocaleString()}</p>
+                <div className="min-w-0">
+                   <h3 className="text-xs font-black italic text-neutral-800 dark:text-white uppercase truncate">{ride.customerInfo?.name}</h3>
+                   <p className="text-[9px] font-bold text-emerald-600 dark:text-[#00FF88]">TZS {(ride.fare || 0).toLocaleString()}</p>
                 </div>
              </div>
-             <div className="flex items-center gap-4">
-                <div className="text-right">
-                   <p className="text-[8px] font-black text-neutral-500 uppercase">Status</p>
-                   <p className="text-[10px] font-black text-orange-600 italic uppercase underline decoration-2 underline-offset-4">{ride.status.replace('_', ' ')}</p>
-                </div>
-                <Navigation2 className="w-5 h-5 text-[#7F77DD] animate-bounce" />
+             <div className="flex items-center gap-2 shrink-0">
+                <span className="text-[8px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">MTEJA</span>
+                <Navigation2 className="w-4 h-4 text-[#7F77DD] animate-bounce" />
              </div>
           </div>
         ) : (
           <>
-            <div className="flex justify-between items-center bg-[#0a0a0f] p-4 rounded-3xl border border-[#1e1e2e]">
-              <div className="flex items-center gap-3">
-                 <div className="w-12 h-12 rounded-2xl bg-neutral-800 overflow-hidden border border-[#1e1e2e]">
+            {/* Customer & Actions Row */}
+            <div className="flex justify-between items-center bg-neutral-50/30 dark:bg-[#0a0a0f]/30 p-2.5 rounded-2xl border border-neutral-150 dark:border-neutral-850/30">
+              <div className="flex items-center gap-2.5 min-w-0">
+                 <div className="w-10 h-10 rounded-xl bg-neutral-100 dark:bg-neutral-800 overflow-hidden border border-neutral-200 dark:border-neutral-800 shrink-0 shadow-sm">
                     <img 
                        src={ride.customerInfo?.photo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${ride.customerId}`} 
                        alt={ride.customerInfo?.name}
                        className="w-full h-full object-cover"
                     />
                  </div>
-                 <div>
-                    <h3 className="text-lg font-black italic text-white leading-none">{ride.customerInfo?.name || "John Doe"}</h3>
+                 <div className="min-w-0">
+                    <h3 className="text-sm font-black italic text-neutral-850 dark:text-white leading-none truncate">{ride.customerInfo?.name || "Mteja"}</h3>
                     <div className="flex items-center gap-2 mt-1">
-                       <div className="flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
-                          <span className="text-[10px] font-black text-amber-500">★ {ride.customerInfo?.rating?.toFixed(1) || '5.0'}</span>
-                       </div>
-                       <p className="text-[10px] font-bold text-emerald-500 italic">TZS {(ride.fare || 0).toLocaleString()}</p>
+                       <span className="text-[9px] font-black text-amber-500">★ {ride.customerInfo?.rating?.toFixed(1) || '5.0'}</span>
+                       <span className="text-[10px] font-bold text-emerald-600 dark:text-[#00FF88] italic">TZS {(ride.fare || 0).toLocaleString()}</span>
                     </div>
                  </div>
               </div>
-              <div className="flex gap-2">
-                 <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer" className="w-12 h-12 rounded-2xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-500 active:scale-90 transition-transform" title="Google Maps">
-                    <MapIcon className="w-5 h-5" />
+              
+              {/* Actions */}
+              <div className="flex gap-1.5 shrink-0">
+                 <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer" className="w-9 h-9 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-500 active:scale-90 transition-transform" title="Google Maps">
+                    <MapIcon className="w-4 h-4" />
                  </a>
-                 <a href={`tel:${ride.customerInfo?.phone || '0700000000'}`} className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500 active:scale-90 transition-transform">
-                    <Phone className="w-5 h-5" />
+                 <a href={`tel:${ride.customerInfo?.phone || '0700000000'}`} className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500 active:scale-90 transition-transform">
+                    <Phone className="w-4 h-4" />
                  </a>
                  <button 
                    onClick={onMessage}
-                   className="w-12 h-12 rounded-2xl bg-[#7F77DD]/10 border border-[#7F77DD]/20 flex items-center justify-center text-[#7F77DD] active:scale-90 transition-transform"
+                   className="w-9 h-9 rounded-xl bg-[#7F77DD]/10 border border-[#7F77DD]/20 flex items-center justify-center text-[#7F77DD] active:scale-90 transition-transform"
                  >
-                    <MessageSquare className="w-5 h-5" />
+                    <MessageSquare className="w-4 h-4" />
                  </button>
               </div>
             </div>
 
+            {/* Distance / Progress Section */}
             {(isOnTrip || isArriving) && (
-              <div className="space-y-2">
-                 <div className="flex justify-between items-center">
-                    <p className="text-[10px] font-black text-neutral-500 uppercase tracking-widest italic">
+              <div className="space-y-1 px-1">
+                 <div className="flex justify-between items-center text-[8.5px] font-black uppercase tracking-wider">
+                    <span className="text-neutral-400 dark:text-neutral-500">
                       {isOnTrip ? 'Safarni...' : 'Njia ya kufuata mteja...'}
-                    </p>
-                    <p className="text-[10px] font-black text-[#7F77DD] italic">
+                    </span>
+                    <span className="text-[#7F77DD] italic font-bold">
                       {distance?.toFixed(1) || (ride.distance?.toFixed(1) || '0.0')} km imebaki
-                    </p>
+                    </span>
                  </div>
-                 <div className="h-2 bg-[#0a0a0f] rounded-full overflow-hidden border border-[#1e1e2e]">
+                 <div className="h-1.5 bg-neutral-100 dark:bg-[#0a0a0f] rounded-full overflow-hidden border border-neutral-200 dark:border-neutral-850">
                     <motion.div 
-                       className="h-full bg-[#1D9E75]"
+                       className="h-full bg-emerald-500 dark:bg-[#1D9E75]"
                        initial={{ width: '0%' }}
                        animate={{ width: `${progress}%` }}
                     />
@@ -163,62 +171,69 @@ export default function DriverTripSheet({ ride, onArrive, onStart, onComplete, o
               </div>
             )}
 
-            <div className="bg-[#0a0a0f] border border-[#1e1e2e] rounded-3xl p-5 space-y-4">
-              <div className="flex items-start gap-4">
-                <div className={`mt-1.5 w-2 h-2 ${isArriving || isArrived ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-neutral-800'} rounded-full`} />
-                <div className="flex-1 overflow-hidden">
-                   <p className="text-[9px] font-black text-neutral-600 uppercase mb-0.5">Pickup</p>
-                   <p className="text-sm font-bold text-white truncate leading-tight">{ride.pickup.address}</p>
+            {/* Compact Addresses */}
+            <div className="bg-neutral-50/20 dark:bg-[#0a0a0f]/20 border border-neutral-150 dark:border-neutral-850 rounded-2xl p-3 space-y-2 text-left">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className={`w-2 h-2 ${isArriving || isArrived ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-neutral-300 dark:bg-neutral-800'} rounded-full shrink-0`} />
+                <div className="min-w-0 flex-1">
+                   <p className="text-[11.5px] font-bold text-neutral-700 dark:text-neutral-200 truncate leading-none">
+                     <span className="text-[8px] font-black text-neutral-400 dark:text-neutral-500 uppercase mr-1">PICKUP:</span>
+                     {ride.pickup.address}
+                   </p>
                 </div>
               </div>
-              <div className="flex items-start gap-4">
-                <div className={`mt-1.5 w-2 h-2 ${isOnTrip ? 'bg-[#D85A30] shadow-[0_0_10px_rgba(216,90,48,0.5)]' : 'bg-neutral-800'} rounded-full`} />
-                <div className="flex-1 overflow-hidden">
-                   <p className="text-[9px] font-black text-neutral-600 uppercase mb-0.5">Destination</p>
-                   <p className="text-sm font-bold text-white truncate leading-tight">{ride.destination.address}</p>
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className={`w-2 h-2 ${isOnTrip ? 'bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.5)]' : 'bg-neutral-300 dark:bg-neutral-800'} rounded-full shrink-0`} />
+                <div className="min-w-0 flex-1">
+                   <p className="text-[11.5px] font-bold text-neutral-700 dark:text-neutral-200 truncate leading-none">
+                     <span className="text-[8px] font-black text-neutral-400 dark:text-neutral-500 uppercase mr-1">DEST:</span>
+                     {ride.destination.address}
+                   </p>
                 </div>
               </div>
             </div>
 
+            {/* Waiting Timer for Arrived */}
             {isArrived && (
-              <div className="flex items-center justify-between px-4 py-2 bg-[#7F77DD]/5 rounded-2xl border border-[#7F77DD]/20">
-                 <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
-                    <p className="text-[10px] font-black text-neutral-400 uppercase italic">Mteja Anasubiri...</p>
+              <div className="flex items-center justify-between px-3 py-1.5 bg-amber-500/5 rounded-xl border border-amber-500/20">
+                 <div className="flex items-center gap-1.5">
+                    <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
+                    <p className="text-[9px] font-black text-amber-500 uppercase italic">Mteja Anasubiri...</p>
                  </div>
-                 <p className="text-sm font-black italic font-mono text-amber-500">{formatTimer(waitTimer)} →</p>
+                 <p className="text-xs font-black italic font-mono text-amber-500">{formatTimer(waitTimer)} →</p>
               </div>
             )}
 
+            {/* Action Trigger Buttons */}
             {isArriving && (
               <button 
                 onClick={onArrive}
-                className="w-full h-16 rounded-2xl bg-white text-[#0a0a0f] font-black uppercase italic text-lg shadow-[0_10px_30px_rgba(255,255,255,0.1)] active:scale-95 transition-all flex items-center justify-center gap-2"
+                className="w-full h-11 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:brightness-105 text-white font-black uppercase italic text-xs shadow-[0_6px_20px_rgba(16,185,129,0.3)] active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                NIMEFIKA <ArrowRight className="w-6 h-6" />
+                NIMEFIKA <ArrowRight className="w-4 h-4" />
               </button>
             )}
 
             {isArrived && (
               <button 
                 onClick={onStart}
-                className="w-full h-16 rounded-2xl bg-[#1D9E75] text-white font-black uppercase italic text-lg shadow-[0_10px_30px_rgba(29,158,117,0.3)] active:scale-95 transition-all flex items-center justify-center gap-2"
+                className="w-full h-11 rounded-xl bg-gradient-to-r from-emerald-500 to-[#1D9E75] hover:brightness-105 text-white font-black uppercase italic text-xs shadow-[0_6px_20px_rgba(29,158,117,0.3)] active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                ANZA SAFARI <ArrowRight className="w-6 h-6" />
+                ANZA SAFARI <ArrowRight className="w-4 h-4" />
               </button>
             )}
 
             {isOnTrip && (
               <button 
                 onClick={onComplete}
-                className="w-full h-16 rounded-2xl bg-[#D85A30] text-white font-black uppercase italic text-lg shadow-[0_10px_30_rgba(216,90,48,0.3)] active:scale-95 transition-all flex items-center justify-center gap-2"
+                className="w-full h-11 rounded-xl bg-gradient-to-r from-orange-500 to-red-600 hover:brightness-105 text-white font-black uppercase italic text-xs shadow-[0_6px_20px_rgba(216,90,48,0.3)] active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                MALIZA SAFARI <CheckCircle2 className="w-5 h-5" />
+                MALIZA SAFARI <CheckCircle2 className="w-4 h-4" />
               </button>
             )}
           </>
         )}
-      </div>
-    </motion.div>
+      </motion.div>
+    </div>
   );
 }
