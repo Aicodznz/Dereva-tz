@@ -3222,6 +3222,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
                   setDeclinedRequests(prev => new Set(prev).add(incomingRequest.id));
                   setIncomingRequest(null);
                 }}
+                theme={theme}
               />
             )}
 
