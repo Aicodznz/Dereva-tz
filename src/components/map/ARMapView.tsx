@@ -147,6 +147,8 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
   const [isLoadingRoute, setIsLoadingRoute] = useState(false);
   const [quizError, setQuizError] = useState<string | null>(null);
 
+  const activeStop = arRoute?.stops?.[currentStopIndex] || null;
+
   // Navigation & GPS States
   const [userLocation, setUserLocation] = useState(userCoords || { lat: -6.7924, lng: 39.2083 });
   const [targetVendor, setTargetVendor] = useState<any>(null);
@@ -1069,11 +1071,13 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
                   <div className="flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-orange-500 animate-ping" />
                     <span className="text-[10px] font-black uppercase tracking-[0.25em] text-orange-500">
-                      📷 Scan mazingira
+                      {activeStop?.isVisualMapped ? '📡 PRO AR SPATIAL SCAN' : '📷 Scan mazingira'}
                     </span>
                   </div>
                   <h3 className="text-sm font-black uppercase text-white leading-tight">
-                    {scanProgress < 100 ? 'Inatafuta alama za mazingira...' : 'Mazingira yametambuliwa! ✅'}
+                    {scanProgress < 100 
+                      ? (activeStop?.isVisualMapped ? 'Inasawazisha SLAM Coordinates...' : 'Inatafuta alama za mazingira...') 
+                      : 'Mazingira yametambuliwa! ✅'}
                   </h3>
                   
                   {/* Progress Bar */}
@@ -1088,7 +1092,9 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
                   
                   <p className="text-[9px] text-neutral-400 leading-normal">
                     {scanProgress < 100 
-                      ? 'Tafadhali zungusha kamera polepole ili kuruhusu algorithms za WebAR kupata SLAM surface anchors...' 
+                      ? (activeStop?.isVisualMapped 
+                          ? `Inafunga anchor ya 3D iliyosanidiwa umbali wa mita ${activeStop.anchorDistance || 3.5} na mzunguko wa ${activeStop.anchorRotation || 0}°` 
+                          : 'Tafadhali zungusha kamera polepole ili kuruhusu algorithms za WebAR kupata SLAM surface anchors...') 
                       : 'Hongera! Kituo kimefunguliwa kwa mafanikio! Fungua sasa kupata tuzo yako.'}
                   </p>
                 </div>
@@ -1563,14 +1569,20 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
                         key={item.idx}
                         style={{
                           left: `${item.horizontalPercent}%`,
-                          top: '45%',
+                          top: stop.isVisualMapped && stop.anchorHeight !== undefined 
+                            ? `calc(45% - ${stop.anchorHeight * 15}px)` 
+                            : '45%',
                           transform: 'translate(-50%, -50%)',
                         }}
                         className="absolute flex flex-col items-center justify-center transition-all duration-75 z-20"
                       >
                         {/* 3D Floating Tag Card */}
                         <motion.div 
-                          style={{ scale: item.scale }}
+                          style={{ 
+                            scale: stop.isVisualMapped && stop.anchorScale !== undefined 
+                              ? item.scale * stop.anchorScale 
+                              : item.scale 
+                          }}
                           animate={{ y: [0, -12, 0] }}
                           transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
                           className="bg-[#0B0C10]/95 backdrop-blur-xl border-2 border-orange-500/80 p-5 rounded-[2.25rem] w-80 text-center shadow-[0_25px_60px_rgba(249,115,22,0.35)] flex flex-col items-center relative overflow-hidden pointer-events-auto"
@@ -1578,7 +1590,14 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
                           <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-orange-500 via-yellow-400 to-orange-500" />
                           
                           {/* Animated 3D Avatar Simulator */}
-                          <div className="w-20 h-20 rounded-full bg-orange-600/20 border-2 border-orange-500/60 flex items-center justify-center text-4xl mb-3 shadow-lg relative overflow-hidden animate-[pulse_1.5s_infinite]">
+                          <div 
+                            style={{
+                              transform: stop.isVisualMapped && stop.anchorRotation !== undefined 
+                                ? `rotate(${stop.anchorRotation}deg)` 
+                                : undefined
+                            }}
+                            className="w-20 h-20 rounded-full bg-orange-600/20 border-2 border-orange-500/60 flex items-center justify-center text-4xl mb-3 shadow-lg relative overflow-hidden animate-[pulse_1.5s_infinite]"
+                          >
                             <span className="animate-bounce">{stopEmoji}</span>
                             <span className="absolute bottom-1 text-[8px] font-black uppercase text-orange-400 bg-black/50 px-1.5 py-0.5 rounded-full">
                               {[
@@ -1597,9 +1616,16 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
                             </span>
                           </div>
 
-                          <span className="px-2.5 py-1 bg-orange-500/10 border border-orange-500/20 rounded-full text-[8.5px] font-black uppercase tracking-widest text-orange-500 mb-1.5 animate-pulse">
-                            Kituo cha AR Active
-                          </span>
+                          <div className="flex gap-1.5 mb-1.5 flex-wrap justify-center items-center">
+                            <span className="px-2.5 py-1 bg-orange-500/10 border border-orange-500/20 rounded-full text-[8.5px] font-black uppercase tracking-widest text-orange-500 animate-pulse">
+                              Kituo cha AR Active
+                            </span>
+                            {stop.isVisualMapped && (
+                              <span className="px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-[8px] font-black uppercase tracking-wider text-emerald-400 flex items-center gap-0.5 shadow-sm">
+                                <CheckCircle className="w-2.5 h-2.5" /> PRO SLAM
+                              </span>
+                            )}
+                          </div>
 
                           <h3 className="text-base font-black uppercase text-white leading-none tracking-tight mb-1">{stop.stopName || stop.name}</h3>
                           <p className="text-[10px] text-neutral-300 font-medium leading-relaxed mb-3">{stop.stopDescription || stop.voiceText}</p>
