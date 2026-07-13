@@ -2133,18 +2133,10 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
       }
     } 
     // Phase 2: Driver -> Destination (Point B) [ORANGE Route]
+    // We disable automatic completion in the proximity detector to prevent premature trip ending.
+    // The driver will manually press the "MALIZA SAFARI" button to complete the trip.
     else if (status === 'on_trip') {
-      const distToDest = getDistanceDriver(
-        [position[0], position[1]], 
-        [activeRide.destination.lat, activeRide.destination.lng]
-      );
-      
-      if (distToDest < ARRIVAL_THRESHOLD_METERS) {
-        console.log(`[Proximity Detector] Within ${distToDest.toFixed(1)}m of destination. Triggering handleComplete.`);
-        handleComplete().catch(err => {
-          console.warn("[Proximity] Auto-completion trigger failed:", err);
-        });
-      }
+      // Manual completion only
     }
   }, [isOnline, position, activeRide?.status, activeRide?.id, arrivedAtPickup]);
 
