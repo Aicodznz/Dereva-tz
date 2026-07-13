@@ -3770,20 +3770,20 @@ export default function TaxiBooking() {
                     </span>
                   </div>
 
-                  <div className={`border rounded-2xl p-4 relative ${theme === 'dark' ? 'bg-[#0e0e15] border-neutral-800/80' : 'bg-neutral-50 border-neutral-200/60'}`}>
-                    <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-emerald-500 to-[#7F77DD] opacity-30 rounded-t-2xl" />
+                  <div className={`border rounded-[2rem] p-5 relative shadow-[0_12px_40px_rgba(0,0,0,0.03)] transition-all duration-300 hover:shadow-[0_16px_48px_rgba(0,0,0,0.06)] ${theme === 'dark' ? 'bg-[#111118]/90 border-neutral-800' : 'bg-white border-neutral-100/80'}`}>
+                    <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-emerald-500 via-indigo-500 to-[#7F77DD] rounded-t-[2rem] opacity-90" />
                     <div className="space-y-4">
                       <div 
-                        className="flex items-center gap-3 cursor-pointer"
+                        className="flex items-center gap-4 bg-neutral-50/70 dark:bg-neutral-900/60 border border-neutral-100 dark:border-neutral-850 p-3.5 rounded-2xl cursor-pointer group focus-within:border-indigo-500/50 focus-within:bg-white dark:focus-within:bg-neutral-900 transition-all duration-300 shadow-inner"
                         onClick={() => setSettingMode("destination")}
                       >
                         <div
-                          className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${settingMode === "destination" ? "bg-red-500 text-white shadow-md scale-95" : (theme === 'dark' ? "bg-neutral-800 text-neutral-400" : "bg-neutral-200/60 text-neutral-500")}`}
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 ${settingMode === "destination" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20" : (theme === 'dark' ? "bg-neutral-800 text-neutral-400 group-hover:text-neutral-200" : "bg-neutral-200/60 text-neutral-500 group-hover:text-neutral-700")}`}
                         >
                           <Search className="w-4 h-4" />
                         </div>
                         <div className="flex-1 overflow-hidden">
-                          <p className="text-[8.5px] font-black text-neutral-400 uppercase tracking-wider mb-0.5">
+                          <p className="text-[8.5px] font-black uppercase tracking-[0.15em] text-indigo-500 dark:text-indigo-400 mb-1">
                             UNAKWENDA WAPI?
                           </p>
                           <input
@@ -3794,7 +3794,7 @@ export default function TaxiBooking() {
                               geocodeAddress(e.target.value);
                             }}
                             onFocus={() => setSettingMode("destination")}
-                            className={`w-full bg-transparent text-xs font-black border-none outline-none p-0 ${theme === 'dark' ? 'text-neutral-200 placeholder:text-neutral-700' : 'text-neutral-800 placeholder:text-neutral-400'}`}
+                            className={`w-full bg-transparent text-[13px] font-black border-none outline-none p-0 focus:ring-0 leading-tight ${theme === 'dark' ? 'text-neutral-100 placeholder:text-neutral-700' : 'text-neutral-850 placeholder:text-neutral-400'}`}
                             placeholder="Andika hapa unapoenda"
                           />
                         </div>
@@ -3806,54 +3806,14 @@ export default function TaxiBooking() {
                               setIsMapFullscreen(true);
                               toast.success("Gusa popote kwenye ramani ili kuchagua unakokwenda! 📍");
                             }}
-                            className={`w-9 h-9 flex items-center justify-center rounded-xl border active:scale-90 transition-all shadow-sm group ${theme === 'dark' ? 'bg-indigo-950/40 border-indigo-900 text-indigo-400 hover:bg-indigo-900/60' : 'bg-indigo-50 border-indigo-100 text-indigo-600 hover:bg-indigo-100'}`}
+                            className={`w-10 h-10 flex items-center justify-center rounded-xl border active:scale-90 transition-all shadow-sm group ${theme === 'dark' ? 'bg-indigo-950/50 border-indigo-900/40 text-indigo-400 hover:bg-indigo-900/80 hover:text-indigo-300' : 'bg-indigo-50/80 border-indigo-100 text-indigo-600 hover:bg-indigo-100/90 hover:text-indigo-700'}`}
                             title="Chagua kwa Ramani"
                           >
-                            <Map className="w-3.5 h-3.5 group-hover:scale-105 transition-transform" />
+                            <Map className="w-4 h-4 group-hover:scale-105 transition-transform" />
                           </button>
                         </div>
                       </div>
                     </div>
-
-                    {/* Compact slide banner of active promotional banners inside/under the destination box */}
-                    {(() => {
-                      const isHomepageOnly = config.taxiBannerPlacement === 'homepage';
-                      const showBannerHere = isHomepageOnly ? !destination : true;
-                      if (!showBannerHere || taxiBanners.length === 0) return null;
-                      return (
-                        <div className="w-full mt-3 pt-3 border-t border-white/5 overflow-hidden">
-                          <div className="flex gap-2.5 overflow-x-auto pb-1 no-scrollbar snap-x scroll-smooth">
-                            {taxiBanners.map((banner, idx) => (
-                              <div
-                                key={`taxi-banner-${banner.id || idx}`}
-                                className="min-w-full h-24 rounded-2xl overflow-hidden relative snap-center shadow-md group border border-white/5 shrink-0"
-                              >
-                                <img
-                                  src={banner.img}
-                                  alt={banner.title}
-                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-                                  referrerPolicy="no-referrer"
-                                />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent flex flex-col justify-end p-3.5 text-white">
-                                  <span className="absolute top-1.5 left-2 flex items-center gap-1 px-1.5 py-0.5 bg-white/10 backdrop-blur-md rounded-full border border-white/15 text-[7.5px] font-black uppercase tracking-widest text-[#00E5A0]">
-                                    Ofa Maalum
-                                  </span>
-                                  <h4 className="text-[11px] font-black uppercase italic tracking-tight">{banner.title}</h4>
-                                  <p className="text-[8.5px] opacity-80 font-bold uppercase tracking-wider">{banner.sub}</p>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                          {taxiBanners.length > 1 && (
-                            <div className="flex justify-center gap-1 mt-1.5">
-                              {taxiBanners.map((_, i) => (
-                                <div key={`dot-${i}`} className="w-1 h-1 rounded-full bg-white/20" />
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
 
                     {suggestions.length > 0 && (
                       <div className={`absolute left-0 right-0 top-full mt-2 z-[100] border shadow-2xl rounded-2xl overflow-hidden max-h-[300px] overflow-y-auto ${theme === 'dark' ? 'bg-[#111118] border-neutral-800 text-neutral-200' : 'bg-white border-neutral-200'}`}>
@@ -3897,6 +3857,46 @@ export default function TaxiBooking() {
                       </div>
                     )}
                   </div>
+
+                  {/* Compact slide banner of active promotional banners styled beautifully as a separate element */}
+                  {(() => {
+                    const isHomepageOnly = config.taxiBannerPlacement === 'homepage';
+                    const showBannerHere = isHomepageOnly ? !destination : true;
+                    if (!showBannerHere || taxiBanners.length === 0) return null;
+                    return (
+                      <div className={`w-full p-4 rounded-3xl border shadow-sm transition-all duration-300 hover:shadow-md overflow-hidden ${theme === 'dark' ? 'bg-neutral-900/30 border-neutral-800/80' : 'bg-neutral-50 border-neutral-100/50'}`}>
+                        <div className="flex gap-2.5 overflow-x-auto pb-1 no-scrollbar snap-x scroll-smooth">
+                          {taxiBanners.map((banner, idx) => (
+                            <div
+                              key={`taxi-banner-${banner.id || idx}`}
+                              className="min-w-full h-28 rounded-2xl overflow-hidden relative snap-center shadow-md group border border-white/5 shrink-0"
+                            >
+                              <img
+                                src={banner.img}
+                                alt={banner.title}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                                referrerPolicy="no-referrer"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/35 to-transparent flex flex-col justify-end p-4 text-white">
+                                <span className="absolute top-2 left-2.5 flex items-center gap-1 px-2 py-0.5 bg-emerald-500/20 backdrop-blur-md rounded-full border border-emerald-500/30 text-[8px] font-black uppercase tracking-widest text-[#00E5A0]">
+                                  Ofa Maalum
+                                </span>
+                                <h4 className="text-xs font-black uppercase italic tracking-tight">{banner.title}</h4>
+                                <p className="text-[9px] opacity-95 font-bold uppercase tracking-wider text-neutral-300">{banner.sub}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        {taxiBanners.length > 1 && (
+                          <div className="flex justify-center gap-1.5 mt-2">
+                            {taxiBanners.map((_, i) => (
+                              <div key={`dot-${i}`} className="w-1.5 h-1.5 rounded-full bg-indigo-500/30" />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
 
 
 
@@ -4031,7 +4031,11 @@ export default function TaxiBooking() {
                       }
                     }}
                     disabled={isCreatingRide || !destination || suggestions.length > 0}
-                    className="w-full h-16 bg-indigo-600 hover:bg-indigo-700 text-white rounded-3xl font-black italic uppercase text-xs tracking-[0.2em] flex items-center justify-between px-10 disabled:opacity-30 disabled:grayscale transition-all active:scale-95 shadow-lg relative overflow-hidden group animate-pulse"
+                    className={`w-full h-16 rounded-3xl font-black italic uppercase text-xs tracking-[0.2em] flex items-center justify-between px-10 transition-all duration-300 active:scale-95 relative overflow-hidden group shadow-lg ${
+                      (!destination || suggestions.length > 0)
+                        ? "bg-neutral-200 dark:bg-neutral-850 text-neutral-400 dark:text-neutral-500 border border-neutral-300/20 dark:border-neutral-800 cursor-not-allowed opacity-80"
+                        : "bg-gradient-to-r from-indigo-600 via-[#7F77DD] to-purple-600 text-white shadow-[0_8px_30px_rgba(99,102,241,0.25)] hover:shadow-[0_12px_40px_rgba(99,102,241,0.4)] hover:scale-[1.01]"
+                    }`}
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
                     <span className="relative z-10">

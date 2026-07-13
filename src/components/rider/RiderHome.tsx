@@ -2967,13 +2967,13 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={toggleEarnings}
+                onClick={() => setShowEarningsModal(prev => !prev)}
                 className={`w-10 h-10 border rounded-xl shadow-lg flex flex-col items-center justify-center transition-all ${
-                  showEarnings ? 'bg-[#7F77DD] border-[#7F77DD] text-white' : 'bg-white/95 dark:bg-[#111118]/90 border-neutral-200/50 dark:border-[#1e1e2e] text-neutral-500 hover:text-neutral-850 dark:hover:text-white'
+                  showEarningsModal ? 'bg-[#7F77DD] border-[#7F77DD] text-white' : 'bg-white/95 dark:bg-[#111118]/90 border-neutral-200/50 dark:border-[#1e1e2e] text-neutral-500 hover:text-neutral-850 dark:hover:text-white'
                 }`}
                 title="Tazama au ficha mapato ya leo"
               >
-                {showEarnings ? <Eye className="w-3.5 h-3.5" /> : <TrendingUp className="w-3.5 h-3.5" />}
+                {showEarningsModal ? <Eye className="w-3.5 h-3.5 animate-pulse" /> : <TrendingUp className="w-3.5 h-3.5" />}
                 <span className="text-[6px] font-black mt-0.5 uppercase tracking-tighter leading-none">Mapato</span>
               </motion.button>
             </>
