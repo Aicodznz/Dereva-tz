@@ -21,6 +21,7 @@ import {
   Clock,
   Star,
   ChevronRight,
+  ChevronUp,
   X as CloseX,
   Phone,
   MessageSquare,
@@ -3720,15 +3721,15 @@ export default function TaxiBooking() {
               initial={{ y: "100%" }}
               animate={{
                 y: isMapFullscreen
-                  ? "calc(100% - 68px)"
+                  ? "calc(100% - 115px)"
                   : isMinimized
-                    ? "calc(100% - 75px)"
+                    ? "calc(100% - 115px)"
                     : 0,
               }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className={`absolute bottom-0 left-0 right-0 z-[9999] rounded-t-[24px] border-t shadow-[0_-12px_40px_rgba(0,0,0,0.12)] max-h-[85dvh] overflow-y-auto no-scrollbar transition-all duration-300 ${
-                isMinimized || isMapFullscreen ? "p-3 pb-6 space-y-2" : "p-5 pb-10 space-y-4"
-              } ${theme === 'dark' ? 'bg-[#111118] border-neutral-800' : 'bg-white border-neutral-200/80'}`}
+              transition={{ type: "spring", damping: 24, stiffness: 180 }}
+              className={`absolute bottom-0 left-0 right-0 z-[9999] rounded-t-[32px] border-t shadow-[0_-12px_48px_rgba(0,0,0,0.15)] max-h-[74dvh] overflow-y-auto no-scrollbar transition-all duration-300 ${
+                isMinimized || isMapFullscreen ? "p-4 pb-8 space-y-2" : "p-5 pb-9 space-y-3.5"
+              } ${theme === 'dark' ? 'bg-[#111118]/95 backdrop-blur-md border-neutral-800/80' : 'bg-white/95 backdrop-blur-md border-neutral-250/60'}`}
             >
               <div
                 className="w-full h-8 flex items-center justify-center cursor-pointer group -mt-4 relative"
@@ -4063,11 +4064,11 @@ export default function TaxiBooking() {
               )}
 
               {(isMinimized || isMapFullscreen) && (
-                <div className="py-1 flex flex-col items-center justify-center gap-0.5 opacity-80">
-                  <div className="w-6 h-6 rounded-full bg-[#7F77DD]/20 flex items-center justify-center mb-0.5">
-                    <ChevronRight className="w-3 h-3 text-[#7F77DD] -rotate-90" />
+                <div className="py-2 flex flex-col items-center justify-center gap-1.5 transition-all duration-300">
+                  <div className="w-8 h-8 rounded-full bg-indigo-500/10 dark:bg-indigo-500/20 flex items-center justify-center shadow-sm animate-bounce">
+                    <ChevronUp className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                   </div>
-                  <p className="text-[8px] font-black text-neutral-500 uppercase tracking-[0.2em]">
+                  <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.22em] animate-pulse">
                     Bofya hapa kuendelea
                   </p>
                 </div>
