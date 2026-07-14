@@ -285,7 +285,7 @@ export function createDriverMarkerIcon(
   const centerAccent = isDark ? 'bg-emerald-500/10' : 'bg-emerald-600/10';
 
   return L.divIcon({
-    className: 'custom-driver-marker-wrapper',
+    className: 'custom-driver-marker-wrapper driver-marker-smooth',
     html: `
       <div class="relative flex items-center justify-center w-[54px] h-[54px]">
         <!-- Rotating GPS Dotted Halo Ring -->

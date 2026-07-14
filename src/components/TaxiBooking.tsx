@@ -1856,7 +1856,7 @@ export default function TaxiBooking() {
         }
 
         return L.divIcon({
-          className: "driver-marker-icon-clean-custom-topdown",
+          className: "driver-marker-icon-clean-custom-topdown driver-marker-smooth",
           html: `
             <div class="relative flex items-center justify-center pointer-events-none" style="width: 44px; height: 44px;">
               <!-- Gentle micro pulse for premium active visibility -->
@@ -1884,7 +1884,7 @@ export default function TaxiBooking() {
         const flipTransform = isMovingEast ? "scaleX(-1)" : "scaleX(1)";
 
         return L.divIcon({
-          className: "driver-marker-icon-clean-custom",
+          className: "driver-marker-icon-clean-custom driver-marker-smooth",
           html: `
             <div class="relative flex items-center justify-center transition-all duration-300" style="width: 34px; height: 34px;">
               <!-- Gentle micro pulse for premium active visibility -->
@@ -1909,7 +1909,7 @@ export default function TaxiBooking() {
 
     // Default top-down vectors remain rotatable 360 degrees
     return L.divIcon({
-      className: "driver-marker-icon-clean-wrapper",
+      className: "driver-marker-icon-clean-wrapper driver-marker-smooth",
       html: `
         <div class="relative flex items-center justify-center w-[46px] h-[46px]">
           <!-- Active sonar radar ripple radiating under the driver -->

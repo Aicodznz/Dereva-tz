@@ -34,7 +34,7 @@ export function useMatchmaking(ride: Ride | null) {
 
   const isMockDriver = ride?.driverId === 'mock_driver_123';
 
-  // Watchdog timer to monitor driver inactivity
+  // Watchdog timer to monitor driver inactivity (ONLY for mock drivers)
   useEffect(() => {
     if (!ride) {
       setIsTakeoverActive(false);
@@ -45,31 +45,9 @@ export function useMatchmaking(ride: Ride | null) {
       return;
     }
 
-    const activeStatuses = ['accepted', 'driver_arriving', 'driver_arrived', 'on_trip'];
-    if (!activeStatuses.includes(ride.status)) {
-      setIsTakeoverActive(false);
-      return;
-    }
-
-    // Check for inactivity every 1.5 seconds.
-    // Take over simulation if no update from real driver GPS for 3 seconds (e.g. phone locked, screen off, app backgrounded or battery dead).
-    const watchdog = setInterval(() => {
-      const timeSinceLastUpdate = Date.now() - lastRealLocationUpdateRef.current;
-      if (timeSinceLastUpdate > 3000) {
-        if (!isTakeoverActive) {
-          console.log("[Watchdog] Driver is offline/backgrounded. Activating smooth client-side location projection takeover!");
-          setIsTakeoverActive(true);
-        }
-      } else {
-        if (isTakeoverActive) {
-          console.log("[Watchdog] Real driver GPS active. Deactivating simulation takeover.");
-          setIsTakeoverActive(false);
-        }
-      }
-    }, 1500);
-
-    return () => clearInterval(watchdog);
-  }, [ride?.id, ride?.status, isMockDriver, isTakeoverActive]);
+    // Completely disable simulation/takeover writes for real drivers
+    setIsTakeoverActive(false);
+  }, [ride?.id, ride?.status, isMockDriver]);
 
   // Monitor location changes to reset watchdog timer
   useEffect(() => {
