@@ -8,7 +8,7 @@ import {
   Globe, Info, FileText, CheckCircle2, ChevronRight, 
   ChevronLeft, Camera, Image as ImageIcon, Box,
   Wifi, Car, Waves, Utensils, Beer, Dumbbell, Users,
-  Plane, Wind, Shirt, Bell, Umbrella, Star
+  Plane, Wind, Shirt, Bell, Umbrella, Star, Upload
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -18,6 +18,7 @@ import { useLanguage } from '../../LanguageContext';
 import { useBusinessConfig } from '../../BusinessConfigContext';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
+import { storageService } from '../../services/storageService';
 
 const AMENITIES_OPTIONS = [
   { id: 'wifi', label: 'Free WiFi', icon: Wifi },
@@ -126,6 +127,34 @@ export default function RegisterVendor() {
     agreeTerms: false,
     agreeVerification: false,
   });
+
+  const [isUploading, setIsUploading] = useState({
+    license: false,
+    taxCert: false
+  });
+
+  const handleFileUpload = async (type: 'license' | 'taxCert', file: File) => {
+    setIsUploading(prev => ({ ...prev, [type]: true }));
+    try {
+      const uniqueName = `${Date.now()}_${file.name}`;
+      const path = `vendors/pending/${user?.uid || 'temp_vendor'}/${type}_${uniqueName}`;
+      const url = await storageService.uploadFile('vendors', path, file);
+      
+      setFormData(prev => ({
+        ...prev,
+        [type === 'license' ? 'licenseUrl' : 'taxCertUrl']: url
+      }));
+      
+      toast.success(`${
+        type === 'license' ? 'Leseni ya Biashara' : 'Cheti cha Kodi'
+      } imepakiwa kikamilifu!`);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(`Imeshindwa kupakia: ${err.message}`);
+    } finally {
+      setIsUploading(prev => ({ ...prev, [type]: false }));
+    }
+  };
 
   const handleCategoryChange = (val: string) => {
     const categoryToServiceId: Record<string, string> = {
@@ -437,13 +466,89 @@ export default function RegisterVendor() {
               <label className="text-[10px] font-black uppercase text-neutral-400">TIN Number *</label>
               <Input required value={formData.tinNumber} onChange={e => setFormData({...formData, tinNumber: e.target.value})} className="h-12 bg-neutral-50 border-none rounded-xl" />
             </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase text-neutral-400">Business License (URL) *</label>
-              <Input required value={formData.licenseUrl} onChange={e => setFormData({...formData, licenseUrl: e.target.value})} placeholder="Link to license doc" className="h-12 bg-neutral-50 border-none rounded-xl" />
-            </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase text-neutral-400">Tax Certificate (Optiona URL)</label>
-              <Input value={formData.taxCertUrl} onChange={e => setFormData({...formData, taxCertUrl: e.target.value})} className="h-12 bg-neutral-50 border-none rounded-xl" />
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+              {/* Business License */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-neutral-400">Business License *</label>
+                <div 
+                  onClick={() => document.getElementById('license-vendor-input')?.click()}
+                  className={`border-2 border-dashed rounded-2xl p-4 text-center text-xs font-bold hover:border-orange-500 cursor-pointer transition-all group relative overflow-hidden flex flex-col justify-center items-center h-28 ${formData.licenseUrl ? 'border-orange-500/50 bg-orange-50/10' : 'border-neutral-300'}`}
+                >
+                  <input 
+                    id="license-vendor-input" 
+                    type="file" 
+                    className="hidden" 
+                    onChange={e => e.target.files?.[0] && handleFileUpload('license', e.target.files[0])} 
+                  />
+                  {isUploading.license ? (
+                    <div className="flex flex-col items-center">
+                      <Loader2 className="w-6 h-6 animate-spin text-orange-500 mb-1" />
+                      <span className="text-[10px] text-orange-500 animate-pulse font-black uppercase">Inapakia...</span>
+                    </div>
+                  ) : formData.licenseUrl ? (
+                    <div className="flex flex-col items-center">
+                      <CheckCircle2 className="w-6 h-6 text-emerald-500 mb-1" />
+                      <span className="text-emerald-500 uppercase font-black tracking-wider text-[10px]">License Loaded ✓</span>
+                      <span className="text-[9px] text-neutral-400 font-bold mt-1">Gusa kubadilisha</span>
+                    </div>
+                  ) : (
+                    <>
+                      <Upload className="w-6 h-6 text-neutral-400 group-hover:text-orange-600 mb-1" />
+                      <span className="text-neutral-600">Pakia Leseni ya Biashara</span>
+                    </>
+                  )}
+                </div>
+                {formData.licenseUrl && (
+                  <Input 
+                    value={formData.licenseUrl} 
+                    onChange={e => setFormData({...formData, licenseUrl: e.target.value})} 
+                    placeholder="Au weka Link (URL)" 
+                    className="h-10 bg-neutral-50/50 border-none rounded-xl text-[10px]" 
+                  />
+                )}
+              </div>
+
+              {/* Tax Certificate */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-neutral-400">Tax Certificate (Optional)</label>
+                <div 
+                  onClick={() => document.getElementById('taxCert-vendor-input')?.click()}
+                  className={`border-2 border-dashed rounded-2xl p-4 text-center text-xs font-bold hover:border-orange-500 cursor-pointer transition-all group relative overflow-hidden flex flex-col justify-center items-center h-28 ${formData.taxCertUrl ? 'border-orange-500/50 bg-orange-50/10' : 'border-neutral-300'}`}
+                >
+                  <input 
+                    id="taxCert-vendor-input" 
+                    type="file" 
+                    className="hidden" 
+                    onChange={e => e.target.files?.[0] && handleFileUpload('taxCert', e.target.files[0])} 
+                  />
+                  {isUploading.taxCert ? (
+                    <div className="flex flex-col items-center">
+                      <Loader2 className="w-6 h-6 animate-spin text-orange-500 mb-1" />
+                      <span className="text-[10px] text-orange-500 animate-pulse font-black uppercase">Inapakia...</span>
+                    </div>
+                  ) : formData.taxCertUrl ? (
+                    <div className="flex flex-col items-center">
+                      <CheckCircle2 className="w-6 h-6 text-emerald-500 mb-1" />
+                      <span className="text-emerald-500 uppercase font-black tracking-wider text-[10px]">Cheti Kimepakiwa ✓</span>
+                      <span className="text-[9px] text-neutral-400 font-bold mt-1">Gusa kubadilisha</span>
+                    </div>
+                  ) : (
+                    <>
+                      <Upload className="w-6 h-6 text-neutral-400 group-hover:text-orange-600 mb-1" />
+                      <span className="text-neutral-600">Pakia Cheti cha Tax (TIN)</span>
+                    </>
+                  )}
+                </div>
+                {formData.taxCertUrl && (
+                  <Input 
+                    value={formData.taxCertUrl} 
+                    onChange={e => setFormData({...formData, taxCertUrl: e.target.value})} 
+                    placeholder="Au weka Link (URL)" 
+                    className="h-10 bg-neutral-50/50 border-none rounded-xl text-[10px]" 
+                  />
+                )}
+              </div>
             </div>
           </motion.div>
         );
