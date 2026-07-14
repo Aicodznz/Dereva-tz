@@ -1229,6 +1229,10 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
   // Synchronize dynamicRoute to simulatedPath once generated
   useEffect(() => {
     if (dynamicRoute && dynamicRoute.length > 2 && activeRide) {
+      // ONLY run simulation setup if explicitly marked as a simulation ride!
+      if (!(activeRide as any).isSimulation && !(activeRide as any).simulated) {
+        return;
+      }
       const status = activeRide.status;
       // If status changed or simulated path is empty, initialize simulation path
       if (activeStatusRef.current !== status || simulatedPathRef.current.length === 0) {
@@ -2013,7 +2017,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
               lastErrorTime = now;
             }
           }, 
-          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+          { enableHighAccuracy: true, timeout: 20000, maximumAge: 5000 }
         );
       }
     };
