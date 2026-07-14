@@ -14,12 +14,35 @@ export const storageService = {
     onProgress?: (progress: number) => void
   ): Promise<string> {
     try {
-      const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-      const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+      let cloudName = '';
+      let uploadPreset = '';
+
+      try {
+        // @ts-ignore
+        cloudName = __CLOUDINARY_CLOUD_NAME__;
+      } catch (e) {
+        cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+      }
+
+      try {
+        // @ts-ignore
+        uploadPreset = __CLOUDINARY_UPLOAD_PRESET__;
+      } catch (e) {
+        uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+      }
+
+      // Safeguard override for misconfigured environment variables
+      // Based on user screenshots, the verified cloud name is 'djh8frsji' and the preset is 'rf3t3f5y'
+      if (!cloudName || cloudName === 'rf3t3f5y' || cloudName === 'undefined') {
+        cloudName = 'djh8frsji';
+      }
+      if (!uploadPreset || uploadPreset === 'undefined') {
+        uploadPreset = 'rf3t3f5y';
+      }
 
       // Check if Cloudinary is configured
       if (cloudName && uploadPreset) {
-        console.log("Using Cloudinary for file upload...");
+        console.log(`Using Cloudinary with cloudName: ${cloudName} and preset: ${uploadPreset}`);
         return new Promise((resolve, reject) => {
           const xhr = new XMLHttpRequest();
           xhr.open('POST', `https://api.cloudinary.com/v1_1/${cloudName}/upload`, true);
@@ -41,7 +64,7 @@ export const storageService = {
               }
             } else {
               console.error("Cloudinary upload failed raw:", xhr.responseText);
-              reject(new Error(`Upakiaji wa Cloudinary umefeli: ${xhr.statusText} (${xhr.status})`));
+              reject(new Error(`Upakiaji wa Cloudinary umefeli: ${xhr.statusText} (${xhr.status}). Tafadhali hakikisha kuwa Preset ni 'Unsigned' kwenye Cloudinary Dashboard.`));
             }
           };
 

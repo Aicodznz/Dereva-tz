@@ -223,7 +223,13 @@ interface TwilioResponderTabProps {
 export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId, vendorCategory }) => {
   const [activeTab, setActiveTab] = useState<'meta' | 'twilio'>('meta');
   
-  // Twilio States
+  // Twilio & Africa's Talking States
+  const [smsProvider, setSmsProvider] = useState<'twilio' | 'africastalking'>('twilio');
+  const [atUsername, setAtUsername] = useState('sandbox');
+  const [atApiKey, setAtApiKey] = useState('');
+  const [atSenderId, setAtSenderId] = useState('');
+  const [copiedAtWebhook, setCopiedAtWebhook] = useState(false);
+  
   const [copied, setCopied] = useState(false);
   const [isEnabled, setIsEnabled] = useState(true);
   const [welcomeText, setWelcomeText] = useState(
@@ -682,6 +688,10 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
           const data = snap.data();
           if (data.welcomeText) setWelcomeText(data.welcomeText);
           if (data.isEnabled !== undefined) setIsEnabled(data.isEnabled);
+          if (data.smsProvider) setSmsProvider(data.smsProvider);
+          if (data.atUsername) setAtUsername(data.atUsername);
+          if (data.atApiKey) setAtApiKey(data.atApiKey);
+          if (data.atSenderId) setAtSenderId(data.atSenderId);
         }
       } catch (err) {
         console.warn("Could not load vendor specific SMS config:", err);
@@ -790,6 +800,10 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
       await setDoc(docRef, {
         welcomeText,
         isEnabled,
+        smsProvider,
+        atUsername,
+        atApiKey,
+        atSenderId,
         updatedAt: new Date()
       }, { merge: true });
       toast.success("Mipangilio imehifadhiwa vizuri!");
@@ -3711,85 +3725,169 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
               </div>
               <div className="relative z-10 space-y-2">
                 <span className="bg-white/20 text-white font-bold text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full inline-block">
-                  INTEGRATION ALIVE (AUTOMATIC WAY)
+                  SMS & WHATSAPP INTEGRATION
                 </span>
-                <h2 className="text-2xl font-black uppercase tracking-tight italic">Twilio SMS Bot</h2>
+                <h2 className="text-2xl font-black uppercase tracking-tight italic">
+                  {smsProvider === 'twilio' ? "Twilio SMS & WhatsApp" : "Africa's Talking SMS"}
+                </h2>
                 <p className="text-sm text-emerald-50/90 leading-relaxed font-normal max-w-xl">
-                  Unganisha mfumo wako mzima wa Papo Hapo na huduma za Twilio WhatsApp API na SMS. Wateja wako wanaweza kuagiza Taxi, kukata tiketi za Mabasi, kufanya booking saluni na kuagiza chakula moja kwa moja kupitia WhatsApp na ujumbe wa kawaida wa SMS!
+                  Unganisha mfumo wako mzima wa Papo Hapo na huduma za SMS na WhatsApp. Wateja wako wanaweza kuagiza Taxi, kukata tiketi za Mabasi, kufanya booking saluni na kuagiza chakula moja kwa moja kupitia ujumbe wa kawaida wa SMS!
                 </p>
               </div>
             </div>
 
-            {/* Webhook Configuration Details */}
-            <Card className="border border-neutral-100 hover:shadow-xs transition-shadow duration-300 dark:border-neutral-800">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg font-bold flex items-center gap-2 dark:text-neutral-100 uppercase tracking-wide">
-                  <Globe className="w-5 h-5 text-emerald-500" />
-                  <span>Sanidi Twilio WhatsApp & SMS Webhook</span>
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  Hatua rahisi za kuunganisha namba yako ya Twilio WhatsApp API au SMS:
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-1.5 p-3.5 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200/50 dark:border-neutral-800/80 rounded-xl">
-                  <label className="text-xs font-black uppercase tracking-wider text-neutral-500 block">
-                    Twilio Webhook Endpoint URL (Hii inafanya kazi kwa SMS na WhatsApp zote!)
-                  </label>
-                  <div className="flex gap-2 items-center mt-1">
-                    <Input 
-                      readOnly 
-                      value={`${window.location.origin}/api/twilio/sms`} 
-                      className="font-mono text-xs select-all bg-white dark:bg-black h-9 border-neutral-200 py-1"
-                    />
-                    <Button 
-                      size="sm" 
-                      onClick={handleCopyWebhook} 
-                      className={`h-9 shrink-0 gap-1.5 ${copied ? 'bg-green-600 hover:bg-green-700' : 'bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200'}`}
-                    >
-                      {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                      <span className="text-xs font-bold uppercase tracking-wider">
-                        {copied ? 'Copied' : 'Copy'}
-                      </span>
-                    </Button>
-                  </div>
-                </div>
+            {/* Provider Selector Tabs */}
+            <div className="flex bg-neutral-100 dark:bg-neutral-900 p-1.5 rounded-xl border border-neutral-200/50 dark:border-neutral-800/80 gap-1.5">
+              <button
+                type="button"
+                onClick={() => setSmsProvider('twilio')}
+                className={`flex-1 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-300 flex items-center justify-center gap-2 ${
+                  smsProvider === 'twilio'
+                    ? 'bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white shadow-xs border border-neutral-200/40 dark:border-neutral-700/40 font-black'
+                    : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-300'
+                }`}
+              >
+                <span>🔴 Twilio WhatsApp & SMS</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSmsProvider('africastalking')}
+                className={`flex-1 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-300 flex items-center justify-center gap-2 ${
+                  smsProvider === 'africastalking'
+                    ? 'bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white shadow-xs border border-neutral-200/40 dark:border-neutral-700/40 font-black'
+                    : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-300'
+                }`}
+              >
+                <span>🌍 Africa's Talking (TZ & East Africa)</span>
+              </button>
+            </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="text-xs space-y-2 text-neutral-600 dark:text-neutral-400 leading-relaxed bg-emerald-500/5 p-4 rounded-xl border border-emerald-500/10">
-                    <p className="font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider text-[10px]">NJIA A: WhatsApp Integration (Twilio Sandbox)</p>
-                    <ol className="list-decimal list-inside space-y-1">
-                      <li>Ingia kwenye <a href="https://twilio.com/console" target="_blank" rel="noopener noreferrer" className="underline font-bold text-emerald-600">Twilio Console</a>.</li>
-                      <li>Nenda <b>Messaging</b> &gt; <b>Try it out</b> &gt; <b>Send a WhatsApp Message</b>.</li>
-                      <li>Tuma ujumbe uliopo (mfano: <i>join sandbox-name</i>) kwenda namba ya WhatsApp ya Twilio Sandbox (<b>+1 415 523 8886</b>).</li>
-                      <li>Chini ya sehemu ya <b>Sandbox Settings</b>, weka Webhook URL ya juu kwenye <b>"WHEN A MESSAGE COMES IN"</b>.</li>
-                      <li>Chagua njia ya <b>HTTP POST</b> na ubonyeze <b>Save</b>!</li>
+            {smsProvider === 'twilio' ? (
+              /* Webhook Configuration Details - Twilio */
+              <Card className="border border-neutral-100 hover:shadow-xs transition-shadow duration-300 dark:border-neutral-800">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg font-bold flex items-center gap-2 dark:text-neutral-100 uppercase tracking-wide">
+                    <Globe className="w-5 h-5 text-emerald-500" />
+                    <span>Sanidi Twilio WhatsApp & SMS Webhook</span>
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Hatua rahisi za kuunganisha namba yako ya Twilio WhatsApp API au SMS:
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-1.5 p-3.5 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200/50 dark:border-neutral-800/80 rounded-xl">
+                    <label className="text-xs font-black uppercase tracking-wider text-neutral-500 block">
+                      Twilio Webhook Endpoint URL (Hii inafanya kazi kwa SMS na WhatsApp zote!)
+                    </label>
+                    <div className="flex gap-2 items-center mt-1">
+                      <Input 
+                        readOnly 
+                        value={`${window.location.origin}/api/twilio/sms`} 
+                        className="font-mono text-xs select-all bg-white dark:bg-black h-9 border-neutral-200 py-1"
+                      />
+                      <Button 
+                        size="sm" 
+                        onClick={handleCopyWebhook} 
+                        className={`h-9 shrink-0 gap-1.5 ${copied ? 'bg-green-600 hover:bg-green-700' : 'bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200'}`}
+                      >
+                        {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                        <span className="text-xs font-bold uppercase tracking-wider">
+                          {copied ? 'Copied' : 'Copy'}
+                        </span>
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="text-xs space-y-2 text-neutral-600 dark:text-neutral-400 leading-relaxed bg-emerald-500/5 p-4 rounded-xl border border-emerald-500/10">
+                      <p className="font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider text-[10px]">NJIA A: WhatsApp Integration (Twilio Sandbox)</p>
+                      <ol className="list-decimal list-inside space-y-1 text-[11px]">
+                        <li>Ingia kwenye <a href="https://twilio.com/console" target="_blank" rel="noopener noreferrer" className="underline font-bold text-emerald-600">Twilio Console</a>.</li>
+                        <li>Nenda <b>Messaging</b> &gt; <b>Try it out</b> &gt; <b>Send a WhatsApp Message</b>.</li>
+                        <li>Tuma ujumbe uliopo (mfano: <i>join sandbox-name</i>) kwenda namba ya WhatsApp ya Twilio Sandbox (<b>+1 415 523 8886</b>).</li>
+                        <li>Chini ya sehemu ya <b>Sandbox Settings</b>, weka Webhook URL ya juu kwenye <b>"WHEN A MESSAGE COMES IN"</b>.</li>
+                        <li>Chagua njia ya <b>HTTP POST</b> na ubonyeze <b>Save</b>!</li>
+                      </ol>
+                    </div>
+
+                    <div className="text-xs space-y-2 text-neutral-600 dark:text-neutral-400 leading-relaxed bg-blue-500/5 p-4 rounded-xl border border-blue-500/10">
+                      <p className="font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider text-[10px]">NJIA B: SMS Integration (Namba za Kawaida)</p>
+                      <ol className="list-decimal list-inside space-y-1 text-[11px]">
+                        <li>Nenda sehemu ya <b>Active Numbers</b> kwenye Twilio.</li>
+                        <li>Chagua namba yako ya simu ya kibiashara.</li>
+                        <li>Tembea chini mpaka sehemu ya <b>Messaging</b>.</li>
+                        <li>Chini ya <b>A MESSAGE COMES IN</b>, weka <b>Webhook</b> na ubandike URL uliyonakili hapo juu.</li>
+                        <li>Chagua <b>HTTP POST</b> na ubonyeze <b>Save</b>!</li>
+                      </ol>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              /* Webhook Configuration Details - Africa's Talking */
+              <Card className="border border-neutral-100 hover:shadow-xs transition-shadow duration-300 dark:border-neutral-800 animate-fade-in">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg font-bold flex items-center gap-2 dark:text-neutral-100 uppercase tracking-wide">
+                    <Globe className="w-5 h-5 text-emerald-500" />
+                    <span>Sanidi Africa's Talking SMS Webhook</span>
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Hatua za kuunganisha mfumo wako wa SMS wa Africa's Talking:
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-1.5 p-3.5 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200/50 dark:border-neutral-800/80 rounded-xl">
+                    <label className="text-xs font-black uppercase tracking-wider text-neutral-500 block">
+                      Africa's Talking Callback Webhook URL
+                    </label>
+                    <div className="flex gap-2 items-center mt-1">
+                      <Input 
+                        readOnly 
+                        value={`${window.location.origin}/api/africastalking/sms?vendorId=${vendorId}`} 
+                        className="font-mono text-xs select-all bg-white dark:bg-black h-9 border-neutral-200 py-1"
+                      />
+                      <Button 
+                        size="sm" 
+                        onClick={() => {
+                          const webhookUrl = `${window.location.origin}/api/africastalking/sms?vendorId=${vendorId}`;
+                          navigator.clipboard.writeText(webhookUrl);
+                          setCopiedAtWebhook(true);
+                          toast.success("Africa's Talking Webhook URL copied!");
+                          setTimeout(() => setCopiedAtWebhook(false), 2000);
+                        }} 
+                        className={`h-9 shrink-0 gap-1.5 ${copiedAtWebhook ? 'bg-green-600 hover:bg-green-700' : 'bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200'}`}
+                      >
+                        {copiedAtWebhook ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                        <span className="text-xs font-bold uppercase tracking-wider">
+                          {copiedAtWebhook ? 'Copied' : 'Copy'}
+                        </span>
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="text-xs space-y-2.5 text-neutral-600 dark:text-neutral-400 leading-relaxed bg-amber-500/5 p-4 rounded-xl border border-amber-500/10">
+                    <p className="font-bold text-amber-600 dark:text-amber-500 uppercase tracking-wider text-[10px]">MIONGOZO YA KUSANIDI CALLBACK URL:</p>
+                    <ol className="list-decimal list-inside space-y-1.5 text-[11px]">
+                      <li>Ingia kwenye akaunti yako ya <a href="https://account.africastalking.com/" target="_blank" rel="noopener noreferrer" className="underline font-bold text-orange-600">Africa's Talking Console</a>.</li>
+                      <li>Chagua Sandbox App au Live App yako.</li>
+                      <li>Kwenye menu ya kushoto nenda <b>SMS</b> &gt; <b>SMS Callback URLs</b> &gt; <b>Incoming Messages</b>.</li>
+                      <li>Bandika Webhook Callback URL uliyokopya hapo juu kwenye kisanduku husika.</li>
+                      <li>Bofya <b>Submit</b> ili kuhifadhi. Mfumo utakuwa tayari kupokea SMS na kujibu kiotomatiki kwa kutumia usajili uliojaza hapa chini!</li>
                     </ol>
                   </div>
-
-                  <div className="text-xs space-y-2 text-neutral-600 dark:text-neutral-400 leading-relaxed bg-blue-500/5 p-4 rounded-xl border border-blue-500/10">
-                    <p className="font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider text-[10px]">NJIA B: SMS Integration (Namba za Kawaida)</p>
-                    <ol className="list-decimal list-inside space-y-1">
-                      <li>Nenda sehemu ya <b>Active Numbers</b> kwenye Twilio.</li>
-                      <li>Chagua namba yako ya simu ya kibiashara.</li>
-                      <li>Tembea chini mpaka sehemu ya <b>Messaging</b>.</li>
-                      <li>Chini ya <b>A MESSAGE COMES IN</b>, weka <b>Webhook</b> na ubandike URL uliyonakili hapo juu.</li>
-                      <li>Chagua <b>HTTP POST</b> na ubonyeze <b>Save</b>!</li>
-                    </ol>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Global Settings Configuration */}
             <Card className="border border-neutral-100 dark:border-neutral-800">
               <CardHeader>
                 <CardTitle className="text-lg font-bold flex items-center gap-2 uppercase tracking-wide dark:text-neutral-100">
                   <Settings className="w-5 h-5 text-orange-500" />
-                  <span>Auto-Responder Customize</span>
+                  <span>Kichocheo na Credentials za Auto-Responder</span>
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Sanidi ujumbe wa kwanza kulingana na profile ya biashara yako:
+                  Sanidi ujumbe wa kwanza na taarifa za credential kulingana na profile ya biashara yako:
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -3823,6 +3921,58 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                   </span>
                 </div>
 
+                {smsProvider === 'africastalking' && (
+                  <div className="space-y-4 pt-4 border-t border-neutral-100 dark:border-neutral-800 animate-fade-in">
+                    <div className="bg-orange-500/5 p-3 rounded-xl border border-orange-500/10 mb-2">
+                      <span className="text-[11px] font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wider block mb-1">
+                        Africa's Talking API Credentials
+                      </span>
+                      <p className="text-[10px] text-neutral-500 leading-relaxed">
+                        Tafadhali jaza sifa hizi ili mfumo uweze kuwasiliana na API za Africa's Talking kwa ajili ya kutuma SMS. Weka jina la mtumiaji kuwa <b>sandbox</b> ili kujaribu bila gharama.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 block">
+                          Username (AT Username)
+                        </label>
+                        <Input
+                          value={atUsername}
+                          onChange={(e) => setAtUsername(e.target.value)}
+                          placeholder="Mfano: sandbox au jina lako"
+                          className="text-xs h-9 bg-white dark:bg-black"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 block">
+                          Sender ID / Short Code (Hiari)
+                        </label>
+                        <Input
+                          value={atSenderId}
+                          onChange={(e) => setAtSenderId(e.target.value)}
+                          placeholder="Mfano: PAPOHAPO au 15001"
+                          className="text-xs h-9 bg-white dark:bg-black"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 block">
+                        API Key (AT API Key)
+                      </label>
+                      <Input
+                        type="password"
+                        value={atApiKey}
+                        onChange={(e) => setAtApiKey(e.target.value)}
+                        placeholder="Weka API Key yako ya Africa's Talking..."
+                        className="text-xs h-9 font-mono bg-white dark:bg-black"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-2 pt-2">
                   <label className="text-xs font-bold text-neutral-700 dark:text-neutral-300 uppercase tracking-widest block">
                     Test Customer Phone (Namba ya Majaribio)
@@ -3842,7 +3992,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                   onClick={handleSaveSettings} 
                   className="w-full h-10 mt-2 bg-neutral-900 text-white dark:bg-white dark:text-black font-extrabold text-xs uppercase tracking-widest hover:bg-neutral-800 dark:hover:bg-neutral-100 shrink-0 transition-transform active:scale-[0.98]"
                 >
-                  Hifadhi Maelezo ya SMS
+                  Hifadhi Mipangilio ya SMS
                 </Button>
               </CardContent>
             </Card>

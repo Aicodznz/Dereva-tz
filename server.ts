@@ -56,6 +56,38 @@ async function startServer() {
     }
   });
 
+  // Africa's Talking incoming Webhook (receives Form urlencoded POST with 'from' and 'text')
+  app.post("/api/africastalking/sms", async (req, res) => {
+    const fromPhone = req.body.from || "unknown";
+    const textBody = req.body.text || "";
+    const vendorId = req.query.vendorId ? String(req.query.vendorId) : "admin-global";
+
+    console.log(`[Africa's Talking Webhook] Received from ${fromPhone}: "${textBody}" for vendor: ${vendorId}`);
+
+    if (fromPhone === "unknown") {
+      return res.status(400).json({ error: "Missing sender phone number (from)" });
+    }
+
+    try {
+      // 1. Process message through SMS Bot logic
+      const replyMessage = await handleSMSInput(fromPhone, textBody, dbAdmin, vendorId);
+
+      // 2. Send the reply back to the user via Africa's Talking
+      const { sendAfricaTalkingSMS } = await import("./src/lib/smsBot.js");
+      const result = await sendAfricaTalkingSMS(fromPhone, replyMessage, dbAdmin, vendorId);
+
+      if (result.success) {
+        res.status(200).json({ status: "success", reply: replyMessage });
+      } else {
+        console.error("[Africa's Talking Hook] Failed to send response back:", result.error);
+        res.status(500).json({ error: "Failed to send SMS reply", details: result.error });
+      }
+    } catch (error: any) {
+      console.error("[Africa's Talking Hook] Error processing SMS:", error);
+      res.status(500).json({ error: "Failed to process Africa's Talking webhook", details: error.message });
+    }
+  });
+
   // GET Meta Webhook Verification (WhatsApp, Facebook Messenger, Instagram)
   app.get("/api/meta/webhook", (req, res) => {
     // Helper to extract nested or flat query parameters

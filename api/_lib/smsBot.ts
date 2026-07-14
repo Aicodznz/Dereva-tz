@@ -186,13 +186,31 @@ async function triggerMockOrder(
 export async function handleSMSInput(
   fromPhone: string, 
   textBody: string, 
-  dbAdmin: any
+  dbAdmin: any,
+  vendorId: string = 'admin-global'
 ): Promise<string> {
   const cleanInput = textBody.trim();
   const lowerInput = cleanInput.toLowerCase();
   
   // Get existing flow session
   const session = await getSession(fromPhone, dbAdmin);
+
+  // Fetch custom welcome message if available
+  let welcomeMessage = defaultTwilioConfig.welcomeMessage;
+  if (dbAdmin) {
+    try {
+      const docRef = dbAdmin.collection('vendors').doc(vendorId).collection('settings').doc('sms_config');
+      const docSnap = await docRef.get();
+      if (docSnap.exists) {
+        const data = docSnap.data();
+        if (data.welcomeText) {
+          welcomeMessage = data.welcomeText;
+        }
+      }
+    } catch (e) {
+      console.warn("[SMS Bot] Failed to load custom welcome message:", e);
+    }
+  }
 
   // Restart trigger
   const isGreeting = ['hi', 'mambo', 'vip', 'vipi', 'habari', 'hello', 'habari gani', 'anza', 'start', 'menu', 'ya', 'oje', 'hodi'].includes(lowerInput);
@@ -214,7 +232,7 @@ export async function handleSMSInput(
     session.optionsList = [];
     
     await saveSession(session, dbAdmin);
-    return defaultTwilioConfig.welcomeMessage;
+    return welcomeMessage;
   }
 
   // Step 1: Selecting Category Service
@@ -721,5 +739,76 @@ export async function handleSMSInput(
   // Fallback reset
   session.step = 'START';
   await saveSession(session, dbAdmin);
-  return defaultTwilioConfig.welcomeMessage;
+  return welcomeMessage;
+}
+
+/**
+ * Sends an SMS response using Africa's Talking REST API
+ */
+export async function sendAfricaTalkingSMS(
+  to: string, 
+  message: string, 
+  dbAdmin: any, 
+  vendorId: string = 'admin-global'
+): Promise<{ success: boolean; data?: string; error?: string }> {
+  try {
+    if (!dbAdmin) {
+      console.warn("[Africa's Talking] Missing dbAdmin");
+      return { success: false, error: "Database not initialized" };
+    }
+
+    const docRef = dbAdmin.collection('vendors').doc(vendorId).collection('settings').doc('sms_config');
+    const docSnap = await docRef.get();
+    if (!docSnap.exists) {
+      console.warn("[Africa's Talking] sms_config document does not exist for vendor:", vendorId);
+      return { success: false, error: "sms_config not configured in Firestore" };
+    }
+
+    const data = docSnap.data();
+    const username = data.atUsername || "";
+    const apiKey = data.atApiKey || "";
+    const senderId = data.atSenderId || "";
+
+    if (!username || !apiKey) {
+      console.warn("[Africa's Talking] Missing username or apiKey for vendor:", vendorId);
+      return { success: false, error: "Africa's Talking Username au API Key haijawekwa kwenye Mipangilio" };
+    }
+
+    const isSandbox = username.toLowerCase() === 'sandbox';
+    const url = isSandbox 
+      ? 'https://api.sandbox.africastalking.com/version1/messaging'
+      : 'https://api.africastalking.com/version1/messaging';
+
+    const params = new URLSearchParams();
+    params.append('username', username);
+    params.append('to', to);
+    params.append('message', message);
+    if (senderId) {
+      params.append('from', senderId);
+    }
+
+    console.log(`[Africa's Talking] Outgoing SMS to ${to} via ${isSandbox ? 'Sandbox' : 'Live'}`);
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'apiKey': apiKey
+      },
+      body: params.toString()
+    });
+
+    const responseText = await response.text();
+    console.log(`[Africa's Talking] API Response:`, responseText);
+
+    if (response.ok) {
+      return { success: true, data: responseText };
+    } else {
+      return { success: false, error: responseText };
+    }
+  } catch (error: any) {
+    console.error("[Africa's Talking] Error sending SMS:", error);
+    return { success: false, error: error.message };
+  }
 }
