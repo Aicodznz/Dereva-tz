@@ -5,7 +5,7 @@ export type BucketName = 'profiles' | 'vendors' | 'products' | 'reviews';
 
 export const storageService = {
   /**
-   * Upload a file to a specific path in Firebase Storage with progress tracking
+   * Upload a file to a specific path in Firebase Storage or Cloudinary with progress tracking
    */
   async uploadFile(
     bucket: BucketName, 
@@ -14,6 +14,51 @@ export const storageService = {
     onProgress?: (progress: number) => void
   ): Promise<string> {
     try {
+      const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+      const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+
+      // Check if Cloudinary is configured
+      if (cloudName && uploadPreset) {
+        console.log("Using Cloudinary for file upload...");
+        return new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', `https://api.cloudinary.com/v1_1/${cloudName}/upload`, true);
+          
+          xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable && onProgress) {
+              const progress = (event.loaded / event.total) * 100;
+              onProgress(progress);
+            }
+          };
+
+          xhr.onload = () => {
+            if (xhr.status === 200 || xhr.status === 201) {
+              try {
+                const response = JSON.parse(xhr.responseText);
+                resolve(response.secure_url || response.url);
+              } catch (err) {
+                reject(new Error("Mrejesho wa Cloudinary haukuweza kusomwa (Failed to parse Cloudinary response)."));
+              }
+            } else {
+              console.error("Cloudinary upload failed raw:", xhr.responseText);
+              reject(new Error(`Upakiaji wa Cloudinary umefeli: ${xhr.statusText} (${xhr.status})`));
+            }
+          };
+
+          xhr.onerror = () => {
+            reject(new Error("Hitilafu ya mtandao wakati wa kupakia Cloudinary (Network error uploading to Cloudinary)."));
+          };
+
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('upload_preset', uploadPreset);
+          formData.append('folder', `papo_hapo/${bucket}`);
+          
+          xhr.send(formData);
+        });
+      }
+
+      console.log("Cloudinary not configured. Falling back to Firebase Storage.");
       const storageRef = ref(storage, `${bucket}/${path}`);
       
       // Use uploadBytes instead of uploadBytesResumable for better compatibility in some environments

@@ -16,6 +16,7 @@ import { useLanguage } from '../../LanguageContext';
 import { toast } from 'sonner';
 
 import { useBusinessConfig } from '../../BusinessConfigContext';
+import { storageService } from '../../services/storageService';
 
 type DriverType = 'taxi' | 'delivery' | null;
 
@@ -27,6 +28,14 @@ export default function RegisterDriver() {
   const [loading, setLoading] = useState(false);
   const [driverType, setDriverType] = useState<DriverType>(null);
   const [step, setStep] = useState(0);
+
+  const [isUploading, setIsUploading] = useState({
+    profilePhoto: false,
+    licenseFront: false,
+    licenseBack: false,
+    nida: false,
+    latra: false
+  });
 
   const [formData, setFormData] = useState({
     fullName: profile?.fullName || profile?.displayName || user?.displayName || '',
@@ -48,6 +57,12 @@ export default function RegisterDriver() {
     latraNumber: '',
     latraExpiry: '',
     nidaNumber: '',
+    // File Upload URLs
+    photoURL: profile?.photoURL || '',
+    licenseFrontUrl: '',
+    licenseBackUrl: '',
+    nidaUrl: '',
+    latraUrl: '',
     // Work/Payment
     mobileMoneyNumber: '',
     bankAccount: '',
@@ -60,13 +75,47 @@ export default function RegisterDriver() {
     deliveryRegion: 'inside'
   });
 
+  const handleFileUpload = async (type: 'profilePhoto' | 'licenseFront' | 'licenseBack' | 'nida' | 'latra', file: File) => {
+    setIsUploading(prev => ({ ...prev, [type]: true }));
+    try {
+      let path = '';
+      const uniqueName = `${Date.now()}_${file.name}`;
+      if (type === 'profilePhoto') {
+        path = storageService.getProfilePath(user?.uid || 'temp_driver', file.name);
+      } else {
+        path = `drivers/${user?.uid || 'temp_driver'}/${type}_${uniqueName}`;
+      }
+      
+      const url = await storageService.uploadFile('profiles', path, file);
+      
+      setFormData(prev => ({
+        ...prev,
+        [type === 'profilePhoto' ? 'photoURL' : type + 'Url']: url
+      }));
+      
+      toast.success(`${
+        type === 'profilePhoto' ? 'Picha ya selfie' : 
+        type === 'licenseFront' ? 'Leseni ya mbele' : 
+        type === 'licenseBack' ? 'Leseni ya nyuma' : 
+        type === 'nida' ? 'Kitambulisho cha NIDA' : 
+        'LATRA'
+      } imepakiwa kikamilifu!`);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(`Imeshindwa kupakia picha: ${err.message}`);
+    } finally {
+      setIsUploading(prev => ({ ...prev, [type]: false }));
+    }
+  };
+
   useEffect(() => {
     if (user && profile) {
       setFormData(prev => ({
         ...prev,
         fullName: prev.fullName || profile.fullName || profile.displayName || user.displayName || '',
         email: prev.email || profile.email || user.email || '',
-        phone: prev.phone || profile.phoneNumber || ''
+        phone: prev.phone || profile.phoneNumber || '',
+        photoURL: prev.photoURL || profile.photoURL || ''
       }));
     }
   }, [user, profile]);
@@ -211,9 +260,34 @@ export default function RegisterDriver() {
               <Lock className="absolute left-3 top-3.5 w-5 h-5 text-neutral-400" />
               <Input type="password" required placeholder="Password" className="pl-10 h-12 bg-neutral-50/50 rounded-xl border-none" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
             </div>
-            <div className="border-2 border-dashed border-neutral-200 rounded-2xl p-4 text-center hover:border-orange-300 transition-colors cursor-pointer group">
-              <Upload className="w-8 h-8 text-neutral-400 mx-auto mb-2 group-hover:text-orange-600" />
-              <p className="text-xs font-bold text-neutral-600">Upload Profile Photo (Selfie)</p>
+            <div 
+              onClick={() => document.getElementById('profilePhoto-input')?.click()}
+              className={`border-2 border-dashed rounded-2xl p-4 text-center hover:border-orange-300 transition-all cursor-pointer group relative overflow-hidden ${formData.photoURL ? 'border-orange-500/50 bg-orange-50/10' : 'border-neutral-200'}`}
+            >
+              <input 
+                id="profilePhoto-input" 
+                type="file" 
+                accept="image/*" 
+                className="hidden" 
+                onChange={e => e.target.files?.[0] && handleFileUpload('profilePhoto', e.target.files[0])} 
+              />
+              {isUploading.profilePhoto ? (
+                <div className="py-2">
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-orange-500" />
+                  <p className="text-[11px] font-bold text-orange-500 animate-pulse uppercase tracking-wider">Inapakia picha...</p>
+                </div>
+              ) : formData.photoURL ? (
+                <div>
+                  <img src={formData.photoURL} alt="Profile selfie" className="w-16 h-16 rounded-full object-cover mx-auto mb-2 border border-orange-500/20" />
+                  <p className="text-[11px] font-black text-emerald-500 uppercase tracking-widest">Selfie Imepakiwa! ✓</p>
+                  <p className="text-[9px] text-neutral-400 font-bold mt-0.5">Bofya kubadilisha</p>
+                </div>
+              ) : (
+                <>
+                  <Upload className="w-8 h-8 text-neutral-400 mx-auto mb-2 group-hover:text-orange-600" />
+                  <p className="text-xs font-bold text-neutral-600">Upload Profile Photo (Selfie)</p>
+                </>
+              )}
             </div>
           </motion.div>
         );
@@ -295,22 +369,113 @@ export default function RegisterDriver() {
               <Input placeholder="NIDA Number" className="h-12 bg-neutral-50/50 rounded-xl border-none" value={formData.nidaNumber} onChange={e => setFormData({...formData, nidaNumber: e.target.value})} />
               
               <div className="grid grid-cols-2 gap-3">
-                <div className="border border-dashed border-neutral-300 rounded-xl p-3 text-center text-[10px] font-bold hover:border-orange-500 cursor-pointer transition-colors group">
-                   <Upload className="w-4 h-4 mx-auto mb-1 text-neutral-400 group-hover:text-orange-600" />
-                   License Front
+                {/* License Front */}
+                <div 
+                  onClick={() => document.getElementById('licenseFront-input')?.click()}
+                  className={`border border-dashed rounded-xl p-3 text-center text-[10px] font-bold hover:border-orange-500 cursor-pointer transition-all group relative overflow-hidden flex flex-col justify-center items-center h-24 ${formData.licenseFrontUrl ? 'border-orange-500/50 bg-orange-50/10' : 'border-neutral-300'}`}
+                >
+                  <input 
+                    id="licenseFront-input" 
+                    type="file" 
+                    accept="image/*" 
+                    className="hidden" 
+                    onChange={e => e.target.files?.[0] && handleFileUpload('licenseFront', e.target.files[0])} 
+                  />
+                  {isUploading.licenseFront ? (
+                    <Loader2 className="w-5 h-5 animate-spin text-orange-500" />
+                  ) : formData.licenseFrontUrl ? (
+                    <>
+                      <CheckCircle2 className="w-5 h-5 text-emerald-500 mb-1" />
+                      <span className="text-emerald-500 uppercase font-black tracking-wider text-[9px]">License Front ✓</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4 mx-auto mb-1 text-neutral-400 group-hover:text-orange-600" />
+                      License Front
+                    </>
+                  )}
                 </div>
-                <div className="border border-dashed border-neutral-300 rounded-xl p-3 text-center text-[10px] font-bold hover:border-orange-500 cursor-pointer transition-colors group">
-                   <Upload className="w-4 h-4 mx-auto mb-1 text-neutral-400 group-hover:text-orange-600" />
-                   License Back
+
+                {/* License Back */}
+                <div 
+                  onClick={() => document.getElementById('licenseBack-input')?.click()}
+                  className={`border border-dashed rounded-xl p-3 text-center text-[10px] font-bold hover:border-orange-500 cursor-pointer transition-all group relative overflow-hidden flex flex-col justify-center items-center h-24 ${formData.licenseBackUrl ? 'border-orange-500/50 bg-orange-50/10' : 'border-neutral-300'}`}
+                >
+                  <input 
+                    id="licenseBack-input" 
+                    type="file" 
+                    accept="image/*" 
+                    className="hidden" 
+                    onChange={e => e.target.files?.[0] && handleFileUpload('licenseBack', e.target.files[0])} 
+                  />
+                  {isUploading.licenseBack ? (
+                    <Loader2 className="w-5 h-5 animate-spin text-orange-500" />
+                  ) : formData.licenseBackUrl ? (
+                    <>
+                      <CheckCircle2 className="w-5 h-5 text-emerald-500 mb-1" />
+                      <span className="text-emerald-500 uppercase font-black tracking-wider text-[9px]">License Back ✓</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4 mx-auto mb-1 text-neutral-400 group-hover:text-orange-600" />
+                      License Back
+                    </>
+                  )}
                 </div>
-                <div className="border border-dashed border-neutral-300 rounded-xl p-3 text-center text-[10px] font-bold hover:border-orange-500 cursor-pointer transition-colors group">
-                   <Upload className="w-4 h-4 mx-auto mb-1 text-neutral-400 group-hover:text-orange-600" />
-                   NIDA / ID Card
+
+                {/* NIDA Card */}
+                <div 
+                  onClick={() => document.getElementById('nida-input')?.click()}
+                  className={`border border-dashed rounded-xl p-3 text-center text-[10px] font-bold hover:border-orange-500 cursor-pointer transition-all group relative overflow-hidden flex flex-col justify-center items-center h-24 ${formData.nidaUrl ? 'border-orange-500/50 bg-orange-50/10' : 'border-neutral-300'}`}
+                >
+                  <input 
+                    id="nida-input" 
+                    type="file" 
+                    accept="image/*" 
+                    className="hidden" 
+                    onChange={e => e.target.files?.[0] && handleFileUpload('nida', e.target.files[0])} 
+                  />
+                  {isUploading.nida ? (
+                    <Loader2 className="w-5 h-5 animate-spin text-orange-500" />
+                  ) : formData.nidaUrl ? (
+                    <>
+                      <CheckCircle2 className="w-5 h-5 text-emerald-500 mb-1" />
+                      <span className="text-emerald-500 uppercase font-black tracking-wider text-[9px]">NIDA / ID Card ✓</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4 mx-auto mb-1 text-neutral-400 group-hover:text-orange-600" />
+                      NIDA / ID Card
+                    </>
+                  )}
                 </div>
+
+                {/* LATRA Card */}
                 {driverType === 'taxi' && (
-                  <div className="border border-dashed border-neutral-300 rounded-xl p-3 text-center text-[10px] font-bold hover:border-orange-500 cursor-pointer transition-colors group">
-                    <Upload className="w-4 h-4 mx-auto mb-1 text-neutral-400 group-hover:text-orange-600" />
-                    Upload LATRA
+                  <div 
+                    onClick={() => document.getElementById('latra-input')?.click()}
+                    className={`border border-dashed rounded-xl p-3 text-center text-[10px] font-bold hover:border-orange-500 cursor-pointer transition-all group relative overflow-hidden flex flex-col justify-center items-center h-24 ${formData.latraUrl ? 'border-orange-500/50 bg-orange-50/10' : 'border-neutral-300'}`}
+                  >
+                    <input 
+                      id="latra-input" 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={e => e.target.files?.[0] && handleFileUpload('latra', e.target.files[0])} 
+                    />
+                    {isUploading.latra ? (
+                      <Loader2 className="w-5 h-5 animate-spin text-orange-500" />
+                    ) : formData.latraUrl ? (
+                      <>
+                        <CheckCircle2 className="w-5 h-5 text-emerald-500 mb-1" />
+                        <span className="text-emerald-500 uppercase font-black tracking-wider text-[9px]">LATRA ✓</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4 mx-auto mb-1 text-neutral-400 group-hover:text-orange-600" />
+                        Upload LATRA
+                      </>
+                    )}
                   </div>
                 )}
               </div>
