@@ -338,8 +338,37 @@ export async function handleSMSInput(
       }
     }
 
-    const pLoc = getCoordsByName(pickupName, false);
-    const dLoc = getCoordsByName(destName, true);
+    let pLoc = getCoordsByName(pickupName, false);
+    let dLoc = getCoordsByName(destName, true);
+
+    if (dbAdmin) {
+      try {
+        const dSnap = await dbAdmin.collection('drivers')
+          .where('isOnline', '==', true)
+          .get();
+        if (!dSnap.empty) {
+          const onlineDrivers = dSnap.docs.map((doc: any) => doc.data());
+          // Look for any online driver with valid location coordinate
+          const driverWithLoc = onlineDrivers.find((d: any) => d.location && typeof d.location.lat === 'number' && typeof d.location.lng === 'number');
+          if (driverWithLoc) {
+            console.log(`[SMS Bot] Active online driver found at [${driverWithLoc.location.lat}, ${driverWithLoc.location.lng}]. Matching ride coordinates to driver location for seamless testing!`);
+            pLoc = {
+              name: pickupName,
+              lat: driverWithLoc.location.lat,
+              lng: driverWithLoc.location.lng
+            };
+            // Offset destination slightly so there is a distance
+            dLoc = {
+              name: destName,
+              lat: driverWithLoc.location.lat + 0.015,
+              lng: driverWithLoc.location.lng + 0.015
+            };
+          }
+        }
+      } catch (err) {
+        console.warn("[SMS Bot] Failed to auto-detect and match online driver location:", err);
+      }
+    }
 
     // Calculate distance and duration
     const baseDist = calculateDistanceKm(pLoc.lat, pLoc.lng, dLoc.lat, dLoc.lng);
