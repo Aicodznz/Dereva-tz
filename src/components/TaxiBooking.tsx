@@ -273,6 +273,7 @@ const MapControl = ({
   autoFollow,
   routeCoords,
   isMapFullscreen,
+  mapRefitTrigger,
 }: {
   position: [number, number];
   step: string;
@@ -280,10 +281,33 @@ const MapControl = ({
   autoFollow: boolean;
   routeCoords?: [number, number][];
   isMapFullscreen?: boolean;
+  mapRefitTrigger?: number;
 }) => {
   const map = useMap();
   const lastCenterRef = useRef<[number, number] | null>(null);
   const lastRouteHash = useRef<string>("");
+
+  // Handle manual map refitting when mapRefitTrigger changes (re-centers/fits bounds)
+  useEffect(() => {
+    if (mapRefitTrigger && mapRefitTrigger > 0 && position) {
+      try {
+        map.invalidateSize({ animate: false });
+        if (targetPos) {
+          const bounds = L.latLngBounds([position, targetPos]);
+          map.fitBounds(bounds, {
+            padding: [80, 80],
+            maxZoom: 17,
+            animate: true,
+            duration: 1.2,
+          });
+        } else {
+          map.setView(position, 16, { animate: true, duration: 1.0 });
+        }
+      } catch (e) {
+        console.warn("Failed to refit map bounds on trigger:", e);
+      }
+    }
+  }, [mapRefitTrigger, map, position, targetPos]);
 
   // Invalidate map size sequentially on step change or fullscreen change to guarantee correct size calculations on mobile/tablet viewports
   useEffect(() => {
@@ -498,6 +522,7 @@ export default function TaxiBooking() {
   const [showPickupDropdown, setShowPickupDropdown] = useState(false);
   const [showDestinationDropdown, setShowDestinationDropdown] = useState(false);
   const [autoFollow, setAutoFollow] = useState(true);
+  const [mapRefitTrigger, setMapRefitTrigger] = useState(0);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [settingMode, setSettingMode] = useState<"pickup" | "destination">(
     "pickup",
@@ -545,6 +570,11 @@ export default function TaxiBooking() {
   }, []);
 
   const { ride: activeRide, cancelRide, deleteRide } = useTripFlow(rideId);
+
+  // Auto-reset autoFollow to true whenever the booking step or the ride status changes
+  useEffect(() => {
+    setAutoFollow(true);
+  }, [step, activeRide?.status]);
 
   const isSpectator = useMemo(() => {
     const paramRideId = searchParams.get("rideId");
@@ -3272,6 +3302,7 @@ export default function TaxiBooking() {
                       }
                       routeCoords={routeCoords}
                       isMapFullscreen={isMapFullscreen}
+                      mapRefitTrigger={mapRefitTrigger}
                     />
                     <MapRotationController rotation={manualRotation} onRotate={setManualRotation} is3DMode={is3DMode} />
                     {activeRide?.status !== "on_trip" && (
@@ -3480,12 +3511,22 @@ export default function TaxiBooking() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleCurrentLocation();
+                      if (["arriving", "on_trip", "found"].includes(step)) {
+                        setAutoFollow(true);
+                        setMapRefitTrigger((prev) => prev + 1);
+                        toast.success("Ramani sasa inafuatilia dereva kiotomatiki! 🚗");
+                      } else {
+                        handleCurrentLocation();
+                      }
                     }}
-                    title="Angazia Eneo Langu la Sasa"
-                    className="absolute bottom-6 right-6 z-[1000] bg-black/80 hover:bg-black border border-white/20 hover:border-[#00E5A0]/50 text-white rounded-full p-4 shadow-2xl flex items-center justify-center backdrop-blur-md active:scale-95 transition-all hover:shadow-[#00E5A0]/20 hover:shadow-lg"
+                    title={["arriving", "on_trip", "found"].includes(step) ? "Fuata Dereva Kiotomatiki" : "Angazia Eneo Langu la Sasa"}
+                    className={`absolute bottom-6 right-6 z-[1000] bg-black/80 hover:bg-black border rounded-full p-4 shadow-2xl flex items-center justify-center backdrop-blur-md active:scale-95 transition-all hover:shadow-[#00E5A0]/20 hover:shadow-lg ${
+                      ["arriving", "on_trip", "found"].includes(step) && autoFollow
+                        ? "border-[#00E5A0] text-[#00E5A0]"
+                        : "border-white/20 text-white"
+                    }`}
                   >
-                    <Navigation2 className="w-5 h-5 text-[#00E5A0]" />
+                    <Navigation2 className={`w-5 h-5 ${["arriving", "on_trip", "found"].includes(step) && autoFollow ? "text-[#00E5A0] animate-pulse" : ""}`} />
                   </button>
                 </div>
               </motion.div>
