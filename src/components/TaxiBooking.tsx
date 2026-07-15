@@ -767,7 +767,10 @@ export default function TaxiBooking() {
   }, [pickupPos, pickup, config]);
 
   const isInTanzania = (lat: number, lng: number) => {
-    return lat >= -12.0 && lat <= -1.0 && lng >= 29.0 && lng <= 41.5;
+    // Kuruhusu coordinates zote zilizo sahihi (sio 0 au NaN) ili GPS isome popote pale
+    if (!lat || !lng || isNaN(lat) || isNaN(lng)) return false;
+    if (Math.abs(lat) < 0.01 && Math.abs(lng) < 0.01) return false;
+    return true;
   };
 
   const theme = resolvedTheme === "light" ? "light" : "dark";

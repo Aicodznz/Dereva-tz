@@ -23,7 +23,7 @@ export function useNearbyDrivers() {
 
     const unsub = onSnapshot(q, (snap) => {
       const now = Date.now();
-      const twoMinutesAgo = now - (2 * 60 * 1000);
+      const fifteenMinutesAgo = now - (15 * 60 * 1000);
 
       const driverList = snap.docs
         .map(doc => {
@@ -43,8 +43,8 @@ export function useNearbyDrivers() {
           if (!d.location || !d.location.lat || !d.location.lng) return false;
           
           // Check for staleness: if lastActive is significantly old, hide them
-          // (allowing 2 minutes of grace for intermittent connection)
-          if (d.lastActiveTime && d.lastActiveTime < twoMinutesAgo) return false;
+          // (allowing 15 minutes of grace for intermittent connection)
+          if (d.lastActiveTime && d.lastActiveTime < fifteenMinutesAgo) return false;
           
           return true;
         })

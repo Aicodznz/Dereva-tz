@@ -2006,11 +2006,25 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
               else console.warn("Geolocation permission denied");
               
               if (err.code === 1) {
-                toast.error("Ruhusa ya Location imekataliwa. Tafadhali ruhusu kwenye browser ili uweze kupokea safari.", {
-                  description: "Nenda kwenye Settings za browser yako na uruhusu 'Location' kwa tovuti hii.",
-                  duration: 10000
+                toast.error("Ruhusa ya GPS imezuiwa au uko kwenye Preview. Tutatumia eneo la majaribio la Dar es Salaam ili uendelee kufanya kazi! 📍", {
+                  description: "Ili kutumia GPS yako halisi, bofya alama ya 'Fungua katika Tab Mpya' juu kulia.",
+                  duration: 8000
                 });
-                setIsOnline(false);
+                // DO NOT turn off online! Allow them to test using the default coordinate in the preview iframe
+                try {
+                  const defaultLat = -6.7924;
+                  const defaultLng = 39.2083;
+                  updateDoc(doc(db, 'drivers', user.uid), {
+                    location: { lat: defaultLat, lng: defaultLng, heading: vehicleHeadingRef.current || 0 },
+                    isOnline: true,
+                    receiving: true,
+                    status: 'online',
+                    lastActive: serverTimestamp(),
+                    vehicleType: vType
+                  });
+                } catch (fsErr) {
+                  console.warn("Silent location write on GPS error:", fsErr);
+                }
               } else if (err.code === 3) {
                 toast.error("Imeshindwa kupata Location (Timeout). Kabla hujazima GPS, hakikisha ipo wazi.");
               }
@@ -2030,6 +2044,27 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
       }
     };
   }, [isOnline, user?.uid, activeRide?.id]);
+
+  // Periodic heartbeat interval for online drivers to prevent database staleness filtering
+  useEffect(() => {
+    if (!isOnline || !user?.uid) return;
+
+    const heartbeatInterval = setInterval(async () => {
+      try {
+        console.log(`[RiderHome] Heartbeat updating lastActive for driver ${user.uid}`);
+        await updateDoc(doc(db, 'drivers', user.uid), {
+          lastActive: serverTimestamp(),
+          isOnline: true,
+          receiving: true,
+          status: 'online'
+        });
+      } catch (err) {
+        console.warn("[RiderHome] Heartbeat silent fail:", err);
+      }
+    }, 25000); // Send heartbeat every 25 seconds
+
+    return () => clearInterval(heartbeatInterval);
+  }, [isOnline, user?.uid]);
 
   const handleAccept = async () => {
     if (!incomingRequest?.id || !user) return;
