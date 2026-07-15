@@ -3587,41 +3587,36 @@ export default function TaxiBooking() {
           {step === "map" && !isSpectator && (
             <motion.div
               key="map-ui"
-              initial={{ y: "100%" }}
-              animate={{
-                y: isMapFullscreen
-                  ? "calc(100% - 118px)"
-                  : isMinimized
-                    ? "calc(100% - 118px)"
-                    : 0,
-              }}
-              transition={{ type: "spring", damping: 24, stiffness: 180 }}
+              initial={{ y: "100%", opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ type: "spring", damping: 25, stiffness: 180 }}
               onClick={() => {
                 if (isMinimized || isMapFullscreen) {
                   setIsMapFullscreen(false);
                   setIsMinimized(false);
                 }
               }}
-              className={`absolute bottom-0 left-0 right-0 z-[9999] rounded-t-[32px] border-t shadow-[0_-12px_48px_rgba(0,0,0,0.18)] max-h-[78dvh] overflow-y-auto no-scrollbar transition-all duration-300 ${
-                isMinimized || isMapFullscreen ? "p-3 pb-6 space-y-2 cursor-pointer select-none active:scale-[0.99]" : "p-5 pb-9 space-y-3.5"
-              } ${theme === 'dark' ? 'bg-[#111118]/95 backdrop-blur-md border-neutral-800/80' : 'bg-white/95 backdrop-blur-md border-neutral-250/60'}`}
+              className={`absolute z-[9999] transition-all duration-300 ${
+                isMinimized || isMapFullscreen
+                  ? "bottom-8 left-4 right-4 mx-auto max-w-[340px] rounded-3xl border shadow-[0_12px_40px_rgba(0,0,0,0.15)] p-2 cursor-pointer select-none active:scale-[0.98] hover:shadow-[0_16px_48px_rgba(0,0,0,0.22)]"
+                  : "bottom-0 left-0 right-0 rounded-t-[32px] border-t shadow-[0_-12px_48px_rgba(0,0,0,0.18)] max-h-[78dvh] overflow-y-auto no-scrollbar p-5 pb-9 space-y-3.5"
+              } ${theme === 'dark' ? 'bg-[#111118]/95 backdrop-blur-md border-neutral-800' : 'bg-white/95 backdrop-blur-md border-neutral-200/90'}`}
             >
-              <div
-                className="w-full flex flex-col items-center justify-center cursor-pointer group relative"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (isMapFullscreen || isMinimized) {
-                    setIsMapFullscreen(false);
-                    setIsMinimized(false);
-                  } else {
-                    setIsMinimized(true);
-                  }
-                }}
-              >
+              {!isMinimized && !isMapFullscreen && (
                 <div
-                  className={`w-12 h-1.5 rounded-full transition-all duration-300 shadow-md mb-1 ${isMinimized || isMapFullscreen ? "bg-indigo-600 animate-bounce" : (theme === 'dark' ? 'bg-neutral-800 group-hover:bg-neutral-700' : 'bg-neutral-200 group-hover:bg-neutral-300')}`}
-                />
-              </div>
+                  className="w-full flex flex-col items-center justify-center cursor-pointer group relative -mt-1.5 mb-3"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsMinimized(true);
+                  }}
+                >
+                  <div
+                    className={`w-12 h-1.5 rounded-full transition-all duration-300 shadow-sm ${
+                      theme === 'dark' ? 'bg-neutral-800 group-hover:bg-neutral-700' : 'bg-neutral-200 group-hover:bg-neutral-300'
+                    }`}
+                  />
+                </div>
+              )}
 
               {!isMinimized && !isMapFullscreen && (
                 <motion.div
@@ -3945,39 +3940,33 @@ export default function TaxiBooking() {
                     setIsMinimized(false);
                     setSettingMode("destination");
                   }}
-                  className={`w-full p-2.5 sm:p-3 rounded-2xl border cursor-pointer transition-all duration-300 hover:shadow-lg active:scale-[0.99] select-none shadow-md ${
-                    theme === 'dark'
-                      ? 'bg-[#161622] border-neutral-800 text-white'
-                      : 'bg-white border-neutral-200/90 text-neutral-900'
-                  }`}
+                  className="w-full px-2 py-1 flex items-center gap-3.5 select-none"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                      theme === 'dark' ? 'bg-neutral-800 text-neutral-400' : 'bg-neutral-100 text-neutral-500'
-                    }`}>
-                      <Search className="w-4 h-4" />
-                    </div>
+                  <div className={`w-8.5 h-8.5 rounded-xl flex items-center justify-center shrink-0 ${
+                    theme === 'dark' ? 'bg-neutral-850 text-neutral-400' : 'bg-neutral-100/90 text-neutral-500'
+                  }`}>
+                    <Search className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                  </div>
 
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[8.5px] font-black uppercase tracking-[0.15em] text-indigo-600 dark:text-indigo-400 mb-0.5">
-                        UNAKWENDA WAPI?
-                      </p>
-                      <p className={`text-[13px] font-extrabold truncate ${
-                        destination
-                          ? (theme === 'dark' ? 'text-neutral-100' : 'text-neutral-850')
-                          : (theme === 'dark' ? 'text-neutral-500' : 'text-neutral-400')
-                      }`}>
-                        {destination || "Andika hapa unapokwenda"}
-                      </p>
-                    </div>
-
-                    <div className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 ${
-                      theme === 'dark'
-                        ? 'bg-indigo-950/50 border-indigo-900/50 text-indigo-400'
-                        : 'bg-indigo-50/80 border-indigo-100 text-indigo-600'
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[8px] font-extrabold uppercase tracking-[0.16em] text-indigo-600 dark:text-indigo-400 mb-0.5">
+                      UNAKWENDA WAPI?
+                    </p>
+                    <p className={`text-[13px] font-black tracking-tight truncate ${
+                      destination
+                        ? (theme === 'dark' ? 'text-neutral-100' : 'text-neutral-800')
+                        : (theme === 'dark' ? 'text-neutral-400' : 'text-neutral-500')
                     }`}>
-                      <Map className="w-4 h-4" />
-                    </div>
+                      {destination || "Andika hapa unapokwenda"}
+                    </p>
+                  </div>
+
+                  <div className={`w-8.5 h-8.5 rounded-xl flex items-center justify-center shrink-0 ${
+                    theme === 'dark'
+                      ? 'bg-indigo-950/40 text-indigo-400'
+                      : 'bg-indigo-50/70 text-indigo-600'
+                  }`}>
+                    <Map className="w-4 h-4 animate-pulse" />
                   </div>
                 </div>
               )}
