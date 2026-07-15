@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { 
+  Phone,
   Smartphone, 
   Send, 
   Copy, 
@@ -296,6 +297,120 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
     success: null,
     responseText: null
   });
+
+  // Dual SMS & USSD Simulator States
+  const [simulatorMode, setSimulatorMode] = useState<'sms' | 'ussd'>('sms');
+  const [ussdSessionActive, setUssdSessionActive] = useState(false);
+  const [ussdSessionId, setUssdSessionId] = useState('');
+  const [ussdAccumulatedText, setUssdAccumulatedText] = useState('');
+  const [ussdCurrentResponse, setUssdCurrentResponse] = useState('');
+  const [ussdIsEnd, setUssdIsEnd] = useState(false);
+  const [ussdInputValue, setUssdInputValue] = useState('');
+  const [dialedCode, setDialedCode] = useState('*384#');
+  const [ussdLoading, setUssdLoading] = useState(false);
+
+  const parseUssdResponse = (text: string) => {
+    const trimmed = text.trim();
+    if (trimmed.startsWith("CON ")) {
+      setUssdCurrentResponse(trimmed.substring(4));
+      setUssdIsEnd(false);
+    } else if (trimmed.startsWith("END ")) {
+      setUssdCurrentResponse(trimmed.substring(4));
+      setUssdIsEnd(true);
+    } else if (trimmed.startsWith("CON")) {
+      setUssdCurrentResponse(trimmed.substring(3));
+      setUssdIsEnd(false);
+    } else if (trimmed.startsWith("END")) {
+      setUssdCurrentResponse(trimmed.substring(3));
+      setUssdIsEnd(true);
+    } else {
+      setUssdCurrentResponse(trimmed);
+      setUssdIsEnd(true);
+    }
+  };
+
+  const triggerUssdCall = async (codeToDial?: string) => {
+    const code = codeToDial || dialedCode;
+    if (!code) return;
+    
+    setUssdLoading(true);
+    setUssdSessionActive(true);
+    setUssdIsEnd(false);
+    setUssdCurrentResponse("");
+    setUssdInputValue("");
+    
+    const newSessionId = "AT_USSD_SIM_" + Math.random().toString(36).substring(2, 10).toUpperCase();
+    setUssdSessionId(newSessionId);
+    setUssdAccumulatedText("");
+    
+    try {
+      const response = await fetch('/api/africastalking/ussd?vendorId=' + vendorId, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          sessionId: newSessionId,
+          serviceCode: code,
+          phoneNumber: testPhoneNumber,
+          text: ""
+        })
+      });
+      
+      if (response.ok) {
+        const textResponse = await response.text();
+        parseUssdResponse(textResponse);
+      } else {
+        setUssdCurrentResponse("END Dear customer, the network is experiencing technical problems and your request was not processed. Please try again later.");
+        setUssdIsEnd(true);
+      }
+    } catch (err: any) {
+      setUssdCurrentResponse("END Dear customer, the network is experiencing technical problems and your request was not processed. Please try again later.");
+      setUssdIsEnd(true);
+    } finally {
+      setUssdLoading(false);
+    }
+  };
+
+  const submitUssdInput = async (inputVal: string) => {
+    if (ussdLoading) return;
+    setUssdLoading(true);
+    
+    const nextAccumulated = ussdAccumulatedText 
+      ? `${ussdAccumulatedText}*${inputVal}`
+      : inputVal;
+    
+    setUssdAccumulatedText(nextAccumulated);
+    setUssdInputValue("");
+    
+    try {
+      const response = await fetch('/api/africastalking/ussd?vendorId=' + vendorId, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          sessionId: ussdSessionId,
+          serviceCode: dialedCode,
+          phoneNumber: testPhoneNumber,
+          text: nextAccumulated
+        })
+      });
+      
+      if (response.ok) {
+        const textResponse = await response.text();
+        parseUssdResponse(textResponse);
+      } else {
+        setUssdCurrentResponse("END Dear customer, the network is experiencing technical problems and your request was not processed. Please try again later.");
+        setUssdIsEnd(true);
+      }
+    } catch (err: any) {
+      setUssdCurrentResponse("END Dear customer, the network is experiencing technical problems and your request was not processed. Please try again later.");
+      setUssdIsEnd(true);
+    } finally {
+      setUssdLoading(false);
+    }
+  };
 
   const getDynamicWelcomeText = (channelLabel: string) => {
     const DEFAULT_SERVICES = [
@@ -4064,9 +4179,35 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
 
           </div>
 
-          {/* Right panel: SMS Phone Model Simulator */}
+          {/* Right panel: SMS & USSD Phone Model Simulator */}
           <div className="lg:col-span-5 flex flex-col items-center">
             
+            {/* Mode Switcher */}
+            <div className="flex bg-neutral-200/80 dark:bg-neutral-900/80 p-1 rounded-full mb-3.5 border border-neutral-300/40 dark:border-neutral-800/80 w-full max-w-[340px] shadow-sm shrink-0">
+              <button
+                type="button"
+                onClick={() => setSimulatorMode('sms')}
+                className={`flex-1 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all duration-300 cursor-pointer ${
+                  simulatorMode === 'sms'
+                    ? 'bg-orange-600 text-white shadow-xs'
+                    : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-300'
+                }`}
+              >
+                💬 SMS Simulator
+              </button>
+              <button
+                type="button"
+                onClick={() => setSimulatorMode('ussd')}
+                className={`flex-1 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all duration-300 cursor-pointer ${
+                  simulatorMode === 'ussd'
+                    ? 'bg-orange-600 text-white shadow-xs'
+                    : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-300'
+                }`}
+              >
+                📞 USSD Simulator
+              </button>
+            </div>
+
             <div className="relative w-full max-w-[340px] h-[670px] bg-neutral-950 rounded-[48px] p-3.5 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)] border-4 border-neutral-900 ring-12 ring-neutral-900 flex flex-col justify-between overflow-hidden">
               
               {/* Top Notch speaker and camera shape */}
@@ -4094,106 +4235,268 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                   </div>
                 </div>
 
-                {/* Chatbot Thread Contact Info Header */}
-                <div className="py-2 px-1 border-b border-neutral-200/30 dark:border-white/5 flex items-center justify-between shadow-xs bg-white/40 dark:bg-stone-950/20 backdrop-blur-xs">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-pink-600 to-orange-500 flex items-center justify-center text-white text-xs font-black shadow-inner">
-                      P
-                    </div>
-                    <div>
-                      <h4 className="text-[11px] font-black text-neutral-800 dark:text-neutral-100 uppercase leading-none tracking-tight">Papo Hapo Bot</h4>
-                      <span className="text-[8.5px] text-emerald-500 font-bold tracking-widest uppercase">● SMS Auto-Responder</span>
-                    </div>
-                  </div>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={handleResetChat} 
-                    className="w-7 h-7 text-neutral-500 hover:text-red-500 rounded-full"
-                    title="Reset Chat"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
-
-                {/* Scrolling Bubbles Window (Custom Scrollbar) */}
-                <div className="flex-1 overflow-y-auto py-3 px-1.5 space-y-3 scrollbar-none scroll-smooth">
-                  <AnimatePresence initial={false}>
-                    {chatMessages.map((msg, i) => (
-                      <motion.div
-                        key={i}
-                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        transition={{ duration: 0.15 }}
-                        className={`flex flex-col max-w-[85%] ${msg.sender === 'customer' ? 'ml-auto items-end animate-fade-in' : 'mr-auto items-start animate-fade-in'}`}
-                      >
-                        <div className={`p-2.5 rounded-2xl text-[11px] leading-relaxed shadow-sm font-sans ${
-                          msg.sender === 'customer' 
-                            ? 'bg-orange-600 text-white rounded-br-none' 
-                            : 'bg-white dark:bg-neutral-950 dark:text-neutral-100 border border-neutral-100 dark:border-neutral-805 rounded-bl-none text-neutral-800'
-                        }`}>
-                          <p className="whitespace-pre-wrap">{msg.text}</p>
+                {simulatorMode === 'sms' ? (
+                  <>
+                    {/* Chatbot Thread Contact Info Header */}
+                    <div className="py-2 px-1 border-b border-neutral-200/30 dark:border-white/5 flex items-center justify-between shadow-xs bg-white/40 dark:bg-stone-950/20 backdrop-blur-xs">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-pink-600 to-orange-500 flex items-center justify-center text-white text-xs font-black shadow-inner">
+                          P
                         </div>
-                        <span className="text-[8px] text-neutral-400 font-mono mt-1 px-1">{msg.timestamp}</span>
-                      </motion.div>
-                    ))}
-                    {isLoading && (
-                      <div className="flex flex-col items-start max-w-[80%] mr-auto">
-                        <div className="bg-white dark:bg-neutral-950 p-2.5 rounded-2xl rounded-bl-none border border-neutral-100 flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-orange-600 animate-bounce" style={{ animationDelay: '0ms' }} />
-                          <span className="w-1.5 h-1.5 rounded-full bg-orange-600 animate-bounce" style={{ animationDelay: '150ms' }} />
-                          <span className="w-1.5 h-1.5 rounded-full bg-orange-600 animate-bounce" style={{ animationDelay: '300ms' }} />
+                        <div>
+                          <h4 className="text-[11px] font-black text-neutral-800 dark:text-neutral-100 uppercase leading-none tracking-tight">Papo Hapo Bot</h4>
+                          <span className="text-[8.5px] text-emerald-500 font-bold tracking-widest uppercase">● SMS Auto-Responder</span>
+                        </div>
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={handleResetChat} 
+                        className="w-7 h-7 text-neutral-500 hover:text-red-500 rounded-full"
+                        title="Reset Chat"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+
+                    {/* Scrolling Bubbles Window (Custom Scrollbar) */}
+                    <div className="flex-1 overflow-y-auto py-3 px-1.5 space-y-3 scrollbar-none scroll-smooth">
+                      <AnimatePresence initial={false}>
+                        {chatMessages.map((msg, i) => (
+                          <motion.div
+                            key={i}
+                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            transition={{ duration: 0.15 }}
+                            className={`flex flex-col max-w-[85%] ${msg.sender === 'customer' ? 'ml-auto items-end animate-fade-in' : 'mr-auto items-start animate-fade-in'}`}
+                          >
+                            <div className={`p-2.5 rounded-2xl text-[11px] leading-relaxed shadow-sm font-sans ${
+                              msg.sender === 'customer' 
+                                ? 'bg-orange-600 text-white rounded-br-none' 
+                                : 'bg-white dark:bg-neutral-950 dark:text-neutral-100 border border-neutral-100 dark:border-neutral-805 rounded-bl-none text-neutral-800'
+                            }`}>
+                              <p className="whitespace-pre-wrap">{msg.text}</p>
+                            </div>
+                            <span className="text-[8px] text-neutral-400 font-mono mt-1 px-1">{msg.timestamp}</span>
+                          </motion.div>
+                        ))}
+                        {isLoading && (
+                          <div className="flex flex-col items-start max-w-[80%] mr-auto">
+                            <div className="bg-white dark:bg-neutral-950 p-2.5 rounded-2xl rounded-bl-none border border-neutral-100 flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-orange-600 animate-bounce" style={{ animationDelay: '0ms' }} />
+                              <span className="w-1.5 h-1.5 rounded-full bg-orange-600 animate-bounce" style={{ animationDelay: '150ms' }} />
+                              <span className="w-1.5 h-1.5 rounded-full bg-orange-600 animate-bounce" style={{ animationDelay: '300ms' }} />
+                            </div>
+                          </div>
+                        )}
+                      </AnimatePresence>
+                      <div ref={chatEndRef} />
+                    </div>
+
+                    {/* Quick SMS Presets Toolbar */}
+                    <div className="pb-1">
+                      <span className="text-[8.5px] font-black uppercase tracking-wider text-neutral-400 dark:text-neutral-500 block mb-1 px-1">
+                        Bofya kuendesha Flow Jaribio:
+                      </span>
+                      <div className="flex gap-1.5 overflow-x-auto pb-2 pt-0.5 px-0.5 scrollbar-none scroll-smooth">
+                        {presetShortcuts.map((sc, i) => (
+                          <button
+                            key={i}
+                            onClick={() => sendSimulatedMessage(sc.text)}
+                            disabled={isLoading}
+                            className={`px-2.5 py-1.5 rounded-full text-[9.5px] font-black uppercase tracking-wider text-white whitespace-nowrap active:scale-95 duration-100 shrink-0 select-none shadow-xs cursor-pointer ${sc.color}`}
+                          >
+                            {sc.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Simulated Keyboard Text Input Form */}
+                    <form 
+                      onSubmit={(e: React.FormEvent<HTMLFormElement>) => {
+                        e.preventDefault();
+                        if (inputText.trim()) {
+                          sendSimulatedMessage(inputText);
+                        }
+                      }}
+                      className="flex gap-1.5 items-center relative z-20 pt-1"
+                    >
+                      <Input
+                        value={inputText}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInputText(e.target.value)}
+                        placeholder="Andika SMS hapa..."
+                        className="flex-1 bg-white dark:bg-neutral-950 rounded-full h-8 text-[10.5px] px-3.5 focus-visible:ring-orange-500 border-neutral-200/80 pr-10 font-sans"
+                      />
+                      <Button 
+                        type="submit" 
+                        size="icon" 
+                        disabled={isLoading || !inputText.trim()}
+                        className="w-8 h-8 rounded-full bg-orange-600 text-white shrink-0 active:scale-90 hover:bg-orange-700"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                      </Button>
+                    </form>
+                  </>
+                ) : (
+                  /* USSD Simulator Screen */
+                  <div className="flex-1 flex flex-col justify-between overflow-hidden relative">
+                    
+                    {ussdSessionActive ? (
+                      /* Active USSD Popup Dialog Overlay */
+                      <div className="absolute inset-0 z-40 bg-black/40 backdrop-blur-xs flex flex-col justify-center p-3.5">
+                        
+                        <div className="w-full bg-white dark:bg-neutral-900 rounded-3xl shadow-2xl border border-neutral-200/80 dark:border-neutral-800 p-4.5 flex flex-col space-y-4 animate-scale-up">
+                          {/* Dialog Title */}
+                          <div className="flex items-center gap-1.5 pb-2 border-b border-neutral-100 dark:border-neutral-800/60">
+                            <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
+                            <span className="text-[9.5px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-widest font-mono">
+                              USSD Message
+                            </span>
+                          </div>
+
+                          {/* Dialog Response Message Body */}
+                          <div className="text-xs text-neutral-800 dark:text-neutral-100 font-bold leading-relaxed whitespace-pre-wrap max-h-[220px] overflow-y-auto pr-1">
+                            {ussdLoading ? (
+                              <div className="flex flex-col items-center justify-center py-6 space-y-2">
+                                <RefreshCw className="w-6 h-6 text-orange-500 animate-spin" />
+                                <span className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">Kuunganisha...</span>
+                              </div>
+                            ) : (
+                              ussdCurrentResponse || "Hamna ujumbe uliopokelewa."
+                            )}
+                          </div>
+
+                          {/* Dialog Input & Actions */}
+                          {!ussdLoading && !ussdIsEnd && (
+                            <div className="space-y-3 pt-1">
+                              <Input
+                                autoFocus
+                                value={ussdInputValue}
+                                onChange={(e) => setUssdInputValue(e.target.value)}
+                                placeholder="Andika hapa..."
+                                className="h-8.5 text-xs bg-neutral-50 dark:bg-neutral-950 border-neutral-200 focus-visible:ring-orange-500 rounded-xl"
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' && ussdInputValue.trim()) {
+                                    submitUssdInput(ussdInputValue.trim());
+                                  }
+                                }}
+                              />
+                              <div className="flex items-center justify-end gap-3 text-xs font-bold uppercase tracking-wider">
+                                <button
+                                  type="button"
+                                  onClick={() => { setUssdSessionActive(false); setUssdAccumulatedText(""); }}
+                                  className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 cursor-pointer text-[11px]"
+                                >
+                                  Cancel
+                                </button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  disabled={!ussdInputValue.trim()}
+                                  onClick={() => submitUssdInput(ussdInputValue.trim())}
+                                  className="bg-orange-600 hover:bg-orange-700 text-white rounded-xl h-8 px-4 font-black"
+                                >
+                                  Send
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Dialog Session Ended (END state) */}
+                          {!ussdLoading && ussdIsEnd && (
+                            <div className="flex items-center justify-end pt-1">
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => { setUssdSessionActive(false); setUssdAccumulatedText(""); }}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-8 px-5 font-black text-xs uppercase tracking-wider"
+                              >
+                                OK
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+
+                      </div>
+                    ) : (
+                      /* Passive dialer UI */
+                      <div className="flex-1 flex flex-col justify-between py-3 px-2">
+                        {/* Digital Dialer Display */}
+                        <div className="bg-white/80 dark:bg-black/30 rounded-2xl p-3 border border-neutral-200/50 dark:border-neutral-800/80 min-h-[55px] flex items-center justify-end text-right overflow-x-auto shadow-xs shrink-0">
+                          <span className="text-xl font-black font-mono text-neutral-900 dark:text-neutral-100 tracking-wider">
+                            {dialedCode || ""}
+                          </span>
+                        </div>
+
+                        {/* Dialpad Shortcuts */}
+                        <div className="flex flex-col gap-1 mt-1.5 shrink-0">
+                          <span className="text-[8px] font-black uppercase text-neutral-400 dark:text-neutral-500 text-center tracking-widest">
+                            Chagua Code ya Kupiga:
+                          </span>
+                          <div className="flex justify-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => { setDialedCode('*384#'); triggerUssdCall('*384#'); }}
+                              className="px-2 py-1 rounded-full text-[8.5px] font-black bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-950/40 dark:text-orange-400 uppercase tracking-wider transition-all active:scale-95 cursor-pointer"
+                            >
+                              *384# (Papo Hapo)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setDialedCode('*149*22#'); triggerUssdCall('*149*22#'); }}
+                              className="px-2 py-1 rounded-full text-[8.5px] font-black bg-neutral-200 text-neutral-700 hover:bg-neutral-300 dark:bg-neutral-800 dark:text-neutral-300 uppercase tracking-wider transition-all active:scale-95 cursor-pointer"
+                            >
+                              *149*22#
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* 3x4 Dialpad Keys Grid */}
+                        <div className="grid grid-cols-3 gap-y-2 gap-x-3 justify-items-center mt-2.5">
+                          {['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'].map((digit) => (
+                            <button
+                              key={digit}
+                              type="button"
+                              onClick={() => setDialedCode(prev => prev + digit)}
+                              className="w-11 h-11 rounded-full bg-white dark:bg-neutral-800 border border-neutral-200/50 dark:border-neutral-700/40 flex flex-col items-center justify-center text-sm font-black text-neutral-800 dark:text-neutral-100 shadow-xs hover:bg-neutral-100 active:scale-90 duration-75 select-none cursor-pointer"
+                            >
+                              <span className="leading-none">{digit}</span>
+                              {digit === '0' && <span className="text-[6.5px] text-neutral-400 mt-[-1px] font-normal">+</span>}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Actions Row */}
+                        <div className="flex items-center justify-between px-4 mt-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setDialedCode("")}
+                            className="text-[9.5px] font-black text-neutral-400 hover:text-red-500 uppercase tracking-wider transition-colors cursor-pointer"
+                          >
+                            Reset
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => triggerUssdCall()}
+                            disabled={!dialedCode || ussdLoading}
+                            className="w-11 h-11 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 active:scale-90 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            <Phone className="w-4.5 h-4.5 fill-white" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDialedCode(prev => prev.slice(0, -1))}
+                            className="text-[9.5px] font-black text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 uppercase tracking-wider transition-colors cursor-pointer"
+                          >
+                            ⌫ Del
+                          </button>
                         </div>
                       </div>
                     )}
-                  </AnimatePresence>
-                  <div ref={chatEndRef} />
-                </div>
 
-                {/* Quick SMS Presets Toolbar */}
-                <div className="pb-1">
-                  <span className="text-[8.5px] font-black uppercase tracking-wider text-neutral-400 dark:text-neutral-500 block mb-1 px-1">
-                    Bofya kuendesha Flow Jaribio:
-                  </span>
-                  <div className="flex gap-1.5 overflow-x-auto pb-2 pt-0.5 px-0.5 scrollbar-none scroll-smooth">
-                    {presetShortcuts.map((sc, i) => (
-                      <button
-                        key={i}
-                        onClick={() => sendSimulatedMessage(sc.text)}
-                        disabled={isLoading}
-                        className={`px-2.5 py-1.5 rounded-full text-[9.5px] font-black uppercase tracking-wider text-white whitespace-nowrap active:scale-95 duration-100 shrink-0 select-none shadow-xs cursor-pointer ${sc.color}`}
-                      >
-                        {sc.label}
-                      </button>
-                    ))}
                   </div>
-                </div>
-
-                {/* Simulated Keyboard Text Input Form */}
-                <form 
-                  onSubmit={(e: React.FormEvent<HTMLFormElement>) => {
-                    e.preventDefault();
-                    if (inputText.trim()) {
-                      sendSimulatedMessage(inputText);
-                    }
-                  }}
-                  className="flex gap-1.5 items-center relative z-20 pt-1"
-                >
-                  <Input
-                    value={inputText}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInputText(e.target.value)}
-                    placeholder="Andika SMS hapa..."
-                    className="flex-1 bg-white dark:bg-neutral-950 rounded-full h-8 text-[10.5px] px-3.5 focus-visible:ring-orange-500 border-neutral-200/80 pr-10 font-sans"
-                  />
-                  <Button 
-                    type="submit" 
-                    size="icon" 
-                    disabled={isLoading || !inputText.trim()}
-                    className="w-8 h-8 rounded-full bg-orange-600 text-white shrink-0 active:scale-90 hover:bg-orange-700"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                  </Button>
-                </form>
+                )}
 
                 {/* Bottom Screen Navigation Bar */}
                 <div className="w-24 h-1 bg-neutral-900 dark:bg-white/40 rounded-full mx-auto mt-2"></div>
