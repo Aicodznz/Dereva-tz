@@ -1025,12 +1025,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                       className="bg-white rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.3)] overflow-hidden border border-white p-0 cursor-pointer group/card"
                     >
                        <div className="h-32 relative overflow-hidden">
-                          {selectedVendor.arImageUrl && (
-                             <div className="absolute top-3 left-3 z-10 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 flex items-center gap-1.5 pointer-events-none">
-                                <Camera className="w-3 h-3 text-orange-500 animate-pulse" />
-                                <span className="text-[8px] font-black uppercase tracking-widest text-white">Muonekano wa Duka</span>
-                             </div>
-                          )}
+
                           <img 
                             src={selectedVendor.arImageUrl || selectedVendor.bannerUrl || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=400&q=80'} 
                             alt="" 
