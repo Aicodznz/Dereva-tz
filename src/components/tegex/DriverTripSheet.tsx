@@ -224,12 +224,43 @@ export default function DriverTripSheet({ ride, onArrive, onStart, onComplete, o
             )}
 
             {isOnTrip && (
-              <button 
-                onClick={onComplete}
-                className="w-full h-11 rounded-xl bg-gradient-to-r from-orange-500 to-red-600 hover:brightness-105 text-white font-black uppercase italic text-xs shadow-[0_6px_20px_rgba(216,90,48,0.3)] active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                MALIZA SAFARI <CheckCircle2 className="w-4 h-4" />
-              </button>
+              <div className="space-y-2">
+                <button
+                  onClick={async () => {
+                    if (!ride || !ride.driverLocation) return;
+                    const devLat = ride.driverLocation.lat + 0.0022; // shift driver off-route
+                    const devLng = ride.driverLocation.lng - 0.0022;
+                    
+                    try {
+                      const { doc, updateDoc, serverTimestamp } = await import('firebase/firestore');
+                      const { db } = await import('../../firebase');
+                      const { toast } = await import('sonner');
+                      await updateDoc(doc(db, 'rides', ride.id), {
+                        driverLocation: { lat: devLat, lng: devLng },
+                        hasDeviated: true,
+                        isRerouting: true,
+                        navigationMessage: "Dereva amebadilisha njia! Antway inatafuta njia mbadala...",
+                        updatedAt: serverTimestamp()
+                      });
+                      toast.success("Njia imebadilishwa! Antway inaanza kuongoza upya.", {
+                        icon: "🔄"
+                      });
+                    } catch (e) {
+                      console.error(e);
+                    }
+                  }}
+                  className="w-full h-10 border rounded-xl flex items-center justify-center gap-1.5 font-black tracking-wider text-[8.5px] uppercase transition-all active:scale-95 cursor-pointer bg-indigo-50 border-indigo-100 dark:bg-indigo-950/20 dark:border-indigo-900/40 text-indigo-600 dark:text-indigo-400 hover:brightness-105"
+                >
+                  <span>🔄 BADILISHA NJIA (SIMULATE DETOUR)</span>
+                </button>
+                
+                <button 
+                  onClick={onComplete}
+                  className="w-full h-11 rounded-xl bg-gradient-to-r from-orange-500 to-red-600 hover:brightness-105 text-white font-black uppercase italic text-xs shadow-[0_6px_20px_rgba(216,90,48,0.3)] active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  MALIZA SAFARI <CheckCircle2 className="w-4 h-4" />
+                </button>
+              </div>
             )}
           </>
         )}
