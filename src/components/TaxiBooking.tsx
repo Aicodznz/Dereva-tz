@@ -3590,9 +3590,9 @@ export default function TaxiBooking() {
               initial={{ y: "100%" }}
               animate={{
                 y: isMapFullscreen
-                  ? "calc(100% - 110px)"
+                  ? "calc(100% - 118px)"
                   : isMinimized
-                    ? "calc(100% - 110px)"
+                    ? "calc(100% - 118px)"
                     : 0,
               }}
               transition={{ type: "spring", damping: 24, stiffness: 180 }}
@@ -3943,15 +3943,42 @@ export default function TaxiBooking() {
                     e.stopPropagation();
                     setIsMapFullscreen(false);
                     setIsMinimized(false);
+                    setSettingMode("destination");
                   }}
-                  className="w-full py-1 flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all duration-300 group select-none"
+                  className={`w-full p-2.5 sm:p-3 rounded-2xl border cursor-pointer transition-all duration-300 hover:shadow-lg active:scale-[0.99] select-none shadow-md ${
+                    theme === 'dark'
+                      ? 'bg-[#161622] border-neutral-800 text-white'
+                      : 'bg-white border-neutral-200/90 text-neutral-900'
+                  }`}
                 >
-                  <div className="w-9 h-9 rounded-full bg-indigo-500/10 dark:bg-indigo-500/20 border border-indigo-500/20 flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
-                    <ChevronUp className="w-5 h-5 text-indigo-600 dark:text-indigo-400 animate-bounce" />
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                      theme === 'dark' ? 'bg-neutral-800 text-neutral-400' : 'bg-neutral-100 text-neutral-500'
+                    }`}>
+                      <Search className="w-4 h-4" />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[8.5px] font-black uppercase tracking-[0.15em] text-indigo-600 dark:text-indigo-400 mb-0.5">
+                        UNAKWENDA WAPI?
+                      </p>
+                      <p className={`text-[13px] font-extrabold truncate ${
+                        destination
+                          ? (theme === 'dark' ? 'text-neutral-100' : 'text-neutral-850')
+                          : (theme === 'dark' ? 'text-neutral-500' : 'text-neutral-400')
+                      }`}>
+                        {destination || "Andika hapa unapokwenda"}
+                      </p>
+                    </div>
+
+                    <div className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 ${
+                      theme === 'dark'
+                        ? 'bg-indigo-950/50 border-indigo-900/50 text-indigo-400'
+                        : 'bg-indigo-50/80 border-indigo-100 text-indigo-600'
+                    }`}>
+                      <Map className="w-4 h-4" />
+                    </div>
                   </div>
-                  <p className="text-[11px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.22em] group-hover:underline transition-all">
-                    BOFYA HAPA KUENDELEA
-                  </p>
                 </div>
               )}
             </motion.div>
