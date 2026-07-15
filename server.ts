@@ -90,7 +90,10 @@ async function startServer() {
 
   // Africa's Talking USSD Webhook (receives Form urlencoded POST with sessionId, serviceCode, phoneNumber, text)
   app.post("/api/africastalking/ussd", async (req, res) => {
-    const { sessionId, serviceCode, phoneNumber, text } = req.body;
+    const sessionId = req.body.sessionId || req.body.sessionid || req.body.session_id;
+    const serviceCode = req.body.serviceCode || req.body.servicecode || req.body.service_code;
+    const phoneNumber = req.body.phoneNumber || req.body.phonenumber || req.body.phone_number;
+    const text = req.body.text !== undefined ? String(req.body.text) : "";
     const vendorId = req.query.vendorId ? String(req.query.vendorId) : "admin-global";
 
     console.log(`[Africa's Talking USSD] Received: sessionId=${sessionId}, phoneNumber=${phoneNumber}, text="${text}" for vendor=${vendorId}`);
