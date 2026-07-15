@@ -493,7 +493,7 @@ export default function TaxiBooking() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [step, setStep] = useState<BookingStep>("map");
-  const [isMinimized, setIsMinimized] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(true);
   const [isMapFullscreen, setIsMapFullscreen] = useState(false);
   const [showPickupDropdown, setShowPickupDropdown] = useState(false);
   const [showDestinationDropdown, setShowDestinationDropdown] = useState(false);
@@ -3594,6 +3594,7 @@ export default function TaxiBooking() {
                 if (isMinimized || isMapFullscreen) {
                   setIsMapFullscreen(false);
                   setIsMinimized(false);
+                  setSettingMode("destination");
                 }
               }}
               className={`absolute z-[9999] transition-all duration-300 ${
