@@ -229,6 +229,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
   const [atApiKey, setAtApiKey] = useState('');
   const [atSenderId, setAtSenderId] = useState('');
   const [copiedAtWebhook, setCopiedAtWebhook] = useState(false);
+  const [copiedAtUssdWebhook, setCopiedAtUssdWebhook] = useState(false);
   
   const [copied, setCopied] = useState(false);
   const [isEnabled, setIsEnabled] = useState(true);
@@ -3836,9 +3837,10 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {/* Africa's Talking SMS Callback URL */}
                   <div className="space-y-1.5 p-3.5 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200/50 dark:border-neutral-800/80 rounded-xl">
                     <label className="text-xs font-black uppercase tracking-wider text-neutral-500 block">
-                      Africa's Talking Callback Webhook URL
+                      Africa's Talking SMS Callback URL
                     </label>
                     <div className="flex gap-2 items-center mt-1">
                       <Input 
@@ -3852,7 +3854,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                           const webhookUrl = `${window.location.origin}/api/africastalking/sms?vendorId=${vendorId}`;
                           navigator.clipboard.writeText(webhookUrl);
                           setCopiedAtWebhook(true);
-                          toast.success("Africa's Talking Webhook URL copied!");
+                          toast.success("Africa's Talking SMS URL copied!");
                           setTimeout(() => setCopiedAtWebhook(false), 2000);
                         }} 
                         className={`h-9 shrink-0 gap-1.5 ${copiedAtWebhook ? 'bg-green-600 hover:bg-green-700' : 'bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200'}`}
@@ -3865,15 +3867,58 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                     </div>
                   </div>
 
+                  {/* Africa's Talking USSD Callback URL */}
+                  <div className="space-y-1.5 p-3.5 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200/50 dark:border-neutral-800/80 rounded-xl">
+                    <label className="text-xs font-black uppercase tracking-wider text-orange-600 dark:text-orange-400 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse"></span>
+                      Africa's Talking USSD Callback URL
+                    </label>
+                    <div className="flex gap-2 items-center mt-1">
+                      <Input 
+                        readOnly 
+                        value={`${window.location.origin}/api/africastalking/ussd?vendorId=${vendorId}`} 
+                        className="font-mono text-xs select-all bg-white dark:bg-black h-9 border-orange-200/50 dark:border-orange-500/20 py-1"
+                      />
+                      <Button 
+                        size="sm" 
+                        onClick={() => {
+                          const webhookUrl = `${window.location.origin}/api/africastalking/ussd?vendorId=${vendorId}`;
+                          navigator.clipboard.writeText(webhookUrl);
+                          setCopiedAtUssdWebhook(true);
+                          toast.success("Africa's Talking USSD URL copied! 🚀");
+                          setTimeout(() => setCopiedAtUssdWebhook(false), 2000);
+                        }} 
+                        className={`h-9 shrink-0 gap-1.5 ${copiedAtUssdWebhook ? 'bg-green-600 hover:bg-green-700' : 'bg-orange-600 hover:bg-orange-700 text-white dark:bg-orange-500 dark:text-black'}`}
+                      >
+                        {copiedAtUssdWebhook ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                        <span className="text-xs font-bold uppercase tracking-wider">
+                          {copiedAtUssdWebhook ? 'Copied' : 'Copy'}
+                        </span>
+                      </Button>
+                    </div>
+                  </div>
+
                   <div className="text-xs space-y-2.5 text-neutral-600 dark:text-neutral-400 leading-relaxed bg-amber-500/5 p-4 rounded-xl border border-amber-500/10">
                     <p className="font-bold text-amber-600 dark:text-amber-500 uppercase tracking-wider text-[10px]">MIONGOZO YA KUSANIDI CALLBACK URL:</p>
-                    <ol className="list-decimal list-inside space-y-1.5 text-[11px]">
-                      <li>Ingia kwenye akaunti yako ya <a href="https://account.africastalking.com/" target="_blank" rel="noopener noreferrer" className="underline font-bold text-orange-600">Africa's Talking Console</a>.</li>
-                      <li>Chagua Sandbox App au Live App yako.</li>
-                      <li>Kwenye menu ya kushoto nenda <b>SMS</b> &gt; <b>SMS Callback URLs</b> &gt; <b>Incoming Messages</b>.</li>
-                      <li>Bandika Webhook Callback URL uliyokopya hapo juu kwenye kisanduku husika.</li>
-                      <li>Bofya <b>Submit</b> ili kuhifadhi. Mfumo utakuwa tayari kupokea SMS na kujibu kiotomatiki kwa kutumia usajili uliojaza hapa chini!</li>
-                    </ol>
+                    <div className="space-y-3">
+                      <div>
+                        <span className="font-bold text-neutral-700 dark:text-neutral-300 text-[11px] uppercase tracking-wide block mb-1">💬 KWA AJILI YA SMS:</span>
+                        <ol className="list-decimal list-inside space-y-1 text-[11px] pl-1">
+                          <li>Ingia kwenye akaunti yako ya <a href="https://account.africastalking.com/" target="_blank" rel="noopener noreferrer" className="underline font-bold text-orange-600">Africa's Talking Console</a>.</li>
+                          <li>Chagua Sandbox App au Live App yako.</li>
+                          <li>Nenda <b>SMS</b> &gt; <b>SMS Callback URLs</b> &gt; <b>Incoming Messages</b> na uweke <b>SMS Callback URL</b> hapo juu.</li>
+                        </ol>
+                      </div>
+                      <div className="pt-2 border-t border-neutral-200/50 dark:border-neutral-800/50">
+                        <span className="font-bold text-orange-600 dark:text-orange-400 text-[11px] uppercase tracking-wide block mb-1">📞 KWA AJILI YA USSD (Kama kwenye screenshot):</span>
+                        <ol className="list-decimal list-inside space-y-1 text-[11px] pl-1">
+                          <li>Kwenye menu ya kushoto nenda <b>USSD</b> &gt; <b>Create Channel</b>.</li>
+                          <li>Chagua Service Code (Mfano: <b>*384#</b>) na uandike namba ya Channel (Mfano: <b>200</b>).</li>
+                          <li>Bandika <b>USSD Callback URL</b> uliyokopya hapo juu kwenye kisanduku cha <b>Callback URL</b>.</li>
+                          <li>Bofya <b>Create Channel</b> ili kukamilisha. Sasa fungua Simulator na upige <b>*384*200#</b> kuanza booking papo hapo!</li>
+                        </ol>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Africa's Talking Simulator Helper Integration */}

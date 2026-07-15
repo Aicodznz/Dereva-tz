@@ -3,7 +3,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import fs from "fs";
-import { handleSMSInput } from "./src/lib/smsBot";
+import { handleSMSInput, getSession, saveSession } from "./src/lib/smsBot";
 import { handleMetaInput } from "./src/lib/metaBot";
 import { getFirestoreDb } from "./api/_lib/getFirestoreDb";
 import { getHistory, addMessageToHistory, clearHistory } from "./api/_lib/historyStore";
@@ -85,6 +85,79 @@ async function startServer() {
     } catch (error: any) {
       console.error("[Africa's Talking Hook] Error processing SMS:", error);
       res.status(500).json({ error: "Failed to process Africa's Talking webhook", details: error.message });
+    }
+  });
+
+  // Africa's Talking USSD Webhook (receives Form urlencoded POST with sessionId, serviceCode, phoneNumber, text)
+  app.post("/api/africastalking/ussd", async (req, res) => {
+    const { sessionId, serviceCode, phoneNumber, text } = req.body;
+    const vendorId = req.query.vendorId ? String(req.query.vendorId) : "admin-global";
+
+    console.log(`[Africa's Talking USSD] Received: sessionId=${sessionId}, phoneNumber=${phoneNumber}, text="${text}" for vendor=${vendorId}`);
+
+    if (!phoneNumber) {
+      res.type("text/plain");
+      return res.send("END Missing phone number. Please try again.");
+    }
+
+    try {
+      // 1. Split the text by '*' to get the sequence of choices
+      const rawInputs = text && typeof text === 'string' && text.trim() !== "" ? text.trim().split("*") : [];
+      // Clean inputs to avoid empty/whitespace values
+      const inputs = rawInputs.map(i => i.trim()).filter(i => i !== "");
+
+      // Use a specific prefix to isolate USSD sessions from normal SMS sessions
+      const ussdPhoneKey = `ussd:${phoneNumber}`;
+
+      // Reset the session state to START to replay the sequence cleanly from the beginning
+      const session = await getSession(ussdPhoneKey, dbAdmin);
+      session.step = 'START';
+      session.selectedService = undefined;
+      session.busRoute = undefined;
+      session.selectedOperatorId = undefined;
+      session.selectedOperatorName = undefined;
+      session.selectedSeat = undefined;
+      session.taxiRoute = undefined;
+      session.selectedDriverName = undefined;
+      session.selectedDriverPrice = undefined;
+      session.selectedSalonCategory = undefined;
+      session.selectedSalonName = undefined;
+      session.selectedProductId = undefined;
+      session.selectedProductName = undefined;
+      session.selectedProductPrice = undefined;
+      session.optionsList = [];
+      await saveSession(session, dbAdmin);
+
+      // Replay the sequence of user choices
+      // First, trigger the greeting/welcome message
+      let lastReply = await handleSMSInput(ussdPhoneKey, "Hi", dbAdmin, vendorId);
+
+      // Now, feed each input in the sequence sequentially
+      for (const input of inputs) {
+        lastReply = await handleSMSInput(ussdPhoneKey, input, dbAdmin, vendorId);
+      }
+
+      // Check the final step of the session after playing all inputs
+      const finalSession = await getSession(ussdPhoneKey, dbAdmin);
+
+      // Remove emojis or special characters that don't play well with USSD menus
+      const cleanReply = lastReply
+        .replace(/🚕|💇‍♀️|🚌|🥗|🥦|💊|🏍️|🛺|💵|📌|🚖|✨|🎉|💅|💆‍♀️|🍹|🍔/g, "")
+        .replace(/\n\s*\n/g, "\n") // remove double blank lines
+        .trim();
+
+      // If the step is START (meaning the flow completed or was cancelled), we END the session.
+      // Otherwise, we CON (continue) the session.
+      res.type('text/plain');
+      if (finalSession.step === 'START') {
+        res.send(`END ${cleanReply}`);
+      } else {
+        res.send(`CON ${cleanReply}`);
+      }
+    } catch (error: any) {
+      console.error("[Africa's Talking USSD] Error:", error);
+      res.type('text/plain');
+      res.send("END Mfumo una hitilafu kwa sasa. Tafadhali jaribu tena baadae.");
     }
   });
 
