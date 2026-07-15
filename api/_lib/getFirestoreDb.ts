@@ -1,6 +1,20 @@
 import fs from 'fs';
 import path from 'path';
-import admin from 'firebase-admin';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { 
+  getFirestore, 
+  collection as firestoreCollection, 
+  doc as firestoreDoc, 
+  getDoc as firestoreGetDoc, 
+  getDocs as firestoreGetDocs, 
+  setDoc as firestoreSetDoc, 
+  updateDoc as firestoreUpdateDoc, 
+  addDoc as firestoreAddDoc, 
+  query as firestoreQuery, 
+  where as firestoreWhere, 
+  orderBy as firestoreOrderBy, 
+  limit as firestoreLimit 
+} from 'firebase/firestore';
 
 // Fallback in-memory store
 const memoryStore = new Map<string, Map<string, any>>();
@@ -19,16 +33,12 @@ try {
   const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
   if (fs.existsSync(configPath)) {
     const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    if (!admin.apps.length) {
-      admin.initializeApp({
-        projectId: firebaseConfig.projectId
-      });
-    }
-    realDb = admin.firestore();
-    console.log("[getFirestoreDb] Real Firestore admin instance created successfully.");
+    const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+    realDb = getFirestore(app);
+    console.log("[getFirestoreDb] Real JS Client Firestore instance initialized successfully on server-side!");
   }
 } catch (e) {
-  console.warn("[getFirestoreDb] Failed to create real Firestore admin, using in-memory only:", e);
+  console.warn("[getFirestoreDb] Failed to initialize JS Client Firestore:", e);
 }
 
 interface QueryRule {
@@ -126,30 +136,24 @@ export function getFirestoreDb() {
       get: async () => {
         if (realDb) {
           try {
-            let queryRef = realDb;
-            for (let i = 0; i < pathSegments.length; i++) {
-              if (i % 2 === 0) {
-                queryRef = queryRef.collection(pathSegments[i]);
-              } else {
-                queryRef = queryRef.doc(pathSegments[i]);
-              }
-            }
-
             if (isCollection) {
-              for (const rule of whereRules) {
-                queryRef = queryRef.where(rule.field, rule.op, rule.value);
+              const colRef = firestoreCollection(realDb, colPath);
+              const queryParams = [];
+              for (const r of whereRules) {
+                queryParams.push(firestoreWhere(r.field, r.op as any, r.value));
               }
-              for (const rule of orderRules) {
-                queryRef = queryRef.orderBy(rule.field, rule.direction);
+              for (const o of orderRules) {
+                queryParams.push(firestoreOrderBy(o.field, o.direction));
               }
               if (limitNum !== null) {
-                queryRef = queryRef.limit(limitNum);
+                queryParams.push(firestoreLimit(limitNum));
               }
-            }
-
-            const snap = await queryRef.get();
-            
-            if (isCollection) {
+              
+              const q = queryParams.length > 0 
+                ? firestoreQuery(colRef, ...queryParams)
+                : colRef;
+                
+              const snap = await firestoreGetDocs(q);
               const docs = snap.docs.map((doc: any) => ({
                 id: doc.id,
                 data: () => doc.data()
@@ -162,9 +166,11 @@ export function getFirestoreDb() {
                 data: () => ({ chats: docs.map(d => d.data()) })
               };
             } else {
+              const docRef = firestoreDoc(realDb, colPath);
+              const snap = await firestoreGetDoc(docRef);
               return {
                 id: snap.id,
-                exists: snap.exists,
+                exists: snap.exists(),
                 data: () => snap.data()
               };
             }
@@ -190,15 +196,8 @@ export function getFirestoreDb() {
         // Try real DB
         if (realDb) {
           try {
-            let docRef = realDb;
-            for (let i = 0; i < pathSegments.length; i++) {
-              if (i % 2 === 0) {
-                docRef = docRef.collection(pathSegments[i]);
-              } else {
-                docRef = docRef.doc(pathSegments[i]);
-              }
-            }
-            await docRef.set(data, options);
+            const docRef = firestoreDoc(realDb, colPath);
+            await firestoreSetDoc(docRef, data, options);
           } catch (err) {
             console.warn(`[getFirestoreDb] Real DB set() failed for ${colPath}/${docId}:`, err);
           }
@@ -216,15 +215,8 @@ export function getFirestoreDb() {
         // Try real DB
         if (realDb) {
           try {
-            let docRef = realDb;
-            for (let i = 0; i < pathSegments.length; i++) {
-              if (i % 2 === 0) {
-                docRef = docRef.collection(pathSegments[i]);
-              } else {
-                docRef = docRef.doc(pathSegments[i]);
-              }
-            }
-            await docRef.update(data);
+            const docRef = firestoreDoc(realDb, colPath);
+            await firestoreUpdateDoc(docRef, data);
           } catch (err) {
             console.warn(`[getFirestoreDb] Real DB update() failed for ${colPath}/${docId}:`, err);
           }
@@ -243,15 +235,8 @@ export function getFirestoreDb() {
         // Try real DB
         if (realDb) {
           try {
-            let colRef = realDb;
-            for (let i = 0; i < pathSegments.length; i++) {
-              if (i % 2 === 0) {
-                colRef = colRef.collection(pathSegments[i]);
-              } else {
-                colRef = colRef.doc(pathSegments[i]);
-              }
-            }
-            const docRef = await colRef.add(data);
+            const colRef = firestoreCollection(realDb, colPath);
+            const docRef = await firestoreAddDoc(colRef, data);
             finalId = docRef.id;
             col.delete(autoId);
             col.set(finalId, { id: finalId, ...data });
