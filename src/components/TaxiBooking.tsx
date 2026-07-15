@@ -3037,20 +3037,19 @@ export default function TaxiBooking() {
                             <button
                               onClick={() => {
                                 setShowMenu(false);
-                                setIsMapFullscreen(!isMapFullscreen);
-                                if (!isMapFullscreen) setAutoFollow(true);
+                                setMapType(mapType === "standard" ? "satellite" : "standard");
                               }}
                               className={`w-full text-left px-4 py-3 text-xs sm:text-sm flex items-center gap-3 transition-colors font-bold ${theme === 'dark' ? 'text-neutral-300 hover:text-indigo-400 hover:bg-neutral-900/60' : 'text-neutral-700 hover:text-indigo-600 hover:bg-neutral-50'}`}
                             >
-                              {isMapFullscreen ? (
+                              {mapType === "satellite" ? (
                                 <>
                                   <Layers className="w-4 h-4 text-sky-500" />
-                                  <span>Onesha Maelezo</span>
+                                  <span>Ramani ya Kawaida</span>
                                 </>
                               ) : (
                                 <>
-                                  <MapPin className="w-4 h-4 text-rose-500" />
-                                  <span>Tazama Ramani Tupu</span>
+                                  <Map className="w-4 h-4 text-rose-500" />
+                                  <span>Ramani ya Satelaiti</span>
                                 </>
                               )}
                             </button>
