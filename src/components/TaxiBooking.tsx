@@ -2221,6 +2221,10 @@ export default function TaxiBooking() {
     }, 450);
 
     setSuggestions([]);
+    
+    // Automatically bring the bottom sheet up so they see the details and booking options
+    setIsMapFullscreen(false);
+    setIsMinimized(false);
   };
 
   const handleMapClick = async (e: L.LeafletMouseEvent) => {
@@ -2249,6 +2253,10 @@ export default function TaxiBooking() {
       const addr = await reverseGeocode(lat, lng);
       setDestination(addr || "Eneo Halijapatikana");
     }
+
+    // Automatically bring the bottom sheet up so they see the details and booking options
+    setIsMapFullscreen(false);
+    setIsMinimized(false);
   };
 
   const confirmBooking = async () => {
@@ -3925,13 +3933,20 @@ export default function TaxiBooking() {
               )}
 
               {(isMinimized || isMapFullscreen) && (
-                <div className="py-2 flex flex-col items-center justify-center gap-1.5 transition-all duration-300">
-                  <div className="w-8 h-8 rounded-full bg-indigo-500/10 dark:bg-indigo-500/20 flex items-center justify-center shadow-sm animate-bounce">
-                    <ChevronUp className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                  </div>
-                  <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.22em] animate-pulse">
-                    Bofya hapa kuendelea
-                  </p>
+                <div 
+                  onClick={() => {
+                    setIsMapFullscreen(false);
+                    setIsMinimized(false);
+                  }}
+                  className="w-full py-1.5 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all duration-300"
+                >
+                  <button
+                    className="w-full h-12 bg-gradient-to-r from-indigo-600 via-indigo-500 to-[#7F77DD] text-white rounded-2xl font-black uppercase text-[11.5px] tracking-wider flex items-center justify-center gap-2.5 transition-all active:scale-95 shadow-lg shadow-indigo-500/25 relative overflow-hidden group"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                    <ChevronUp className="w-5 h-5 text-white animate-bounce" />
+                    <span className="font-extrabold tracking-widest text-white">BOFYA HAPA KUENDELEA</span>
+                  </button>
                 </div>
               )}
             </motion.div>
