@@ -3590,23 +3590,28 @@ export default function TaxiBooking() {
               initial={{ y: "100%" }}
               animate={{
                 y: isMapFullscreen
-                  ? "calc(100% - 115px)"
+                  ? "calc(100% - 110px)"
                   : isMinimized
-                    ? "calc(100% - 115px)"
+                    ? "calc(100% - 110px)"
                     : 0,
               }}
               transition={{ type: "spring", damping: 24, stiffness: 180 }}
-              className={`absolute bottom-0 left-0 right-0 z-[9999] rounded-t-[32px] border-t shadow-[0_-12px_48px_rgba(0,0,0,0.15)] max-h-[74dvh] overflow-y-auto no-scrollbar transition-all duration-300 ${
-                isMinimized || isMapFullscreen ? "p-4 pb-8 space-y-2" : "p-5 pb-9 space-y-3.5"
+              onClick={() => {
+                if (isMinimized || isMapFullscreen) {
+                  setIsMapFullscreen(false);
+                  setIsMinimized(false);
+                }
+              }}
+              className={`absolute bottom-0 left-0 right-0 z-[9999] rounded-t-[32px] border-t shadow-[0_-12px_48px_rgba(0,0,0,0.18)] max-h-[78dvh] overflow-y-auto no-scrollbar transition-all duration-300 ${
+                isMinimized || isMapFullscreen ? "p-3 pb-6 space-y-2 cursor-pointer select-none active:scale-[0.99]" : "p-5 pb-9 space-y-3.5"
               } ${theme === 'dark' ? 'bg-[#111118]/95 backdrop-blur-md border-neutral-800/80' : 'bg-white/95 backdrop-blur-md border-neutral-250/60'}`}
             >
               <div
-                className="w-full h-8 flex items-center justify-center cursor-pointer group -mt-4 relative"
-                onClick={() => {
-                  if (isMapFullscreen) {
+                className="w-full flex flex-col items-center justify-center cursor-pointer group relative"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (isMapFullscreen || isMinimized) {
                     setIsMapFullscreen(false);
-                    setIsMinimized(false);
-                  } else if (isMinimized) {
                     setIsMinimized(false);
                   } else {
                     setIsMinimized(true);
@@ -3614,7 +3619,7 @@ export default function TaxiBooking() {
                 }}
               >
                 <div
-                  className={`w-12 h-1.5 rounded-full transition-all duration-300 shadow-md ${isMinimized || isMapFullscreen ? "bg-indigo-600 animate-bounce" : (theme === 'dark' ? 'bg-neutral-800 group-hover:bg-neutral-700' : 'bg-neutral-200 group-hover:bg-neutral-300')}`}
+                  className={`w-12 h-1.5 rounded-full transition-all duration-300 shadow-md mb-1 ${isMinimized || isMapFullscreen ? "bg-indigo-600 animate-bounce" : (theme === 'dark' ? 'bg-neutral-800 group-hover:bg-neutral-700' : 'bg-neutral-200 group-hover:bg-neutral-300')}`}
                 />
               </div>
 
@@ -3934,19 +3939,19 @@ export default function TaxiBooking() {
 
               {(isMinimized || isMapFullscreen) && (
                 <div 
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     setIsMapFullscreen(false);
                     setIsMinimized(false);
                   }}
-                  className="w-full py-1.5 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all duration-300"
+                  className="w-full py-1 flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all duration-300 group select-none"
                 >
-                  <button
-                    className="w-full h-12 bg-gradient-to-r from-indigo-600 via-indigo-500 to-[#7F77DD] text-white rounded-2xl font-black uppercase text-[11.5px] tracking-wider flex items-center justify-center gap-2.5 transition-all active:scale-95 shadow-lg shadow-indigo-500/25 relative overflow-hidden group"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-                    <ChevronUp className="w-5 h-5 text-white animate-bounce" />
-                    <span className="font-extrabold tracking-widest text-white">BOFYA HAPA KUENDELEA</span>
-                  </button>
+                  <div className="w-9 h-9 rounded-full bg-indigo-500/10 dark:bg-indigo-500/20 border border-indigo-500/20 flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+                    <ChevronUp className="w-5 h-5 text-indigo-600 dark:text-indigo-400 animate-bounce" />
+                  </div>
+                  <p className="text-[11px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.22em] group-hover:underline transition-all">
+                    BOFYA HAPA KUENDELEA
+                  </p>
                 </div>
               )}
             </motion.div>
