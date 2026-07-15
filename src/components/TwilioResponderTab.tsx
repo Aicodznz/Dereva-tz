@@ -3875,6 +3875,26 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                       <li>Bofya <b>Submit</b> ili kuhifadhi. Mfumo utakuwa tayari kupokea SMS na kujibu kiotomatiki kwa kutumia usajili uliojaza hapa chini!</li>
                     </ol>
                   </div>
+
+                  {/* Africa's Talking Simulator Helper Integration */}
+                  <div className="p-4 rounded-xl border border-dashed border-orange-500/30 bg-orange-500/5 flex flex-col md:flex-row items-center justify-between gap-3.5 transition-all hover:bg-orange-500/[0.08]">
+                    <div className="space-y-1 text-center md:text-left">
+                      <span className="text-xs font-black text-orange-600 dark:text-orange-400 uppercase tracking-widest flex items-center gap-1.5 justify-center md:justify-start">
+                        <span className="animate-pulse">⚡</span> JARIBU NA AT SIMULATOR
+                      </span>
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-normal max-w-sm">
+                        Baada ya kuweka Callback URL yako, unaweza kutumia <b>Africa's Talking Simulator</b> kuiga simu ya mteja inayotuma SMS kuona inavyojibiwa kiotomatiki na mfumo!
+                      </p>
+                    </div>
+                    <Button 
+                      onClick={() => window.open("https://developers.africastalking.com/simulator", "_blank")}
+                      variant="outline" 
+                      size="sm"
+                      className="border-orange-500/60 text-orange-600 hover:bg-orange-600 hover:text-white dark:border-orange-500/40 dark:text-orange-400 dark:hover:bg-orange-600 dark:hover:text-white font-black uppercase text-[10px] tracking-wider shrink-0 h-9 px-4 gap-1.5 shadow-sm hover:shadow-md cursor-pointer"
+                    >
+                      <span>Fungua Simulator 🚀</span>
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             )}
