@@ -363,6 +363,30 @@ export async function handleSMSInput(
               lat: driverWithLoc.location.lat + 0.015,
               lng: driverWithLoc.location.lng + 0.015
             };
+
+            // Align vehicle type so the online driver receives the request
+            const dVType = (driverWithLoc.vehicleType || "").toLowerCase();
+            let driverVTypeNormalized = 'mini';
+            if (dVType.includes('bike') || dVType.includes('piki') || dVType.includes('boda')) {
+              driverVTypeNormalized = 'bike';
+            } else if (dVType.includes('bajaj')) {
+              driverVTypeNormalized = 'bajaj';
+            } else {
+              driverVTypeNormalized = 'mini';
+            }
+
+            // Override ride's vehicleType and typeName to match the online driver's type for testing
+            if (vehicleType !== driverVTypeNormalized) {
+              console.log(`[SMS Bot] Overriding ride vehicleType from '${vehicleType}' to '${driverVTypeNormalized}' to match the online testing driver.`);
+              vehicleType = driverVTypeNormalized;
+              if (driverVTypeNormalized === 'bike') {
+                typeName = 'Boda Boda 🏍️';
+              } else if (driverVTypeNormalized === 'bajaj') {
+                typeName = 'Bajaji 🛺';
+              } else {
+                typeName = 'Gari la Teksi 🚕';
+              }
+            }
           }
         }
       } catch (err) {
