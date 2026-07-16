@@ -31,6 +31,7 @@ function getMemoryCollection(colPath: string): Map<string, any> {
 
 let realDb: any = null;
 let appInstance: any = null;
+let authPromise: Promise<any> | null = null;
 try {
   const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
   if (fs.existsSync(configPath)) {
@@ -41,12 +42,14 @@ try {
 
     // Automatically sign in the server-side client as the guest staff to avoid permission denied
     const auth = getAuth(appInstance);
-    signInWithEmailAndPassword(auth, 'guest_staff@mabasi.com', 'GuestStaff123!')
+    authPromise = signInWithEmailAndPassword(auth, 'guest_staff@mabasi.com', 'GuestStaff123!')
       .then((userCred) => {
         console.log(`[getFirestoreDb] Server-side Firebase client signed in successfully as guest staff (UID: ${userCred.user.uid})`);
+        return userCred;
       })
       .catch((err) => {
         console.error("[getFirestoreDb] Server-side guest staff authentication failed:", err.message);
+        throw err;
       });
   }
 } catch (e) {
@@ -146,6 +149,13 @@ export function getFirestoreDb() {
         buildRef(pathSegments, whereRules, orderRules, n),
 
       get: async () => {
+        if (authPromise) {
+          try {
+            await authPromise;
+          } catch (e) {
+            console.warn("[getFirestoreDb] Failed awaiting authPromise in get(), continuing:", e.message);
+          }
+        }
         if (realDb) {
           try {
             if (isCollection) {
@@ -206,6 +216,13 @@ export function getFirestoreDb() {
         }
 
         // Try real DB
+        if (authPromise) {
+          try {
+            await authPromise;
+          } catch (e) {
+            console.warn("[getFirestoreDb] Failed awaiting authPromise in set():", e.message);
+          }
+        }
         if (realDb) {
           try {
             const docRef = firestoreDoc(realDb, colPath);
@@ -225,6 +242,13 @@ export function getFirestoreDb() {
         col.set(docId, { ...current, ...data });
 
         // Try real DB
+        if (authPromise) {
+          try {
+            await authPromise;
+          } catch (e) {
+            console.warn("[getFirestoreDb] Failed awaiting authPromise in update():", e.message);
+          }
+        }
         if (realDb) {
           try {
             const docRef = firestoreDoc(realDb, colPath);
@@ -245,6 +269,13 @@ export function getFirestoreDb() {
         let finalId = autoId;
 
         // Try real DB
+        if (authPromise) {
+          try {
+            await authPromise;
+          } catch (e) {
+            console.warn("[getFirestoreDb] Failed awaiting authPromise in add():", e.message);
+          }
+        }
         if (realDb) {
           try {
             const colRef = firestoreCollection(realDb, colPath);

@@ -221,6 +221,32 @@ function MapBoundsUpdater({ activeRide, position }: { activeRide: any, position:
   return null;
 }
 
+function PoiMapController({ 
+  activePoiCategory, 
+  pois, 
+  driverPosition 
+}: { 
+  activePoiCategory: string | null, 
+  pois: any[], 
+  driverPosition: [number, number] 
+}) {
+  const map = useMap();
+  const lastCategoryRef = React.useRef<string | null>(null);
+
+  useEffect(() => {
+    if (activePoiCategory && activePoiCategory !== lastCategoryRef.current && pois.length > 0) {
+      const bounds = L.latLngBounds([driverPosition]);
+      pois.forEach((poi) => {
+        bounds.extend([poi.lat, poi.lng]);
+      });
+      map.fitBounds(bounds, { padding: [80, 80], maxZoom: 16 });
+    }
+    lastCategoryRef.current = activePoiCategory;
+  }, [activePoiCategory, pois, driverPosition, map]);
+
+  return null;
+}
+
 
 
 function DriverMarker({ position, rotation, vType }: { position: [number, number], rotation: number, vType: string }) {
@@ -383,10 +409,19 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
     return () => unsubscribe();
   }, []);
 
-  // Generate simulated POIs centered around driver position
+  const [stablePoiBasePosition, setStablePoiBasePosition] = useState<[number, number] | null>(null);
+
+  useEffect(() => {
+    if (position && !stablePoiBasePosition) {
+      setStablePoiBasePosition(position);
+    }
+  }, [position, stablePoiBasePosition]);
+
+  // Generate simulated POIs centered around driver's stable base position
   const simulatedPois = useMemo(() => {
-    const lat = position[0];
-    const lng = position[1];
+    const basePos = stablePoiBasePosition || position || [-6.7924, 39.2083];
+    const lat = basePos[0];
+    const lng = basePos[1];
     return {
       charging: [
         { id: 'c1', name: 'TzNation EV Fast Charger', lat: lat + 0.003, lng: lng + 0.002, speed: '120 kW', cost: 'TZS 450/kWh', type: 'charging' },
@@ -414,7 +449,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
         { id: 'f3', name: 'Mlimani Petrol Station', lat: lat + 0.004, lng: lng - 0.002, petrol: 'TZS 3,130/L', diesel: 'TZS 3,060/L', type: 'fuel' },
       ],
     };
-  }, [position]);
+  }, [stablePoiBasePosition, position]);
 
   // Merged POIs including real-time Firestore POIs
   const mergedPois = useMemo(() => {
@@ -2690,6 +2725,11 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
               recenterTrigger={recenterTrigger}
             />
             <MapBoundsUpdater activeRide={activeRide} position={position} />
+            <PoiMapController 
+              activePoiCategory={activePoiCategory} 
+              pois={mergedPois[activePoiCategory as keyof typeof mergedPois] || []} 
+              driverPosition={position} 
+            />
 
             {/* Render POIs when a category is selected */}
             {activePoiCategory && (() => {
@@ -2745,42 +2785,51 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
                   icon={getPoiMarkerIcon(poi.type)}
                 >
                   <Popup>
-                    <div className="p-2.5 max-w-[190px] text-neutral-800 dark:text-neutral-100 font-sans leading-snug">
+                    <div className="p-2.5 max-w-[200px] text-neutral-800 dark:text-neutral-100 font-sans leading-snug">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="flex h-2 w-2 relative">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                        <span className="text-[7.5px] font-black tracking-widest text-emerald-500 uppercase">SASA HIVI • CURRENT</span>
+                      </div>
+                      
                       <p className="font-extrabold text-xs uppercase tracking-tight text-neutral-900 dark:text-white mb-1 leading-tight">{poi.name}</p>
                       <div className="h-[2px] w-6 bg-[#00FF88] mb-1.5 rounded-full" />
                       
                       {poi.type === 'charging' && (
                         <div className="space-y-0.5 text-[10px] mb-2">
-                          <p className="font-semibold text-neutral-500 uppercase text-[8.5px]">SPEED: <span className="text-blue-500 font-black">{poi.speed}</span></p>
-                          <p className="font-semibold text-neutral-500 uppercase text-[8.5px]">COST: <span className="text-neutral-800 dark:text-neutral-200 font-bold">{poi.cost}</span></p>
+                          <p className="font-semibold text-neutral-500 uppercase text-[8.5px]">KASI YA CHAJI: <span className="text-blue-500 font-black">{poi.speed || '120 kW'}</span></p>
+                          <p className="font-semibold text-neutral-500 uppercase text-[8.5px]">GHARAMA (COST): <span className="text-neutral-800 dark:text-neutral-200 font-bold">{poi.cost || 'TZS 450/kWh'}</span></p>
+                          <p className="font-semibold text-neutral-500 uppercase text-[8.5px]">MKONDO (CURRENT): <span className="text-neutral-800 dark:text-neutral-200 font-bold">150A (DC LIVE)</span></p>
                         </div>
                       )}
                       
                       {poi.type === 'mechanic' && (
                         <div className="space-y-0.5 text-[10px] mb-2">
-                          <p className="font-semibold text-neutral-500 uppercase text-[8.5px]">STATUS: <span className="text-[#00FF88] font-black">{poi.status}</span></p>
-                          <p className="font-semibold text-neutral-500 uppercase text-[8.5px]">PHONE: <span className="text-neutral-800 dark:text-neutral-200 font-bold">{poi.phone}</span></p>
+                          <p className="font-semibold text-neutral-500 uppercase text-[8.5px]">HALI (STATUS): <span className="text-[#00FF88] font-black">Wazi (Open Now)</span></p>
+                          <p className="font-semibold text-neutral-500 uppercase text-[8.5px]">SIMU (PHONE): <span className="text-neutral-800 dark:text-neutral-200 font-bold">{poi.phone || '+255 712 345 678'}</span></p>
                         </div>
                       )}
                       
                       {poi.type === 'wash' && (
                         <div className="space-y-0.5 text-[10px] mb-2">
-                          <p className="font-semibold text-neutral-500 uppercase text-[8.5px]">COST: <span className="text-amber-500 font-black">{poi.price}</span></p>
-                          <p className="font-semibold text-neutral-500 uppercase text-[8.5px]">RATING: <span className="text-neutral-800 dark:text-neutral-200 font-bold">{poi.rating}</span></p>
+                          <p className="font-semibold text-neutral-500 uppercase text-[8.5px]">BEI (PRICE): <span className="text-amber-500 font-black">{poi.price || 'TZS 5,000'}</span></p>
+                          <p className="font-semibold text-neutral-500 uppercase text-[8.5px]">NYOTA (RATING): <span className="text-neutral-800 dark:text-neutral-200 font-bold">{poi.rating || '4.8 ⭐'}</span></p>
                         </div>
                       )}
                       
                       {poi.type === 'parking' && (
                         <div className="space-y-0.5 text-[10px] mb-2">
-                          <p className="font-semibold text-neutral-500 uppercase text-[8.5px]">RATE: <span className="text-red-500 font-black">{poi.rate}</span></p>
-                           <p className="font-semibold text-neutral-500 uppercase text-[8.5px]">SLOTS: <span className="text-neutral-800 dark:text-neutral-200 font-bold">{poi.slots}</span></p>
+                          <p className="font-semibold text-neutral-500 uppercase text-[8.5px]">BEI YA SASA (RATE): <span className="text-red-500 font-black">{poi.rate || 'TZS 1,000/hr'}</span></p>
+                          <p className="font-semibold text-neutral-500 uppercase text-[8.5px]">NAFASI (SLOTS): <span className="text-neutral-800 dark:text-neutral-200 font-bold">{poi.slots || '15 slots'}</span></p>
                         </div>
                       )}
                       
                       {poi.type === 'fuel' && (
                         <div className="space-y-0.5 text-[10px] mb-2">
-                          <p className="font-semibold text-neutral-500 uppercase text-[8.5px]">PETROL: <span className="text-sky-500 font-black">{poi.petrol}</span></p>
-                          <p className="font-semibold text-neutral-500 uppercase text-[8.5px]">DIESEL: <span className="text-neutral-800 dark:text-neutral-200 font-bold">{poi.diesel}</span></p>
+                          <p className="font-semibold text-neutral-500 uppercase text-[8.5px]">PETROL: <span className="text-sky-500 font-black">{poi.petrol || 'TZS 3,120/L'}</span></p>
+                          <p className="font-semibold text-neutral-500 uppercase text-[8.5px]">DIESEL: <span className="text-neutral-800 dark:text-neutral-200 font-bold">{poi.diesel || 'TZS 3,050/L'}</span></p>
                         </div>
                       )}
                       
