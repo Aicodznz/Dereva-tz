@@ -36,6 +36,7 @@ import { Label } from '@/components/ui/label';
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents, Circle, Polygon } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { createDriverMarkerIcon } from '../utils/driverMarker';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell 
@@ -80,6 +81,8 @@ interface UserRecord {
   status: 'active' | 'blocked';
   approvalStatus?: 'pending' | 'approved' | 'suspended';
   driverType?: string;
+  vehicleType?: string;
+  vehicleColor?: string;
   vehicleBrand?: string;
   vehicleModel?: string;
   licensePlate?: string;
@@ -1743,24 +1746,72 @@ export default function AdminDashboard() {
                   const isOnline = driver.networkStatus === 'online' || driver.status === 'online' || driver.isOnline === true;
                   
                   if (!pos) return null;
+
+                  const driverUser = allUsers.find(u => u.id === driver.id);
+                  const driverName = driverUser?.displayName || driver.displayName || driver.name || 'Dereva';
+                  const initials = driverName.substring(0, 2);
+                  const licensePlate = driverUser?.licensePlate || driver.licensePlate || driver.vehicle?.plate || 'No Plate';
+                  const vType = driver.vehicleType || driverUser?.vehicleType || driver.vehicle?.type || 'mini';
+                  const dType = driverUser?.driverType || driver.driverType || 'taxi';
+                  const heading = driver.heading || driver.vehicleHeading || 0;
+
+                  // Determine vehicle label in Swahili & English
+                  let vehicleLabel = "Gari / Taxi";
+                  if (vType.includes('bike') || vType.includes('pikipiki') || vType.includes('motorcycle') || vType.includes('boda')) {
+                    vehicleLabel = "Pikipiki / Boda";
+                  } else if (vType.includes('bajaj') || vType.includes('bajaji') || vType.includes('tuktuk')) {
+                    vehicleLabel = "Bajaji";
+                  } else if (vType.includes('baskeli')) {
+                    vehicleLabel = "Baskeli";
+                  } else if (dType === 'delivery') {
+                    vehicleLabel = "Usafirishaji / Delivery";
+                  }
+
+                  const vehicleDetails = [
+                    driverUser?.vehicleColor,
+                    driverUser?.vehicleBrand,
+                    driverUser?.vehicleModel
+                  ].filter(Boolean).join(' ');
+
+                  const isDark = document.documentElement.classList.contains('dark');
+                  const markerIcon = createDriverMarkerIcon(
+                    initials,
+                    isOnline,
+                    heading,
+                    vType,
+                    isDark ? 'dark' : 'light',
+                    heading
+                  );
                   
                   return (
                     <Marker 
                       key={driver.id || `driver-${idx}`} 
                       position={[pos.lat, pos.lng]} 
-                      icon={DRIVER_ICON}
+                      icon={markerIcon}
                     >
                        <Popup className="rounded-2xl overflow-hidden">
                           <div className="p-2 space-y-2">
                              <div className="flex items-center gap-2">
                                 <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center font-bold text-orange-600">
-                                   {driver.displayName?.[0] || driver.name?.[0]}
+                                   {initials[0]}
                                 </div>
                                 <div>
-                                   <p className="font-black text-xs uppercase leading-none">{driver.displayName || driver.name}</p>
-                                   <p className="text-[10px] text-neutral-400 font-bold">{driver.licensePlate || driver.vehicle?.plate || 'No Plate'}</p>
+                                   <p className="font-black text-xs uppercase leading-none">{driverName}</p>
+                                   <p className="text-[10px] text-neutral-400 font-bold">{licensePlate}</p>
                                 </div>
                              </div>
+                             
+                             <div className="p-1.5 bg-neutral-50 rounded-xl border border-neutral-100 flex items-center justify-between">
+                                <span className="text-[9px] font-black uppercase text-neutral-400">Chombo / Vehicle</span>
+                                <Badge className="bg-orange-500 hover:bg-orange-600 text-white font-extrabold text-[8px] uppercase">{vehicleLabel}</Badge>
+                             </div>
+
+                             {vehicleDetails && (
+                                <p className="text-[9px] text-neutral-500 font-medium italic text-center">
+                                   {vehicleDetails}
+                                </p>
+                             )}
+
                              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-neutral-100">
                                 <div className="p-2 bg-neutral-50 rounded-xl">
                                    <p className="text-[8px] font-black uppercase text-neutral-400">Battery</p>

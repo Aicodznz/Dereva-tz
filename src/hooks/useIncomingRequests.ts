@@ -42,7 +42,7 @@ export function useIncomingRequests(vehicleType: string, isOnline: boolean, driv
         if (r.includes('bajaj') && d.includes('bajaj')) return true;
         if ((r.includes('mini') || r.includes('gari') || r.includes('cab') || r.includes('car') || r.includes('taxi') || r.includes('xl') || r.includes('comfort')) && 
             (d.includes('mini') || d.includes('gari') || d.includes('cab') || d.includes('car') || d.includes('taxi') || d.includes('xl') || d.includes('comfort'))) return true;
-        return true;
+        return false;
       };
 
       const rides = snap.docs

@@ -950,6 +950,10 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
   // Get current location
   useEffect(() => {
     let fallbackCalled = false;
+    const isInTanzania = (lat: number, lng: number) => {
+      return lat <= -1 && lat >= -12 && lng >= 29 && lng <= 41;
+    };
+
     const triggerIpFallback = async () => {
       if (fallbackCalled) return;
       fallbackCalled = true;
@@ -960,9 +964,15 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
         if (ipRes.ok) {
           const ipData = await ipRes.json();
           if (ipData && typeof ipData.latitude === 'number' && typeof ipData.longitude === 'number' && ipData.latitude !== 0) {
-            setPosition([ipData.latitude, ipData.longitude]);
-            toast.success(`Eneo lako la sasa limetambuliwa (${ipData.cityName || 'Karibu nawe'}) 📍`);
-            return;
+            if (isInTanzania(ipData.latitude, ipData.longitude)) {
+              setPosition([ipData.latitude, ipData.longitude]);
+              toast.success(`Eneo lako la sasa limetambuliwa (${ipData.cityName || 'Karibu nawe'}) 📍`);
+              return;
+            } else {
+              console.log("[Simulation] IP location outside Tanzania:", ipData.latitude, ipData.longitude, "- Keeping Dar es Salaam simulated coordinates.");
+              toast.info("Mazingira ya Majaribio: Eneo lako limewekwa Dar es Salaam (Ubungo/Tabata) ili uweze kupata maombi ya safari! 📍", { duration: 6000 });
+              return;
+            }
           }
         }
       } catch (err) {
@@ -975,9 +985,15 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
         if (ipRes.ok) {
           const ipData = await ipRes.json();
           if (ipData && ipData.success && typeof ipData.latitude === 'number' && typeof ipData.longitude === 'number') {
-            setPosition([ipData.latitude, ipData.longitude]);
-            toast.success(`Eneo lako la sasa limetambuliwa (${ipData.city || 'Karibu nawe'}) 📍`);
-            return;
+            if (isInTanzania(ipData.latitude, ipData.longitude)) {
+              setPosition([ipData.latitude, ipData.longitude]);
+              toast.success(`Eneo lako la sasa limetambuliwa (${ipData.city || 'Karibu nawe'}) 📍`);
+              return;
+            } else {
+              console.log("[Simulation] ipwho.is outside Tanzania. Keeping Dar es Salaam.");
+              toast.info("Mazingira ya Majaribio: Eneo lako limewekwa Dar es Salaam (Ubungo/Tabata) ili uweze kupata maombi ya safari! 📍", { duration: 6000 });
+              return;
+            }
           }
         }
       } catch (err) {
@@ -990,9 +1006,15 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
         if (ipRes.ok) {
           const ipData = await ipRes.json();
           if (ipData && typeof ipData.latitude === 'number' && typeof ipData.longitude === 'number') {
-            setPosition([ipData.latitude, ipData.longitude]);
-            toast.success(`Eneo lako la sasa limetambuliwa (${ipData.city || 'Karibu nawe'}) 📍`);
-            return;
+            if (isInTanzania(ipData.latitude, ipData.longitude)) {
+              setPosition([ipData.latitude, ipData.longitude]);
+              toast.success(`Eneo lako la sasa limetambuliwa (${ipData.city || 'Karibu nawe'}) 📍`);
+              return;
+            } else {
+              console.log("[Simulation] ipapi.co outside Tanzania. Keeping Dar es Salaam.");
+              toast.info("Mazingira ya Majaribio: Eneo lako limewekwa Dar es Salaam (Ubungo/Tabata) ili uweze kupata maombi ya safari! 📍", { duration: 6000 });
+              return;
+            }
           }
         }
       } catch (err) {
@@ -1008,8 +1030,15 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           clearTimeout(timer);
-          setPosition([pos.coords.latitude, pos.coords.longitude]);
-          toast.success("Eneo lako limepatikana kupitia GPS! 📍");
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          if (isInTanzania(lat, lng)) {
+            setPosition([lat, lng]);
+            toast.success("Eneo lako limepatikana kupitia GPS! 📍");
+          } else {
+            console.log("[Simulation] GPS location outside Tanzania:", lat, lng, "- Keeping Dar es Salaam simulated coordinates.");
+            toast.info("Mazingira ya Majaribio: Eneo lako limewekwa Dar es Salaam (Ubungo/Tabata) ili uweze kupata maombi ya safari! 📍", { duration: 6000 });
+          }
         },
         async (err) => {
           clearTimeout(timer);
@@ -1922,6 +1951,14 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
           async (pos) => {
             const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
             
+            // Check if coordinates are in Tanzania. If not (e.g. testing in simulator), ignore the update
+            const isInTanzania = (lat: number, lng: number) => {
+              return lat <= -1 && lat >= -12 && lng >= 29 && lng <= 41;
+            };
+            if (!isInTanzania(loc.lat, loc.lng)) {
+              return;
+            }
+
             // Check if simulated ride is in progress.
             const isSimulating = activeRide && ['accepted', 'driver_arriving', 'on_trip'].includes(activeRide.status) && ((activeRide as any).isSimulation || (activeRide as any).simulated);
             if (isSimulating) {
