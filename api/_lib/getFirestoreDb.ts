@@ -15,6 +15,7 @@ import {
   orderBy as firestoreOrderBy, 
   limit as firestoreLimit 
 } from 'firebase/firestore';
+import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
 
 // Fallback in-memory store
 const memoryStore = new Map<string, Map<string, any>>();
@@ -29,13 +30,24 @@ function getMemoryCollection(colPath: string): Map<string, any> {
 }
 
 let realDb: any = null;
+let appInstance: any = null;
 try {
   const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
   if (fs.existsSync(configPath)) {
     const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-    realDb = getFirestore(app);
+    appInstance = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+    realDb = getFirestore(appInstance);
     console.log("[getFirestoreDb] Real JS Client Firestore instance initialized successfully on server-side!");
+
+    // Automatically sign in the server-side client as the guest staff to avoid permission denied
+    const auth = getAuth(appInstance);
+    signInWithEmailAndPassword(auth, 'guest_staff@mabasi.com', 'GuestStaff123!')
+      .then((userCred) => {
+        console.log(`[getFirestoreDb] Server-side Firebase client signed in successfully as guest staff (UID: ${userCred.user.uid})`);
+      })
+      .catch((err) => {
+        console.error("[getFirestoreDb] Server-side guest staff authentication failed:", err.message);
+      });
   }
 } catch (e) {
   console.warn("[getFirestoreDb] Failed to initialize JS Client Firestore:", e);

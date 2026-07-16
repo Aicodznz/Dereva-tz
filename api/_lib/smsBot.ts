@@ -346,8 +346,12 @@ export async function handleSMSInput(
         const dSnap = await dbAdmin.collection('drivers')
           .where('isOnline', '==', true)
           .get();
+        console.log(`[SMS Bot Debug] Found ${dSnap.empty ? 0 : dSnap.docs.length} online drivers.`);
         if (!dSnap.empty) {
           const onlineDrivers = dSnap.docs.map((doc: any) => doc.data());
+          onlineDrivers.forEach((drv: any) => {
+            console.log(`[SMS Bot Debug] Online Driver: name=${drv.name}, vehicleType=${drv.vehicleType}, loc=${JSON.stringify(drv.location)}`);
+          });
           // Look for any online driver with valid location coordinate
           const driverWithLoc = onlineDrivers.find((d: any) => d.location && typeof d.location.lat === 'number' && typeof d.location.lng === 'number');
           if (driverWithLoc) {
@@ -387,6 +391,8 @@ export async function handleSMSInput(
                 typeName = 'Gari la Teksi 🚕';
               }
             }
+          } else {
+            console.log(`[SMS Bot Debug] No online driver has valid location coordinates.`);
           }
         }
       } catch (err) {
