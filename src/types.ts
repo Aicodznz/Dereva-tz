@@ -28,6 +28,14 @@ export interface UserProfile {
   tinNumber?: string;
   hotelDescription?: string;
   location?: { lat: number; lng: number };
+  servicePreferences?: {
+    gocarL?: boolean;
+    gosendInstant?: boolean;
+    gocarComfort?: boolean;
+    gocarPrioritas?: boolean;
+    gocarHemat?: boolean;
+    gocarSend?: boolean;
+  };
 }
 
 export type VendorCategory = 'pharmacy' | 'grocery' | 'restaurant' | 'parcel' | 'taxi' | 'car_rental' | 'car_sale' | 'salon' | 'hotel' | 'ecommerce' | 'bus_ticket';

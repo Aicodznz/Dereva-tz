@@ -15,8 +15,9 @@ import RiderRides from './rider/RiderRides';
 import RiderSettings from './rider/RiderSettings';
 import RiderWallet from './rider/RiderWallet';
 import RiderRegistrationDetails from './rider/RiderRegistrationDetails';
+import RiderAppSettings from './rider/RiderAppSettings';
 
-type NavTab = 'home' | 'performance' | 'rides' | 'settings' | 'wallet' | 'docs' | 'vehicle' | 'bank';
+type NavTab = 'home' | 'performance' | 'rides' | 'settings' | 'wallet' | 'docs' | 'vehicle' | 'bank' | 'app-settings';
 
 export default function RiderDashboard() {
   const { user, profile } = useAuth();
@@ -31,6 +32,7 @@ export default function RiderDashboard() {
     if (view === 'docs') setActiveTab('docs');
     if (view === 'vehicle') setActiveTab('vehicle');
     if (view === 'bank') setActiveTab('bank');
+    if (view === 'app-settings') setActiveTab('app-settings');
     // Add other routes as needed
   };
 
@@ -52,6 +54,8 @@ export default function RiderDashboard() {
         return <RiderRegistrationDetails initialTab="vehicle" onBack={() => setActiveTab('settings')} />;
       case 'bank':
         return <RiderRegistrationDetails initialTab="bank" onBack={() => setActiveTab('settings')} />;
+      case 'app-settings':
+        return <RiderAppSettings onBack={() => setActiveTab('settings')} />;
       default:
         return <RiderHome onProfileClick={() => setActiveTab('settings')} />;
     }
