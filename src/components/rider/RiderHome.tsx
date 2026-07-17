@@ -542,7 +542,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
 
     if (activeRide) {
       const hasRealTripRoute = realTripRoute && realTripRoute.length > 0;
-      const hasFullRoute = activeRide.routeCoords && activeRide.routeCoords.length > 0;
+      const hasFullRoute = activeRide.routeCoords && activeRide.routeCoords.length > 2;
       const route = hasRealTripRoute
         ? realTripRoute
         : (hasFullRoute 
@@ -704,7 +704,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
 
   // Instantly reflect updated Firestore routeCoords in local map state for rider
   useEffect(() => {
-    if (activeRide?.routeCoords && activeRide.routeCoords.length > 0) {
+    if (activeRide?.routeCoords && activeRide.routeCoords.length > 2) {
       const normalized = getNormalizedCoords(activeRide.routeCoords);
       if (normalized.length > 0) {
         setRealTripRoute(normalized);
@@ -2624,7 +2624,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
                 {/* 1. Beautiful Underlay & Sliced Overlay Routes */}
                 {(() => {
                   const hasRealTripRoute = realTripRoute && realTripRoute.length > 0;
-                  const hasFullRoute = activeRide.routeCoords && activeRide.routeCoords.length > 0;
+                  const hasFullRoute = activeRide.routeCoords && activeRide.routeCoords.length > 2;
                   const fullTripRoute = hasRealTripRoute
                     ? realTripRoute
                     : (hasFullRoute 

@@ -25,39 +25,48 @@ const inMemorySessions = new Map<string, SMSSession>();
 function getCoordsByName(name: string, isDest = false) {
   const n = (name || "").toLowerCase();
   if (n.includes("posta")) {
-    return { name: name || "Posta", lat: -6.8164, lng: 39.2902 };
+    return { name: name || "Posta", address: name || "Posta", lat: -6.8164, lng: 39.2902 };
   }
   if (n.includes("mwenge")) {
-    return { name: name || "Mwenge", lat: -6.7681, lng: 39.2274 };
+    return { name: name || "Mwenge", address: name || "Mwenge", lat: -6.7681, lng: 39.2274 };
   }
   if (n.includes("kariakoo")) {
-    return { name: name || "Kariakoo", lat: -6.8200, lng: 39.2750 };
+    return { name: name || "Kariakoo", address: name || "Kariakoo", lat: -6.8200, lng: 39.2750 };
   }
   if (n.includes("masaki")) {
-    return { name: name || "Masaki", lat: -6.7450, lng: 39.2850 };
+    return { name: name || "Masaki", address: name || "Masaki", lat: -6.7450, lng: 39.2850 };
   }
   if (n.includes("kinondoni")) {
-    return { name: name || "Kinondoni", lat: -6.7900, lng: 39.2600 };
+    return { name: name || "Kinondoni", address: name || "Kinondoni", lat: -6.7900, lng: 39.2600 };
   }
   if (n.includes("sinza")) {
-    return { name: name || "Sinza", lat: -6.7780, lng: 39.2200 };
+    return { name: name || "Sinza", address: name || "Sinza", lat: -6.7780, lng: 39.2200 };
   }
   if (n.includes("mikocheni")) {
-    return { name: name || "Mikocheni", lat: -6.7550, lng: 39.2500 };
+    return { name: name || "Mikocheni", address: name || "Mikocheni", lat: -6.7550, lng: 39.2500 };
   }
   if (n.includes("kimara")) {
-    return { name: name || "Kimara", lat: -6.7850, lng: 39.1650 };
+    return { name: name || "Kimara", address: name || "Kimara", lat: -6.7850, lng: 39.1650 };
   }
   if (n.includes("airport") || n.includes("uwanja")) {
-    return { name: name || "Airport", lat: -6.8780, lng: 39.2080 };
+    return { name: name || "Airport", address: name || "Airport", lat: -6.8780, lng: 39.2080 };
   }
   if (n.includes("ubungo")) {
-    return { name: name || "Ubungo", lat: -6.7970, lng: 39.2080 };
+    return { name: name || "Ubungo", address: name || "Ubungo", lat: -6.7970, lng: 39.2080 };
+  }
+  if (n.includes("tabata")) {
+    return { name: name || "Tabata", address: name || "Tabata", lat: -6.8285, lng: 39.2198 };
+  }
+  if (n.includes("mbezi")) {
+    return { name: name || "Mbezi", address: name || "Mbezi", lat: -6.7180, lng: 39.2150 };
+  }
+  if (n.includes("tegeta")) {
+    return { name: name || "Tegeta", address: name || "Tegeta", lat: -6.6780, lng: 39.2150 };
   }
   // Fallback
   return isDest 
-    ? { name: name || "Posta", lat: -6.8164, lng: 39.2902 }
-    : { name: name || "Mwenge", lat: -6.7681, lng: 39.2274 };
+    ? { name: name || "Posta", address: name || "Posta", lat: -6.8164, lng: 39.2902 }
+    : { name: name || "Mwenge", address: name || "Mwenge", lat: -6.7681, lng: 39.2274 };
 }
 
 function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -338,6 +347,10 @@ export async function handleSMSInput(
       }
     }
 
+    // Clean any parenthetical instructions or extra comments from names (e.g. "TABATA(pikap eria)" -> "TABATA")
+    pickupName = pickupName.replace(/\s*\(.*?\)/g, "").trim();
+    destName = destName.replace(/\s*\(.*?\)/g, "").trim();
+
     let pLoc = getCoordsByName(pickupName, false);
     let dLoc = getCoordsByName(destName, true);
 
@@ -358,12 +371,14 @@ export async function handleSMSInput(
             console.log(`[SMS Bot] Active online driver found at [${driverWithLoc.location.lat}, ${driverWithLoc.location.lng}]. Matching ride coordinates to driver location for seamless testing!`);
             pLoc = {
               name: pickupName,
+              address: pickupName,
               lat: driverWithLoc.location.lat,
               lng: driverWithLoc.location.lng
             };
             // Offset destination slightly so there is a distance
             dLoc = {
               name: destName,
+              address: destName,
               lat: driverWithLoc.location.lat + 0.015,
               lng: driverWithLoc.location.lng + 0.015
             };

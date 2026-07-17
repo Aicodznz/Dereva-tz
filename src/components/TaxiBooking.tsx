@@ -1436,7 +1436,7 @@ export default function TaxiBooking() {
 
   // Instantly reflect updated Firestore routeCoords in local map state
   useEffect(() => {
-    if (activeRide?.routeCoords && activeRide.routeCoords.length > 0) {
+    if (activeRide?.routeCoords && activeRide.routeCoords.length > 2) {
       const normalized = getNormalizedCoords(activeRide.routeCoords);
       if (normalized.length > 0) {
         setRealTripRoute(normalized);
@@ -3359,7 +3359,7 @@ export default function TaxiBooking() {
                     {activeRide ? (
                       (() => {
                         const hasRealTripRoute = realTripRoute && realTripRoute.length > 0;
-                        const hasFullRoute = activeRide.routeCoords && activeRide.routeCoords.length > 0;
+                        const hasFullRoute = activeRide.routeCoords && activeRide.routeCoords.length > 2;
                         const fullTripRoute = hasRealTripRoute
                           ? realTripRoute
                           : (hasFullRoute 
