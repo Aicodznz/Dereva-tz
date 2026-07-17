@@ -80,7 +80,9 @@ export function useIncomingRequests(vehicleType: string, isOnline: boolean, driv
         // Attach distance to pickup for the UI
         (ride as any).distanceToPickup = dist;
         
-        return dist <= 30; // 30km radius for nearby requests
+        // Always include SMS/USSD bookings regardless of distance so they can be tested/routed from anywhere!
+        const isSmsBooking = ride.customerId?.startsWith('sms-client-') || ride.bookingSource === 'ussd' || ride.bookingSource === 'sms';
+        return isSmsBooking || dist <= 30; // 30km radius for nearby requests
       });
 
       // Sound alert logic: if we have a NEW request that we didn't have before

@@ -485,22 +485,7 @@ export async function handleSMSInput(
           // Look for any online driver with valid location coordinate
           const driverWithLoc = onlineDrivers.find((d: any) => d.location && typeof d.location.lat === 'number' && typeof d.location.lng === 'number');
           if (driverWithLoc) {
-            console.log(`[SMS Bot] Active online driver found at [${driverWithLoc.location.lat}, ${driverWithLoc.location.lng}]. Matching ride coordinates to driver location for seamless testing!`);
-            pLoc = {
-              placeId: pLoc.placeId || "TZ-DSM-MWENGE-001",
-              name: pickupName,
-              address: pLoc.address || pickupName,
-              lat: driverWithLoc.location.lat,
-              lng: driverWithLoc.location.lng
-            };
-            // Offset destination slightly so there is a distance
-            dLoc = {
-              placeId: dLoc.placeId || "TZ-DSM-POSTA-001",
-              name: destName,
-              address: dLoc.address || destName,
-              lat: driverWithLoc.location.lat + 0.015,
-              lng: driverWithLoc.location.lng + 0.015
-            };
+            console.log(`[SMS Bot] Active online driver found at [${driverWithLoc.location.lat}, ${driverWithLoc.location.lng}]. Keeping actual resolved geocoded coordinates for pickup and destination!`);
 
             // Align vehicle type so the online driver receives the request
             const dVType = (driverWithLoc.vehicleType || "").toLowerCase();
@@ -633,6 +618,7 @@ export async function handleSMSInput(
           await dbAdmin.collection('rides').add({
             status: "pending", // Set to pending so the live Rider Dashboard can receive it!
             customerId: "sms-client-" + fromPhone.slice(-6),
+            bookingSource: "ussd",
             customerInfo: {
               name: "SMS Customer",
               phone: fromPhone,

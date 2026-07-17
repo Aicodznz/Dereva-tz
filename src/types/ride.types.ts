@@ -58,6 +58,7 @@ export interface Ride {
   isRerouting?: boolean;
   hasDeviated?: boolean;
   navigationMessage?: string;
+  bookingSource?: string;
 }
 
 export interface PaymentRecord {
