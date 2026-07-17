@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { 
   ChevronLeft, Star, Search, Filter, MapPin, ChevronRight,
   Utensils, ShoppingCart, Pill, Package, Car, Scissors, Hotel, ShoppingBag, Bus, Plus,
-  Sparkles, Flower, Droplet, User, Smile, Home
+  Sparkles, Flower, Droplet, User, Smile, Home, Key
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage } from '../LanguageContext';
