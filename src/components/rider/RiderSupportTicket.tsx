@@ -58,7 +58,7 @@ export default function RiderSupportTicket({ onBack }: { onBack: () => void }) {
       setDesc('');
       setLoading(false);
       toast.success('Tiketi yako imefunguliwa!', {
-        description: 'TegeX Support Team wataipitia na kukujibu ndani ya masaa 2.',
+        description: 'Papo Hapo Support Team wataipitia na kukujibu ndani ya masaa 2.',
         duration: 3000,
       });
     }, 1500);

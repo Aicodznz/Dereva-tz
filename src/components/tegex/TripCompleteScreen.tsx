@@ -57,7 +57,7 @@ export const TripCompleteScreen: React.FC<TripCompleteScreenProps> = ({ ride, on
         <h2 className={`text-3xl font-black italic uppercase tracking-tighter ${theme === 'dark' ? 'text-[#f0eeff]' : 'text-neutral-800'} text-center leading-none mb-2`}>
           Umefika!<br />Safari Imekamilika
         </h2>
-        <p className="text-neutral-500 text-sm font-bold mb-12">Shukrani kwa kutumia TegeX</p>
+        <p className="text-neutral-500 text-sm font-bold mb-12">Shukrani kwa kutumia Papo Hapo</p>
 
         <div 
           className={`w-full ${theme === 'dark' ? 'bg-[#111118] border-neutral-800' : 'bg-white border-neutral-200/80'} border rounded-[40px] p-8 shadow-xl relative overflow-hidden`}

@@ -290,7 +290,7 @@ export default function RiderSubscription({ onBack }: { onBack: () => void }) {
             <div className="space-y-2">
               <h2 className="text-2xl font-black italic uppercase tracking-tighter text-neutral-800 dark:text-white">Malipo Yamefanikiwa!</h2>
               <p className="text-xs text-neutral-500 max-w-sm mx-auto leading-relaxed">
-                Asante sana! Huduma yako ya subscription ya TegeX imeanza sasa hivi. Unaweza kuendelea kupokea safari bila ukomo nchini kote.
+                Asante sana! Huduma yako ya subscription ya Papo Hapo imeanza sasa hivi. Unaweza kuendelea kupokea safari bila ukomo nchini kote.
               </p>
             </div>
 

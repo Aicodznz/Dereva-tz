@@ -149,7 +149,7 @@ export default function RiderSettings({ onNavigate, onBack }: { onNavigate: (vie
 
       {/* Version */}
       <p className="text-center text-[8px] font-black uppercase text-neutral-300 tracking-widest pt-2">
-        TegeX Driver App v2.4.1 (Stable)
+        Papo Hapo Driver App v2.4.1 (Stable)
       </p>
     </div>
   );

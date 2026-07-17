@@ -517,7 +517,7 @@ export default function RegisterDriver() {
                   onChange={e => setFormData({...formData, commissionAccepted: e.target.checked})}
                 />
                 <label htmlFor="terms" className="text-xs font-black text-neutral-700 leading-tight cursor-pointer uppercase italic tracking-tighter">
-                  Nakubali kulipa kamisheni na kufuata masharti ya TegeX
+                  Nakubali kulipa kamisheni na kufuata masharti ya Papo Hapo
                 </label>
               </div>
             </div>
@@ -533,7 +533,7 @@ export default function RegisterDriver() {
   return (
     <AuthLayout 
       title={step === 0 ? "Be Your Own Boss" : (driverType === 'taxi' ? "Taxi Driver Signup" : "Delivery Partner Signup")}
-      subtitle={step === 0 ? "Jiunge na familia ya TegeX" : "Hatua ya mwisho kuelekea uhuru"}
+      subtitle={step === 0 ? "Jiunge na familia ya Papo Hapo" : "Hatua ya mwisho kuelekea uhuru"}
     >
       <div className="mb-8">
         {step > 0 && (

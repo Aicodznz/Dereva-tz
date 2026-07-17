@@ -15,42 +15,42 @@ interface ServicePreference {
 const servicesList: ServicePreference[] = [
   {
     id: 'gocar-l',
-    name: 'TegeX Gari (XL)',
+    name: 'PapoRide (XL)',
     desc: 'Huduma ya kubeba hadi abiria 6 kwa safari moja ya gari kubwa.',
     isNew: false,
     statusKey: 'gocarL'
   },
   {
     id: 'gosend-instant',
-    name: 'TegeX Parcel Instant',
+    name: 'PapoSend Instant',
     desc: 'Huduma ya haraka sana ya kusafirisha vifurushi na mizigo midogo.',
     isNew: false,
     statusKey: 'gosendInstant'
   },
   {
     id: 'gocar-comfort',
-    name: 'TegeX Comfort',
+    name: 'PapoRide Comfort',
     desc: 'Huduma ya usafiri yenye faraja ya ziada, AC, na madereva wenye kiwango cha juu.',
     isNew: true,
     statusKey: 'gocarComfort'
   },
   {
     id: 'gocar-prioritas',
-    name: 'TegeX Prioritas',
+    name: 'PapoRide VIP',
     desc: 'Huduma yenye kipaumbele cha juu kwa oda zinazotoka kwa abiria wetu wa VIP na mashirika.',
     isNew: true,
     statusKey: 'gocarPrioritas'
   },
   {
     id: 'gocar-hemat',
-    name: 'TegeX Gari Hemat',
+    name: 'PapoRide Eco',
     desc: 'Huduma ya usafiri wa kiuchumi (bei nafuu zaidi) kwa abiria wanaojali bajeti.',
     isNew: true,
     statusKey: 'gocarHemat'
   },
   {
     id: 'gocar-send',
-    name: 'TegeX Delivery Gari',
+    name: 'PapoSend Cargo',
     desc: 'Huduma maalumu ya kusafirisha mizigo mikubwa na mizito kwa kutumia magari ya kubebea mizigo.',
     isNew: true,
     statusKey: 'gocarSend'

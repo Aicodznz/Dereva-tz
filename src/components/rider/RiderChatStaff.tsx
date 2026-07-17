@@ -16,7 +16,7 @@ export default function RiderChatStaff({ onBack }: { onBack: () => void }) {
     {
       id: 'msg-1',
       sender: 'staff',
-      text: `Mambo, habari gani! Mimi ni Neema kutoka huduma kwa wateja ya TegeX Tanzania 🇹🇿. Je, ninaweza kukusaidia nini leo kuhusu akaunti au safari zako?`,
+      text: `Mambo, habari gani! Mimi ni Neema kutoka huduma kwa wateja ya Papo Hapo Tanzania 🇹🇿. Je, ninaweza kukusaidia nini leo kuhusu akaunti au safari zako?`,
       timestamp: 'Sasa hivi'
     }
   ]);
@@ -58,7 +58,7 @@ export default function RiderChatStaff({ onBack }: { onBack: () => void }) {
       } else if (cleanInput.includes('safari') || cleanInput.includes('mteja') || cleanInput.includes('abiria')) {
         replyText = "Kama una changamoto na safari inayoendelea au mteja fulani, tafadhali kumbuka kurekodi namba ya safari na utuambie hapa ili tukusaidie haraka. Usalama wako ndio kipaumbele chetu!";
       } else if (cleanInput.includes('mambo') || cleanInput.includes('habari') || cleanInput.includes('hello') || cleanInput.includes('mambo vipi')) {
-        replyText = "Habari nzuri sana! Niambie, una tatizo lolote au ungependa kupata ufafanuzi wa huduma gani ya TegeX leo?";
+        replyText = "Habari nzuri sana! Niambie, una tatizo lolote au ungependa kupata ufafanuzi wa huduma gani ya Papo Hapo leo?";
       }
 
       const staffReply: Message = {
@@ -93,7 +93,7 @@ export default function RiderChatStaff({ onBack }: { onBack: () => void }) {
             </div>
             <div>
               <div className="flex items-center gap-1">
-                <span className="text-xs font-black text-neutral-800 dark:text-neutral-100">Neema (TegeX Support)</span>
+                <span className="text-xs font-black text-neutral-800 dark:text-neutral-100">Neema (Papo Support)</span>
                 <span className="text-[7px] bg-emerald-500 text-white font-black px-1.5 py-0.5 rounded uppercase leading-none">WAFANYAKAZI</span>
               </div>
               <span className="text-[9px] text-neutral-400 font-black uppercase tracking-wider">Inapatikana • Mtandaoni</span>
@@ -107,7 +107,7 @@ export default function RiderChatStaff({ onBack }: { onBack: () => void }) {
         <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 flex gap-3 text-neutral-700 dark:text-neutral-300">
           <ShieldAlert className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
           <p className="text-[10px] leading-relaxed">
-            Mawasiliano yote na wafanyakazi wa TegeX yanalindwa na kurekodiwa kwa ajili ya kuboresha ubora na usalama wa huduma.
+            Mawasiliano yote na wafanyakazi wa Papo Hapo yanalindwa na kurekodiwa kwa ajili ya kuboresha ubora na usalama wa huduma.
           </p>
         </div>
 

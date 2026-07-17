@@ -10,7 +10,7 @@ export default function RiderPrivacyPolicy({ onBack }: { onBack: () => void }) {
     },
     {
       title: "2. Matumizi ya Eneo kwa Dereva (Location Access)",
-      content: "TegeX inakusanya data ya eneo lako hata ukiwa hufungua programu (background location) iwapo tu umeweka hali ya kuwa mtandaoni (Online/On-Duty). Hii inasaidia kupata abiria na kuratibu njia salama za barabara."
+      content: "Papo Hapo inakusanya data ya eneo lako hata ukiwa hufungua programu (background location) iwapo tu umeweka hali ya kuwa mtandaoni (Online/On-Duty). Hii inasaidia kupata abiria na kuratibu njia salama za barabara."
     },
     {
       title: "3. Ulinzi wa Taarifa Zako (Data Security)",
@@ -44,7 +44,7 @@ export default function RiderPrivacyPolicy({ onBack }: { onBack: () => void }) {
           <FileText className="w-5 h-5" />
         </div>
         <div className="space-y-1">
-          <h4 className="text-xs font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400">TegeX Tanzanian Compliance</h4>
+          <h4 className="text-xs font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Papo Hapo Tanzanian Compliance</h4>
           <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
             Sera hii ya faragha inaendana kikamilifu na sheria ya ulinzi wa data ya kibinafsi ya Tanzania ya mwaka 2022 (Personal Data Protection Act, 2022).
           </p>

@@ -107,7 +107,7 @@ export default function RiderIncentive({ onBack }: { onBack: () => void }) {
           <div className="absolute top-0 right-0 p-4 opacity-10">
             <Award className="w-20 h-20 text-white" />
           </div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">TegeX Performance Points</p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Papo Performance Points</p>
           <div className="space-y-1">
             <h2 className="text-4xl font-black italic tracking-tighter text-emerald-400">{points} XP</h2>
             <p className="text-[9px] font-bold text-neutral-400 uppercase">Points hizi hutumika kuongeza kiwango cha dereva.</p>

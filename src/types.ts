@@ -45,6 +45,18 @@ export interface UserProfile {
     expiresAt: string | null;
     status: 'active' | 'inactive';
   };
+  registrationDocs?: {
+    license_front?: boolean;
+    license_back?: boolean;
+    national_id?: boolean;
+  };
+  vehiclePhotos?: {
+    vehicle_front?: boolean;
+    vehicle_side?: boolean;
+  };
+  bankName?: string;
+  accountNumber?: string;
+  accountHolderName?: string;
 }
 
 export type VendorCategory = 'pharmacy' | 'grocery' | 'restaurant' | 'parcel' | 'taxi' | 'car_rental' | 'car_sale' | 'salon' | 'hotel' | 'ecommerce' | 'bus_ticket';
