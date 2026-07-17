@@ -7,11 +7,14 @@ export default function RiderReferral({ onBack }: { onBack: () => void }) {
   const [copied, setCopied] = useState(false);
   const code = "TEGEX8219";
 
-  const referrals = [
+  const [referrals, setReferrals] = useState([
     { name: 'John J. Minja', phone: '071***8822', status: 'Active (Completed 5 rides)', reward: '5,000 TZS', date: 'Leo, 10:30 AM' },
     { name: 'Salum Rashid', phone: '065***1190', status: 'Registered (No rides yet)', reward: 'Pending', date: 'Juzi, 4:15 PM' },
     { name: 'Emanuel Massawe', phone: '076***4421', status: 'Active (Completed 12 rides)', reward: '5,000 TZS', date: '12 Julai, 1:00 PM' }
-  ];
+  ]);
+
+  const [inviteName, setInviteName] = useState('');
+  const [invitePhone, setInvitePhone] = useState('');
 
   const handleCopy = () => {
     navigator.clipboard.writeText(code);
@@ -21,6 +24,47 @@ export default function RiderReferral({ onBack }: { onBack: () => void }) {
       duration: 3000,
     });
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Tegex Driver App',
+          text: `Jiunge na Tegex kama Dereva kwa kutumia kodi yangu ya mwaliko ${code} ili upate bonus ya TZS 5,000!`,
+          url: window.location.href,
+        });
+        toast.success('Mwaliko umetumwa kikamilifu!');
+      } catch (err) {
+        console.warn(err);
+      }
+    } else {
+      handleCopy();
+    }
+  };
+
+  const handleInviteSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviteName.trim() || !invitePhone.trim()) {
+      toast.error('Tafadhali jaza jina na namba ya simu ya mwaliko');
+      return;
+    }
+
+    const newRef = {
+      name: inviteName,
+      phone: invitePhone.slice(0, 3) + '***' + invitePhone.slice(-4),
+      status: 'Registered (Mwaliko Umetumwa)',
+      reward: 'Pending',
+      date: 'Sasa Hivi'
+    };
+
+    setReferrals(prev => [newRef, ...prev]);
+    setInviteName('');
+    setInvitePhone('');
+    toast.success('Mwaliko umetumwa kwa SMS!', {
+      description: `Ujumbe wa kujiunga na Tegex umetumwa kwa ${inviteName}.`,
+      duration: 3000,
+    });
   };
 
   return (
@@ -71,17 +115,53 @@ export default function RiderReferral({ onBack }: { onBack: () => void }) {
           </div>
           <button
             onClick={handleCopy}
-            className="w-14 h-14 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 rounded-xl flex items-center justify-center active:scale-90 transition-all shrink-0"
+            className="w-14 h-14 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 rounded-xl flex items-center justify-center active:scale-90 transition-all shrink-0 border-0"
             title="Nakili kodi"
           >
             {copied ? <Check className="w-5 h-5 text-emerald-500 stroke-[3]" /> : <Copy className="w-5 h-5" />}
           </button>
         </div>
 
-        <button className="h-12 px-6 bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-600 rounded-xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 mx-auto active:scale-95 transition-all">
+        <button 
+          onClick={handleShare}
+          className="h-12 px-6 bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-600 rounded-xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 mx-auto active:scale-95 transition-all border-0 outline-none"
+        >
           <Share2 className="w-4 h-4" /> Shiriki na Madereva wengine
         </button>
       </div>
+
+      {/* Invite Friends Form */}
+      <form onSubmit={handleInviteSubmit} className="bg-white dark:bg-neutral-900 rounded-[2rem] border border-neutral-100 dark:border-neutral-800 p-6 space-y-4 shadow-sm">
+        <h3 className="text-[10px] font-black uppercase text-neutral-400 tracking-[0.2em]">TUMA MWALIKO MPYA SASA</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <label className="text-[9px] font-black uppercase text-neutral-400 tracking-wider">Jina la Rafiki</label>
+            <input
+              type="text"
+              value={inviteName}
+              onChange={(e) => setInviteName(e.target.value)}
+              placeholder="Mfano: Juma Ally"
+              className="w-full h-11 px-4 rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-150 dark:border-neutral-800 outline-none font-bold text-xs"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[9px] font-black uppercase text-neutral-400 tracking-wider">Namba ya Simu</label>
+            <input
+              type="tel"
+              value={invitePhone}
+              onChange={(e) => setInvitePhone(e.target.value)}
+              placeholder="Mfano: 0715112233"
+              className="w-full h-11 px-4 rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-150 dark:border-neutral-800 outline-none font-bold text-xs"
+            />
+          </div>
+        </div>
+        <button
+          type="submit"
+          className="w-full h-11 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 rounded-xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 transition-transform active:scale-95 border-0"
+        >
+          Tuma SMS ya Mwaliko
+        </button>
+      </form>
 
       {/* Stats of Referrals */}
       <div className="space-y-4">
@@ -96,7 +176,7 @@ export default function RiderReferral({ onBack }: { onBack: () => void }) {
               className="bg-white dark:bg-neutral-900 rounded-[1.5rem] border border-neutral-100 dark:border-neutral-800 p-5 flex items-center justify-between shadow-sm"
             >
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-neutral-50 dark:bg-neutral-800 flex items-center justify-center text-neutral-400">
+                <div className="w-12 h-12 rounded-xl bg-neutral-50 dark:bg-neutral-800 flex items-center justify-center text-neutral-400 shrink-0">
                   <Users className="w-5 h-5 text-emerald-500" />
                 </div>
                 <div>
@@ -106,7 +186,7 @@ export default function RiderReferral({ onBack }: { onBack: () => void }) {
                 </div>
               </div>
 
-              <div className="text-right">
+              <div className="text-right shrink-0">
                 <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest block">MALIPO</span>
                 <span className={`text-xs font-black italic uppercase ${
                   ref.reward === 'Pending' ? 'text-amber-500' : 'text-emerald-600'

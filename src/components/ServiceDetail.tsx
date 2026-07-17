@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { 
   ChevronLeft, Star, Search, Filter, MapPin, ChevronRight,
   Utensils, ShoppingCart, Pill, Package, Car, Scissors, Hotel, ShoppingBag, Bus, Plus,
-  Sparkles, Flower, Droplet, User, Smile
+  Sparkles, Flower, Droplet, User, Smile, Home
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage } from '../LanguageContext';
@@ -19,15 +19,17 @@ import { toast } from 'sonner';
 import BusBooking from './BusBooking';
 
 const serviceMapping: Record<string, { category: VendorCategory, labelKey: string, icon: any, color: string }> = {
-  'chakula': { category: 'restaurant', labelKey: 'food', icon: Utensils, color: 'bg-red-500' },
-  'sokoni': { category: 'grocery', labelKey: 'grocery', icon: ShoppingCart, color: 'bg-green-500' },
-  'dawa': { category: 'pharmacy', labelKey: 'pharmacy', icon: Pill, color: 'bg-blue-500' },
-  'maduka': { category: 'ecommerce', labelKey: 'ecommerce', icon: ShoppingBag, color: 'bg-purple-500' },
-  'teksi': { category: 'taxi', labelKey: 'taxi', icon: Car, color: 'bg-yellow-500' },
-  'saluni': { category: 'salon', labelKey: 'salons', icon: Scissors, color: 'bg-pink-500' },
-  'hoteli': { category: 'hotel', labelKey: 'hotels', icon: Hotel, color: 'bg-indigo-500' },
-  'vifurushi': { category: 'parcel', labelKey: 'parcel', icon: Package, color: 'bg-orange-500' },
-  'bus_ticket': { category: 'bus_ticket', labelKey: 'Bus Tickets', icon: Bus, color: 'bg-orange-600' },
+  'chakula': { category: 'restaurant', labelKey: 'PapoFood', icon: Utensils, color: 'bg-red-500' },
+  'sokoni': { category: 'grocery', labelKey: 'PapoMart', icon: ShoppingCart, color: 'bg-green-500' },
+  'dawa': { category: 'pharmacy', labelKey: 'PapoMed', icon: Pill, color: 'bg-blue-500' },
+  'maduka': { category: 'ecommerce', labelKey: 'PapoMall', icon: ShoppingBag, color: 'bg-purple-500' },
+  'teksi': { category: 'taxi', labelKey: 'PapoRide', icon: Car, color: 'bg-yellow-500' },
+  'saluni': { category: 'salon', labelKey: 'PapoStyle', icon: Scissors, color: 'bg-pink-500' },
+  'hoteli': { category: 'hotel', labelKey: 'PapoStay', icon: Hotel, color: 'bg-indigo-500' },
+  'vifurushi': { category: 'parcel', labelKey: 'PapoSend', icon: Package, color: 'bg-orange-500' },
+  'bus_ticket': { category: 'bus_ticket', labelKey: 'PapoBus', icon: Bus, color: 'bg-orange-600' },
+  'car_rental': { category: 'taxi', labelKey: 'PapoRent', icon: Key, color: 'bg-teal-600' },
+  'kodi_nyumba': { category: 'hotel', labelKey: 'PapoHoteli', icon: Home, color: 'bg-amber-600' },
   'all-stores': { category: 'all' as any, labelKey: 'all_stores', icon: ShoppingBag, color: 'bg-orange-600' },
 };
 

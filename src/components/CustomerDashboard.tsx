@@ -9,7 +9,7 @@ import { Skeleton } from './ui/Skeleton';
 import { 
   Utensils, ShoppingCart, Pill, Package, Car, Scissors, Hotel, Star, 
   Search, Bell, MapPin, ChevronRight, ShoppingBag, Tag, Plus, ShoppingBasket,
-  FileText, Smartphone, Box, Dog, Bus, Sparkles, Wrench, Key, Camera
+  FileText, Smartphone, Box, Dog, Bus, Sparkles, Wrench, Key, Camera, Home
 } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
@@ -545,17 +545,18 @@ export default function CustomerDashboard() {
   }, []);
 
   const services = [
-    { id: 'chakula', label: t('food') || 'Chakula', icon: Utensils, color: 'bg-red-500', sub: 'Food Delivery 🍔', category: 'restaurant' },
-    { id: 'sokoni', label: t('grocery') || 'Sokoni', icon: ShoppingCart, color: 'bg-green-500', sub: 'Grocery 🛒', category: 'grocery' },
-    { id: 'bus_ticket', label: 'Bus Tickets', icon: Bus, color: 'bg-orange-600', sub: 'Bus Booking 🚌', category: 'bus_ticket' },
-    { id: 'teksi', label: t('taxi') || 'Teksi', icon: Car, color: 'bg-yellow-500', sub: 'Taxi 🚕', category: 'taxi' },
-    { id: 'car_rental', label: 'Kukodi Gari', icon: Key, color: 'bg-teal-600', sub: 'Car Rental 🔑🚗', category: 'taxi' },
-    { id: 'vifurushi', label: t('parcel') || 'Vifurushi', icon: Package, color: 'bg-orange-500', sub: 'Parcel 📦', category: 'parcel' },
-    { id: 'dawa', label: t('pharmacy') || 'Duka la Dawa', icon: Pill, color: 'bg-blue-500', sub: 'Pharmacy 💊', category: 'pharmacy' },
-    { id: 'maduka', label: t('ecommerce') || 'Maduka', icon: ShoppingBag, color: 'bg-purple-500', sub: 'eCommerce 🛍️', category: 'ecommerce' },
-    { id: 'saluni', label: t('salons') || 'Saluni', icon: Scissors, color: 'bg-pink-500', sub: 'Salons 💇‍♀️', category: 'salon' },
-    { id: 'ramani', label: 'Ramani', icon: MapPin, color: 'bg-neutral-600', sub: 'Nearby Stores 📍', category: 'all' },
-    { id: 'hoteli', label: t('hotels') || 'Hoteli', icon: Hotel, color: 'bg-indigo-500', sub: 'Hotels 🏨', category: 'hotel' },
+    { id: 'teksi', label: 'PapoRide', icon: Car, color: 'bg-yellow-500', sub: 'Agiza gari, boda au bajaji 🚕', category: 'taxi', badge: 'ONLY1K' },
+    { id: 'chakula', label: 'PapoFood', icon: Utensils, color: 'bg-red-500', sub: 'Chakula kutoka migahawa 🍔', category: 'restaurant', badge: 'ONLY1K' },
+    { id: 'sokoni', label: 'PapoMart', icon: ShoppingCart, color: 'bg-green-500', sub: 'Nunua bidhaa za sokoni 🛒', category: 'grocery', badge: 'ONLY1K' },
+    { id: 'vifurushi', label: 'PapoSend', icon: Package, color: 'bg-orange-500', sub: 'Tuma vifurushi 📦', category: 'parcel', badge: 'ONLY1K' },
+    { id: 'dawa', label: 'PapoMed', icon: Pill, color: 'bg-blue-500', sub: 'Dawa na huduma za afya 💊', category: 'pharmacy', badge: 'ONLY1K' },
+    { id: 'saluni', label: 'PapoStyle', icon: Scissors, color: 'bg-pink-500', sub: 'Saluni na beauty services 💇', category: 'salon', badge: 'ONLY1K' },
+    { id: 'hoteli', label: 'PapoStay', icon: Hotel, color: 'bg-indigo-500', sub: 'Booking hoteli 🏨', category: 'hotel', badge: 'ONLY6K' },
+    { id: 'bus_ticket', label: 'PapoBus', icon: Bus, color: 'bg-orange-600', sub: 'Tiketi za mabasi 🚌', category: 'bus_ticket', badge: 'ONLY6K' },
+    { id: 'car_rental', label: 'PapoRent', icon: Key, color: 'bg-teal-600', sub: 'Rental ya magari 🚘', category: 'taxi', badge: 'ONLY6K' },
+    { id: 'kodi_nyumba', label: 'PapoHoteli', icon: Home, color: 'bg-amber-600', sub: 'Nyumba/vyumba vya kupanga/kuhifadhi 🏠', category: 'hotel', badge: 'ONLY6K' },
+    { id: 'maduka', label: 'PapoMall', icon: ShoppingBag, color: 'bg-purple-500', sub: 'Soko la mtandaoni 🛍️', category: 'ecommerce' },
+    { id: 'ramani', label: 'PapoMap', icon: MapPin, color: 'bg-neutral-600', sub: 'Ramani ya karibu 📍', category: 'all' },
   ];
 
   useEffect(() => {
@@ -1075,20 +1076,31 @@ export default function CustomerDashboard() {
                       }}
                       className="flex flex-col items-center text-center group w-full gap-3 relative cursor-pointer"
                     >
-                      <motion.div 
-                        whileHover={{ y: -10, rotate: 5 }}
-                        whileTap={{ scale: 0.9 }}
-                        className={`w-16 h-16 md:w-22 md:h-22 rounded-[1.75rem] flex items-center justify-center text-white shadow-[0_15px_35px_rgba(0,0,0,0.1)] group-hover:shadow-orange-600/30 transition-all duration-500 overflow-hidden relative ${service.color}`}
-                      >
-                        <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent" />
-                        <service.icon className="w-7 h-7 md:w-9 md:h-9 relative z-10" />
-                        {isUnderMaintenance && (
-                          <div className="absolute inset-0 bg-neutral-900/75 backdrop-blur-[1.5px] flex flex-col items-center justify-center z-20">
-                            <Wrench className="w-5 h-5 text-amber-400 animate-bounce" />
-                            <span className="text-[6.5px] font-black uppercase text-amber-400 select-none tracking-tighter mt-0.5">Wrench</span>
-                          </div>
+                      <div className="relative">
+                        <motion.div 
+                          whileHover={{ y: -10, rotate: 5 }}
+                          whileTap={{ scale: 0.9 }}
+                          className={`w-16 h-16 md:w-22 md:h-22 rounded-[1.75rem] flex items-center justify-center text-white shadow-[0_15px_35px_rgba(0,0,0,0.1)] group-hover:shadow-orange-600/30 transition-all duration-500 overflow-hidden relative ${service.color}`}
+                        >
+                          <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent" />
+                          <service.icon className="w-7 h-7 md:w-9 md:h-9 relative z-10" />
+                          {isUnderMaintenance && (
+                            <div className="absolute inset-0 bg-neutral-900/75 backdrop-blur-[1.5px] flex flex-col items-center justify-center z-20">
+                              <Wrench className="w-5 h-5 text-amber-400 animate-bounce" />
+                              <span className="text-[6.5px] font-black uppercase text-amber-400 select-none tracking-tighter mt-0.5">Wrench</span>
+                            </div>
+                          )}
+                        </motion.div>
+                        {service.badge && (
+                          <span className={`absolute -top-2 -right-3 z-30 font-black text-[7.5px] md:text-[9.5px] px-1.5 py-0.5 rounded-full text-white shadow-[0_4px_10px_rgba(0,0,0,0.2)] select-none tracking-tight uppercase border-2 border-white dark:border-neutral-900 leading-none ${
+                            service.badge === 'ONLY1K' 
+                              ? 'bg-gradient-to-r from-red-500 to-rose-600 animate-bounce' 
+                              : 'bg-gradient-to-r from-indigo-500 to-purple-600 animate-pulse'
+                          }`}>
+                            {service.badge}
+                          </span>
                         )}
-                      </motion.div>
+                      </div>
                       <span className="font-black text-[9px] md:text-[10px] uppercase tracking-widest text-neutral-600 leading-tight block w-full truncate relative">
                         {service.label}
                         {isUnderMaintenance && <span className="absolute -top-1 right-0 w-1.5 h-1.5 bg-amber-500 rounded-full animate-ping" />}
@@ -1100,20 +1112,31 @@ export default function CustomerDashboard() {
                       onClick={handleServiceClick}
                       className="flex flex-col items-center text-center group gap-3 relative"
                     >
-                      <motion.div 
-                        whileHover={{ y: -10, rotate: -5 }}
-                        whileTap={{ scale: 0.9 }}
-                        className={`w-16 h-16 md:w-22 md:h-22 rounded-[1.75rem] flex items-center justify-center text-white shadow-[0_15px_35px_rgba(0,0,0,0.1)] group-hover:shadow-orange-600/30 transition-all duration-500 overflow-hidden relative ${service.color}`}
-                      >
-                        <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent" />
-                        <service.icon className="w-7 h-7 md:w-9 md:h-9 relative z-10" />
-                        {isUnderMaintenance && (
-                          <div className="absolute inset-0 bg-neutral-900/75 backdrop-blur-[1.5px] flex flex-col items-center justify-center z-20">
-                            <Wrench className="w-5 h-5 text-amber-400 animate-bounce" />
-                            <span className="text-[6.5px] font-black uppercase text-amber-400 select-none tracking-tighter mt-0.5">Wrench</span>
-                          </div>
+                      <div className="relative">
+                        <motion.div 
+                          whileHover={{ y: -10, rotate: -5 }}
+                          whileTap={{ scale: 0.9 }}
+                          className={`w-16 h-16 md:w-22 md:h-22 rounded-[1.75rem] flex items-center justify-center text-white shadow-[0_15px_35px_rgba(0,0,0,0.1)] group-hover:shadow-orange-600/30 transition-all duration-500 overflow-hidden relative ${service.color}`}
+                        >
+                          <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent" />
+                          <service.icon className="w-7 h-7 md:w-9 md:h-9 relative z-10" />
+                          {isUnderMaintenance && (
+                            <div className="absolute inset-0 bg-neutral-900/75 backdrop-blur-[1.5px] flex flex-col items-center justify-center z-20">
+                              <Wrench className="w-5 h-5 text-amber-400 animate-bounce" />
+                              <span className="text-[6.5px] font-black uppercase text-amber-400 select-none tracking-tighter mt-0.5">Wrench</span>
+                            </div>
+                          )}
+                        </motion.div>
+                        {service.badge && (
+                          <span className={`absolute -top-2 -right-3 z-30 font-black text-[7.5px] md:text-[9.5px] px-1.5 py-0.5 rounded-full text-white shadow-[0_4px_10px_rgba(0,0,0,0.2)] select-none tracking-tight uppercase border-2 border-white dark:border-neutral-900 leading-none ${
+                            service.badge === 'ONLY1K' 
+                              ? 'bg-gradient-to-r from-red-500 to-rose-600 animate-bounce' 
+                              : 'bg-gradient-to-r from-indigo-500 to-purple-600 animate-pulse'
+                          }`}>
+                            {service.badge}
+                          </span>
                         )}
-                      </motion.div>
+                      </div>
                       <span className="font-black text-[9px] md:text-[10px] uppercase tracking-widest text-neutral-600 leading-tight block w-full truncate relative">
                         {service.label}
                         {isUnderMaintenance && <span className="absolute -top-1 right-0 w-1.5 h-1.5 bg-amber-500 rounded-full animate-ping" />}

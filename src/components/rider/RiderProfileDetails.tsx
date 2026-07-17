@@ -12,6 +12,29 @@ export default function RiderProfileDetails({ onBack }: { onBack: () => void }) 
   const [email, setEmail] = useState(profile?.email || '');
   const [city, setCity] = useState(profile?.city || 'Dar es Salaam');
   const [gender, setGender] = useState(profile?.gender || 'Mwanaume');
+  const [photoURL, setPhotoURL] = useState(profile?.photoURL || '');
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+
+  const avatarPresets = [
+    { seed: 'Moses', label: 'Moses' },
+    { seed: 'Sarah', label: 'Sarah' },
+    { seed: 'Alex', label: 'Alex' },
+    { seed: 'Mia', label: 'Mia' },
+    { seed: 'Leo', label: 'Leo' },
+    { seed: 'Emma', label: 'Emma' },
+    { seed: 'Tzee', label: 'Tzee' },
+    { seed: 'Driver', label: 'Captain' }
+  ];
+
+  const handleSelectAvatar = (seed: string) => {
+    const url = `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`;
+    setPhotoURL(url);
+    setShowAvatarPicker(false);
+    toast.success('Picha ya wasifu imeteuliwa!', {
+      description: 'Bonyeza "Hifadhi Mabadiliko" chini kukamilisha.',
+      duration: 2000,
+    });
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,6 +45,7 @@ export default function RiderProfileDetails({ onBack }: { onBack: () => void }) 
         phone: phone,
         city: city,
         gender: gender,
+        photoURL: photoURL,
       });
       toast.success('Wasifu Umesahihishwa!', {
         description: 'Taarifa zako zimehifadhiwa kikamilifu kwenye mfumo.',
@@ -54,10 +78,14 @@ export default function RiderProfileDetails({ onBack }: { onBack: () => void }) 
 
       {/* Profile Picture Upload Section */}
       <div className="flex flex-col items-center justify-center py-4 relative">
-        <div className="relative group cursor-pointer">
-          <div className="w-28 h-28 rounded-[2.5rem] border-4 border-emerald-500/20 p-1 overflow-hidden bg-neutral-100 dark:bg-neutral-800 shadow-lg">
+        <button 
+          type="button"
+          onClick={() => setShowAvatarPicker(!showAvatarPicker)}
+          className="relative group cursor-pointer border-0 bg-transparent outline-none"
+        >
+          <div className="w-28 h-28 rounded-[2.5rem] border-4 border-emerald-500/20 p-1 overflow-hidden bg-neutral-100 dark:bg-neutral-800 shadow-lg group-hover:scale-105 transition-all">
             <img 
-              src={profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile?.email}`} 
+              src={photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile?.email || 'driver'}`} 
               alt="Profile" 
               className="w-full h-full object-cover rounded-[2rem]"
             />
@@ -65,8 +93,45 @@ export default function RiderProfileDetails({ onBack }: { onBack: () => void }) 
           <div className="absolute bottom-0 right-0 bg-emerald-500 text-white p-2.5 rounded-2xl shadow-lg border-2 border-white dark:border-neutral-900 active:scale-90 transition-all">
             <Camera className="w-4 h-4" />
           </div>
-        </div>
+        </button>
         <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mt-3">Gusa picha kubadilisha</p>
+
+        {/* Avatar presets grid */}
+        {showAvatarPicker && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="w-full max-w-md bg-white dark:bg-neutral-900 p-5 rounded-[2rem] border border-neutral-100 dark:border-neutral-800 mt-4 space-y-3 shadow-md"
+          >
+            <div className="flex justify-between items-center px-1">
+              <span className="text-[9px] font-black uppercase text-neutral-400 tracking-widest">Chagua Picha ya Avatar</span>
+              <button 
+                type="button" 
+                onClick={() => setShowAvatarPicker(false)} 
+                className="text-[9px] font-black text-red-500 uppercase tracking-widest hover:underline"
+              >
+                Funga
+              </button>
+            </div>
+            <div className="grid grid-cols-4 gap-3">
+              {avatarPresets.map((p) => (
+                <button
+                  key={p.seed}
+                  type="button"
+                  onClick={() => handleSelectAvatar(p.seed)}
+                  className="flex flex-col items-center gap-1 p-1 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 border border-transparent hover:border-neutral-200 transition-all active:scale-95"
+                >
+                  <img 
+                    src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${p.seed}`} 
+                    alt={p.label} 
+                    className="w-12 h-12 rounded-lg bg-neutral-100 dark:bg-neutral-800"
+                  />
+                  <span className="text-[9px] font-bold text-neutral-600 dark:text-neutral-400">{p.label}</span>
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
       </div>
 
       {/* Profile Details Form */}
