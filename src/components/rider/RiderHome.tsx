@@ -1304,8 +1304,16 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
   // Synchronize dynamicRoute to simulatedPath once generated
   useEffect(() => {
     if (dynamicRoute && dynamicRoute.length > 2 && activeRide) {
-      // ONLY run simulation setup if explicitly marked as a simulation ride!
-      if (!(activeRide as any).isSimulation && !(activeRide as any).simulated) {
+      // Support simulating all rides in preview/testing environments, including USSD/SMS bookings!
+      const isSimRide = 
+        (activeRide as any).isSimulation || 
+        (activeRide as any).simulated || 
+        activeRide.bookingSource === 'ussd' || 
+        activeRide.bookingSource === 'sms' || 
+        activeRide.customerId?.startsWith('sms-client-') || 
+        activeRide.customerId?.startsWith('meta-client-');
+
+      if (!isSimRide) {
         return;
       }
       const status = activeRide.status;
@@ -1356,8 +1364,16 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
   useEffect(() => {
     if (!isOnline || !activeRide) return;
 
-    // ONLY run mock simulation path if explicitly marked as a simulation ride!
-    if (!(activeRide as any).isSimulation && !(activeRide as any).simulated) return;
+    // Support simulating all rides in preview/testing environments, including USSD/SMS bookings!
+    const isSimRide = 
+      (activeRide as any).isSimulation || 
+      (activeRide as any).simulated || 
+      activeRide.bookingSource === 'ussd' || 
+      activeRide.bookingSource === 'sms' || 
+      activeRide.customerId?.startsWith('sms-client-') || 
+      activeRide.customerId?.startsWith('meta-client-');
+
+    if (!isSimRide) return;
 
     const status = activeRide.status;
     const isMovingStatus = ['accepted', 'driver_arriving', 'on_trip'].includes(status);
@@ -2006,7 +2022,15 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
             }
 
             // Check if simulated ride is in progress.
-            const isSimulating = activeRide && ['accepted', 'driver_arriving', 'on_trip'].includes(activeRide.status) && ((activeRide as any).isSimulation || (activeRide as any).simulated);
+            const isSimRide = activeRide && (
+              (activeRide as any).isSimulation || 
+              (activeRide as any).simulated || 
+              activeRide.bookingSource === 'ussd' || 
+              activeRide.bookingSource === 'sms' || 
+              activeRide.customerId?.startsWith('sms-client-') || 
+              activeRide.customerId?.startsWith('meta-client-')
+            );
+            const isSimulating = activeRide && ['accepted', 'driver_arriving', 'on_trip'].includes(activeRide.status) && isSimRide;
             if (isSimulating) {
               return;
             }

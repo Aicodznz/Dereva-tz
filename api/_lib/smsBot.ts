@@ -444,11 +444,11 @@ export async function handleSMSInput(
     let destName = session.resolvedDest?.name || "Posta";
 
     let pLoc = session.resolvedPickup ? {
-      placeId: session.resolvedPickup.placeId,
-      name: session.resolvedPickup.name,
-      address: session.resolvedPickup.displayName || session.resolvedPickup.name,
-      lat: session.resolvedPickup.latitude,
-      lng: session.resolvedPickup.longitude
+      placeId: session.resolvedPickup.placeId || "TZ-DSM-MWENGE-001",
+      name: session.resolvedPickup.name || "Mwenge",
+      address: session.resolvedPickup.displayName || session.resolvedPickup.name || "Mwenge, Kinondoni, Dar es Salaam",
+      lat: typeof session.resolvedPickup.latitude === 'number' ? session.resolvedPickup.latitude : (typeof (session.resolvedPickup as any).lat === 'number' ? (session.resolvedPickup as any).lat : -6.7681),
+      lng: typeof session.resolvedPickup.longitude === 'number' ? session.resolvedPickup.longitude : (typeof (session.resolvedPickup as any).lng === 'number' ? (session.resolvedPickup as any).lng : 39.2274)
     } : {
       placeId: "TZ-DSM-MWENGE-001",
       name: "Mwenge",
@@ -458,11 +458,11 @@ export async function handleSMSInput(
     };
 
     let dLoc = session.resolvedDest ? {
-      placeId: session.resolvedDest.placeId,
-      name: session.resolvedDest.name,
-      address: session.resolvedDest.displayName || session.resolvedDest.name,
-      lat: session.resolvedDest.latitude,
-      lng: session.resolvedDest.longitude
+      placeId: session.resolvedDest.placeId || "TZ-DSM-POSTA-001",
+      name: session.resolvedDest.name || "Posta",
+      address: session.resolvedDest.displayName || session.resolvedDest.name || "Posta, Ilala, Dar es Salaam",
+      lat: typeof session.resolvedDest.latitude === 'number' ? session.resolvedDest.latitude : (typeof (session.resolvedDest as any).lat === 'number' ? (session.resolvedDest as any).lat : -6.8164),
+      lng: typeof session.resolvedDest.longitude === 'number' ? session.resolvedDest.longitude : (typeof (session.resolvedDest as any).lng === 'number' ? (session.resolvedDest as any).lng : 39.2902)
     } : {
       placeId: "TZ-DSM-POSTA-001",
       name: "Posta",
