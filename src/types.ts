@@ -36,6 +36,15 @@ export interface UserProfile {
     gocarHemat?: boolean;
     gocarSend?: boolean;
   };
+  phone?: string;
+  city?: string;
+  gender?: string;
+  subscription?: {
+    planId: string;
+    planName: string;
+    expiresAt: string | null;
+    status: 'active' | 'inactive';
+  };
 }
 
 export type VendorCategory = 'pharmacy' | 'grocery' | 'restaurant' | 'parcel' | 'taxi' | 'car_rental' | 'car_sale' | 'salon' | 'hotel' | 'ecommerce' | 'bus_ticket';

@@ -16,8 +16,16 @@ import RiderSettings from './rider/RiderSettings';
 import RiderWallet from './rider/RiderWallet';
 import RiderRegistrationDetails from './rider/RiderRegistrationDetails';
 import RiderAppSettings from './rider/RiderAppSettings';
+import RiderProfileDetails from './rider/RiderProfileDetails';
+import RiderSubscription from './rider/RiderSubscription';
+import RiderIncentive from './rider/RiderIncentive';
+import RiderReferral from './rider/RiderReferral';
+import RiderSupportTicket from './rider/RiderSupportTicket';
+import RiderChatStaff from './rider/RiderChatStaff';
+import RiderPrivacyPolicy from './rider/RiderPrivacyPolicy';
+import RiderLanguage from './rider/RiderLanguage';
 
-type NavTab = 'home' | 'performance' | 'rides' | 'settings' | 'wallet' | 'docs' | 'vehicle' | 'bank' | 'app-settings';
+type NavTab = 'home' | 'performance' | 'rides' | 'settings' | 'wallet' | 'docs' | 'vehicle' | 'bank' | 'app-settings' | 'profile' | 'subscription' | 'incentive' | 'referral' | 'ticket' | 'chat' | 'privacy' | 'lang';
 
 export default function RiderDashboard() {
   const { user, profile } = useAuth();
@@ -33,7 +41,14 @@ export default function RiderDashboard() {
     if (view === 'vehicle') setActiveTab('vehicle');
     if (view === 'bank') setActiveTab('bank');
     if (view === 'app-settings') setActiveTab('app-settings');
-    // Add other routes as needed
+    if (view === 'profile') setActiveTab('profile');
+    if (view === 'subscription') setActiveTab('subscription');
+    if (view === 'incentive') setActiveTab('incentive');
+    if (view === 'referral') setActiveTab('referral');
+    if (view === 'ticket') setActiveTab('ticket');
+    if (view === 'chat') setActiveTab('chat');
+    if (view === 'privacy') setActiveTab('privacy');
+    if (view === 'lang') setActiveTab('lang');
   };
 
   const renderContent = () => {
@@ -56,6 +71,22 @@ export default function RiderDashboard() {
         return <RiderRegistrationDetails initialTab="bank" onBack={() => setActiveTab('settings')} />;
       case 'app-settings':
         return <RiderAppSettings onBack={() => setActiveTab('settings')} />;
+      case 'profile':
+        return <RiderProfileDetails onBack={() => setActiveTab('settings')} />;
+      case 'subscription':
+        return <RiderSubscription onBack={() => setActiveTab('settings')} />;
+      case 'incentive':
+        return <RiderIncentive onBack={() => setActiveTab('settings')} />;
+      case 'referral':
+        return <RiderReferral onBack={() => setActiveTab('settings')} />;
+      case 'ticket':
+        return <RiderSupportTicket onBack={() => setActiveTab('settings')} />;
+      case 'chat':
+        return <RiderChatStaff onBack={() => setActiveTab('settings')} />;
+      case 'privacy':
+        return <RiderPrivacyPolicy onBack={() => setActiveTab('settings')} />;
+      case 'lang':
+        return <RiderLanguage onBack={() => setActiveTab('settings')} />;
       default:
         return <RiderHome onProfileClick={() => setActiveTab('settings')} />;
     }

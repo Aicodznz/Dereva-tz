@@ -95,20 +95,20 @@ export default function RiderSettings({ onNavigate, onBack }: { onNavigate: (vie
       </motion.div>
 
       {/* Menu Groups */}
-      <div className="space-y-10">
+      <div className="space-y-6">
         {menuGroups.map((group, gIdx) => (
-          <div key={group.title} className="space-y-4">
-            <h3 className="text-[10px] font-black uppercase text-neutral-400 tracking-[0.2em] px-2">{group.title}</h3>
-            <div className="space-y-2">
+          <div key={group.title} className="space-y-2">
+            <h3 className="text-[10px] font-black uppercase text-neutral-400 tracking-[0.2em] px-3">{group.title}</h3>
+            <div className="bg-white dark:bg-neutral-900 rounded-[2.2rem] border border-neutral-100 dark:border-neutral-800/80 p-1 divide-y divide-neutral-100 dark:divide-neutral-800/40 shadow-sm overflow-hidden">
               {group.items.map((item, iIdx) => (
                 <motion.button
                   key={item.name}
-                  whileTap={{ scale: 0.98 }}
+                  whileTap={{ scale: 0.99 }}
                   onClick={() => onNavigate(item.action)}
-                  className="w-full flex items-center justify-between p-4 bg-white dark:bg-neutral-900 rounded-[1.5rem] border border-neutral-100 dark:border-neutral-800 hover:border-emerald-500/30 transition-all group"
+                  className="w-full flex items-center justify-between p-5 hover:bg-neutral-50/50 dark:hover:bg-neutral-800/20 transition-all group first:rounded-t-[1.8rem] last:rounded-b-[1.8rem]"
                 >
                   <div className="flex items-center gap-4">
-                     <div className={`w-10 h-10 rounded-xl ${item.bg} dark:bg-neutral-800 flex items-center justify-center transition-transform group-hover:scale-110`}>
+                     <div className={`w-10 h-10 rounded-xl ${item.bg} dark:bg-neutral-800 flex items-center justify-center transition-transform group-hover:scale-105`}>
                         <item.icon className={`w-5 h-5 ${item.color}`} />
                      </div>
                      <span className="font-bold text-sm text-neutral-800 dark:text-neutral-200">{item.name}</span>
