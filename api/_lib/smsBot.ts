@@ -1,6 +1,13 @@
+import { 
+  resolvePlace, 
+  splitTwoLocations, 
+  getRoadDistanceAndDuration, 
+  Place 
+} from './geocoder.js';
+
 export interface SMSSession {
   phone: string;
-  step: 'START' | 'SELECT_SERVICE' | 'BUS_ROUTE' | 'BUS_SELECT_OPERATOR' | 'BUS_SEAT' | 'BUS_PHONE' | 'TAXI_ROUTE' | 'TAXI_DRIVER_SELECT' | 'TAXI_VEHICLE_SELECT' | 'TAXI_CONFIRM_TRIP' | 'SALON_SUB' | 'SALON_SELECT' | 'STORE_SEARCH' | 'STORE_SELECT_ITEM' | 'STORE_PHONE';
+  step: string;
   selectedService?: string;
   busRoute?: string;
   selectedOperatorId?: string;
@@ -17,57 +24,13 @@ export interface SMSSession {
   selectedProductPrice?: number;
   optionsList?: any[]; // To track numeric selection maps (e.g. 1 to operator id)
   lastUpdated: number;
+  resolvedPickup?: Place;
+  resolvedDest?: Place;
+  tempRawDestination?: string;
 }
 
 // In-memory fallback sessions state
 const inMemorySessions = new Map<string, SMSSession>();
-
-function getCoordsByName(name: string, isDest = false) {
-  const n = (name || "").toLowerCase();
-  if (n.includes("posta")) {
-    return { name: name || "Posta", address: name || "Posta", lat: -6.8164, lng: 39.2902 };
-  }
-  if (n.includes("mwenge")) {
-    return { name: name || "Mwenge", address: name || "Mwenge", lat: -6.7681, lng: 39.2274 };
-  }
-  if (n.includes("kariakoo")) {
-    return { name: name || "Kariakoo", address: name || "Kariakoo", lat: -6.8200, lng: 39.2750 };
-  }
-  if (n.includes("masaki")) {
-    return { name: name || "Masaki", address: name || "Masaki", lat: -6.7450, lng: 39.2850 };
-  }
-  if (n.includes("kinondoni")) {
-    return { name: name || "Kinondoni", address: name || "Kinondoni", lat: -6.7900, lng: 39.2600 };
-  }
-  if (n.includes("sinza")) {
-    return { name: name || "Sinza", address: name || "Sinza", lat: -6.7780, lng: 39.2200 };
-  }
-  if (n.includes("mikocheni")) {
-    return { name: name || "Mikocheni", address: name || "Mikocheni", lat: -6.7550, lng: 39.2500 };
-  }
-  if (n.includes("kimara")) {
-    return { name: name || "Kimara", address: name || "Kimara", lat: -6.7850, lng: 39.1650 };
-  }
-  if (n.includes("airport") || n.includes("uwanja")) {
-    return { name: name || "Airport", address: name || "Airport", lat: -6.8780, lng: 39.2080 };
-  }
-  if (n.includes("ubungo")) {
-    return { name: name || "Ubungo", address: name || "Ubungo", lat: -6.7970, lng: 39.2080 };
-  }
-  if (n.includes("tabata")) {
-    return { name: name || "Tabata", address: name || "Tabata", lat: -6.8285, lng: 39.2198 };
-  }
-  if (n.includes("mbezi")) {
-    return { name: name || "Mbezi", address: name || "Mbezi", lat: -6.7180, lng: 39.2150 };
-  }
-  if (n.includes("tegeta")) {
-    return { name: name || "Tegeta", address: name || "Tegeta", lat: -6.6780, lng: 39.2150 };
-  }
-  // Fallback
-  return isDest 
-    ? { name: name || "Posta", address: name || "Posta", lat: -6.8164, lng: 39.2902 }
-    : { name: name || "Mwenge", address: name || "Mwenge", lat: -6.7681, lng: 39.2274 };
-}
 
 function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371; // Radius of the earth in km
@@ -294,12 +257,169 @@ export async function handleSMSInput(
   }
 
   // TAXI BOOKING FLOWS
-  if (session.step === 'TAXI_ROUTE' && session.selectedService === 'taxi') {
-    session.taxiRoute = cleanInput.toUpperCase();
+  // State: TAXI_DISAMBIGUATE_PICKUP
+  if (session.step === 'TAXI_DISAMBIGUATE_PICKUP' && session.selectedService === 'taxi') {
+    const idx = parseInt(cleanInput) - 1;
+    const candidates = session.optionsList || [];
+    if (isNaN(idx) || idx < 0 || idx >= candidates.length) {
+      return `⚠️ Chaguo si sahihi. Tafadhali tuma namba kuanzia 1 hadi ${candidates.length} kuchagua eneo sahihi:`;
+    }
+
+    const selectedPlace = candidates[idx];
+    session.resolvedPickup = selectedPlace;
+    
+    // Check if we have a raw destination waiting to be resolved
+    if (session.tempRawDestination) {
+      const destRes = await resolvePlace(session.tempRawDestination, dbAdmin);
+      if (destRes.matches.length === 0) {
+        session.step = 'TAXI_DESTINATION_INPUT';
+        session.optionsList = [];
+        await saveSession(session, dbAdmin);
+        return `⚠️ Hatukuweza kupata eneo la mwisho la '${session.tempRawDestination}'.\n\nTafadhali andika eneo unalokwenda (Destination):`;
+      } else if (destRes.matches.length === 1) {
+        session.resolvedDest = destRes.matches[0];
+        session.taxiRoute = `${selectedPlace.name} - ${destRes.matches[0].name}`;
+        session.step = 'TAXI_VEHICLE_SELECT';
+        session.optionsList = [];
+        await saveSession(session, dbAdmin);
+        return `🚕 *AINA YA USAFIRI*\n\nTafadhali chagua aina ya usafiri unaopendelea kwa kutuma namba yake:\n\n1. Boda Boda 🏍️ (Haraka na rahisi)\n2. Bajaji 🛺 (Nafuu na salama)\n3. Gari la Teksi 🚕 (Starehe na usalama mkubwa)`;
+      } else {
+        // Destination also has multiple matches!
+        session.optionsList = destRes.matches.slice(0, 5);
+        session.step = 'TAXI_DISAMBIGUATE_DEST';
+        await saveSession(session, dbAdmin);
+
+        let reply = `Je, eneo la kwenda la *"${session.tempRawDestination}"* inamaanisha nini? Tafadhali chagua namba:\n\n`;
+        destRes.matches.slice(0, 5).forEach((p: any, index: number) => {
+          reply += `${index + 1}. ${p.displayName}\n`;
+        });
+        return reply;
+      }
+    } else {
+      // No destination entered yet, ask for it
+      session.step = 'TAXI_DESTINATION_INPUT';
+      session.optionsList = [];
+      await saveSession(session, dbAdmin);
+      return `📍 Eneo la kuanzia limethibitishwa: *${selectedPlace.name}*\n\nTafadhali andika eneo unalokwenda (Destination):`;
+    }
+  }
+
+  // State: TAXI_DESTINATION_INPUT
+  if (session.step === 'TAXI_DESTINATION_INPUT' && session.selectedService === 'taxi') {
+    const destRes = await resolvePlace(cleanInput, dbAdmin);
+    if (destRes.matches.length === 0) {
+      return `⚠️ Hatukuweza kupata eneo la mwisho la '${cleanInput}'.\n\nTafadhali andika eneo lingine unalokwenda (Destination):`;
+    } else if (destRes.matches.length === 1) {
+      session.resolvedDest = destRes.matches[0];
+      session.taxiRoute = `${session.resolvedPickup?.name || "Mwenge"} - ${destRes.matches[0].name}`;
+      session.step = 'TAXI_VEHICLE_SELECT';
+      session.optionsList = [];
+      await saveSession(session, dbAdmin);
+      return `🚕 *AINA YA USAFIRI*\n\nTafadhali chagua aina ya usafiri unaopendelea kwa kutuma namba yake:\n\n1. Boda Boda 🏍️ (Haraka na rahisi)\n2. Bajaji 🛺 (Nafuu na salama)\n3. Gari la Teksi 🚕 (Starehe na usalama mkubwa)`;
+    } else {
+      // Disambiguate destination
+      session.optionsList = destRes.matches.slice(0, 5);
+      session.step = 'TAXI_DISAMBIGUATE_DEST';
+      await saveSession(session, dbAdmin);
+
+      let reply = `Je, eneo la kwenda la *"${cleanInput}"* inamaanisha nini? Tafadhali chagua namba:\n\n`;
+      destRes.matches.slice(0, 5).forEach((p: any, index: number) => {
+        reply += `${index + 1}. ${p.displayName}\n`;
+      });
+      return reply;
+    }
+  }
+
+  // State: TAXI_DISAMBIGUATE_DEST
+  if (session.step === 'TAXI_DISAMBIGUATE_DEST' && session.selectedService === 'taxi') {
+    const idx = parseInt(cleanInput) - 1;
+    const candidates = session.optionsList || [];
+    if (isNaN(idx) || idx < 0 || idx >= candidates.length) {
+      return `⚠️ Chaguo si sahihi. Tafadhali tuma namba kuanzia 1 hadi ${candidates.length} kuchagua eneo sahihi:`;
+    }
+
+    const selectedPlace = candidates[idx];
+    session.resolvedDest = selectedPlace;
+    session.taxiRoute = `${session.resolvedPickup?.name || "Mwenge"} - ${selectedPlace.name}`;
     session.step = 'TAXI_VEHICLE_SELECT';
+    session.optionsList = [];
     await saveSession(session, dbAdmin);
 
     return `🚕 *AINA YA USAFIRI*\n\nTafadhali chagua aina ya usafiri unaopendelea kwa kutuma namba yake:\n\n1. Boda Boda 🏍️ (Haraka na rahisi)\n2. Bajaji 🛺 (Nafuu na salama)\n3. Gari la Teksi 🚕 (Starehe na usalama mkubwa)`;
+  }
+
+  // State: TAXI_ROUTE
+  if (session.step === 'TAXI_ROUTE' && session.selectedService === 'taxi') {
+    const parsed = splitTwoLocations(cleanInput);
+
+    if (parsed) {
+      // Two-location route (A - B)
+      const pickupRes = await resolvePlace(parsed.rawPickup, dbAdmin);
+      if (pickupRes.matches.length === 0) {
+        return `⚠️ Hatukuweza kupata eneo la kuanzia la '${parsed.rawPickup}'. Tafadhali andika upya eneo la kuanzia kwa usahihi au weka eneo lingine la kuanzia (Mfano: Posta - Mikocheni):`;
+      } else if (pickupRes.matches.length === 1) {
+        session.resolvedPickup = pickupRes.matches[0];
+
+        const destRes = await resolvePlace(parsed.rawDestination, dbAdmin);
+        if (destRes.matches.length === 0) {
+          session.step = 'TAXI_DESTINATION_INPUT';
+          await saveSession(session, dbAdmin);
+          return `⚠️ Hatukuweza kupata eneo la mwisho la '${parsed.rawDestination}'.\n\nTafadhali andika eneo unalokwenda sasa hivi (Destination):`;
+        } else if (destRes.matches.length === 1) {
+          session.resolvedDest = destRes.matches[0];
+          session.taxiRoute = `${pickupRes.matches[0].name} - ${destRes.matches[0].name}`;
+          session.step = 'TAXI_VEHICLE_SELECT';
+          await saveSession(session, dbAdmin);
+          return `🚕 *AINA YA USAFIRI*\n\nTafadhali chagua aina ya usafiri unaopendelea kwa kutuma namba yake:\n\n1. Boda Boda 🏍️ (Haraka na rahisi)\n2. Bajaji 🛺 (Nafuu na salama)\n3. Gari la Teksi 🚕 (Starehe na usalama mkubwa)`;
+        } else {
+          // Destination needs disambiguation
+          session.optionsList = destRes.matches.slice(0, 5);
+          session.step = 'TAXI_DISAMBIGUATE_DEST';
+          await saveSession(session, dbAdmin);
+
+          let reply = `Je, eneo la kwenda la *"${parsed.rawDestination}"* inamaanisha nini? Tafadhali chagua namba:\n\n`;
+          destRes.matches.slice(0, 5).forEach((p: any, index: number) => {
+            reply += `${index + 1}. ${p.displayName}\n`;
+          });
+          return reply;
+        }
+      } else {
+        // Pickup needs disambiguation
+        session.optionsList = pickupRes.matches.slice(0, 5);
+        session.step = 'TAXI_DISAMBIGUATE_PICKUP';
+        session.tempRawDestination = parsed.rawDestination;
+        await saveSession(session, dbAdmin);
+
+        let reply = `Je, eneo la kuanzia la *"${parsed.rawPickup}"* inamaanisha nini? Tafadhali chagua namba:\n\n`;
+        pickupRes.matches.slice(0, 5).forEach((p: any, index: number) => {
+          reply += `${index + 1}. ${p.displayName}\n`;
+        });
+        return reply;
+      }
+    } else {
+      // Single leg query (A)
+      const pickupRes = await resolvePlace(cleanInput, dbAdmin);
+      if (pickupRes.matches.length === 0) {
+        return `⚠️ Hatukuweza kupata eneo la '${cleanInput}'.\n\nTafadhali andika njia yako kwa usahihi kwa kutumia alama ya '-' (Mfano: Posta - Kimara):`;
+      } else if (pickupRes.matches.length === 1) {
+        session.resolvedPickup = pickupRes.matches[0];
+        session.step = 'TAXI_DESTINATION_INPUT';
+        await saveSession(session, dbAdmin);
+        return `📍 Eneo la kuanzia limethibitishwa: *${pickupRes.matches[0].name}*\n\nTafadhali andika eneo unalokwenda (Destination):`;
+      } else {
+        // Pickup disambiguation
+        session.optionsList = pickupRes.matches.slice(0, 5);
+        session.step = 'TAXI_DISAMBIGUATE_PICKUP';
+        session.tempRawDestination = undefined;
+        await saveSession(session, dbAdmin);
+
+        let reply = `Je, eneo la kuanzia la *"${cleanInput}"* inamaanisha nini? Tafadhali chagua namba:\n\n`;
+        pickupRes.matches.slice(0, 5).forEach((p: any, index: number) => {
+          reply += `${index + 1}. ${p.displayName}\n`;
+        });
+        return reply;
+      }
+    }
   }
 
   if (session.step === 'TAXI_VEHICLE_SELECT' && session.selectedService === 'taxi') {
@@ -319,40 +439,37 @@ export async function handleSMSInput(
       return `⚠️ Chaguo si sahihi. Tafadhali tuma:\n1. Boda Boda 🏍️\n2. Bajaji 🛺\n3. Gari la Teksi 🚕`;
     }
 
-    // Parse route to extract pickup and destination
-    let pickupName = "Mwenge";
-    let destName = "Posta";
-    const routeStr = session.taxiRoute || "";
-    const connectors = [" - ", "-", " KUTOKA ", " KWENDA ", " TO ", " / ", "/"];
-    let splitDone = false;
-    for (const conn of connectors) {
-      if (routeStr.toUpperCase().includes(conn)) {
-        const parts = routeStr.split(new RegExp(conn, 'i'));
-        if (parts.length >= 2) {
-          pickupName = parts[0].trim();
-          destName = parts[1].trim();
-          splitDone = true;
-          break;
-        }
-      }
-    }
-    if (!splitDone) {
-      const match = routeStr.match(/kutoka\s+(.*?)\s+kwenda\s+(.*)/i);
-      if (match && match[1] && match[2]) {
-        pickupName = match[1].trim();
-        destName = match[2].trim();
-      } else {
-        pickupName = "Mwenge";
-        destName = routeStr || "Posta";
-      }
-    }
+    // Parse route to extract pickup and destination names for display
+    let pickupName = session.resolvedPickup?.name || "Mwenge";
+    let destName = session.resolvedDest?.name || "Posta";
 
-    // Clean any parenthetical instructions or extra comments from names (e.g. "TABATA(pikap eria)" -> "TABATA")
-    pickupName = pickupName.replace(/\s*\(.*?\)/g, "").trim();
-    destName = destName.replace(/\s*\(.*?\)/g, "").trim();
+    let pLoc = session.resolvedPickup ? {
+      placeId: session.resolvedPickup.placeId,
+      name: session.resolvedPickup.name,
+      address: session.resolvedPickup.displayName || session.resolvedPickup.name,
+      lat: session.resolvedPickup.latitude,
+      lng: session.resolvedPickup.longitude
+    } : {
+      placeId: "TZ-DSM-MWENGE-001",
+      name: "Mwenge",
+      address: "Mwenge, Kinondoni, Dar es Salaam",
+      lat: -6.7681,
+      lng: 39.2274
+    };
 
-    let pLoc = getCoordsByName(pickupName, false);
-    let dLoc = getCoordsByName(destName, true);
+    let dLoc = session.resolvedDest ? {
+      placeId: session.resolvedDest.placeId,
+      name: session.resolvedDest.name,
+      address: session.resolvedDest.displayName || session.resolvedDest.name,
+      lat: session.resolvedDest.latitude,
+      lng: session.resolvedDest.longitude
+    } : {
+      placeId: "TZ-DSM-POSTA-001",
+      name: "Posta",
+      address: "Posta, Ilala, Dar es Salaam",
+      lat: -6.8164,
+      lng: 39.2902
+    };
 
     if (dbAdmin) {
       try {
@@ -370,15 +487,17 @@ export async function handleSMSInput(
           if (driverWithLoc) {
             console.log(`[SMS Bot] Active online driver found at [${driverWithLoc.location.lat}, ${driverWithLoc.location.lng}]. Matching ride coordinates to driver location for seamless testing!`);
             pLoc = {
+              placeId: pLoc.placeId || "TZ-DSM-MWENGE-001",
               name: pickupName,
-              address: pickupName,
+              address: pLoc.address || pickupName,
               lat: driverWithLoc.location.lat,
               lng: driverWithLoc.location.lng
             };
             // Offset destination slightly so there is a distance
             dLoc = {
+              placeId: dLoc.placeId || "TZ-DSM-POSTA-001",
               name: destName,
-              address: destName,
+              address: dLoc.address || destName,
               lat: driverWithLoc.location.lat + 0.015,
               lng: driverWithLoc.location.lng + 0.015
             };
@@ -415,10 +534,10 @@ export async function handleSMSInput(
       }
     }
 
-    // Calculate distance and duration
-    const baseDist = calculateDistanceKm(pLoc.lat, pLoc.lng, dLoc.lat, dLoc.lng);
-    const distanceKm = Math.max(1.5, Math.round(baseDist * 1.25 * 10) / 10);
-    const durationMin = Math.max(5, Math.ceil((distanceKm / 25) * 60) + 3);
+    // Calculate distance and duration using OSRM with Haversine fallback!
+    const routeInfo = await getRoadDistanceAndDuration(pLoc, dLoc);
+    const distanceKm = routeInfo.distanceKm;
+    const durationMin = routeInfo.durationMin;
 
     // Fare calculation
     let fare = 0;

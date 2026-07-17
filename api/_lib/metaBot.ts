@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import fs from 'fs';
 import path from 'path';
+import { resolvePlace, getRoadDistanceAndDuration } from './geocoder.js';
 
 export interface MetaSession {
   senderId: string;
@@ -42,53 +43,6 @@ function getAI() {
     });
   }
   return aiClient;
-}
-
-function getCoordsByName(name: string, isDest = false) {
-  const n = (name || "").toLowerCase();
-  if (n.includes("posta")) {
-    return { name: name || "Posta", address: name || "Posta", lat: -6.8164, lng: 39.2902 };
-  }
-  if (n.includes("mwenge")) {
-    return { name: name || "Mwenge", address: name || "Mwenge", lat: -6.7681, lng: 39.2274 };
-  }
-  if (n.includes("kariakoo")) {
-    return { name: name || "Kariakoo", address: name || "Kariakoo", lat: -6.8200, lng: 39.2750 };
-  }
-  if (n.includes("masaki")) {
-    return { name: name || "Masaki", address: name || "Masaki", lat: -6.7450, lng: 39.2850 };
-  }
-  if (n.includes("kinondoni")) {
-    return { name: name || "Kinondoni", address: name || "Kinondoni", lat: -6.7900, lng: 39.2600 };
-  }
-  if (n.includes("sinza")) {
-    return { name: name || "Sinza", address: name || "Sinza", lat: -6.7780, lng: 39.2200 };
-  }
-  if (n.includes("mikocheni")) {
-    return { name: name || "Mikocheni", address: name || "Mikocheni", lat: -6.7550, lng: 39.2500 };
-  }
-  if (n.includes("kimara")) {
-    return { name: name || "Kimara", address: name || "Kimara", lat: -6.7850, lng: 39.1650 };
-  }
-  if (n.includes("airport") || n.includes("uwanja")) {
-    return { name: name || "Airport", address: name || "Airport", lat: -6.8780, lng: 39.2080 };
-  }
-  if (n.includes("ubungo")) {
-    return { name: name || "Ubungo", address: name || "Ubungo", lat: -6.7970, lng: 39.2080 };
-  }
-  if (n.includes("tabata")) {
-    return { name: name || "Tabata", address: name || "Tabata", lat: -6.8285, lng: 39.2198 };
-  }
-  if (n.includes("mbezi")) {
-    return { name: name || "Mbezi", address: name || "Mbezi", lat: -6.7180, lng: 39.2150 };
-  }
-  if (n.includes("tegeta")) {
-    return { name: name || "Tegeta", address: name || "Tegeta", lat: -6.6780, lng: 39.2150 };
-  }
-  // Fallback
-  return isDest 
-    ? { name: name || "Posta", address: name || "Posta", lat: -6.8164, lng: 39.2902 }
-    : { name: name || "Mwenge", address: name || "Mwenge", lat: -6.7681, lng: 39.2274 };
 }
 
 function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -623,8 +577,37 @@ Respond strictly with the matching category ID. If none fits nicely, return "def
         try {
           const cleanPickup = (pickup || "").replace(/\s*\(.*?\)/g, "").trim();
           const cleanDest = (dest || "").replace(/\s*\(.*?\)/g, "").trim();
-          const pLoc = getCoordsByName(cleanPickup, false);
-          const dLoc = getCoordsByName(cleanDest, true);
+          
+          const pRes = await resolvePlace(cleanPickup, dbAdmin);
+          const dRes = await resolvePlace(cleanDest, dbAdmin);
+
+          const pLoc = pRes.matches.length > 0 ? {
+            placeId: pRes.matches[0].placeId,
+            name: pRes.matches[0].name,
+            address: pRes.matches[0].displayName || pRes.matches[0].name,
+            lat: pRes.matches[0].latitude,
+            lng: pRes.matches[0].longitude
+          } : {
+            placeId: "TZ-DSM-MWENGE-001",
+            name: "Mwenge",
+            address: "Mwenge, Kinondoni, Dar es Salaam",
+            lat: -6.7681,
+            lng: 39.2274
+          };
+
+          const dLoc = dRes.matches.length > 0 ? {
+            placeId: dRes.matches[0].placeId,
+            name: dRes.matches[0].name,
+            address: dRes.matches[0].displayName || dRes.matches[0].name,
+            lat: dRes.matches[0].latitude,
+            lng: dRes.matches[0].longitude
+          } : {
+            placeId: "TZ-DSM-POSTA-001",
+            name: "Posta",
+            address: "Posta, Ilala, Dar es Salaam",
+            lat: -6.8164,
+            lng: 39.2902
+          };
           
           const expiresAtDate = new Date();
           expiresAtDate.setMinutes(expiresAtDate.getMinutes() + 15);
@@ -1212,13 +1195,41 @@ async function routeToServiceFlow(
       const cleanPickupName = pickupName.replace(/\s*\(.*?\)/g, "").trim();
       const cleanDestName = destName.replace(/\s*\(.*?\)/g, "").trim();
 
-      const pLoc = getCoordsByName(cleanPickupName, false);
-      const dLoc = getCoordsByName(cleanDestName, true);
+      const pRes = await resolvePlace(cleanPickupName, dbAdmin);
+      const dRes = await resolvePlace(cleanDestName, dbAdmin);
 
-      // Distance calculation
-      const baseDist = calculateDistanceKm(pLoc.lat, pLoc.lng, dLoc.lat, dLoc.lng);
-      const distanceKm = Math.max(1.5, Math.round(baseDist * 1.25 * 10) / 10);
-      const durationMin = Math.max(5, Math.ceil((distanceKm / 25) * 60) + 3);
+      const pLoc = pRes.matches.length > 0 ? {
+        placeId: pRes.matches[0].placeId,
+        name: pRes.matches[0].name,
+        address: pRes.matches[0].displayName || pRes.matches[0].name,
+        lat: pRes.matches[0].latitude,
+        lng: pRes.matches[0].longitude
+      } : {
+        placeId: "TZ-DSM-MWENGE-001",
+        name: "Mwenge",
+        address: "Mwenge, Kinondoni, Dar es Salaam",
+        lat: -6.7681,
+        lng: 39.2274
+      };
+
+      const dLoc = dRes.matches.length > 0 ? {
+        placeId: dRes.matches[0].placeId,
+        name: dRes.matches[0].name,
+        address: dRes.matches[0].displayName || dRes.matches[0].name,
+        lat: dRes.matches[0].latitude,
+        lng: dRes.matches[0].longitude
+      } : {
+        placeId: "TZ-DSM-POSTA-001",
+        name: "Posta",
+        address: "Posta, Ilala, Dar es Salaam",
+        lat: -6.8164,
+        lng: 39.2902
+      };
+
+      // Distance and routing calculation using OSRM with Haversine fallback!
+      const routeInfo = await getRoadDistanceAndDuration(pLoc, dLoc);
+      const distanceKm = routeInfo.distanceKm;
+      const durationMin = routeInfo.durationMin;
 
       // Fare calculation based on real rates configured
       let fare = 0;

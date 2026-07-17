@@ -93,6 +93,11 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // 10b. MASTER GEOCODING PLACES
+    match /places/{placeId} {
+      allow read, write: if true;
+    }
+
     // 11. TABLES
     match /tables/{tableId} {
       allow read, write: if true;

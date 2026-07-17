@@ -92,6 +92,27 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["name", "type", "lat", "lng", "status"]
+    },
+    "Place": {
+      "title": "Place",
+      "description": "Master Geocoding place records for Tanzania",
+      "type": "object",
+      "properties": {
+        "placeId": { "type": "string" },
+        "region": { "type": "string" },
+        "district": { "type": "string" },
+        "ward": { "type": "string" },
+        "streetOrVillage": { "type": "string" },
+        "name": { "type": "string" },
+        "displayName": { "type": "string" },
+        "latitude": { "type": "number" },
+        "longitude": { "type": "number" },
+        "aliases": { "type": "array" },
+        "popularNames": { "type": "array" },
+        "searchKeywords": { "type": "array" },
+        "category": { "type": "string" }
+      },
+      "required": ["placeId", "region", "district", "ward", "streetOrVillage", "name", "displayName", "latitude", "longitude", "aliases", "popularNames", "searchKeywords"]
     }
   },
   "firestore": {
@@ -118,6 +139,10 @@
     "/orders/{orderId}": {
       "schema": "Order",
       "description": "Store purchase orders"
+    },
+    "/places/{placeId}": {
+      "schema": "Place",
+      "description": "Master geocoding place records"
     }
   }
 }
