@@ -43,6 +43,21 @@ interface UserRecord {
   createdAt: any;
   photoURL?: string;
   rating?: number;
+  licenseFrontUrl?: string;
+  licenseBackUrl?: string;
+  licenseNumber?: string;
+  licenseStatus?: 'pending' | 'approved' | 'rejected' | 'not_uploaded';
+  licenseExpiry?: string;
+  licenseRejectionReason?: string;
+  nidaUrl?: string;
+  nidaNumber?: string;
+  nidaStatus?: 'pending' | 'approved' | 'rejected' | 'not_uploaded';
+  nidaRejectionReason?: string;
+  latraUrl?: string;
+  latraNumber?: string;
+  latraStatus?: 'pending' | 'approved' | 'rejected' | 'not_uploaded';
+  latraExpiry?: string;
+  latraRejectionReason?: string;
 }
 
 interface DriverProfileDetailsProps {
@@ -94,6 +109,36 @@ const formatDistance = (dist: any) => {
   return num.toFixed(1) + ' km';
 };
 
+const getDocBadgeAndLabel = (status: 'pending' | 'approved' | 'rejected' | 'not_uploaded' | string) => {
+  switch (status) {
+    case 'approved':
+      return {
+        badgeClass: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 border-none font-bold text-[8px] uppercase',
+        label: 'Approved',
+        swahiliHali: 'Hali: Imethibitishwa'
+      };
+    case 'rejected':
+      return {
+        badgeClass: 'bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400 border-none font-bold text-[8px] uppercase',
+        label: 'Rejected',
+        swahiliHali: 'Hali: Imekataliwa'
+      };
+    case 'pending':
+      return {
+        badgeClass: 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 border-none font-bold text-[8px] uppercase animate-pulse',
+        label: 'Pending Review',
+        swahiliHali: 'Hali: Inasubiri Kukaguliwa'
+      };
+    case 'not_uploaded':
+    default:
+      return {
+        badgeClass: 'bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400 border-none font-bold text-[8px] uppercase',
+        label: 'Not Uploaded',
+        swahiliHali: 'Hali: Haijapakiwa bado'
+      };
+  }
+};
+
 const formatDuration = (dur: any) => {
   if (dur === undefined || dur === null) return 'N/A';
   const num = Number(dur);
@@ -134,6 +179,10 @@ export function DriverProfileDetails({
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [selectedTripForMap, setSelectedTripForMap] = useState<any | null>(null);
+  const [selectedDocForViewer, setSelectedDocForViewer] = useState<'license' | 'nida' | 'latra' | null>(null);
+  const [licenseViewSide, setLicenseViewSide] = useState<'front' | 'back'>('front');
+  const [rejectionReasonInput, setRejectionReasonInput] = useState<string>('');
+  const [isRejecting, setIsRejecting] = useState<boolean>(false);
   
   // Edit Form Fields
   const [editName, setEditName] = useState(driver.displayName || '');
@@ -217,6 +266,77 @@ export function DriverProfileDetails({
       setIsStatusModalOpen(false);
     } catch (error: any) {
       toast.error('Imeshindwa kusasisha hali ya dereva: ' + error.message);
+    }
+  };
+
+  // Handle Document Approval
+  const handleApproveDocument = async (docType: 'license' | 'nida' | 'latra') => {
+    try {
+      const driverRef = doc(db, 'users', driver.id);
+      const updates: any = {};
+      
+      if (docType === 'license') {
+        updates.licenseStatus = 'approved';
+        updates.licenseRejectionReason = '';
+      } else if (docType === 'nida') {
+        updates.nidaStatus = 'approved';
+        updates.nidaRejectionReason = '';
+      } else if (docType === 'latra') {
+        updates.latraStatus = 'approved';
+        updates.latraRejectionReason = '';
+      }
+
+      // Compute if we can auto-approve the whole driver's status
+      const currentLicenseStatus = docType === 'license' ? 'approved' : (driver.licenseStatus || 'pending');
+      const currentNidaStatus = docType === 'nida' ? 'approved' : (driver.nidaStatus || 'pending');
+      
+      // If both core documents are approved, automatically approve the driver and set status to active!
+      if (currentLicenseStatus === 'approved' && currentNidaStatus === 'approved') {
+        updates.approvalStatus = 'approved';
+        updates.status = 'active';
+      }
+
+      await updateDoc(driverRef, updates);
+      toast.success(`Nyaraka ya ${docType === 'license' ? 'Leseni' : docType === 'nida' ? 'NIDA' : 'LATRA/Bima'} imethibitishwa kikamilifu!`);
+      setSelectedDocForViewer(null);
+    } catch (error: any) {
+      toast.error('Imeshindwa kuthibitisha nyaraka: ' + error.message);
+    }
+  };
+
+  // Handle Document Rejection
+  const handleRejectDocument = async (docType: 'license' | 'nida' | 'latra') => {
+    if (!rejectionReasonInput.trim()) {
+      toast.error('Tafadhali weka sababu ya kukataa nyaraka hii.');
+      return;
+    }
+    try {
+      const driverRef = doc(db, 'users', driver.id);
+      const updates: any = {};
+      
+      if (docType === 'license') {
+        updates.licenseStatus = 'rejected';
+        updates.licenseRejectionReason = rejectionReasonInput;
+      } else if (docType === 'nida') {
+        updates.nidaStatus = 'rejected';
+        updates.nidaRejectionReason = rejectionReasonInput;
+      } else if (docType === 'latra') {
+        updates.latraStatus = 'rejected';
+        updates.latraRejectionReason = rejectionReasonInput;
+      }
+
+      // Suspend driver approval status if any document is rejected
+      updates.approvalStatus = 'suspended';
+
+      await updateDoc(driverRef, updates);
+      toast.success(`Nyaraka ya ${docType === 'license' ? 'Leseni' : docType === 'nida' ? 'NIDA' : 'LATRA/Bima'} imekataliwa na dereva amesimamishwa.`);
+      
+      // Reset state
+      setSelectedDocForViewer(null);
+      setRejectionReasonInput('');
+      setIsRejecting(false);
+    } catch (error: any) {
+      toast.error('Imeshindwa kukataa nyaraka: ' + error.message);
     }
   };
 
@@ -610,87 +730,142 @@ export function DriverProfileDetails({
           )}
 
           {/* DOCUMENTS SUB-TAB */}
-          {subTab === 'documents' && (
-            <div className="space-y-6 animate-fade-in">
-              <Card className="rounded-[2.5rem] border-none shadow-xl bg-white dark:bg-neutral-900 p-6">
-                <CardHeader className="p-0 pb-6 border-b border-neutral-100 dark:border-neutral-800">
-                  <CardTitle className="text-md font-black uppercase italic tracking-wider text-neutral-900 dark:text-white">
-                    Nyaraka na Vyeti vya Usajili
-                  </CardTitle>
-                  <CardDescription className="text-xs">Kagua leseni, vitambulisho, na nyaraka nyingine zilizopakiwa na dereva huyu.</CardDescription>
-                </CardHeader>
-                <CardContent className="p-0 pt-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* License Card */}
-                    <Card className="rounded-3xl border border-neutral-100 dark:border-neutral-800 p-5 flex flex-col justify-between">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="p-3 bg-orange-100 text-orange-600 rounded-2xl">
-                            <FileText className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-sm text-neutral-900 dark:text-white uppercase leading-tight">Leseni ya Udereva</h4>
-                            <p className="text-[10px] text-neutral-400 mt-1">Driver License</p>
-                          </div>
-                        </div>
-                        <Badge className="bg-emerald-100 text-emerald-700 border-none font-bold text-[8px] uppercase">Approved</Badge>
-                      </div>
-                      <div className="mt-6 flex items-center justify-between border-t border-dashed border-neutral-100 dark:border-neutral-800 pt-4">
-                        <span className="text-[10px] font-black uppercase text-neutral-400">Hali: Imethibitishwa</span>
-                        <Button size="sm" variant="outline" className="rounded-xl text-[10px] uppercase font-black tracking-wider h-8 px-4">
-                          Tazama Nyaraka
-                        </Button>
-                      </div>
-                    </Card>
+          {subTab === 'documents' && (() => {
+            const hasLicense = !!(driver.licenseFrontUrl || driver.licenseBackUrl || driver.licenseNumber);
+            const licenseStatus = driver.licenseStatus || (hasLicense ? 'pending' : 'not_uploaded');
+            const licenseMeta = getDocBadgeAndLabel(licenseStatus);
 
-                    {/* NIDA Card */}
-                    <Card className="rounded-3xl border border-neutral-100 dark:border-neutral-800 p-5 flex flex-col justify-between">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="p-3 bg-blue-100 text-blue-600 rounded-2xl">
-                            <ShieldAlert className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-sm text-neutral-900 dark:text-white uppercase leading-tight">Kitambulisho cha NIDA</h4>
-                            <p className="text-[10px] text-neutral-400 mt-1">NIDA Identity Card</p>
-                          </div>
-                        </div>
-                        <Badge className="bg-emerald-100 text-emerald-700 border-none font-bold text-[8px] uppercase">Approved</Badge>
-                      </div>
-                      <div className="mt-6 flex items-center justify-between border-t border-dashed border-neutral-100 dark:border-neutral-800 pt-4">
-                        <span className="text-[10px] font-black uppercase text-neutral-400">Hali: Imethibitishwa</span>
-                        <Button size="sm" variant="outline" className="rounded-xl text-[10px] uppercase font-black tracking-wider h-8 px-4">
-                          Tazama Nyaraka
-                        </Button>
-                      </div>
-                    </Card>
+            const hasNida = !!(driver.nidaUrl || driver.nidaNumber);
+            const nidaStatus = driver.nidaStatus || (hasNida ? 'pending' : 'not_uploaded');
+            const nidaMeta = getDocBadgeAndLabel(nidaStatus);
 
-                    {/* Tax clearance Card */}
-                    <Card className="rounded-3xl border border-neutral-100 dark:border-neutral-800 p-5 flex flex-col justify-between md:col-span-2">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="p-3 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 rounded-2xl">
-                            <FileText className="w-5 h-5" />
+            const hasLatra = !!(driver.latraUrl || driver.latraNumber);
+            const latraStatus = driver.latraStatus || (hasLatra ? 'pending' : 'not_uploaded');
+            const latraMeta = getDocBadgeAndLabel(latraStatus);
+
+            return (
+              <div className="space-y-6 animate-fade-in">
+                <Card className="rounded-[2.5rem] border-none shadow-xl bg-white dark:bg-neutral-900 p-6">
+                  <CardHeader className="p-0 pb-6 border-b border-neutral-100 dark:border-neutral-800">
+                    <CardTitle className="text-md font-black uppercase italic tracking-wider text-neutral-900 dark:text-white">
+                      Nyaraka na Vyeti vya Usajili
+                    </CardTitle>
+                    <CardDescription className="text-xs">Kagua leseni, vitambulisho, na nyaraka nyingine zilizopakiwa na dereva huyu.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-0 pt-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      
+                      {/* License Card */}
+                      <Card className="rounded-3xl border border-neutral-100 dark:border-neutral-800 p-5 flex flex-col justify-between">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="p-3 bg-orange-100 text-orange-600 rounded-2xl">
+                              <FileText className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-sm text-neutral-900 dark:text-white uppercase leading-tight">Leseni ya Udereva</h4>
+                              <p className="text-[10px] text-neutral-400 mt-1">Driver License</p>
+                            </div>
                           </div>
-                          <div>
-                            <h4 className="font-bold text-sm text-neutral-900 dark:text-white uppercase leading-tight">Cheti cha Ukaguzi wa Chombo / Bima</h4>
-                            <p className="text-[10px] text-neutral-400 mt-1">Vehicle Inspection Cert & Insurance</p>
-                          </div>
+                          <Badge className={licenseMeta.badgeClass}>{licenseMeta.label}</Badge>
                         </div>
-                        <Badge className="bg-neutral-100 text-neutral-500 border-none font-bold text-[8px] uppercase">Optional</Badge>
-                      </div>
-                      <div className="mt-6 flex items-center justify-between border-t border-dashed border-neutral-100 dark:border-neutral-800 pt-4">
-                        <span className="text-[10px] font-black uppercase text-neutral-400">Bado haijapakiwa na dereva</span>
-                        <Button size="sm" variant="ghost" disabled className="rounded-xl text-[10px] uppercase font-black tracking-wider h-8 px-4 opacity-50">
-                          Hakuna Nyaraka
-                        </Button>
-                      </div>
-                    </Card>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
+                        
+                        {licenseStatus === 'rejected' && driver.licenseRejectionReason && (
+                          <div className="mt-3 p-3 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded-2xl">
+                            <p className="text-[9px] font-black uppercase text-red-600">Sababu ya kukataliwa:</p>
+                            <p className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 mt-0.5">{driver.licenseRejectionReason}</p>
+                          </div>
+                        )}
+
+                        <div className="mt-6 flex items-center justify-between border-t border-dashed border-neutral-100 dark:border-neutral-800 pt-4">
+                          <span className="text-[10px] font-black uppercase text-neutral-400">{licenseMeta.swahiliHali}</span>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={() => setSelectedDocForViewer('license')}
+                            className="rounded-xl text-[10px] uppercase font-black tracking-wider h-8 px-4"
+                          >
+                            Tazama Nyaraka
+                          </Button>
+                        </div>
+                      </Card>
+
+                      {/* NIDA Card */}
+                      <Card className="rounded-3xl border border-neutral-100 dark:border-neutral-800 p-5 flex flex-col justify-between">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="p-3 bg-blue-100 text-blue-600 rounded-2xl">
+                              <ShieldAlert className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-sm text-neutral-900 dark:text-white uppercase leading-tight">Kitambulisho cha NIDA</h4>
+                              <p className="text-[10px] text-neutral-400 mt-1">NIDA Identity Card</p>
+                            </div>
+                          </div>
+                          <Badge className={nidaMeta.badgeClass}>{nidaMeta.label}</Badge>
+                        </div>
+
+                        {nidaStatus === 'rejected' && driver.nidaRejectionReason && (
+                          <div className="mt-3 p-3 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded-2xl">
+                            <p className="text-[9px] font-black uppercase text-red-600">Sababu ya kukataliwa:</p>
+                            <p className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 mt-0.5">{driver.nidaRejectionReason}</p>
+                          </div>
+                        )}
+
+                        <div className="mt-6 flex items-center justify-between border-t border-dashed border-neutral-100 dark:border-neutral-800 pt-4">
+                          <span className="text-[10px] font-black uppercase text-neutral-400">{nidaMeta.swahiliHali}</span>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={() => setSelectedDocForViewer('nida')}
+                            className="rounded-xl text-[10px] uppercase font-black tracking-wider h-8 px-4"
+                          >
+                            Tazama Nyaraka
+                          </Button>
+                        </div>
+                      </Card>
+
+                      {/* Tax clearance/LATRA Card */}
+                      <Card className="rounded-3xl border border-neutral-100 dark:border-neutral-800 p-5 flex flex-col justify-between md:col-span-2">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="p-3 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 rounded-2xl">
+                              <FileText className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-sm text-neutral-900 dark:text-white uppercase leading-tight">Cheti cha Ukaguzi wa Chombo / Bima</h4>
+                              <p className="text-[10px] text-neutral-400 mt-1">Vehicle Inspection Cert & Insurance (LATRA)</p>
+                            </div>
+                          </div>
+                          <Badge className={latraMeta.badgeClass}>{latraMeta.label}</Badge>
+                        </div>
+
+                        {latraStatus === 'rejected' && driver.latraRejectionReason && (
+                          <div className="mt-3 p-3 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded-2xl">
+                            <p className="text-[9px] font-black uppercase text-red-600">Sababu ya kukataliwa:</p>
+                            <p className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 mt-0.5">{driver.latraRejectionReason}</p>
+                          </div>
+                        )}
+
+                        <div className="mt-6 flex items-center justify-between border-t border-dashed border-neutral-100 dark:border-neutral-800 pt-4">
+                          <span className="text-[10px] font-black uppercase text-neutral-400">{latraMeta.swahiliHali}</span>
+                          <Button 
+                            size="sm" 
+                            variant={hasLatra ? "outline" : "ghost"} 
+                            disabled={!hasLatra && latraStatus === 'not_uploaded'}
+                            onClick={() => setSelectedDocForViewer('latra')}
+                            className="rounded-xl text-[10px] uppercase font-black tracking-wider h-8 px-4"
+                          >
+                            {hasLatra ? 'Tazama Nyaraka' : 'Hakuna Nyaraka'}
+                          </Button>
+                        </div>
+                      </Card>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            );
+          })()}
 
           {/* VEHICLE SUB-TAB */}
           {subTab === 'vehicle' && (
@@ -1456,6 +1631,453 @@ export function DriverProfileDetails({
 
                   <MapBoundsFitter points={mapPoints} />
                 </MapContainer>
+              </div>
+
+            </Card>
+          </div>
+        );
+      })()}
+
+      {/* DOCUMENT VIEWER & VERIFICATION MODAL */}
+      {selectedDocForViewer && (() => {
+        const docType = selectedDocForViewer;
+        let title = '';
+        let englishTitle = '';
+        let hasDoc = false;
+        let docStatus = 'not_uploaded';
+        let docNumber = '—';
+        let docExpiry = '—';
+        let imageUrls: string[] = [];
+
+        if (docType === 'license') {
+          title = 'Leseni ya Udereva';
+          englishTitle = 'Driver License';
+          hasDoc = !!(driver.licenseFrontUrl || driver.licenseBackUrl || driver.licenseNumber);
+          docStatus = driver.licenseStatus || (hasDoc ? 'pending' : 'not_uploaded');
+          docNumber = driver.licenseNumber || 'TZ-98234-DL';
+          docExpiry = driver.licenseExpiry || '12/2028';
+          if (driver.licenseFrontUrl) imageUrls.push(driver.licenseFrontUrl);
+          if (driver.licenseBackUrl) imageUrls.push(driver.licenseBackUrl);
+        } else if (docType === 'nida') {
+          title = 'Kitambulisho cha NIDA';
+          englishTitle = 'NIDA National ID Card';
+          hasDoc = !!(driver.nidaUrl || driver.nidaNumber);
+          docStatus = driver.nidaStatus || (hasDoc ? 'pending' : 'not_uploaded');
+          docNumber = driver.nidaNumber || '19950812-11112-00001-22';
+          docExpiry = 'Haimaliziki (N/A)';
+          if (driver.nidaUrl) imageUrls.push(driver.nidaUrl);
+        } else if (docType === 'latra') {
+          title = 'Cheti cha Ukaguzi na Bima';
+          englishTitle = 'LATRA / Vehicle Insurance';
+          hasDoc = !!(driver.latraUrl || driver.latraNumber);
+          docStatus = driver.latraStatus || (hasDoc ? 'pending' : 'not_uploaded');
+          docNumber = driver.latraNumber || 'LATRA-TX-77889';
+          docExpiry = driver.latraExpiry || '08/2027';
+          if (driver.latraUrl) imageUrls.push(driver.latraUrl);
+        }
+
+        const meta = getDocBadgeAndLabel(docStatus);
+
+        return (
+          <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 md:p-8 animate-fade-in">
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => {
+              setSelectedDocForViewer(null);
+              setIsRejecting(false);
+              setRejectionReasonInput('');
+            }} />
+            
+            <Card className="relative w-full max-w-4xl bg-white dark:bg-neutral-900 rounded-[2.5rem] shadow-2xl border-none overflow-hidden max-h-[90vh] flex flex-col z-10">
+              
+              {/* Modal Header */}
+              <div className="p-6 md:p-8 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between bg-neutral-50 dark:bg-neutral-950/20">
+                <div>
+                  <Badge className="bg-orange-600 hover:bg-orange-700 text-white font-black text-[9px] uppercase tracking-wider mb-2">
+                    Uthibitishaji Nyaraka (KYC Docs)
+                  </Badge>
+                  <h4 className="text-xl font-black uppercase italic tracking-tighter text-neutral-900 dark:text-white leading-none">
+                    {title}
+                  </h4>
+                  <p className="text-[10px] text-neutral-400 font-bold mt-1 uppercase tracking-wider">
+                    {englishTitle} — Kagua Taarifa na Picha ya Nyaraka
+                  </p>
+                </div>
+                <button 
+                  onClick={() => {
+                    setSelectedDocForViewer(null);
+                    setIsRejecting(false);
+                    setRejectionReasonInput('');
+                  }}
+                  className="p-2.5 bg-white dark:bg-neutral-800 shadow-md rounded-full border border-neutral-100 dark:border-neutral-700 text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Modal Content Body */}
+              <div className="flex-1 overflow-y-auto p-6 md:p-8 flex flex-col lg:flex-row gap-8">
+                
+                {/* Left Side: Document Preview (Real Uploaded Image or High-Fidelity Simulator) */}
+                <div className="w-full lg:w-[58%] flex flex-col gap-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-black uppercase text-neutral-400">Muonekano wa Nyaraka (Document View)</span>
+                    
+                    {docType === 'license' && imageUrls.length > 0 && (
+                      <div className="flex gap-1.5 p-1 bg-neutral-100 dark:bg-neutral-800 rounded-xl">
+                        <button
+                          onClick={() => setLicenseViewSide('front')}
+                          className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-lg transition-all ${licenseViewSide === 'front' ? 'bg-white dark:bg-neutral-700 text-orange-600 shadow-sm' : 'text-neutral-400'}`}
+                        >
+                          Mbele (Front)
+                        </button>
+                        <button
+                          onClick={() => setLicenseViewSide('back')}
+                          className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-lg transition-all ${licenseViewSide === 'back' ? 'bg-white dark:bg-neutral-700 text-orange-600 shadow-sm' : 'text-neutral-400'}`}
+                        >
+                          Nyuma (Back)
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Document Container Box */}
+                  <div className="flex-1 min-h-[260px] md:min-h-[300px] border border-neutral-100 dark:border-neutral-800 rounded-[2rem] bg-neutral-50 dark:bg-neutral-950/40 p-4 md:p-6 flex items-center justify-center relative overflow-hidden group">
+                    
+                    {/* If there is an uploaded image */}
+                    {imageUrls.length > 0 ? (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <img 
+                          src={docType === 'license' ? (licenseViewSide === 'front' ? imageUrls[0] : (imageUrls[1] || imageUrls[0])) : imageUrls[0]} 
+                          alt={title}
+                          referrerPolicy="no-referrer"
+                          className="max-w-full max-h-[280px] rounded-2xl object-contain shadow-lg border border-neutral-200 dark:border-neutral-800 transition-transform group-hover:scale-105 duration-300"
+                        />
+                        <div className="absolute top-3 left-3 bg-neutral-900/85 backdrop-blur-sm text-white px-2.5 py-1 rounded-lg font-black text-[8px] uppercase tracking-wider">
+                          Picha Halisi (Uploaded)
+                        </div>
+                      </div>
+                    ) : (
+                      /* HIGH-FIDELITY SIMULATED TANZANIAN DOCUMENT INTERACTIVE PREVIEW */
+                      <div className="w-full max-w-[420px] aspect-[1.58/1] relative rounded-3xl overflow-hidden shadow-2xl transition-transform group-hover:scale-[1.02] duration-300">
+                        {docType === 'license' && (
+                          /* Driver License Simulated Graphic */
+                          <div className="w-full h-full bg-gradient-to-br from-amber-50 to-orange-100/50 dark:from-neutral-800 dark:to-neutral-900 border-4 border-orange-500/20 p-5 flex flex-col justify-between font-sans text-[10px] text-neutral-800 dark:text-neutral-200">
+                            {/* Watermark Logo */}
+                            <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] dark:opacity-[0.05] pointer-events-none">
+                              <FileText className="w-48 h-48" />
+                            </div>
+                            
+                            {/* License Header */}
+                            <div className="flex justify-between items-start pb-2 border-b border-orange-500/10">
+                              <div>
+                                <h5 className="font-black text-[9px] uppercase tracking-tight text-neutral-900 dark:text-white leading-none">JAMHURI YA MUUNGANO WA TANZANIA</h5>
+                                <p className="text-[7px] font-bold uppercase text-orange-600 mt-0.5">LESENI YA UDEREVA (DRIVER LICENCE)</p>
+                              </div>
+                              <div className="flex flex-col items-end">
+                                <span className="text-[12px] font-black text-red-600 leading-none">CLASS C</span>
+                                <span className="text-[6px] font-black text-neutral-400 mt-0.5">TZ Flag</span>
+                              </div>
+                            </div>
+
+                            {/* License Body */}
+                            <div className="grid grid-cols-3 gap-3 pt-2">
+                              {/* Photo Slot */}
+                              <div className="col-span-1 bg-neutral-200/50 dark:bg-neutral-800/80 rounded-2xl aspect-[3/4] flex flex-col items-center justify-center relative overflow-hidden border border-neutral-300/30">
+                                {driver.photoURL ? (
+                                  <img src={driver.photoURL} alt="Driver" className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="text-center p-2 text-neutral-400">
+                                    <Car className="w-6 h-6 mx-auto mb-1 text-neutral-400/80" />
+                                    <span className="text-[7px] font-bold block uppercase">PICHA</span>
+                                  </div>
+                                )}
+                                <div className="absolute bottom-1 right-1 w-3 h-3 rounded-full bg-emerald-500 border border-white" />
+                              </div>
+
+                              {/* License Details */}
+                              <div className="col-span-2 space-y-1.5 flex flex-col justify-center">
+                                <div>
+                                  <span className="text-[7px] font-black text-neutral-400 uppercase block">1. Jina la Dereva (Name)</span>
+                                  <span className="text-[11px] font-black text-neutral-900 dark:text-white uppercase leading-none">{driver.displayName}</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div>
+                                    <span className="text-[7px] font-black text-neutral-400 uppercase block">2. Namba ya Leseni</span>
+                                    <span className="text-[9px] font-bold text-neutral-800 dark:text-neutral-300 font-mono">{docNumber}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-[7px] font-black text-neutral-400 uppercase block">3. Tarehe ya Mwisho</span>
+                                    <span className="text-[9px] font-bold text-neutral-800 dark:text-neutral-300 font-mono">{docExpiry}</span>
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div>
+                                    <span className="text-[7px] font-black text-neutral-400 uppercase block">4. Aina ya Chombo</span>
+                                    <span className="text-[9px] font-bold text-neutral-800 dark:text-neutral-300 uppercase">{driver.driverType || 'TAXI'}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-[7px] font-black text-neutral-400 uppercase block">5. Nchi (Country)</span>
+                                    <span className="text-[9px] font-bold text-neutral-800 dark:text-neutral-300">TANZANIA (E.A)</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* License Footer */}
+                            <div className="flex justify-between items-center pt-2 border-t border-orange-500/10 text-[6px] font-black uppercase text-neutral-400">
+                              <span>Saini ya Mwenye Leseni: ______</span>
+                              <span className="text-orange-600 font-black italic">Mamlaka ya Mapato (TRA)</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {docType === 'nida' && (
+                          /* NIDA National ID Simulated Graphic */
+                          <div className="w-full h-full bg-gradient-to-br from-blue-50 to-indigo-100/40 dark:from-neutral-800 dark:to-neutral-900 border-4 border-blue-500/20 p-5 flex flex-col justify-between font-sans text-[10px] text-neutral-800 dark:text-neutral-200">
+                            {/* Watermark Coat of Arms */}
+                            <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] dark:opacity-[0.05] pointer-events-none">
+                              <ShieldAlert className="w-48 h-48 text-blue-500" />
+                            </div>
+
+                            {/* NIDA Header */}
+                            <div className="flex justify-between items-start pb-2 border-b border-blue-500/10">
+                              <div>
+                                <h5 className="font-black text-[9px] uppercase tracking-tight text-neutral-900 dark:text-white leading-none">JAMHURI YA MUUNGANO WA TANZANIA</h5>
+                                <p className="text-[7px] font-bold uppercase text-blue-600 mt-0.5">KITAMBULISHO CHA TAIFA (NATIONAL ID)</p>
+                              </div>
+                              <span className="text-[7px] font-black text-neutral-400">NIDA EMBLEM</span>
+                            </div>
+
+                            {/* NIDA Body */}
+                            <div className="grid grid-cols-3 gap-3 pt-2">
+                              {/* Photo Slot */}
+                              <div className="col-span-1 bg-neutral-200/50 dark:bg-neutral-800/80 rounded-2xl aspect-[3/4] flex flex-col items-center justify-center relative overflow-hidden border border-neutral-300/30">
+                                {driver.photoURL ? (
+                                  <img src={driver.photoURL} alt="Driver" className="w-full h-full object-cover grayscale" />
+                                ) : (
+                                  <div className="text-center p-2 text-neutral-400">
+                                    <ShieldAlert className="w-6 h-6 mx-auto mb-1 text-neutral-400/80" />
+                                    <span className="text-[7px] font-bold block uppercase">NIDA</span>
+                                  </div>
+                                )}
+                                <div className="absolute bottom-1 right-1 w-2 h-2 rounded-full bg-blue-500" />
+                              </div>
+
+                              {/* NIDA Details */}
+                              <div className="col-span-2 space-y-1.5 flex flex-col justify-center">
+                                <div>
+                                  <span className="text-[7px] font-black text-neutral-400 uppercase block">Namba ya Kitambulisho (NIDA ID No.)</span>
+                                  <span className="text-[11px] font-black text-blue-700 dark:text-blue-400 font-mono tracking-tight leading-none">{docNumber}</span>
+                                </div>
+                                <div>
+                                  <span className="text-[7px] font-black text-neutral-400 uppercase block">Majina Kamili (Full Name)</span>
+                                  <span className="text-[11px] font-black text-neutral-900 dark:text-white uppercase leading-none">{driver.displayName}</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div>
+                                    <span className="text-[7px] font-black text-neutral-400 uppercase block">Jinsia (Sex)</span>
+                                    <span className="text-[9px] font-bold text-neutral-800 dark:text-neutral-300">ME / KE</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-[7px] font-black text-neutral-400 uppercase block">Uraia (Citizenship)</span>
+                                    <span className="text-[9px] font-bold text-neutral-800 dark:text-neutral-300">MTANZANIA</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* NIDA Footer */}
+                            <div className="flex justify-between items-center pt-2 border-t border-blue-500/10 text-[6px] font-black uppercase text-neutral-400">
+                              <span>Mamlaka ya Vitambulisho vya Taifa</span>
+                              <span className="text-blue-600 font-black">NIDA TANZANIA</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {docType === 'latra' && (
+                          /* LATRA Certificate Simulated Graphic */
+                          <div className="w-full h-full bg-gradient-to-br from-emerald-50 to-teal-100/40 dark:from-neutral-800 dark:to-neutral-900 border-4 border-emerald-500/20 p-5 flex flex-col justify-between font-sans text-[10px] text-neutral-800 dark:text-neutral-200">
+                            {/* Watermark official */}
+                            <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] dark:opacity-[0.05] pointer-events-none">
+                              <FileText className="w-48 h-48 text-emerald-500" />
+                            </div>
+
+                            {/* LATRA Header */}
+                            <div className="flex justify-between items-start pb-2 border-b border-emerald-500/10">
+                              <div>
+                                <h5 className="font-black text-[9px] uppercase tracking-tight text-neutral-900 dark:text-white leading-none">MAMLAKA YA UDHIBITI USAFIRI ARDHINI</h5>
+                                <p className="text-[7px] font-bold uppercase text-emerald-600 mt-0.5">CHETI CHA UKAGUZI NA BIMA (LATRA VEHICLE CERTIFICATE)</p>
+                              </div>
+                              <span className="text-[7px] font-black text-neutral-400">LATRA</span>
+                            </div>
+
+                            {/* LATRA Body */}
+                            <div className="space-y-2 pt-2">
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <span className="text-[7px] font-black text-neutral-400 uppercase block">Namba ya Kibali (Permit No)</span>
+                                  <span className="text-[9px] font-bold text-neutral-900 dark:text-white font-mono uppercase">{docNumber}</span>
+                                </div>
+                                <div>
+                                  <span className="text-[7px] font-black text-neutral-400 uppercase block">Namba ya Gari (Plate No)</span>
+                                  <span className="text-[10px] font-black text-emerald-600 font-mono uppercase">{driver.licensePlate || 'T-778-ELW'}</span>
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <span className="text-[7px] font-black text-neutral-400 uppercase block">Chombo (Vehicle)</span>
+                                  <span className="text-[9px] font-bold text-neutral-800 dark:text-neutral-300 uppercase leading-none">
+                                    {driver.vehicleColor ? `${driver.vehicleColor} ` : ''}
+                                    {driver.vehicleBrand ? `${driver.vehicleBrand} ` : ''}
+                                    {driver.vehicleModel ? `${driver.vehicleModel}` : 'Gari la Abiria'}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-[7px] font-black text-neutral-400 uppercase block">Muda wa Kumalizika</span>
+                                  <span className="text-[9px] font-bold text-neutral-800 dark:text-neutral-300 font-mono">{docExpiry}</span>
+                                </div>
+                              </div>
+
+                              <div>
+                                <span className="text-[7px] font-black text-neutral-400 uppercase block">Mmiliki aliyesajiliwa (Registered Owner)</span>
+                                <span className="text-[9px] font-black text-neutral-900 dark:text-white uppercase leading-none">{driver.displayName}</span>
+                              </div>
+                            </div>
+
+                            {/* LATRA Footer */}
+                            <div className="flex justify-between items-center pt-2 border-t border-emerald-500/10 text-[6px] font-black uppercase text-neutral-400">
+                              <span>Imekaguliwa kikamilifu</span>
+                              <span className="text-emerald-600 font-black">LATRA APPROVED</span>
+                            </div>
+                          </div>
+                        )}
+                        <div className="absolute top-3 left-3 bg-neutral-900/85 backdrop-blur-sm text-white px-2.5 py-1 rounded-lg font-black text-[8px] uppercase tracking-wider">
+                          Nyaraka ya Mfumo (Simulated Preview)
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right Side: Verification details & Actions */}
+                <div className="flex-1 flex flex-col justify-between">
+                  <div className="space-y-6">
+                    <div>
+                      <span className="text-[10px] font-black uppercase text-neutral-400 block">Hali Kuu ya Sasa (Current Status)</span>
+                      <Badge className={`mt-1.5 font-black text-[9px] uppercase tracking-wider ${meta.badgeClass} px-3 py-1`}>
+                        {docStatus}
+                      </Badge>
+                    </div>
+
+                    <div className="space-y-4 pt-4 border-t border-neutral-100 dark:border-neutral-800 text-xs font-semibold">
+                      <div>
+                        <span className="text-[9px] font-black uppercase text-neutral-400 block">Mmiliki (Driver)</span>
+                        <span className="text-sm font-black text-neutral-900 dark:text-white uppercase italic mt-1 block">
+                          {driver.displayName}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <span className="text-[9px] font-black uppercase text-neutral-400 block">Namba ya Nyaraka</span>
+                          <span className="text-xs font-bold text-neutral-900 dark:text-white font-mono mt-1 block uppercase">
+                            {docNumber}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[9px] font-black uppercase text-neutral-400 block">Muda wa Kumalizika</span>
+                          <span className="text-xs font-bold text-neutral-900 dark:text-white mt-1 block">
+                            {docExpiry}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <span className="text-[9px] font-black uppercase text-neutral-400 block">Aina ya Chombo</span>
+                        <span className="text-xs font-bold text-neutral-950 dark:text-white uppercase italic mt-0.5 block">
+                          {driver.driverType || 'taxi'}
+                        </span>
+                      </div>
+
+                      {docStatus === 'rejected' && (
+                        <div className="p-3.5 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded-2xl">
+                          <p className="text-[9px] font-black uppercase text-red-600">Sababu ya kukataliwa kwa sasa:</p>
+                          <p className="text-neutral-700 dark:text-neutral-300 mt-1 leading-normal font-medium">
+                            {docType === 'license' ? driver.licenseRejectionReason : docType === 'nida' ? driver.nidaRejectionReason : driver.latraRejectionReason || 'Haieleweki'}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Inline Rejection Field if isRejecting is true */}
+                    {isRejecting && (
+                      <div className="space-y-3 pt-4 border-t border-neutral-100 dark:border-neutral-800 animate-slide-up">
+                        <Label className="text-[10px] font-black uppercase text-red-600 block">Andika sababu ya kukataa nyaraka hii:</Label>
+                        <Textarea
+                          placeholder="Mfano: Picha ya leseni haionekani vizuri, au namba ya leseni haina uhalali..."
+                          value={rejectionReasonInput}
+                          onChange={(e) => setRejectionReasonInput(e.target.value)}
+                          className="rounded-xl text-xs font-semibold border-neutral-200 dark:border-neutral-700 focus:ring-red-500 h-20"
+                        />
+                        <div className="flex gap-2 justify-end">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => {
+                              setIsRejecting(false);
+                              setRejectionReasonInput('');
+                            }}
+                            className="rounded-xl text-[9px] uppercase font-black tracking-wider"
+                          >
+                            Ghairi
+                          </Button>
+                          <Button 
+                            size="sm"
+                            onClick={() => handleRejectDocument(docType)}
+                            className="bg-red-600 hover:bg-red-700 text-white rounded-xl text-[9px] uppercase font-black tracking-wider px-4"
+                          >
+                            Thibitisha Kukataa
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Core Verification Buttons */}
+                  {!isRejecting && (
+                    <div className="pt-6 border-t border-neutral-100 dark:border-neutral-800 mt-6 md:mt-0 flex flex-col md:flex-row gap-3">
+                      <Button
+                        onClick={() => setIsRejecting(true)}
+                        className="flex-1 bg-red-100 dark:bg-red-950/20 hover:bg-red-200 text-red-600 dark:text-red-400 rounded-xl font-bold text-[10px] h-10 uppercase tracking-wider flex items-center justify-center gap-1.5"
+                      >
+                        <X className="w-4 h-4" />
+                        Kataa (Reject)
+                      </Button>
+                      <Button
+                        onClick={() => handleApproveDocument(docType)}
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-[10px] h-10 uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-600/10"
+                      >
+                        <Check className="w-4 h-4" />
+                        Kubali (Approve)
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-6 border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950/20 flex justify-end">
+                <Button 
+                  onClick={() => {
+                    setSelectedDocForViewer(null);
+                    setIsRejecting(false);
+                    setRejectionReasonInput('');
+                  }} 
+                  className="bg-neutral-900 dark:bg-neutral-800 hover:bg-neutral-800 dark:hover:bg-neutral-700 text-white rounded-xl font-bold text-[10px] h-10 uppercase tracking-wider px-6"
+                >
+                  Funga Dirisha
+                </Button>
               </div>
 
             </Card>
