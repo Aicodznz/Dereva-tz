@@ -72,6 +72,18 @@ const ParcelPinIcon = L.divIcon({
   iconAnchor: [24, 48],
 });
 
+const CurrentLocationPulseIcon = L.divIcon({
+  html: `
+    <div class="relative w-10 h-10 flex items-center justify-center">
+      <div class="absolute w-8 h-8 rounded-full bg-blue-500 opacity-25 animate-ping"></div>
+      <div class="w-5 h-5 rounded-full bg-blue-600 border-2 border-white shadow-[0_2px_8px_rgba(0,0,0,0.3)]"></div>
+    </div>
+  `,
+  className: 'bg-transparent',
+  iconSize: [40, 40],
+  iconAnchor: [20, 20],
+});
+
 // Custom Icon for Vehicles - Dynamic based on type and heading
 const getVehicleIcon = (vehicleType: string, heading: number = 0) => {
   const type = vehicleType.toLowerCase();
@@ -173,24 +185,35 @@ function InteractionHandler({ onInteraction }: { onInteraction: () => void }) {
 }
 
 function LocationMarker({ position, setPosition, onPositionChange, isMapViewOnly, icon }: { position: L.LatLng, setPosition: (pos: L.LatLng) => void, onPositionChange: (pos: L.LatLng) => void, isMapViewOnly?: boolean, icon: L.Icon | L.DivIcon }) {
+  const markerRef = React.useRef<any>(null);
+
   useMapEvents({
     click(e) {
       if (isMapViewOnly) return;
       setPosition(e.latlng);
       onPositionChange(e.latlng);
-    },
-    dragend(e) {
-      if (isMapViewOnly) return;
-      const center = e.target.getCenter();
-      setPosition(center);
-      onPositionChange(center);
     }
   });
 
-  if (!isMapViewOnly) return null;
+  const eventHandlers = React.useMemo(() => ({
+    dragend() {
+      const marker = markerRef.current;
+      if (marker != null) {
+        const latLng = marker.getLatLng();
+        setPosition(latLng);
+        onPositionChange(latLng);
+      }
+    },
+  }), [setPosition, onPositionChange]);
 
   return (
-    <Marker position={position} icon={icon}></Marker>
+    <Marker 
+      position={position} 
+      icon={icon} 
+      draggable={!isMapViewOnly}
+      eventHandlers={eventHandlers}
+      ref={markerRef}
+    />
   );
 }
 
@@ -226,22 +249,10 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
 
   // Generate simulated drivers when there are no real drivers in range
   useEffect(() => {
-    if (!isOpen) return;
-    if (realDrivers.length > 0) {
-      setSimulatedDrivers([]);
-      return;
-    }
-    const baseLat = position.lat;
-    const baseLng = position.lng;
-
-    const initialSims = [
-      { id: 'sim-boda-1', name: 'Dereva Juma (Boda)', vehicleType: 'boda', lat: baseLat + 0.003, lng: baseLng - 0.002, heading: 45 },
-      { id: 'sim-bajaj-1', name: 'Dereva Baraka (Bajaji)', vehicleType: 'bajaji', lat: baseLat - 0.002, lng: baseLng + 0.003, heading: 180 },
-      { id: 'sim-gari-1', name: 'Dereva Sophia (Taxi)', vehicleType: 'mini', lat: baseLat + 0.001, lng: baseLng + 0.004, heading: 290 },
-      { id: 'sim-delivery-1', name: 'Mjumbe Asha (Delivery)', vehicleType: 'delivery', lat: baseLat - 0.004, lng: baseLng - 0.003, heading: 110 }
-    ];
-    setSimulatedDrivers(initialSims);
-  }, [realDrivers.length, position.lat, position.lng, isOpen]);
+    // Respect user feedback: "kama hakuna Moving Vehicles basi yasionekane"
+    // (If there are no real active/moving vehicles, do not show any simulated ones either)
+    setSimulatedDrivers([]);
+  }, [isOpen]);
 
   // Slowly simulate movement/drift for simulated drivers
   useEffect(() => {
@@ -954,6 +965,13 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                         setIsSpeaking(false);
                       }} 
                     />
+
+                    {userOrigin && (
+                      <Marker 
+                        position={userOrigin} 
+                        icon={CurrentLocationPulseIcon}
+                      />
+                    )}
                     
                     {/* Filtered Vendor Markers */}
                     {filteredVendors?.map((v) => v.location && (
