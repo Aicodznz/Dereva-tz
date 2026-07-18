@@ -32,6 +32,7 @@ export default function CustomerDashboard() {
   const [vendors, setVendors] = useState<VendorProfile[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [banners, setBanners] = useState<{id: string, title: string, sub: string, img: string, category?: string}[]>([]);
+  const [activeBannerIdx, setActiveBannerIdx] = useState(0);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
   const [isMapViewOnly, setIsMapViewOnly] = useState(false);
@@ -363,22 +364,7 @@ export default function CustomerDashboard() {
     if (banners.length === 0) return;
 
     const interval = setInterval(() => {
-      if (bannerScrollRef.current) {
-        const container = bannerScrollRef.current;
-        const scrollWidth = container.scrollWidth;
-        const clientWidth = container.clientWidth;
-        const maxScroll = scrollWidth - clientWidth;
-        
-        if (container.scrollLeft >= maxScroll - 20) {
-          container.scrollTo({ left: 0, behavior: 'smooth' });
-        } else {
-          const card = container.firstElementChild as HTMLElement;
-          const style = window.getComputedStyle(container);
-          const gap = parseInt(style.columnGap || style.gap || '0');
-          const scrollAmount = card ? card.offsetWidth + gap : 300;
-          container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-        }
-      }
+      setActiveBannerIdx((prev) => (prev + 1) % banners.length);
     }, 5500);
 
     return () => clearInterval(interval);
@@ -771,67 +757,184 @@ export default function CustomerDashboard() {
         </motion.div>
       )}
 
-      {/* 1. Promotional Carousel (Banners) */}
-      <div 
-        ref={bannerScrollRef}
-        className="flex gap-4 md:gap-6 overflow-x-auto pb-3 no-scrollbar snap-x py-2 px-2"
-      >
+      {/* 1. Promotional 3D Coverflow Carousel (Banners) */}
+      <div className="relative w-full overflow-hidden py-3 select-none flex flex-col items-center gap-4">
         {isLoading ? (
-          Array(3).fill(0).map((_, i) => (
-            <Skeleton key={`banner-skele-${i}`} className="min-w-[85%] md:min-w-[40%] lg:min-w-[30%] h-56 md:h-80 rounded-[3rem]" />
-          ))
-        ) : (
-          banners.map((banner, idx) => banner.img && (
-            <motion.div 
-              key={`promo-banner-${banner.id || idx}`} 
-              initial={{ opacity: 0, scale: 0.9, x: 50 }}
-              animate={{ opacity: 1, scale: 1, x: 0 }}
-              transition={{ delay: 0.1 * idx, ease: [0.22, 1, 0.36, 1] }}
-              whileHover={{ y: -8 }}
-              onClick={() => {
-                if (banner.category) {
-                  setSelectedCategory(banner.category);
-                  setTimeout(() => {
-                    storeScrollRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  }, 100);
-                  toast.info(`Inatafuta maduka ya: ${banner.category.toUpperCase()} 🛒✨`);
-                }
-              }}
-              className="min-w-[85%] md:min-w-[40%] lg:min-w-[30%] xl:min-w-[20%] [@media(min-width:1800px)]:min-w-[15%] h-56 md:h-80 rounded-[3rem] overflow-hidden relative snap-center shadow-2xl shadow-neutral-900/10 group cursor-pointer border border-white/20"
+          <div className="w-full flex gap-4 overflow-x-auto pb-3 no-scrollbar px-2 justify-center">
+            {Array(3).fill(0).map((_, i) => (
+              <Skeleton key={`banner-skele-${i}`} className="w-[82%] sm:w-[75%] md:w-[60%] lg:w-[45%] h-56 md:h-80 rounded-[2rem]" />
+            ))}
+          </div>
+        ) : banners.length === 0 ? null : (
+          <>
+            {/* The 3D Slider Container */}
+            <div 
+              ref={bannerScrollRef}
+              className="relative w-full h-[220px] xs:h-[240px] sm:h-[300px] md:h-[360px] flex items-center justify-center overflow-hidden"
+              style={{ perspective: '1200px', transformStyle: 'preserve-3d' }}
             >
-              <img 
-                src={banner.img} 
-                alt={banner.title} 
-                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 ease-out" 
-                referrerPolicy="no-referrer"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1200&q=80';
-                }}
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent flex flex-col justify-end p-8 md:p-10 text-white">
-                <div className="absolute top-6 left-6 flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
-                   <Sparkles className="w-3 h-3 text-orange-400" />
-                   <span className="text-[8px] font-black uppercase tracking-widest">Ofa Maalum</span>
-                </div>
-                <motion.h3 
-                  initial={{ y: 20, opacity: 0 }}
-                  whileInView={{ y: 0, opacity: 1 }}
-                  className="text-2xl md:text-3xl font-black tracking-tight font-display mb-1"
-                >
-                  {banner.title}
-                </motion.h3>
-                <p className="text-sm opacity-80 font-medium leading-relaxed max-w-[200px]">{banner.sub}</p>
-                <motion.div 
-                  whileHover={{ x: 5 }}
-                  className="mt-6 flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-orange-500"
-                >
-                  <span>{t('order_now') || 'Agiza Sasa'}</span>
-                  <ChevronRight className="w-4 h-4" />
-                </motion.div>
-              </div>
-            </motion.div>
-          )))
-        }
+              {banners.map((banner, idx) => {
+                if (!banner.img) return null;
+
+                // Calculate circular offset
+                const count = banners.length;
+                let diff = idx - activeBannerIdx;
+                if (diff < -count / 2) diff += count;
+                if (diff > count / 2) diff -= count;
+
+                const isActive = diff === 0;
+                const isLeft = diff === -1;
+                const isRight = diff === 1;
+
+                // Absolute positions with 3D transforms based on diff
+                let rotateYVal = 0;
+                let xOffset = "0%";
+                let scaleVal = 1;
+                let zIndexVal = 10;
+                let opacityVal = 1;
+
+                if (isActive) {
+                  rotateYVal = 0;
+                  xOffset = "0%";
+                  scaleVal = 1.0;
+                  zIndexVal = 30;
+                  opacityVal = 1;
+                } else if (isLeft) {
+                  rotateYVal = 26; // Tilted back on the left
+                  xOffset = "-45%"; // Peeking left
+                  scaleVal = 0.82;
+                  zIndexVal = 20;
+                  opacityVal = 0.65;
+                } else if (isRight) {
+                  rotateYVal = -26; // Tilted back on the right
+                  xOffset = "45%"; // Peeking right
+                  scaleVal = 0.82;
+                  zIndexVal = 20;
+                  opacityVal = 0.65;
+                } else {
+                  // Far away items
+                  rotateYVal = diff < 0 ? 35 : -35;
+                  xOffset = diff < 0 ? "-110%" : "110%";
+                  scaleVal = 0.65;
+                  zIndexVal = 10;
+                  opacityVal = 0;
+                }
+
+                return (
+                  <motion.div
+                    key={`promo-banner-${banner.id || idx}`}
+                    style={{
+                      transformStyle: 'preserve-3d',
+                      backfaceVisibility: 'hidden',
+                      zIndex: zIndexVal,
+                    }}
+                    animate={{
+                      x: xOffset,
+                      scale: scaleVal,
+                      rotateY: rotateYVal,
+                      opacity: opacityVal,
+                    }}
+                    transition={{
+                      type: "spring",
+                      stiffness: 280,
+                      damping: 28,
+                    }}
+                    drag="x"
+                    dragConstraints={{ left: 0, right: 0 }}
+                    dragElastic={0.4}
+                    onDragEnd={(e, info) => {
+                      const swipeThreshold = 50;
+                      if (info.offset.x < -swipeThreshold) {
+                        // Dragged left -> show next
+                        setActiveBannerIdx((prev) => (prev + 1) % banners.length);
+                      } else if (info.offset.x > swipeThreshold) {
+                        // Dragged right -> show prev
+                        setActiveBannerIdx((prev) => (prev - 1 + banners.length) % banners.length);
+                      }
+                    }}
+                    onClick={() => {
+                      if (isActive) {
+                        if (banner.category) {
+                          setSelectedCategory(banner.category);
+                          setTimeout(() => {
+                            storeScrollRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                          }, 100);
+                          toast.info(`Inatafuta maduka ya: ${banner.category.toUpperCase()} 🛒✨`);
+                        }
+                      } else {
+                        setActiveBannerIdx(idx);
+                      }
+                    }}
+                    className="absolute w-[82%] sm:w-[75%] md:w-[60%] lg:w-[45%] h-full rounded-[2rem] overflow-hidden shadow-2xl group cursor-pointer border border-white/20 select-none bg-neutral-950 origin-center"
+                  >
+                    {/* Background Image */}
+                    <img 
+                      src={banner.img} 
+                      alt={banner.title} 
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000 ease-out pointer-events-none" 
+                      referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1200&q=80';
+                      }}
+                    />
+
+                    {/* Dark overlay for ambient background cards to draw focus to center */}
+                    {!isActive && (
+                      <div className="absolute inset-0 bg-neutral-950/45 backdrop-blur-[0.5px] transition-all duration-300 group-hover:bg-neutral-950/30" />
+                    )}
+
+                    {/* Content Gradient Overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/35 to-transparent flex flex-col justify-end p-5 sm:p-8 md:p-10 text-white">
+                      <div className="absolute top-4 left-4 sm:top-6 sm:left-6 flex items-center gap-1.5 px-2.5 py-1 bg-white/10 backdrop-blur-md rounded-full border border-white/15">
+                         <Sparkles className="w-3 h-3 text-orange-400" />
+                         <span className="text-[7px] sm:text-[8px] font-black uppercase tracking-widest">Ofa Maalum</span>
+                      </div>
+                      
+                      <motion.h3 
+                        initial={{ y: 15, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        transition={{ delay: 0.1 }}
+                        className="text-lg sm:text-2xl md:text-3xl font-black tracking-tight font-display mb-0.5 sm:mb-1 leading-tight text-white drop-shadow-md"
+                      >
+                        {banner.title}
+                      </motion.h3>
+                      
+                      <p className="text-[10px] sm:text-sm opacity-90 font-medium leading-relaxed max-w-[240px] drop-shadow-sm line-clamp-2">
+                        {banner.sub}
+                      </p>
+                      
+                      {isActive && (
+                        <motion.div 
+                          whileHover={{ x: 5 }}
+                          className="mt-3 sm:mt-5 flex items-center gap-2 text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-orange-400"
+                        >
+                          <span>{t('order_now') || 'Agiza Sasa'}</span>
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </motion.div>
+                      )}
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+
+            {/* Pagination Indicators (Dots) */}
+            <div className="flex gap-1.5 items-center justify-center mt-1">
+              {banners.map((_, i) => (
+                <button
+                  key={`dot-${i}`}
+                  onClick={() => setActiveBannerIdx(i)}
+                  className={`transition-all duration-500 ease-out h-2 rounded-full ${
+                    i === activeBannerIdx 
+                      ? 'w-6 bg-orange-600 shadow-md shadow-orange-600/30 dark:bg-orange-500' 
+                      : 'w-2 bg-neutral-300 hover:bg-neutral-400 dark:bg-neutral-800 dark:hover:bg-neutral-700'
+                  }`}
+                  aria-label={`Nenda kwenye bango la ${i + 1}`}
+                />
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       <section className="mt-1 md:mt-2">

@@ -181,12 +181,23 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
       return;
     }
 
+    const rawPhone = (order.customerPhone || userPhone || '').trim();
+    let formattedPhone = rawPhone;
+    if (rawPhone.startsWith('0')) {
+      formattedPhone = '255' + rawPhone.substring(1);
+    } else if (rawPhone.startsWith('+')) {
+      formattedPhone = rawPhone.substring(1);
+    } else if (!rawPhone.startsWith('255') && rawPhone.replace(/[^0-9]/g, '').length === 9) {
+      formattedPhone = '255' + rawPhone;
+    }
+    const cleanPhone = formattedPhone.replace(/[^0-9]/g, '');
+
     setIsPaying(true);
     try {
       const response = await initiatePayment({
         order_id: order.id!,
         amount: order.totalAmount,
-        buyer_phone: (order.customerPhone || userPhone || '').replace(/[^0-9]/g, ''),
+        buyer_phone: cleanPhone,
         fee_payer: 'MERCHANT'
       });
 
