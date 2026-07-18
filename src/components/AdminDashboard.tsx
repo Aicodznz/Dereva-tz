@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { 
-  Check, X, ShieldAlert, Store, UserCheck, Image as ImageIcon, 
+  Check, X, ShieldAlert, Store, UserCheck, Image as ImageIcon, Edit, ArrowLeft, 
   Bell, Plus, Trash2, Send, LayoutDashboard, Megaphone, Home,
   Users, ShoppingBag, DollarSign, MessageCircle, AlertTriangle,
   ExternalLink, Search, Ban, History, BarChart3, Settings, Info, CreditCard, Star, Key,
@@ -31,6 +31,7 @@ import { motion, AnimatePresence, useScroll, useMotionValueEvent } from 'motion/
 import { useLanguage } from '../LanguageContext';
 import { playSyntheticNormal, playSyntheticImportant, playSyntheticCritical } from '../utils/soundAlert';
 import { TwilioResponderTab } from './TwilioResponderTab';
+import { DriverProfileDetails } from './admin/DriverProfileDetails';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents, Circle, Polygon } from 'react-leaflet';
@@ -94,6 +95,8 @@ interface UserRecord {
   battery?: number;
   networkStatus?: 'online' | 'offline';
   createdAt: any;
+  photoURL?: string;
+  rating?: number;
 }
 
 interface PayoutRequest {
@@ -536,6 +539,40 @@ export default function AdminDashboard() {
   const [isAddBannerOpen, setIsAddBannerOpen] = useState(false);
   const [isAddCouponOpen, setIsAddCouponOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserRecord | null>(null);
+  const [selectedDriverForDetail, setSelectedDriverForDetail] = useState<UserRecord | null>(null);
+  const [driverSubTab, setDriverSubTab] = useState<'profile' | 'documents' | 'vehicle' | 'trips' | 'wallet' | 'performance' | 'notifications'>('profile');
+  const [selectedDriverTrips, setSelectedDriverTrips] = useState<any[]>([]);
+  const [isEditingDriver, setIsEditingDriver] = useState(false);
+  const [editedDriver, setEditedDriver] = useState<Partial<UserRecord>>({});
+  const [isChangingDriverStatus, setIsChangingDriverStatus] = useState(false);
+
+  useEffect(() => {
+    if (!selectedDriverForDetail?.id) {
+      setSelectedDriverTrips([]);
+      return;
+    }
+    const q = query(
+      collection(db, 'rides'),
+      where('driverId', '==', selectedDriverForDetail.id)
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const tripsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      tripsList.sort((a: any, b: any) => {
+        const dateA = a.createdAt && typeof a.createdAt.toDate === 'function' ? a.createdAt.toDate() : new Date(a.createdAt || 0);
+        const dateB = b.createdAt && typeof b.createdAt.toDate === 'function' ? b.createdAt.toDate() : new Date(b.createdAt || 0);
+        return dateB.getTime() - dateA.getTime();
+      });
+      setSelectedDriverTrips(tripsList);
+    }, (error) => {
+      console.error("Error fetching driver trips:", error);
+    });
+    return () => unsubscribe();
+  }, [selectedDriverForDetail?.id]);
+
+  const activeDriverDetail = useMemo(() => {
+    if (!selectedDriverForDetail?.id) return null;
+    return allUsers.find(u => u.id === selectedDriverForDetail.id) || selectedDriverForDetail;
+  }, [allUsers, selectedDriverForDetail]);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [newUserPassword, setNewUserPassword] = useState('');
 
@@ -1775,15 +1812,22 @@ export default function AdminDashboard() {
                            className="p-4 rounded-2xl border border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-800/50 hover:bg-neutral-100/50 dark:hover:bg-neutral-800 transition-colors space-y-3"
                          >
                             <div className="flex items-start justify-between gap-2">
-                               <div className="flex items-center gap-3">
-                                  <div className="relative">
+                               <div 
+                                 className="flex items-center gap-3 cursor-pointer group/item"
+                                 onClick={() => {
+                                   setSelectedDriverForDetail(rider);
+                                   setActiveTab('drivers');
+                                   setDriverSubTab('profile');
+                                 }}
+                               >
+                                  <div className="relative group-hover/item:scale-105 transition-transform duration-200">
                                      <div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-950/30 flex items-center justify-center font-black text-orange-600 text-sm">
                                         {(rider.displayName || 'D')[0]}
                                      </div>
                                      <span className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-white dark:border-neutral-900 ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-neutral-300'}`} />
                                   </div>
                                   <div>
-                                     <h4 className="font-black text-sm text-neutral-900 dark:text-white uppercase leading-tight">{rider.displayName}</h4>
+                                     <h4 className="font-black text-sm text-neutral-900 dark:text-white uppercase leading-tight group-hover/item:text-orange-600 transition-colors">{rider.displayName}</h4>
                                      <p className="text-[10px] text-neutral-500 dark:text-neutral-400 font-semibold">{rider.phone || 'Namba haipo'}</p>
                                   </div>
                                </div>
@@ -2182,7 +2226,17 @@ export default function AdminDashboard() {
         )}
 
         {activeTab === 'drivers' && (
-          <motion.div key="drivers" className="space-y-8">
+          activeDriverDetail ? (
+            <DriverProfileDetails 
+              driver={activeDriverDetail}
+              onBack={() => setSelectedDriverForDetail(null)}
+              db={db}
+              driverLocations={driverLocations}
+              payouts={payouts}
+              trips={selectedDriverTrips}
+            />
+          ) : (
+            <motion.div key="drivers" className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <Card className="rounded-[2.5rem] border-none shadow-xl bg-blue-50 dark:bg-blue-950/20 text-blue-900 dark:text-blue-100 transition-colors">
                 <CardHeader>
@@ -2226,13 +2280,19 @@ export default function AdminDashboard() {
                         className="rounded-[2rem] border-none shadow-lg group hover:shadow-2xl transition-all border-2 border-transparent hover:border-blue-500/20 bg-white dark:bg-neutral-900 transition-colors"
                       >
                          <CardContent className="p-6 flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                               <div className="w-14 h-14 bg-neutral-100 dark:bg-neutral-800 rounded-2xl flex items-center justify-center text-blue-600 font-black text-xl">
+                            <div 
+                               className="flex items-center gap-4 cursor-pointer group/driver"
+                               onClick={() => {
+                                 setSelectedDriverForDetail(rider);
+                                 setDriverSubTab('profile');
+                               }}
+                             >
+                               <div className="w-14 h-14 bg-neutral-100 dark:bg-neutral-800 rounded-2xl flex items-center justify-center text-blue-600 font-black text-xl group-hover/driver:scale-105 transition-transform duration-200">
                                   {rider.displayName[0]}
                                </div>
                                <div className="flex flex-col">
                                   <div className="flex items-center gap-2">
-                                     <h4 className="font-black text-lg text-neutral-900 dark:text-white group-hover:text-blue-600 transition-colors uppercase italic leading-none">{rider.displayName}</h4>
+                                     <h4 className="font-black text-lg text-neutral-900 dark:text-white group-hover/driver:text-blue-600 transition-colors uppercase italic leading-none">{rider.displayName}</h4>
                                      {driverLocations.find(d => d.id === rider.id && (d.networkStatus === 'online' || d.status === 'online' || d.isOnline === true)) && (
                                         <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" title="Live Online" />
                                      )}
@@ -2263,6 +2323,7 @@ export default function AdminDashboard() {
               </div>
             </div>
           </motion.div>
+          )
         )}
 
         {activeTab === 'orders' && (
