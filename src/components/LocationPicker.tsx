@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Search, MapPin, X, Navigation, Loader2, Star, ArrowRight, Package, Clock, RotateCw, Layers, Camera, Volume2, CheckCircle2, Play, ExternalLink } from 'lucide-react';
+import { Search, MapPin, X, Navigation, Loader2, Star, ArrowRight, Package, Clock, RotateCw, Layers, Camera, Volume2, CheckCircle2, Play, ExternalLink, Car } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { motion, AnimatePresence } from 'motion/react';
@@ -12,6 +12,7 @@ import { db } from '../firebase';
 import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firestore';
 import ARMapView from './map/ARMapView';
 import { useBusinessConfig } from '../BusinessConfigContext';
+import { useNearbyDrivers } from '../hooks/useNearbyDrivers';
 
 // Fix for default marker icon in Leaflet - using CDN for maximum stability in preview environment
 const DefaultIcon = L.icon({
@@ -70,6 +71,39 @@ const ParcelPinIcon = L.divIcon({
   iconSize: [48, 48],
   iconAnchor: [24, 48],
 });
+
+// Custom Icon for Vehicles - Dynamic based on type and heading
+const getVehicleIcon = (vehicleType: string, heading: number = 0) => {
+  const type = vehicleType.toLowerCase();
+  let emoji = '🚗';
+  let color = 'bg-yellow-500';
+
+  if (type.includes('boda') || type.includes('motorcycle') || type.includes('pikipiki')) {
+    emoji = '🏍️';
+    color = 'bg-sky-500';
+  } else if (type.includes('bajaji') || type.includes('rickshaw')) {
+    emoji = '🛺';
+    color = 'bg-amber-500';
+  } else if (type.includes('delivery') || type.includes('parcel') || type.includes('cargo') || type.includes('truck')) {
+    emoji = '🚚';
+    color = 'bg-emerald-500';
+  }
+
+  return L.divIcon({
+    html: `
+      <div class="relative w-10 h-10 flex items-center justify-center">
+        <div class="absolute w-10 h-10 rounded-full ${color} opacity-25 animate-ping"></div>
+        <div class="w-8 h-8 rounded-full ${color} border-2 border-white shadow-[0_4px_12px_rgba(0,0,0,0.35)] flex items-center justify-center relative transition-transform duration-500" style="transform: rotate(${heading}deg);">
+          <div class="absolute -top-1.5 w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[6px] border-b-neutral-900 dark:border-b-white"></div>
+          <span class="text-base select-none leading-none">${emoji}</span>
+        </div>
+      </div>
+    `,
+    className: 'bg-transparent',
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
+  });
+};
 
 try {
   L.Marker.prototype.options.icon = DefaultIcon;
@@ -184,6 +218,52 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [isAROpen, setIsAROpen] = useState(false);
   const [activeRoute, setActiveRoute] = useState<any>(null);
+
+  // Nearby drivers & vehicles states
+  const { drivers: realDrivers } = useNearbyDrivers();
+  const [simulatedDrivers, setSimulatedDrivers] = useState<any[]>([]);
+  const [selectedDriver, setSelectedDriver] = useState<any | null>(null);
+
+  // Generate simulated drivers when there are no real drivers in range
+  useEffect(() => {
+    if (!isOpen) return;
+    if (realDrivers.length > 0) {
+      setSimulatedDrivers([]);
+      return;
+    }
+    const baseLat = position.lat;
+    const baseLng = position.lng;
+
+    const initialSims = [
+      { id: 'sim-boda-1', name: 'Dereva Juma (Boda)', vehicleType: 'boda', lat: baseLat + 0.003, lng: baseLng - 0.002, heading: 45 },
+      { id: 'sim-bajaj-1', name: 'Dereva Baraka (Bajaji)', vehicleType: 'bajaji', lat: baseLat - 0.002, lng: baseLng + 0.003, heading: 180 },
+      { id: 'sim-gari-1', name: 'Dereva Sophia (Taxi)', vehicleType: 'mini', lat: baseLat + 0.001, lng: baseLng + 0.004, heading: 290 },
+      { id: 'sim-delivery-1', name: 'Mjumbe Asha (Delivery)', vehicleType: 'delivery', lat: baseLat - 0.004, lng: baseLng - 0.003, heading: 110 }
+    ];
+    setSimulatedDrivers(initialSims);
+  }, [realDrivers.length, position.lat, position.lng, isOpen]);
+
+  // Slowly simulate movement/drift for simulated drivers
+  useEffect(() => {
+    if (simulatedDrivers.length === 0) return;
+
+    const timer = setInterval(() => {
+      setSimulatedDrivers(prev => prev.map(drv => {
+        const deltaLat = (Math.random() - 0.5) * 0.00015;
+        const deltaLng = (Math.random() - 0.5) * 0.00015;
+        const newLat = drv.lat + deltaLat;
+        const newLng = drv.lng + deltaLng;
+        let newHeading = drv.heading;
+        if (Math.abs(deltaLat) > 0 || Math.abs(deltaLng) > 0) {
+          newHeading = Math.round((Math.atan2(deltaLng, deltaLat) * 180) / Math.PI);
+          if (newHeading < 0) newHeading += 360;
+        }
+        return { ...drv, lat: newLat, lng: newLng, heading: newHeading };
+      }));
+    }, 4000);
+
+    return () => clearInterval(timer);
+  }, [simulatedDrivers.length]);
 
   // Stop & Media Interactive States on 2D map
   const [selectedStopIdx, setSelectedStopIdx] = useState<number | null>(null);
@@ -307,6 +387,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
 
   const categories = [
     { id: 'all', label: 'Zote', icon: <Layers size={14} /> },
+    { id: 'vehicles', label: 'Magari / Boda', icon: <Car size={14} className="text-yellow-500 shrink-0" /> },
     { id: 'food', label: 'Chakula', icon: <div dangerouslySetInnerHTML={{ __html: getVendorIcon('food').options.html || '' }} className="scale-50" /> },
     { id: 'grocery', label: 'Soko', icon: <div dangerouslySetInnerHTML={{ __html: getVendorIcon('grocery').options.html || '' }} className="scale-50" /> },
     { id: 'bus', label: 'Tiketi', icon: <div dangerouslySetInnerHTML={{ __html: getVendorIcon('bus').options.html || '' }} className="scale-50" /> },
@@ -335,6 +416,8 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
       }
       return [];
     }
+
+    if (categoryFilter === 'vehicles') return [];
 
     return availableVendors.filter(v => {
       if (categoryFilter === 'all') return true;
@@ -881,6 +964,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                         eventHandlers={{
                           click: () => {
                             setSelectedVendor(v);
+                            setSelectedDriver(null); // Clear active driver card
                             setSelectedStopIdx(null); // Close active stop preview
                             window.speechSynthesis.cancel();
                             setIsSpeaking(false);
@@ -889,6 +973,49 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                         }}
                       />
                     ))}
+
+                    {/* Real and Simulated Driver/Vehicle Markers */}
+                    {(categoryFilter === 'all' || categoryFilter === 'vehicles') && (
+                      <>
+                        {/* Real Drivers from Firebase */}
+                        {realDrivers?.map((drv) => (
+                          <Marker
+                            key={drv.id}
+                            position={[drv.lat, drv.lng]}
+                            icon={getVehicleIcon(drv.vehicleType, drv.heading)}
+                            eventHandlers={{
+                              click: () => {
+                                setSelectedDriver(drv);
+                                setSelectedVendor(null); // Clear selected store card
+                                setSelectedStopIdx(null); // Close active stop preview
+                                window.speechSynthesis.cancel();
+                                setIsSpeaking(false);
+                                setPosition(new L.LatLng(drv.lat, drv.lng));
+                              }
+                            }}
+                          />
+                        ))}
+
+                        {/* Simulated Drivers */}
+                        {simulatedDrivers?.map((drv) => (
+                          <Marker
+                            key={drv.id}
+                            position={[drv.lat, drv.lng]}
+                            icon={getVehicleIcon(drv.vehicleType, drv.heading)}
+                            eventHandlers={{
+                              click: () => {
+                                setSelectedDriver(drv);
+                                setSelectedVendor(null); // Clear selected store card
+                                setSelectedStopIdx(null); // Close active stop preview
+                                window.speechSynthesis.cancel();
+                                setIsSpeaking(false);
+                                setPosition(new L.LatLng(drv.lat, drv.lng));
+                              }
+                            }}
+                          />
+                        ))}
+                      </>
+                    )}
 
                     {/* Render active route's path / polyline on the 2D map */}
                     {activeRoute && activeRoute.stops && activeRoute.stops.length > 0 && (
@@ -1123,6 +1250,110 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                              </div>
                           </div>
                        </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Selected Driver Card Overlay */}
+              <AnimatePresence>
+                {selectedDriver && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 50, scale: 0.9 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 50, scale: 0.9 }}
+                    className="absolute top-20 left-4 right-4 z-[1001]"
+                  >
+                    <div 
+                      className="bg-neutral-900 text-white rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.5)] overflow-hidden border border-white/10 p-5 cursor-default"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-2xl bg-amber-500 flex items-center justify-center text-2xl shadow-lg relative shrink-0">
+                            {selectedDriver.vehicleType === 'boda' ? '🏍️' : selectedDriver.vehicleType === 'bajaji' ? '🛺' : selectedDriver.vehicleType === 'delivery' ? '🚚' : '🚗'}
+                            <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-neutral-900 rounded-full"></span>
+                          </div>
+                          <div>
+                            <h4 className="font-black text-base uppercase tracking-tight text-white">{selectedDriver.name}</h4>
+                            <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mt-0.5">
+                              {selectedDriver.vehicleType === 'boda' ? 'Pikipiki / Boda' : selectedDriver.vehicleType === 'bajaji' ? 'Bajaji Smart' : selectedDriver.vehicleType === 'delivery' ? 'Mjumbe wa Vifurushi' : 'Taxi ya Kirafiki'}
+                            </p>
+                          </div>
+                        </div>
+                        <button 
+                          onClick={() => setSelectedDriver(null)}
+                          className="w-8 h-8 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <div className="mt-4 grid grid-cols-2 gap-3 border-t border-white/10 pt-4">
+                        <div className="bg-white/5 rounded-2xl p-3 flex flex-col justify-center">
+                          <span className="text-[8px] font-black uppercase text-neutral-400 tracking-wider">Umbali Kutoka Kwako</span>
+                          <span className="text-base font-black text-amber-500 mt-1">
+                            {(() => {
+                              const origin = userOrigin || position;
+                              if (!origin) return '0.2 KM';
+                              const lat1 = origin.lat;
+                              const lon1 = origin.lng;
+                              const lat2 = selectedDriver.lat;
+                              const lon2 = selectedDriver.lng;
+                              
+                              const R = 6371; // km
+                              const dLat = (lat2 - lat1) * Math.PI / 180;
+                              const dLon = (lon2 - lon1) * Math.PI / 180;
+                              const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+                              const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                              const d = R * c;
+                              return `${d.toFixed(2)} KM`;
+                            })()}
+                          </span>
+                        </div>
+                        <div className="bg-white/5 rounded-2xl p-3 flex flex-col justify-center">
+                          <span className="text-[8px] font-black uppercase text-neutral-400 tracking-wider">Muda wa Kufika (ETA)</span>
+                          <span className="text-base font-black text-green-400 mt-1">
+                            {(() => {
+                              const origin = userOrigin || position;
+                              if (!origin) return 'Dakika 3';
+                              const lat1 = origin.lat;
+                              const lon1 = origin.lng;
+                              const lat2 = selectedDriver.lat;
+                              const lon2 = selectedDriver.lng;
+                              
+                              const R = 6371; // km
+                              const dLat = (lat2 - lat1) * Math.PI / 180;
+                              const dLon = (lon2 - lon1) * Math.PI / 180;
+                              const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+                              const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                              const d = R * c;
+                              const mins = Math.max(2, Math.round((d / 40) * 60));
+                              return `Dk ${mins} hivi`;
+                            })()}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 flex gap-2">
+                        <button 
+                          onClick={() => {
+                            onClose();
+                            if (selectedDriver.vehicleType === 'delivery') {
+                              navigate('/service/vifurushi');
+                            } else {
+                              navigate('/taxi');
+                            }
+                          }}
+                          className="flex-1 bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 text-white py-3 rounded-2xl font-black text-xs uppercase tracking-wider text-center cursor-pointer shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+                        >
+                          <span>{selectedDriver.vehicleType === 'delivery' ? 'Tuma Kifurushi Sasa 📦' : 'Agiza Safari Hapa 🚕'}</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   </motion.div>
                 )}
