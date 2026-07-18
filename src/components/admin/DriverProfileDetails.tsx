@@ -15,6 +15,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
 } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import L from 'leaflet';
 
 interface UserRecord {
   id: string;
@@ -52,6 +54,72 @@ interface DriverProfileDetailsProps {
   trips: any[];
 }
 
+const getNormalizedCoords = (coords: any): [number, number][] => {
+  if (!coords || !Array.isArray(coords)) return [];
+  return coords.map((c: any) => {
+    if (Array.isArray(c)) {
+      return [Number(c[0]), Number(c[1])] as [number, number];
+    }
+    if (c && typeof c === "object") {
+      const lat = c.lat !== undefined ? c.lat : c.latitude;
+      const lng = c.lng !== undefined ? c.lng : c.longitude;
+      if (lat !== undefined && lng !== undefined) {
+        return [Number(lat), Number(lng)] as [number, number];
+      }
+    }
+    return null;
+  }).filter((c): c is [number, number] => c !== null);
+};
+
+function MapBoundsFitter({ points }: { points: [number, number][] }) {
+  const map = useMap();
+  useEffect(() => {
+    if (points && points.length > 0) {
+      try {
+        const bounds = L.latLngBounds(points);
+        map.fitBounds(bounds, { padding: [50, 50] });
+      } catch (e) {
+        console.error("Error fitting bounds:", e);
+      }
+    }
+  }, [points, map]);
+  return null;
+}
+
+const formatDistance = (dist: any) => {
+  if (dist === undefined || dist === null) return 'N/A';
+  const num = Number(dist);
+  if (isNaN(num)) return String(dist);
+  if (num > 100) return (num / 1000).toFixed(1) + ' km';
+  return num.toFixed(1) + ' km';
+};
+
+const formatDuration = (dur: any) => {
+  if (dur === undefined || dur === null) return 'N/A';
+  const num = Number(dur);
+  if (isNaN(num)) return String(dur);
+  if (num > 120) return Math.round(num / 60) + ' min';
+  return Math.round(num) + ' min';
+};
+
+const createTripMarkerIcon = (type: 'pickup' | 'destination') => {
+  const color = type === 'pickup' ? '#10B981' : '#EF4444';
+  const label = type === 'pickup' ? 'A' : 'B';
+  return L.divIcon({
+    className: 'custom-trip-marker',
+    html: `
+      <div class="relative flex items-center justify-center w-8 h-8">
+        <div class="absolute w-8 h-8 rounded-full opacity-30 animate-ping" style="background-color: ${color}"></div>
+        <div class="absolute w-6 h-6 rounded-full border-2 border-white flex items-center justify-center font-black text-[10px] text-white shadow-lg" style="background-color: ${color}">
+          ${label}
+        </div>
+      </div>
+    `,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16]
+  });
+};
+
 export function DriverProfileDetails({ 
   driver, 
   onBack, 
@@ -65,6 +133,7 @@ export function DriverProfileDetails({
   // Modals & Forms States
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+  const [selectedTripForMap, setSelectedTripForMap] = useState<any | null>(null);
   
   // Edit Form Fields
   const [editName, setEditName] = useState(driver.displayName || '');
@@ -744,13 +813,22 @@ export function DriverProfileDetails({
                         <tbody>
                           {trips.map((trip, idx) => (
                             <tr key={trip.id || idx} className="border-b border-neutral-50 dark:border-neutral-800/50 hover:bg-neutral-50/50 dark:hover:bg-neutral-800/20 font-medium">
-                              <td className="py-4 px-4 font-mono font-bold text-neutral-500">#{trip.id ? trip.id.slice(0, 6).toUpperCase() : 'N/A'}</td>
+                              <td className="py-4 px-4 font-mono">
+                                <Button 
+                                  variant="ghost" 
+                                  className="h-auto p-0 font-bold font-mono text-orange-600 hover:text-orange-700 hover:underline flex items-center gap-1.5"
+                                  onClick={() => setSelectedTripForMap(trip)}
+                                >
+                                  <MapPin className="w-3.5 h-3.5 shrink-0" />
+                                  #{trip.id ? trip.id.slice(0, 6).toUpperCase() : 'N/A'}
+                                </Button>
+                              </td>
                               <td className="py-4 px-4">
                                 <span className="font-bold text-neutral-900 dark:text-white uppercase italic">{trip.customerName || trip.customerId?.slice(0, 8) || 'N/A'}</span>
                               </td>
-                              <td className="py-4 px-4 truncate max-w-[200px]" title={`${trip.pickupAddress || 'Start'} to ${trip.dropoffAddress || 'Destination'}`}>
-                                <span className="font-semibold text-neutral-700 dark:text-neutral-300">{trip.pickupAddress || 'Start'}</span>
-                                <span className="text-neutral-400 text-[10px] block truncate">{trip.dropoffAddress || 'Destination'}</span>
+                              <td className="py-4 px-4 truncate max-w-[250px]" title={`${trip.pickup?.address || trip.pickupAddress || 'Kuanzia'} to ${trip.destination?.address || trip.dropoffAddress || 'Mwisho'}`}>
+                                <span className="font-semibold text-neutral-700 dark:text-neutral-300 block truncate">{trip.pickup?.address || trip.pickupAddress || 'Kuanzia (Start)'}</span>
+                                <span className="text-neutral-400 text-[10px] block truncate mt-0.5">{trip.destination?.address || trip.dropoffAddress || 'Mwisho (Destination)'}</span>
                               </td>
                               <td className="py-4 px-4 font-black text-neutral-950 dark:text-white italic">{(trip.price || trip.fare || 0).toLocaleString()} TZS</td>
                               <td className="py-4 px-4">
@@ -1192,6 +1270,198 @@ export function DriverProfileDetails({
           </Card>
         </div>
       )}
+
+      {/* TRIP HISTORY MAP MODAL */}
+      {selectedTripForMap && (() => {
+        const trip = selectedTripForMap;
+        const mapPoints: [number, number][] = [];
+        let pickupCoords: [number, number] | null = null;
+        let destCoords: [number, number] | null = null;
+
+        if (trip.pickup) {
+          const pLat = Number(trip.pickup.lat);
+          const pLng = Number(trip.pickup.lng);
+          if (!isNaN(pLat) && !isNaN(pLng)) {
+            pickupCoords = [pLat, pLng];
+            mapPoints.push(pickupCoords);
+          }
+        }
+        if (trip.destination) {
+          const dLat = Number(trip.destination.lat);
+          const dLng = Number(trip.destination.lng);
+          if (!isNaN(dLat) && !isNaN(dLng)) {
+            destCoords = [dLat, dLng];
+            mapPoints.push(destCoords);
+          }
+        }
+        
+        const routePoints = getNormalizedCoords(trip.routeCoords);
+        mapPoints.push(...routePoints);
+
+        const center: [number, number] = pickupCoords || destCoords || [-6.7924, 39.2083];
+
+        return (
+          <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 md:p-8 animate-fade-in">
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setSelectedTripForMap(null)} />
+            <Card className="relative w-full max-w-5xl bg-white dark:bg-neutral-900 rounded-[2.5rem] shadow-2xl border-none overflow-hidden max-h-[90vh] flex flex-col md:flex-row z-10">
+              
+              {/* Left Details Panel */}
+              <div className="w-full md:w-[32%] bg-neutral-50 dark:bg-neutral-950/40 p-6 md:p-8 flex flex-col justify-between border-b md:border-b-0 md:border-r border-neutral-100 dark:border-neutral-800/80 overflow-y-auto text-xs font-semibold">
+                <div className="space-y-6">
+                  <div>
+                    <Badge className="bg-orange-600 hover:bg-orange-700 text-white font-black text-[9px] uppercase tracking-wider mb-2">
+                      Safari Detail
+                    </Badge>
+                    <h4 className="text-xl font-black uppercase italic tracking-tighter text-neutral-900 dark:text-white leading-none">
+                      #{trip.id ? trip.id.slice(0, 8).toUpperCase() : 'N/A'}
+                    </h4>
+                    <p className="text-[10px] text-neutral-400 font-bold mt-1 uppercase tracking-wider">
+                      Taarifa na Njia ya Safari
+                    </p>
+                  </div>
+
+                  <div className="space-y-4 pt-4 border-t border-neutral-100 dark:border-neutral-800">
+                    <div>
+                      <span className="text-[9px] font-black uppercase text-neutral-400 block">Abiria (Customer)</span>
+                      <span className="text-sm font-black text-neutral-900 dark:text-white uppercase italic mt-1 block">
+                        {trip.customerName || trip.customerId?.slice(0, 8) || 'N/A'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <span className="text-[9px] font-black uppercase text-neutral-400 block">Umbali (Distance)</span>
+                        <span className="text-sm font-black text-neutral-900 dark:text-white mt-1 block">
+                          {formatDistance(trip.distance)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] font-black uppercase text-neutral-400 block">Muda (Duration)</span>
+                        <span className="text-sm font-black text-neutral-900 dark:text-white mt-1 block">
+                          {formatDuration(trip.duration)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className="text-[9px] font-black uppercase text-neutral-400 block">Gharama (Fare)</span>
+                      <span className="text-lg font-black text-orange-600 italic mt-0.5 block">
+                        {(trip.price || trip.fare || 0).toLocaleString()} TZS
+                      </span>
+                    </div>
+
+                    <div className="pt-2 space-y-3">
+                      <div className="flex gap-2 items-start">
+                        <div className="w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-950/30 flex items-center justify-center font-black text-[9px] text-emerald-600 shrink-0 mt-0.5">
+                          A
+                        </div>
+                        <div>
+                          <span className="text-[8px] font-black uppercase text-neutral-400 block">Kuanzia (Pickup)</span>
+                          <span className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 block leading-tight mt-0.5">
+                            {trip.pickup?.address || trip.pickupAddress || 'Address haipatikani'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 items-start">
+                        <div className="w-5 h-5 rounded-full bg-red-100 dark:bg-red-950/30 flex items-center justify-center font-black text-[9px] text-red-600 shrink-0 mt-0.5">
+                          B
+                        </div>
+                        <div>
+                          <span className="text-[8px] font-black uppercase text-neutral-400 block">Mwisho (Destination)</span>
+                          <span className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 block leading-tight mt-0.5">
+                            {trip.destination?.address || trip.dropoffAddress || 'Address haipatikani'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className="text-[9px] font-black uppercase text-neutral-400 block">Hali ya Safari (Status)</span>
+                      <Badge className={`mt-1 font-bold text-[8px] uppercase tracking-wider px-2.5 py-0.5 ${trip.status === 'completed' ? 'bg-green-100 text-green-700' : trip.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
+                        {trip.status}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-6 border-t border-neutral-100 dark:border-neutral-800 mt-6 md:mt-0">
+                  <Button 
+                    onClick={() => setSelectedTripForMap(null)} 
+                    className="w-full bg-neutral-900 dark:bg-neutral-800 hover:bg-neutral-800 dark:hover:bg-neutral-700 text-white rounded-xl font-bold text-[10px] h-10 uppercase tracking-wider"
+                  >
+                    Funga Dirisha
+                  </Button>
+                </div>
+              </div>
+
+              {/* Right Map Canvas Panel */}
+              <div className="flex-1 h-[400px] md:h-auto min-h-[350px] relative bg-neutral-100 dark:bg-neutral-950">
+                {/* Close Overlay Icon Button */}
+                <button 
+                  onClick={() => setSelectedTripForMap(null)}
+                  className="absolute top-4 right-4 z-[1010] p-2 bg-white/95 dark:bg-neutral-900/95 shadow-lg rounded-full border border-neutral-100 dark:border-neutral-800 text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                <MapContainer 
+                  center={center} 
+                  zoom={14} 
+                  maxZoom={22}
+                  className="w-full h-full z-0"
+                  scrollWheelZoom
+                >
+                  <TileLayer 
+                    url="https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}" 
+                    subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
+                    maxZoom={22}
+                    maxNativeZoom={19}
+                    attribution="&copy; Google Maps"
+                  />
+                  
+                  {pickupCoords && (
+                    <Marker position={pickupCoords} icon={createTripMarkerIcon('pickup')}>
+                      <Popup className="rounded-xl overflow-hidden font-sans">
+                        <div className="p-1 text-xs">
+                          <p className="font-bold text-emerald-600 uppercase tracking-wider text-[9px] mb-0.5">Kuanzia (Pickup)</p>
+                          <p className="font-semibold text-neutral-800">{trip.pickup?.address || trip.pickupAddress}</p>
+                        </div>
+                      </Popup>
+                    </Marker>
+                  )}
+
+                  {destCoords && (
+                    <Marker position={destCoords} icon={createTripMarkerIcon('destination')}>
+                      <Popup className="rounded-xl overflow-hidden font-sans">
+                        <div className="p-1 text-xs">
+                          <p className="font-bold text-red-600 uppercase tracking-wider text-[9px] mb-0.5">Mwisho (Destination)</p>
+                          <p className="font-semibold text-neutral-800">{trip.destination?.address || trip.dropoffAddress}</p>
+                        </div>
+                      </Popup>
+                    </Marker>
+                  )}
+
+                  {routePoints.length > 1 && (
+                    <Polyline 
+                      positions={routePoints} 
+                      color="#F97316" 
+                      weight={5} 
+                      opacity={0.85} 
+                      dashArray="2, 6"
+                      lineCap="round"
+                      lineJoin="round"
+                    />
+                  )}
+
+                  <MapBoundsFitter points={mapPoints} />
+                </MapContainer>
+              </div>
+
+            </Card>
+          </div>
+        );
+      })()}
     </div>
   );
 }
