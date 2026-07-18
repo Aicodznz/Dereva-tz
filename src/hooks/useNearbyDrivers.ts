@@ -23,7 +23,7 @@ export function useNearbyDrivers() {
 
     const unsub = onSnapshot(q, (snap) => {
       const now = Date.now();
-      const fifteenMinutesAgo = now - (15 * 60 * 1000);
+      const twoMinutesAgo = now - (2 * 60 * 1000); // 2 minutes threshold for live active/moving vehicles
 
       const driverList = snap.docs
         .map(doc => {
@@ -35,16 +35,15 @@ export function useNearbyDrivers() {
             const parsed = new Date(val).getTime();
             return isNaN(parsed) ? 0 : parsed;
           };
-          const lastActive = getSafeTime(data.lastActive);
+          const lastActive = getSafeTime(data.lastActive) || getSafeTime(data.updatedAt);
           return { id: doc.id, ...data, lastActiveTime: lastActive } as any;
         })
         .filter(d => {
           // Check if driver has location
           if (!d.location || !d.location.lat || !d.location.lng) return false;
           
-          // Check for staleness: if lastActive is significantly old, hide them
-          // (allowing 15 minutes of grace for intermittent connection)
-          if (d.lastActiveTime && d.lastActiveTime < fifteenMinutesAgo) return false;
+          // Check for staleness: if lastActive is older than 2 minutes, hide them
+          if (d.lastActiveTime && d.lastActiveTime < twoMinutesAgo) return false;
           
           return true;
         })

@@ -528,6 +528,8 @@ export default function AdminDashboard() {
   const [driverLocations, setDriverLocations] = useState<any[]>([]);
   
   const [searchQuery, setSearchQuery] = useState('');
+  const [monitorSearchQuery, setMonitorSearchQuery] = useState('');
+  const [mapPanTo, setMapPanTo] = useState<{ lat: number; lng: number } | null>(null);
   const [selectedVendorForReview, setSelectedVendorForReview] = useState<VendorProfile | null>(null);
   
   // Modals
@@ -1724,14 +1726,121 @@ export default function AdminDashboard() {
         )}
 
         {activeTab === 'live_map' && (
-          <motion.div key="live_map" className="h-[70vh] rounded-[3rem] overflow-hidden shadow-2xl border-4 border-white relative">
-             <MapContainer 
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 h-[75vh]">
+            {/* Sidebar with Driver Directory */}
+            <Card className="xl:col-span-4 rounded-[2.5rem] border-none shadow-xl bg-white dark:bg-neutral-900 p-6 flex flex-col h-full overflow-hidden">
+               {/* Search & Header */}
+               <div className="space-y-4 mb-4">
+                  <div className="flex items-center justify-between">
+                     <h3 className="text-xl font-black italic uppercase tracking-tighter text-neutral-900 dark:text-white">Madereva wote</h3>
+                     <Badge className="bg-orange-600 text-white font-black text-[10px] py-0.5 px-2 rounded-full">
+                        {allUsers.filter(u => u.role === 'rider').length} Madereva
+                     </Badge>
+                  </div>
+                  
+                  <div className="relative">
+                     <Search className="absolute left-3 top-2.5 h-4 w-4 text-neutral-400" />
+                     <Input
+                       placeholder="Tafuta jina, namba au gari..."
+                       value={monitorSearchQuery}
+                       onChange={(e) => setMonitorSearchQuery(e.target.value)}
+                       className="pl-9 rounded-xl border-neutral-200 dark:border-neutral-700 font-medium text-xs bg-neutral-50 dark:bg-neutral-800 w-full"
+                     />
+                  </div>
+               </div>
+
+               {/* Drivers Scrollable List */}
+               <div className="flex-1 overflow-y-auto space-y-3 pr-1 scrollbar-thin">
+                  {allUsers
+                    .filter(u => u.role === 'rider')
+                    .filter(u => {
+                      if (!monitorSearchQuery) return true;
+                      const query = monitorSearchQuery.toLowerCase();
+                      return (
+                        (u.displayName || '').toLowerCase().includes(query) ||
+                        (u.phone || '').toLowerCase().includes(query) ||
+                        (u.licensePlate || '').toLowerCase().includes(query) ||
+                        (u.driverType || '').toLowerCase().includes(query)
+                      );
+                    })
+                    .map((rider, idx) => {
+                      const telemetry = driverLocations.find(d => d.id === rider.id);
+                      const pos = telemetry?.location || telemetry?.currentPosition;
+                      const isOnline = telemetry?.networkStatus === 'online' || telemetry?.status === 'online' || telemetry?.isOnline === true;
+                      const hasLocation = !!pos;
+                      
+                      return (
+                         <div 
+                           key={rider.id || `mon-driver-${idx}`}
+                           className="p-4 rounded-2xl border border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-800/50 hover:bg-neutral-100/50 dark:hover:bg-neutral-800 transition-colors space-y-3"
+                         >
+                            <div className="flex items-start justify-between gap-2">
+                               <div className="flex items-center gap-3">
+                                  <div className="relative">
+                                     <div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-950/30 flex items-center justify-center font-black text-orange-600 text-sm">
+                                        {(rider.displayName || 'D')[0]}
+                                     </div>
+                                     <span className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-white dark:border-neutral-900 ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-neutral-300'}`} />
+                                  </div>
+                                  <div>
+                                     <h4 className="font-black text-sm text-neutral-900 dark:text-white uppercase leading-tight">{rider.displayName}</h4>
+                                     <p className="text-[10px] text-neutral-500 dark:text-neutral-400 font-semibold">{rider.phone || 'Namba haipo'}</p>
+                                  </div>
+                               </div>
+                               <Badge className={`font-bold text-[8px] uppercase ${isOnline ? 'bg-green-100 text-green-700 border-none' : 'bg-neutral-100 text-neutral-500 border-none'}`}>
+                                  {isOnline ? 'Online' : 'Offline'}
+                               </Badge>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 text-[10px] border-t border-dashed border-neutral-200 dark:border-neutral-700 pt-2 font-medium">
+                               <div>
+                                  <span className="text-neutral-400 block text-[8px] uppercase font-bold">Chombo / Plate</span>
+                                  <span className="text-neutral-700 dark:text-neutral-300 font-bold uppercase">{rider.driverType || 'taxi'} • {rider.licensePlate || 'N/A'}</span>
+                               </div>
+                               <div>
+                                  <span className="text-neutral-400 block text-[8px] uppercase font-bold">Battery & Speed</span>
+                                  <span className="text-neutral-700 dark:text-neutral-300 font-bold">
+                                     {isOnline ? `${telemetry?.battery || 100}% • ${Math.round(telemetry?.speed || 0)} km/h` : 'N/A'}
+                                  </span>
+                               </div>
+                            </div>
+
+                            {hasLocation && (
+                               <Button
+                                 size="sm"
+                                 onClick={() => {
+                                    if (pos) {
+                                       setMapPanTo({ lat: pos.lat, lng: pos.lng });
+                                    }
+                                 }}
+                                 className="w-full bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-[10px] font-black uppercase h-8 flex items-center justify-center gap-2"
+                               >
+                                  <MapPin className="w-3 h-3" />
+                                  Tazama Kwenye Ramani
+                               </Button>
+                            )}
+                         </div>
+                      );
+                    })}
+
+                  {allUsers.filter(u => u.role === 'rider').length === 0 && (
+                     <div className="text-center py-12 text-neutral-400 italic text-xs font-bold">
+                        Hakuna dereva yeyote aliyesajiliwa.
+                     </div>
+                  )}
+               </div>
+            </Card>
+
+            {/* Map Area */}
+            <motion.div key="live_map" className="xl:col-span-8 rounded-[3rem] overflow-hidden shadow-2xl border-4 border-white relative h-full">
+              <MapContainer 
                center={[-6.7924, 39.2083]} 
                zoom={12} 
                maxZoom={22}
                className="w-full h-full z-0"
                scrollWheelZoom
              >
+                {mapPanTo && <MapPanController panTo={[mapPanTo.lat, mapPanTo.lng]} />}
                 <TileLayer 
                   url="https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}" 
                   subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
@@ -1868,7 +1977,8 @@ export default function AdminDashboard() {
                 </Card>
              </div>
           </motion.div>
-        )}
+        </div>
+      )}
 
         {activeTab === 'payouts' && (
            <motion.div key="payouts" className="space-y-8">
@@ -6042,5 +6152,15 @@ function MapBoundsUpdater({ drivers, rides }: { drivers: any[], rides: any[] }) 
     }
   }, [drivers, rides, map]);
 
+  return null;
+}
+
+function MapPanController({ panTo }: { panTo: [number, number] | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (panTo) {
+      map.setView(panTo, 16);
+    }
+  }, [panTo, map]);
   return null;
 }
