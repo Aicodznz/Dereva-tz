@@ -2387,9 +2387,8 @@ export default function TaxiBooking() {
       let customerName = "Mteja";
       let customerPhone = profile?.phoneNumber || "";
 
-      if (passengerType === "someone_else" && passengerName.trim()) {
+      if (passengerName.trim()) {
         customerName = passengerName.trim();
-        customerPhone = passengerPhone.trim() || customerPhone;
       } else {
         if (profile?.displayName) {
           customerName = profile.displayName;
@@ -2398,6 +2397,19 @@ export default function TaxiBooking() {
         } else if (activeUser.email) {
           const part = activeUser.email.split("@")[0];
           customerName = part.charAt(0).toUpperCase() + part.slice(1);
+        }
+      }
+
+      if (passengerPhone.trim()) {
+        let rawPhone = passengerPhone.trim();
+        if (rawPhone.startsWith("0")) {
+          customerPhone = "+255" + rawPhone.slice(1);
+        } else if (rawPhone.startsWith("+")) {
+          customerPhone = rawPhone;
+        } else if (rawPhone.startsWith("255")) {
+          customerPhone = "+" + rawPhone;
+        } else {
+          customerPhone = "+255" + rawPhone;
         }
       }
 
@@ -3935,10 +3947,18 @@ export default function TaxiBooking() {
                       if (justSelectedRef.current) return;
                       console.log("Confirm button click");
                       if (destination && selectedRide) {
+                        const defaultName = profile?.displayName || auth.currentUser?.displayName || "";
+                        let defaultPhone = profile?.phoneNumber || "";
+                        if (defaultPhone.startsWith("+255")) {
+                          defaultPhone = defaultPhone.slice(4);
+                        } else if (defaultPhone.startsWith("255")) {
+                          defaultPhone = defaultPhone.slice(3);
+                        }
+                        
                         setPassengerType('you');
                         setPassengerStep('who');
-                        setPassengerName('');
-                        setPassengerPhone('');
+                        setPassengerName(passengerName || defaultName);
+                        setPassengerPhone(passengerPhone || defaultPhone);
                         setShowPassengerModal(true);
                       } else {
                         confirmBooking();
@@ -4595,9 +4615,32 @@ export default function TaxiBooking() {
                   <button
                     onClick={() => {
                       if (passengerType === 'you') {
-                        setShowPassengerModal(false);
-                        confirmBooking();
+                        const defaultName = profile?.displayName || auth.currentUser?.displayName || "";
+                        let defaultPhone = profile?.phoneNumber || "";
+                        if (defaultPhone.startsWith("+255")) {
+                          defaultPhone = defaultPhone.slice(4);
+                        } else if (defaultPhone.startsWith("255")) {
+                          defaultPhone = defaultPhone.slice(3);
+                        }
+                        
+                        setPassengerName(passengerName || defaultName);
+                        setPassengerPhone(passengerPhone || defaultPhone);
+                        setPassengerStep('details');
                       } else {
+                        const defaultName = profile?.displayName || auth.currentUser?.displayName || "";
+                        let defaultPhone = profile?.phoneNumber || "";
+                        if (defaultPhone.startsWith("+255")) {
+                          defaultPhone = defaultPhone.slice(4);
+                        } else if (defaultPhone.startsWith("255")) {
+                          defaultPhone = defaultPhone.slice(3);
+                        }
+
+                        if (passengerName === defaultName) {
+                          setPassengerName('');
+                        }
+                        if (passengerPhone === defaultPhone) {
+                          setPassengerPhone('');
+                        }
                         setPassengerStep('details');
                       }
                     }}
@@ -4610,10 +4653,10 @@ export default function TaxiBooking() {
                 <>
                   <div className="text-center relative">
                     <h3 className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.15em] mb-0.5">
-                      Taarifa za Msafiri
+                      {passengerType === 'you' ? "Taarifa Zako" : "Taarifa za Msafiri"}
                     </h3>
                     <h2 className="text-sm font-black text-neutral-800 uppercase tracking-wider">
-                      Ride Information
+                      {passengerType === 'you' ? "Verify Your Details" : "Ride Information"}
                     </h2>
                     
                     <button
@@ -4630,7 +4673,7 @@ export default function TaxiBooking() {
                     {/* Name Input */}
                     <div className="flex flex-col gap-1.5">
                       <label className="text-[8.5px] font-black uppercase text-neutral-500 tracking-wider pl-1">
-                        Jina la Msafiri / Passenger Name
+                        {passengerType === 'you' ? "Jina Lako / Your Name" : "Jina la Msafiri / Passenger Name"}
                       </label>
                       <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-3 flex items-center gap-3 focus-within:border-indigo-500/50 transition-colors">
                         <User className="w-4 h-4 text-neutral-400" />
@@ -4647,7 +4690,7 @@ export default function TaxiBooking() {
                     {/* Contact Number Input */}
                     <div className="flex flex-col gap-1.5">
                       <label className="text-[8.5px] font-black uppercase text-neutral-500 tracking-wider pl-1">
-                        Namba ya Simu / Contact Number
+                        {passengerType === 'you' ? "Namba Yako ya Simu / Your Number" : "Namba ya Simu / Contact Number"}
                       </label>
                       <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-3 flex items-center gap-3 focus-within:border-indigo-500/50 transition-colors">
                         <div className="flex items-center gap-1.5 shrink-0 pr-2 border-r border-neutral-200 select-none">
@@ -4666,17 +4709,19 @@ export default function TaxiBooking() {
                   </div>
 
                   <p className="text-[9px] text-neutral-500 font-semibold text-center leading-normal px-2">
-                    Msafiri atapokea maelezo ya gari na dereva kwa njia ya ujumbe (SMS).
+                    {passengerType === 'you'
+                      ? "Hakikisha jina na namba yako ya simu ni sahihi ili dereva akupigie simu pindi akifika."
+                      : "Msafiri atapokea maelezo ya gari na dereva kwa njia ya ujumbe (SMS)."}
                   </p>
 
                   <button
                     onClick={() => {
                       if (!passengerName.trim()) {
-                        toast.error("Tafadhali andika jina la msafiri! 👤");
+                        toast.error(passengerType === 'you' ? "Tafadhali andika jina lako! 👤" : "Tafadhali andika jina la msafiri! 👤");
                         return;
                       }
                       if (!passengerPhone.trim()) {
-                        toast.error("Tafadhali andika namba ya simu ya msafiri! 📞");
+                        toast.error(passengerType === 'you' ? "Tafadhali andika namba yako ya simu! 📞" : "Tafadhali andika namba ya simu ya msafiri! 📞");
                         return;
                       }
                       setShowPassengerModal(false);
