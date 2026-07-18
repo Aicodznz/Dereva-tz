@@ -129,6 +129,8 @@ async function startServer() {
       session.selectedProductName = undefined;
       session.selectedProductPrice = undefined;
       session.optionsList = [];
+      session.passengerName = undefined;
+      session.passengerPhone = undefined;
       await saveSession(session, dbAdmin);
 
       // Replay the sequence of user choices

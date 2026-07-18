@@ -27,6 +27,8 @@ export interface SMSSession {
   resolvedPickup?: Place;
   resolvedDest?: Place;
   tempRawDestination?: string;
+  passengerName?: string;
+  passengerPhone?: string;
 }
 
 // In-memory fallback sessions state
@@ -202,6 +204,8 @@ export async function handleSMSInput(
     session.selectedProductName = undefined;
     session.selectedProductPrice = undefined;
     session.optionsList = [];
+    session.passengerName = undefined;
+    session.passengerPhone = undefined;
     
     await saveSession(session, dbAdmin);
     return welcomeMessage;
@@ -605,55 +609,9 @@ export async function handleSMSInput(
     }
 
     if (cleanInput === '1' || lowerInput.includes('ndio') || lowerInput.includes('tafuta') || lowerInput.includes('kubali') || lowerInput.includes('yes')) {
-      session.step = 'START'; // End flow
+      session.step = 'TAXI_PASSENGER_NAME';
       await saveSession(session, dbAdmin);
-
-      // Create realistic Ride in Firestore
-      const randId = Math.floor(100000 + Math.random() * 900000);
-      if (dbAdmin) {
-        try {
-          const expiresAtDate = new Date();
-          expiresAtDate.setMinutes(expiresAtDate.getMinutes() + 15);
-
-          await dbAdmin.collection('rides').add({
-            status: "pending", // Set to pending so the live Rider Dashboard can receive it!
-            customerId: "sms-client-" + fromPhone.slice(-6),
-            bookingSource: "ussd",
-            customerInfo: {
-              name: "SMS Customer",
-              phone: fromPhone,
-              rating: 4.8
-            },
-            driverId: null,
-            pickup: calcData.pLoc,
-            destination: calcData.dLoc,
-            vehicleType: calcData.vehicleType,
-            fare: calcData.fare,
-            distance: calcData.distanceKm,
-            duration: calcData.durationMin,
-            routeCoords: [
-              { lat: calcData.pLoc.lat, lng: calcData.pLoc.lng },
-              { lat: calcData.dLoc.lat, lng: calcData.dLoc.lng }
-            ],
-            createdAt: new Date(),
-            expiresAt: expiresAtDate.toISOString(),
-            driverInfo: null,
-            driverLocation: null,
-            bookingId: `PH-${randId}`
-          });
-        } catch (e) {
-          console.warn("Could not insert ride request from SMS bot", e);
-        }
-      }
-
-      return `✅ *Oda ya Taxi imewasilishwa!* 🚖\n\n` +
-             `Ombi lako la safari limetumwa kwa madereva wote wa *${calcData.typeName}* waliopo karibu.\n\n` +
-             `- Kutoka: *${calcData.pickupName}*\n` +
-             `- Kwenda: *${calcData.destName}*\n` +
-             `- Umbali: *${calcData.distanceKm} km*\n` +
-             `- Muda wa safari: *~${calcData.durationMin} dk*\n` +
-             `- Nauli: *TZS ${calcData.fare?.toLocaleString()}/=*\n\n` +
-             `Madereva wa karibu wamepewa taarifa sasa hivi. Dereva atakapokubali kukuja kukufuata, utafahamishwa mara moja na dereva atakupigia simu kupitia namba yako *${fromPhone}* kukuokoa. Ahsante sana kwa kutumia Papo Hapo! 🙏✨`;
+      return `👤 *TAARIFA ZA MSAFIRI (Hatua ya 1/2)*\n\nTafadhali andika jina lako au la msafiri (Mfano: Juma Kiboko):`;
     } else if (cleanInput === '2' || lowerInput.includes('hapana') || lowerInput.includes('ghairi') || lowerInput.includes('no') || lowerInput.includes('cancel')) {
       session.step = 'START';
       session.selectedService = undefined;
@@ -663,6 +621,88 @@ export async function handleSMSInput(
     } else {
       return `⚠️ Samahani, sielewi chaguo lako. Tafadhali tuma:\n*1* - Ndio, Tafuta Dereva\n*2* - Hapana, Ghairi Safari`;
     }
+  }
+
+  if (session.step === 'TAXI_PASSENGER_NAME' && session.selectedService === 'taxi') {
+    if (!cleanInput) {
+      return `⚠️ Tafadhali andika jina la msafiri (Mfano: John Doe):`;
+    }
+    session.passengerName = cleanInput;
+    session.step = 'TAXI_PASSENGER_PHONE';
+    await saveSession(session, dbAdmin);
+    return `📞 *TAARIFA ZA MSAFIRI (Hatua ya 2/2)*\n\nTafadhali andika namba ya simu ya msafiri (Mfano: 0712345678).\n\n👉 *Tuma alama ya nyota (*) kama unataka kutumia namba yako hii hii ya sasa (${session.phone.replace('ussd:', '')}):*`;
+  }
+
+  if (session.step === 'TAXI_PASSENGER_PHONE' && session.selectedService === 'taxi') {
+    const calcData = session.optionsList?.[0];
+    if (!calcData) {
+      session.step = 'START';
+      await saveSession(session, dbAdmin);
+      return `⚠️ Hitilafu imetokea. Tafadhali tuma "HI" kuanza upya.`;
+    }
+
+    let finalPhone = session.phone.replace('ussd:', '');
+    if (cleanInput !== '*') {
+      const rawInput = cleanInput.replace(/\s+/g, '');
+      if (/^[0-9+]+$/.test(rawInput) && rawInput.length >= 8) {
+        finalPhone = rawInput;
+      } else {
+        return `⚠️ Namba ya simu si sahihi. Tafadhali andika namba sahihi au tuma alama ya nyota (*) kutumia namba hii ya sasa:`;
+      }
+    }
+
+    session.passengerPhone = finalPhone;
+    session.step = 'START'; // End flow
+    await saveSession(session, dbAdmin);
+
+    // Create realistic Ride in Firestore
+    const randId = Math.floor(100000 + Math.random() * 900000);
+    const finalPassengerName = session.passengerName || "Mteja wa USSD";
+
+    if (dbAdmin) {
+      try {
+        const expiresAtDate = new Date();
+        expiresAtDate.setMinutes(expiresAtDate.getMinutes() + 15);
+
+        await dbAdmin.collection('rides').add({
+          status: "pending", // Set to pending so the live Rider Dashboard can receive it!
+          customerId: "sms-client-" + finalPhone.slice(-6),
+          bookingSource: "ussd",
+          customerInfo: {
+            name: finalPassengerName,
+            phone: finalPhone,
+            rating: 4.8
+          },
+          driverId: null,
+          pickup: calcData.pLoc,
+          destination: calcData.dLoc,
+          vehicleType: calcData.vehicleType,
+          fare: calcData.fare,
+          distance: calcData.distanceKm,
+          duration: calcData.durationMin,
+          routeCoords: [
+            { lat: calcData.pLoc.lat, lng: calcData.pLoc.lng },
+            { lat: calcData.dLoc.lat, lng: calcData.dLoc.lng }
+          ],
+          createdAt: new Date(),
+          expiresAt: expiresAtDate.toISOString(),
+          driverInfo: null,
+          driverLocation: null,
+          bookingId: `PH-${randId}`
+        });
+      } catch (e) {
+        console.warn("Could not insert ride request from SMS bot", e);
+      }
+    }
+
+    return `✅ *Oda ya Taxi imewasilishwa!* 🚖\n\n` +
+           `Safari ya msafiri *${finalPassengerName}* (${finalPhone}) imetumwa kwa madereva wa *${calcData.typeName}* waliopo karibu.\n\n` +
+           `- Kutoka: *${calcData.pickupName}*\n` +
+           `- Kwenda: *${calcData.destName}*\n` +
+           `- Umbali: *${calcData.distanceKm} km*\n` +
+           `- Muda wa safari: *~${calcData.durationMin} dk*\n` +
+           `- Nauli: *TZS ${calcData.fare?.toLocaleString()}/=*\n\n` +
+           `Madereva wa karibu wamepewa taarifa sasa hivi. Dereva atakapokubali kukuja kukufuata, msafiri atafahamishwa kupitia SMS na kupigiwa simu kwenye namba *${finalPhone}*. Ahsante sana kwa kutumia Papo Hapo! 🙏✨`;
   }
 
   // SALON BOOKING FLOWS
