@@ -2109,22 +2109,28 @@ export function DriverProfileDetails({
 
                   {/* Core Verification Buttons */}
                   {!isRejecting && (
-                    <div className="pt-6 border-t border-neutral-100 dark:border-neutral-800 mt-6 md:mt-0 flex flex-col md:flex-row gap-3">
-                      <Button
-                        onClick={() => setIsRejecting(true)}
-                        className="flex-1 bg-red-100 dark:bg-red-950/20 hover:bg-red-200 text-red-600 dark:text-red-400 rounded-xl font-bold text-[10px] h-10 uppercase tracking-wider flex items-center justify-center gap-1.5"
-                      >
-                        <X className="w-4 h-4" />
-                        Kataa (Reject)
-                      </Button>
-                      <Button
-                        onClick={() => handleApproveDocument(docType)}
-                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-[10px] h-10 uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-600/10"
-                      >
-                        <Check className="w-4 h-4" />
-                        Kubali (Approve)
-                      </Button>
-                    </div>
+                    docType === 'selfie' ? (
+                      <div className="p-4 bg-orange-50 dark:bg-orange-950/10 border border-orange-100 dark:border-orange-900/20 rounded-2xl text-center text-orange-800 dark:text-orange-200 font-bold text-xs mt-6">
+                        ℹ️ Picha ya Wasifu (Selfie) ni ya kutazamwa tu, haihitaji kuidhinishwa rasmi.
+                      </div>
+                    ) : (
+                      <div className="pt-6 border-t border-neutral-100 dark:border-neutral-800 mt-6 md:mt-0 flex flex-col md:flex-row gap-3">
+                        <Button
+                          onClick={() => setIsRejecting(true)}
+                          className="flex-1 bg-red-100 dark:bg-red-950/20 hover:bg-red-200 text-red-600 dark:text-red-400 rounded-xl font-bold text-[10px] h-10 uppercase tracking-wider flex items-center justify-center gap-1.5"
+                        >
+                          <X className="w-4 h-4" />
+                          Kataa (Reject)
+                        </Button>
+                        <Button
+                          onClick={() => handleApproveDocument(docType)}
+                          className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-[10px] h-10 uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-600/10"
+                        >
+                          <Check className="w-4 h-4" />
+                          Kubali (Approve)
+                        </Button>
+                      </div>
+                    )
                   )}
                 </div>
 

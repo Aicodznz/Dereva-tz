@@ -49,7 +49,7 @@ export default function RiderStats() {
   const pendingRides = rides.filter(r => r.status === 'pending' || r.status === 'accepted' || r.status === 'started');
   const cancelledRides = rides.filter(r => r.status === 'cancelled');
 
-  const totalEarnings = completedRides.reduce((sum, r) => sum + (r.actualFare || r.estimatedFare || 0), 0);
+  const totalEarnings = completedRides.reduce((sum, r) => sum + (r.fare || r.actualFare || r.estimatedFare || 0), 0);
   const totalTrips = completedRides.length;
 
   const bookingData = [
@@ -71,7 +71,7 @@ export default function RiderStats() {
         const date = r.createdAt && typeof r.createdAt.toDate === 'function' ? r.createdAt.toDate() : new Date(r.createdAt);
         return date.toLocaleDateString('en-US', { weekday: 'short' }) === day;
       })
-      .reduce((sum, r) => sum + (r.actualFare || r.estimatedFare || 0), 0);
+      .reduce((sum, r) => sum + (r.fare || r.actualFare || r.estimatedFare || 0), 0);
     return { day, amount };
   });
 

@@ -142,7 +142,7 @@ export default function RiderRides() {
 }
 
 function RideCard({ ride, isUpcoming, isActive }: { ride: any, isUpcoming?: boolean, isActive?: boolean }) {
-  const price = ride.actualFare || ride.estimatedFare || 0;
+  const price = ride.fare || ride.actualFare || ride.estimatedFare || 0;
   const dateStr = ride.createdAt && typeof ride.createdAt.toDate === 'function' ? ride.createdAt.toDate().toLocaleDateString() : 'N/A';
 
   return (
