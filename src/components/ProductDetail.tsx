@@ -550,31 +550,31 @@ export default function ProductDetail() {
         {product.addOns && product.addOns.length > 0 && (
           <div className="space-y-2">
             <h3 className="font-extrabold text-[10px] uppercase tracking-widest text-neutral-400">VIONJO VYA ZIADA (ADD-ONS)</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {product.addOns.map((addon, idx) => {
                 const isSelected = selectedAddons.includes(addon.name);
                 return (
                   <button
                     key={`addon-${addon.name}-${idx}`}
                     onClick={() => toggleAddon(addon.name)}
-                    className={`p-2.5 rounded-xl border-2 text-left transition-all duration-300 flex items-center justify-between bg-white dark:bg-neutral-900 ${
+                    className={`p-2 rounded-xl border-2 text-left transition-all duration-300 flex items-center justify-between bg-white dark:bg-neutral-900 ${
                       isSelected
-                        ? 'border-orange-600 bg-orange-50/40 dark:bg-orange-600/10 shadow-sm'
+                        ? 'border-orange-600 bg-orange-50/40 dark:bg-orange-600/10 shadow-sm text-orange-600'
                         : 'border-neutral-100 dark:border-neutral-800 hover:border-neutral-200'
                     }`}
                   >
-                    <div className="flex flex-col">
-                      <span className={`font-extrabold text-[11px] uppercase tracking-wider ${isSelected ? 'text-orange-600 font-black' : 'text-neutral-800 dark:text-neutral-200'}`}>
+                    <div className="flex flex-col min-w-0">
+                      <span className={`font-extrabold text-[10px] uppercase tracking-wider truncate ${isSelected ? 'text-orange-600 font-black' : 'text-neutral-800 dark:text-neutral-200'}`}>
                         {addon.name}
                       </span>
-                      <span className="text-[9px] text-neutral-400 font-bold uppercase tracking-wider">
-                        {addon.price > 0 ? `TZS ${addon.price.toLocaleString()}` : 'Bure'}
+                      <span className="text-[8px] text-neutral-400 font-bold uppercase tracking-wider">
+                        {addon.price > 0 ? `+TZS ${addon.price.toLocaleString()}` : 'Bure'}
                       </span>
                     </div>
-                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-all ${
+                    <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ml-1 transition-all ${
                       isSelected ? 'border-orange-600 bg-orange-600 text-white' : 'border-neutral-200 dark:border-neutral-700'
                     }`}>
-                      {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                      {isSelected && <div className="w-1 h-1 rounded-full bg-white" />}
                     </div>
                   </button>
                 );
@@ -1194,7 +1194,7 @@ export default function ProductDetail() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
           {/* Left: Product Images */}
           <div className="space-y-3">
-            <div className="aspect-[4/3] sm:aspect-square bg-neutral-100 dark:bg-neutral-900 rounded-[1.5rem] lg:rounded-[2rem] overflow-hidden relative group shadow-xl shadow-neutral-200 dark:shadow-black/50">
+            <div className="aspect-[16/10] sm:aspect-square sm:max-h-none max-h-[260px] bg-neutral-100 dark:bg-neutral-900 rounded-[1.5rem] lg:rounded-[2rem] overflow-hidden relative group shadow-xl shadow-neutral-200 dark:shadow-black/50">
               <img 
                 src={(product.imageUrls?.[activeImageIndex] || product.imageUrl) || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c'} 
                 alt={product.name}
@@ -1237,60 +1237,67 @@ export default function ProductDetail() {
             )}
           </div>
           {/* Right: Product Content */}
-          <div className="space-y-6 lg:pl-0">
+          <div className="space-y-5 lg:pl-0">
             {/* Category & Title */}
-            <div className="space-y-1 mt-2 lg:mt-0">
-              <span className="text-neutral-400 dark:text-neutral-500 text-[10px] font-black uppercase tracking-[0.2em]">
-                {vendor?.businessName || product.category || 'HJFGHJJF'}
-              </span>
-              <h1 className="text-3xl lg:text-5xl font-black text-neutral-900 dark:text-white leading-tight tracking-tight font-sans italic uppercase transition-colors">
+            <div className="space-y-1.5 mt-2 lg:mt-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="px-2.5 py-1 rounded-full bg-orange-500/10 text-orange-600 dark:text-orange-400 text-[9px] font-black uppercase tracking-wider">
+                  {product.category || 'Chakula'}
+                </span>
+                {vendor?.businessName && (
+                  <span className="text-neutral-400 dark:text-neutral-500 text-[10px] font-extrabold uppercase tracking-widest">
+                    • {vendor.businessName}
+                  </span>
+                )}
+              </div>
+              <h1 className="text-2xl lg:text-4xl font-black text-neutral-900 dark:text-white leading-tight tracking-tight font-sans italic uppercase transition-colors">
                 {product.name}
               </h1>
-              <p className="text-neutral-500 dark:text-neutral-400 text-xs lg:text-sm leading-relaxed max-w-xl font-medium transition-colors">
+              <p className="text-neutral-500 dark:text-neutral-400 text-xs leading-relaxed max-w-xl font-medium transition-colors">
                 {product.description || 'Flavorful and freshly prepared meal made with premium ingredients.'}
               </p>
             </div>
 
             {/* Rating & Veg/Non-Veg Indicator */}
-            <div className="flex items-center gap-3 py-1">
-              <div className="flex items-center gap-1.5 bg-neutral-100 dark:bg-neutral-800 px-3 py-1.5 rounded-full transition-colors">
-                <Star className="w-3.5 h-3.5 text-orange-500 fill-current" />
-                <span className="font-extrabold text-neutral-900 dark:text-white text-xs">{(product.ratingCount || 0) > 0 ? (product.rating || 0).toFixed(1) : '0'}</span>
+            <div className="flex items-center gap-2.5 py-0.5">
+              <div className="flex items-center gap-1 bg-neutral-100 dark:bg-neutral-800 px-2.5 py-1 rounded-full transition-colors">
+                <Star className="w-3 h-3 text-orange-500 fill-current" />
+                <span className="font-extrabold text-neutral-900 dark:text-white text-[11px]">{(product.ratingCount || 0) > 0 ? (product.rating || 0).toFixed(1) : '0'}</span>
               </div>
-              <span className="text-neutral-400 dark:text-neutral-500 font-extrabold uppercase text-[10px] tracking-widest">
+              <span className="text-neutral-400 dark:text-neutral-500 font-extrabold uppercase text-[9px] tracking-widest">
                 ({(product.ratingCount || 0)} REVIEWS)
               </span>
-              <div className="w-px h-4 bg-neutral-200 dark:bg-neutral-800" />
-              <div className="w-6 h-6 border-2 border-red-500/20 rounded-lg flex items-center justify-center p-0.5 shadow-sm">
-                <div className="w-full h-full bg-red-500 rounded-sm" />
-              </div>
+              <div className="w-px h-3 bg-neutral-200 dark:bg-neutral-800" />
+              <span className="px-2 py-0.5 rounded text-[8px] font-black border border-red-500/20 bg-red-500/5 text-red-500 uppercase tracking-widest">
+                Non-Veg
+              </span>
             </div>
 
             {/* Price section */}
             <div className="space-y-0.5">
-              <div className="flex items-baseline gap-3">
-                <span className="text-3xl lg:text-4xl font-black text-neutral-900 dark:text-white italic tracking-tighter transition-colors">
+              <div className="flex items-baseline gap-2.5">
+                <span className="text-2xl lg:text-3xl font-black text-neutral-900 dark:text-white italic tracking-tighter transition-colors">
                   {formatCurrency(calculateDiscountedPrice())}
                 </span>
-                {product.discountPrice && (
-                  <span className="text-lg text-neutral-300 dark:text-neutral-600 line-through font-bold italic transition-colors">
+                {product.discountPrice && product.discountPrice < product.price && (
+                  <span className="text-sm text-neutral-300 dark:text-neutral-600 line-through font-bold italic transition-colors">
                     {formatCurrency(product.price)}
                   </span>
                 )}
               </div>
-              <p className="text-neutral-400 dark:text-neutral-500 text-[9px] font-black uppercase tracking-widest transition-colors">( INCLUDE ALL TAXES )</p>
+              <p className="text-neutral-400 dark:text-neutral-500 text-[8px] font-black uppercase tracking-widest transition-colors">( INCLUDE ALL TAXES )</p>
             </div>
 
             <div className="h-px bg-neutral-100 dark:bg-neutral-800 w-full transition-colors" />
 
             {/* Options Selector Section */}
-            <div className="space-y-6 lg:space-y-8">
-              <div className="space-y-3 lg:space-y-4">
-                 <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800 pb-2">
-                   <h3 className="text-[10px] font-black text-neutral-400 dark:text-neutral-600 uppercase tracking-widest transition-colors">SELECT OPTIONS</h3>
-                   <div className="flex items-center gap-3">
-                     <span className="text-[9px] font-black text-neutral-400 dark:text-neutral-600 uppercase tracking-widest">STOCK: <span className="text-neutral-900 dark:text-neutral-300 font-bold transition-colors">{product.stock || 50} ITEMS</span></span>
-                     <span className="text-[9px] font-black text-neutral-400 dark:text-neutral-600 uppercase tracking-widest">SKU: <span className="text-neutral-900 dark:text-neutral-300 font-bold transition-colors">PPH-{id?.slice(0, 4).toUpperCase() || 'ETKR'}</span></span>
+            <div className="space-y-4 lg:space-y-5">
+              <div className="space-y-2.5">
+                 <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800 pb-1.5">
+                   <h3 className="text-[9px] font-black text-neutral-400 dark:text-neutral-600 uppercase tracking-widest transition-colors">SELECT OPTIONS</h3>
+                   <div className="flex items-center gap-2.5">
+                     <span className="text-[8px] font-black text-neutral-400 dark:text-neutral-600 uppercase tracking-widest">STOCK: <span className="text-neutral-900 dark:text-neutral-300 font-bold transition-colors">{product.stock || 50} ITEMS</span></span>
+                     <span className="text-[8px] font-black text-neutral-400 dark:text-neutral-600 uppercase tracking-widest">SKU: <span className="text-neutral-900 dark:text-neutral-300 font-bold transition-colors">PPH-{id?.slice(0, 4).toUpperCase() || 'ETKR'}</span></span>
                    </div>
                  </div>
 
@@ -1348,22 +1355,12 @@ export default function ProductDetail() {
                     AGIZA SASA <ChevronRight className="w-3.5 h-3.5" />
                   </Button>
                 </div>
-                
-                <a 
-                  href={`https://wa.me/14155238886?text=${encodeURIComponent(`Hi! Nataka kuagiza bidhaa: ${product?.name}`)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-sm flex items-center justify-center gap-1.5 transition-all duration-300 active:scale-[0.97]"
-                >
-                  <MessageCircle className="w-3.5 h-3.5 shrink-0" />
-                  <span>AGIZA KWA WHATSAPP BOT (AUTOMATIC WAY)</span>
-                </a>
               </div>
             </div>
           </div>
           {/* Info Tabs Section */}
-          <div className="col-span-full mt-8 lg:mt-12 border-t border-neutral-100 dark:border-neutral-800 pt-6 lg:pt-8 transition-colors">
-           <div className="flex flex-wrap gap-2 mb-6 p-2 bg-neutral-100/60 dark:bg-neutral-900/60 rounded-[1.8rem] w-full lg:w-fit border border-neutral-200/50 dark:border-neutral-800/50 transition-colors">
+          <div className="col-span-full mt-6 lg:mt-10 border-t border-neutral-100 dark:border-neutral-800 pt-5 lg:pt-6 transition-colors">
+            <div className="flex overflow-x-auto scrollbar-none border-b border-neutral-100 dark:border-neutral-800 gap-6 mb-6">
               {['Maelezo', 'Maoni', 'Maswali', 'Muuzaji'].map((tab) => {
                 const isSelected = activeTab === tab;
                 const tabLabelMap: Record<string, string> = {
@@ -1376,80 +1373,77 @@ export default function ProductDetail() {
                   <button 
                     key={tab}
                     onClick={() => setActiveTab(tab)}
-                    className={`flex-1 lg:flex-none px-5 py-2.5 rounded-2xl font-black text-[10px] tracking-widest transition-all duration-300 ${
+                    className={`pb-3 font-black text-xs uppercase tracking-wider relative whitespace-nowrap transition-colors flex items-center gap-2 ${
                       isSelected 
-                        ? 'bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white shadow-md border border-neutral-200/30 dark:border-neutral-700/30' 
+                        ? 'text-orange-600 font-black' 
                         : 'text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300'
                     }`}
                   >
-                    <div className="flex items-center justify-center gap-2">
-                      {tab === 'Maelezo' && <Info className="w-3.5 h-3.5" />}
-                      {tab === 'Maoni' && <Star className="w-3.5 h-3.5" />}
-                      {tab === 'Maswali' && <MessageSquare className="w-3.5 h-3.5" />}
-                      {tab === 'Muuzaji' && <Store className="w-3.5 h-3.5" />}
-                      <span>{tabLabelMap[tab] || tab.toUpperCase()}</span>
-                    </div>
+                    {tab === 'Maelezo' && <Info className="w-3.5 h-3.5" />}
+                    {tab === 'Maoni' && <Star className="w-3.5 h-3.5" />}
+                    {tab === 'Maswali' && <MessageSquare className="w-3.5 h-3.5" />}
+                    {tab === 'Muuzaji' && <Store className="w-3.5 h-3.5" />}
+                    <span>{tabLabelMap[tab] || tab.toUpperCase()}</span>
+                    {isSelected && (
+                      <motion.div 
+                        layoutId="activeTabUnderline"
+                        className="absolute bottom-0 inset-x-0 h-0.5 bg-orange-600 rounded-full"
+                      />
+                    )}
                   </button>
                 );
               })}
-           </div>
+            </div>
  
-           <div className="space-y-6 max-w-6xl">
+            <div className="space-y-5 max-w-6xl">
               {activeTab === 'Maelezo' && (
-                <div className="space-y-6">
-                  <div className="space-y-1">
-                    <h2 className="text-2xl lg:text-4xl font-black text-neutral-900 dark:text-white uppercase italic tracking-tighter transition-colors">MAELEZO</h2>
-                    <p className="text-neutral-400 dark:text-neutral-500 font-black uppercase text-[9px] tracking-widest">TAARIFA ZA BIDHAA</p>
+                <div className="space-y-4">
+                  <div className="pl-4 border-l-4 border-orange-500 text-neutral-700 dark:text-neutral-300 text-sm lg:text-base italic leading-relaxed font-medium py-1">
+                    {product.story || `Prepared with premium ingredients and time-honored techniques for the perfect balance of taste.`}
                   </div>
  
-                  <div className="space-y-6">
-                      <p className="text-sm lg:text-xl text-neutral-800 dark:text-neutral-100 leading-relaxed font-extrabold italic tracking-tight underline decoration-orange-300 dark:decoration-orange-800 underline-offset-8 decoration-4 pb-2">
-                        {product.story || `Prepared with premium ingredients and time-honored techniques for the perfect balance of taste.`}
-                      </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                    <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-900/40 border border-neutral-100 dark:border-neutral-800/60">
+                      <h3 className="text-xs font-black text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5 uppercase tracking-wider mb-2.5">
+                        ✨ KWA NINI UTAKUPENDA:
+                      </h3>
+                      <ul className="space-y-2">
+                        {(product.highlights && product.highlights.length > 0) ? (
+                          product.highlights.map((highlight, idx) => (
+                            <li key={`highlight-${idx}`} className="flex items-start gap-2.5 text-neutral-600 dark:text-neutral-400 font-semibold text-xs leading-normal">
+                              <div className="w-5 h-5 shrink-0 rounded-lg bg-orange-100/60 dark:bg-orange-600/20 flex items-center justify-center text-orange-600 text-[10px] font-black">{idx + 1}</div>
+                              <span className="flex-1 pt-0.5">{highlight}</span>
+                            </li>
+                          ))
+                        ) : (
+                          <>
+                            <li className="flex items-start gap-2.5 text-neutral-600 dark:text-neutral-400 font-semibold text-xs leading-normal">
+                              <div className="w-5 h-5 shrink-0 rounded-lg bg-orange-100/60 dark:bg-orange-600/20 flex items-center justify-center text-orange-600 text-[10px] font-black">1</div>
+                              <span className="flex-1 pt-0.5">Viungo vya hali ya juu vya asili</span>
+                            </li>
+                            <li className="flex items-start gap-2.5 text-neutral-600 dark:text-neutral-400 font-semibold text-xs leading-normal">
+                              <div className="w-5 h-5 shrink-0 rounded-lg bg-orange-100/60 dark:bg-orange-600/20 flex items-center justify-center text-orange-600 text-[10px] font-black">2</div>
+                              <span className="flex-1 pt-0.5">Maandalizi salama na ya kiasili</span>
+                            </li>
+                          </>
+                        )}
+                      </ul>
+                    </div>
  
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="bg-orange-50/50 dark:bg-orange-950/10 p-5 rounded-[1.8rem] border border-orange-100/50 dark:border-orange-900/20 shadow-sm">
-                        <h3 className="text-xs font-black text-orange-950 dark:text-orange-200 flex items-center gap-2 italic tracking-tighter uppercase mb-4">
-                          ✨ KWA NINI UTAKUPENDA:
-                        </h3>
-                        <ul className="space-y-3">
-                          {(product.highlights && product.highlights.length > 0) ? (
-                            product.highlights.map((highlight, idx) => (
-                              <li key={`highlight-${idx}`} className="flex items-center gap-3 text-neutral-700 dark:text-neutral-300 font-extrabold group">
-                                <div className="w-6 h-6 shrink-0 rounded-xl bg-orange-100/60 dark:bg-orange-600/20 flex items-center justify-center text-orange-600 text-[10px] font-black">{idx + 1}</div>
-                                <span className="text-xs leading-snug">{highlight}</span>
-                              </li>
-                            ))
-                          ) : (
-                            <>
-                              <li className="flex items-center gap-3 text-neutral-700 dark:text-neutral-300 font-extrabold group">
-                                <div className="w-6 h-6 shrink-0 rounded-xl bg-orange-100/60 dark:bg-orange-600/20 flex items-center justify-center text-orange-600 text-[10px] font-black">1</div>
-                                <span className="text-xs">Viungo vya hali ya juu</span>
-                              </li>
-                              <li className="flex items-center gap-3 text-neutral-700 dark:text-neutral-300 font-extrabold group">
-                                <div className="w-6 h-6 shrink-0 rounded-xl bg-orange-100/60 dark:bg-orange-600/20 flex items-center justify-center text-orange-600 text-[10px] font-black">2</div>
-                                <span className="text-xs">Maandalizi ya kiasili</span>
-                              </li>
-                            </>
-                          )}
-                        </ul>
+                    <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-900/40 border border-neutral-100 dark:border-neutral-800/60">
+                      <h3 className="text-xs font-black text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5 uppercase tracking-wider mb-2.5">
+                        📝 AHADI YA UBORA:
+                      </h3>
+                      <div className="p-3 bg-white dark:bg-neutral-950 rounded-xl border border-neutral-100 dark:border-neutral-800 mb-3">
+                        <p className="text-neutral-500 dark:text-neutral-400 italic font-semibold leading-relaxed text-xs">
+                          {product.qualityPromise?.description || `"Viwango vikali vya ubora vinavyozingatiwa kila hatua kwa afya yako."`}
+                        </p>
                       </div>
- 
-                      <div className="bg-neutral-900 dark:bg-black p-5 rounded-[1.8rem] text-white shadow-xl transition-colors border border-neutral-800">
-                        <h3 className="text-xs font-black text-white flex items-center gap-2 italic tracking-tighter uppercase mb-4">
-                          📝 AHADI YA UBORA:
-                        </h3>
-                        <div className="p-4 bg-white/5 rounded-2xl border border-white/10 mb-4">
-                          <p className="text-neutral-300 dark:text-neutral-400 italic font-bold leading-relaxed text-xs transition-colors">
-                            {product.qualityPromise?.description || `"Viwango vikali vya ubora vinavyozingatiwa kila hatua."`}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <CheckCircle2 className="w-4 h-4 text-orange-600" />
-                          <span className="font-black uppercase tracking-widest text-[8px] text-orange-500">
-                            {product.qualityPromise?.certifiedBy || "IMETHIBITISHWA"}
-                          </span>
-                        </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-orange-600" />
+                        <span className="font-black uppercase tracking-widest text-[9px] text-orange-600">
+                          {product.qualityPromise?.certifiedBy || "IMETHIBITISHWA NA TFDA"}
+                        </span>
                       </div>
                     </div>
                   </div>
