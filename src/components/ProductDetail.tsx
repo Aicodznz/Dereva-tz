@@ -1058,7 +1058,7 @@ export default function ProductDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-neutral-950 lg:bg-neutral-50 lg:dark:bg-neutral-950 pb-12 transition-colors">
+    <div className="min-h-screen bg-white dark:bg-neutral-950 lg:bg-neutral-50 lg:dark:bg-neutral-950 pb-36 lg:pb-16 transition-colors">
       {/* AR Viewer Overlay */}
       <AnimatePresence>
         {showARView && product?.model3dUrl && (
@@ -1201,6 +1201,17 @@ export default function ProductDetail() {
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
               />
               
+              {/* Star Rating Badge on top-left overlay */}
+              <div className="absolute top-4 left-4 z-10 flex items-center gap-1 bg-white/95 dark:bg-neutral-950/95 backdrop-blur-md px-2.5 py-1.5 rounded-xl shadow-lg border border-neutral-100/10 transition-colors">
+                <Star className="w-3 h-3 text-orange-500 fill-current" />
+                <span className="font-extrabold text-neutral-900 dark:text-white text-[10px]">
+                  {(product.ratingCount || 0) > 0 ? (product.rating || 0).toFixed(1) : '0'}
+                </span>
+                <span className="text-neutral-400 dark:text-neutral-500 font-extrabold text-[8px] tracking-widest ml-0.5 uppercase">
+                  ({(product.ratingCount || 0)} REVIEWS)
+                </span>
+              </div>
+
               {/* Overlay sharing */}
               <button 
                 onClick={handleShare}
@@ -1219,22 +1230,24 @@ export default function ProductDetail() {
                   View in Space
                 </button>
               )}
-            </div>
 
-            {/* Thumbnails */}
-            {product.imageUrls && product.imageUrls.length > 1 && (
-              <div className="flex gap-3 overflow-x-auto pb-1.5 scrollbar-none px-1">
-                {product.imageUrls.map((url, idx) => (
-                  <button 
-                    key={`thumb-${idx}`}
-                    onClick={() => setActiveImageIndex(idx)}
-                    className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 flex-shrink-0 cursor-pointer transition-all ${activeImageIndex === idx ? 'border-orange-500 ring-4 ring-orange-500/5 scale-105' : 'border-transparent opacity-60 hover:opacity-100'}`}
-                  >
-                    <img src={url} className="w-full h-full object-cover" alt="" />
-                  </button>
-                ))}
-              </div>
-            )}
+              {/* Floating thumbnails inside the main image wrapper to save space */}
+              {product.imageUrls && product.imageUrls.length > 1 && (
+                <div className="absolute bottom-4 right-4 left-4 sm:left-auto z-10 flex gap-1.5 justify-center sm:justify-end">
+                  <div className="flex gap-1 bg-black/45 backdrop-blur-md p-1 rounded-xl border border-white/10 max-w-full overflow-x-auto scrollbar-none">
+                    {product.imageUrls.map((url, idx) => (
+                      <button 
+                        key={`thumb-${idx}`}
+                        onClick={() => setActiveImageIndex(idx)}
+                        className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg overflow-hidden border-2 flex-shrink-0 cursor-pointer transition-all ${activeImageIndex === idx ? 'border-orange-500 scale-105' : 'border-white/20 hover:border-white/50 opacity-80 hover:opacity-100'}`}
+                      >
+                        <img src={url} className="w-full h-full object-cover" alt="" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           {/* Right: Product Content */}
           <div className="space-y-5 lg:pl-0">
@@ -1258,17 +1271,9 @@ export default function ProductDetail() {
               </p>
             </div>
 
-            {/* Rating & Veg/Non-Veg Indicator */}
-            <div className="flex items-center gap-2.5 py-0.5">
-              <div className="flex items-center gap-1 bg-neutral-100 dark:bg-neutral-800 px-2.5 py-1 rounded-full transition-colors">
-                <Star className="w-3 h-3 text-orange-500 fill-current" />
-                <span className="font-extrabold text-neutral-900 dark:text-white text-[11px]">{(product.ratingCount || 0) > 0 ? (product.rating || 0).toFixed(1) : '0'}</span>
-              </div>
-              <span className="text-neutral-400 dark:text-neutral-500 font-extrabold uppercase text-[9px] tracking-widest">
-                ({(product.ratingCount || 0)} REVIEWS)
-              </span>
-              <div className="w-px h-3 bg-neutral-200 dark:bg-neutral-800" />
-              <span className="px-2 py-0.5 rounded text-[8px] font-black border border-red-500/20 bg-red-500/5 text-red-500 uppercase tracking-widest">
+            {/* Non-Veg Badge */}
+            <div className="flex items-center gap-2 py-0.5">
+              <span className="px-2.5 py-1 rounded text-[8px] font-black border border-red-500/20 bg-red-500/5 text-red-500 uppercase tracking-widest">
                 Non-Veg
               </span>
             </div>
@@ -1285,7 +1290,6 @@ export default function ProductDetail() {
                   </span>
                 )}
               </div>
-              <p className="text-neutral-400 dark:text-neutral-500 text-[8px] font-black uppercase tracking-widest transition-colors">( INCLUDE ALL TAXES )</p>
             </div>
 
             <div className="h-px bg-neutral-100 dark:bg-neutral-800 w-full transition-colors" />
@@ -1295,10 +1299,6 @@ export default function ProductDetail() {
               <div className="space-y-2.5">
                  <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800 pb-1.5">
                    <h3 className="text-[9px] font-black text-neutral-400 dark:text-neutral-600 uppercase tracking-widest transition-colors">SELECT OPTIONS</h3>
-                   <div className="flex items-center gap-2.5">
-                     <span className="text-[8px] font-black text-neutral-400 dark:text-neutral-600 uppercase tracking-widest">STOCK: <span className="text-neutral-900 dark:text-neutral-300 font-bold transition-colors">{product.stock || 50} ITEMS</span></span>
-                     <span className="text-[8px] font-black text-neutral-400 dark:text-neutral-600 uppercase tracking-widest">SKU: <span className="text-neutral-900 dark:text-neutral-300 font-bold transition-colors">PPH-{id?.slice(0, 4).toUpperCase() || 'ETKR'}</span></span>
-                   </div>
                  </div>
 
                  {/* Use Adaptive Options based on category */}
@@ -1336,13 +1336,13 @@ export default function ProductDetail() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex flex-col gap-2 pt-2">
-                <div className="flex flex-row gap-2">
+              <div className="flex flex-col gap-3 pt-2">
+                <div className="grid grid-cols-2 gap-3">
                   <Button 
                     onClick={handleAddToCart}
-                    className="flex-1 h-12 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-md gap-1.5 transition-all duration-300 active:scale-[0.97]"
+                    className="h-13 bg-neutral-900 hover:bg-neutral-800 dark:bg-neutral-855 dark:hover:bg-neutral-800 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg gap-2 transition-all duration-300 active:scale-95"
                   >
-                    <ShoppingCart className="w-3.5 h-3.5" />
+                    <ShoppingCart className="w-4 h-4 text-orange-500" />
                     WEKA KIKAPUNI
                   </Button>
                   <Button 
@@ -1350,9 +1350,9 @@ export default function ProductDetail() {
                         handleAddToCart();
                         setIsCartOpen(true);
                     }}
-                    className="flex-1 h-12 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-md gap-1.5 transition-all duration-300 active:scale-[0.97]"
+                    className="h-13 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg shadow-orange-600/20 gap-2 transition-all duration-300 active:scale-95"
                   >
-                    AGIZA SASA <ChevronRight className="w-3.5 h-3.5" />
+                    AGIZA SASA <ChevronRight className="w-4 h-4 text-white" />
                   </Button>
                 </div>
               </div>
