@@ -517,26 +517,26 @@ export default function ProductDetail() {
     const category = getCategoryLabel();
 
     return (
-      <div className="space-y-5">
+      <div className="space-y-4">
         {/* Dynamic Variations (Sizes) */}
         {product.variations && product.variations.length > 0 && (
-          <div className="space-y-2.5">
+          <div className="space-y-2">
             <h3 className="font-extrabold text-[10px] uppercase tracking-widest text-neutral-400">CHAGUA UKUBWA (SIZE)</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-2">
               {product.variations.map((v, idx) => {
                 const isSelected = selectedSize === v.name;
                 return (
                   <button
                     key={`variation-${v.name}-${idx}`}
                     onClick={() => setSelectedSize(v.name)}
-                    className={`py-4 px-5 rounded-[1.5rem] border-2 transition-all duration-300 flex flex-col items-center justify-center gap-1 ${
+                    className={`py-2 px-3 rounded-xl border-2 transition-all duration-300 flex flex-col items-center justify-center gap-0.5 ${
                       isSelected 
                         ? 'border-orange-600 bg-orange-50/40 dark:bg-orange-600/10 text-orange-600 font-black shadow-sm' 
                         : 'border-neutral-100 dark:border-neutral-800 hover:border-neutral-200 text-neutral-500 dark:text-neutral-400 bg-white dark:bg-neutral-900'
                     }`}
                   >
                     <span className="font-extrabold text-xs uppercase tracking-wider">{v.name}</span>
-                    <span className="text-[10px] font-bold text-neutral-400">
+                    <span className="text-[9px] font-bold text-neutral-400">
                       +{(v.price ?? 0) > 0 ? (v.price ?? 0).toLocaleString() : '0'}
                     </span>
                   </button>
@@ -548,33 +548,33 @@ export default function ProductDetail() {
 
         {/* Dynamic Add-ons (Vionjo) */}
         {product.addOns && product.addOns.length > 0 && (
-          <div className="space-y-2.5">
+          <div className="space-y-2">
             <h3 className="font-extrabold text-[10px] uppercase tracking-widest text-neutral-400">VIONJO VYA ZIADA (ADD-ONS)</h3>
-            <div className="space-y-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {product.addOns.map((addon, idx) => {
                 const isSelected = selectedAddons.includes(addon.name);
                 return (
                   <button
                     key={`addon-${addon.name}-${idx}`}
                     onClick={() => toggleAddon(addon.name)}
-                    className={`w-full p-4 rounded-[1.5rem] border-2 text-left transition-all duration-300 flex items-center justify-between bg-white dark:bg-neutral-900 ${
+                    className={`p-2.5 rounded-xl border-2 text-left transition-all duration-300 flex items-center justify-between bg-white dark:bg-neutral-900 ${
                       isSelected
                         ? 'border-orange-600 bg-orange-50/40 dark:bg-orange-600/10 shadow-sm'
                         : 'border-neutral-100 dark:border-neutral-800 hover:border-neutral-200'
                     }`}
                   >
-                    <div className="flex flex-col gap-0.5">
-                      <span className={`font-extrabold text-xs uppercase tracking-wider ${isSelected ? 'text-orange-600 font-black' : 'text-neutral-800 dark:text-neutral-200'}`}>
+                    <div className="flex flex-col">
+                      <span className={`font-extrabold text-[11px] uppercase tracking-wider ${isSelected ? 'text-orange-600 font-black' : 'text-neutral-800 dark:text-neutral-200'}`}>
                         {addon.name}
                       </span>
-                      <span className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">
+                      <span className="text-[9px] text-neutral-400 font-bold uppercase tracking-wider">
                         {addon.price > 0 ? `TZS ${addon.price.toLocaleString()}` : 'Bure'}
                       </span>
                     </div>
-                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-all ${
                       isSelected ? 'border-orange-600 bg-orange-600 text-white' : 'border-neutral-200 dark:border-neutral-700'
                     }`}>
-                      {isSelected && <div className="w-2 h-2 rounded-full bg-white" />}
+                      {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                     </div>
                   </button>
                 );
@@ -585,29 +585,29 @@ export default function ProductDetail() {
 
         {/* Category Specific Info */}
         {category === 'restaurant' && (
-          <div className="space-y-4 pt-4 border-t border-neutral-100 dark:border-neutral-800 transition-colors">
+          <div className="space-y-3 pt-3 border-t border-neutral-100 dark:border-neutral-800 transition-colors">
             <h3 className="font-extrabold text-[10px] uppercase tracking-widest text-neutral-400">JINSI YA KUPOKEA CHAKULA</h3>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <button 
                 onClick={() => setOrderType('delivery')}
-                className={`flex flex-col items-center justify-center p-5 rounded-[1.5rem] border-2 transition-all duration-300 gap-2.5 ${
+                className={`flex flex-row items-center justify-center py-2.5 px-4 rounded-xl border-2 transition-all duration-300 gap-2 ${
                   orderType === 'delivery' 
                   ? 'border-orange-600 bg-orange-50/40 dark:bg-orange-600/10 text-orange-600 shadow-sm' 
                   : 'border-neutral-100 dark:border-neutral-800 text-neutral-400 bg-white dark:bg-neutral-900 hover:border-neutral-200'
                 }`}
               >
-                <Truck className={`w-5 h-5 ${orderType === 'delivery' ? 'text-orange-600' : 'text-neutral-400'}`} />
+                <Truck className={`w-4 h-4 ${orderType === 'delivery' ? 'text-orange-600' : 'text-neutral-400'}`} />
                 <span className="font-extrabold text-xs uppercase tracking-wider">DELIVERY</span>
               </button>
               <button 
                 onClick={() => setOrderType('walk_in')}
-                className={`flex flex-col items-center justify-center p-5 rounded-[1.5rem] border-2 transition-all duration-300 gap-2.5 ${
+                className={`flex flex-row items-center justify-center py-2.5 px-4 rounded-xl border-2 transition-all duration-300 gap-2 ${
                   orderType === 'walk_in' 
                   ? 'border-orange-600 bg-orange-50/40 dark:bg-orange-600/10 text-orange-600 shadow-sm' 
                   : 'border-neutral-100 dark:border-neutral-800 text-neutral-400 bg-white dark:bg-neutral-900 hover:border-neutral-200'
                 }`}
               >
-                <Utensils className={`w-5 h-5 ${orderType === 'walk_in' ? 'text-orange-600' : 'text-neutral-400'}`} />
+                <Utensils className={`w-4 h-4 ${orderType === 'walk_in' ? 'text-orange-600' : 'text-neutral-400'}`} />
                 <span className="font-extrabold text-xs uppercase tracking-wider">KULA HAPA (DINE-IN)</span>
               </button>
             </div>
@@ -1193,8 +1193,8 @@ export default function ProductDetail() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
           {/* Left: Product Images */}
-          <div className="space-y-4">
-            <div className="aspect-square bg-neutral-100 dark:bg-neutral-900 rounded-[2rem] lg:rounded-[2.5rem] overflow-hidden relative group shadow-2xl shadow-neutral-200 dark:shadow-black/50">
+          <div className="space-y-3">
+            <div className="aspect-[4/3] sm:aspect-square bg-neutral-100 dark:bg-neutral-900 rounded-[1.5rem] lg:rounded-[2rem] overflow-hidden relative group shadow-xl shadow-neutral-200 dark:shadow-black/50">
               <img 
                 src={(product.imageUrls?.[activeImageIndex] || product.imageUrl) || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c'} 
                 alt={product.name}
@@ -1204,18 +1204,18 @@ export default function ProductDetail() {
               {/* Overlay sharing */}
               <button 
                 onClick={handleShare}
-                className="absolute top-6 right-6 w-12 h-12 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-md rounded-full flex items-center justify-center text-neutral-900 dark:text-white shadow-xl hover:bg-white dark:hover:bg-neutral-800 transition-all active:scale-90"
+                className="absolute top-4 right-4 w-10 h-10 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-md rounded-full flex items-center justify-center text-neutral-900 dark:text-white shadow-xl hover:bg-white dark:hover:bg-neutral-800 transition-all active:scale-90"
               >
-                <Share2 className="w-5 h-5" />
+                <Share2 className="w-4 h-4" />
               </button>
 
               {/* 3D/AR Trigger */}
               {product?.model3dUrl && businessConfig?.enableAR === true && (
                 <button 
                   onClick={() => setShowARView(true)}
-                  className="absolute bottom-6 left-6 px-5 py-2.5 bg-orange-600 text-white rounded-2xl flex items-center gap-2 text-xs font-black uppercase tracking-widest shadow-xl shadow-orange-600/30 hover:bg-orange-700 transition-all hover:scale-105 active:scale-95"
+                  className="absolute bottom-4 left-4 px-4 py-2 bg-orange-600 text-white rounded-xl flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest shadow-xl shadow-orange-600/30 hover:bg-orange-700 transition-all hover:scale-105 active:scale-95"
                 >
-                  <Box className="w-4 h-4" />
+                  <Box className="w-3.5 h-3.5" />
                   View in Space
                 </button>
               )}
@@ -1223,12 +1223,12 @@ export default function ProductDetail() {
 
             {/* Thumbnails */}
             {product.imageUrls && product.imageUrls.length > 1 && (
-              <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-none px-2">
+              <div className="flex gap-3 overflow-x-auto pb-1.5 scrollbar-none px-1">
                 {product.imageUrls.map((url, idx) => (
                   <button 
                     key={`thumb-${idx}`}
                     onClick={() => setActiveImageIndex(idx)}
-                    className={`w-24 h-24 rounded-3xl overflow-hidden border-2 flex-shrink-0 cursor-pointer transition-all ${activeImageIndex === idx ? 'border-orange-500 ring-8 ring-orange-500/5 scale-105' : 'border-transparent opacity-60 hover:opacity-100'}`}
+                    className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 flex-shrink-0 cursor-pointer transition-all ${activeImageIndex === idx ? 'border-orange-500 ring-4 ring-orange-500/5 scale-105' : 'border-transparent opacity-60 hover:opacity-100'}`}
                   >
                     <img src={url} className="w-full h-full object-cover" alt="" />
                   </button>
@@ -1295,47 +1295,47 @@ export default function ProductDetail() {
                  </div>
 
                  {/* Use Adaptive Options based on category */}
-                 <div className="space-y-6">
+                 <div className="space-y-4">
                     {renderAdaptiveOptions()}
                  </div>
               </div>
 
-              {/* Action and Delivery info */}
-              <div className="flex flex-col gap-4 py-2 border-t border-neutral-100 dark:border-neutral-800 pt-4">
-                <div className="flex items-center gap-3">
+              {/* Action and Delivery info - compact horizontal layout */}
+              <div className="flex flex-row items-center justify-between gap-4 py-2.5 border-y border-neutral-100 dark:border-neutral-800 my-1 transition-colors">
+                <div className="flex items-center gap-2">
                   <span className="font-extrabold text-[10px] uppercase tracking-widest text-neutral-400">QUANTITY:</span>
-                  <div className="flex items-center gap-4 bg-neutral-100 dark:bg-neutral-800 px-3 py-1.5 rounded-full shadow-inner transition-colors">
+                  <div className="flex items-center gap-3 bg-neutral-100 dark:bg-neutral-800 px-2 py-1 rounded-full shadow-inner transition-colors">
                     <button 
                       onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      className="w-7 h-7 rounded-full bg-white dark:bg-neutral-900 shadow-sm flex items-center justify-center text-orange-600 disabled:opacity-50 active:scale-95 transition-transform"
+                      className="w-6.5 h-6.5 rounded-full bg-white dark:bg-neutral-900 shadow-sm flex items-center justify-center text-orange-600 disabled:opacity-50 active:scale-95 transition-transform"
                       disabled={quantity <= 1}
                     >
-                      <Minus size={12} strokeWidth={3} />
+                      <Minus size={10} strokeWidth={3} />
                     </button>
-                    <span className="w-6 text-center font-black text-sm tabular-nums text-neutral-900 dark:text-white transition-colors">{quantity}</span>
+                    <span className="w-5 text-center font-black text-xs tabular-nums text-neutral-900 dark:text-white transition-colors">{quantity}</span>
                     <button 
                       onClick={() => setQuantity(quantity + 1)}
-                      className="w-7 h-7 rounded-full bg-white dark:bg-neutral-900 shadow-sm flex items-center justify-center text-orange-600 active:scale-95 transition-transform"
+                      className="w-6.5 h-6.5 rounded-full bg-white dark:bg-neutral-900 shadow-sm flex items-center justify-center text-orange-600 active:scale-95 transition-transform"
                     >
-                      <Plus size={12} strokeWidth={3} />
+                      <Plus size={10} strokeWidth={3} />
                     </button>
                   </div>
                 </div>
 
-                <div className="w-fit bg-blue-50/80 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 px-4 py-2 rounded-xl flex items-center gap-2 font-black text-[9px] uppercase tracking-widest border border-blue-100/30">
-                  <Clock className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                <div className="bg-blue-50/80 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 px-3 py-1.5 rounded-xl flex items-center gap-1.5 font-black text-[9px] uppercase tracking-widest border border-blue-100/30">
+                  <Clock className="w-3 h-3 text-blue-600 dark:text-blue-400" />
                   DELIVERY: 55 MINS
                 </div>
               </div>
 
               {/* Action Buttons */}
-              <div className="flex flex-col gap-3 pt-3">
-                <div className="flex flex-row gap-3">
+              <div className="flex flex-col gap-2 pt-2">
+                <div className="flex flex-row gap-2">
                   <Button 
                     onClick={handleAddToCart}
-                    className="flex-1 h-14 bg-neutral-900 hover:bg-neutral-800 text-white rounded-[1.5rem] font-black uppercase text-[11px] tracking-widest shadow-lg shadow-black/5 gap-2 transition-all duration-300 active:scale-[0.97]"
+                    className="flex-1 h-12 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-md gap-1.5 transition-all duration-300 active:scale-[0.97]"
                   >
-                    <ShoppingCart className="w-4 h-4" />
+                    <ShoppingCart className="w-3.5 h-3.5" />
                     WEKA KIKAPUNI
                   </Button>
                   <Button 
@@ -1343,9 +1343,9 @@ export default function ProductDetail() {
                         handleAddToCart();
                         setIsCartOpen(true);
                     }}
-                    className="flex-1 h-14 bg-orange-600 hover:bg-orange-700 text-white rounded-[1.5rem] font-black uppercase text-[11px] tracking-widest shadow-lg shadow-orange-600/10 gap-2 transition-all duration-300 active:scale-[0.97]"
+                    className="flex-1 h-12 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-md gap-1.5 transition-all duration-300 active:scale-[0.97]"
                   >
-                    AGIZA SASA <ChevronRight className="w-4 h-4" />
+                    AGIZA SASA <ChevronRight className="w-3.5 h-3.5" />
                   </Button>
                 </div>
                 
@@ -1353,16 +1353,16 @@ export default function ProductDetail() {
                   href={`https://wa.me/14155238886?text=${encodeURIComponent(`Hi! Nataka kuagiza bidhaa: ${product?.name}`)}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[1.5rem] font-black uppercase text-[11px] tracking-widest shadow-md flex items-center justify-center gap-2 transition-all duration-300 active:scale-[0.97]"
+                  className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-sm flex items-center justify-center gap-1.5 transition-all duration-300 active:scale-[0.97]"
                 >
-                  <MessageCircle className="w-4 h-4 shrink-0" />
+                  <MessageCircle className="w-3.5 h-3.5 shrink-0" />
                   <span>AGIZA KWA WHATSAPP BOT (AUTOMATIC WAY)</span>
                 </a>
               </div>
             </div>
           </div>
-                  {/* Info Tabs Section */}
-        <div className="mt-8 lg:mt-12 border-t border-neutral-100 dark:border-neutral-800 pt-6 lg:pt-8 transition-colors">
+          {/* Info Tabs Section */}
+          <div className="col-span-full mt-8 lg:mt-12 border-t border-neutral-100 dark:border-neutral-800 pt-6 lg:pt-8 transition-colors">
            <div className="flex flex-wrap gap-2 mb-6 p-2 bg-neutral-100/60 dark:bg-neutral-900/60 rounded-[1.8rem] w-full lg:w-fit border border-neutral-200/50 dark:border-neutral-800/50 transition-colors">
               {['Maelezo', 'Maoni', 'Maswali', 'Muuzaji'].map((tab) => {
                 const isSelected = activeTab === tab;
