@@ -23,6 +23,7 @@ import {
   Clock, 
   Users,
   MapPin,
+  Sliders,
   ChevronDown,
   ChevronUp,
   Camera,
@@ -73,7 +74,7 @@ export default function ProductDetail() {
   const [isDescExpanded, setIsDescExpanded] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [showARView, setShowARView] = useState(false);
-  const [activeTab, setActiveTab] = useState('Maelezo');
+  const [activeTab, setActiveTab] = useState('Chaguzi');
   const arViewerRef = useRef<any>(null);
 
   const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
@@ -1294,19 +1295,7 @@ export default function ProductDetail() {
 
             <div className="h-px bg-neutral-100 dark:bg-neutral-800 w-full transition-colors" />
 
-            {/* Options Selector Section */}
             <div className="space-y-4 lg:space-y-5">
-              <div className="space-y-2.5">
-                 <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800 pb-1.5">
-                   <h3 className="text-[9px] font-black text-neutral-400 dark:text-neutral-600 uppercase tracking-widest transition-colors">SELECT OPTIONS</h3>
-                 </div>
-
-                 {/* Use Adaptive Options based on category */}
-                 <div className="space-y-4">
-                    {renderAdaptiveOptions()}
-                 </div>
-              </div>
-
               {/* Action and Delivery info - compact horizontal layout */}
               <div className="flex flex-row items-center justify-between gap-4 py-2.5 border-y border-neutral-100 dark:border-neutral-800 my-1 transition-colors">
                 <div className="flex items-center gap-2">
@@ -1361,9 +1350,10 @@ export default function ProductDetail() {
           {/* Info Tabs Section */}
           <div className="col-span-full mt-6 lg:mt-10 border-t border-neutral-100 dark:border-neutral-800 pt-5 lg:pt-6 transition-colors">
             <div className="flex overflow-x-auto scrollbar-none border-b border-neutral-100 dark:border-neutral-800 gap-6 mb-6">
-              {['Maelezo', 'Maoni', 'Maswali', 'Muuzaji'].map((tab) => {
+              {['Chaguzi', 'Maelezo', 'Maoni', 'Maswali', 'Muuzaji'].map((tab) => {
                 const isSelected = activeTab === tab;
                 const tabLabelMap: Record<string, string> = {
+                  'Chaguzi': 'CHAGUA SIZE & VIONJO',
                   'Maelezo': 'MAELEZO',
                   'Maoni': 'MAONI',
                   'Maswali': 'MASWALI',
@@ -1379,6 +1369,7 @@ export default function ProductDetail() {
                         : 'text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300'
                     }`}
                   >
+                    {tab === 'Chaguzi' && <Sliders className="w-3.5 h-3.5" />}
                     {tab === 'Maelezo' && <Info className="w-3.5 h-3.5" />}
                     {tab === 'Maoni' && <Star className="w-3.5 h-3.5" />}
                     {tab === 'Maswali' && <MessageSquare className="w-3.5 h-3.5" />}
@@ -1396,6 +1387,19 @@ export default function ProductDetail() {
             </div>
  
             <div className="space-y-5 max-w-6xl">
+              {activeTab === 'Chaguzi' && (
+                <div className="space-y-4">
+                  <div className="p-5 sm:p-6 rounded-3xl bg-neutral-50 dark:bg-neutral-900/40 border border-neutral-100 dark:border-neutral-800/60 shadow-sm transition-all duration-300">
+                    <div className="flex items-center gap-2 pb-3 mb-4 border-b border-neutral-100 dark:border-neutral-800/80">
+                      <Sliders className="w-4 h-4 text-orange-600" />
+                      <h3 className="text-xs font-black text-neutral-800 dark:text-neutral-200 uppercase tracking-wider">
+                        CHAGUA UKUBWA (SIZE) / VIONJO VYA ZIADA (ADD-ONS)
+                      </h3>
+                    </div>
+                    {renderAdaptiveOptions()}
+                  </div>
+                </div>
+              )}
               {activeTab === 'Maelezo' && (
                 <div className="space-y-4">
                   <div className="pl-4 border-l-4 border-orange-500 text-neutral-700 dark:text-neutral-300 text-sm lg:text-base italic leading-relaxed font-medium py-1">
