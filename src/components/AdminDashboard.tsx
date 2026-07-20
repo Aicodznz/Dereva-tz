@@ -526,6 +526,7 @@ export default function AdminDashboard() {
   const [allProducts, setAllProducts] = useState<ProductWithVendor[]>([]);
   const [banners, setBanners] = useState<Banner[]>([]);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [notifications, setNotifications] = useState<any[]>([]);
   const [payouts, setPayouts] = useState<PayoutRequest[]>([]);
   const [activeRides, setActiveRides] = useState<any[]>([]);
   const [driverLocations, setDriverLocations] = useState<any[]>([]);
@@ -943,6 +944,18 @@ export default function AdminDashboard() {
       onSnapshot(collection(db, 'products'), (snap) => {
         setAllProducts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ProductWithVendor)));
       }, errorHandler('products')),
+      onSnapshot(query(collection(db, 'notifications'), orderBy('createdAt', 'desc')), (snap) => {
+        setNotifications(snap.docs.map(doc => {
+          const data = doc.data();
+          let createdAtDate = null;
+          if (data.createdAt) {
+            if (data.createdAt.toDate) createdAtDate = data.createdAt.toDate();
+            else if (data.createdAt.seconds) createdAtDate = new Date(data.createdAt.seconds * 1000);
+            else createdAtDate = new Date(data.createdAt);
+          }
+          return { id: doc.id, ...data, createdAt: createdAtDate };
+        }));
+      }, errorHandler('notifications')),
     ];
 
     return () => {
@@ -2811,6 +2824,75 @@ export default function AdminDashboard() {
 
                 </CardContent>
              </Card>
+
+              {/* Sent Notifications History Card */}
+              <Card className="rounded-[3rem] border-none shadow-2xl p-12 bg-neutral-900 text-white space-y-8 mt-12">
+                <CardHeader className="p-0">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-2xl font-black uppercase tracking-widest text-orange-500">Notification Log / Alerts Zilizotumwa</CardTitle>
+                      <CardDescription className="text-neutral-500 font-bold uppercase tracking-widest text-[9px] mt-1">Orodha ya taarifa zilizotumwa kwenye mfumo</CardDescription>
+                    </div>
+                    <Badge className="bg-orange-600 text-white font-black text-xs px-3 py-1 rounded-full">
+                      {notifications.length} Alerts
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0 max-h-[500px] overflow-y-auto space-y-4 pr-2">
+                  {notifications.length === 0 ? (
+                    <div className="text-center py-12 text-neutral-500 font-mono text-sm">
+                      Hakuna notification iliyotumwa bado.
+                    </div>
+                  ) : (
+                    notifications.map((notif) => {
+                      const dateStr = notif.createdAt instanceof Date ? notif.createdAt.toLocaleString('sw-TZ') : 'Hivi karibuni';
+                      let targetLabel = 'Wote (All Users)';
+                      if (notif.target && notif.target !== 'all') {
+                        const targetUser = allUsers.find(u => u.id === notif.target);
+                        targetLabel = targetUser ? `${targetUser.displayName} (${targetUser.role})` : notif.target;
+                      }
+                      return (
+                        <div key={notif.id} className="p-5 rounded-2xl bg-neutral-950 border border-neutral-850 flex items-start justify-between gap-4 group">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-lg">📢</span>
+                              <h4 className="font-bold text-sm text-neutral-100">{notif.title}</h4>
+                              <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
+                                notif.importance === 'critical' ? 'bg-red-500/20 text-red-400' :
+                                notif.importance === 'important' ? 'bg-orange-500/20 text-orange-400' :
+                                'bg-neutral-800 text-neutral-400'
+                              }`}>
+                                {notif.importance || 'normal'}
+                              </span>
+                            </div>
+                            <p className="text-xs text-neutral-400 leading-relaxed">{notif.body}</p>
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-neutral-500 font-mono pt-2">
+                              <span>Mlengwa: <strong className="text-neutral-300">{targetLabel}</strong></span>
+                              <span>•</span>
+                              <span>Muda: {dateStr}</span>
+                            </div>
+                          </div>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="text-neutral-500 hover:text-red-500 hover:bg-red-500/10 rounded-xl shrink-0 transition-all opacity-40 group-hover:opacity-100"
+                            onClick={async () => {
+                              try {
+                                await deleteDoc(doc(db, 'notifications', notif.id));
+                                toast.success('Notification imefutwa kwenye mfumo!');
+                              } catch (err) {
+                                toast.error('Imeshindwa kufuta notification.');
+                              }
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      );
+                    })
+                  )}
+                </CardContent>
+              </Card>
           </motion.div>
         )}
         {activeTab === 'twilio_responder' && (

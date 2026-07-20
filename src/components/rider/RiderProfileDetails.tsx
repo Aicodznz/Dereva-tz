@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion } from 'motion/react';
-import { ArrowLeft, User, Phone, Mail, MapPin, Camera, Save, CheckCircle } from 'lucide-react';
+import { ArrowLeft, User, Phone, Mail, Camera, Save, CheckCircle, Lock, Eye, EyeOff, Upload } from 'lucide-react';
 import { useAuth } from '../../AuthContext';
 import { toast } from 'sonner';
+import { storageService } from '../../services/storageService';
 
 export default function RiderProfileDetails({ onBack }: { onBack: () => void }) {
-  const { profile, updateProfileData } = useAuth();
+  const { profile, user, updateProfileData, changePassword } = useAuth();
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState(profile?.displayName || '');
   const [phone, setPhone] = useState(profile?.phone || '0712345678');
@@ -14,6 +15,14 @@ export default function RiderProfileDetails({ onBack }: { onBack: () => void }) 
   const [gender, setGender] = useState(profile?.gender || 'Mwanaume');
   const [photoURL, setPhotoURL] = useState(profile?.photoURL || '');
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+
+  // Password fields
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const avatarPresets = [
     { seed: 'Moses', label: 'Moses' },
@@ -34,6 +43,52 @@ export default function RiderProfileDetails({ onBack }: { onBack: () => void }) 
       description: 'Bonyeza "Hifadhi Mabadiliko" chini kukamilisha.',
       duration: 2000,
     });
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && user) {
+      setLoading(true);
+      try {
+        const path = storageService.getProfilePath(user.uid, file.name);
+        const publicUrl = await storageService.uploadFile('profiles', path, file);
+        
+        setPhotoURL(publicUrl);
+        await updateProfileData({ photoURL: publicUrl });
+        toast.success("Picha ya wasifu imepakiwa vizuri!");
+      } catch (error: any) {
+        toast.error("Imeshindwa kupakia picha: " + error.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const handleUpdatePassword = async () => {
+    if (!newPassword || !confirmPassword) {
+      toast.error('Tafadhali jaza nenosiri jipya na uthibitishe!');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error('Manenosiri hayafanani!');
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error('Nenosiri lazima liwe na herufi 6 au zaidi!');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await changePassword(newPassword);
+      toast.success('Nenosiri limebadilishwa kikamilifu!');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: any) {
+      toast.error('Imeshindwa kubadili nenosiri: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -78,23 +133,52 @@ export default function RiderProfileDetails({ onBack }: { onBack: () => void }) 
 
       {/* Profile Picture Upload Section */}
       <div className="flex flex-col items-center justify-center py-4 relative">
-        <button 
-          type="button"
-          onClick={() => setShowAvatarPicker(!showAvatarPicker)}
-          className="relative group cursor-pointer border-0 bg-transparent outline-none"
-        >
-          <div className="w-28 h-28 rounded-[2.5rem] border-4 border-emerald-500/20 p-1 overflow-hidden bg-neutral-100 dark:bg-neutral-800 shadow-lg group-hover:scale-105 transition-all">
-            <img 
-              src={photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile?.email || 'driver'}`} 
-              alt="Profile" 
-              className="w-full h-full object-cover rounded-[2rem]"
-            />
-          </div>
-          <div className="absolute bottom-0 right-0 bg-emerald-500 text-white p-2.5 rounded-2xl shadow-lg border-2 border-white dark:border-neutral-900 active:scale-90 transition-all">
-            <Camera className="w-4 h-4" />
-          </div>
-        </button>
-        <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mt-3">Gusa picha kubadilisha</p>
+        <div className="flex gap-4">
+          <button 
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="relative group cursor-pointer border-0 bg-transparent outline-none"
+            title="Pakia Picha kutoka Kifaa chako"
+          >
+            <div className="w-28 h-28 rounded-[2.5rem] border-4 border-emerald-500/20 p-1 overflow-hidden bg-neutral-100 dark:bg-neutral-800 shadow-lg group-hover:scale-105 transition-all">
+              <img 
+                src={photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile?.email || 'driver'}`} 
+                alt="Profile" 
+                className="w-full h-full object-cover rounded-[2rem]"
+              />
+            </div>
+            <div className="absolute bottom-0 right-0 bg-emerald-500 text-white p-2.5 rounded-2xl shadow-lg border-2 border-white dark:border-neutral-900 active:scale-90 transition-all">
+              <Camera className="w-4 h-4" />
+            </div>
+          </button>
+        </div>
+        
+        <div className="flex items-center gap-3 mt-3">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="text-[10px] font-black text-emerald-600 hover:text-emerald-500 uppercase tracking-widest flex items-center gap-1.5"
+          >
+            <Upload className="w-3.5 h-3.5" />
+            Pakia Picha
+          </button>
+          <span className="text-neutral-300 dark:text-neutral-700">|</span>
+          <button
+            type="button"
+            onClick={() => setShowAvatarPicker(!showAvatarPicker)}
+            className="text-[10px] font-black text-neutral-400 hover:text-neutral-500 uppercase tracking-widest"
+          >
+            Chagua Avatar
+          </button>
+        </div>
+
+        <input 
+          type="file" 
+          ref={fileInputRef} 
+          className="hidden" 
+          accept="image/*" 
+          onChange={handleFileChange} 
+        />
 
         {/* Avatar presets grid */}
         {showAvatarPicker && (
@@ -211,6 +295,68 @@ export default function RiderProfileDetails({ onBack }: { onBack: () => void }) 
                 <option value="Mwanamke">Mwanamke</option>
               </select>
             </div>
+          </div>
+        </div>
+
+        {/* Change Password Card */}
+        <div className="bg-white dark:bg-neutral-900 rounded-[2.5rem] border border-neutral-100 dark:border-neutral-800 p-8 space-y-6 shadow-sm">
+          <div className="flex items-center gap-2 border-b border-neutral-100 dark:border-neutral-800 pb-3">
+            <Lock className="w-5 h-5 text-emerald-600" />
+            <h3 className="text-sm font-black uppercase italic tracking-tighter">Badili Nenosiri (Change Password)</h3>
+          </div>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase text-neutral-400 tracking-widest ml-4">Nenosiri Jipya (New Password)</label>
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
+                <input 
+                  type={showNewPassword ? "text" : "password"} 
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full h-14 pl-12 pr-12 rounded-2xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-100 dark:border-neutral-800 focus:border-emerald-500 outline-none font-bold text-sm text-neutral-800 dark:text-neutral-200"
+                  placeholder="Ingiza nenosiri jipya"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                >
+                  {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase text-neutral-400 tracking-widest ml-4">Thibitisha Nenosiri (Confirm Password)</label>
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
+                <input 
+                  type={showConfirmPassword ? "text" : "password"} 
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full h-14 pl-12 pr-12 rounded-2xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-100 dark:border-neutral-800 focus:border-emerald-500 outline-none font-bold text-sm text-neutral-800 dark:text-neutral-200"
+                  placeholder="Thibitisha nenosiri jipya"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                >
+                  {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleUpdatePassword}
+              disabled={loading}
+              className="h-12 px-6 bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-neutral-100 rounded-2xl font-black uppercase text-xs tracking-widest active:scale-95 transition-all flex items-center justify-center gap-2"
+            >
+              <CheckCircle className="w-4 h-4" />
+              Sasisha Nenosiri
+            </button>
           </div>
         </div>
 

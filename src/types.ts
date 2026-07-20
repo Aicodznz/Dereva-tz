@@ -39,6 +39,15 @@ export interface UserProfile {
   phone?: string;
   city?: string;
   gender?: string;
+  balance?: number;
+  licenseNumber?: string;
+  licenseExpiry?: string;
+  nidaNumber?: string;
+  licenseFrontUrl?: string;
+  licenseBackUrl?: string;
+  nidaUrl?: string;
+  licenseStatus?: string;
+  nidaStatus?: string;
   subscription?: {
     planId: string;
     planName: string;
@@ -46,13 +55,13 @@ export interface UserProfile {
     status: 'active' | 'inactive';
   };
   registrationDocs?: {
-    license_front?: boolean;
-    license_back?: boolean;
-    national_id?: boolean;
+    license_front?: string | boolean;
+    license_back?: string | boolean;
+    national_id?: string | boolean;
   };
   vehiclePhotos?: {
-    vehicle_front?: boolean;
-    vehicle_side?: boolean;
+    vehicle_front?: string | boolean;
+    vehicle_side?: string | boolean;
   };
   bankName?: string;
   accountNumber?: string;
