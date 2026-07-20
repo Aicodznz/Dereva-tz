@@ -581,6 +581,9 @@ Arrange the nodes in a complete, highly realistic, logical flow to satisfy the u
     }
 
     try {
+      const uniqueOrderId = `${order_id}-${Date.now()}`;
+      console.log(`[Payment Proxy] Initiating real payment with Mongike. Order: ${order_id} -> Reference: ${uniqueOrderId}`);
+      
       const response = await fetch("https://mongike.com/api/v1/payments/mobile-money/tanzania", {
         method: "POST",
         headers: {
@@ -588,7 +591,7 @@ Arrange the nodes in a complete, highly realistic, logical flow to satisfy the u
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          order_id,
+          order_id: uniqueOrderId,
           amount,
           buyer_phone: cleanPhone,
           fee_payer: fee_payer || "MERCHANT"
@@ -621,29 +624,39 @@ Arrange the nodes in a complete, highly realistic, logical flow to satisfy the u
       // Process transaction status from provider callback payload
       const { order_id, status, reference_id, gateway_ref, amount } = payload;
 
-      if (dbAdmin && order_id) {
+      // Extract real Firestore order_id from potential suffix/timestamp used to ensure unique payment references
+      let realOrderId = order_id;
+      if (order_id && typeof order_id === 'string') {
+        if (order_id.includes("-")) {
+          realOrderId = order_id.split("-")[0];
+        } else if (order_id.includes("_")) {
+          realOrderId = order_id.split("_")[0];
+        }
+      }
+
+      if (dbAdmin && realOrderId) {
         // Update the order document if status indicates success
         const normalStatus = String(status || "").toUpperCase();
         const isPaid = ["COMPLETED", "SUCCESS", "PAID"].includes(normalStatus);
         
         if (isPaid) {
-          await dbAdmin.collection("orders").doc(String(order_id)).update({
+          await dbAdmin.collection("orders").doc(String(realOrderId)).update({
             paymentStatus: "paid",
             updatedAt: new Date().toISOString(),
             gatewayRef: gateway_ref || reference_id || null
           });
-          console.log(`[Payment Webhook] Successfully marked order ${order_id} as PAID.`);
+          console.log(`[Payment Webhook] Successfully marked order ${realOrderId} as PAID (extracted from ${order_id}).`);
         }
 
-        await dbAdmin.collection("payment_callbacks").doc(String(order_id)).set({
-          order_id,
+        await dbAdmin.collection("payment_callbacks").doc(String(realOrderId)).set({
+          order_id: realOrderId,
           status: status || "SUCCESS",
           reference_id: gateway_ref || reference_id || "",
           amount: amount || 0,
           raw_payload: payload,
           updated_at: new Date()
         }, { merge: true });
-        console.log(`[Payment Webhook] Successfully recorded payment callback for order ${order_id}`);
+        console.log(`[Payment Webhook] Successfully recorded payment callback for order ${realOrderId}`);
       }
 
       res.status(200).json({ status: "SUCCESS", message: "Webhook received successfully" });
