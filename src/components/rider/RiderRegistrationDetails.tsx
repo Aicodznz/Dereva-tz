@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '../../AuthContext';
 import { toast } from 'sonner';
+import { storageService } from '../../services/storageService';
 
 type RegTab = 'docs' | 'vehicle' | 'bank';
 
@@ -65,7 +66,7 @@ export default function RiderRegistrationDetails({ onBack, initialTab = 'docs' }
 }
 
 function DocumentForm() {
-  const { profile, updateProfileData } = useAuth();
+  const { profile, user, updateProfileData } = useAuth();
   const [loading, setLoading] = useState(false);
   
   // Real initial states
@@ -79,19 +80,20 @@ function DocumentForm() {
     national_id: typeof profile?.registrationDocs?.national_id === 'string' ? profile.registrationDocs.national_id : (profile?.nidaUrl || ''),
   });
 
-  const handleUploadSimulate = (key: string) => {
-    toast.info('Inapakia hati...', { description: 'Tafadhali subiri sekunde chache' });
-    
-    // Choose beautiful preset document image simulation
-    let presetUrl = '';
-    if (key === 'license_front') presetUrl = 'https://images.unsplash.com/photo-1554774853-aae0a22c8aa4?auto=format&fit=crop&q=80&w=400';
-    else if (key === 'license_back') presetUrl = 'https://images.unsplash.com/photo-1544377193-33dcf4d68fb5?auto=format&fit=crop&q=80&w=400';
-    else if (key === 'national_id') presetUrl = 'https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&q=80&w=400';
-
-    setTimeout(() => {
-      setUploads(prev => ({ ...prev, [key]: presetUrl }));
-      toast.success('Hati imepakiwa na inaonekana sasa!', { description: 'Imekamilika kwa mafanikio.' });
-    }, 1200);
+  const handleUploadReal = async (key: string, file: File) => {
+    if (!user) {
+      toast.error('Tafadhali ingia kwenye mfumo kwanza!');
+      return;
+    }
+    toast.info('Inapakia hati yako...', { description: 'Tafadhali subiri sekunde chache' });
+    try {
+      const path = storageService.getProfilePath(user.uid, `${key}_${Date.now()}_${file.name}`);
+      const downloadUrl = await storageService.uploadFile('profiles', path, file);
+      setUploads(prev => ({ ...prev, [key]: downloadUrl }));
+      toast.success('Hati imepakiwa kikamilifu!');
+    } catch (error: any) {
+      toast.error('Imeshindwa kupakia: ' + error.message);
+    }
   };
 
   const handleSave = async () => {
@@ -137,17 +139,17 @@ function DocumentForm() {
             <FileUploadField 
               label="Driving License Front (Leseni Mbele)" 
               value={uploads.license_front} 
-              onUpload={() => handleUploadSimulate('license_front')} 
+              onUpload={(file) => handleUploadReal('license_front', file)} 
             />
             <FileUploadField 
               label="Driving License Back (Leseni Nyuma)" 
               value={uploads.license_back} 
-              onUpload={() => handleUploadSimulate('license_back')} 
+              onUpload={(file) => handleUploadReal('license_back', file)} 
             />
             <FileUploadField 
               label="National ID / Passport (NIDA/Pasipoti)" 
               value={uploads.national_id} 
-              onUpload={() => handleUploadSimulate('national_id')} 
+              onUpload={(file) => handleUploadReal('national_id', file)} 
             />
           </div>
        </div>
@@ -199,7 +201,7 @@ function DocumentForm() {
 }
 
 function VehicleForm() {
-  const { profile, updateProfileData } = useAuth();
+  const { profile, user, updateProfileData } = useAuth();
   const [loading, setLoading] = useState(false);
   const [model, setModel] = useState(profile?.vehicleModel || '');
   const [plate, setPlate] = useState(profile?.licensePlate || '');
@@ -210,17 +212,20 @@ function VehicleForm() {
     vehicle_side: typeof profile?.vehiclePhotos?.vehicle_side === 'string' ? profile.vehiclePhotos.vehicle_side : '',
   });
 
-  const handleUploadSimulate = (key: string) => {
-    toast.info('Inapakia picha ya chombo...', { description: 'Inatuma kwenye seva...' });
-    
-    let presetUrl = '';
-    if (key === 'vehicle_front') presetUrl = 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=400';
-    else if (key === 'vehicle_side') presetUrl = 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&q=80&w=400';
-
-    setTimeout(() => {
-      setUploads(prev => ({ ...prev, [key]: presetUrl }));
-      toast.success('Picha ya chombo imepakiwa vizuri na inaonekana sasa!');
-    }, 1200);
+  const handleUploadReal = async (key: string, file: File) => {
+    if (!user) {
+      toast.error('Tafadhali ingia kwenye mfumo kwanza!');
+      return;
+    }
+    toast.info('Inapakia picha ya chombo...', { description: 'Tafadhali subiri...' });
+    try {
+      const path = storageService.getProfilePath(user.uid, `${key}_${Date.now()}_${file.name}`);
+      const downloadUrl = await storageService.uploadFile('profiles', path, file);
+      setUploads(prev => ({ ...prev, [key]: downloadUrl }));
+      toast.success('Picha ya chombo imepakiwa kikamilifu!');
+    } catch (error: any) {
+      toast.error('Imeshindwa kupakia: ' + error.message);
+    }
   };
 
   const handleSave = async () => {
@@ -282,12 +287,12 @@ function VehicleForm() {
              <FileUploadField 
                label="Front View (Mbele)" 
                value={uploads.vehicle_front} 
-               onUpload={() => handleUploadSimulate('vehicle_front')} 
+               onUpload={(file) => handleUploadReal('vehicle_front', file)} 
              />
              <FileUploadField 
                label="Side View (Pembeni)" 
                value={uploads.vehicle_side} 
-               onUpload={() => handleUploadSimulate('vehicle_side')} 
+               onUpload={(file) => handleUploadReal('vehicle_side', file)} 
              />
           </div>
        </div>
@@ -381,15 +386,31 @@ function BankForm() {
   );
 }
 
-function FileUploadField({ label, value, onUpload }: { label: string, value: string, onUpload: () => void }) {
+function FileUploadField({ label, value, onUpload }: { label: string, value: string, onUpload: (file: File) => void }) {
   const isUploaded = !!value;
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      onUpload(file);
+    }
+  };
+
   return (
     <div className="relative group overflow-hidden rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 transition-all shadow-sm">
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        className="hidden" 
+        accept="image/*,application/pdf" 
+        onChange={handleFileChange} 
+      />
       {isUploaded ? (
         <div className="relative h-40 w-full overflow-hidden">
           <img src={value} alt={label} className="w-full h-full object-cover" />
           <div 
-            onClick={onUpload}
+            onClick={() => fileInputRef.current?.click()}
             className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 text-white cursor-pointer"
           >
             <Upload className="w-6 h-6 animate-pulse" />
@@ -405,7 +426,7 @@ function FileUploadField({ label, value, onUpload }: { label: string, value: str
         </div>
       ) : (
         <div 
-          onClick={onUpload}
+          onClick={() => fileInputRef.current?.click()}
           className="p-8 border-2 border-dashed border-neutral-200 dark:border-neutral-800 hover:border-emerald-500/50 hover:bg-emerald-50/5 rounded-2xl flex flex-col items-center justify-center gap-3 transition-all cursor-pointer"
         >
           <div className="w-12 h-12 rounded-2xl bg-neutral-50 dark:bg-neutral-800 text-neutral-400 group-hover:text-emerald-500 group-hover:bg-emerald-500/10 flex items-center justify-center transition-all shadow-inner">

@@ -13,6 +13,24 @@ export default function RiderLanguage({ onBack }: { onBack: () => void }) {
     { code: 'ar', name: 'العربية (Arabic)', flag: '🇸🇦', desc: 'لغة التواصل والعمل الإضافية' }
   ];
 
+  const tLocal = {
+    sw: {
+      title_sub: 'LUGHA',
+      title: 'Chagua Lugha ya Dereva',
+      available: 'LUGHA ZINAZOPATIKANA'
+    },
+    en: {
+      title_sub: 'LANGUAGE',
+      title: 'Choose Driver Language',
+      available: 'AVAILABLE LANGUAGES'
+    },
+    ar: {
+      title_sub: 'اللغة',
+      title: 'اختر لغة السائق',
+      available: 'اللغات المتاحة'
+    }
+  };
+
   const handleSelect = (code: 'sw' | 'en' | 'ar') => {
     setLanguage(code);
     toast.success(code === 'sw' ? 'Lugha imebadilishwa kikamilifu!' : code === 'en' ? 'Language updated successfully!' : 'تم تغيير اللغة بنجاح!', {
@@ -20,6 +38,8 @@ export default function RiderLanguage({ onBack }: { onBack: () => void }) {
       duration: 3000,
     });
   };
+
+  const currentT = tLocal[language] || tLocal.sw;
 
   return (
     <div className="h-full overflow-y-auto bg-neutral-50 dark:bg-neutral-950 p-6 pb-36 space-y-8 max-w-2xl mx-auto">
@@ -32,14 +52,14 @@ export default function RiderLanguage({ onBack }: { onBack: () => void }) {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div>
-          <span className="text-[9px] font-black uppercase text-neutral-400 tracking-[0.2em] block mb-0.5">LUGHA</span>
-          <span className="text-sm font-black text-neutral-800 dark:text-neutral-200">Chagua Lugha ya Dereva</span>
+          <span className="text-[9px] font-black uppercase text-neutral-400 tracking-[0.2em] block mb-0.5">{currentT.title_sub}</span>
+          <span className="text-sm font-black text-neutral-800 dark:text-neutral-200">{currentT.title}</span>
         </div>
       </div>
 
       {/* Language cards list */}
       <div className="space-y-4">
-        <h3 className="text-[10px] font-black uppercase text-neutral-400 tracking-[0.2em] px-2">LUGHA ZINAZOPATIKANA</h3>
+        <h3 className="text-[10px] font-black uppercase text-neutral-400 tracking-[0.2em] px-2">{currentT.available}</h3>
 
         <div className="bg-white dark:bg-neutral-900 rounded-[2.5rem] border border-neutral-100 dark:border-neutral-800 p-2 divide-y divide-neutral-100 dark:divide-neutral-800/50 shadow-sm overflow-hidden">
           {options.map((opt, index) => {
