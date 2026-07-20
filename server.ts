@@ -516,8 +516,16 @@ Arrange the nodes in a complete, highly realistic, logical flow to satisfy the u
     }
     const cleanPhone = formattedPhone.replace(/[^0-9]/g, "");
 
-    if (!apiKey) {
-      console.warn("MONGIKE_API_KEY is missing in environment variables. Running in high-fidelity sandbox simulation mode!");
+    const isSandbox = !apiKey || 
+                      apiKey.trim() === "" || 
+                      apiKey.toLowerCase().includes("your_") || 
+                      apiKey.toLowerCase().includes("weka_") || 
+                      apiKey.toLowerCase().includes("placeholder") || 
+                      apiKey.toLowerCase().includes("enter_") || 
+                      apiKey.length < 10;
+
+    if (isSandbox) {
+      console.warn("MONGIKE_API_KEY is missing or is placeholder. Running in high-fidelity sandbox simulation mode!");
       
       const simulatedResponse = {
         status: "success",

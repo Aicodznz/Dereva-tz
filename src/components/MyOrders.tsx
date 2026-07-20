@@ -206,9 +206,9 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
       } else {
         toast.error(response.message || "Imeshindikana kuanzisha malipo.");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Payment failed:", error);
-      toast.error("Hitilafu imetokea wakati wa kulipia. Jaribu tena.");
+      toast.error(error.message || "Hitilafu imetokea wakati wa kulipia. Jaribu tena.");
     } finally {
       setIsPaying(false);
     }
@@ -241,9 +241,9 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
       } else {
         toast.error(response.message || "Imeshindikana kuanzisha malipo.", { id: toastId });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Alternative payment initiation failed:", error);
-      toast.error("Hitilafu imetokea wakati wa kuanzisha malipo ya simu. Jaribu tena.", { id: toastId });
+      toast.error(error.message || "Hitilafu imetokea wakati wa kuanzisha malipo ya simu. Jaribu tena.", { id: toastId });
     } finally {
       setIsPaying(false);
     }

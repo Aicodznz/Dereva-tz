@@ -35,6 +35,9 @@ export const initiatePayment = async (request: PaymentRequest): Promise<MongikeP
       data = await response.json();
     } else {
       const text = await response.text();
+      if (text.includes('<!DOCTYPE html>') || text.includes('<html') || text.includes('<DOCTYPE')) {
+        throw new Error("Hitilafu: Seva haipatikani. Tafadhali hakikisha ume-deploy programu yako kama 'Web Service' (na sio Static Site) kwenye Render ili mfumo wa malipo na backend ufanye kazi kikamilifu!");
+      }
       throw new Error(`Unexpected response from server: ${text.substring(0, 50)}...`);
     }
 
