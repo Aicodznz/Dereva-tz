@@ -204,6 +204,7 @@ export default function ProductDetail() {
   const [buyerPhone, setBuyerPhone] = useState('');
   const [orderType, setOrderType] = useState<'delivery' | 'walk_in' | 'pickup'>('delivery');
   const [tableNumber, setTableNumber] = useState('');
+  const [showManualTable, setShowManualTable] = useState(false);
   const [arrivalTime, setArrivalTime] = useState('');
   const [peopleCount, setPeopleCount] = useState<number>(1);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
@@ -691,9 +692,17 @@ export default function ProductDetail() {
                           </div>
                        </div>
                        
-                       {vendorTables.length > 0 ? (
-                         <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                           {vendorTables.map((table) => {
+                       {!showManualTable ? (
+                         <>
+                           <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 animate-fade-in">
+                           {(vendorTables.length > 0 
+                             ? vendorTables 
+                             : Array.from({ length: 16 }, (_, i) => ({
+                                 id: `default-table-${i + 1}`,
+                                 number: `${i + 1}`,
+                                 allowSharing: true
+                               }))
+                           ).map((table) => {
                              const isOccupied = occupiedTables.includes(table.number);
                              const isFull = isOccupied && !table.allowSharing;
                              const isSelected = tableNumber === table.number;
@@ -730,15 +739,36 @@ export default function ProductDetail() {
                              );
                            })}
                          </div>
+                         <div className="flex justify-end pt-1">
+                           <button
+                             type="button"
+                             onClick={() => setShowManualTable(true)}
+                             className="text-[10px] font-black text-orange-600 hover:underline uppercase tracking-wider flex items-center gap-1"
+                           >
+                             <Sliders className="w-3 h-3" /> Andika namba ya meza
+                           </button>
+                         </div>
+                       </>
                        ) : (
-                          <div className="relative">
-                            <Hash className="absolute left-4 top-3.5 w-4 h-4 text-orange-600" />
-                            <Input 
-                              placeholder="mfano: B1, 14..."
-                              className="pl-12 h-12 rounded-xl bg-neutral-100 dark:bg-neutral-800 border-none font-bold"
-                              value={tableNumber}
-                              onChange={e => setTableNumber(e.target.value)}
-                            />
+                         <div className="space-y-3">
+                           <div className="relative">
+                             <Hash className="absolute left-4 top-3.5 w-4 h-4 text-orange-600" />
+                             <Input 
+                               placeholder="mfano: B1, 14..."
+                               className="pl-12 h-12 rounded-xl bg-neutral-100 dark:bg-neutral-800 border-none font-bold"
+                               value={tableNumber}
+                               onChange={e => setTableNumber(e.target.value)}
+                             />
+                           </div>
+                           <div className="flex justify-end">
+                             <button
+                               type="button"
+                               onClick={() => setShowManualTable(false)}
+                               className="text-[10px] font-black text-orange-600 hover:underline uppercase tracking-wider flex items-center gap-1"
+                             >
+                               <Sliders className="w-3 h-3" /> Chagua kwenye orodha
+                             </button>
+                           </div>
                          </div>
                        )}
                     </div>
