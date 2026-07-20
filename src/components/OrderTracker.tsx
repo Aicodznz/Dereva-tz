@@ -18,7 +18,8 @@ import {
   Truck,
   ShieldCheck,
   Utensils,
-  ChefHat
+  ChefHat,
+  Layers
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -32,6 +33,7 @@ export default function OrderTracker({ order, onBack }: OrderTrackerProps) {
   const [driverProfile, setDriverProfile] = useState<any>(null);
   const [vendorLocation, setVendorLocation] = useState<[number, number] | null>(null);
   const [customerLocation, setCustomerLocation] = useState<[number, number] | null>(null);
+  const [isSatellite, setIsSatellite] = useState<boolean>(false);
 
   // Custom Icons
   const driverIcon = L.divIcon({
@@ -97,18 +99,36 @@ export default function OrderTracker({ order, onBack }: OrderTrackerProps) {
         }
       } catch (e) { console.error(e); }
 
-      // Use real coordinates if present on the order, otherwise mock
+      // Use real coordinates if present on the order, otherwise geocode address, otherwise mock
       if (order.deliveryLocation && typeof order.deliveryLocation.lat === 'number' && typeof order.deliveryLocation.lng === 'number') {
         setCustomerLocation([order.deliveryLocation.lat, order.deliveryLocation.lng]);
       } else if (order.customerLocation && typeof order.customerLocation.lat === 'number' && typeof order.customerLocation.lng === 'number') {
         setCustomerLocation([order.customerLocation.lat, order.customerLocation.lng]);
+      } else if (order.deliveryAddress) {
+        // Try to geocode the delivery address using OpenStreetMap Nominatim
+        try {
+          const query = encodeURIComponent(order.deliveryAddress);
+          const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`);
+          const data = await response.json();
+          if (data && data.length > 0) {
+            const lat = parseFloat(data[0].lat);
+            const lon = parseFloat(data[0].lon);
+            setCustomerLocation([lat, lon]);
+            console.log(`[Geocoding] Found coordinates for "${order.deliveryAddress}": [${lat}, ${lon}]`);
+          } else {
+            setCustomerLocation([-6.7924, 39.2083]); // Mock location in Dar
+          }
+        } catch (e) {
+          console.warn("[Geocoding] Geocoding failed:", e);
+          setCustomerLocation([-6.7924, 39.2083]); // Fallback
+        }
       } else {
         setCustomerLocation([-6.7924, 39.2083]); // Mock location in Dar
       }
     };
 
     fetchLocations();
-  }, [order.vendorId]);
+  }, [order.vendorId, order.deliveryAddress]);
 
   function MapUpdater({ center }: { center: [number, number] }) {
     const map = useMap();
@@ -457,7 +477,7 @@ export default function OrderTracker({ order, onBack }: OrderTrackerProps) {
            zoomControl={false}
          >
            <TileLayer 
-              url="https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}" 
+              url={isSatellite ? "https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}" : "https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"} 
               subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
               attribution="&copy; Google Maps"
             />
@@ -493,8 +513,14 @@ export default function OrderTracker({ order, onBack }: OrderTrackerProps) {
 
          {/* Floating Map Controls */}
          <div className="absolute top-6 right-6 flex flex-col gap-3 z-[200]">
-            <Button variant="secondary" className="w-12 h-12 rounded-2xl bg-white dark:bg-neutral-800 shadow-2xl p-0 flex items-center justify-center border border-white/20 dark:border-neutral-700">
-              <Navigation className="w-5 h-5 text-neutral-600 dark:text-neutral-300" />
+            <Button 
+              variant="secondary" 
+              onClick={() => setIsSatellite(!isSatellite)}
+              className={`w-12 h-12 rounded-2xl shadow-2xl p-0 flex flex-col items-center justify-center border transition-all ${isSatellite ? 'bg-orange-600 text-white border-orange-500 hover:bg-orange-700' : 'bg-white dark:bg-neutral-800 border-white/20 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300'}`}
+              title="Badili ramani kuwa Satalaiti"
+            >
+              <Layers className="w-5 h-5" />
+              <span className="text-[7px] font-bold uppercase leading-none mt-0.5">Sat</span>
             </Button>
             <div className="bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl p-4 rounded-[1.5rem] shadow-2xl border border-white/20 dark:border-neutral-800">
                <div className="flex items-center gap-3">
