@@ -1771,7 +1771,11 @@ export default function AdminDashboard() {
                   <div className="flex items-center justify-between">
                      <h3 className="text-xl font-black italic uppercase tracking-tighter text-neutral-900 dark:text-white">Madereva wote</h3>
                      <Badge className="bg-orange-600 text-white font-black text-[10px] py-0.5 px-2 rounded-full">
-                        {allUsers.filter(u => u.role === 'rider').length} Madereva
+                        {allUsers.filter(u => {
+                          if (u.role !== 'rider') return false;
+                          const telemetry = driverLocations.find(d => d.id === u.id);
+                          return telemetry?.networkStatus === 'online' || telemetry?.status === 'online' || telemetry?.isOnline === true;
+                        }).length} Madereva Active
                      </Badge>
                   </div>
                   
@@ -1790,6 +1794,11 @@ export default function AdminDashboard() {
                <div className="flex-1 overflow-y-auto space-y-3 pr-1 scrollbar-thin">
                   {allUsers
                     .filter(u => u.role === 'rider')
+                    .filter(u => {
+                      const telemetry = driverLocations.find(d => d.id === u.id);
+                      const isOnline = telemetry?.networkStatus === 'online' || telemetry?.status === 'online' || telemetry?.isOnline === true;
+                      return isOnline;
+                    })
                     .filter(u => {
                       if (!monitorSearchQuery) return true;
                       const query = monitorSearchQuery.toLowerCase();
@@ -1898,7 +1907,7 @@ export default function AdminDashboard() {
                   const pos = driver.location || driver.currentPosition;
                   const isOnline = driver.networkStatus === 'online' || driver.status === 'online' || driver.isOnline === true;
                   
-                  if (!pos) return null;
+                  if (!pos || !isOnline) return null;
 
                   const driverUser = allUsers.find(u => u.id === driver.id);
                   const driverName = driverUser?.displayName || driver.displayName || driver.name || 'Dereva';
