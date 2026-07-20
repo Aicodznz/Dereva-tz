@@ -1278,20 +1278,6 @@ export default function ProductDetail() {
                   </div>
                 </div>
               )}
-
-              {/* Non-Veg Badge - Bottom Right Overlay */}
-              <div className={`absolute z-10 flex items-center gap-2 ${
-                product.imageUrls && product.imageUrls.length > 1 
-                  ? 'bottom-20 right-4 sm:bottom-24 sm:right-4' 
-                  : 'bottom-4 right-4'
-              }`}>
-                <div className="bg-white/95 dark:bg-neutral-950/95 backdrop-blur-md px-2.5 py-1.5 rounded-xl shadow-lg border border-neutral-100/10 flex items-center gap-1.5 transition-colors">
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                  <span className="font-extrabold text-red-500 text-[9px] tracking-widest uppercase">
-                    Non-Veg
-                  </span>
-                </div>
-              </div>
             </div>
           </div>
           {/* Right: Product Content */}
@@ -1302,6 +1288,12 @@ export default function ProductDetail() {
                 <span className="px-2.5 py-1 rounded-full bg-orange-500/10 text-orange-600 dark:text-orange-400 text-[9px] font-black uppercase tracking-wider">
                   {product.category || 'Chakula'}
                 </span>
+                {vendor?.category === 'restaurant' && (
+                  <span className="px-2 py-0.5 rounded text-[8px] font-black border border-red-500/20 bg-red-500/5 text-red-500 uppercase tracking-widest flex items-center gap-1">
+                    <span className="w-1 h-1 rounded-full bg-red-500 animate-pulse" />
+                    Non-Veg
+                  </span>
+                )}
                 {vendor?.businessName && (
                   <span className="text-neutral-400 dark:text-neutral-500 text-[10px] font-extrabold uppercase tracking-widest">
                     • {vendor.businessName}
