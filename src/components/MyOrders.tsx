@@ -845,7 +845,7 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
                 <div className="flex flex-col items-center justify-center space-y-2 pb-2">
                   <div className="p-2 border border-neutral-100 rounded-2xl bg-white shadow-sm inline-block">
                     <img 
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=https://papo-hapo.com/verify-receipt/${selectedOrder.id}`} 
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(`${window.location.origin}/verify-receipt/${selectedOrder.id}`)}`} 
                       alt="Verification QR" 
                       referrerPolicy="no-referrer"
                       className="w-18 h-18 opacity-90 mx-auto"

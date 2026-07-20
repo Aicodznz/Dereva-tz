@@ -15,6 +15,7 @@ import ServiceDetail from './components/ServiceDetail';
 import TableSession from './components/TableSession';
 import Checkout from './components/Checkout';
 import PublicStatusDisplay from './components/PublicStatusDisplay';
+import PublicReceiptVerification from './components/PublicReceiptVerification';
 import { Toaster } from '@/components/ui/sonner';
 
 import Login from './components/auth/Login';
@@ -364,6 +365,7 @@ function AppContent() {
       <Route path="/login" element={<Login />} />
       <Route path="/staff/login" element={<StaffLogin />} />
       <Route path="/status/:vendorId" element={<PublicStatusDisplay />} />
+      <Route path="/verify-receipt/:id" element={<PublicReceiptVerification />} />
       <Route path="/register" element={<RegisterChoice />} />
       <Route path="/register/customer" element={<RegisterCustomer />} />
       <Route path="/register/driver" element={<RegisterDriver />} />
