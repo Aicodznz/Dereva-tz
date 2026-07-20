@@ -801,7 +801,7 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
                     <div key={`receipt-item-${idx}`} className="flex justify-between items-start text-xs font-mono text-neutral-800">
                       <div className="flex-1 pr-4">
                         <span className="font-bold text-neutral-950">{item.quantity}x</span> {item.name}
-                        {item.variation && <p className="text-[9px] text-neutral-400 mt-0.5">({item.variation.name})</p>}
+                        {item.variation && item.variation.name && <p className="text-[9px] text-neutral-400 mt-0.5">({item.variation.name})</p>}
                       </div>
                       <span className="font-black text-neutral-955 text-right">
                         {(item.price * item.quantity).toLocaleString()}
@@ -816,7 +816,13 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
                 <div className="space-y-1.5 text-xs text-neutral-600 font-mono pb-2">
                   <div className="flex justify-between">
                     <span>Subtotal:</span>
-                    <span>TZS {selectedOrder.totalAmount.toLocaleString()}</span>
+                    <span>
+                      TZS {(
+                        selectedOrder.subtotal !== undefined 
+                          ? selectedOrder.subtotal 
+                          : (selectedOrder.totalAmount - (selectedOrder.deliveryFee || 0))
+                      ).toLocaleString()}
+                    </span>
                   </div>
                   <div className="flex justify-between text-neutral-500">
                     <span>Kodi / VAT (0%):</span>
@@ -824,7 +830,7 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
                   </div>
                   <div className="flex justify-between text-neutral-500">
                     <span>Usafiri:</span>
-                    <span>TZS 0</span>
+                    <span>TZS {(selectedOrder.deliveryFee || 0).toLocaleString()}</span>
                   </div>
                 </div>
 
