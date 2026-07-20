@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useCart } from '../CartContext';
 import { useAuth } from '../AuthContext';
+import LocationPicker from './LocationPicker';
 import { useLanguage } from '../LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -32,6 +33,9 @@ export default function Checkout() {
   const navigate = useNavigate();
 
   const [address, setAddress] = useState(profile?.address || '');
+  const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
   const [phoneNumber, setPhoneNumber] = useState(profile?.phoneNumber || '');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mobile_money' | 'online'>('mobile_money');
   const [orderType, setOrderType] = useState<'delivery' | 'pickup' | 'walk_in'>('delivery');
@@ -156,6 +160,8 @@ export default function Checkout() {
         arrivalTime: (orderType === 'pickup' || orderType === 'walk_in') ? arrivalTime : null,
         notes: notes,
         deliveryAddress: orderType === 'delivery' ? address : null,
+        customerLocation: orderType === 'delivery' && latitude && longitude ? { lat: latitude, lng: longitude } : null,
+        deliveryLocation: orderType === 'delivery' && latitude && longitude ? { lat: latitude, lng: longitude } : null,
         type: vendorCategory,
         selectedSeats: orderSeats,
         createdAt: serverTimestamp(),
@@ -300,13 +306,32 @@ export default function Checkout() {
               <div className="space-y-4">
                 {orderType === 'delivery' && (
                   <div className="space-y-2">
-                    <Label className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Anwani ya Kufika</Label>
-                    <Input 
-                      value={address}
-                      onChange={(e) => setAddress(e.target.value)}
-                      placeholder="Weka mtaa, jengo au namba ya nyumba"
-                      className="h-14 rounded-2xl border-none bg-neutral-50 dark:bg-neutral-800 font-medium"
-                    />
+                    <div className="flex justify-between items-center">
+                      <Label className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Anwani ya Kufika</Label>
+                      <button
+                        type="button"
+                        onClick={() => setIsLocationPickerOpen(true)}
+                        className="text-[10px] font-black text-orange-600 hover:underline uppercase tracking-wider flex items-center gap-1 bg-orange-500/10 hover:bg-orange-500/20 px-2.5 py-1 rounded-xl transition-all"
+                      >
+                        <MapPin className="w-3 h-3 text-orange-600" /> Chagua kwenye Ramani
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <Input 
+                        value={address}
+                        onChange={(e) => setAddress(e.target.value)}
+                        placeholder="Weka mtaa, jengo au namba ya nyumba"
+                        className="h-14 pr-12 rounded-2xl border-none bg-neutral-50 dark:bg-neutral-800 font-medium"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setIsLocationPickerOpen(true)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-orange-100 hover:bg-orange-200 dark:bg-orange-950/40 dark:hover:bg-orange-900/40 rounded-xl flex items-center justify-center text-orange-600 transition-colors"
+                        title="Chagua kwenye Ramani"
+                      >
+                        <MapPin className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -534,6 +559,17 @@ export default function Checkout() {
           </div>
         </div>
       </div>
+
+      <LocationPicker 
+        isOpen={isLocationPickerOpen}
+        onClose={() => setIsLocationPickerOpen(false)}
+        onSelect={(loc) => {
+          setAddress(loc.address);
+          setLatitude(loc.lat);
+          setLongitude(loc.lng);
+          setIsLocationPickerOpen(false);
+        }}
+      />
     </div>
   );
 }

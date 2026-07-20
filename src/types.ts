@@ -203,6 +203,8 @@ export interface Order {
   customerPhone?: string;
   prescriptionUrl?: string;
   deliveryAddress?: string;
+  customerLocation?: { lat: number; lng: number } | null;
+  deliveryLocation?: { lat: number; lng: number } | null;
   deliveryFee?: number;
   riderAssignmentType?: 'app' | 'vendor' | 'platform' | 'self';
   riderName?: string;

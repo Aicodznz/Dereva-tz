@@ -97,9 +97,14 @@ export default function OrderTracker({ order, onBack }: OrderTrackerProps) {
         }
       } catch (e) { console.error(e); }
 
-      // In real app, order would have delivery coordinates. 
-      // For now we'll mock it if not present based on address or static
-      setCustomerLocation([-6.7924, 39.2083]); // Mock location in Dar
+      // Use real coordinates if present on the order, otherwise mock
+      if (order.deliveryLocation && typeof order.deliveryLocation.lat === 'number' && typeof order.deliveryLocation.lng === 'number') {
+        setCustomerLocation([order.deliveryLocation.lat, order.deliveryLocation.lng]);
+      } else if (order.customerLocation && typeof order.customerLocation.lat === 'number' && typeof order.customerLocation.lng === 'number') {
+        setCustomerLocation([order.customerLocation.lat, order.customerLocation.lng]);
+      } else {
+        setCustomerLocation([-6.7924, 39.2083]); // Mock location in Dar
+      }
     };
 
     fetchLocations();
