@@ -1278,6 +1278,20 @@ export default function ProductDetail() {
                   </div>
                 </div>
               )}
+
+              {/* Non-Veg Badge - Bottom Right Overlay */}
+              <div className={`absolute z-10 flex items-center gap-2 ${
+                product.imageUrls && product.imageUrls.length > 1 
+                  ? 'bottom-20 right-4 sm:bottom-24 sm:right-4' 
+                  : 'bottom-4 right-4'
+              }`}>
+                <div className="bg-white/95 dark:bg-neutral-950/95 backdrop-blur-md px-2.5 py-1.5 rounded-xl shadow-lg border border-neutral-100/10 flex items-center gap-1.5 transition-colors">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                  <span className="font-extrabold text-red-500 text-[9px] tracking-widest uppercase">
+                    Non-Veg
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
           {/* Right: Product Content */}
@@ -1300,13 +1314,6 @@ export default function ProductDetail() {
               <p className="text-neutral-500 dark:text-neutral-400 text-xs leading-relaxed max-w-xl font-medium transition-colors">
                 {product.description || 'Flavorful and freshly prepared meal made with premium ingredients.'}
               </p>
-            </div>
-
-            {/* Non-Veg Badge */}
-            <div className="flex items-center gap-2 py-0.5">
-              <span className="px-2.5 py-1 rounded text-[8px] font-black border border-red-500/20 bg-red-500/5 text-red-500 uppercase tracking-widest">
-                Non-Veg
-              </span>
             </div>
 
             {/* Price section */}
