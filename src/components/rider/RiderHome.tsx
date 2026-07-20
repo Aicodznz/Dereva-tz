@@ -2492,24 +2492,30 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
             initial={{ y: -100, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -100, opacity: 0 }}
-            className="absolute top-4 inset-x-4 z-[9999] flex flex-col gap-2"
+            className="absolute top-4 inset-x-0 z-[9999] flex justify-center px-4"
           >
-            {/* Main Header / Navigation Card - Left only the profile icon */}
-            <div className="flex justify-between items-center w-full px-1">
-              {/* Wallet Badge */}
-              <div className="glass-morphism pointer-events-auto rounded-full py-2 px-4 flex items-center gap-2.5 shadow-xl border border-white/10 select-none bg-neutral-900/80 dark:bg-black/40 backdrop-blur-md">
-                <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+            {/* Centered Top Header Pill */}
+            <div className="glass-morphism pointer-events-auto rounded-full py-1.5 pl-3.5 pr-2.5 flex items-center gap-3 shadow-xl border border-white/15 select-none bg-neutral-950/85 dark:bg-black/60 backdrop-blur-md max-w-max">
+              {/* Wallet Section */}
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
                   <Wallet className="w-4 h-4 stroke-[2.5]" />
                 </div>
                 <div className="flex flex-col text-left">
-                  <span className="text-[8px] font-black uppercase text-neutral-400 tracking-wider leading-none">Mkoba / Wallet</span>
-                  <span className="text-[13px] font-black text-white italic tracking-tight mt-0.5 leading-none">
+                  <span className="text-[7.5px] font-black uppercase text-neutral-400 tracking-wider leading-none">Mkoba / Wallet</span>
+                  <span className="text-[12.5px] font-black text-white italic tracking-tight mt-0.5 leading-none">
                     {(profile?.balance || 0).toLocaleString()} TZS
                   </span>
                 </div>
               </div>
 
-              {renderProfileAvatar('md')}
+              {/* Divider */}
+              <div className="h-6 w-[1px] bg-white/10" />
+
+              {/* Profile Avatar with small compact style */}
+              <div className="flex items-center shrink-0">
+                {renderProfileAvatar('sm')}
+              </div>
             </div>
           </motion.div>
         )}
