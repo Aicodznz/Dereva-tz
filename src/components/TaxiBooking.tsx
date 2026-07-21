@@ -50,6 +50,8 @@ import {
   Compass,
   Menu,
   MessageCircle,
+  Languages,
+  Globe,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import Chat from "./Chat";
@@ -511,6 +513,7 @@ interface RideOption {
 
 export default function TaxiBooking() {
   const { user, profile, signInGuest, loading } = useAuth();
+  const { language, setLanguage } = useLanguage();
   const { config } = useBusinessConfig();
   const navigate = useNavigate();
   const { setTheme: setNextTheme, resolvedTheme } = useTheme();
@@ -3116,6 +3119,24 @@ export default function TaxiBooking() {
                                   <span>Giza</span>
                                 </>
                               )}
+                            </button>
+
+                            <div className={`w-full border-b ${theme === 'dark' ? 'border-neutral-800/60' : 'border-neutral-100'}`} />
+
+                            <button
+                              onClick={() => {
+                                setShowMenu(false);
+                                setLanguage(language === "sw" ? "en" : "sw");
+                              }}
+                              className={`w-full text-left px-4 py-3 text-xs sm:text-sm flex items-center justify-between transition-colors font-bold ${theme === 'dark' ? 'text-neutral-300 hover:text-emerald-400 hover:bg-neutral-900/60' : 'text-neutral-700 hover:text-emerald-600 hover:bg-neutral-50'}`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <Languages className="w-4 h-4 text-emerald-500" />
+                                <span>{language === "sw" ? "English" : "Kiswahili"}</span>
+                              </div>
+                              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                {language === "sw" ? "EN" : "SW"}
+                              </span>
                             </button>
 
                             <div className={`w-full border-b ${theme === 'dark' ? 'border-neutral-800/60' : 'border-neutral-100'}`} />
