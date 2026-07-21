@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   ArrowLeft, Car, Clock, CheckCircle2, ChevronRight, 
   MapPin, User, Phone, Map, Download, X,
-  Navigation2, CreditCard, Star, Calendar, Receipt
+  Navigation2, CreditCard, Star, Calendar, Receipt, Trash2, Loader2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
@@ -11,7 +11,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useAuth } from '../../AuthContext';
 import { useTheme } from 'next-themes';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -76,11 +76,51 @@ const TaxiHistory: React.FC = () => {
   const [rides, setRides] = useState<Ride[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRide, setSelectedRide] = useState<Ride | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
+  const [showConfirmDeleteModal, setShowConfirmDeleteModal] = useState<{ type: 'single' | 'all'; rideId?: string } | null>(null);
   const receiptRef = useRef<HTMLDivElement>(null);
   const { resolvedTheme } = useTheme();
   const theme = resolvedTheme === 'dark' ? 'dark' : 'light';
 
   const mapTileUrl = "https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}";
+
+  const handleDeleteSingle = async (rideId: string) => {
+    try {
+      setDeletingId(rideId);
+      await deleteDoc(doc(db, 'rides', rideId));
+      if (selectedRide?.id === rideId) {
+        setSelectedRide(null);
+      }
+      toast.success("Safari imefutwa kikamilifu!");
+    } catch (err) {
+      console.error("Failed to delete ride:", err);
+      toast.error("Imeshindwa kufuta safari.");
+    } finally {
+      setDeletingId(null);
+      setShowConfirmDeleteModal(null);
+    }
+  };
+
+  const handleDeleteAll = async () => {
+    if (rides.length === 0) return;
+    try {
+      setIsDeletingAll(true);
+      const batch = writeBatch(db);
+      rides.forEach((r) => {
+        batch.delete(doc(db, 'rides', r.id));
+      });
+      await batch.commit();
+      setSelectedRide(null);
+      toast.success("Historia yote ya safari imefutwa!");
+    } catch (err) {
+      console.error("Failed to delete all rides:", err);
+      toast.error("Imeshindwa kufuta historia.");
+    } finally {
+      setIsDeletingAll(false);
+      setShowConfirmDeleteModal(null);
+    }
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -179,17 +219,31 @@ const TaxiHistory: React.FC = () => {
             transition={{ duration: 0.25 }}
           >
             {/* List Header */}
-            <div className={`p-6 flex items-center gap-4 sticky top-0 ${theme === 'dark' ? 'bg-[#0a0a0f]/80 border-neutral-800' : 'bg-white/80 border-neutral-200/80'} backdrop-blur-xl z-50 border-b`}>
-              <button 
-                onClick={() => navigate('/taxi')} 
-                className={`w-12 h-12 rounded-2xl ${theme === 'dark' ? 'bg-[#111118] border-neutral-800 text-neutral-350 hover:bg-neutral-800' : 'bg-white border-neutral-200 text-neutral-800 hover:bg-neutral-50'} border flex items-center justify-center shadow-sm active:scale-95 transition-all`}
-              >
-                <ArrowLeft size={20} />
-              </button>
-              <div>
-                <h1 className={`text-2xl font-black uppercase tracking-tighter italic ${theme === 'dark' ? 'text-[#f0eeff]' : 'text-neutral-800'}`}>Safari Zangu</h1>
-                <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest leading-none mt-1">Historia ya safari zako za taxi</p>
+            <div className={`p-6 flex items-center justify-between sticky top-0 ${theme === 'dark' ? 'bg-[#0a0a0f]/80 border-neutral-800' : 'bg-white/80 border-neutral-200/80'} backdrop-blur-xl z-50 border-b`}>
+              <div className="flex items-center gap-4">
+                <button 
+                  onClick={() => navigate('/taxi')} 
+                  className={`w-12 h-12 rounded-2xl ${theme === 'dark' ? 'bg-[#111118] border-neutral-800 text-neutral-350 hover:bg-neutral-800' : 'bg-white border-neutral-200 text-neutral-800 hover:bg-neutral-50'} border flex items-center justify-center shadow-sm active:scale-95 transition-all`}
+                >
+                  <ArrowLeft size={20} />
+                </button>
+                <div>
+                  <h1 className={`text-2xl font-black uppercase tracking-tighter italic ${theme === 'dark' ? 'text-[#f0eeff]' : 'text-neutral-800'}`}>Safari Zangu</h1>
+                  <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest leading-none mt-1">Historia ya safari zako za taxi</p>
+                </div>
               </div>
+
+              {rides.length > 0 && (
+                <button
+                  onClick={() => setShowConfirmDeleteModal({ type: 'all' })}
+                  disabled={isDeletingAll}
+                  className="px-3.5 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 flex items-center gap-2 text-xs font-black uppercase tracking-wider transition-all active:scale-95 disabled:opacity-50"
+                  title="Futa Historia Yote"
+                >
+                  <Trash2 size={16} />
+                  <span className="hidden sm:inline">Futa Yote</span>
+                </button>
+              )}
             </div>
 
             {/* List Content */}
@@ -246,8 +300,25 @@ const TaxiHistory: React.FC = () => {
                           </p>
                         </div>
                       </div>
-                      <div className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${getStatusColor(ride.status)}`}>
-                        {getStatusLabel(ride.status)}
+                      <div className="flex items-center gap-2">
+                        <div className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${getStatusColor(ride.status)}`}>
+                          {getStatusLabel(ride.status)}
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowConfirmDeleteModal({ type: 'single', rideId: ride.id });
+                          }}
+                          disabled={deletingId === ride.id}
+                          className="p-1.5 rounded-full hover:bg-red-500/10 text-neutral-400 hover:text-red-500 transition-colors active:scale-95 shrink-0"
+                          title="Futa safari hii"
+                        >
+                          {deletingId === ride.id ? (
+                            <Loader2 size={15} className="animate-spin text-red-500" />
+                          ) : (
+                            <Trash2 size={15} />
+                          )}
+                        </button>
                       </div>
                     </div>
 
@@ -553,10 +624,24 @@ const TaxiHistory: React.FC = () => {
               <div className="flex flex-col gap-3">
                 <button 
                   onClick={downloadReceipt}
-                  className={`w-full py-5 rounded-[2rem] font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-3 active:scale-[0.98] transition-all border ${theme === 'dark' ? 'bg-neutral-800/60 border-neutral-700 text-neutral-200 hover:bg-neutral-700' : 'bg-neutral-100 border-neutral-200 text-neutral-700 hover:bg-neutral-200'}`}
+                  className={`w-full py-4 rounded-[2rem] font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-3 active:scale-[0.98] transition-all border ${theme === 'dark' ? 'bg-neutral-800/60 border-neutral-700 text-neutral-200 hover:bg-neutral-700' : 'bg-neutral-100 border-neutral-200 text-neutral-700 hover:bg-neutral-200'}`}
                 >
                   <Download size={16} /> Pakua Receipt
                 </button>
+
+                <button 
+                  onClick={() => setShowConfirmDeleteModal({ type: 'single', rideId: selectedRide.id })}
+                  disabled={deletingId === selectedRide.id}
+                  className="w-full py-4 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 rounded-[2rem] font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2.5 transition-all active:scale-[0.98] disabled:opacity-50"
+                >
+                  {deletingId === selectedRide.id ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Trash2 size={16} />
+                  )}
+                  Futa Safari Hii Kutoka Historia
+                </button>
+
                 {selectedRide.status !== 'completed' && selectedRide.status !== 'cancelled' && (
                   <button 
                     onClick={() => navigate('/taxi')}
@@ -568,6 +653,64 @@ const TaxiHistory: React.FC = () => {
               </div>
             </div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {showConfirmDeleteModal && (
+          <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className={`w-full max-w-sm p-6 rounded-[2.5rem] border shadow-2xl ${
+                theme === 'dark' ? 'bg-[#111118] border-neutral-800 text-white' : 'bg-white border-neutral-200 text-neutral-900'
+              }`}
+            >
+              <div className="w-14 h-14 rounded-2xl bg-red-500/10 text-red-500 border border-red-500/20 flex items-center justify-center mx-auto mb-4">
+                <Trash2 size={28} />
+              </div>
+
+              <h3 className="text-lg font-black uppercase tracking-tight italic text-center mb-2">
+                {showConfirmDeleteModal.type === 'all' ? 'Futa Historia Yote?' : 'Futa Safari Hii?'}
+              </h3>
+
+              <p className="text-xs text-neutral-400 font-bold text-center leading-relaxed mb-6">
+                {showConfirmDeleteModal.type === 'all'
+                  ? `Je, una uhakika unataka kufuta safari zote (${rides.length}) kutoka kwenye historia yako? Kitendo hiki hakiwezi kutenguliwa.`
+                  : 'Je, una uhakika unataka kufuta safari hii kutoka kwenye historia yako?'}
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowConfirmDeleteModal(null)}
+                  disabled={isDeletingAll || Boolean(deletingId)}
+                  className={`flex-1 py-3.5 rounded-2xl text-xs font-black uppercase tracking-wider border transition-all ${
+                    theme === 'dark'
+                      ? 'bg-neutral-800 border-neutral-700 text-neutral-300 hover:bg-neutral-700'
+                      : 'bg-neutral-100 border-neutral-200 text-neutral-700 hover:bg-neutral-200'
+                  }`}
+                >
+                  Ghairi
+                </button>
+                <button
+                  onClick={() => {
+                    if (showConfirmDeleteModal.type === 'all') {
+                      handleDeleteAll();
+                    } else if (showConfirmDeleteModal.rideId) {
+                      handleDeleteSingle(showConfirmDeleteModal.rideId);
+                    }
+                  }}
+                  disabled={isDeletingAll || Boolean(deletingId)}
+                  className="flex-1 py-3.5 rounded-2xl bg-red-600 hover:bg-red-700 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-red-600/20 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  {(isDeletingAll || deletingId) && <Loader2 size={16} className="animate-spin" />}
+                  {isDeletingAll || deletingId ? 'Inafuta...' : 'Ndiyo, Futa'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>
