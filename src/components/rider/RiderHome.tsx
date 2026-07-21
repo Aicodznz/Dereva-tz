@@ -1485,398 +1485,48 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
     }
 
     const isSm = size === 'sm';
+    const widthClass = isSm ? 'w-8 h-8' : 'w-12 h-12';
     
-    if (isSm) {
-      // Small compact circular avatar inside rank metallic ring
-      let borderClass = 'border-amber-500 shadow-[0_0_8px_rgba(241,196,15,0.4)]';
-      let ratingBg = 'bg-amber-500';
-      if (driverRating >= 4.8) {
-        borderClass = 'border-yellow-400 shadow-[0_0_8px_rgba(253,224,71,0.5)]';
-        ratingBg = 'bg-yellow-500';
-      } else if (driverRating >= 4.5) {
-        borderClass = 'border-slate-300 shadow-[0_0_8px_rgba(203,213,225,0.4)]';
-        ratingBg = 'bg-slate-500';
-      } else {
-        borderClass = 'border-amber-700 shadow-[0_0_8px_rgba(180,83,9,0.3)]';
-        ratingBg = 'bg-amber-700';
-      }
-
-      return (
-        <button
-          onClick={onProfileClick}
-          className={`relative w-8 h-8 rounded-full border-2 ${borderClass} overflow-visible bg-white dark:bg-neutral-900 shadow-lg active:scale-90 transition-all cursor-pointer inline-flex items-center justify-center p-0 shrink-0 pointer-events-auto`}
-          title={`Wasifu wako - Rank: ${rankName} (${driverRating.toFixed(1)} ★)`}
-        >
-          <img 
-            src={profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid || 'Juma'}`} 
-            alt="Driver" 
-            referrerPolicy="no-referrer"
-            className="w-full h-full rounded-full object-cover"
-          />
-          {/* Mini Tanzania flag overlay */}
-          <div className="absolute -top-1 -right-1 w-3.5 h-2.5 rounded-xs overflow-hidden border border-white shadow flex items-center justify-center">
-            <svg viewBox="0 0 40 25" className="w-full h-full">
-              <rect width="40" height="25" fill="#1EB53A" />
-              <polygon points="0,25 40,0 40,25" fill="#00A3E0" />
-              <line x1="0" y1="25" x2="40" y2="0" stroke="#FCD116" strokeWidth="8" />
-              <line x1="0" y1="25" x2="40" y2="0" stroke="#000000" strokeWidth="4" />
-            </svg>
-          </div>
-          {/* Micro score badge */}
-          <div className={`absolute -bottom-1 -right-1 ${ratingBg} text-white text-[6.5px] font-black px-1 rounded-full border border-white dark:border-[#111118] flex items-center shadow-md`}>
-            <span>{driverRating.toFixed(1)}</span>
-          </div>
-        </button>
-      );
-    }
-
-    // Main Medium/Large Rank Badge - fully customized gamified layouts as requested by images
+    let borderClass = 'border-amber-500 shadow-[0_0_8px_rgba(241,196,15,0.4)]';
+    let ratingBg = 'bg-amber-500';
     if (driverRating >= 4.8) {
-      // 🥇 GOLD OCTAGONAL BADGE - "DEREVA BORA"
-      return (
-        <div className="relative w-15 h-[72px] flex flex-col items-center justify-center pointer-events-auto shrink-0 select-none">
-          <button 
-            onClick={onProfileClick}
-            className="absolute inset-0 w-full h-full cursor-pointer focus:outline-none"
-            title={`Wasifu wako - DEREVA BORA (${driverRating.toFixed(1)} ★)`}
-          >
-            <svg viewBox="0 0 100 120" className="absolute inset-0 w-full h-full drop-shadow-[0_4px_8px_rgba(0,0,0,0.35)]">
-              <defs>
-                <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#FFF2B2" />
-                  <stop offset="30%" stopColor="#F1C40F" />
-                  <stop offset="50%" stopColor="#F39C12" />
-                  <stop offset="70%" stopColor="#F1C40F" />
-                  <stop offset="100%" stopColor="#9A7D0A" />
-                </linearGradient>
-                <linearGradient id="darkGoldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#7D6608" />
-                  <stop offset="100%" stopColor="#1A1501" />
-                </linearGradient>
-                <linearGradient id="innerGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#2C3E50" />
-                  <stop offset="100%" stopColor="#0F2027" />
-                </linearGradient>
-                <linearGradient id="ribbonGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#B7950B" />
-                  <stop offset="30%" stopColor="#F4D03F" />
-                  <stop offset="50%" stopColor="#FCF3CF" />
-                  <stop offset="70%" stopColor="#F4D03F" />
-                  <stop offset="100%" stopColor="#B7950B" />
-                </linearGradient>
-                <clipPath id="avatarClipGold">
-                  <circle cx="50" cy="58" r="21" />
-                </clipPath>
-              </defs>
-
-              {/* Outer Octagon Shape */}
-              <polygon 
-                points="32,2 68,2 98,32 98,68 68,98 32,98 2,68 2,32" 
-                fill="url(#goldGrad)" 
-                stroke="url(#darkGoldGrad)" 
-                strokeWidth="2"
-              />
-              
-              {/* Inner Octagon Border */}
-              <polygon 
-                points="34,6 66,6 94,34 94,66 66,94 34,94 6,66 6,34" 
-                fill="#111118" 
-                stroke="url(#goldGrad)" 
-                strokeWidth="1.5"
-              />
-
-              {/* Top stars & Rating text */}
-              <g transform="translate(50, 19)" textAnchor="middle">
-                <text y="-4" fill="url(#goldGrad)" fontSize="6.5" fontWeight="950" letterSpacing="0.5" fontFamily="monospace">
-                  TOP RATED
-                </text>
-                <text y="4" fill="#F1C40F" fontSize="6">★★★★★</text>
-              </g>
-
-              {/* Center Avatar Hole outer metallic rim */}
-              <circle cx="50" cy="58" r="23" fill="url(#goldGrad)" />
-              {/* Inner dark circle behind avatar */}
-              <circle cx="50" cy="58" r="21" fill="url(#innerGrad)" />
-
-              {/* Center Avatar Image with clipPath */}
-              <image 
-                href={profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid || 'Juma'}`}
-                x="29" 
-                y="37" 
-                width="42" 
-                height="42" 
-                clipPath="url(#avatarClipGold)"
-                preserveAspectRatio="xMidYMid slice"
-              />
-
-              {/* Ribbon Banner at the bottom */}
-              <path 
-                d="M 5 88 L 95 88 L 90 99 L 10 99 Z" 
-                fill="url(#ribbonGrad)" 
-                stroke="url(#darkGoldGrad)" 
-                strokeWidth="1"
-              />
-              {/* Ribbon folds */}
-              <polygon points="5,88 10,99 0,94" fill="#7D6608" />
-              <polygon points="95,88 90,99 100,94" fill="#7D6608" />
-
-              {/* Swahili Text in Ribbon Banner */}
-              <text x="50" y="96.5" fill="#111118" fontSize="6" fontWeight="950" textAnchor="middle" letterSpacing="0.1">
-                DEREVA BORA
-              </text>
-
-              {/* Tanzanian Flag shape dangling at the bottom */}
-              <g transform="translate(42, 103)">
-                <rect width="16" height="10" rx="1" fill="#1EB53A" />
-                <polygon points="0,10 16,0 16,10" fill="#00A3E0" />
-                <line x1="0" y1="10" x2="16" y2="0" stroke="#FCD116" strokeWidth="3" />
-                <line x1="0" y1="10" x2="16" y2="0" stroke="#000000" strokeWidth="1.5" />
-                {/* Small golden pin/loop */}
-                <circle cx="8" cy="-1" r="1.5" fill="url(#goldGrad)" />
-              </g>
-
-              {/* Rating score overlay integrated into the SVG bottom area */}
-              <g transform="translate(50, 79)">
-                <rect x="-15" y="-6" width="30" height="11" rx="3.5" fill="#111118" stroke="#F1C40F" strokeWidth="0.8" />
-                <text y="2.2" fill="#F1C40F" fontSize="7.5" fontWeight="950" textAnchor="middle">
-                  ★ {driverRating.toFixed(1)}
-                </text>
-              </g>
-            </svg>
-          </button>
-        </div>
-      );
+      borderClass = 'border-yellow-400 shadow-[0_0_8px_rgba(253,224,71,0.5)]';
+      ratingBg = 'bg-yellow-500';
     } else if (driverRating >= 4.5) {
-      // 🥈 SILVER SHIELD BADGE - "DEREVA MKUU"
-      return (
-        <div className="relative w-15 h-[72px] flex flex-col items-center justify-center pointer-events-auto shrink-0 select-none">
-          <button 
-            onClick={onProfileClick}
-            className="absolute inset-0 w-full h-full cursor-pointer focus:outline-none"
-            title={`Wasifu wako - DEREVA MKUU (${driverRating.toFixed(1)} ★)`}
-          >
-            <svg viewBox="0 0 100 120" className="absolute inset-0 w-full h-full drop-shadow-[0_4px_8px_rgba(0,0,0,0.35)]">
-              <defs>
-                <linearGradient id="silverGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#FFFFFF" />
-                  <stop offset="30%" stopColor="#D5D8DC" />
-                  <stop offset="50%" stopColor="#AEB6BF" />
-                  <stop offset="70%" stopColor="#D5D8DC" />
-                  <stop offset="100%" stopColor="#5D6D7E" />
-                </linearGradient>
-                <linearGradient id="greenBgGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#0F4C3A" />
-                  <stop offset="50%" stopColor="#1E5B4B" />
-                  <stop offset="100%" stopColor="#0A2C21" />
-                </linearGradient>
-                <linearGradient id="innerGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#2C3E50" />
-                  <stop offset="100%" stopColor="#0F2027" />
-                </linearGradient>
-                <linearGradient id="ribbonSilverGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#AEB6BF" />
-                  <stop offset="30%" stopColor="#E5E8E8" />
-                  <stop offset="50%" stopColor="#FBFCFC" />
-                  <stop offset="70%" stopColor="#E5E8E8" />
-                  <stop offset="100%" stopColor="#AEB6BF" />
-                </linearGradient>
-                <clipPath id="avatarClipSilver">
-                  <circle cx="50" cy="58" r="21" />
-                </clipPath>
-              </defs>
-
-              {/* Outer Heraldic Shield Shape */}
-              <path 
-                d="M 10 5 Q 50 2 90 5 L 90 55 Q 90 85 50 100 Q 10 85 10 55 Z" 
-                fill="url(#greenBgGrad)" 
-                stroke="url(#silverGrad)" 
-                strokeWidth="2.5"
-              />
-              
-              {/* Inner Shield outline */}
-              <path 
-                d="M 13 8 Q 50 5 87 8 L 87 53 Q 87 81 50 95 Q 13 81 13 53 Z" 
-                fill="transparent" 
-                stroke="url(#silverGrad)" 
-                strokeWidth="1"
-                strokeDasharray="2,2"
-                opacity="0.7"
-              />
-
-              {/* Top Text / Score */}
-              <g transform="translate(50, 19)" textAnchor="middle">
-                <text fill="url(#silverGrad)" fontSize="6" fontWeight="950" letterSpacing="0.5" fontFamily="monospace">
-                  SCORE: {Math.round((driverRating / 5) * 100)}/100
-                </text>
-                <text y="6" fill="#60A5FA" fontSize="5.5">★★★★☆</text>
-              </g>
-
-              {/* Center Avatar Hole outer metallic rim */}
-              <circle cx="50" cy="58" r="23" fill="url(#silverGrad)" />
-              {/* Inner dark circle behind avatar */}
-              <circle cx="50" cy="58" r="21" fill="url(#innerGrad)" />
-
-              {/* Center Avatar Image with clipPath */}
-              <image 
-                href={profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid || 'Juma'}`}
-                x="29" 
-                y="37" 
-                width="42" 
-                height="42" 
-                clipPath="url(#avatarClipSilver)"
-                preserveAspectRatio="xMidYMid slice"
-              />
-
-              {/* Ribbon Banner at the bottom */}
-              <path 
-                d="M 5 88 L 95 88 L 90 99 L 10 99 Z" 
-                fill="url(#ribbonSilverGrad)" 
-                stroke="#5D6D7E" 
-                strokeWidth="1"
-              />
-              {/* Ribbon folds */}
-              <polygon points="5,88 10,99 0,94" fill="#34495E" />
-              <polygon points="95,88 90,99 100,94" fill="#34495E" />
-
-              {/* Swahili Text in Ribbon Banner */}
-              <text x="50" y="96.5" fill="#1A252F" fontSize="6" fontWeight="950" textAnchor="middle" letterSpacing="0.1">
-                DEREVA MKUU
-              </text>
-
-              {/* Tanzanian Flag shape dangling at the bottom */}
-              <g transform="translate(42, 103)">
-                <rect width="16" height="10" rx="1" fill="#1EB53A" />
-                <polygon points="0,10 16,0 16,10" fill="#00A3E0" />
-                <line x1="0" y1="10" x2="16" y2="0" stroke="#FCD116" strokeWidth="3" />
-                <line x1="0" y1="10" x2="16" y2="0" stroke="#000000" strokeWidth="1.5" />
-                {/* Small silver pin */}
-                <circle cx="8" cy="-1" r="1.5" fill="url(#silverGrad)" />
-              </g>
-
-              {/* Rating score overlay integrated into the SVG bottom area */}
-              <g transform="translate(50, 79)">
-                <rect x="-15" y="-6" width="30" height="11" rx="3.5" fill="#111118" stroke="#AEB6BF" strokeWidth="0.8" />
-                <text y="2.2" fill="url(#silverGrad)" fontSize="7.5" fontWeight="950" textAnchor="middle">
-                  ★ {driverRating.toFixed(1)}
-                </text>
-              </g>
-            </svg>
-          </button>
-        </div>
-      );
+      borderClass = 'border-slate-300 shadow-[0_0_8px_rgba(203,213,225,0.4)]';
+      ratingBg = 'bg-slate-500';
     } else {
-      // 🥉 BRONZE/STEEL DIAMOND BADGE - "DEREVA UZOEFU"
-      return (
-        <div className="relative w-15 h-[72px] flex flex-col items-center justify-center pointer-events-auto shrink-0 select-none">
-          <button 
-            onClick={onProfileClick}
-            className="absolute inset-0 w-full h-full cursor-pointer focus:outline-none"
-            title={`Wasifu wako - DEREVA MWENYE UZOEFU (${driverRating.toFixed(1)} ★)`}
-          >
-            <svg viewBox="0 0 100 120" className="absolute inset-0 w-full h-full drop-shadow-[0_4px_8px_rgba(0,0,0,0.35)]">
-              <defs>
-                <linearGradient id="bronzeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#D35400" />
-                  <stop offset="40%" stopColor="#E59866" />
-                  <stop offset="60%" stopColor="#F5B041" />
-                  <stop offset="100%" stopColor="#873600" />
-                </linearGradient>
-                <linearGradient id="darkBgGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#2E4053" />
-                  <stop offset="100%" stopColor="#111118" />
-                </linearGradient>
-                <linearGradient id="innerGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#2C3E50" />
-                  <stop offset="100%" stopColor="#0F2027" />
-                </linearGradient>
-                <linearGradient id="ribbonBronzeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#873600" />
-                  <stop offset="50%" stopColor="#E59866" />
-                  <stop offset="100%" stopColor="#873600" />
-                </linearGradient>
-                <clipPath id="avatarClipBronze">
-                  <circle cx="50" cy="58" r="21" />
-                </clipPath>
-              </defs>
-
-              {/* Outer Diamond Shape */}
-              <polygon 
-                points="50,2 95,45 50,90 5,45" 
-                fill="url(#darkBgGrad)" 
-                stroke="url(#bronzeGrad)" 
-                strokeWidth="2.5"
-              />
-              
-              {/* Inner Diamond Border */}
-              <polygon 
-                points="50,8 88,45 50,82 12,45" 
-                fill="transparent" 
-                stroke="url(#bronzeGrad)" 
-                strokeWidth="1"
-                opacity="0.6"
-              />
-
-              {/* Top Text */}
-              <g transform="translate(50, 22)" textAnchor="middle">
-                <text fill="url(#bronzeGrad)" fontSize="7" fontWeight="950" letterSpacing="0.8" fontFamily="sans-serif">
-                  ELITE
-                </text>
-              </g>
-
-              {/* Center Avatar Hole outer metallic rim */}
-              <circle cx="50" cy="58" r="23" fill="url(#bronzeGrad)" />
-              {/* Inner dark circle behind avatar */}
-              <circle cx="50" cy="58" r="21" fill="url(#innerGrad)" />
-
-              {/* Center Avatar Image with clipPath */}
-              <image 
-                href={profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid || 'Juma'}`}
-                x="29" 
-                y="37" 
-                width="42" 
-                height="42" 
-                clipPath="url(#avatarClipBronze)"
-                preserveAspectRatio="xMidYMid slice"
-              />
-
-              {/* Ribbon Banner at the bottom */}
-              <path 
-                d="M 5 88 L 95 88 L 90 99 L 10 99 Z" 
-                fill="url(#ribbonBronzeGrad)" 
-                stroke="#5E2F0D" 
-                strokeWidth="1"
-              />
-              {/* Ribbon folds */}
-              <polygon points="5,88 10,99 0,94" fill="#3E1C02" />
-              <polygon points="95,88 90,99 100,94" fill="#3E1C02" />
-
-              {/* Swahili Text in Ribbon Banner */}
-              <text x="50" y="96.5" fill="#FFFFFF" fontSize="5.5" fontWeight="950" textAnchor="middle" letterSpacing="0.05">
-                DEREVA UZOEFU
-              </text>
-
-              {/* Tanzanian Flag shape dangling at the bottom */}
-              <g transform="translate(42, 103)">
-                <rect width="16" height="10" rx="1" fill="#1EB53A" />
-                <polygon points="0,10 16,0 16,10" fill="#00A3E0" />
-                <line x1="0" y1="10" x2="16" y2="0" stroke="#FCD116" strokeWidth="3" />
-                <line x1="0" y1="10" x2="16" y2="0" stroke="#000000" strokeWidth="1.5" />
-                {/* Small bronze pin */}
-                <circle cx="8" cy="-1" r="1.5" fill="url(#bronzeGrad)" />
-              </g>
-
-              {/* Rating score overlay integrated into the SVG bottom area */}
-              <g transform="translate(50, 79)">
-                <rect x="-15" y="-6" width="30" height="11" rx="3.5" fill="#111118" stroke="#D35400" strokeWidth="0.8" />
-                <text y="2.2" fill="#F5B041" fontSize="7.5" fontWeight="950" textAnchor="middle">
-                  ★ {driverRating.toFixed(1)}
-                </text>
-              </g>
-            </svg>
-          </button>
-        </div>
-      );
+      borderClass = 'border-amber-700 shadow-[0_0_8px_rgba(180,83,9,0.3)]';
+      ratingBg = 'bg-amber-700';
     }
+
+    return (
+      <button
+        onClick={onProfileClick}
+        className={`relative ${widthClass} rounded-full border-2 ${borderClass} overflow-visible bg-white dark:bg-neutral-900 shadow-lg active:scale-90 transition-all cursor-pointer inline-flex items-center justify-center p-0 shrink-0 pointer-events-auto`}
+        title={`Wasifu wako - Rank: ${rankName} (${driverRating.toFixed(1)} ★)`}
+      >
+        <img 
+          src={profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid || 'Juma'}`} 
+          alt="Driver" 
+          referrerPolicy="no-referrer"
+          className="w-full h-full rounded-full object-cover"
+        />
+        {/* Tanzania flag overlay */}
+        <div className={`absolute ${isSm ? '-top-1 -right-1 w-3.5 h-2.5' : '-top-0.5 -right-0.5 w-5 h-3.5'} rounded-xs overflow-hidden border border-white shadow flex items-center justify-center`}>
+          <svg viewBox="0 0 40 25" className="w-full h-full">
+            <rect width="40" height="25" fill="#1EB53A" />
+            <polygon points="0,25 40,0 40,25" fill="#00A3E0" />
+            <line x1="0" y1="25" x2="40" y2="0" stroke="#FCD116" strokeWidth="8" />
+            <line x1="0" y1="25" x2="40" y2="0" stroke="#000000" strokeWidth="4" />
+          </svg>
+        </div>
+        {/* Micro score badge centered at the bottom */}
+        <div className={`absolute -bottom-1 left-1/2 -translate-x-1/2 ${ratingBg} text-white ${isSm ? 'text-[6.5px] px-1' : 'text-[8.5px] px-1.5 py-0.5'} font-black rounded-full border border-white dark:border-[#111118] flex items-center shadow-md whitespace-nowrap`}>
+          <span>{driverRating.toFixed(1)}</span>
+        </div>
+      </button>
+    );
   };
 
   const toggleStatus = async () => {
@@ -2492,30 +2142,24 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
             initial={{ y: -100, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -100, opacity: 0 }}
-            className="absolute top-4 inset-x-0 z-[9999] flex justify-center px-4"
+            className="absolute top-4 inset-x-4 z-[9999] flex justify-between items-center pointer-events-none"
           >
-            {/* Centered Top Header Pill */}
-            <div className="glass-morphism pointer-events-auto rounded-full py-1.5 pl-3.5 pr-2.5 flex items-center gap-3 shadow-xl border border-white/15 select-none bg-neutral-950/85 dark:bg-black/60 backdrop-blur-md max-w-max">
-              {/* Wallet Section */}
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
-                  <Wallet className="w-4 h-4 stroke-[2.5]" />
-                </div>
-                <div className="flex flex-col text-left">
-                  <span className="text-[7.5px] font-black uppercase text-neutral-400 tracking-wider leading-none">Mkoba / Wallet</span>
-                  <span className="text-[12.5px] font-black text-white italic tracking-tight mt-0.5 leading-none">
-                    {(profile?.balance || 0).toLocaleString()} TZS
-                  </span>
-                </div>
+            {/* Wallet Pill on the left */}
+            <div className="glass-morphism pointer-events-auto rounded-full py-1.5 px-3.5 flex items-center gap-2.5 shadow-xl border border-neutral-200/50 dark:border-white/10 select-none bg-white/90 dark:bg-neutral-900/80 backdrop-blur-md">
+              <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-emerald-500/30">
+                <Wallet className="w-4 h-4 stroke-[2.5]" />
               </div>
-
-              {/* Divider */}
-              <div className="h-6 w-[1px] bg-white/10" />
-
-              {/* Profile Avatar with small compact style */}
-              <div className="flex items-center shrink-0">
-                {renderProfileAvatar('sm')}
+              <div className="flex flex-col text-left">
+                <span className="text-[7.5px] font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-wider leading-none">MKOBA / WALLET</span>
+                <span className="text-[12px] font-black text-neutral-800 dark:text-white italic tracking-tight mt-0.5 leading-none">
+                  {(profile?.balance || 0).toLocaleString()} TZS
+                </span>
               </div>
+            </div>
+
+            {/* Profile Avatar on the right */}
+            <div className="pointer-events-auto">
+              {renderProfileAvatar('md')}
             </div>
           </motion.div>
         )}
