@@ -2142,23 +2142,61 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
             initial={{ y: -100, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -100, opacity: 0 }}
-            className="absolute top-4 inset-x-4 z-[9999] flex justify-between items-center pointer-events-none"
+            className="absolute top-4 inset-x-4 z-[9999] grid grid-cols-3 items-center pointer-events-none"
           >
-            {/* Wallet Pill on the left */}
-            <div className="glass-morphism pointer-events-auto rounded-full py-1.5 px-3.5 flex items-center gap-2.5 shadow-xl border border-neutral-200/50 dark:border-white/10 select-none bg-white/90 dark:bg-neutral-900/80 backdrop-blur-md">
-              <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-emerald-500/30">
-                <Wallet className="w-4 h-4 stroke-[2.5]" />
+            {/* Left side: Empty placeholder to align center properly */}
+            <div className="pointer-events-none" />
+
+            {/* Center side: Compact Wallet & Earnings Pill */}
+            <div className="justify-self-center pointer-events-auto flex items-center bg-white/95 dark:bg-neutral-900/90 backdrop-blur-md rounded-full px-2.5 py-1 border border-neutral-200/50 dark:border-white/10 shadow-lg gap-2 select-none">
+              {/* Wallet / Mkoba */}
+              <div className="flex items-center gap-1">
+                <div className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-emerald-500/30">
+                  <Wallet className="w-3.5 h-3.5 stroke-[2.5]" />
+                </div>
+                <div className="flex flex-col text-left">
+                  <span className="text-[6px] font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-wider leading-none">MKOBA</span>
+                  <span className="text-[9px] font-black text-neutral-800 dark:text-white mt-0.5 leading-none whitespace-nowrap">
+                    {(profile?.balance || 0).toLocaleString()} TZS
+                  </span>
+                </div>
               </div>
-              <div className="flex flex-col text-left">
-                <span className="text-[7.5px] font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-wider leading-none">MKOBA / WALLET</span>
-                <span className="text-[12px] font-black text-neutral-800 dark:text-white italic tracking-tight mt-0.5 leading-none">
-                  {(profile?.balance || 0).toLocaleString()} TZS
-                </span>
+
+              {/* Divider */}
+              <div className="h-4.5 w-[1px] bg-neutral-200 dark:bg-white/10" />
+
+              {/* Today's Earnings / Leo */}
+              <div className="flex items-center gap-1">
+                <div className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-blue-500/30">
+                  <TrendingUp className="w-3.5 h-3.5 stroke-[2.5]" />
+                </div>
+                <div className="flex flex-col text-left">
+                  <span className="text-[6px] font-black uppercase text-blue-600 dark:text-blue-400 tracking-wider leading-none">LEO</span>
+                  <span className="text-[9px] font-black text-neutral-800 dark:text-white mt-0.5 leading-none whitespace-nowrap">
+                    {(stats?.todayEarnings || 0).toLocaleString()} TZS
+                  </span>
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div className="h-4.5 w-[1px] bg-neutral-200 dark:bg-white/10" />
+
+              {/* Total Earnings / Jumla */}
+              <div className="flex items-center gap-1">
+                <div className="w-6 h-6 rounded-full bg-purple-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-purple-500/30">
+                  <DollarSign className="w-3.5 h-3.5 stroke-[2.5]" />
+                </div>
+                <div className="flex flex-col text-left">
+                  <span className="text-[6px] font-black uppercase text-purple-600 dark:text-purple-400 tracking-wider leading-none">JUMLA</span>
+                  <span className="text-[9px] font-black text-neutral-800 dark:text-white mt-0.5 leading-none whitespace-nowrap">
+                    {(stats?.lifetimeEarnings || 0).toLocaleString()} TZS
+                  </span>
+                </div>
               </div>
             </div>
 
-            {/* Profile Avatar on the right */}
-            <div className="pointer-events-auto">
+            {/* Right side: Profile Avatar */}
+            <div className="justify-self-end pointer-events-auto">
               {renderProfileAvatar('md')}
             </div>
           </motion.div>
