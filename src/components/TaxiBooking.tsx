@@ -3538,29 +3538,6 @@ export default function TaxiBooking() {
                       return null;
                     })()}
                   </MapContainer>
-
-
-                  {/* Floating locate button inside the map area */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (["arriving", "on_trip", "found"].includes(step)) {
-                        setAutoFollow(true);
-                        setMapRefitTrigger((prev) => prev + 1);
-                        toast.success("Ramani sasa inafuatilia dereva kiotomatiki! 🚗");
-                      } else {
-                        handleCurrentLocation();
-                      }
-                    }}
-                    title={["arriving", "on_trip", "found"].includes(step) ? "Fuata Dereva Kiotomatiki" : "Angazia Eneo Langu la Sasa"}
-                    className={`absolute bottom-6 right-6 z-[1000] bg-black/80 hover:bg-black border rounded-full p-4 shadow-2xl flex items-center justify-center backdrop-blur-md active:scale-95 transition-all hover:shadow-[#00E5A0]/20 hover:shadow-lg ${
-                      ["arriving", "on_trip", "found"].includes(step) && autoFollow
-                        ? "border-[#00E5A0] text-[#00E5A0]"
-                        : "border-white/20 text-white"
-                    }`}
-                  >
-                    <Navigation2 className={`w-5 h-5 ${["arriving", "on_trip", "found"].includes(step) && autoFollow ? "text-[#00E5A0] animate-pulse" : ""}`} />
-                  </button>
                 </div>
               </motion.div>
             )}
