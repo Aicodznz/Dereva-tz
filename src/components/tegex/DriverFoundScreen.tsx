@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CheckCircle2 } from 'lucide-react';
 import { useTheme } from 'next-themes';
+import { useLanguage } from '../../LanguageContext';
 
 interface DriverFoundScreenProps {
   onNext: () => void;
@@ -11,6 +12,7 @@ interface DriverFoundScreenProps {
 export const DriverFoundScreen: React.FC<DriverFoundScreenProps> = ({ onNext, isMinimized }) => {
   const { resolvedTheme } = useTheme();
   const theme = resolvedTheme === 'dark' ? 'dark' : 'light';
+  const { t, language } = useLanguage();
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -55,17 +57,19 @@ export const DriverFoundScreen: React.FC<DriverFoundScreenProps> = ({ onNext, is
               className="mt-8 text-center"
             >
               <h2 className={`text-3xl font-black tracking-tight leading-tight ${theme === 'dark' ? 'text-[#f0eeff]' : 'text-neutral-800'}`}>
-                Tumepata Dereva!
+                {t('driver_found')}
               </h2>
               <motion.div 
                 animate={{ x: [-1, 1, -1] }}
                 transition={{ duration: 0.5, repeat: Infinity }}
                 className={`mt-3 inline-block px-4 py-1.5 rounded-full border ${theme === 'dark' ? 'bg-emerald-950/20 border-emerald-900/60' : 'bg-emerald-50 border-emerald-500/20'}`}
               >
-                <p className={`text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-emerald-400' : 'text-emerald-700'}`}>🎉 YUKO NJIANI</p>
+                <p className={`text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-emerald-400' : 'text-emerald-700'}`}>
+                  {language === 'en' ? '🎉 ON THE WAY' : language === 'ar' ? '🎉 في الطريق' : '🎉 YUKO NJIANI'}
+                </p>
               </motion.div>
               <p className={`mt-4 font-medium text-xs leading-relaxed ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-600'}`}>
-                Dereva wako amekubali ombi lako na anakuja kukuchukua sasa hivi.
+                {language === 'en' ? 'Your driver has accepted your request and is coming to pick you up now.' : language === 'ar' ? 'لقد قبل سائقك طلبك وهو في طريقه لاصطحابك الآن.' : 'Dereva wako amekubali ombi lako na anakuja kukuchukua sasa hivi.'}
               </p>
             </motion.div>
           </motion.div>

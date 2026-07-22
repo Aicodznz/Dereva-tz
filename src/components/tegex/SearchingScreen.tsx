@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X } from 'lucide-react';
 import { Ride } from '../../types/trip.types';
 import { useTheme } from 'next-themes';
+import { useLanguage } from '../../LanguageContext';
 
 interface SearchingScreenProps {
   ride: Ride | null;
@@ -17,8 +18,19 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel
   const [statusIndex, setStatusIndex] = useState(0);
   const { resolvedTheme } = useTheme();
   const theme = resolvedTheme === 'dark' ? 'dark' : 'light';
+  const { t, language } = useLanguage();
 
-  const statuses = [
+  const statuses = language === 'en' ? [
+    `Searching for ${ride?.vehicleType === 'mini' ? 'Car' : ride?.vehicleType === 'bajaj' ? 'Bajaj' : 'Motorcycle'} drivers nearby...`,
+    "Analyzing nearby available drivers...",
+    "Sending request to driver...",
+    "Please wait, finding the best driver for you..."
+  ] : language === 'ar' ? [
+    `جاري البحث عن سائقي ${ride?.vehicleType === 'mini' ? 'سيارة' : ride?.vehicleType === 'bajaj' ? 'باجاج' : 'دراجة نارية'} بالقرب منك...`,
+    "جاري تحليل السائقين القريبين المتاحين...",
+    "جاري إرسال الطلب إلى السائق...",
+    "يرجى الانتظار، جاري البحث عن أفضل سائق لك..."
+  ] : [
     `Inatafuta madereva wa ${ride?.vehicleType === 'mini' ? 'Gari' : ride?.vehicleType === 'bajaj' ? 'Bajaji' : 'Pikipiki'} Karibu Nawe...`,
     "Inachambua madereva walio karibu nawe...",
     "Tunatuma ombi lako kwa dereva mwenye usafiri husika...",
@@ -74,13 +86,13 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel
                   <div className="flex-1 min-w-0 space-y-2">
                     {/* Pickup Address */}
                     <div className="min-w-0">
-                      <p className="text-[7.5px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-wider leading-none mb-0.5">UNATOKEA</p>
-                      <p className={`text-[11.5px] font-bold truncate leading-tight ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`}>{ride?.pickup?.address || "Eneo lako..."}</p>
+                      <p className="text-[7.5px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-wider leading-none mb-0.5">{t('from_label')}</p>
+                      <p className={`text-[11.5px] font-bold truncate leading-tight ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`}>{ride?.pickup?.address || "..."}</p>
                     </div>
                     {/* Destination Address */}
                     <div className="min-w-0">
-                      <p className="text-[7.5px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-wider leading-none mb-0.5">UNAKWENDA</p>
-                      <p className={`text-[11.5px] font-bold truncate leading-tight ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`}>{ride?.destination?.address || "Andika..."}</p>
+                      <p className="text-[7.5px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-wider leading-none mb-0.5">{t('to_label')}</p>
+                      <p className={`text-[11.5px] font-bold truncate leading-tight ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`}>{ride?.destination?.address || "..."}</p>
                     </div>
                   </div>
                 </div>
@@ -97,13 +109,13 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel
                     </span>
                     <div>
                       <p className={`text-[11px] font-black uppercase ${theme === 'dark' ? 'text-neutral-300' : 'text-neutral-800'}`}>{ride?.vehicleType || 'Gari'}</p>
-                      <p className="text-[8px] font-semibold text-neutral-400 uppercase tracking-wide">Usafiri wa Haraka</p>
+                      <p className="text-[8px] font-semibold text-neutral-400 uppercase tracking-wide">Papo Hapo</p>
                     </div>
                   </div>
 
                   {/* Cost Details */}
                   <div className="text-right">
-                    <p className="text-[8px] font-black text-neutral-400 uppercase tracking-widest leading-none mb-0.5">GHARAMA</p>
+                    <p className="text-[8px] font-black text-neutral-400 uppercase tracking-widest leading-none mb-0.5">{t('fare').toUpperCase()}</p>
                     <p className="text-xs font-black text-indigo-500 leading-none">TZS {ride?.fare?.toLocaleString()}</p>
                   </div>
                 </div>
@@ -130,7 +142,7 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
                   </div>
                   <h2 className="text-[11px] font-black text-indigo-500 tracking-wider uppercase leading-none">
-                    Utafutaji unaendelea{dots}
+                    {t('searching_driver')}{dots}
                   </h2>
                 </div>
 
@@ -143,7 +155,7 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel
                     exit={{ opacity: 0, y: -3 }}
                     className={`text-[9.5px] font-semibold uppercase tracking-wide italic min-h-[14px] leading-tight ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-600'}`}
                   >
-                    {ride ? statuses[statusIndex] : "Inatayarisha..."}
+                    {ride ? statuses[statusIndex] : "..."}
                   </motion.p>
                 </AnimatePresence>
 
@@ -154,7 +166,7 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel
                     className="w-full mt-3 h-10 bg-red-500/10 hover:bg-red-500/20 active:scale-95 text-red-500 border border-red-500/25 rounded-xl font-black uppercase text-[9.5px] tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5 stroke-[3]" />
-                    GHAIRI SAFARI
+                    {t('cancel_ride').toUpperCase()}
                   </button>
                 )}
               </div>

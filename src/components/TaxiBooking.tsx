@@ -513,7 +513,7 @@ interface RideOption {
 
 export default function TaxiBooking() {
   const { user, profile, signInGuest, loading } = useAuth();
-  const { language, setLanguage } = useLanguage();
+  const { language, setLanguage, t } = useLanguage();
   const { config } = useBusinessConfig();
   const navigate = useNavigate();
   const { setTheme: setNextTheme, resolvedTheme } = useTheme();
@@ -3061,7 +3061,7 @@ export default function TaxiBooking() {
                               className={`w-full text-left px-4 py-3 text-xs sm:text-sm flex items-center gap-3 transition-colors font-bold ${theme === 'dark' ? 'text-neutral-300 hover:text-indigo-400 hover:bg-neutral-900/60' : 'text-neutral-700 hover:text-indigo-600 hover:bg-neutral-50'}`}
                             >
                               <Home className="w-4 h-4 text-indigo-500" />
-                              <span>Rudi Nyumbani</span>
+                              <span>{t('back_to_home')}</span>
                             </button>
                             
                             <div className={`w-full border-b ${theme === 'dark' ? 'border-neutral-800/60' : 'border-neutral-100'}`} />
@@ -3074,7 +3074,7 @@ export default function TaxiBooking() {
                               className={`w-full text-left px-4 py-3 text-xs sm:text-sm flex items-center gap-3 transition-colors font-bold ${theme === 'dark' ? 'text-neutral-300 hover:text-indigo-400 hover:bg-neutral-900/60' : 'text-neutral-700 hover:text-indigo-600 hover:bg-neutral-50'}`}
                             >
                               <Clock className="w-4 h-4 text-emerald-500" />
-                              <span>Historia ya Safari</span>
+                              <span>{t('trip_history')}</span>
                             </button>
 
                             <div className={`w-full border-b ${theme === 'dark' ? 'border-neutral-800/60' : 'border-neutral-100'}`} />
@@ -3089,12 +3089,12 @@ export default function TaxiBooking() {
                               {mapType === "satellite" ? (
                                 <>
                                   <Layers className="w-4 h-4 text-sky-500" />
-                                  <span>Ramani ya Kawaida</span>
+                                  <span>{t('standard_map')}</span>
                                 </>
                               ) : (
                                 <>
                                   <Map className="w-4 h-4 text-rose-500" />
-                                  <span>Ramani ya Satelaiti</span>
+                                  <span>{t('satellite_map')}</span>
                                 </>
                               )}
                             </button>
@@ -3111,12 +3111,12 @@ export default function TaxiBooking() {
                               {theme === "dark" ? (
                                 <>
                                   <Sun className="w-4 h-4 text-amber-500" />
-                                  <span>Mwangaza</span>
+                                  <span>{t('light_mode')}</span>
                                 </>
                               ) : (
                                 <>
                                   <Moon className="w-4 h-4 text-blue-500" />
-                                  <span>Giza</span>
+                                  <span>{t('dark_mode')}</span>
                                 </>
                               )}
                             </button>
@@ -3126,16 +3126,17 @@ export default function TaxiBooking() {
                             <button
                               onClick={() => {
                                 setShowMenu(false);
-                                setLanguage(language === "sw" ? "en" : "sw");
+                                const nextLang = language === "sw" ? "en" : language === "en" ? "ar" : "sw";
+                                setLanguage(nextLang);
                               }}
                               className={`w-full text-left px-4 py-3 text-xs sm:text-sm flex items-center justify-between transition-colors font-bold ${theme === 'dark' ? 'text-neutral-300 hover:text-emerald-400 hover:bg-neutral-900/60' : 'text-neutral-700 hover:text-emerald-600 hover:bg-neutral-50'}`}
                             >
                               <div className="flex items-center gap-3">
                                 <Languages className="w-4 h-4 text-emerald-500" />
-                                <span>{language === "sw" ? "English" : "Kiswahili"}</span>
+                                <span>{language === "sw" ? "English" : language === "en" ? "العربية" : "Kiswahili"}</span>
                               </div>
                               <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                                {language === "sw" ? "EN" : "SW"}
+                                {language.toUpperCase()}
                               </span>
                             </button>
 
@@ -3170,7 +3171,7 @@ export default function TaxiBooking() {
                       onFocus={() => {
                         setSettingMode("pickup");
                       }}
-                      placeholder="Tafuta eneo lako..."
+                      placeholder={t('search_pickup_placeholder')}
                       className={`flex-1 bg-transparent text-[11px] sm:text-xs font-bold border-none outline-none p-0 font-sans ${theme === 'dark' ? 'text-neutral-200 placeholder:text-neutral-600' : 'text-neutral-800 placeholder:text-neutral-400'}`}
                     />
 
@@ -3594,7 +3595,7 @@ export default function TaxiBooking() {
                     </div>
                     <div className="flex-1 overflow-hidden">
                       <p className="text-[9px] font-black text-neutral-400 uppercase tracking-wider mb-0.5">
-                        Unatokea
+                        {t('from_label')}
                       </p>
                       <p className={`text-sm font-bold truncate ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`}>
                         {pickup}
@@ -3614,12 +3615,12 @@ export default function TaxiBooking() {
                     </div>
                     <div className="flex-1 overflow-hidden">
                       <p className="text-[9px] font-black text-neutral-400 uppercase tracking-wider mb-0.5">
-                        Unakwenda wapi?
+                        {t('where_to_go')}
                       </p>
                       <p
                         className={`text-sm font-bold truncate ${destination ? (theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800') : (theme === 'dark' ? 'text-neutral-600' : 'text-neutral-400')}`}
                       >
-                        {destination || "Andika hapa unapoenda"}
+                        {destination || t('type_destination_placeholder')}
                       </p>
                     </div>
                   </div>
@@ -3632,7 +3633,7 @@ export default function TaxiBooking() {
                   }}
                   className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-[50px] font-black tracking-[0.2em] text-xs shadow-lg active:scale-95 transition-all"
                 >
-                  AGIZA USAFIRI SASA
+                  {t('book_ride').toUpperCase()}
                 </button>
               </div>
             </motion.div>
@@ -3687,10 +3688,10 @@ export default function TaxiBooking() {
                       className={`flex items-center gap-2 px-4 py-2 rounded-2xl border transition-all text-[11px] font-black tracking-wider uppercase ${theme === 'dark' ? 'bg-neutral-900 hover:bg-neutral-800 border-neutral-800 text-neutral-400 hover:text-neutral-200' : 'bg-neutral-100 hover:bg-neutral-200 border-neutral-200/40 text-neutral-600 hover:text-neutral-800'}`}
                     >
                       <ArrowLeft className="w-3.5 h-3.5" />
-                      RUDI NYUMBANI
+                      {t('back_to_home').toUpperCase()}
                     </button>
                     <span className="text-[9px] font-black text-neutral-400 uppercase tracking-[0.2em] italic">
-                      chagua maeneo
+                      {t('select_location')}
                     </span>
                   </div>
 
@@ -3708,7 +3709,7 @@ export default function TaxiBooking() {
                         </div>
                         <div className="flex-1 overflow-hidden">
                           <p className="text-[8.5px] font-black uppercase tracking-[0.15em] text-indigo-500 dark:text-indigo-400 mb-1">
-                            UNAKWENDA WAPI?
+                            {t('where_to_go')}
                           </p>
                           <input
                             type="text"
@@ -3719,7 +3720,7 @@ export default function TaxiBooking() {
                             }}
                             onFocus={() => setSettingMode("destination")}
                             className={`w-full bg-transparent text-[13px] font-black border-none outline-none p-0 focus:ring-0 leading-tight ${theme === 'dark' ? 'text-neutral-100 placeholder:text-neutral-700' : 'text-neutral-850 placeholder:text-neutral-400'}`}
-                            placeholder="Andika hapa unapoenda"
+                            placeholder={t('type_destination_placeholder')}
                           />
                         </div>
                         <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -3728,10 +3729,10 @@ export default function TaxiBooking() {
                               e.stopPropagation();
                               setSettingMode("destination");
                               setIsMapFullscreen(true);
-                              toast.success("Gusa popote kwenye ramani ili kuchagua unakokwenda! 📍");
+                              toast.success(`${t('select_location')} ${t('on_map')}! 📍`);
                             }}
                             className={`w-10 h-10 flex items-center justify-center rounded-xl border active:scale-90 transition-all shadow-sm group ${theme === 'dark' ? 'bg-indigo-950/50 border-indigo-900/40 text-indigo-400 hover:bg-indigo-900/80 hover:text-indigo-300' : 'bg-indigo-50/80 border-indigo-100 text-indigo-600 hover:bg-indigo-100/90 hover:text-indigo-700'}`}
-                            title="Chagua kwa Ramani"
+                            title={t('on_map')}
                           >
                             <Map className="w-4 h-4 group-hover:scale-105 transition-transform" />
                           </button>

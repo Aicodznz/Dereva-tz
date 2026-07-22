@@ -25,10 +25,10 @@ export default function Header() {
 
   const getTimeGreeting = () => {
     const hour = new Date().getHours();
-    if (hour >= 5 && hour < 12) return { text: 'Habari za asubuhi', emoji: '☀️' };
-    if (hour >= 12 && hour < 18) return { text: 'Habari za mchana', emoji: '🌤️' };
-    if (hour >= 18 && hour < 22) return { text: 'Habari za jioni', emoji: '🌙' };
-    return { text: 'Habari za usiku', emoji: '🌌' };
+    if (hour >= 5 && hour < 12) return { text: t('good_morning'), emoji: '☀️' };
+    if (hour >= 12 && hour < 18) return { text: t('good_afternoon'), emoji: '🌤️' };
+    if (hour >= 18 && hour < 22) return { text: t('good_evening'), emoji: '🌙' };
+    return { text: t('good_night'), emoji: '🌌' };
   };
 
   const greeting = getTimeGreeting();
@@ -186,10 +186,10 @@ export default function Header() {
                     navigate('/');
                   }}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 text-white font-black text-[10px] uppercase tracking-wider shadow-md hover:scale-105 active:scale-95 transition-all"
-                  title="Modi ya Dereva"
+                  title={t('driver_mode')}
                 >
                   <Bike className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Modi ya Dereva</span>
+                  <span className="hidden sm:inline">{t('driver_mode')}</span>
                 </button>
               )}
 
