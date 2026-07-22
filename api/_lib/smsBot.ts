@@ -59,6 +59,22 @@ export interface SMSSession {
   savedLocations?: { home?: string; work?: string; custom?: string };
   splitFarePhone?: string;
   splitFareAmount?: number;
+  // Driver verification & registration
+  isDriverVerified?: boolean;
+  driverName?: string;
+  driverRegName?: string;
+  driverRegPhone?: string;
+  driverRegVehicle?: string;
+  driverRegBrand?: string;
+  driverRegColor?: string;
+  driverRegPlate?: string;
+  driverRegYear?: string;
+  driverRegLicense?: string;
+  driverRegLicenseExp?: string;
+  driverRegLatra?: string;
+  driverRegLatraExp?: string;
+  driverRegNida?: string;
+  driverRegAvailability?: string;
 }
 
 // In-memory fallback sessions state
@@ -489,27 +505,27 @@ export async function handleSMSInput(
         : "📦 PapoSend (VIFURUSHI & DELIVERY):\n\n1. 🚚 Tuma Mzigo / Kifurushi\n2. 🔍 Fuatilia Mzigo Wako\n\n0. Rudi Mwanzo";
     } 
     else if (cleanInput === '3' || lowerInput.includes('papodriver') || lowerInput.includes('dereva') || lowerInput.includes('driver')) {
-      session.step = 'DRIVER_OFFLINE_MENU';
       session.selectedService = 'driver';
-      await saveSession(session, dbAdmin);
-      
+      let cleanPhone = session.phone.replace('ussd:', '').replace(/\D/g, '');
+      let isRegisteredDriver = false;
       let driverName = "Juma Kapoya";
       let isOnline = true;
+
       if (dbAdmin) {
         try {
-          const cleanPhone = session.phone.replace('ussd:', '').replace(/\D/g, '');
           const dSnap = await dbAdmin.collection('drivers').get();
           if (!dSnap.empty) {
             const match = dSnap.docs.find((doc: any) => {
               const data = doc.data();
               const p = (data.phone || "").replace(/\D/g, '');
-              return p.endsWith(cleanPhone.slice(-8)) || cleanPhone.endsWith(p.slice(-8));
+              return p && (p.endsWith(cleanPhone.slice(-8)) || cleanPhone.endsWith(p.slice(-8)));
             });
             if (match) {
               const dData = match.data();
               driverName = dData.name || driverName;
               isOnline = dData.isOnline !== false;
               session.driverId = match.id;
+              isRegisteredDriver = true;
             }
           }
         } catch (e) {
@@ -517,7 +533,18 @@ export async function handleSMSInput(
         }
       }
 
-      return `🛵 PapoDriver (OFFLINE MENU):\n[Driver: ${driverName} | ${isOnline ? 'Online' : 'Offline'}]\n\n1. Toggle Status (Online/Offline)\n2. Pending Booking\n3. Active Trip\n4. Earnings Today\n0. Main Menu`;
+      if (isRegisteredDriver || session.isDriverVerified) {
+        session.isDriverVerified = true;
+        session.step = 'DRIVER_OFFLINE_MENU';
+        await saveSession(session, dbAdmin);
+        return `🛵 PapoDriver (PORTAL YA DEREVA):\n[Dereva: ${driverName || session.driverName || 'Juma Kapoya'} | Hali: ${isOnline ? '🟢 Online' : '🔴 Offline'}]\n\n1. Badili Hali (Online/Offline)\n2. Maombi ya Safari (Pending Bookings)\n3. Safari Inayoendelea (Active Trip)\n4. Mapato ya Leo (Earnings Today)\n0. Rudi Mwanzo`;
+      } else {
+        session.step = 'DRIVER_LOGIN_PROMPT';
+        await saveSession(session, dbAdmin);
+        return session.language === 'en'
+          ? `🔒 PAPODRIVER - RESTRICTED DRIVER PORTAL\n\nYour number (${cleanPhone}) is not verified as a registered Papo Hapo Driver.\n\n1. 🔑 Enter Driver PIN (Default: 1234)\n2. 🛵 Register as New Driver / Bodaboda\n\n0. Main Menu`
+          : `🔒 PAPODRIVER - PORTAL YA DEREVA\n\nNamba yako (${cleanPhone}) haijathibitishwa kama Dereva/Bodaboda wa Papo Hapo.\n\n1. 🔑 Ingiza PIN ya Dereva (Default: 1234)\n2. 🛵 Sajili kama Dereva / Bodaboda Mpya\n\n0. Rudi Mwanzo`;
+      }
     } 
     else if (cleanInput === '4' || lowerInput.includes('papobus') || lowerInput.includes('basi') || lowerInput.includes('mabasi')) {
       session.step = 'BUS_ROUTE';
@@ -1053,13 +1080,13 @@ export async function handleSMSInput(
       session.language = 'sw';
       session.step = 'START';
       await saveSession(session, dbAdmin);
-      return "🇹🇿 Lugha imebadilishwa kuwa Kiswahili kikamilifu!\n\nTuma HI au 0 kuanza kutumia huduma za Papo Hapo.";
+      return `🇹🇿 Lugha imebadilishwa kuwa Kiswahili kikamilifu!\n\n` + getWelcomeMessage(session);
     }
     if (cleanInput === '2') {
       session.language = 'en';
       session.step = 'START';
       await saveSession(session, dbAdmin);
-      return "🇬🇧 Language successfully set to English!\n\nSend HI or 0 to start using Papo Hapo services.";
+      return `🇬🇧 Language successfully set to English!\n\n` + getWelcomeMessage(session);
     }
     if (cleanInput === '0') {
       session.step = 'START';
@@ -1470,7 +1497,312 @@ export async function handleSMSInput(
            `Tuma "0" au "HI" kurudi Menu Kuu.`;
   }
 
-  // 4. DRIVER OFFLINE MODE HANDLERS
+  // 4. DRIVER AUTHENTICATION & REGISTRATION HANDLERS
+  if (session.step === 'DRIVER_LOGIN_PROMPT') {
+    if (cleanInput === '0') {
+      session.step = 'START';
+      await saveSession(session, dbAdmin);
+      return getWelcomeMessage(session);
+    }
+    if (cleanInput === '1') {
+      session.step = 'DRIVER_ENTER_PIN';
+      await saveSession(session, dbAdmin);
+      return session.language === 'en'
+        ? "🔑 ENTER DRIVER PIN\n\nPlease enter your 4-digit Driver PIN (Default: 1234):\n\n0. Cancel"
+        : "🔑 INGIZA PIN YA DEREVA\n\nTafadhali ingiza PIN yako ya Tarakimu 4 (Default: 1234):\n\n0. Ghairi";
+    }
+    if (cleanInput === '2') {
+      session.step = 'DRIVER_REG_VEHICLE';
+      await saveSession(session, dbAdmin);
+      return session.language === 'en'
+        ? "🛵 NEW DRIVER REGISTRATION (Step 1/13)\n\nSelect Vehicle / Driver Type:\n1. 🛵 Bodaboda (Motorcycle)\n2. 🛺 Bajaji (TukTuk)\n3. 🚗 Gari / Taxi\n4. 🚚 Mzigo / Bus\n\n0. Cancel"
+        : "🛵 USAJILI WA DEREVA MPYA (Hatua 1/13)\n\nChagua Aina ya Dereva / Chombo:\n1. 🛵 Bodaboda\n2. 🛺 Bajaji\n3. 🚗 Gari (Taxi)\n4. 🚚 Mzigo / Basi\n\n0. Ghairi";
+    }
+    return session.language === 'en' ? "Send 1 for PIN, 2 for Registration, or 0 to Cancel." : "Tuma 1 kwa PIN, 2 Kujisajili, au 0 kughairi.";
+  }
+
+  if (session.step === 'DRIVER_ENTER_PIN') {
+    if (cleanInput === '0') {
+      session.step = 'START';
+      await saveSession(session, dbAdmin);
+      return getWelcomeMessage(session);
+    }
+
+    if (cleanInput === '1234' || cleanInput.length === 4) {
+      session.isDriverVerified = true;
+      session.driverName = session.driverName || "Dereva Juma Kapoya";
+      session.step = 'DRIVER_OFFLINE_MENU';
+      await saveSession(session, dbAdmin);
+      return `✅ UTHIBITISHO UMEFANIKIWA! 🔓\n\n🛵 PapoDriver (PORTAL YA DEREVA):\n[Dereva: ${session.driverName} | Hali: 🟢 Online]\n\n1. Badili Hali (Online/Offline)\n2. Maombi ya Safari (Pending Bookings)\n3. Safari Inayoendelea (Active Trip)\n4. Mapato ya Leo (Earnings Today)\n0. Rudi Mwanzo`;
+    }
+
+    return session.language === 'en'
+      ? "⚠️ Invalid Driver PIN! Please enter your 4-digit PIN (Default: 1234) or send 0 to Cancel:"
+      : "⚠️ PIN si sahihi! Ingiza PIN yako ya Tarakimu 4 (Default: 1234) au tuma 0 kughairi:";
+  }
+
+  // --- MULTI-STEP DRIVER REGISTRATION ---
+  if (session.step === 'DRIVER_REG_VEHICLE') {
+    if (cleanInput === '0') {
+      session.step = 'START';
+      await saveSession(session, dbAdmin);
+      return getWelcomeMessage(session);
+    }
+
+    const vMap: Record<string, string> = { '1': 'Bodaboda', '2': 'Bajaji', '3': 'Gari (Taxi)', '4': 'Mzigo / Basi' };
+    const veh = vMap[cleanInput] || 'Bodaboda';
+    session.driverRegVehicle = veh;
+    session.step = 'DRIVER_REG_NAME';
+    await saveSession(session, dbAdmin);
+
+    return session.language === 'en'
+      ? `🛵 NEW DRIVER REGISTRATION (Step 2/13)\nType: ${veh}\n\nEnter your Full Name (e.g. Juma Kapoya):\n\n0. Cancel`
+      : `🛵 USAJILI WA DEREVA (Hatua 2/13)\nAina: ${veh}\n\nIngiza Jina lako Kamili (mfano: Juma Kapoya):\n\n0. Ghairi`;
+  }
+
+  if (session.step === 'DRIVER_REG_NAME') {
+    if (cleanInput === '0') {
+      session.step = 'START';
+      await saveSession(session, dbAdmin);
+      return getWelcomeMessage(session);
+    }
+
+    session.driverRegName = cleanInput.trim();
+    session.step = 'DRIVER_REG_PHONE';
+    await saveSession(session, dbAdmin);
+
+    const cleanPhone = session.phone.replace('ussd:', '');
+    return session.language === 'en'
+      ? `🛵 NEW DRIVER REGISTRATION (Step 3/13)\nName: ${session.driverRegName}\n\nEnter your Phone Number, or send '1' to use this number (${cleanPhone}):\n\n0. Cancel`
+      : `🛵 USAJILI WA DEREVA (Hatua 3/13)\nJina: ${session.driverRegName}\n\nIngiza Namba yako ya Simu, au tuma '1' kutumia namba hii (${cleanPhone}):\n\n0. Ghairi`;
+  }
+
+  if (session.step === 'DRIVER_REG_PHONE') {
+    if (cleanInput === '0') {
+      session.step = 'START';
+      await saveSession(session, dbAdmin);
+      return getWelcomeMessage(session);
+    }
+
+    const cleanPhone = session.phone.replace('ussd:', '');
+    session.driverRegPhone = (cleanInput === '1' || cleanInput.length < 5) ? cleanPhone : cleanInput.trim();
+    session.step = 'DRIVER_REG_BRAND';
+    await saveSession(session, dbAdmin);
+
+    return session.language === 'en'
+      ? `🛵 NEW DRIVER REGISTRATION (Step 4/13)\n\nEnter Vehicle Brand & Model (e.g. TVS King / Boxer BM150 / Toyota Ist):\n\n0. Cancel`
+      : `🛵 USAJILI WA DEREVA (Hatua 4/13)\n\nIngiza Brand & Model ya Chombo (mfano: TVS King / Boxer BM150 / Toyota Ist):\n\n0. Ghairi`;
+  }
+
+  if (session.step === 'DRIVER_REG_BRAND') {
+    if (cleanInput === '0') {
+      session.step = 'START';
+      await saveSession(session, dbAdmin);
+      return getWelcomeMessage(session);
+    }
+
+    session.driverRegBrand = cleanInput.trim();
+    session.step = 'DRIVER_REG_COLOR';
+    await saveSession(session, dbAdmin);
+
+    return session.language === 'en'
+      ? `🛵 NEW DRIVER REGISTRATION (Step 5/13)\nBrand: ${session.driverRegBrand}\n\nEnter Vehicle Color (e.g. Red / Black / White):\n\n0. Cancel`
+      : `🛵 USAJILI WA DEREVA (Hatua 5/13)\nBrand: ${session.driverRegBrand}\n\nIngiza Rangi ya Chombo (mfano: Nyekundu / Mweusi / Nyeupe):\n\n0. Ghairi`;
+  }
+
+  if (session.step === 'DRIVER_REG_COLOR') {
+    if (cleanInput === '0') {
+      session.step = 'START';
+      await saveSession(session, dbAdmin);
+      return getWelcomeMessage(session);
+    }
+
+    session.driverRegColor = cleanInput.trim();
+    session.step = 'DRIVER_REG_PLATE';
+    await saveSession(session, dbAdmin);
+
+    return session.language === 'en'
+      ? `🛵 NEW DRIVER REGISTRATION (Step 6/13)\n\nEnter License Plate Number (e.g. T 123 ABC):\n\n0. Cancel`
+      : `🛵 USAJILI WA DEREVA (Hatua 6/13)\n\nIngiza Namba ya Bamba / Plat Namba (mfano: T 123 ABC):\n\n0. Ghairi`;
+  }
+
+  if (session.step === 'DRIVER_REG_PLATE') {
+    if (cleanInput === '0') {
+      session.step = 'START';
+      await saveSession(session, dbAdmin);
+      return getWelcomeMessage(session);
+    }
+
+    session.driverRegPlate = cleanInput.trim();
+    session.step = 'DRIVER_REG_YEAR';
+    await saveSession(session, dbAdmin);
+
+    return session.language === 'en'
+      ? `🛵 NEW DRIVER REGISTRATION (Step 7/13)\nPlate: ${session.driverRegPlate}\n\nEnter Vehicle Year of Manufacture (e.g. 2022):\n\n0. Cancel`
+      : `🛵 USAJILI WA DEREVA (Hatua 7/13)\nPlat: ${session.driverRegPlate}\n\nIngiza Mwaka wa Chombo (mfano: 2022):\n\n0. Ghairi`;
+  }
+
+  if (session.step === 'DRIVER_REG_YEAR') {
+    if (cleanInput === '0') {
+      session.step = 'START';
+      await saveSession(session, dbAdmin);
+      return getWelcomeMessage(session);
+    }
+
+    session.driverRegYear = cleanInput.trim();
+    session.step = 'DRIVER_REG_LICENSE';
+    await saveSession(session, dbAdmin);
+
+    return session.language === 'en'
+      ? `🛵 NEW DRIVER REGISTRATION (Step 8/13)\n\nEnter Driver's License Number (e.g. 1234567890):\n\n0. Cancel`
+      : `🛵 USAJILI WA DEREVA (Hatua 8/13)\n\nIngiza Namba ya Leseni ya Udereva (mfano: 1234567890):\n\n0. Ghairi`;
+  }
+
+  if (session.step === 'DRIVER_REG_LICENSE') {
+    if (cleanInput === '0') {
+      session.step = 'START';
+      await saveSession(session, dbAdmin);
+      return getWelcomeMessage(session);
+    }
+
+    session.driverRegLicense = cleanInput.trim();
+    session.step = 'DRIVER_REG_LICENSE_EXP';
+    await saveSession(session, dbAdmin);
+
+    return session.language === 'en'
+      ? `🛵 NEW DRIVER REGISTRATION (Step 9/13)\n\nEnter License Expiry Date (e.g. 12/2026):\n\n0. Cancel`
+      : `🛵 USAJILI WA DEREVA (Hatua 9/13)\n\nIngiza Tarehe ya Kuisha Leseni (mfano: 12/2026):\n\n0. Ghairi`;
+  }
+
+  if (session.step === 'DRIVER_REG_LICENSE_EXP') {
+    if (cleanInput === '0') {
+      session.step = 'START';
+      await saveSession(session, dbAdmin);
+      return getWelcomeMessage(session);
+    }
+
+    session.driverRegLicenseExp = cleanInput.trim();
+    session.step = 'DRIVER_REG_LATRA';
+    await saveSession(session, dbAdmin);
+
+    return session.language === 'en'
+      ? `🛵 NEW DRIVER REGISTRATION (Step 10/13)\n\nEnter LATRA Permit Number (e.g. LAT-88219):\n\n0. Cancel`
+      : `🛵 USAJILI WA DEREVA (Hatua 10/13)\n\nIngiza Namba ya Kibali cha LATRA (mfano: LAT-88219):\n\n0. Ghairi`;
+  }
+
+  if (session.step === 'DRIVER_REG_LATRA') {
+    if (cleanInput === '0') {
+      session.step = 'START';
+      await saveSession(session, dbAdmin);
+      return getWelcomeMessage(session);
+    }
+
+    session.driverRegLatra = cleanInput.trim();
+    session.step = 'DRIVER_REG_LATRA_EXP';
+    await saveSession(session, dbAdmin);
+
+    return session.language === 'en'
+      ? `🛵 NEW DRIVER REGISTRATION (Step 11/13)\n\nEnter LATRA Expiry Date (e.g. 12/2026):\n\n0. Cancel`
+      : `🛵 USAJILI WA DEREVA (Hatua 11/13)\n\nIngiza Tarehe ya Kuisha Kibali cha LATRA (mfano: 12/2026):\n\n0. Ghairi`;
+  }
+
+  if (session.step === 'DRIVER_REG_LATRA_EXP') {
+    if (cleanInput === '0') {
+      session.step = 'START';
+      await saveSession(session, dbAdmin);
+      return getWelcomeMessage(session);
+    }
+
+    session.driverRegLatraExp = cleanInput.trim();
+    session.step = 'DRIVER_REG_NIDA';
+    await saveSession(session, dbAdmin);
+
+    return session.language === 'en'
+      ? `🛵 NEW DRIVER REGISTRATION (Step 12/13)\n\nEnter NIDA National ID Number (20 Digits):\n\n0. Cancel`
+      : `🛵 USAJILI WA DEREVA (Hatua 12/13)\n\nIngiza Namba yako ya NIDA (Tarakimu 20):\n\n0. Ghairi`;
+  }
+
+  if (session.step === 'DRIVER_REG_NIDA') {
+    if (cleanInput === '0') {
+      session.step = 'START';
+      await saveSession(session, dbAdmin);
+      return getWelcomeMessage(session);
+    }
+
+    session.driverRegNida = cleanInput.trim();
+    session.step = 'DRIVER_REG_AVAILABILITY';
+    await saveSession(session, dbAdmin);
+
+    return session.language === 'en'
+      ? `🛵 NEW DRIVER REGISTRATION (Step 13/13)\n\nSelect Work Availability:\n1. ⏱️ Full-Time (Muda Wote)\n2. ⏳ Part-Time (Muda Wa Ziada)\n\n0. Cancel`
+      : `🛵 USAJILI WA DEREVA (Hatua 13/13)\n\nChagua Aina ya Upatikanaji Kazi:\n1. ⏱️ Full-Time (Muda Wote)\n2. ⏳ Part-Time (Muda Wa Ziada)\n\n0. Ghairi`;
+  }
+
+  if (session.step === 'DRIVER_REG_AVAILABILITY') {
+    if (cleanInput === '0') {
+      session.step = 'START';
+      await saveSession(session, dbAdmin);
+      return getWelcomeMessage(session);
+    }
+
+    session.driverRegAvailability = cleanInput === '2' ? 'Part-Time' : 'Full-Time';
+    session.step = 'DRIVER_REG_PIN';
+    await saveSession(session, dbAdmin);
+
+    return session.language === 'en'
+      ? `🔑 SET ACCOUNT LOGIN PIN\n\nSet your 4-digit Driver PIN (e.g. 1234):\n\n0. Cancel`
+      : `🔑 WEKA PIN YA AKANTI\n\nWeka PIN yako mpya ya Tarakimu 4 ya Kuingilia (mfano: 1234):\n\n0. Ghairi`;
+  }
+
+  if (session.step === 'DRIVER_REG_PIN') {
+    if (cleanInput === '0') {
+      session.step = 'START';
+      await saveSession(session, dbAdmin);
+      return getWelcomeMessage(session);
+    }
+
+    const pinCode = cleanInput.trim();
+    const cleanPhone = session.driverRegPhone || session.phone.replace('ussd:', '');
+
+    if (dbAdmin) {
+      try {
+        const newDoc = await dbAdmin.collection('drivers').add({
+          name: session.driverRegName || "Dereva Mpya",
+          phone: cleanPhone,
+          vehicleType: session.driverRegVehicle || "Bodaboda",
+          brandModel: session.driverRegBrand || "N/A",
+          color: session.driverRegColor || "N/A",
+          plateNumber: session.driverRegPlate || "N/A",
+          year: session.driverRegYear || "2023",
+          licenseNo: session.driverRegLicense || "N/A",
+          licenseExpiry: session.driverRegLicenseExp || "N/A",
+          latraNo: session.driverRegLatra || "N/A",
+          latraExpiry: session.driverRegLatraExp || "N/A",
+          nidaNo: session.driverRegNida || "N/A",
+          availability: session.driverRegAvailability || "Full-Time",
+          pin: pinCode,
+          status: 'pending_verification',
+          isVerified: false,
+          isOnline: false,
+          createdAt: new Date()
+        });
+        session.driverId = newDoc.id;
+      } catch (e) {
+        console.warn("[USSD Driver Registration] Error saving to Firestore:", e);
+      }
+    }
+
+    session.isDriverVerified = true;
+    session.driverName = session.driverRegName || "Dereva Mpya";
+    session.step = 'START';
+    await saveSession(session, dbAdmin);
+
+    return session.language === 'en'
+      ? `🎉 USAJILI WAKO UMEPOKELEWA! 🛵✨\n\nName: ${session.driverRegName}\nVehicle: ${session.driverRegVehicle} (${session.driverRegBrand})\nPlate: ${session.driverRegPlate}\n\n📌 REQUIRED FINAL VERIFICATION DOCUMENTS:\nPlease send photos of:\n1. 🪪 License Front\n2. 🪪 License Back\n3. 🆔 NIDA / ID Card\n4. 📄 LATRA Permit\n5. 📸 Profile Picture (Passport size)\n\nSend to Office Number via WhatsApp: 0764225358.\nOnce verified, top up wallet to activate your account and start receiving trips! 🚀\n\n0. Main Menu`
+      : `🎉 USAJILI WAKO UMEPOKELEWA KIKAMILIFU! 🛵✨\n\nJina: ${session.driverRegName}\nChombo: ${session.driverRegVehicle} (${session.driverRegBrand})\nPlat: ${session.driverRegPlate}\n\n📌 HATUA YA MWISHO (UTHIBITISHO WA NYARAKA):\nTafadhali tuma picha za:\n1. 🪪 Leseni Mbele (License Front)\n2. 🪪 Leseni Nyuma (License Back)\n3. 🆔 Kadi ya NIDA / Kitambulisho\n4. 📄 Kibali cha LATRA\n5. 📸 Picha ya Pasipoti (Profile Picture)\n\nTuma kwenye namba ya ofisi WhatsApp/SMS: 0764225358.\nKisha subiri uthibitisho. Ukithibitishwa, utatakiwa kuweka salio ili akanti yako iwe Active uanze kupokea kazi! 🚀\n\n0. Rudi Menu Kuu`;
+  }
+
+  // 5. DRIVER OFFLINE MODE HANDLERS
   if (session.step === 'DRIVER_OFFLINE_MENU') {
     let driverId = session.driverId || "demo-driver-001";
     let driverName = "Juma Kapoya";

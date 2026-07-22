@@ -56,6 +56,48 @@ async function startServer() {
     }
   });
 
+  // Twilio Interactive Voice IVR Webhook (Handles incoming or outbound callback calls)
+  app.post("/api/twilio/voice", (req, res) => {
+    const fromPhone = req.body.From || req.body.from || "mteja";
+    console.log(`[Twilio Voice Hook] Call connected with ${fromPhone}`);
+
+    const voiceTwiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Gather numDigits="1" action="/api/twilio/voice/gather" method="POST" timeout="10">
+        <Say language="sw-TZ" voice="Polly.Astrid">
+            Habari! Umepokea simu kutoka Papo Hapo. Agizo lako liko tayari. Bofya 1 kuongea na dereva, au Bofya 2 kuthibitisha umepokea mzigo wako.
+        </Say>
+    </Gather>
+    <Say language="sw-TZ">Hutujapokea chaguo lako. Asante kwa kutumia Papo Hapo.</Say>
+</Response>`;
+
+    res.type('text/xml');
+    res.send(voiceTwiml);
+  });
+
+  // Twilio Voice Gather Action endpoint (processes DTMF keypad choice 1 or 2)
+  app.post("/api/twilio/voice/gather", (req, res) => {
+    const digits = req.body.Digits || req.body.digits || "";
+    console.log(`[Twilio Voice Gather] User pressed key: ${digits}`);
+
+    let responseScript = "";
+    if (digits === "1") {
+      responseScript = `<Say language="sw-TZ">Tunakuunganisha na dereva wako sasa hivi. Tafadhali subiri kigogo...</Say><Dial>+255712345678</Dial>`;
+    } else if (digits === "2") {
+      responseScript = `<Say language="sw-TZ">Hongera! Agizo lako limethibitishwa kupokelewa kikamilifu. Asante kwa kutumia Papo Hapo!</Say>`;
+    } else {
+      responseScript = `<Say language="sw-TZ">Chaguo si sahihi. Asante kwa kutumia Papo Hapo.</Say>`;
+    }
+
+    const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    ${responseScript}
+</Response>`;
+
+    res.type('text/xml');
+    res.send(twiml);
+  });
+
   // Africa's Talking incoming Webhook (receives Form urlencoded POST with 'from' and 'text')
   app.post("/api/africastalking/sms", async (req, res) => {
     const fromPhone = req.body.from || "unknown";
