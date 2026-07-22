@@ -235,7 +235,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
   const [copied, setCopied] = useState(false);
   const [isEnabled, setIsEnabled] = useState(true);
   const [welcomeText, setWelcomeText] = useState(
-    "Karibu Papo Hapo! 🌟\n\nChagua huduma:\n1. 🚕 TAXI\n2. 📦 MZIGO\n3. 🛵 DEREVA (Offline)\n4. 🚌 MABASI\n5. 💇‍♀️ SALUNI\n6. 🥗 CHAKULA & SOKONI"
+    "Karibu Papo Hapo! 🌟\n\nChagua huduma:\n1. 🚕 PapoRide (Taxi & Nauli)\n2. 📦 PapoSend (Tuma & Fuatilia Mzigo)\n3. 🛵 PapoDriver (Offline Mode)\n4. 🚌 PapoBus (Tiketi za Mabasi)\n5. 💇‍♀️ PapoStyle (Saluni & Urembo)\n6. 🍔 PapoFood (Chakula & Sokoni)"
   );
   const [testPhoneNumber, setTestPhoneNumber] = useState('+255712345678');
   const [inputText, setInputText] = useState('');
@@ -826,7 +826,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
           if (data.welcomeText) {
             const isLegacy = data.welcomeText.includes("SALUNI (Salons)") || data.welcomeText.includes("Karibu kwenye Mfumo wa") || data.welcomeText.includes("Tafadhali chagua huduma unayotaka");
             const cleanText = isLegacy 
-              ? "Karibu Papo Hapo! 🌟\n\nChagua huduma:\n1. 🚕 TAXI\n2. 📦 MZIGO\n3. 🛵 DEREVA (Offline)\n4. 🚌 MABASI\n5. 💇‍♀️ SALUNI\n6. 🥗 CHAKULA & SOKONI"
+              ? "Karibu Papo Hapo! 🌟\n\nChagua huduma:\n1. 🚕 PapoRide (Taxi & Nauli)\n2. 📦 PapoSend (Tuma & Fuatilia Mzigo)\n3. 🛵 PapoDriver (Offline Mode)\n4. 🚌 PapoBus (Tiketi za Mabasi)\n5. 💇‍♀️ PapoStyle (Saluni & Urembo)\n6. 🍔 PapoFood (Chakula & Sokoni)"
               : data.welcomeText;
             setWelcomeText(cleanText);
             if (isLegacy) {

@@ -732,15 +732,15 @@ export const AutomationStudioTabs: React.FC<AutomationStudioTabsProps> = ({
                     position: { x: 280, y: 150 }, 
                     data: { 
                       label: 'Karibu & Services Menu', 
-                      text: 'Karibu Papo Hapo! 🌟\n\nChagua huduma:\n1. 🚕 TAXI\n2. 📦 MZIGO\n3. 🛵 DEREVA (Offline)\n4. 🚌 MABASI\n5. 💇‍♀️ SALUNI\n6. 🥗 CHAKULA & SOKONI', 
+                      text: 'Karibu Papo Hapo! 🌟\n\nChagua huduma:\n1. 🚕 PapoRide (Taxi & Nauli)\n2. 📦 PapoSend (Tuma & Fuatilia Mzigo)\n3. 🛵 PapoDriver (Offline Mode)\n4. 🚌 PapoBus (Tiketi za Mabasi)\n5. 💇‍♀️ PapoStyle (Saluni & Urembo)\n6. 🍔 PapoFood (Chakula & Sokoni)', 
                       variableName: 'service_choice',
                       options: [
-                        { key: '1', value: 'TAXI', nextNodeId: 'n_taxi_pickup' },
-                        { key: '2', value: 'SALUNI', nextNodeId: 'n_salon_service' },
-                        { key: '3', value: 'MABASI', nextNodeId: 'n_bus_route' },
-                        { key: '4', value: 'CHAKULA', nextNodeId: 'n_food_item' },
-                        { key: '5', value: 'SOKO', nextNodeId: 'n_grocery_items' },
-                        { key: '6', value: 'PHARMACY', nextNodeId: 'n_pharmacy_med' }
+                        { key: '1', value: 'PapoRide', nextNodeId: 'n_taxi_pickup' },
+                        { key: '2', value: 'PapoSend', nextNodeId: 'n_send_parcel' },
+                        { key: '3', value: 'PapoDriver', nextNodeId: 'n_driver_offline' },
+                        { key: '4', value: 'PapoBus', nextNodeId: 'n_bus_route' },
+                        { key: '5', value: 'PapoStyle', nextNodeId: 'n_salon_service' },
+                        { key: '6', value: 'PapoFood', nextNodeId: 'n_food_item' }
                       ],
                       nextNodeId: 'n_router' 
                     } 

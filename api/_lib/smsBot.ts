@@ -42,6 +42,12 @@ export interface SMSSession {
   activeRideId?: string;
   // Tracking fields
   trackingCode?: string;
+  // PapoSend parcel fields
+  parcelPickup?: string;
+  parcelDest?: string;
+  parcelDesc?: string;
+  parcelReceiverPhone?: string;
+  parcelPrice?: number;
 }
 
 // In-memory fallback sessions state
@@ -69,7 +75,7 @@ export interface TwilioConfig {
 
 export const defaultTwilioConfig: TwilioConfig = {
   isEnabled: true,
-  welcomeMessage: "Karibu Papo Hapo! 🌟\n\nChagua huduma:\n1. 🚕 TAXI (Agiza / Nauli)\n2. 📦 MZIGO (Kufuatilia)\n3. 🛵 DEREVA (Offline Mode)\n4. 🚌 MABASI (Bus Booking)\n5. 💇‍♀️ SALUNI & UREMBO\n6. 🥗 CHAKULA & SOKONI",
+  welcomeMessage: "Karibu Papo Hapo! 🌟\n\nChagua huduma:\n1. 🚕 PapoRide (Taxi & Nauli)\n2. 📦 PapoSend (Tuma & Fuatilia Mzigo)\n3. 🛵 PapoDriver (Offline Mode)\n4. 🚌 PapoBus (Tiketi za Mabasi)\n5. 💇‍♀️ PapoStyle (Saluni & Urembo)\n6. 🍔 PapoFood (Chakula & Sokoni)",
   phoneNumber: "+14155238886", // Default twilio sandbox or custom
   vendorRules: {
     "all-stores": {
@@ -203,9 +209,11 @@ export async function handleSMSInput(
   if (
     welcomeMessage.includes("SALUNI (Salons)") ||
     welcomeMessage.includes("Karibu kwenye Mfumo wa") ||
-    welcomeMessage.includes("Tafadhali chagua huduma unayotaka")
+    welcomeMessage.includes("Tafadhali chagua huduma unayotaka") ||
+    welcomeMessage.includes("TAXI (Agiza / Nauli)") ||
+    welcomeMessage.includes("MZIGO (Kufuatilia)")
   ) {
-    welcomeMessage = "Karibu Papo Hapo! 🌟\n\nChagua huduma:\n1. 🚕 TAXI (Agiza / Nauli)\n2. 📦 MZIGO (Kufuatilia)\n3. 🛵 DEREVA (Offline Mode)\n4. 🚌 MABASI (Bus Booking)\n5. 💇‍♀️ SALUNI & UREMBO\n6. 🥗 CHAKULA & SOKONI";
+    welcomeMessage = "Karibu Papo Hapo! 🌟\n\nChagua huduma:\n1. 🚕 PapoRide (Taxi & Nauli)\n2. 📦 PapoSend (Tuma & Fuatilia Mzigo)\n3. 🛵 PapoDriver (Offline Mode)\n4. 🚌 PapoBus (Tiketi za Mabasi)\n5. 💇‍♀️ PapoStyle (Saluni & Urembo)\n6. 🍔 PapoFood (Chakula & Sokoni)";
   }
 
   // Restart trigger & Step Initializer
@@ -240,19 +248,19 @@ export async function handleSMSInput(
 
   // Step 1: Selecting Category Service
   if (session.step === 'SELECT_SERVICE') {
-    if (cleanInput === '1' || lowerInput.includes('taxi') || lowerInput.includes('teksi')) {
+    if (cleanInput === '1' || lowerInput.includes('paporide') || lowerInput.includes('taxi') || lowerInput.includes('teksi')) {
       session.step = 'TAXI_SUBMENU';
       session.selectedService = 'taxi';
       await saveSession(session, dbAdmin);
-      return "🚕 HUDUMA ZA TAXI:\n\n1. Agiza Taxi Haraka ⚡\n2. Kadiria Nauli 🧮\n3. Andika Njia (Mf: Mwenge - Posta)\n0. Rudi Mwanzo";
+      return "🚕 PapoRide (TAXI & NAULI):\n\n1. Agiza Taxi Haraka ⚡\n2. Kadiria Nauli 🧮\n3. Andika Njia (Mf: Mwenge - Posta)\n0. Rudi Mwanzo";
     } 
-    else if (cleanInput === '2' || lowerInput.includes('mzigo') || lowerInput.includes('kifurushi') || lowerInput.includes('parcel') || lowerInput.includes('track')) {
-      session.step = 'PARCEL_TRACK_INPUT';
+    else if (cleanInput === '2' || lowerInput.includes('paposend') || lowerInput.includes('mzigo') || lowerInput.includes('kifurushi') || lowerInput.includes('parcel') || lowerInput.includes('track') || lowerInput.includes('send')) {
+      session.step = 'PAPOSEND_MAIN_MENU';
       session.selectedService = 'parcel';
       await saveSession(session, dbAdmin);
-      return "📦 KUFUATILIA MZIGO:\n\nIngiza Namba ya Mzigo (mf. P-8291) au Simu ya Mtumaji/Mpokeaji:";
+      return "📦 PapoSend (VIFURUSHI & DELIVERY):\n\n1. 🚚 Tuma Mzigo / Kifurushi\n2. 🔍 Fuatilia Mzigo Wako\n\n0. Rudi Mwanzo";
     } 
-    else if (cleanInput === '3' || lowerInput.includes('dereva') || lowerInput.includes('driver')) {
+    else if (cleanInput === '3' || lowerInput.includes('papodriver') || lowerInput.includes('dereva') || lowerInput.includes('driver')) {
       session.step = 'DRIVER_OFFLINE_MENU';
       session.selectedService = 'driver';
       await saveSession(session, dbAdmin);
@@ -281,26 +289,26 @@ export async function handleSMSInput(
         }
       }
 
-      return `🛵 DEREVA OFFLINE MENU:\n[Dereva: ${driverName} | ${isOnline ? 'Online' : 'Offline'}]\n\n1. Badili Hali (Online/Offline)\n2. Safari Inayokusubiri\n3. Safari Inayoendelea\n4. Salio & Mapato ya Leo\n0. Rudi Mwanzo`;
+      return `🛵 PapoDriver (OFFLINE MENU):\n[Dereva: ${driverName} | ${isOnline ? 'Online' : 'Offline'}]\n\n1. Badili Hali (Online/Offline)\n2. Safari Inayokusubiri\n3. Safari Inayoendelea\n4. Salio & Mapato ya Leo\n0. Rudi Mwanzo`;
     } 
-    else if (cleanInput === '4' || lowerInput.includes('basi') || lowerInput.includes('mabasi')) {
+    else if (cleanInput === '4' || lowerInput.includes('papobus') || lowerInput.includes('basi') || lowerInput.includes('mabasi')) {
       session.step = 'BUS_ROUTE';
       session.selectedService = 'bus_ticket';
       await saveSession(session, dbAdmin);
-      return "🚌 MABASI (Bus Booking):\n\nTuma njia unayokwenda (Mwanzo - Mwisho).\nMfano: DAR - MWANZA au ARUSHA - KILIMANJARO:";
+      return "🚌 PapoBus (TIKETI ZA MABASI):\n\nTuma njia unayokwenda (Mwanzo - Mwisho).\nMfano: DAR - MWANZA au ARUSHA - KILIMANJARO:";
     } 
-    else if (cleanInput === '5' || lowerInput.includes('saluni') || lowerInput.includes('salon')) {
+    else if (cleanInput === '5' || lowerInput.includes('papostyle') || lowerInput.includes('saluni') || lowerInput.includes('salon')) {
       session.step = 'SALON_SUB';
       session.selectedService = 'salon';
       await saveSession(session, dbAdmin);
-      return "💇‍♀️ SALUNI & UREMBO:\n\n1. Kinyozi / Hair Cut\n2. Kusuka / Salon ya Kike\n3. Nails / Makeup / Spa\n0. Rudi Mwanzo";
+      return "💇‍♀️ PapoStyle (SALUNI & UREMBO):\n\n1. Kinyozi / Hair Cut\n2. Kusuka / Salon ya Kike\n3. Nails / Makeup / Spa\n0. Rudi Mwanzo";
     } 
-    else if (cleanInput === '6' || lowerInput.includes('chakula') || lowerInput.includes('soko') || lowerInput.includes('dawa')) {
+    else if (cleanInput === '6' || lowerInput.includes('papofood') || lowerInput.includes('chakula') || lowerInput.includes('soko') || lowerInput.includes('dawa')) {
       session.step = 'FOOD_MAIN_MENU';
       session.selectedService = 'restaurant';
       session.foodCart = [];
       await saveSession(session, dbAdmin);
-      return "PAPO HAPO SUPER APP\nCHAGUA HUDUMA\n\n1. 🍔 CHAKULA\n2. 🛒 SOKONI\n\n0. Nyuma";
+      return "🍔 PapoFood (CHAKULA & SOKONI):\n\n1. 🍔 CHAKULA\n2. 🛒 SOKONI\n\n0. Nyuma";
     }
     else {
       return "⚠️ Chaguo si sahihi! Tuma namba 1 mpaka 6, au tuma \"HI\" kuanza upya.";
@@ -505,7 +513,127 @@ export async function handleSMSInput(
     }
   }
 
-  // 3. PARCEL TRACKING HANDLER
+  // 3. PAPOSEND FLOW (TUMA & FUATILIA MZIGO)
+  if (session.step === 'PAPOSEND_MAIN_MENU') {
+    if (cleanInput === '0') {
+      session.step = 'START';
+      await saveSession(session, dbAdmin);
+      return welcomeMessage;
+    }
+
+    if (cleanInput === '1' || lowerInput.includes('tuma') || lowerInput.includes('send')) {
+      session.step = 'PAPOSEND_PICKUP_DEST';
+      await saveSession(session, dbAdmin);
+      return "🚚 PapoSend - TUMA MZIGO\n\nIngiza eneo la kuchukulia na kufikisha mzigo.\nMfano:\nKariakoo - Sinza\nau Mwenge - Posta";
+    }
+
+    if (cleanInput === '2' || lowerInput.includes('fuatilia') || lowerInput.includes('track')) {
+      session.step = 'PARCEL_TRACK_INPUT';
+      await saveSession(session, dbAdmin);
+      return "🔍 PapoSend - FUATILIA MZIGO\n\nIngiza Namba ya Mzigo (mf. PS-82910) au Simu ya Mtumaji/Mpokeaji:";
+    }
+
+    return "⚠️ Chaguo si sahihi!\nTuma 1 Kutuma Mzigo, 2 Kufuatilia Mzigo, au 0 Rudi Mwanzo.";
+  }
+
+  if (session.step === 'PAPOSEND_PICKUP_DEST') {
+    if (cleanInput === '0') {
+      session.step = 'PAPOSEND_MAIN_MENU';
+      await saveSession(session, dbAdmin);
+      return "📦 PapoSend (VIFURUSHI & DELIVERY):\n\n1. 🚚 Tuma Mzigo / Kifurushi\n2. 🔍 Fuatilia Mzigo Wako\n\n0. Rudi Mwanzo";
+    }
+
+    let parts = cleanInput.split(/ - | to | kwenda |-|—/i);
+    let pickup = parts[0] ? parts[0].trim().toUpperCase() : "KARIAKOO";
+    let dest = parts[1] ? parts[1].trim().toUpperCase() : "POSTA";
+
+    session.parcelPickup = pickup;
+    session.parcelDest = dest;
+    session.step = 'PAPOSEND_DESC';
+    await saveSession(session, dbAdmin);
+
+    return `📍 Kuchukulia: ${pickup}\n🏁 Kufikisha: ${dest}\n\nAndika maelezo ya mzigo (mf. Mkataba na Simu, Viatu, Au Mzigo wa Kilo 3):`;
+  }
+
+  if (session.step === 'PAPOSEND_DESC') {
+    if (cleanInput === '0') {
+      session.step = 'PAPOSEND_PICKUP_DEST';
+      await saveSession(session, dbAdmin);
+      return "🚚 PapoSend - TUMA MZIGO\n\nIngiza eneo la kuchukulia na kufikisha mzigo (Mf: Kariakoo - Sinza):";
+    }
+
+    session.parcelDesc = cleanInput;
+    session.step = 'PAPOSEND_RECEIVER_PHONE';
+    await saveSession(session, dbAdmin);
+
+    return `📦 Mzigo: ${cleanInput}\n\nIngiza namba ya simu ya mpokeaji (mf. 0755123456):`;
+  }
+
+  if (session.step === 'PAPOSEND_RECEIVER_PHONE') {
+    if (cleanInput === '0') {
+      session.step = 'PAPOSEND_DESC';
+      await saveSession(session, dbAdmin);
+      return "Andika maelezo au aina ya mzigo:";
+    }
+
+    session.parcelReceiverPhone = cleanInput;
+    session.parcelPrice = 3500; // Standard PapoSend Boda delivery fare
+    session.step = 'PAPOSEND_CONFIRM_PAYMENT';
+    await saveSession(session, dbAdmin);
+
+    return `📦 THIBITISHA PAPOSEND\n\nNjia: ${session.parcelPickup} ➡️ ${session.parcelDest}\nMzigo: ${session.parcelDesc}\nMpokeaji: ${session.parcelReceiverPhone}\nNauli: TZS 3,500\n\nChagua Njia ya Malipo:\n1. M-Pesa\n2. Airtel Money\n3. Tigo Pesa\n4. HaloPesa\n5. Cash\n\n0. Nyuma`;
+  }
+
+  if (session.step === 'PAPOSEND_CONFIRM_PAYMENT') {
+    if (cleanInput === '0') {
+      session.step = 'PAPOSEND_RECEIVER_PHONE';
+      await saveSession(session, dbAdmin);
+      return "Ingiza namba ya simu ya mpokeaji:";
+    }
+
+    const payMethods: Record<string, string> = {
+      '1': 'M-Pesa',
+      '2': 'Airtel Money',
+      '3': 'Tigo Pesa',
+      '4': 'HaloPesa',
+      '5': 'Cash'
+    };
+
+    const method = payMethods[cleanInput] || 'Cash';
+    const orderNum = Math.floor(100000 + Math.random() * 900000);
+    const trackingCode = `PS-${orderNum}`;
+    const price = session.parcelPrice || 3500;
+
+    if (dbAdmin) {
+      try {
+        await dbAdmin.collection('orders').add({
+          bookingId: trackingCode,
+          orderId: trackingCode,
+          type: 'parcel',
+          category: 'parcel',
+          vendorName: 'PapoSend Express',
+          customerPhone: fromPhone,
+          customerName: 'SMS Client',
+          notes: `Pickup: ${session.parcelPickup} -> Dest: ${session.parcelDest} | Mzigo: ${session.parcelDesc} | Mpokeaji: ${session.parcelReceiverPhone}`,
+          items: [{ name: `Delivery: ${session.parcelDesc}`, price: price, quantity: 1 }],
+          totalAmount: price,
+          paymentMethod: method,
+          status: 'pending',
+          createdAt: new Date(),
+          source: 'ussd'
+        });
+      } catch (err) {
+        console.warn("Error saving PapoSend order in Firestore:", err);
+      }
+    }
+
+    session.step = 'START';
+    await saveSession(session, dbAdmin);
+
+    return `Agizo la PapoSend limethibitishwa! 📦✨\n\nNamba ya Mzigo: ${trackingCode}\nNjia: ${session.parcelPickup} ➡️ ${session.parcelDest}\nMzigo: ${session.parcelDesc}\nMpokeaji: ${session.parcelReceiverPhone}\nNauli: TZS ${price.toLocaleString()}\n\nDereva wetu wa PapoSend atawasiliana nawe punde kuchukua mzigo!`;
+  }
+
+  // PARCEL TRACKING HANDLER
   if (session.step === 'PARCEL_TRACK_INPUT') {
     const rawCode = cleanInput.toUpperCase().replace('#', '');
     let foundParcel: any = null;
