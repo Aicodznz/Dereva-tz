@@ -2627,9 +2627,9 @@ export default function TaxiBooking() {
         taxRate: 15,
         taxActive: true,
         rates: {
-          mini: { baseFare: 1000, pricePerKm: 800, pricePerMin: 100, waitingRate: 120, surgeRush: 1.25, surgeRain: 1.5 },
-          bajaj: { baseFare: 500, pricePerKm: 500, pricePerMin: 0, waitingRate: 50, surgeRush: 1.15, surgeRain: 1.3 },
-          bike: { baseFare: 300, pricePerKm: 350, pricePerMin: 0, waitingRate: 30, surgeRush: 1.1, surgeRain: 1.2 },
+          mini: { baseFare: 1100, pricePerKm: 1100, pricePerMin: 120, waitingRate: 120, surgeRush: 1.25, surgeRain: 1.5 },
+          bajaj: { baseFare: 500, pricePerKm: 700, pricePerMin: 90, waitingRate: 90, surgeRush: 1.15, surgeRain: 1.3 },
+          bike: { baseFare: 400, pricePerKm: 400, pricePerMin: 90, waitingRate: 90, surgeRush: 1.1, surgeRain: 1.2 },
           rental: { baseFare: 45000, pricePerKm: 1500, pricePerMin: 0, waitingRate: 0, surgeRush: 1.0, surgeRain: 1.1 }
         }
       },
@@ -2721,10 +2721,10 @@ export default function TaxiBooking() {
     const isCustom = rId !== 'mini' && rId !== 'bajaj' && rId !== 'bike';
     
     const cityRates = cityData?.rates?.[rId] || {
-      baseFare: vehicleConfig?.baseFare !== undefined ? Number(vehicleConfig.baseFare) : (rId === 'mini' ? 1000 : rId === 'bajaj' ? 500 : 300),
-      pricePerKm: vehicleConfig?.pricePerKm !== undefined ? Number(vehicleConfig.pricePerKm) : (rId === 'mini' ? 800 : rId === 'bajaj' ? 500 : 350),
-      pricePerMin: vehicleConfig?.pricePerMin !== undefined ? Number(vehicleConfig.pricePerMin) : (rId === 'mini' ? 100 : 0),
-      waitingRate: rId === 'mini' ? 120 : rId === 'bajaj' ? 50 : 30,
+      baseFare: vehicleConfig?.baseFare !== undefined ? Number(vehicleConfig.baseFare) : (rId === 'mini' ? 1100 : rId === 'bajaj' ? 500 : 400),
+      pricePerKm: vehicleConfig?.pricePerKm !== undefined ? Number(vehicleConfig.pricePerKm) : (rId === 'mini' ? 1100 : rId === 'bajaj' ? 700 : 400),
+      pricePerMin: vehicleConfig?.pricePerMin !== undefined ? Number(vehicleConfig.pricePerMin) : (rId === 'mini' ? 120 : 90),
+      waitingRate: rId === 'mini' ? 120 : rId === 'bajaj' ? 90 : 90,
       surgeRush: 1.25,
       surgeRain: 1.5
     };
@@ -2769,16 +2769,16 @@ export default function TaxiBooking() {
     const rounded = Math.ceil(subTotal / 100) * 100;
 
     // Ensure it's not below the base rate specified by admin or fallback minimum
-    const minPrice = vehicleConfig?.price !== undefined ? Number(vehicleConfig.price) : (vehicleId === 'mini' ? 1500 : vehicleId === 'bajaj' ? 800 : vehicleId === 'bike' ? 500 : 45000);
+    const minPrice = vehicleConfig?.price !== undefined ? Number(vehicleConfig.price) : (vehicleId === 'mini' ? 5000 : vehicleId === 'bajaj' ? 4000 : vehicleId === 'bike' ? 2000 : 45000);
     
     return Math.max(minPrice, rounded);
   };
 
   const rideOptions: RideOption[] = useMemo(() => {
     const defaultVehicles = {
-      mini: { id: "mini", name: "Gari", price: 2800, sub: "Max 4 Siti", image: "🚗", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" },
-      bajaj: { id: "bajaj", name: "Bajaji", price: 1500, sub: "3 Siti", image: "🛺", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" },
-      bike: { id: "bike", name: "Pikipiki", price: 800, sub: "Usafiri Salama", image: "🏍️", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" }
+      mini: { id: "mini", name: "Gari", price: 5000, sub: "Max 4 Siti", image: "🚗", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" },
+      bajaj: { id: "bajaj", name: "Bajaji", price: 4000, sub: "3 Siti", image: "🛺", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" },
+      bike: { id: "bike", name: "Pikipiki", price: 2000, sub: "Usafiri Salama", image: "🏍️", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" }
     };
 
     const combinedVehicles = {

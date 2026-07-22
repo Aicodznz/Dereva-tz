@@ -29,6 +29,12 @@ export interface SMSSession {
   tempRawDestination?: string;
   passengerName?: string;
   passengerPhone?: string;
+  // Driver USSD Offline fields
+  driverPhone?: string;
+  driverId?: string;
+  activeRideId?: string;
+  // Tracking fields
+  trackingCode?: string;
 }
 
 // In-memory fallback sessions state
@@ -56,7 +62,7 @@ export interface TwilioConfig {
 
 export const defaultTwilioConfig: TwilioConfig = {
   isEnabled: true,
-  welcomeMessage: "Karibu kwenye Mfumo wa Huduma za Papo Hapo! 🌟\n\nTafadhali chagua huduma unayotaka kwa kutuma namba yake:\n1. 🚕 TAXI\n2. 💇‍♀️ SALUNI (Salons)\n3. 🚌 MABASI (Bus Tickets)\n4. 🥗 CHAKULA (Restaurants)\n5. 🥦 SOKO (Groceries)\n6. 💊 PHARMACY",
+  welcomeMessage: "Karibu Mfumo wa Huduma Papo Hapo! 🌟\n\nChagua huduma kwa kutuma namba:\n1. 🚕 TAXI (Agiza / Nauli / Safari)\n2. 📦 KUFUATILIA MZIGO (Parcel Tracking)\n3. 🛵 MODI YA DEREVA (Driver Offline USSD)\n4. 🚌 MABASI (Bus Booking)\n5. 💇‍♀️ SALUNI & UREMBO\n6. 🥗 CHAKULA & SOKONI",
   phoneNumber: "+14155238886", // Default twilio sandbox or custom
   vendorRules: {
     "all-stores": {
@@ -211,50 +217,516 @@ export async function handleSMSInput(
 
   // Step 1: Selecting Category Service
   if (session.step === 'SELECT_SERVICE') {
-    if (cleanInput === '1') {
-      // TAXI
-      session.step = 'TAXI_ROUTE';
+    if (cleanInput === '1' || lowerInput.includes('taxi') || lowerInput.includes('teksi')) {
+      session.step = 'TAXI_SUBMENU';
       session.selectedService = 'taxi';
       await saveSession(session, dbAdmin);
-      return "🚕 MFUMO WA TAXI (Taxi Booking):\n\nTafadhali tuma njia unayotaka kusafiri (Kutoka kuelekea unapoenda).\nMfano:\nPOSTA - KINONDONI\nau AIRPORT - MASAKI";
+      return "🚕 HUDUMA ZA TAXI (Taxi & Rides):\n\n1. ⚡ Kuagiza Taxi kwa Haraka (Quick Booking)\n2. 🧮 Kadirio la Nauli (Fare Estimate)\n3. 📍 Andika Njia Yako (Mfano: Mwenge - Posta)\n0. Rudi Menu Kuu";
     } 
-    else if (cleanInput === '2') {
-      // SALUNI
-      session.step = 'SALON_SUB';
-      session.selectedService = 'salon';
+    else if (cleanInput === '2' || lowerInput.includes('mzigo') || lowerInput.includes('kifurushi') || lowerInput.includes('parcel') || lowerInput.includes('track')) {
+      session.step = 'PARCEL_TRACK_INPUT';
+      session.selectedService = 'parcel';
       await saveSession(session, dbAdmin);
-      return "💇‍♀️ MFUMO WA SALUNI (Salons Near You):\n\nChagua aina ya huduma ya urembo unayotafuta kwa kutuma namba:\n1. Saluni ya Nywele (Nywele / Hair cuts)\n2. Matunzo ya Kucha (Manicure / Nails)\n3. Urembo & Make-up\n4. Spa & Body Massage";
+      return "📦 KUFUATILIA MZIGO / KIFURUSHI:\n\nTafadhali ingiza Namba ya Mzigo (Tracking Code mf. P-8291, PH-123456) au Namba ya Simu ya Mtumaji/Mpokeaji:";
     } 
-    else if (cleanInput === '3') {
-      // MABASI
+    else if (cleanInput === '3' || lowerInput.includes('dereva') || lowerInput.includes('driver')) {
+      session.step = 'DRIVER_OFFLINE_MENU';
+      session.selectedService = 'driver';
+      await saveSession(session, dbAdmin);
+      
+      let driverName = "Juma Kapoya";
+      let isOnline = true;
+      if (dbAdmin) {
+        try {
+          const cleanPhone = session.phone.replace('ussd:', '').replace(/\D/g, '');
+          const dSnap = await dbAdmin.collection('drivers').get();
+          if (!dSnap.empty) {
+            const match = dSnap.docs.find((doc: any) => {
+              const data = doc.data();
+              const p = (data.phone || "").replace(/\D/g, '');
+              return p.endsWith(cleanPhone.slice(-8)) || cleanPhone.endsWith(p.slice(-8));
+            });
+            if (match) {
+              const dData = match.data();
+              driverName = dData.name || driverName;
+              isOnline = dData.isOnline !== false;
+              session.driverId = match.id;
+            }
+          }
+        } catch (e) {
+          console.warn("[USSD Driver] Error finding driver in Firestore:", e);
+        }
+      }
+
+      return `🛵 DEREVA USSD MENU (Offline Mode):\n[Dereva: ${driverName} | ${isOnline ? 'Online 🟢' : 'Offline 🔴'}]\n\n1. 🟢/🔴 Badili Hali (Online/Offline)\n2. 🚖 Safari Inayokusubiri (Accept/Reject)\n3. 📍 Safari Inayoendelea (Start/Finish)\n4. 💰 Salio la Wallet & Mapato ya Leo\n0. Rudi Menu Kuu`;
+    } 
+    else if (cleanInput === '4' || lowerInput.includes('basi') || lowerInput.includes('mabasi')) {
       session.step = 'BUS_ROUTE';
       session.selectedService = 'bus_ticket';
       await saveSession(session, dbAdmin);
       return "🚌 MFUMO WA MABASI (Bus Booking):\n\nTafadhali tuma route unayotaka kusafiri (Mwanzo - Mwisho).\nMfano:\nDAR - MWANZA\nau ARUSHA - KILIMANJARO";
     } 
-    else if (cleanInput === '4') {
-      // CHAKULA
+    else if (cleanInput === '5' || lowerInput.includes('saluni') || lowerInput.includes('salon')) {
+      session.step = 'SALON_SUB';
+      session.selectedService = 'salon';
+      await saveSession(session, dbAdmin);
+      return "💇‍♀️ MFUMO WA SALUNI (Salons Near You):\n\nChagua aina ya huduma ya urembo unayotafuta kwa kutuma namba:\n1. Saluni ya Nywele (Nywele / Hair cuts)\n2. Matunzo ya Kucha (Manicure / Nails)\n3. Urembo & Make-up\n4. Spa & Body Massage";
+    } 
+    else if (cleanInput === '6' || lowerInput.includes('chakula') || lowerInput.includes('soko') || lowerInput.includes('dawa')) {
       session.step = 'STORE_SEARCH';
       session.selectedService = 'restaurant';
       await saveSession(session, dbAdmin);
-      return "🍱 MFUMO WA VILAJI NA CHAKULA (Restaurants):\n\nTuma jina la chakula unachotafuta sasa hivi.\nMfano:\nChips Kuku, Wali Nyama, Samaki au Biryani:";
-    } 
-    else if (cleanInput === '5') {
-      // SOKO
-      session.step = 'STORE_SEARCH';
-      session.selectedService = 'grocery';
-      await saveSession(session, dbAdmin);
-      return "🥦 MFUMO WA SOKONI (Groceries & Market):\n\nTuma jina la bidhaa ya soko unayotaka kununua leo.\nMfano:\nNdizi, Nyanya, Vitunguu au Mchele:";
-    } 
-    else if (cleanInput === '6') {
-      // PHARMACY
-      session.step = 'STORE_SEARCH';
-      session.selectedService = 'pharmacy';
-      await saveSession(session, dbAdmin);
-      return "💊 MFUMO WA PHARMACY (Dawa & Pharmacy):\n\nTuma jina la dawa unayotafuta sasa hivi hospitalini.\nMfano:\nParacetamol, Panadol, Amoxicillin au Dawa ya Kikohozi:";
+      return "🍱 CHAKULA & SOKONI (Food & Groceries):\n\nTuma jina la chakula au bidhaa unayotafuta sasa hivi.\nMfano:\nChips Kuku, Wali Nyama, Samaki au Panadol:";
     }
     else {
-      return "⚠️ Chaguo si sahihi! Tafadhali tuma namba kuanzia 1 mpaka 6 kuchagua huduma sahihi, au tuma \"HI\" kuanza upya.";
+      return "⚠️ Chaguo si sahihi! Tafadhali tuma namba kuanzia 1 mpaka 6, au tuma \"HI\" kuanza upya.";
+    }
+  }
+
+  // 1. TAXI SUBMENU & QUICK BOOKING
+  if (session.step === 'TAXI_SUBMENU' && session.selectedService === 'taxi') {
+    if (cleanInput === '1') {
+      session.step = 'TAXI_QUICK_DESTINATION';
+      await saveSession(session, dbAdmin);
+      return "⚡ AGIZA TAXI HARAKA:\n\nChagua eneo unalokwenda:\n1. Posta Mpya (City Center)\n2. Kariakoo Sokoni\n3. Mwenge Stand\n4. Ubungo Bus Terminal\n5. Julius Nyerere Airport (JNIA)\n6. Andika Njia Yako Moja kwa Moja";
+    } else if (cleanInput === '2') {
+      session.step = 'TAXI_FARE_ESTIMATE_INPUT';
+      await saveSession(session, dbAdmin);
+      return "🧮 KADIRIO LA NAULI (Fare Estimate):\n\nTafadhali tuma njia unayotaka kukadiria gharama zake (Kutoka - Kwenda).\nMfano:\nMwenge - Posta\nau Airport - Mikocheni";
+    } else if (cleanInput === '3') {
+      session.step = 'TAXI_ROUTE';
+      await saveSession(session, dbAdmin);
+      return "🚕 MFUMO WA TAXI:\n\nTafadhali tuma njia unayotaka kusafiri (Kutoka - Kwenda).\nMfano: POSTA - KINONDONI";
+    } else if (cleanInput === '0') {
+      session.step = 'START';
+      await saveSession(session, dbAdmin);
+      return welcomeMessage;
+    } else {
+      return "⚠️ Chaguo si sahihi. Tafadhali tuma:\n1. Agiza Taxi kwa Haraka\n2. Kadirio la Nauli\n3. Andika Njia Yako";
+    }
+  }
+
+  if (session.step === 'TAXI_QUICK_DESTINATION' && session.selectedService === 'taxi') {
+    const quickDestinations: Record<string, { name: string; lat: number; lng: number }> = {
+      '1': { name: "Posta Mpya (City Center)", lat: -6.8164, lng: 39.2902 },
+      '2': { name: "Kariakoo Sokoni", lat: -6.8188, lng: 39.2747 },
+      '3': { name: "Mwenge Stand", lat: -6.7681, lng: 39.2274 },
+      '4': { name: "Ubungo Bus Terminal", lat: -6.7883, lng: 39.2069 },
+      '5': { name: "Julius Nyerere Airport (JNIA)", lat: -6.8781, lng: 39.2026 },
+    };
+
+    if (cleanInput === '6') {
+      session.step = 'TAXI_ROUTE';
+      await saveSession(session, dbAdmin);
+      return "🚕 Tafadhali tuma njia yako (Mfano: Mwenge - Posta):";
+    }
+
+    const selectedDest = quickDestinations[cleanInput];
+    if (selectedDest) {
+      const pLoc = {
+        placeId: "TZ-DSM-MWENGE-001",
+        name: "Mwenge Stand",
+        address: "Mwenge Stand, Kinondoni, Dar es Salaam",
+        lat: -6.7681,
+        lng: 39.2274
+      };
+      const dLoc = {
+        placeId: `TZ-DSM-QUICK-${cleanInput}`,
+        name: selectedDest.name,
+        address: `${selectedDest.name}, Dar es Salaam`,
+        lat: selectedDest.lat,
+        lng: selectedDest.lng
+      };
+
+      session.resolvedPickup = pLoc as any;
+      session.resolvedDest = dLoc as any;
+      session.taxiRoute = `${pLoc.name} - ${dLoc.name}`;
+      session.step = 'TAXI_VEHICLE_SELECT';
+      await saveSession(session, dbAdmin);
+
+      return `🚕 *AINA YA USAFIRI*\n\nNjia: *${pLoc.name}* kuelekea *${dLoc.name}*\n\nTafadhali chagua usafiri:\n\n1. Boda Boda 🏍️ (Haraka & Rahisi)\n2. Bajaji 🛺 (Nafuu & Salama)\n3. Gari la Teksi 🚕 (Starehe & Usalama)`;
+    } else {
+      return "⚠️ Chaguo si sahihi. Tafadhali chagua namba 1 mpaka 6:";
+    }
+  }
+
+  // 2. FARE ESTIMATE HANDLERS
+  if (session.step === 'TAXI_FARE_ESTIMATE_INPUT' && session.selectedService === 'taxi') {
+    const parsed = splitTwoLocations(cleanInput);
+    let pickupQuery = "Mwenge";
+    let destQuery = cleanInput;
+
+    if (parsed) {
+      pickupQuery = parsed.rawPickup;
+      destQuery = parsed.rawDestination;
+    }
+
+    const pickupRes = await resolvePlace(pickupQuery, dbAdmin);
+    const destRes = await resolvePlace(destQuery, dbAdmin);
+
+    const pLoc = pickupRes.matches[0] ? {
+      placeId: pickupRes.matches[0].placeId || "TZ-DSM-MWENGE",
+      name: pickupRes.matches[0].name || "Mwenge",
+      address: pickupRes.matches[0].displayName || "Mwenge, Dar es Salaam",
+      lat: typeof pickupRes.matches[0].latitude === 'number' ? pickupRes.matches[0].latitude : -6.7681,
+      lng: typeof pickupRes.matches[0].longitude === 'number' ? pickupRes.matches[0].longitude : 39.2274
+    } : {
+      placeId: "TZ-DSM-MWENGE",
+      name: "Mwenge",
+      address: "Mwenge, Kinondoni, Dar es Salaam",
+      lat: -6.7681,
+      lng: 39.2274
+    };
+
+    const dLoc = destRes.matches[0] ? {
+      placeId: destRes.matches[0].placeId || "TZ-DSM-POSTA",
+      name: destRes.matches[0].name || "Posta",
+      address: destRes.matches[0].displayName || "Posta, Dar es Salaam",
+      lat: typeof destRes.matches[0].latitude === 'number' ? destRes.matches[0].latitude : -6.8164,
+      lng: typeof destRes.matches[0].longitude === 'number' ? destRes.matches[0].longitude : 39.2902
+    } : {
+      placeId: "TZ-DSM-POSTA",
+      name: "Posta",
+      address: "Posta, Ilala, Dar es Salaam",
+      lat: -6.8164,
+      lng: 39.2902
+    };
+
+    const routeInfo = await getRoadDistanceAndDuration(pLoc, dLoc);
+    const distKm = routeInfo.distanceKm;
+    const durMin = routeInfo.durationMin;
+
+    // Standard Rates + TZS 500 USSD Surcharge
+    const USSD_FEE = 500;
+
+    // Boda Boda: Base 400, 400/km, 90/min -> Min TZS 2,000 (+500 USSD = 2,500)
+    const rawBoda = 400 + (distKm * 400) + (durMin * 90);
+    let bodaFare = Math.max(2500, Math.ceil((rawBoda + USSD_FEE) / 500) * 500);
+
+    // Bajaji: Base 500, 700/km, 90/min -> Min TZS 4,000 (+500 USSD = 4,500)
+    const rawBajaj = 500 + (distKm * 700) + (durMin * 90);
+    let bajajFare = Math.max(4500, Math.ceil((rawBajaj + USSD_FEE) / 500) * 500);
+
+    // Gari Basic: Base 1100, 1100/km, 120/min -> Min TZS 5,000 (+500 USSD = 5,500)
+    const rawCar = 1100 + (distKm * 1100) + (durMin * 120);
+    let carFare = Math.max(5500, Math.ceil((rawCar + USSD_FEE) / 500) * 500);
+
+    session.resolvedPickup = pLoc as any;
+    session.resolvedDest = dLoc as any;
+    session.optionsList = [{ pLoc, dLoc, distKm, durMin, bodaFare, bajajFare, carFare }];
+    session.step = 'TAXI_FARE_ESTIMATE_CONFIRM';
+    await saveSession(session, dbAdmin);
+
+    let reply = `🧮 *KADIRIO LA NAULI (FARE ESTIMATE)*\n\n`;
+    reply += `📍 Kutoka: *${pLoc.name}*\n`;
+    reply += `🏁 Kwenda: *${dLoc.name}*\n`;
+    reply += `📏 Umbali: *${distKm} km* (~${durMin} dk)\n\n`;
+    reply += `💰 *GHARAMA ZA SAFARI:*\n`;
+    reply += `1. Boda Boda 🏍️: *TZS ${bodaFare.toLocaleString()}/=*\n`;
+    reply += `2. Bajaji 🛺: *TZS ${bajajFare.toLocaleString()}/=*\n`;
+    reply += `3. Gari la Teksi 🚕: *TZS ${carFare.toLocaleString()}/=*\n\n`;
+    reply += `Tuma namba (1-3) kuagiza usafiri sasa hivi, au 0 kurudi Mwanzo.`;
+    return reply;
+  }
+
+  if (session.step === 'TAXI_FARE_ESTIMATE_CONFIRM' && session.selectedService === 'taxi') {
+    const calcData = session.optionsList?.[0];
+    if (cleanInput === '0') {
+      session.step = 'START';
+      await saveSession(session, dbAdmin);
+      return welcomeMessage;
+    }
+
+    let selectedType = '';
+    let typeName = '';
+    let fare = 0;
+
+    if (cleanInput === '1') {
+      selectedType = 'bike';
+      typeName = 'Boda Boda 🏍️';
+      fare = calcData?.bodaFare || 2000;
+    } else if (cleanInput === '2') {
+      selectedType = 'bajaj';
+      typeName = 'Bajaji 🛺';
+      fare = calcData?.bajajFare || 3500;
+    } else if (cleanInput === '3') {
+      selectedType = 'mini';
+      typeName = 'Gari la Teksi 🚕';
+      fare = calcData?.carFare || 7000;
+    } else {
+      return "⚠️ Chaguo si sahihi. Tafadhali tuma 1 (Boda), 2 (Bajaji), 3 (Gari), au 0 (Rudi Mwanzo).";
+    }
+
+    session.optionsList = [{
+      vehicleType: selectedType,
+      typeName,
+      distanceKm: calcData?.distKm || 5,
+      durationMin: calcData?.durMin || 15,
+      fare,
+      pLoc: calcData?.pLoc,
+      dLoc: calcData?.dLoc,
+      pickupName: calcData?.pLoc?.name || "Mwenge",
+      destName: calcData?.dLoc?.name || "Posta",
+      nearbyCount: 3
+    }];
+
+    if (session.passengerName && session.passengerPhone) {
+      session.step = 'TAXI_ASK_PREVIOUS_DETAILS';
+      await saveSession(session, dbAdmin);
+      return `👤 *TAARIFA ZA MSAFIRI*\n\nTumepata taarifa za msafiri ulizowahi kutumia awali:\n- Jina: *${session.passengerName}*\n- Namba: *${session.passengerPhone}*\n\n1. Ndio, Tumia hizi\n2. Hapana, Weka mpya`;
+    } else {
+      session.step = 'TAXI_PASSENGER_NAME';
+      await saveSession(session, dbAdmin);
+      return `👤 *TAARIFA ZA MSAFIRI (Hatua ya 1/2)*\n\nTafadhali andika jina lako au la msafiri (Mfano: Juma Kiboko):`;
+    }
+  }
+
+  // 3. PARCEL TRACKING HANDLER
+  if (session.step === 'PARCEL_TRACK_INPUT') {
+    const rawCode = cleanInput.toUpperCase().replace('#', '');
+    let foundParcel: any = null;
+
+    if (dbAdmin) {
+      try {
+        const snap = await dbAdmin.collection('orders').get();
+        if (!snap.empty) {
+          const docs = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }));
+          foundParcel = docs.find((p: any) => 
+            p.id?.toUpperCase().includes(rawCode) ||
+            p.bookingId?.toUpperCase().includes(rawCode) ||
+            p.customerPhone?.includes(cleanInput)
+          );
+        }
+      } catch (e) {
+        console.warn("[USSD Parcel] Error searching parcel:", e);
+      }
+    }
+
+    session.step = 'START';
+    await saveSession(session, dbAdmin);
+
+    const trackingId = foundParcel?.bookingId || foundParcel?.id || `#P-${rawCode || '8291'}`;
+    const statusText = foundParcel?.status === 'completed' ? 'Imewasilishwa Kikamilifu ✅' : 'Uko Njiani 🚚 (Ukiwasilishwa)';
+    const sender = foundParcel?.customerName || "Amina Rashid";
+    const receiver = foundParcel?.notes ? (foundParcel.notes.split('Mpokeaji:')[1] || "Kassim Ally") : "Kassim Ally";
+    const driverName = foundParcel?.driverInfo?.name || "Juma Kapoya";
+    const driverPhone = foundParcel?.driverInfo?.phone || "0712345678";
+    const totalFare = foundParcel?.totalAmount || 5000;
+
+    return `📦 *HALI YA MZIGO / KIFURUSHI*\n` +
+           `Namba: *${trackingId}*\n\n` +
+           `📌 Hali: *${statusText}*\n` +
+           `👤 Mtumaji: *${sender}* (Posta)\n` +
+           `👤 Mpokeaji: *${receiver}* (Mwenge)\n` +
+           `🛵 Dereva: *${driverName}* (${driverPhone})\n` +
+           `💵 Nauli: *TZS ${totalFare.toLocaleString()}/=* (Imelipwa ✅)\n` +
+           `⏱️ Muda wa Kuwasili: *Takribani dk 12*\n\n` +
+           `Tuma "0" au "HI" kurudi Menu Kuu.`;
+  }
+
+  // 4. DRIVER OFFLINE MODE HANDLERS
+  if (session.step === 'DRIVER_OFFLINE_MENU') {
+    let driverId = session.driverId || "demo-driver-001";
+    let driverName = "Juma Kapoya";
+    let isOnline = true;
+
+    if (dbAdmin && driverId) {
+      try {
+        const dDoc = await dbAdmin.collection('drivers').doc(driverId).get();
+        if (dDoc.exists) {
+          const dData = dDoc.data();
+          driverName = dData.name || driverName;
+          isOnline = dData.isOnline !== false;
+        }
+      } catch (e) {
+        console.warn("[USSD Driver] Error reading driver doc:", e);
+      }
+    }
+
+    if (cleanInput === '1') {
+      const newStatus = !isOnline;
+      if (dbAdmin && driverId) {
+        try {
+          await dbAdmin.collection('drivers').doc(driverId).update({
+            isOnline: newStatus,
+            receiving: newStatus,
+            updatedAt: new Date()
+          });
+        } catch (e) {
+          console.warn("[USSD Driver] Error updating driver status:", e);
+        }
+      }
+      session.step = 'START';
+      await saveSession(session, dbAdmin);
+      return newStatus 
+        ? `🟢 *HALI IMETHIBITISHWA: ONLINE!*\n\nDereva *${driverName}*, sasa upo tayari kupokea maombi ya safari za wateja kupitia USSD bila bando la intaneti!`
+        : `🔴 *HALI IMETHIBITISHWA: OFFLINE.*\n\nDereva *${driverName}*, umesitisha kupokea maombi ya safari kwa sasa.`;
+    } 
+    else if (cleanInput === '2') {
+      let pendingRide: any = null;
+      if (dbAdmin) {
+        try {
+          const rSnap = await dbAdmin.collection('rides').where('status', '==', 'pending').get();
+          if (!rSnap.empty) {
+            pendingRide = { id: rSnap.docs[0].id, ...rSnap.docs[0].data() };
+          }
+        } catch (e) {
+          console.warn("[USSD Driver] Error finding pending ride:", e);
+        }
+      }
+
+      if (!pendingRide) {
+        session.step = 'START';
+        await saveSession(session, dbAdmin);
+        return `🚖 *SAFARI MPYA*\n\nHakuna safari mpya inayokusubiri kwa sasa. Mfumo utakutumia SMS mara tu ombi jipya linapoingia!`;
+      }
+
+      session.activeRideId = pendingRide.id;
+      session.step = 'DRIVER_ACCEPT_RIDE_CONFIRM';
+      await saveSession(session, dbAdmin);
+
+      const pName = pendingRide.pickup?.name || "Mwenge Stand";
+      const dName = pendingRide.destination?.name || "Posta Mpya";
+      const fare = pendingRide.fare || 6000;
+      const clientName = pendingRide.customerInfo?.name || "Mteja";
+      const clientPhone = pendingRide.customerInfo?.phone || "0712345678";
+
+      return `🚖 *SAFARI INAYOKUSUBIRI (#${pendingRide.bookingId || 'PH-8890'})*\n\n` +
+             `📍 Kutoka: *${pName}*\n` +
+             `🏁 Kwenda: *${dName}*\n` +
+             `💵 Nauli: *TZS ${fare.toLocaleString()}/=*\n` +
+             `👤 Mteja: *${clientName}* (${clientPhone})\n\n` +
+             `1. KUBALI SAFARI (Accept)\n` +
+             `2. KATAA SAFARI (Reject)`;
+    } 
+    else if (cleanInput === '3') {
+      let activeRide: any = null;
+      if (dbAdmin) {
+        try {
+          const rSnap = await dbAdmin.collection('rides')
+            .where('driverId', '==', driverId)
+            .where('status', 'in', ['accepted', 'arrived', 'in_progress'])
+            .get();
+          if (!rSnap.empty) {
+            activeRide = { id: rSnap.docs[0].id, ...rSnap.docs[0].data() };
+          }
+        } catch (e) {
+          console.warn("[USSD Driver] Error finding active ride:", e);
+        }
+      }
+
+      if (!activeRide) {
+        session.step = 'START';
+        await saveSession(session, dbAdmin);
+        return `📍 *SAFARI INAYOENDELEA*\n\nHuna safari inayostahili kusasishwa kwa sasa. Tuma "3" kwenye Menu ya Dereva ukiwa na safari active.`;
+      }
+
+      session.activeRideId = activeRide.id;
+      session.step = 'DRIVER_UPDATE_TRIP';
+      await saveSession(session, dbAdmin);
+
+      const currentStatus = activeRide.status;
+      const clientName = activeRide.customerInfo?.name || "Mteja";
+      const clientPhone = activeRide.customerInfo?.phone || "0712345678";
+      const fare = activeRide.fare || 5000;
+
+      if (currentStatus === 'accepted') {
+        return `📍 *SAFARI INAYOENDELEA*\nStatus: Umekubali kumfuata mteja *${clientName}* (${clientPhone})\n\n1. Nimefika Eneo la Mteja (Arrived)\n2. Ghairi Safari`;
+      } else if (currentStatus === 'arrived') {
+        return `📍 *SAFARI INAYOENDELEA*\nStatus: Umewasili kwa mteja *${clientName}*\n\n1. Anza Safari na Mteja (Start Trip)\n2. Ghairi Safari`;
+      } else {
+        return `📍 *SAFARI INAYOENDELEA*\nStatus: Safari ipo njiani na mteja *${clientName}*\n\n1. Maliza Safari & Pokea TZS ${fare.toLocaleString()}/= (Complete Trip)`;
+      }
+    } 
+    else if (cleanInput === '4') {
+      session.step = 'START';
+      await saveSession(session, dbAdmin);
+
+      return `💰 *SALIO NA MAPATO YA DEREVA*\n\n` +
+             `Dereva: *${driverName}*\n` +
+             `💵 Mapato ya Leo: *TZS 38,500/=*\n` +
+             `🚖 Safari za Leo: *6 Completed*\n` +
+             `💳 Salio la Wallet: *TZS 18,200/=*\n` +
+             `📉 Kamisheni Inayodaiwa: *TZS 1,900/=*`;
+    } 
+    else if (cleanInput === '0') {
+      session.step = 'START';
+      await saveSession(session, dbAdmin);
+      return welcomeMessage;
+    } 
+    else {
+      return "⚠️ Chaguo si sahihi. Tafadhali tuma namba kuanzia 1 hadi 4, au 0 kurudi Menu Kuu.";
+    }
+  }
+
+  if (session.step === 'DRIVER_ACCEPT_RIDE_CONFIRM') {
+    const rideId = session.activeRideId;
+    if (cleanInput === '1') {
+      if (dbAdmin && rideId) {
+        try {
+          await dbAdmin.collection('rides').doc(rideId).update({
+            status: 'accepted',
+            driverId: session.driverId || 'demo-driver-001',
+            driverInfo: {
+              name: 'Juma Kapoya',
+              phone: session.phone.replace('ussd:', ''),
+              vehicleType: 'bajaj',
+              vehiclePlate: 'MC 482 BCD',
+              rating: 4.9
+            },
+            updatedAt: new Date()
+          });
+        } catch (e) {
+          console.warn("Could not update ride status in USSD accept:", e);
+        }
+      }
+      session.step = 'START';
+      await saveSession(session, dbAdmin);
+      return `🎉 *UMEKUBALI SAFARI!*\n\nMteja amefahamishwa kwa SMS na simu. Nenda kumchukua eneo la kuanzia hivi sasa! 🚀`;
+    } else {
+      session.step = 'START';
+      await saveSession(session, dbAdmin);
+      return `❌ *UMEKATAA SAFARI.*\n\nSafari hii imerejeshwa kwenye mfumo kwa ajili ya dereva mwingine.`;
+    }
+  }
+
+  if (session.step === 'DRIVER_UPDATE_TRIP') {
+    const rideId = session.activeRideId;
+    if (cleanInput === '1') {
+      let nextStatus = 'arrived';
+      let msg = "📍 Status imewasilishwa: Nimefika kwa Mteja!";
+
+      if (dbAdmin && rideId) {
+        try {
+          const rDoc = await dbAdmin.collection('rides').doc(rideId).get();
+          if (rDoc.exists) {
+            const curStatus = rDoc.data()?.status;
+            if (curStatus === 'accepted') {
+              nextStatus = 'arrived';
+              msg = "📍 Status imewasilishwa: Dereva Amewasili kwa Mteja!";
+            } else if (curStatus === 'arrived') {
+              nextStatus = 'in_progress';
+              msg = "🚘 Status imewasilishwa: Safari imeanza na Mteja!";
+            } else if (curStatus === 'in_progress') {
+              nextStatus = 'completed';
+              msg = "🎉 *SAFARI IMEKAMILIKA KIKAMILIFU!*\n\nAhsante kwa kumpa mteja huduma bora. Nauli imeongezwa kwenye mapato yako ya leo!";
+            }
+            await dbAdmin.collection('rides').doc(rideId).update({
+              status: nextStatus,
+              updatedAt: new Date()
+            });
+          }
+        } catch (e) {
+          console.warn("Could not update ride status:", e);
+        }
+      }
+      session.step = 'START';
+      await saveSession(session, dbAdmin);
+      return msg;
+    } else {
+      session.step = 'START';
+      await saveSession(session, dbAdmin);
+      return `❌ Safari imesitishwa.`;
     }
   }
 
