@@ -22,6 +22,13 @@ export interface SMSSession {
   selectedProductId?: string;
   selectedProductName?: string;
   selectedProductPrice?: number;
+  foodCart?: { name: string; price: number; qty: number; productId?: string }[];
+  selectedVendorName?: string;
+  selectedVendorCategory?: string;
+  selectedSubCategory?: string;
+  deliveryLocation?: string;
+  deliveryFee?: number;
+  paymentMethod?: string;
   optionsList?: any[]; // To track numeric selection maps (e.g. 1 to operator id)
   lastUpdated: number;
   resolvedPickup?: Place;
@@ -289,10 +296,11 @@ export async function handleSMSInput(
       return "💇‍♀️ SALUNI & UREMBO:\n\n1. Kinyozi / Hair Cut\n2. Kusuka / Salon ya Kike\n3. Nails / Makeup / Spa\n0. Rudi Mwanzo";
     } 
     else if (cleanInput === '6' || lowerInput.includes('chakula') || lowerInput.includes('soko') || lowerInput.includes('dawa')) {
-      session.step = 'STORE_SEARCH';
+      session.step = 'FOOD_MAIN_MENU';
       session.selectedService = 'restaurant';
+      session.foodCart = [];
       await saveSession(session, dbAdmin);
-      return "🍱 CHAKULA & SOKONI:\n\nAndika chakula au bidhaa unayotafuta (mf. Chips Kuku, Wali Nyama, Panadol):";
+      return "PAPO HAPO SUPER APP\nCHAGUA HUDUMA\n\n1. 🍔 CHAKULA\n2. 🛒 SOKONI\n\n0. Nyuma";
     }
     else {
       return "⚠️ Chaguo si sahihi! Tuma namba 1 mpaka 6, au tuma \"HI\" kuanza upya.";
@@ -1403,6 +1411,394 @@ export async function handleSMSInput(
            `- Malipo Mapokezi: TSH ${(session.selectedProductPrice || 45000).toLocaleString()}\n` +
            `- Simu ya malipo: ${paymentPhone}\n\n` +
            `Tumetuma ombi la kulipia kupitia mtandao wa simu (PUSH) kwenda ${paymentPhone}. Tafadhali weka PIN yako kukamilisha ununuzi. Tiketi yako kamili itatuma kwa SMS punde! Safari njema! 🚌✨`;
+  }
+
+  // CHAKULA & SOKONI (FOOD & GROCERY SUPER APP FLOW)
+  if (session.step === 'FOOD_MAIN_MENU') {
+    if (cleanInput === '0') {
+      session.step = 'START';
+      await saveSession(session, dbAdmin);
+      return welcomeMessage;
+    }
+
+    if (cleanInput === '1' || lowerInput.includes('chakula') || lowerInput.includes('food')) {
+      session.selectedVendorCategory = 'CHAKULA';
+      session.step = 'FOOD_VENDOR_LIST';
+
+      let vendors: any[] = [];
+      if (dbAdmin) {
+        try {
+          const snap = await dbAdmin.collection('vendors').where('category', 'in', ['restaurant', 'food']).get();
+          snap.forEach((doc: any) => {
+            const d = doc.data();
+            vendors.push({ id: doc.id, name: d.businessName || d.name || 'Vendor', distance: '0.6 km' });
+          });
+        } catch (e) {
+          console.warn("Error fetching food vendors:", e);
+        }
+      }
+      if (vendors.length === 0) {
+        vendors = [
+          { id: 'v-mama-amina', name: 'Mama Ntilie Amina', distance: '0.6 km' },
+          { id: 'v-pizza-point', name: 'Pizza Point', distance: '1.1 km' },
+          { id: 'v-kfc-mlimani', name: 'KFC Mlimani', distance: '2.0 km' },
+          { id: 'v-burger-house', name: 'Burger House', distance: '2.3 km' }
+        ];
+      }
+      session.optionsList = vendors;
+      await saveSession(session, dbAdmin);
+
+      let reply = "CHAKULA KARIBU NAWE\n\n";
+      vendors.slice(0, 4).forEach((v, idx) => {
+        reply += `${idx + 1}. ${v.name} (${v.distance})\n`;
+      });
+      reply += "\n9. Zaidi\n0. Nyuma";
+      return reply;
+    }
+
+    if (cleanInput === '2' || lowerInput.includes('soko') || lowerInput.includes('grocery')) {
+      session.selectedVendorCategory = 'SOKONI';
+      session.step = 'FOOD_VENDOR_LIST';
+
+      let vendors: any[] = [];
+      if (dbAdmin) {
+        try {
+          const snap = await dbAdmin.collection('vendors').where('category', 'in', ['grocery', 'soko']).get();
+          snap.forEach((doc: any) => {
+            const d = doc.data();
+            vendors.push({ id: doc.id, name: d.businessName || d.name || 'Vendor', distance: '0.5 km' });
+          });
+        } catch (e) {
+          console.warn("Error fetching grocery vendors:", e);
+        }
+      }
+      if (vendors.length === 0) {
+        vendors = [
+          { id: 'v-kariakoo', name: 'Soko Kuu Kariakoo', distance: '0.5 km' },
+          { id: 'v-shoppers', name: 'Supermarket Shoppers', distance: '1.2 km' },
+          { id: 'v-kijitonyama', name: 'Soko la Kijitonyama', distance: '1.8 km' }
+        ];
+      }
+      session.optionsList = vendors;
+      await saveSession(session, dbAdmin);
+
+      let reply = "SOKONI KARIBU NAWE\n\n";
+      vendors.slice(0, 4).forEach((v, idx) => {
+        reply += `${idx + 1}. ${v.name} (${v.distance})\n`;
+      });
+      reply += "\n9. Zaidi\n0. Nyuma";
+      return reply;
+    }
+
+    return "⚠️ Chaguo si sahihi! Tuma 1 kwa CHAKULA au 2 kwa SOKONI.\n0. Nyuma";
+  }
+
+  if (session.step === 'FOOD_VENDOR_LIST') {
+    if (cleanInput === '0') {
+      session.step = 'FOOD_MAIN_MENU';
+      await saveSession(session, dbAdmin);
+      return "PAPO HAPO SUPER APP\nCHAGUA HUDUMA\n\n1. 🍔 CHAKULA\n2. 🛒 SOKONI\n\n0. Nyuma";
+    }
+
+    const idx = parseInt(cleanInput) - 1;
+    const vendor = session.optionsList?.[idx];
+    if (!vendor) {
+      return "⚠️ Namba ya mtoa huduma si sahihi.\n0. Nyuma";
+    }
+
+    session.selectedOperatorId = vendor.id;
+    session.selectedVendorName = vendor.name;
+    session.step = 'FOOD_CATEGORY_LIST';
+
+    const categories = [
+      { id: 'c-wali', name: 'Wali' },
+      { id: 'c-chips', name: 'Chips' },
+      { id: 'c-ugali', name: 'Ugali' },
+      { id: 'c-vinywaji', name: 'Vinywaji' },
+      { id: 'c-ofa', name: 'Ofa za Leo' }
+    ];
+    session.optionsList = categories;
+    await saveSession(session, dbAdmin);
+
+    let reply = `${vendor.name}\n\n`;
+    categories.forEach((cat, i) => {
+      reply += `${i + 1}. ${cat.name}\n`;
+    });
+    reply += "\n0. Nyuma";
+    return reply;
+  }
+
+  if (session.step === 'FOOD_CATEGORY_LIST') {
+    if (cleanInput === '0') {
+      session.step = 'FOOD_VENDOR_LIST';
+      await saveSession(session, dbAdmin);
+      const vendors = session.optionsList || [];
+      let reply = "CHAGUA TENA MTOA HUDUMA:\n\n";
+      vendors.slice(0, 4).forEach((v: any, idx: number) => {
+        reply += `${idx + 1}. ${v.name}\n`;
+      });
+      reply += "\n0. Nyuma";
+      return reply;
+    }
+
+    const idx = parseInt(cleanInput) - 1;
+    const cat = session.optionsList?.[idx];
+    if (!cat) {
+      return "⚠️ Chaguo si sahihi. Chagua namba kutoka kwenye orodha.\n0. Nyuma";
+    }
+
+    session.selectedSubCategory = cat.name;
+    session.step = 'FOOD_ITEMS_LIST';
+
+    const catLower = cat.name.toLowerCase();
+    let items: any[] = [];
+    if (catLower.includes('chip')) {
+      items = [
+        { id: 'p-chips-kuku', name: 'Chips Kuku', price: 8000 },
+        { id: 'p-chips-mayai', name: 'Chips Mayai', price: 5000 },
+        { id: 'p-chips-beef', name: 'Chips Beef', price: 7000 },
+        { id: 'p-chips-mishkaki', name: 'Chips Mishkaki', price: 9000 }
+      ];
+    } else if (catLower.includes('wali')) {
+      items = [
+        { id: 'p-wali-kuku', name: 'Wali Kuku', price: 7000 },
+        { id: 'p-wali-samaki', name: 'Wali Samaki', price: 8000 },
+        { id: 'p-wali-nyama', name: 'Wali Nyama', price: 5000 },
+        { id: 'p-wali-maharage', name: 'Wali Maharage', price: 3000 }
+      ];
+    } else if (catLower.includes('ugali')) {
+      items = [
+        { id: 'p-ugali-samaki', name: 'Ugali Samaki', price: 8000 },
+        { id: 'p-ugali-dagaa', name: 'Ugali Dagaa', price: 4000 },
+        { id: 'p-ugali-kuku', name: 'Ugali Kuku', price: 7000 }
+      ];
+    } else if (catLower.includes('vinywaji') || catLower.includes('drink')) {
+      items = [
+        { id: 'p-soda', name: 'Soda Baridi', price: 1000 },
+        { id: 'p-maji', name: 'Maji Makubwa (1.5L)', price: 1500 },
+        { id: 'p-juisi', name: 'Juisi ya Matunda Fresh', price: 2500 }
+      ];
+    } else {
+      items = [
+        { id: 'p-ofa-1', name: 'Ofa: Chips Kuku + Soda', price: 8500 },
+        { id: 'p-ofa-2', name: 'Ofa: Wali Kuku + Juisi', price: 8000 }
+      ];
+    }
+
+    session.optionsList = items;
+    await saveSession(session, dbAdmin);
+
+    let reply = `${cat.name.toUpperCase()}\n\n`;
+    items.forEach((item, i) => {
+      reply += `${i + 1}. ${item.name} - TZS ${item.price.toLocaleString()}\n`;
+    });
+    reply += "\n9. Zaidi\n0. Nyuma";
+    return reply;
+  }
+
+  if (session.step === 'FOOD_ITEMS_LIST') {
+    if (cleanInput === '0') {
+      session.step = 'FOOD_CATEGORY_LIST';
+      await saveSession(session, dbAdmin);
+      return `${session.selectedVendorName || 'Mama Ntilie Amina'}\n\n1. Wali\n2. Chips\n3. Ugali\n4. Vinywaji\n5. Ofa za Leo\n\n0. Nyuma`;
+    }
+
+    const idx = parseInt(cleanInput) - 1;
+    const item = session.optionsList?.[idx];
+    if (!item) {
+      return "⚠️ Chaguo si sahihi. Chagua namba kutoka kwenye orodha.\n0. Nyuma";
+    }
+
+    session.selectedProductId = item.id;
+    session.selectedProductName = item.name;
+    session.selectedProductPrice = item.price;
+    session.step = 'FOOD_ITEM_DETAIL';
+    await saveSession(session, dbAdmin);
+
+    return `${item.name}\nBei: TZS ${item.price.toLocaleString()}\n\n1. Ongeza Kikapu\n2. Maelezo\n0. Nyuma`;
+  }
+
+  if (session.step === 'FOOD_ITEM_DETAIL') {
+    if (cleanInput === '0') {
+      session.step = 'FOOD_ITEMS_LIST';
+      await saveSession(session, dbAdmin);
+      return `Chagua tena bidhaa au tuma 0 kurudi nyuma.`;
+    }
+
+    if (cleanInput === '2') {
+      return `${session.selectedProductName} Tamu na ya moto inayokuja na saladi na kachumbari.\n\n1. Ongeza Kikapu\n0. Nyuma`;
+    }
+
+    if (cleanInput === '1') {
+      session.step = 'FOOD_QTY_INPUT';
+      await saveSession(session, dbAdmin);
+      return "Ingiza idadi.\n\nMfano:\n1\n2\n3";
+    }
+
+    return "⚠️ Bofya 1 Ongeza Kikapu, 2 Maelezo, au 0 Nyuma.";
+  }
+
+  if (session.step === 'FOOD_QTY_INPUT') {
+    if (cleanInput === '0') {
+      session.step = 'FOOD_ITEM_DETAIL';
+      await saveSession(session, dbAdmin);
+      return `${session.selectedProductName}\nBei: TZS ${(session.selectedProductPrice || 0).toLocaleString()}\n\n1. Ongeza Kikapu\n2. Maelezo\n0. Nyuma`;
+    }
+
+    const qty = parseInt(cleanInput);
+    if (isNaN(qty) || qty <= 0) {
+      return "Tafadhali ingiza idadi (Mfano: 1, 2, 3):";
+    }
+
+    session.foodCart = session.foodCart || [];
+    session.foodCart.push({
+      name: session.selectedProductName || "Chips Kuku",
+      price: session.selectedProductPrice || 8000,
+      qty,
+      productId: session.selectedProductId
+    });
+
+    session.step = 'FOOD_CART_VIEW';
+    await saveSession(session, dbAdmin);
+
+    const subtotal = session.foodCart.reduce((acc, curr) => acc + (curr.price * curr.qty), 0);
+    let cartLines = session.foodCart.map(c => `${c.name} x${c.qty}`).join('\n');
+
+    return `KIKAPU\n\n${cartLines}\n\nTZS ${subtotal.toLocaleString()}\n\n1. Ongeza bidhaa\n2. Endelea Kulipa\n3. Futa Kikapu\n\n0. Nyuma`;
+  }
+
+  if (session.step === 'FOOD_CART_VIEW') {
+    if (cleanInput === '0' || cleanInput === '1') {
+      session.step = 'FOOD_CATEGORY_LIST';
+      await saveSession(session, dbAdmin);
+      return `${session.selectedVendorName || 'Mama Ntilie Amina'}\n\n1. Wali\n2. Chips\n3. Ugali\n4. Vinywaji\n5. Ofa za Leo\n\n0. Nyuma`;
+    }
+
+    if (cleanInput === '3') {
+      session.foodCart = [];
+      session.step = 'FOOD_CATEGORY_LIST';
+      await saveSession(session, dbAdmin);
+      return "Kikapu kimefutwa!\n\n1. Wali\n2. Chips\n3. Ugali\n4. Vinywaji\n5. Ofa za Leo\n\n0. Nyuma";
+    }
+
+    if (cleanInput === '2') {
+      if (!session.foodCart || session.foodCart.length === 0) {
+        return "Kikapu chako kipo wazi!\n\n1. Ongeza bidhaa\n0. Nyuma";
+      }
+
+      session.step = 'FOOD_DELIVERY_LOCATION';
+      await saveSession(session, dbAdmin);
+
+      return "DELIVERY\n\n1. Tumia Location yangu\n2. Ingiza eneo\n\n0. Nyuma";
+    }
+
+    return "⚠️ Bofya 1 Ongeza bidhaa, 2 Endelea Kulipa, au 3 Futa Kikapu.";
+  }
+
+  if (session.step === 'FOOD_DELIVERY_LOCATION') {
+    if (cleanInput === '0') {
+      session.step = 'FOOD_CART_VIEW';
+      await saveSession(session, dbAdmin);
+      const subtotal = (session.foodCart || []).reduce((acc, curr) => acc + (curr.price * curr.qty), 0);
+      let cartLines = (session.foodCart || []).map(c => `${c.name} x${c.qty}`).join('\n');
+      return `KIKAPU\n\n${cartLines}\n\nTZS ${subtotal.toLocaleString()}\n\n1. Ongeza bidhaa\n2. Endelea Kulipa\n3. Futa Kikapu\n\n0. Nyuma`;
+    }
+
+    if (cleanInput === '1') {
+      session.deliveryLocation = "Location yangu";
+      session.deliveryFee = 2500;
+      session.step = 'FOOD_PAYMENT_METHOD';
+      await saveSession(session, dbAdmin);
+
+      const subtotal = (session.foodCart || []).reduce((acc, curr) => acc + (curr.price * curr.qty), 0);
+      const grandTotal = subtotal + 2500;
+
+      return `JUMLA\n\nBidhaa      TZS ${subtotal.toLocaleString()}\nDelivery    TZS 2,500\nJumla       TZS ${grandTotal.toLocaleString()}\n\n1. M-Pesa\n2. Airtel Money\n3. Tigo Pesa\n4. HaloPesa\n5. Cash\n\n0. Nyuma`;
+    }
+
+    if (cleanInput === '2') {
+      session.step = 'FOOD_INPUT_ADDRESS';
+      await saveSession(session, dbAdmin);
+      return "Tafadhali ingiza eneo lako la uwasilishaji:\n(Mfano: TABATA RELINI, KINONDONI, MWENGE)";
+    }
+
+    return "⚠️ Chagua 1 Tumia Location yangu, 2 Ingiza eneo, au 0 Nyuma.";
+  }
+
+  if (session.step === 'FOOD_INPUT_ADDRESS') {
+    if (cleanInput === '0') {
+      session.step = 'FOOD_DELIVERY_LOCATION';
+      await saveSession(session, dbAdmin);
+      return "DELIVERY\n\n1. Tumia Location yangu\n2. Ingiza eneo\n\n0. Nyuma";
+    }
+
+    session.deliveryLocation = cleanInput.toUpperCase();
+    session.deliveryFee = 2500;
+    session.step = 'FOOD_PAYMENT_METHOD';
+    await saveSession(session, dbAdmin);
+
+    const subtotal = (session.foodCart || []).reduce((acc, curr) => acc + (curr.price * curr.qty), 0);
+    const grandTotal = subtotal + 2500;
+
+    return `JUMLA\n\nBidhaa      TZS ${subtotal.toLocaleString()}\nDelivery    TZS 2,500\nJumla       TZS ${grandTotal.toLocaleString()}\n\n1. M-Pesa\n2. Airtel Money\n3. Tigo Pesa\n4. HaloPesa\n5. Cash\n\n0. Nyuma`;
+  }
+
+  if (session.step === 'FOOD_PAYMENT_METHOD') {
+    if (cleanInput === '0') {
+      session.step = 'FOOD_DELIVERY_LOCATION';
+      await saveSession(session, dbAdmin);
+      return "DELIVERY\n\n1. Tumia Location yangu\n2. Ingiza eneo\n\n0. Nyuma";
+    }
+
+    const payMethods: Record<string, string> = {
+      '1': 'M-Pesa',
+      '2': 'Airtel Money',
+      '3': 'Tigo Pesa',
+      '4': 'HaloPesa',
+      '5': 'Cash'
+    };
+
+    const method = payMethods[cleanInput] || 'Cash';
+    session.paymentMethod = method;
+
+    const subtotal = (session.foodCart || []).reduce((acc, curr) => acc + (curr.price * curr.qty), 0);
+    const deliveryFee = session.deliveryFee || 2500;
+    const grandTotal = subtotal + deliveryFee;
+
+    const orderNum = Math.floor(100000 + Math.random() * 900000);
+    const orderIdCode = `PH${orderNum}`;
+
+    const vendorName = session.selectedVendorName || "Mama Ntilie Amina";
+
+    // Create realistic Order in Firestore
+    if (dbAdmin) {
+      try {
+        await dbAdmin.collection('orders').add({
+          orderId: orderIdCode,
+          vendorId: session.selectedOperatorId || 'v-mama-amina',
+          vendorName: vendorName,
+          customerPhone: fromPhone,
+          items: session.foodCart || [{ name: session.selectedProductName || "Chips Kuku", price: 8000, quantity: 2 }],
+          subtotal: subtotal,
+          deliveryFee: deliveryFee,
+          totalAmount: grandTotal,
+          paymentMethod: method,
+          deliveryLocation: session.deliveryLocation || "TABATA RELINI",
+          status: 'pending',
+          createdAt: new Date(),
+          source: 'ussd'
+        });
+      } catch (err) {
+        console.warn("Error creating USSD food order in Firestore:", err);
+      }
+    }
+
+    // Reset session
+    session.step = 'START';
+    session.foodCart = [];
+    await saveSession(session, dbAdmin);
+
+    return `Agizo lako limetumwa.\n\nVendor:\n${vendorName}\n\nJumla:\nTZS ${grandTotal.toLocaleString()}\n\nSubiri vendor athibitishe.\n\nOrder:\n${orderIdCode}`;
   }
 
   // GENERAL STORES / RESTAURANT / GROCERY FLOWS
