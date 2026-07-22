@@ -732,7 +732,7 @@ export const AutomationStudioTabs: React.FC<AutomationStudioTabsProps> = ({
                     position: { x: 280, y: 150 }, 
                     data: { 
                       label: 'Karibu & Services Menu', 
-                      text: 'Karibu kwenye Mfumo wa Huduma za Papo Hapo! 🌟\n\nTafadhali chagua huduma unayotaka kwa kutuma namba yake:\n1. 🚕 TAXI\n2. 💇‍♀️ SALUNI (Salons)\n3. 🚌 MABASI (Bus Tickets)\n4. 🥗 CHAKULA (Restaurants)\n5. 🥦 SOKO (Groceries)\n6. 💊 PHARMACY', 
+                      text: 'Karibu Papo Hapo! 🌟\n\nChagua huduma:\n1. 🚕 TAXI\n2. 📦 MZIGO\n3. 🛵 DEREVA (Offline)\n4. 🚌 MABASI\n5. 💇‍♀️ SALUNI\n6. 🥗 CHAKULA & SOKONI', 
                       variableName: 'service_choice',
                       options: [
                         { key: '1', value: 'TAXI', nextNodeId: 'n_taxi_pickup' },

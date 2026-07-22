@@ -235,7 +235,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
   const [copied, setCopied] = useState(false);
   const [isEnabled, setIsEnabled] = useState(true);
   const [welcomeText, setWelcomeText] = useState(
-    "Karibu kwenye Mfumo wa Huduma za Papo Hapo! 🌟\n\nTafadhali chagua huduma unayotaka kwa kutuma namba yake:\n1. 🚕 TAXI\n2. 💇‍♀️ SALUNI (Salons)\n3. 🚌 MABASI (Bus Tickets)\n4. 🥗 CHAKULA (Restaurants)\n5. 🥦 SOKO (Groceries)\n6. 💊 PHARMACY"
+    "Karibu Papo Hapo! 🌟\n\nChagua huduma:\n1. 🚕 TAXI\n2. 📦 MZIGO\n3. 🛵 DEREVA (Offline)\n4. 🚌 MABASI\n5. 💇‍♀️ SALUNI\n6. 🥗 CHAKULA & SOKONI"
   );
   const [testPhoneNumber, setTestPhoneNumber] = useState('+255712345678');
   const [inputText, setInputText] = useState('');

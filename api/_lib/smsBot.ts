@@ -62,7 +62,7 @@ export interface TwilioConfig {
 
 export const defaultTwilioConfig: TwilioConfig = {
   isEnabled: true,
-  welcomeMessage: "Karibu Mfumo wa Huduma Papo Hapo! 🌟\n\nChagua huduma kwa kutuma namba:\n1. 🚕 TAXI (Agiza / Nauli / Safari)\n2. 📦 KUFUATILIA MZIGO (Parcel Tracking)\n3. 🛵 MODI YA DEREVA (Driver Offline USSD)\n4. 🚌 MABASI (Bus Booking)\n5. 💇‍♀️ SALUNI & UREMBO\n6. 🥗 CHAKULA & SOKONI",
+  welcomeMessage: "Karibu Papo Hapo! 🌟\n\nChagua huduma:\n1. 🚕 TAXI (Agiza / Nauli)\n2. 📦 MZIGO (Kufuatilia)\n3. 🛵 DEREVA (Offline Mode)\n4. 🚌 MABASI (Bus Booking)\n5. 💇‍♀️ SALUNI & UREMBO\n6. 🥗 CHAKULA & SOKONI",
   phoneNumber: "+14155238886", // Default twilio sandbox or custom
   vendorRules: {
     "all-stores": {
@@ -192,10 +192,10 @@ export async function handleSMSInput(
     }
   }
 
-  // Restart trigger
-  const isGreeting = ['hi', 'mambo', 'vip', 'vipi', 'habari', 'hello', 'habari gani', 'anza', 'start', 'menu', 'ya', 'oje', 'hodi'].includes(lowerInput);
-  if (isGreeting || session.step === 'START') {
-    session.step = 'SELECT_SERVICE';
+  // Restart trigger & Step Initializer
+  const isGreeting = ['hi', 'mambo', 'vip', 'vipi', 'habari', 'hello', 'habari gani', 'anza', 'start', 'menu', 'ya', 'oje', 'hodi', ''].includes(lowerInput);
+  
+  if (session.step === 'START' || isGreeting) {
     session.selectedService = undefined;
     session.busRoute = undefined;
     session.selectedOperatorId = undefined;
@@ -210,9 +210,16 @@ export async function handleSMSInput(
     session.selectedProductName = undefined;
     session.selectedProductPrice = undefined;
     session.optionsList = [];
-    
-    await saveSession(session, dbAdmin);
-    return welcomeMessage;
+
+    // If it's a greeting or empty input, show the welcome menu
+    if (isGreeting || !cleanInput) {
+      session.step = 'SELECT_SERVICE';
+      await saveSession(session, dbAdmin);
+      return welcomeMessage;
+    }
+
+    // If user sent a direct selection (e.g. "1" or "taxi") while step was START, transition step to SELECT_SERVICE
+    session.step = 'SELECT_SERVICE';
   }
 
   // Step 1: Selecting Category Service
@@ -221,13 +228,13 @@ export async function handleSMSInput(
       session.step = 'TAXI_SUBMENU';
       session.selectedService = 'taxi';
       await saveSession(session, dbAdmin);
-      return "🚕 HUDUMA ZA TAXI (Taxi & Rides):\n\n1. ⚡ Kuagiza Taxi kwa Haraka (Quick Booking)\n2. 🧮 Kadirio la Nauli (Fare Estimate)\n3. 📍 Andika Njia Yako (Mfano: Mwenge - Posta)\n0. Rudi Menu Kuu";
+      return "🚕 HUDUMA ZA TAXI:\n\n1. Agiza Taxi Haraka ⚡\n2. Kadiria Nauli 🧮\n3. Andika Njia (Mf: Mwenge - Posta)\n0. Rudi Mwanzo";
     } 
     else if (cleanInput === '2' || lowerInput.includes('mzigo') || lowerInput.includes('kifurushi') || lowerInput.includes('parcel') || lowerInput.includes('track')) {
       session.step = 'PARCEL_TRACK_INPUT';
       session.selectedService = 'parcel';
       await saveSession(session, dbAdmin);
-      return "📦 KUFUATILIA MZIGO / KIFURUSHI:\n\nTafadhali ingiza Namba ya Mzigo (Tracking Code mf. P-8291, PH-123456) au Namba ya Simu ya Mtumaji/Mpokeaji:";
+      return "📦 KUFUATILIA MZIGO:\n\nIngiza Namba ya Mzigo (mf. P-8291) au Simu ya Mtumaji/Mpokeaji:";
     } 
     else if (cleanInput === '3' || lowerInput.includes('dereva') || lowerInput.includes('driver')) {
       session.step = 'DRIVER_OFFLINE_MENU';
@@ -258,28 +265,28 @@ export async function handleSMSInput(
         }
       }
 
-      return `🛵 DEREVA USSD MENU (Offline Mode):\n[Dereva: ${driverName} | ${isOnline ? 'Online 🟢' : 'Offline 🔴'}]\n\n1. 🟢/🔴 Badili Hali (Online/Offline)\n2. 🚖 Safari Inayokusubiri (Accept/Reject)\n3. 📍 Safari Inayoendelea (Start/Finish)\n4. 💰 Salio la Wallet & Mapato ya Leo\n0. Rudi Menu Kuu`;
+      return `🛵 DEREVA OFFLINE MENU:\n[Dereva: ${driverName} | ${isOnline ? 'Online' : 'Offline'}]\n\n1. Badili Hali (Online/Offline)\n2. Safari Inayokusubiri\n3. Safari Inayoendelea\n4. Salio & Mapato ya Leo\n0. Rudi Mwanzo`;
     } 
     else if (cleanInput === '4' || lowerInput.includes('basi') || lowerInput.includes('mabasi')) {
       session.step = 'BUS_ROUTE';
       session.selectedService = 'bus_ticket';
       await saveSession(session, dbAdmin);
-      return "🚌 MFUMO WA MABASI (Bus Booking):\n\nTafadhali tuma route unayotaka kusafiri (Mwanzo - Mwisho).\nMfano:\nDAR - MWANZA\nau ARUSHA - KILIMANJARO";
+      return "🚌 MABASI (Bus Booking):\n\nTuma njia unayokwenda (Mwanzo - Mwisho).\nMfano: DAR - MWANZA au ARUSHA - KILIMANJARO:";
     } 
     else if (cleanInput === '5' || lowerInput.includes('saluni') || lowerInput.includes('salon')) {
       session.step = 'SALON_SUB';
       session.selectedService = 'salon';
       await saveSession(session, dbAdmin);
-      return "💇‍♀️ MFUMO WA SALUNI (Salons Near You):\n\nChagua aina ya huduma ya urembo unayotafuta kwa kutuma namba:\n1. Saluni ya Nywele (Nywele / Hair cuts)\n2. Matunzo ya Kucha (Manicure / Nails)\n3. Urembo & Make-up\n4. Spa & Body Massage";
+      return "💇‍♀️ SALUNI & UREMBO:\n\n1. Kinyozi / Hair Cut\n2. Kusuka / Salon ya Kike\n3. Nails / Makeup / Spa\n0. Rudi Mwanzo";
     } 
     else if (cleanInput === '6' || lowerInput.includes('chakula') || lowerInput.includes('soko') || lowerInput.includes('dawa')) {
       session.step = 'STORE_SEARCH';
       session.selectedService = 'restaurant';
       await saveSession(session, dbAdmin);
-      return "🍱 CHAKULA & SOKONI (Food & Groceries):\n\nTuma jina la chakula au bidhaa unayotafuta sasa hivi.\nMfano:\nChips Kuku, Wali Nyama, Samaki au Panadol:";
+      return "🍱 CHAKULA & SOKONI:\n\nAndika chakula au bidhaa unayotafuta (mf. Chips Kuku, Wali Nyama, Panadol):";
     }
     else {
-      return "⚠️ Chaguo si sahihi! Tafadhali tuma namba kuanzia 1 mpaka 6, au tuma \"HI\" kuanza upya.";
+      return "⚠️ Chaguo si sahihi! Tuma namba 1 mpaka 6, au tuma \"HI\" kuanza upya.";
     }
   }
 
