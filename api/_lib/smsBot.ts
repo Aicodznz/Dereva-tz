@@ -1510,17 +1510,81 @@ export async function handleSMSInput(
     session.selectedVendorName = vendor.name;
     session.step = 'FOOD_CATEGORY_LIST';
 
-    const categories = [
-      { id: 'c-wali', name: 'Wali' },
-      { id: 'c-chips', name: 'Chips' },
-      { id: 'c-ugali', name: 'Ugali' },
-      { id: 'c-vinywaji', name: 'Vinywaji' },
-      { id: 'c-ofa', name: 'Ofa za Leo' }
-    ];
+    // Query Firestore or use vendor menu config
+    let categories: any[] = [];
+    let productsByCat: Record<string, any[]> = {};
+
+    if (dbAdmin) {
+      try {
+        const snap = await dbAdmin.collection('products').where('vendorId', '==', vendor.id).get();
+        if (!snap.empty) {
+          const catMap = new Map<string, any[]>();
+          snap.forEach((doc: any) => {
+            const p = doc.data();
+            const catName = p.category || 'Bidhaa';
+            if (!catMap.has(catName)) catMap.set(catName, []);
+            catMap.get(catName)!.push({
+              id: doc.id,
+              name: p.title || p.name || 'Product',
+              price: p.price || 0
+            });
+          });
+
+          catMap.forEach((pList, catName) => {
+            categories.push({ id: `c-${catName.toLowerCase()}`, name: catName });
+            productsByCat[catName.toLowerCase()] = pList;
+          });
+        }
+      } catch (e) {
+        console.warn("Error fetching vendor products from Firestore:", e);
+      }
+    }
+
+    if (categories.length === 0) {
+      const vName = vendor.name.toLowerCase();
+      if (vName.includes('pizza')) {
+        categories = [
+          { id: 'c-pizza', name: 'Pizza' },
+          { id: 'c-garlic', name: 'Garlic Bread' },
+          { id: 'c-vinywaji', name: 'Vinywaji' },
+          { id: 'c-combo', name: 'Combo Deals' }
+        ];
+      } else if (vName.includes('kfc')) {
+        categories = [
+          { id: 'c-bucket', name: 'Bucket Deals' },
+          { id: 'c-burgers', name: 'Burgers & Wraps' },
+          { id: 'c-pieces', name: 'Chicken Pieces' },
+          { id: 'c-vinywaji', name: 'Drinks & Fries' }
+        ];
+      } else if (vName.includes('burger')) {
+        categories = [
+          { id: 'c-beef-burger', name: 'Beef Burgers' },
+          { id: 'c-chicken-burger', name: 'Chicken Burgers' },
+          { id: 'c-fries', name: 'Fries & Sides' },
+          { id: 'c-shakes', name: 'Milkshakes' }
+        ];
+      } else if (vName.includes('soko') || vName.includes('shoppers') || vName.includes('grocery') || vName.includes('kariakoo')) {
+        categories = [
+          { id: 'c-matunda', name: 'Matunda na Mboga' },
+          { id: 'c-mchele', name: 'Mchele na Ngano' },
+          { id: 'c-mafuta', name: 'Mafuta na Viungo' },
+          { id: 'c-aziwa', name: 'Vinywaji na Maziwa' }
+        ];
+      } else {
+        categories = [
+          { id: 'c-wali', name: 'Wali' },
+          { id: 'c-chips', name: 'Chips' },
+          { id: 'c-ugali', name: 'Ugali' },
+          { id: 'c-vinywaji', name: 'Vinywaji' },
+          { id: 'c-ofa', name: 'Ofa za Leo' }
+        ];
+      }
+    }
+
     session.optionsList = categories;
     await saveSession(session, dbAdmin);
 
-    let reply = `${vendor.name}\n\n`;
+    let reply = `${vendor.name.toUpperCase()}\n\n`;
     categories.forEach((cat, i) => {
       reply += `${i + 1}. ${cat.name}\n`;
     });
@@ -1533,11 +1597,11 @@ export async function handleSMSInput(
       session.step = 'FOOD_VENDOR_LIST';
       await saveSession(session, dbAdmin);
       const vendors = session.optionsList || [];
-      let reply = "CHAGUA TENA MTOA HUDUMA:\n\n";
+      let reply = "MTOA HUDUMA KARIBU NAWE:\n\n";
       vendors.slice(0, 4).forEach((v: any, idx: number) => {
-        reply += `${idx + 1}. ${v.name}\n`;
+        reply += `${idx + 1}. ${v.name} (${v.distance || '0.5 km'})\n`;
       });
-      reply += "\n0. Nyuma";
+      reply += "\n9. Zaidi\n0. Nyuma";
       return reply;
     }
 
@@ -1551,38 +1615,163 @@ export async function handleSMSInput(
     session.step = 'FOOD_ITEMS_LIST';
 
     const catLower = cat.name.toLowerCase();
+    const vName = (session.selectedVendorName || '').toLowerCase();
     let items: any[] = [];
-    if (catLower.includes('chip')) {
-      items = [
-        { id: 'p-chips-kuku', name: 'Chips Kuku', price: 8000 },
-        { id: 'p-chips-mayai', name: 'Chips Mayai', price: 5000 },
-        { id: 'p-chips-beef', name: 'Chips Beef', price: 7000 },
-        { id: 'p-chips-mishkaki', name: 'Chips Mishkaki', price: 9000 }
-      ];
-    } else if (catLower.includes('wali')) {
-      items = [
-        { id: 'p-wali-kuku', name: 'Wali Kuku', price: 7000 },
-        { id: 'p-wali-samaki', name: 'Wali Samaki', price: 8000 },
-        { id: 'p-wali-nyama', name: 'Wali Nyama', price: 5000 },
-        { id: 'p-wali-maharage', name: 'Wali Maharage', price: 3000 }
-      ];
-    } else if (catLower.includes('ugali')) {
-      items = [
-        { id: 'p-ugali-samaki', name: 'Ugali Samaki', price: 8000 },
-        { id: 'p-ugali-dagaa', name: 'Ugali Dagaa', price: 4000 },
-        { id: 'p-ugali-kuku', name: 'Ugali Kuku', price: 7000 }
-      ];
-    } else if (catLower.includes('vinywaji') || catLower.includes('drink')) {
-      items = [
-        { id: 'p-soda', name: 'Soda Baridi', price: 1000 },
-        { id: 'p-maji', name: 'Maji Makubwa (1.5L)', price: 1500 },
-        { id: 'p-juisi', name: 'Juisi ya Matunda Fresh', price: 2500 }
-      ];
-    } else {
-      items = [
-        { id: 'p-ofa-1', name: 'Ofa: Chips Kuku + Soda', price: 8500 },
-        { id: 'p-ofa-2', name: 'Ofa: Wali Kuku + Juisi', price: 8000 }
-      ];
+
+    // Query Firestore for this category & vendor
+    if (dbAdmin && session.selectedOperatorId) {
+      try {
+        const snap = await dbAdmin.collection('products')
+          .where('vendorId', '==', session.selectedOperatorId)
+          .get();
+        if (!snap.empty) {
+          snap.forEach((doc: any) => {
+            const p = doc.data();
+            const pCat = (p.category || '').toLowerCase();
+            if (pCat === catLower || pCat.includes(catLower) || catLower.includes(pCat)) {
+              items.push({
+                id: doc.id,
+                name: p.title || p.name || 'Bidhaa',
+                price: p.price || 5000
+              });
+            }
+          });
+        }
+      } catch (e) {
+        console.warn("Error querying items for category:", e);
+      }
+    }
+
+    if (items.length === 0) {
+      if (vName.includes('pizza')) {
+        if (catLower.includes('pizza')) {
+          items = [
+            { id: 'p-pizza-pepperoni', name: 'Pizza Beef Pepperoni', price: 18000 },
+            { id: 'p-pizza-bbq', name: 'Pizza Chicken BBQ', price: 20000 },
+            { id: 'p-pizza-veggie', name: 'Pizza Veggie Supreme', price: 15000 },
+            { id: 'p-pizza-cheese', name: 'Pizza Cheese Lover', price: 14000 }
+          ];
+        } else if (catLower.includes('garlic')) {
+          items = [
+            { id: 'p-garlic-cheese', name: 'Garlic Bread Cheese', price: 8000 },
+            { id: 'p-garlic-sticks', name: 'Garlic Sticks', price: 5000 }
+          ];
+        } else if (catLower.includes('vinywaji')) {
+          items = [
+            { id: 'p-soda-large', name: 'Soda 1.25L', price: 3000 },
+            { id: 'p-juice-box', name: 'Juisi ya Box (1L)', price: 4000 }
+          ];
+        } else {
+          items = [
+            { id: 'p-combo-pizza', name: 'Combo: 2 Pizza + Soda 1.25L', price: 35000 }
+          ];
+        }
+      } else if (vName.includes('kfc')) {
+        if (catLower.includes('bucket')) {
+          items = [
+            { id: 'p-streetwise2', name: 'Streetwise 2', price: 12000 },
+            { id: 'p-streetwise5', name: 'Streetwise 5', price: 28000 },
+            { id: 'p-bucket9', name: 'Family Bucket (9 Pcs)', price: 52000 }
+          ];
+        } else if (catLower.includes('burger') || catLower.includes('wrap')) {
+          items = [
+            { id: 'p-colonel', name: 'Colonel Burger', price: 14000 },
+            { id: 'p-zinger', name: 'Zinger Burger', price: 16000 },
+            { id: 'p-twister', name: 'Twister Wrap', price: 12000 }
+          ];
+        } else if (catLower.includes('piece') || catLower.includes('chicken')) {
+          items = [
+            { id: 'p-chicken-1', name: 'Chicken 1 Pc', price: 5000 },
+            { id: 'p-chicken-3', name: 'Chicken 3 Pcs', price: 14000 }
+          ];
+        } else {
+          items = [
+            { id: 'p-fries-large', name: 'Large Fries', price: 5000 },
+            { id: 'p-soda-500', name: 'Soda 500ml', price: 2000 }
+          ];
+        }
+      } else if (vName.includes('burger')) {
+        if (catLower.includes('beef')) {
+          items = [
+            { id: 'p-cheese-burger', name: 'Classic Cheeseburger', price: 12000 },
+            { id: 'p-double-beef', name: 'Double Beef Burger', price: 18000 },
+            { id: 'p-bbq-bacon', name: 'BBQ Bacon Burger', price: 16000 }
+          ];
+        } else if (catLower.includes('chicken')) {
+          items = [
+            { id: 'p-crispy-chicken', name: 'Crispy Chicken Burger', price: 13000 },
+            { id: 'p-spicy-zinger', name: 'Spicy Zinger House', price: 15000 }
+          ];
+        } else if (catLower.includes('fries') || catLower.includes('side')) {
+          items = [
+            { id: 'p-loaded-fries', name: 'Loaded Cheese Fries', price: 10000 },
+            { id: 'p-onion-rings', name: 'Onion Rings', price: 6000 }
+          ];
+        } else {
+          items = [
+            { id: 'p-choc-shake', name: 'Chocolate Milkshake', price: 7000 },
+            { id: 'p-vanilla-shake', name: 'Vanilla Milkshake', price: 7000 }
+          ];
+        }
+      } else if (vName.includes('soko') || vName.includes('shoppers') || vName.includes('grocery') || vName.includes('kariakoo')) {
+        if (catLower.includes('matunda') || catLower.includes('mboga')) {
+          items = [
+            { id: 'p-nyanya', name: 'Nyanya Tenga Ndogo', price: 10000 },
+            { id: 'p-kitunguu', name: 'Kitunguu Maji 1kg', price: 4000 },
+            { id: 'p-ndizi', name: 'Ndizi Mbichi Mkono', price: 5000 },
+            { id: 'p-mchicha', name: 'Mchicha Fresh', price: 1000 }
+          ];
+        } else if (catLower.includes('mchele') || catLower.includes('ngano')) {
+          items = [
+            { id: 'p-mchele-kyela', name: 'Mchele Kyela 5kg', price: 17500 },
+            { id: 'p-unga-sembe', name: 'Unga wa Sembe 5kg', price: 10000 },
+            { id: 'p-unga-ngano', name: 'Unga wa Ngano 2kg', price: 4500 }
+          ];
+        } else if (catLower.includes('mafuta') || catLower.includes('viungo')) {
+          items = [
+            { id: 'p-mafuta-3l', name: 'Mafuta ya Kupikia 3L', price: 16000 },
+            { id: 'p-viungo-pack', name: 'Chumvi & Viungo Pack', price: 2000 }
+          ];
+        } else {
+          items = [
+            { id: 'p-maziwa-1l', name: 'Maziwa Mgando 1L', price: 3000 },
+            { id: 'p-juisi-1l', name: 'Juisi ya Azam 1L', price: 2500 }
+          ];
+        }
+      } else {
+        if (catLower.includes('chip')) {
+          items = [
+            { id: 'p-chips-kuku', name: 'Chips Kuku', price: 8000 },
+            { id: 'p-chips-mayai', name: 'Chips Mayai', price: 5000 },
+            { id: 'p-chips-beef', name: 'Chips Beef', price: 7000 },
+            { id: 'p-chips-mishkaki', name: 'Chips Mishkaki', price: 9000 }
+          ];
+        } else if (catLower.includes('wali')) {
+          items = [
+            { id: 'p-wali-kuku', name: 'Wali Kuku', price: 7000 },
+            { id: 'p-wali-samaki', name: 'Wali Samaki', price: 8000 },
+            { id: 'p-wali-nyama', name: 'Wali Nyama', price: 5000 },
+            { id: 'p-wali-maharage', name: 'Wali Maharage', price: 3000 }
+          ];
+        } else if (catLower.includes('ugali')) {
+          items = [
+            { id: 'p-ugali-samaki', name: 'Ugali Samaki', price: 8000 },
+            { id: 'p-ugali-dagaa', name: 'Ugali Dagaa', price: 4000 },
+            { id: 'p-ugali-kuku', name: 'Ugali Kuku', price: 7000 }
+          ];
+        } else if (catLower.includes('vinywaji') || catLower.includes('drink')) {
+          items = [
+            { id: 'p-soda', name: 'Soda Baridi', price: 1000 },
+            { id: 'p-maji', name: 'Maji Makubwa (1.5L)', price: 1500 },
+            { id: 'p-juisi', name: 'Juisi ya Matunda Fresh', price: 2500 }
+          ];
+        } else {
+          items = [
+            { id: 'p-ofa-1', name: 'Ofa: Chips Kuku + Soda', price: 8500 },
+            { id: 'p-ofa-2', name: 'Ofa: Wali Kuku + Juisi', price: 8000 }
+          ];
+        }
+      }
     }
 
     session.optionsList = items;
