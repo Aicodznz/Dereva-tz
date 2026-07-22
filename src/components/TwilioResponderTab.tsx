@@ -823,7 +823,16 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
         const snap = await getDoc(docRef);
         if (snap.exists()) {
           const data = snap.data();
-          if (data.welcomeText) setWelcomeText(data.welcomeText);
+          if (data.welcomeText) {
+            const isLegacy = data.welcomeText.includes("SALUNI (Salons)") || data.welcomeText.includes("Karibu kwenye Mfumo wa") || data.welcomeText.includes("Tafadhali chagua huduma unayotaka");
+            const cleanText = isLegacy 
+              ? "Karibu Papo Hapo! 🌟\n\nChagua huduma:\n1. 🚕 TAXI\n2. 📦 MZIGO\n3. 🛵 DEREVA (Offline)\n4. 🚌 MABASI\n5. 💇‍♀️ SALUNI\n6. 🥗 CHAKULA & SOKONI"
+              : data.welcomeText;
+            setWelcomeText(cleanText);
+            if (isLegacy) {
+              setDoc(docRef, { welcomeText: cleanText }, { merge: true }).catch(() => {});
+            }
+          }
           if (data.isEnabled !== undefined) setIsEnabled(data.isEnabled);
           if (data.smsProvider) setSmsProvider(data.smsProvider);
           if (data.atUsername) setAtUsername(data.atUsername);

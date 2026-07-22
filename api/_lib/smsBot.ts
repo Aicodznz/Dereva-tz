@@ -192,6 +192,15 @@ export async function handleSMSInput(
     }
   }
 
+  // Force legacy or overly verbose welcome messages to clean, concise USSD menu
+  if (
+    welcomeMessage.includes("SALUNI (Salons)") ||
+    welcomeMessage.includes("Karibu kwenye Mfumo wa") ||
+    welcomeMessage.includes("Tafadhali chagua huduma unayotaka")
+  ) {
+    welcomeMessage = "Karibu Papo Hapo! 🌟\n\nChagua huduma:\n1. 🚕 TAXI (Agiza / Nauli)\n2. 📦 MZIGO (Kufuatilia)\n3. 🛵 DEREVA (Offline Mode)\n4. 🚌 MABASI (Bus Booking)\n5. 💇‍♀️ SALUNI & UREMBO\n6. 🥗 CHAKULA & SOKONI";
+  }
+
   // Restart trigger & Step Initializer
   const isGreeting = ['hi', 'mambo', 'vip', 'vipi', 'habari', 'hello', 'habari gani', 'anza', 'start', 'menu', 'ya', 'oje', 'hodi', ''].includes(lowerInput);
   
