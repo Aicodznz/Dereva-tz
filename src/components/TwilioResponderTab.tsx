@@ -308,8 +308,29 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
   const [ussdInputValue, setUssdInputValue] = useState('');
   const [dialedCode, setDialedCode] = useState('*384#');
   const [ussdLoading, setUssdLoading] = useState(false);
+  const [ussdTimeLeft, setUssdTimeLeft] = useState(60);
+
+  useEffect(() => {
+    let timer: any = null;
+    if (ussdSessionActive && !ussdIsEnd && !ussdLoading) {
+      timer = setInterval(() => {
+        setUssdTimeLeft((prev) => {
+          if (prev <= 1) {
+            setUssdIsEnd(true);
+            setUssdCurrentResponse("This session has expired. (Muda wa session umeisha. Tafadhali piga tena code ya USSD *384#)");
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [ussdSessionActive, ussdIsEnd, ussdLoading]);
 
   const parseUssdResponse = (text: string) => {
+    setUssdTimeLeft(60); // Reset session timer to 60s for new prompt
     const trimmed = text.trim();
     if (trimmed.startsWith("CON ")) {
       setUssdCurrentResponse(trimmed.substring(4));
@@ -4348,11 +4369,20 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                         
                         <div className="w-full bg-white dark:bg-neutral-900 rounded-3xl shadow-2xl border border-neutral-200/80 dark:border-neutral-800 p-4.5 flex flex-col space-y-4 animate-scale-up">
                           {/* Dialog Title */}
-                          <div className="flex items-center gap-1.5 pb-2 border-b border-neutral-100 dark:border-neutral-800/60">
-                            <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
-                            <span className="text-[9.5px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-widest font-mono">
-                              USSD Message
-                            </span>
+                          <div className="flex items-center justify-between pb-2 border-b border-neutral-100 dark:border-neutral-800/60">
+                            <div className="flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
+                              <span className="text-[9.5px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-widest font-mono">
+                                USSD Message
+                              </span>
+                            </div>
+                            {!ussdIsEnd && !ussdLoading && (
+                              <span className={`text-[10px] font-black px-2 py-0.5 rounded-full font-mono ${
+                                ussdTimeLeft <= 10 ? 'bg-red-100 text-red-600 dark:bg-red-950/80 dark:text-red-400 animate-bounce' : 'bg-orange-100 text-orange-700 dark:bg-orange-950/80 dark:text-orange-400'
+                              }`}>
+                                ⏱️ {ussdTimeLeft}s
+                              </span>
+                            )}
                           </div>
 
                           {/* Dialog Response Message Body */}
