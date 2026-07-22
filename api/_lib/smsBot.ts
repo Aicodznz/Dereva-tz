@@ -55,6 +55,10 @@ export interface SMSSession {
   appliedPromoCode?: string;
   promoDiscount?: number;
   reorderItem?: any;
+  // Saved locations, split fare, and voice callback
+  savedLocations?: { home?: string; work?: string; custom?: string };
+  splitFarePhone?: string;
+  splitFareAmount?: number;
 }
 
 // In-memory fallback sessions state
@@ -82,7 +86,7 @@ export interface TwilioConfig {
 
 export const defaultTwilioConfig: TwilioConfig = {
   isEnabled: true,
-  welcomeMessage: "Karibu Papo Hapo! 🌟\n\nChagua huduma:\n1. 🚕 PapoRide (Taxi & Nauli)\n2. 📦 PapoSend (Tuma & Fuatilia Mzigo)\n3. 🛵 PapoDriver (Offline Mode)\n4. 🚌 PapoBus (Tiketi za Mabasi)\n5. 💇‍♀️ PapoStyle (Saluni & Urembo)\n6. 🍔 PapoFood (Chakula & Sokoni)\n7. 📋 Hali ya Agizo (Live Status)\n8. 💰 PapoWallet & PapoPoints\n9. 🔁 Agiza Tena (Quick Re-Order)\n10. 🌐 Lugha / Language (SW/EN)",
+  welcomeMessage: "Karibu Papo Hapo! 🌟\n\nChagua huduma:\n1. 🚕 PapoRide (Taxi & Nauli)\n2. 📦 PapoSend (Tuma & Fuatilia Mzigo)\n3. 🛵 PapoDriver (Offline Mode)\n4. 🚌 PapoBus (Tiketi za Mabasi)\n5. 💇‍♀️ PapoStyle (Saluni & Urembo)\n6. 🍔 PapoFood (Chakula & Sokoni)\n7. 📋 Hali ya Agizo (Live Status)\n8. 💰 PapoWallet, Gawana Nauli & Points\n9. 📍 Maeneo Pendwa (Saved Locations)\n10. 📞 Simu ya Sauti (Voice IVR Callback)\n11. 🔁 Agiza Tena (Quick Re-Order)\n12. 🌐 Lugha / Language (SW/EN)",
   phoneNumber: "+14155238886", // Default twilio sandbox or custom
   vendorRules: {
     "all-stores": {
@@ -95,9 +99,9 @@ export const defaultTwilioConfig: TwilioConfig = {
 export function getWelcomeMessage(session: SMSSession): string {
   const isEn = session.language === 'en';
   if (isEn) {
-    return "Welcome to Papo Hapo! 🌟\n\nSelect service:\n1. 🚕 PapoRide (Taxi & Fare)\n2. 📦 PapoSend (Send & Track Parcel)\n3. 🛵 PapoDriver (Offline Mode)\n4. 🚌 PapoBus (Bus Tickets)\n5. 💇‍♀️ PapoStyle (Salon & Beauty)\n6. 🍔 PapoFood (Food & Groceries)\n7. 📋 Live Order Status\n8. 💰 PapoWallet & PapoPoints\n9. 🔁 Quick Re-Order\n10. 🌐 Language / Lugha (SW/EN)";
+    return "Welcome to Papo Hapo! 🌟\n\nSelect service:\n1. 🚕 PapoRide (Taxi & Fare)\n2. 📦 PapoSend (Send & Track Parcel)\n3. 🛵 PapoDriver (Offline Mode)\n4. 🚌 PapoBus (Bus Tickets)\n5. 💇‍♀️ PapoStyle (Salon & Beauty)\n6. 🍔 PapoFood (Food & Groceries)\n7. 📋 Live Order Status\n8. 💰 PapoWallet, Split Fare & Points\n9. 📍 Saved Locations (Home/Work)\n10. 📞 Request Voice Callback (IVR)\n11. 🔁 Quick Re-Order\n12. 🌐 Language / Lugha (SW/EN)";
   }
-  return "Karibu Papo Hapo! 🌟\n\nChagua huduma:\n1. 🚕 PapoRide (Taxi & Nauli)\n2. 📦 PapoSend (Tuma & Fuatilia Mzigo)\n3. 🛵 PapoDriver (Offline Mode)\n4. 🚌 PapoBus (Tiketi za Mabasi)\n5. 💇‍♀️ PapoStyle (Saluni & Urembo)\n6. 🍔 PapoFood (Chakula & Sokoni)\n7. 📋 Hali ya Agizo (Live Status)\n8. 💰 PapoWallet & PapoPoints\n9. 🔁 Agiza Tena (Quick Re-Order)\n10. 🌐 Lugha / Language (SW/EN)";
+  return "Karibu Papo Hapo! 🌟\n\nChagua huduma:\n1. 🚕 PapoRide (Taxi & Nauli)\n2. 📦 PapoSend (Tuma & Fuatilia Mzigo)\n3. 🛵 PapoDriver (Offline Mode)\n4. 🚌 PapoBus (Tiketi za Mabasi)\n5. 💇‍♀️ PapoStyle (Saluni & Urembo)\n6. 🍔 PapoFood (Chakula & Sokoni)\n7. 📋 Hali ya Agizo (Live Status)\n8. 💰 PapoWallet, Gawana Nauli & Points\n9. 📍 Maeneo Pendwa (Saved Locations)\n10. 📞 Simu ya Sauti (Voice IVR Callback)\n11. 🔁 Agiza Tena (Quick Re-Order)\n12. 🌐 Lugha / Language (SW/EN)";
 }
 
 export function getPapoWalletText(session: SMSSession): string {
@@ -108,10 +112,32 @@ export function getPapoWalletText(session: SMSSession): string {
   const promo = session.appliedPromoCode ? `\n🎟️ Promo Active: ${session.appliedPromoCode}` : '';
 
   if (isEn) {
-    return `💰 PAPOWALLET & CUSTOMER BALANCE\n\nBalance: TZS ${balance}\nPapoPoints: ${points} PTS (≡ TZS ${pointsVal})${promo}\n\n1. 💳 Top-Up Wallet (M-Pesa / Tigo / Airtel)\n2. 🎁 Convert PapoPoints to Cash\n3. 🎟️ Enter Promo Code\n4. 📜 Recent Transactions\n\n0. Main Menu`;
+    return `💰 PAPOWALLET, SPLIT FARE & POINTS\n\nBalance: TZS ${balance}\nPapoPoints: ${points} PTS (≡ TZS ${pointsVal})${promo}\n\n1. 💳 Top-Up Wallet (M-Pesa / Tigo / Airtel)\n2. 🎁 Convert PapoPoints to Cash\n3. 🎟️ Enter Promo Code\n4. 💸 Split Fare 50/50 (Gawana Nauli)\n5. 🎁 Pay for Friend / Relative (Lipia Mwingine)\n6. 📜 Recent Transactions\n\n0. Main Menu`;
   }
 
-  return `💰 PAPOWALLET & SALIO LA MTEJA\n\nSalio Lako: TZS ${balance}\nPapoPoints: ${points} PTS (≡ TZS ${pointsVal})${promo}\n\n1. 💳 Weka Salio (Top-Up M-Pesa / Tigo / Airtel)\n2. 🎁 Badili PapoPoints Kuwa Cash Salio\n3. 🎟️ Ingiza Promo Code (Punguzo)\n4. 📜 Miamala ya Hivi Karibuni\n\n0. Rudi Mwanzo`;
+  return `💰 PAPOWALLET, GAWANA NAULI & POINTS\n\nSalio Lako: TZS ${balance}\nPapoPoints: ${points} PTS (≡ TZS ${pointsVal})${promo}\n\n1. 💳 Weka Salio (Top-Up M-Pesa / Tigo / Airtel)\n2. 🎁 Badili PapoPoints Kuwa Cash Salio\n3. 🎟️ Ingiza Promo Code (Punguzo)\n4. 💸 Gawana Nauli 50/50 (Split Fare)\n5. 🎁 Lipia Mwezi / Rafiki (Lipia Mwingine)\n6. 📜 Miamala ya Hivi Karibuni\n\n0. Rudi Mwanzo`;
+}
+
+export function getSavedLocationsText(session: SMSSession): string {
+  const isEn = session.language === 'en';
+  const home = session.savedLocations?.home || 'Mwenge, Dar es Salaam';
+  const work = session.savedLocations?.work || 'Posta Mpya, Victoria';
+  const custom = session.savedLocations?.custom || 'Mlimani City Mall';
+
+  if (isEn) {
+    return `📍 SAVED LOCATIONS (MAENEO PENDWA)\n\n1. 🏠 Home: ${home}\n2. 🏢 Work: ${work}\n3. 🏪 Custom: ${custom}\n\nOptions:\n4. ✏️ Edit Home Address\n5. ✏️ Edit Work Address\n6. ➕ Add Custom Location\n\n0. Main Menu`;
+  }
+  return `📍 MAENEO PENDWA (Saved Locations)\n\n1. 🏠 Nyumbani: ${home}\n2. 🏢 Ofisini: ${work}\n3. 🏪 Eneo Lingine: ${custom}\n\nHatua:\n4. ✏️ Hariri Nyumbani\n5. ✏️ Hariri Ofisini\n6. ➕ Weka Eneo Lingine\n\n0. Rudi Mwanzo`;
+}
+
+export function getVoiceCallbackText(session: SMSSession): string {
+  const isEn = session.language === 'en';
+  const phone = session.phone.replace('ussd:', '');
+
+  if (isEn) {
+    return `📞 AUTOMATED USSD VOICE CALLBACK 🎧\n\nSystem is dispatching an interactive audio call to ${phone}...\n\n🔊 Voice Audio Prompt (Preview):\n"Hello! Your Papo Hapo order PH-88219 (PapoFood, TZS 12,500) is on the way with driver Bakari Juma (0712345678). Press 1 to speak with courier or 2 to confirm delivery."\n\n1. 📞 Request Call Again\n0. Main Menu`;
+  }
+  return `📞 SIMU YA SAUTI YA MFUMO (Automated IVR Call) 🎧\n\nMfumo unapiga simu ya sauti kwenye namba yako ${phone}...\n\n🔊 Maelezo ya Ujumbe wa Sauti (Audio Preview):\n"Habari! Agizo yako PH-88219 la PapoFood (TZS 12,500) liko njiani na Dereva Bakari Juma (0712345678). Bofya 1 kuongea na dereva au 2 kuthibitisha umepokea."\n\n1. 📞 Piga Tena Simu ya Sauti\n0. Rudi Mwanzo`;
 }
 
 export function getQuickReOrderText(session: SMSSession): string {
@@ -280,6 +306,9 @@ export async function getSession(phone: string, dbAdmin: any): Promise<SMSSessio
         if (data.language === undefined) data.language = 'sw';
         if (data.walletBalance === undefined) data.walletBalance = 15000;
         if (data.papoPoints === undefined) data.papoPoints = 120;
+        if (!data.savedLocations) {
+          data.savedLocations = { home: 'Mwenge, Dar es Salaam', work: 'Posta Mpya, Victoria', custom: 'Mlimani City Mall' };
+        }
         return data;
       }
     } catch (err) {
@@ -293,6 +322,9 @@ export async function getSession(phone: string, dbAdmin: any): Promise<SMSSessio
     if (existing.language === undefined) existing.language = 'sw';
     if (existing.walletBalance === undefined) existing.walletBalance = 15000;
     if (existing.papoPoints === undefined) existing.papoPoints = 120;
+    if (!existing.savedLocations) {
+      existing.savedLocations = { home: 'Mwenge, Dar es Salaam', work: 'Posta Mpya, Victoria', custom: 'Mlimani City Mall' };
+    }
     return existing;
   }
 
@@ -302,6 +334,7 @@ export async function getSession(phone: string, dbAdmin: any): Promise<SMSSessio
     language: 'sw',
     walletBalance: 15000,
     papoPoints: 120,
+    savedLocations: { home: 'Mwenge, Dar es Salaam', work: 'Posta Mpya, Victoria', custom: 'Mlimani City Mall' },
     lastUpdated: Date.now()
   };
   inMemorySessions.set(phone, fresh);
@@ -516,25 +549,35 @@ export async function handleSMSInput(
       await saveSession(session, dbAdmin);
       return await getActiveOrderStatusText(session, dbAdmin, cleanInput);
     }
-    else if (cleanInput === '8' || lowerInput.includes('wallet') || lowerInput.includes('salio') || lowerInput.includes('point')) {
+    else if (cleanInput === '8' || lowerInput.includes('wallet') || lowerInput.includes('salio') || lowerInput.includes('point') || lowerInput.includes('gawana') || lowerInput.includes('split')) {
       session.step = 'PAPOWALLET_MAIN';
       await saveSession(session, dbAdmin);
       return getPapoWalletText(session);
     }
-    else if (cleanInput === '9' || lowerInput.includes('reorder') || lowerInput.includes('tena') || lowerInput.includes('rudia')) {
+    else if (cleanInput === '9' || lowerInput.includes('location') || lowerInput.includes('eneo') || lowerInput.includes('maeneo') || lowerInput.includes('home') || lowerInput.includes('work')) {
+      session.step = 'SAVED_LOCATIONS_MENU';
+      await saveSession(session, dbAdmin);
+      return getSavedLocationsText(session);
+    }
+    else if (cleanInput === '10' || lowerInput.includes('sauti') || lowerInput.includes('voice') || lowerInput.includes('pigiwa') || lowerInput.includes('ivr')) {
+      session.step = 'VOICE_CALLBACK_MENU';
+      await saveSession(session, dbAdmin);
+      return getVoiceCallbackText(session);
+    }
+    else if (cleanInput === '11' || lowerInput.includes('reorder') || lowerInput.includes('tena') || lowerInput.includes('rudia')) {
       session.step = 'QUICK_REORDER_MENU';
       await saveSession(session, dbAdmin);
       return getQuickReOrderText(session);
     }
-    else if (cleanInput === '10' || lowerInput.includes('lugha') || lowerInput.includes('language')) {
+    else if (cleanInput === '12' || lowerInput.includes('lugha') || lowerInput.includes('language')) {
       session.step = 'LANGUAGE_SWITCH_MENU';
       await saveSession(session, dbAdmin);
       return `🌐 CHAGUA LUGHA / SELECT LANGUAGE:\n\n1. 🇹🇿 Kiswahili\n2. 🇬🇧 English\n\n0. Rudi Mwanzo / Back`;
     }
     else {
       return session.language === 'en'
-        ? "⚠️ Invalid choice! Please send numbers 1 to 10, or send \"HI\" to restart."
-        : "⚠️ Chaguo si sahihi! Tuma namba 1 mpaka 10, au tuma \"HI\" kuanza upya.";
+        ? "⚠️ Invalid choice! Please send numbers 1 to 12, or send \"HI\" to restart."
+        : "⚠️ Chaguo si sahihi! Tuma namba 1 mpaka 12, au tuma \"HI\" kuanza upya.";
     }
   }
 
@@ -678,15 +721,227 @@ export async function handleSMSInput(
     }
 
     if (cleanInput === '4') {
+      session.step = 'PAPOWALLET_SPLIT_PHONE';
+      await saveSession(session, dbAdmin);
+      return session.language === 'en'
+        ? "💸 SPLIT FARE 50/50 (GAWANA NAULI)\n\nEnter friend's phone number to split ride or order fare with (e.g. 0712345678):\n\n0. Back"
+        : "💸 GAWANA NAULI 50/50 (Split Fare)\n\nIngiza namba ya simu ya mwenzako unayetaka kugawana naye nauli (mfano 0712345678):\n\n0. Nyuma";
+    }
+
+    if (cleanInput === '5') {
+      session.step = 'PAPOWALLET_PAY_FRIEND_PHONE';
+      await saveSession(session, dbAdmin);
+      return session.language === 'en'
+        ? "🎁 PAY FOR FRIEND / RELATIVE (LIPIA MWINGINE)\n\nEnter phone number of recipient you want to pay for (e.g. 0755123456):\n\n0. Back"
+        : "🎁 LIPIA MWEZI / RAFIKI (Lipia Mwingine)\n\nIngiza namba ya simu ya mtu unayemlipia huduma (mfano 0755123456):\n\n0. Nyuma";
+    }
+
+    if (cleanInput === '6') {
       session.step = 'PAPOWALLET_HISTORY';
       await saveSession(session, dbAdmin);
       const bal = (session.walletBalance || 15000).toLocaleString();
       return session.language === 'en'
-        ? `📜 RECENT WALLET TRANSACTIONS\n\n1. 🟢 Top-Up M-Pesa: +TZS 10,000 (Today)\n2. 🔴 PapoFood Order: -TZS 8,500 (Yesterday)\n3. 🎁 Points Converted: +TZS 1,200 (Yesterday)\n4. 🟢 Top-Up Tigo Pesa: +TZS 15,000\n\nCurrent Balance: TZS ${bal}\n\n0. Back`
-        : `📜 MIAMALA YA HIVI KARIBUNI\n\n1. 🟢 Top-Up M-Pesa: +TZS 10,000 (Leo)\n2. 🔴 Agizo la PapoFood: -TZS 8,500 (Jana)\n3. 🎁 Badili Points: +TZS 1,200 (Jana)\n4. 🟢 Top-Up Tigo Pesa: +TZS 15,000\n\nSalio la Sasa: TZS ${bal}\n\n0. Nyuma`;
+        ? `📜 RECENT WALLET TRANSACTIONS\n\n1. 🟢 Top-Up M-Pesa: +TZS 10,000 (Today)\n2. 🔴 PapoFood Order: -TZS 8,500 (Yesterday)\n3. 💸 Split Fare Paid: -TZS 2,500 (Yesterday)\n4. 🎁 Converted Points: +TZS 1,200\n\nCurrent Balance: TZS ${bal}\n\n0. Back`
+        : `📜 MIAMALA YA HIVI KARIBUNI\n\n1. 🟢 Top-Up M-Pesa: +TZS 10,000 (Leo)\n2. 🔴 Agizo la PapoFood: -TZS 8,500 (Jana)\n3. 💸 Gawana Nauli: -TZS 2,500 (Jana)\n4. 🎁 Badili Points: +TZS 1,200\n\nSalio la Sasa: TZS ${bal}\n\n0. Nyuma`;
     }
 
     return getPapoWalletText(session);
+  }
+
+  // --- SPLIT FARE HANDLERS ---
+  if (session.step === 'PAPOWALLET_SPLIT_PHONE') {
+    if (cleanInput === '0') {
+      session.step = 'PAPOWALLET_MAIN';
+      await saveSession(session, dbAdmin);
+      return getPapoWalletText(session);
+    }
+
+    session.splitFarePhone = cleanInput;
+    session.step = 'PAPOWALLET_SPLIT_AMOUNT';
+    await saveSession(session, dbAdmin);
+    return session.language === 'en'
+      ? `💸 SPLIT FARE 50/50 WITH ${cleanInput}\n\nEnter total ride/order amount in TZS (e.g. 5000):\n\n0. Cancel`
+      : `💸 GAWANA NAULI 50/50 NA ${cleanInput}\n\nIngiza jumla ya gharama za nauli/agizo kwa TZS (mfano 5000):\n\n0. Ghairi`;
+  }
+
+  if (session.step === 'PAPOWALLET_SPLIT_AMOUNT') {
+    if (cleanInput === '0') {
+      session.step = 'PAPOWALLET_MAIN';
+      await saveSession(session, dbAdmin);
+      return getPapoWalletText(session);
+    }
+
+    const totalAmt = parseInt(cleanInput.replace(/\D/g, ''), 10);
+    if (isNaN(totalAmt) || totalAmt < 500) {
+      return session.language === 'en' ? "⚠️ Invalid amount. Enter total fare (e.g. 5000):" : "⚠️ Kiasi si sahihi. Ingiza jumla ya nauli (mfano 5000):";
+    }
+
+    const userShare = Math.round(totalAmt / 2);
+    const friendPhone = session.splitFarePhone || '0712345678';
+    const isEn = session.language === 'en';
+
+    if ((session.walletBalance || 15000) < userShare) {
+      return isEn
+        ? `⚠️ Insufficient balance for your 50% share (TZS ${userShare.toLocaleString()}). Wallet Bal: TZS ${(session.walletBalance || 0).toLocaleString()}`
+        : `⚠️ Salio lako halitoshi kwa sehemu yako 50% (TZS ${userShare.toLocaleString()}). Salio PapoWallet: TZS ${(session.walletBalance || 0).toLocaleString()}`;
+    }
+
+    session.walletBalance = (session.walletBalance || 15000) - userShare;
+    session.step = 'PAPOWALLET_MAIN';
+    await saveSession(session, dbAdmin);
+
+    if (isEn) {
+      return `💸 SPLIT FARE DISPATCHED SUCCESSFULLY! ⚡\n\nTotal Fare: TZS ${totalAmt.toLocaleString()}\nYour 50% Share Paid: TZS ${userShare.toLocaleString()}\nPartner (${friendPhone}): Payment request sent via SMS/USSD!\nNew Wallet Balance: TZS ${session.walletBalance.toLocaleString()}\n\n0. Main Menu`;
+    }
+    return `💸 OMBI LA GAWANA NAULI LIMETUMWA! ⚡\n\nJumla ya Nauli: TZS ${totalAmt.toLocaleString()}\nSehemu yako 50% Imelipwa: TZS ${userShare.toLocaleString()}\nMwenzako (${friendPhone}): Ombi la TZS ${userShare.toLocaleString()} limetumwa kwa USSD/SMS!\nSalio Jipya PapoWallet: TZS ${session.walletBalance.toLocaleString()}\n\n0. Rudi Mwanzo`;
+  }
+
+  // --- PAY FOR FRIEND HANDLERS ---
+  if (session.step === 'PAPOWALLET_PAY_FRIEND_PHONE') {
+    if (cleanInput === '0') {
+      session.step = 'PAPOWALLET_MAIN';
+      await saveSession(session, dbAdmin);
+      return getPapoWalletText(session);
+    }
+
+    session.splitFarePhone = cleanInput;
+    session.step = 'PAPOWALLET_PAY_FRIEND_AMOUNT';
+    await saveSession(session, dbAdmin);
+    return session.language === 'en'
+      ? `🎁 PAY FOR FRIEND (${cleanInput})\n\nEnter amount you wish to pay for them in TZS (e.g. 4500):\n\n0. Cancel`
+      : `🎁 LIPIA RAFIKI / MWEZI (${cleanInput})\n\nIngiza kiasi unachotaka kumlipia kwa TZS (mfano 4500):\n\n0. Ghairi`;
+  }
+
+  if (session.step === 'PAPOWALLET_PAY_FRIEND_AMOUNT') {
+    if (cleanInput === '0') {
+      session.step = 'PAPOWALLET_MAIN';
+      await saveSession(session, dbAdmin);
+      return getPapoWalletText(session);
+    }
+
+    const amt = parseInt(cleanInput.replace(/\D/g, ''), 10);
+    if (isNaN(amt) || amt < 500) {
+      return session.language === 'en' ? "⚠️ Invalid amount. Enter amount (e.g. 4500):" : "⚠️ Kiasi si sahihi. Ingiza kiasi (mfano 4500):";
+    }
+
+    const recipient = session.splitFarePhone || '0755123456';
+    const isEn = session.language === 'en';
+
+    if ((session.walletBalance || 15000) < amt) {
+      return isEn
+        ? `⚠️ Insufficient PapoWallet balance (Bal: TZS ${(session.walletBalance || 0).toLocaleString()}, Required: TZS ${amt.toLocaleString()})`
+        : `⚠️ Salio halitoshi kwenye PapoWallet (Salio: TZS ${(session.walletBalance || 0).toLocaleString()}, Inatakiwa: TZS ${amt.toLocaleString()})`;
+    }
+
+    session.walletBalance = (session.walletBalance || 15000) - amt;
+    session.step = 'PAPOWALLET_MAIN';
+    await saveSession(session, dbAdmin);
+
+    if (isEn) {
+      return `🎉 PAYMENT TO FRIEND SUCCESSFUL! 🎁\n\nPaid TZS ${amt.toLocaleString()} for ${recipient} via PapoWallet.\nSMS notification sent to ${recipient}.\nYour New Balance: TZS ${session.walletBalance.toLocaleString()}\n\n0. Main Menu`;
+    }
+    return `🎉 MALIPO KWA RAFIKI YAMEKAMILIKA! 🎁\n\nUmemlipia ${recipient} TZS ${amt.toLocaleString()} kutoka PapoWallet.\nUjumbe wa SMS umetumwa kwa ${recipient}.\nSalio Lako Jipya: TZS ${session.walletBalance.toLocaleString()}\n\n0. Rudi Mwanzo`;
+  }
+
+  // --- MODULE: SAVED LOCATIONS (MAENEO PENDWA) ---
+  if (session.step === 'SAVED_LOCATIONS_MENU') {
+    if (cleanInput === '0') {
+      session.step = 'START';
+      await saveSession(session, dbAdmin);
+      return getWelcomeMessage(session);
+    }
+
+    if (cleanInput === '4') {
+      session.step = 'EDIT_HOME_LOCATION';
+      await saveSession(session, dbAdmin);
+      return session.language === 'en'
+        ? "🏠 EDIT HOME ADDRESS\n\nEnter new home address (e.g. Kinondoni Studio, Dar es Salaam):\n\n0. Cancel"
+        : "🏠 HARIRI ANWANI YA NYUMBANI\n\nIngiza anwani mpya ya nyumbani (mfano Kinondoni Studio, Dar es Salaam):\n\n0. Ghairi";
+    }
+
+    if (cleanInput === '5') {
+      session.step = 'EDIT_WORK_LOCATION';
+      await saveSession(session, dbAdmin);
+      return session.language === 'en'
+        ? "🏢 EDIT WORK ADDRESS\n\nEnter new work address (e.g. Victoria Tower, Bagamoyo Road):\n\n0. Cancel"
+        : "🏢 HARIRI ANWANI YA OFISINI\n\nIngiza anwani mpya ya ofisini (mfano Victoria Tower, Bagamoyo Road):\n\n0. Ghairi";
+    }
+
+    if (cleanInput === '6') {
+      session.step = 'EDIT_CUSTOM_LOCATION';
+      await saveSession(session, dbAdmin);
+      return session.language === 'en'
+        ? "🏪 ADD CUSTOM LOCATION\n\nEnter place name & address (e.g. Soko la Kariakoo):\n\n0. Cancel"
+        : "🏪 WEKA ENEO LINGINE PENDWA\n\nIngiza jina na anwani ya eneo (mfano Soko la Kariakoo):\n\n0. Ghairi";
+    }
+
+    return getSavedLocationsText(session);
+  }
+
+  if (session.step === 'EDIT_HOME_LOCATION') {
+    if (cleanInput === '0') {
+      session.step = 'SAVED_LOCATIONS_MENU';
+      await saveSession(session, dbAdmin);
+      return getSavedLocationsText(session);
+    }
+
+    if (!session.savedLocations) session.savedLocations = {};
+    session.savedLocations.home = cleanInput.trim();
+    session.step = 'SAVED_LOCATIONS_MENU';
+    await saveSession(session, dbAdmin);
+
+    const isEn = session.language === 'en';
+    const msg = isEn ? "✅ Home address updated successfully!\n\n" : "✅ Anwani ya Nyumbani imehifadhiwa vizuri!\n\n";
+    return msg + getSavedLocationsText(session);
+  }
+
+  if (session.step === 'EDIT_WORK_LOCATION') {
+    if (cleanInput === '0') {
+      session.step = 'SAVED_LOCATIONS_MENU';
+      await saveSession(session, dbAdmin);
+      return getSavedLocationsText(session);
+    }
+
+    if (!session.savedLocations) session.savedLocations = {};
+    session.savedLocations.work = cleanInput.trim();
+    session.step = 'SAVED_LOCATIONS_MENU';
+    await saveSession(session, dbAdmin);
+
+    const isEn = session.language === 'en';
+    const msg = isEn ? "✅ Work address updated successfully!\n\n" : "✅ Anwani ya Ofisini imehifadhiwa vizuri!\n\n";
+    return msg + getSavedLocationsText(session);
+  }
+
+  if (session.step === 'EDIT_CUSTOM_LOCATION') {
+    if (cleanInput === '0') {
+      session.step = 'SAVED_LOCATIONS_MENU';
+      await saveSession(session, dbAdmin);
+      return getSavedLocationsText(session);
+    }
+
+    if (!session.savedLocations) session.savedLocations = {};
+    session.savedLocations.custom = cleanInput.trim();
+    session.step = 'SAVED_LOCATIONS_MENU';
+    await saveSession(session, dbAdmin);
+
+    const isEn = session.language === 'en';
+    const msg = isEn ? "✅ Custom favorite location saved!\n\n" : "✅ Eneo lingine pendwa limehifadhiwa!\n\n";
+    return msg + getSavedLocationsText(session);
+  }
+
+  // --- MODULE: USSD AUTOMATED VOICE CALLBACK (IVR CALL) ---
+  if (session.step === 'VOICE_CALLBACK_MENU') {
+    if (cleanInput === '0') {
+      session.step = 'START';
+      await saveSession(session, dbAdmin);
+      return getWelcomeMessage(session);
+    }
+
+    if (cleanInput === '1') {
+      return getVoiceCallbackText(session);
+    }
+
+    return getVoiceCallbackText(session);
   }
 
   if (session.step === 'PAPOWALLET_TOPUP_AMOUNT') {

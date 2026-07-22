@@ -235,7 +235,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
   const [copied, setCopied] = useState(false);
   const [isEnabled, setIsEnabled] = useState(true);
   const [welcomeText, setWelcomeText] = useState(
-    "Karibu Papo Hapo! 🌟\n\nChagua huduma:\n1. 🚕 PapoRide (Taxi & Nauli)\n2. 📦 PapoSend (Tuma & Fuatilia Mzigo)\n3. 🛵 PapoDriver (Offline Mode)\n4. 🚌 PapoBus (Tiketi za Mabasi)\n5. 💇‍♀️ PapoStyle (Saluni & Urembo)\n6. 🍔 PapoFood (Chakula & Sokoni)\n7. 📋 Hali ya Agizo (Live Status)\n8. 💰 PapoWallet & PapoPoints\n9. 🔁 Agiza Tena (Quick Re-Order)\n10. 🌐 Lugha / Language (SW/EN)"
+    "Karibu Papo Hapo! 🌟\n\nChagua huduma:\n1. 🚕 PapoRide (Taxi & Nauli)\n2. 📦 PapoSend (Tuma & Fuatilia Mzigo)\n3. 🛵 PapoDriver (Offline Mode)\n4. 🚌 PapoBus (Tiketi za Mabasi)\n5. 💇‍♀️ PapoStyle (Saluni & Urembo)\n6. 🍔 PapoFood (Chakula & Sokoni)\n7. 📋 Hali ya Agizo (Live Status)\n8. 💰 PapoWallet, Gawana Nauli & Points\n9. 📍 Maeneo Pendwa (Saved Locations)\n10. 📞 Simu ya Sauti (Voice IVR Callback)\n11. 🔁 Agiza Tena (Quick Re-Order)\n12. 🌐 Lugha / Language (SW/EN)"
   );
   const [testPhoneNumber, setTestPhoneNumber] = useState('+255712345678');
   const [inputText, setInputText] = useState('');
