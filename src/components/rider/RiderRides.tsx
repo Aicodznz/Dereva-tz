@@ -309,30 +309,58 @@ export default function RiderRides() {
 
               {/* Ride Fare & Payment Details */}
               <div className="bg-neutral-50 dark:bg-neutral-950 rounded-3xl p-6 border border-neutral-100 dark:border-neutral-800 space-y-4">
-                <h5 className="text-[10px] font-black uppercase tracking-widest text-neutral-400 pb-2 border-b border-neutral-100 dark:border-neutral-800">
-                  Malipo & Gharama (Pricing breakdown)
+                <h5 className="text-[10px] font-black uppercase tracking-widest text-neutral-400 pb-2 border-b border-neutral-100 dark:border-neutral-800 flex justify-between items-center">
+                  <span>Malipo & Gharama (Pricing breakdown)</span>
+                  <span className="text-[8px] bg-orange-500/10 text-orange-600 dark:text-orange-400 px-2 py-0.5 rounded-full font-black">
+                    {selectedRide.paymentMethod?.toLowerCase().includes('ussd') || selectedRide.isUssd ? 'USSD Ride' : 'App / Web Ride'}
+                  </span>
                 </h5>
 
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-neutral-500 font-bold">Nauli Kuu (Core Fare)</span>
-                  <span className="text-sm font-black text-neutral-800 dark:text-neutral-200">
-                    {((selectedRide.fare || selectedRide.actualFare || selectedRide.estimatedFare || 0) * 0.85).toLocaleString()} TZS
-                  </span>
-                </div>
+                {(() => {
+                  const totalPaid = selectedRide.fare || selectedRide.actualFare || selectedRide.estimatedFare || 0;
+                  const isUssd = Boolean(selectedRide.paymentMethod?.toLowerCase().includes('ussd') || selectedRide.isUssd);
+                  const ussdFee = isUssd ? 500 : 0;
+                  const baseFare = Math.max(0, totalPaid - ussdFee);
+                  const commission = Math.round(baseFare * 0.15);
+                  const driverNet = baseFare - commission;
 
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-neutral-500 font-bold">Makato ya Mfumo (Commission 15%)</span>
-                  <span className="text-sm font-black text-neutral-400">
-                    {((selectedRide.fare || selectedRide.actualFare || selectedRide.estimatedFare || 0) * 0.15).toLocaleString()} TZS
-                  </span>
-                </div>
+                  return (
+                    <>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-neutral-500 font-bold">Nauli ya Safari (Customer Fare)</span>
+                        <span className="text-sm font-black text-neutral-800 dark:text-neutral-200">
+                          {baseFare.toLocaleString()} TZS
+                        </span>
+                      </div>
 
-                <div className="flex justify-between items-center pt-3 border-t border-neutral-100 dark:border-neutral-800">
-                  <span className="text-xs font-black uppercase text-neutral-700 dark:text-neutral-300">Jumla Iliyolipwa (Total Paid)</span>
-                  <span className="text-xl font-black italic text-emerald-600">
-                    {(selectedRide.fare || selectedRide.actualFare || selectedRide.estimatedFare || 0).toLocaleString()} TZS
-                  </span>
-                </div>
+                      {isUssd && (
+                        <div className="flex justify-between items-center text-amber-600 dark:text-amber-400">
+                          <span className="text-xs font-bold">Ada ya Mtandao wa USSD</span>
+                          <span className="text-sm font-black">+ {ussdFee.toLocaleString()} TZS</span>
+                        </div>
+                      )}
+
+                      <div className="flex justify-between items-center text-red-500/80">
+                        <span className="text-xs font-bold">Kamisheni ya Mfumo (15% ya {baseFare.toLocaleString()})</span>
+                        <span className="text-sm font-black">- {commission.toLocaleString()} TZS</span>
+                      </div>
+
+                      <div className="flex justify-between items-center bg-emerald-500/10 p-3 rounded-2xl border border-emerald-500/20">
+                        <span className="text-xs font-black uppercase text-emerald-600 dark:text-emerald-400">💰 Dereva Anapata (Net Earnings)</span>
+                        <span className="text-base font-black italic text-emerald-600 dark:text-emerald-400">
+                          {driverNet.toLocaleString()} TZS
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between items-center pt-3 border-t border-neutral-100 dark:border-neutral-800">
+                        <span className="text-xs font-black uppercase text-neutral-700 dark:text-neutral-300">Jumla Iliyolipwa na Mteja</span>
+                        <span className="text-xl font-black italic text-neutral-900 dark:text-white">
+                          {totalPaid.toLocaleString()} TZS
+                        </span>
+                      </div>
+                    </>
+                  );
+                })()}
 
                 <div className="flex justify-between items-center pt-1">
                   <span className="text-[9px] font-black uppercase text-neutral-400">Njia ya Malipo (Payment Method)</span>

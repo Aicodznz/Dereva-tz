@@ -280,9 +280,9 @@ const DEFAULT_PRICING_RULES: Record<string, any> = {
     taxDescription: "Kodi ya Ongezeko la Thamani",
     taxActive: true,
     rates: {
-      mini: { baseFare: 1000, pricePerKm: 800, pricePerMin: 100, waitingRate: 120, surgeRush: 1.25, surgeRain: 1.5 },
-      bajaj: { baseFare: 500, pricePerKm: 500, pricePerMin: 0, waitingRate: 50, surgeRush: 1.15, surgeRain: 1.3 },
-      bike: { baseFare: 300, pricePerKm: 350, pricePerMin: 0, waitingRate: 30, surgeRush: 1.1, surgeRain: 1.2 }
+      mini: { baseFare: 5000, pricePerKm: 800, pricePerMin: 100, waitingRate: 120, surgeRush: 1.25, surgeRain: 1.5 },
+      bajaj: { baseFare: 4000, pricePerKm: 500, pricePerMin: 0, waitingRate: 50, surgeRush: 1.15, surgeRain: 1.3 },
+      bike: { baseFare: 2000, pricePerKm: 350, pricePerMin: 0, waitingRate: 30, surgeRush: 1.1, surgeRain: 1.2 }
     }
   },
   "Arusha": {
@@ -440,9 +440,9 @@ export default function AdminDashboard() {
         const url = await storageService.uploadFile('vendors', path, file);
         
         const currentVehicles = businessConfig.vehicles || {
-          mini: { id: "mini", name: "Gari", price: 2800, sub: "Max 4 Siti", image: "🚗", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" },
-          bajaj: { id: "bajaj", name: "Bajaji", price: 1500, sub: "3 Siti", image: "🛺", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" },
-          bike: { id: "bike", name: "Pikipiki", price: 800, sub: "Usafiri Salama", image: "🏍️", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" }
+          mini: { id: "mini", name: "Gari", price: 5000, baseFare: 5000, pricePerKm: 1, pricePerMin: 1, sub: "Max 4 Siti", image: "🚗", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" },
+          bajaj: { id: "bajaj", name: "Bajaji", price: 4000, baseFare: 4000, pricePerKm: 1, pricePerMin: 1, sub: "3 Siti", image: "🛺", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" },
+          bike: { id: "bike", name: "BODA", price: 2000, baseFare: 2000, pricePerKm: 1, pricePerMin: 1, sub: "1 Siti", image: "🏍️", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" }
         };
 
         const updatedVehicles = {
@@ -515,9 +515,9 @@ export default function AdminDashboard() {
     whoConfirmOrder: 'store',
     refundRequestMode: true,
     vehicles: {
-      mini: { id: "mini", name: "Gari", price: 2800, sub: "Max 4 Siti", image: "🚗", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" },
-      bajaj: { id: "bajaj", name: "Bajaji", price: 1500, sub: "3 Siti", image: "🛺", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" },
-      bike: { id: "bike", name: "Pikipiki", price: 800, sub: "Usafiri Salama", image: "🏍️", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" }
+      mini: { id: "mini", name: "Gari", price: 5000, baseFare: 5000, pricePerKm: 1, pricePerMin: 1, sub: "Max 4 Siti", image: "🚗", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" },
+      bajaj: { id: "bajaj", name: "Bajaji", price: 4000, baseFare: 4000, pricePerKm: 1, pricePerMin: 1, sub: "3 Siti", image: "🛺", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" },
+      bike: { id: "bike", name: "BODA", price: 2000, baseFare: 2000, pricePerKm: 1, pricePerMin: 1, sub: "1 Siti", image: "🏍️", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" }
     }
   });
   const [vendors, setVendors] = useState<VendorProfile[]>([]);
@@ -4195,9 +4195,9 @@ export default function AdminDashboard() {
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {Object.entries(businessConfig.vehicles || {
-                    mini: { id: "mini", name: "Gari", price: 2800, sub: "Max 4 Siti", image: "🚗", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" },
-                    bajaj: { id: "bajaj", name: "Bajaji", price: 1500, sub: "3 Siti", image: "🛺", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" },
-                    bike: { id: "bike", name: "Pikipiki", price: 800, sub: "Usafiri Salama", image: "🏍️", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" }
+                    mini: { id: "mini", name: "Gari", price: 5000, baseFare: 5000, pricePerKm: 1, pricePerMin: 1, sub: "Max 4 Siti", image: "🚗", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" },
+                    bajaj: { id: "bajaj", name: "Bajaji", price: 4000, baseFare: 4000, pricePerKm: 1, pricePerMin: 1, sub: "3 Siti", image: "🛺", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" },
+                    bike: { id: "bike", name: "BODA", price: 2000, baseFare: 2000, pricePerKm: 1, pricePerMin: 1, sub: "1 Siti", image: "🏍️", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" }
                   }).map(([id, v]: [string, any]) => (
                     <Card key={id} className="rounded-[2.5rem] border-none shadow-xl bg-white dark:bg-neutral-900 overflow-hidden flex flex-col justify-between transition-colors">
                       <CardHeader className="p-6 pb-2 border-b border-neutral-100 dark:border-neutral-800 flex flex-row items-center justify-between">
@@ -4345,7 +4345,7 @@ export default function AdminDashboard() {
                               <Label className="text-[8px] font-black uppercase tracking-wider text-neutral-400 block truncate">Kuanza (Fungua Mlango)</Label>
                               <Input
                                 type="number"
-                                placeholder={id === 'mini' ? '1000' : id === 'bajaj' ? '500' : '300'}
+                                placeholder={id === 'mini' ? '5000' : id === 'bajaj' ? '4000' : '2000'}
                                 value={v.baseFare === undefined ? '' : v.baseFare}
                                 onChange={(e) => {
                                   const val = e.target.value === '' ? 0 : Number(e.target.value);

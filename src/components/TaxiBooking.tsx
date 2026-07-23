@@ -2778,7 +2778,7 @@ export default function TaxiBooking() {
     const defaultVehicles = {
       mini: { id: "mini", name: "Gari", price: 5000, sub: "Max 4 Siti", image: "🚗", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" },
       bajaj: { id: "bajaj", name: "Bajaji", price: 4000, sub: "3 Siti", image: "🛺", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" },
-      bike: { id: "bike", name: "Pikipiki", price: 2000, sub: "Usafiri Salama", image: "🏍️", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" }
+      bike: { id: "bike", name: "BODA", price: 2000, sub: "1 Siti", image: "🏍️", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" }
     };
 
     const combinedVehicles = {
