@@ -91,11 +91,6 @@ export default function Header() {
               <span className="text-xs font-black text-orange-600 uppercase tracking-widest leading-none">Papo Hapo</span>
             </div>
           )}
-
-          <Link to="/delivery-robot" className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-neutral-900 dark:bg-neutral-800 text-orange-500 border border-orange-500/30 text-xs font-black uppercase tracking-wider hover:bg-orange-500 hover:text-black transition-all shadow-sm">
-            <Bot className="w-3.5 h-3.5 animate-pulse text-orange-400" />
-            <span>PapoBot</span>
-          </Link>
         </div>
 
         {/* Search Bar Removed as per user request */}
