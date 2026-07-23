@@ -422,14 +422,11 @@
 }
 
 @keyframes badgeTextSlide {
-  0%, 10% {
-    transform: translateX(0%);
+  0% {
+    transform: translateX(100%);
   }
-  45%, 55% {
-    transform: translateX(-30%);
-  }
-  90%, 100% {
-    transform: translateX(0%);
+  100% {
+    transform: translateX(-100%);
   }
 }
 
@@ -437,5 +434,5 @@
   display: inline-block;
   white-space: nowrap;
   will-change: transform;
-  animation: badgeTextSlide 3.5s ease-in-out infinite;
+  animation: badgeTextSlide 5.5s linear infinite;
 }
