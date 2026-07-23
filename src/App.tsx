@@ -33,6 +33,8 @@ import ParcelHome from './components/parcel/ParcelHome';
 import ParcelHistory from './components/parcel/ParcelHistory';
 import TaxiHistory from './components/tegex/TaxiHistory';
 
+import DeliveryRobotManager from './components/DeliveryRobotManager';
+
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) return <div className="flex items-center justify-center h-screen">Loading...</div>;
@@ -394,6 +396,7 @@ function AppContent() {
             <Route path="/chat" element={<PrivateRoute><Chat /></PrivateRoute>} />
             <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
             <Route path="/role-selection" element={<PrivateRoute><RoleSelection /></PrivateRoute>} />
+            <Route path="/delivery-robot" element={<DeliveryRobotManager />} />
             <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
           </Routes>
         </Layout>

@@ -102,7 +102,7 @@ export interface TwilioConfig {
 
 export const defaultTwilioConfig: TwilioConfig = {
   isEnabled: true,
-  welcomeMessage: "Karibu Papo Hapo! 🌟\n\nChagua huduma:\n1. 🚕 PapoRide (Taxi & Nauli)\n2. 📦 PapoSend (Tuma & Fuatilia Mzigo)\n3. 🛵 PapoDriver (Offline Mode)\n4. 🚌 PapoBus (Tiketi za Mabasi)\n5. 💇‍♀️ PapoStyle (Saluni & Urembo)\n6. 🍔 PapoFood (Chakula & Sokoni)\n7. 📋 Hali ya Agizo (Live Status)\n8. 💰 PapoWallet, Gawana Nauli & Points\n9. 📍 Maeneo Pendwa (Saved Locations)\n10. 📞 Simu ya Sauti (Voice IVR Callback)\n11. 🔁 Agiza Tena (Quick Re-Order)\n12. 🌐 Lugha / Language (SW/EN)",
+  welcomeMessage: "Karibu Papo Hapo! 🌟\n\nChagua huduma:\n1. 🚕 PapoRide (Taxi & Nauli)\n2. 📦 PapoSend (Tuma & Fuatilia Mzigo)\n3. 🛵 PapoDriver (Offline Mode)\n4. 🚌 PapoBus (Tiketi za Mabasi)\n5. 💇‍♀️ PapoStyle (Saluni & Urembo)\n6. 🍔 PapoFood (Chakula & Sokoni)\n7. 📋 Hali ya Agizo (Live Status)\n8. 💰 PapoWallet, Gawana Nauli & Points\n9. 📍 Maeneo Pendwa (Saved Locations)\n10. 📞 Simu ya Sauti (Voice IVR Callback)\n11. 🔁 Agiza Tena (Quick Re-Order)\n12. 🤖 PapoBot (Delivery Robot & PIN Lock)\n13. 🌐 Lugha / Language (SW/EN)",
   phoneNumber: "+14155238886", // Default twilio sandbox or custom
   vendorRules: {
     "all-stores": {
@@ -115,9 +115,9 @@ export const defaultTwilioConfig: TwilioConfig = {
 export function getWelcomeMessage(session: SMSSession): string {
   const isEn = session.language === 'en';
   if (isEn) {
-    return "Welcome to Papo Hapo! 🌟\n\nSelect service:\n1. 🚕 PapoRide (Taxi & Fare)\n2. 📦 PapoSend (Send & Track Parcel)\n3. 🛵 PapoDriver (Offline Mode)\n4. 🚌 PapoBus (Bus Tickets)\n5. 💇‍♀️ PapoStyle (Salon & Beauty)\n6. 🍔 PapoFood (Food & Groceries)\n7. 📋 Live Order Status\n8. 💰 PapoWallet, Split Fare & Points\n9. 📍 Saved Locations (Home/Work)\n10. 📞 Request Voice Callback (IVR)\n11. 🔁 Quick Re-Order\n12. 🌐 Language / Lugha (SW/EN)";
+    return "Welcome to Papo Hapo! 🌟\n\nSelect service:\n1. 🚕 PapoRide (Taxi & Fare)\n2. 📦 PapoSend (Send & Track Parcel)\n3. 🛵 PapoDriver (Offline Mode)\n4. 🚌 PapoBus (Bus Tickets)\n5. 💇‍♀️ PapoStyle (Salon & Beauty)\n6. 🍔 PapoFood (Food & Groceries)\n7. 📋 Live Order Status\n8. 💰 PapoWallet, Split Fare & Points\n9. 📍 Saved Locations (Home/Work)\n10. 📞 Request Voice Callback (IVR)\n11. 🔁 Quick Re-Order\n12. 🤖 PapoBot (Delivery Robot & PIN Lock)\n13. 🌐 Language / Lugha (SW/EN)";
   }
-  return "Karibu Papo Hapo! 🌟\n\nChagua huduma:\n1. 🚕 PapoRide (Taxi & Nauli)\n2. 📦 PapoSend (Tuma & Fuatilia Mzigo)\n3. 🛵 PapoDriver (Offline Mode)\n4. 🚌 PapoBus (Tiketi za Mabasi)\n5. 💇‍♀️ PapoStyle (Saluni & Urembo)\n6. 🍔 PapoFood (Chakula & Sokoni)\n7. 📋 Hali ya Agizo (Live Status)\n8. 💰 PapoWallet, Gawana Nauli & Points\n9. 📍 Maeneo Pendwa (Saved Locations)\n10. 📞 Simu ya Sauti (Voice IVR Callback)\n11. 🔁 Agiza Tena (Quick Re-Order)\n12. 🌐 Lugha / Language (SW/EN)";
+  return "Karibu Papo Hapo! 🌟\n\nChagua huduma:\n1. 🚕 PapoRide (Taxi & Nauli)\n2. 📦 PapoSend (Tuma & Fuatilia Mzigo)\n3. 🛵 PapoDriver (Offline Mode)\n4. 🚌 PapoBus (Tiketi za Mabasi)\n5. 💇‍♀️ PapoStyle (Saluni & Urembo)\n6. 🍔 PapoFood (Chakula & Sokoni)\n7. 📋 Hali ya Agizo (Live Status)\n8. 💰 PapoWallet, Gawana Nauli & Points\n9. 📍 Maeneo Pendwa (Saved Locations)\n10. 📞 Simu ya Sauti (Voice IVR Callback)\n11. 🔁 Agiza Tena (Quick Re-Order)\n12. 🤖 PapoBot (Delivery Robot & PIN Lock)\n13. 🌐 Lugha / Language (SW/EN)";
 }
 
 export function getPapoWalletText(session: SMSSession): string {
@@ -596,19 +596,45 @@ export async function handleSMSInput(
       await saveSession(session, dbAdmin);
       return getQuickReOrderText(session);
     }
-    else if (cleanInput === '12' || lowerInput.includes('lugha') || lowerInput.includes('language')) {
+    else if (cleanInput === '12' || lowerInput.includes('papobot') || lowerInput.includes('robot') || lowerInput.includes('roboti')) {
+      session.step = 'PAPOBOT_PIN_UNLOCK';
+      await saveSession(session, dbAdmin);
+      return session.language === 'en'
+        ? "🤖 PapoBot (AUTONOMOUS DELIVERY ROBOT):\n[Status: 🟢 PapoBot Alpha-1 Arrived at Destination]\n\nPlease enter the 4-digit PIN to unlock the cargo compartment lid (Default: 4829):\n\n0. Main Menu"
+        : "🤖 PapoBot (ROBOTI YA KUWASILISHA MZIGO):\n[Hali: 🟢 PapoBot Alpha-1 Imewasili Eneo Lako]\n\nTafadhali ingiza PIN ya tarakimu 4 kufungua mfuniko wa Mzigo (Default: 4829):\n\n0. Rudi Mwanzo";
+    }
+    else if (cleanInput === '13' || lowerInput.includes('lugha') || lowerInput.includes('language')) {
       session.step = 'LANGUAGE_SWITCH_MENU';
       await saveSession(session, dbAdmin);
       return `🌐 CHAGUA LUGHA / SELECT LANGUAGE:\n\n1. 🇹🇿 Kiswahili\n2. 🇬🇧 English\n\n0. Rudi Mwanzo / Back`;
     }
     else {
       return session.language === 'en'
-        ? "⚠️ Invalid choice! Please send numbers 1 to 12, or send \"HI\" to restart."
-        : "⚠️ Chaguo si sahihi! Tuma namba 1 mpaka 12, au tuma \"HI\" kuanza upya.";
+        ? "⚠️ Invalid choice! Please send numbers 1 to 13, or send \"HI\" to restart."
+        : "⚠️ Chaguo si sahihi! Tuma namba 1 mpaka 13, au tuma \"HI\" kuanza upya.";
     }
   }
 
-  // --- MODULE: QUICK RE-ORDER (AGIZA TENA KWA BOFYA MOJA) ---
+  // --- MODULE: PAPOBOT USSD PIN UNLOCK ---
+  if (session.step === 'PAPOBOT_PIN_UNLOCK') {
+    if (cleanInput === '0') {
+      session.step = 'START';
+      await saveSession(session, dbAdmin);
+      return getWelcomeMessage(session);
+    }
+
+    if (cleanInput === '4829' || cleanInput.length === 4) {
+      session.step = 'START';
+      await saveSession(session, dbAdmin);
+      return session.language === 'en'
+        ? "🔓 PAPOBOT UNLOCKED SUCCESSFULLY! 🤖✨\n\nThe cargo compartment door has opened. Please retrieve your items and push the lid down to lock.\n\nThank you for using Papo Hapo Autonomous Delivery!"
+        : "🔓 PAPOBOT IMEFUNGUKA KIKAMILIFU! 🤖✨\n\nMfuniko wa mzigo umejifungua. Tafadhali chukua mzigo wako kisha sukuma mfuniko chini kujilock.\n\nAhsante kwa kutumia Papo Hapo Autonomous Delivery!";
+    }
+
+    return session.language === 'en'
+      ? "⚠️ Incorrect PIN! Please enter the 4-digit PIN (Default: 4829) or send 0 to Cancel:"
+      : "⚠️ PIN Si Sahihi! Ingiza PIN ya tarakimu 4 (Default: 4829) au tuma 0 Kughairi:";
+  }
   if (session.step === 'QUICK_REORDER_MENU') {
     if (cleanInput === '0') {
       session.step = 'START';
