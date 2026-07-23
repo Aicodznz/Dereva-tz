@@ -1990,6 +1990,8 @@ export default function TaxiBooking() {
     });
   };
 
+const taxiPinIconCacheMap: Record<string, L.DivIcon> = {};
+
   const getStartPin = (etaText: string) => {
     const isDark = theme === "dark";
     const cleanAddr = (addr: string) => {
@@ -2002,8 +2004,12 @@ export default function TaxiBooking() {
     };
 
     const displayAddr = cleanAddr(pickup);
+    const key = `taxi-start-${isDark}-${displayAddr}-${etaText || ''}`;
+    if (taxiPinIconCacheMap[key]) {
+      return taxiPinIconCacheMap[key];
+    }
 
-    return L.divIcon({
+    const icon = L.divIcon({
       className: "custom-div-icon",
       html: `
         <div class="relative flex flex-col items-center select-none" style="width: 150px;">
@@ -2046,6 +2052,8 @@ export default function TaxiBooking() {
       iconSize: [150, 68],
       iconAnchor: [75, 65],
     });
+    taxiPinIconCacheMap[key] = icon;
+    return icon;
   };
 
   const getEndPin = (etaText: string) => {
@@ -2060,8 +2068,12 @@ export default function TaxiBooking() {
     };
 
     const displayAddr = cleanAddr(destination);
+    const key = `taxi-end-${isDark}-${displayAddr}-${etaText || ''}`;
+    if (taxiPinIconCacheMap[key]) {
+      return taxiPinIconCacheMap[key];
+    }
 
-    return L.divIcon({
+    const icon = L.divIcon({
       className: "custom-div-icon",
       html: `
         <div class="relative flex flex-col items-center select-none" style="width: 150px;">
@@ -2104,6 +2116,8 @@ export default function TaxiBooking() {
       iconSize: [150, 68],
       iconAnchor: [75, 65],
     });
+    taxiPinIconCacheMap[key] = icon;
+    return icon;
   };
 
   const geocodeAddress = (query: string) => {

@@ -1119,6 +1119,8 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
     return () => clearInterval(interval);
   }, [isOnline, !!activeRide]);
 
+const pinIconCacheMap: Record<string, L.DivIcon> = {};
+
   const getStartPin = (etaText: string) => {
     const isDark = theme === "dark";
     const cleanAddr = (addr: string) => {
@@ -1132,8 +1134,12 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
 
     const activePickupAddress = activeRide?.pickup?.address || incomingRequest?.pickup?.address || "Pickup Eneo";
     const displayAddr = cleanAddr(activePickupAddress);
+    const key = `rider-start-${isDark}-${displayAddr}-${etaText || ''}`;
+    if (pinIconCacheMap[key]) {
+      return pinIconCacheMap[key];
+    }
 
-    return L.divIcon({
+    const icon = L.divIcon({
       className: "custom-div-icon",
       html: `
         <div class="relative flex flex-col items-center select-none" style="width: 150px;">
@@ -1176,6 +1182,8 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
       iconSize: [150, 68],
       iconAnchor: [75, 65],
     });
+    pinIconCacheMap[key] = icon;
+    return icon;
   };
 
   const getEndPin = (etaText: string) => {
@@ -1191,8 +1199,12 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
 
     const activeDestAddress = activeRide?.destination?.address || incomingRequest?.destination?.address || "Eneo la Kushushwa";
     const displayAddr = cleanAddr(activeDestAddress);
+    const key = `rider-end-${isDark}-${displayAddr}-${etaText || ''}`;
+    if (pinIconCacheMap[key]) {
+      return pinIconCacheMap[key];
+    }
 
-    return L.divIcon({
+    const icon = L.divIcon({
       className: "custom-div-icon",
       html: `
         <div class="relative flex flex-col items-center select-none" style="width: 150px;">
@@ -1235,6 +1247,8 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
       iconSize: [150, 68],
       iconAnchor: [75, 65],
     });
+    pinIconCacheMap[key] = icon;
+    return icon;
   };
 
   // Unified location and presence sync using refs to prevent continuous clearing/recreation of intervals
