@@ -352,6 +352,8 @@ interface RiderHomeProps {
   onProfileClick?: () => void;
 }
 
+const pinIconCacheMap: Record<string, L.DivIcon> = {};
+
 export default function RiderHome({ onNavVisibilityChange, onProfileClick }: RiderHomeProps) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -1118,8 +1120,6 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
     }
     return () => clearInterval(interval);
   }, [isOnline, !!activeRide]);
-
-const pinIconCacheMap: Record<string, L.DivIcon> = {};
 
   const getStartPin = (etaText: string) => {
     const isDark = theme === "dark";

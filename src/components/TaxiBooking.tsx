@@ -513,6 +513,8 @@ interface RideOption {
 
 // --- MAIN COMPONENT ---
 
+const taxiPinIconCacheMap: Record<string, L.DivIcon> = {};
+
 export default function TaxiBooking() {
   const { user, profile, signInGuest, loading } = useAuth();
   const { language, setLanguage, t } = useLanguage();
@@ -1989,8 +1991,6 @@ export default function TaxiBooking() {
       iconAnchor: [23, 23],
     });
   };
-
-const taxiPinIconCacheMap: Record<string, L.DivIcon> = {};
 
   const getStartPin = (etaText: string) => {
     const isDark = theme === "dark";
