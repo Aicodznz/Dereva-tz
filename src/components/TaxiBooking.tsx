@@ -1993,59 +1993,51 @@ export default function TaxiBooking() {
       if (parts.length > 2) {
         return `${parts[0].trim()}, ${parts[1].trim()}`;
       }
-      return addr.length > 30 ? addr.substring(0, 27) + "..." : addr;
+      return addr.length > 28 ? addr.substring(0, 25) + "..." : addr;
     };
 
     const displayAddr = cleanAddr(pickup);
 
-    // Dark vs Light Mode Speech Bubble styling
-    const bgClass = isDark 
-      ? "bg-gradient-to-b from-[#0B1E14]/95 to-[#030A06]/95 border border-emerald-500/40 shadow-[0_12px_30px_rgba(16,185,129,0.3)]" 
-      : "bg-gradient-to-b from-[#FDFBF7]/98 to-[#F5F2EB]/98 border border-[#D9D2C5] shadow-[0_12px_30px_rgba(139,115,85,0.2)]";
-
-    const titleColor = isDark ? "text-emerald-400" : "text-[#1E724C]";
-    const addrColor = isDark ? "text-white" : "text-[#1F2937]";
-    const arrowBg = isDark ? "bg-[#030A06] border-r border-b border-emerald-500/40" : "bg-[#F5F2EB] border-r border-b border-[#D9D2C5]";
-
     return L.divIcon({
       className: "custom-div-icon",
       html: `
-        <div class="relative flex flex-col items-center w-[150px] h-[110px] justify-end">
-          <!-- Speech Bubble Container -->
-          <div class="${bgClass} px-2.5 py-1.5 rounded-[12px] flex flex-col items-center min-w-[110px] max-w-[140px] relative mb-2.5 vibango-premium-float transition-all duration-300">
-            <span class="text-[7.5px] font-black ${titleColor} tracking-[0.12em] uppercase leading-none font-heading">MAHALI PA KUCHUKULIWA</span>
-            <span class="text-[10px] font-extrabold ${addrColor} tracking-tight mt-1 leading-tight text-center truncate w-full whitespace-nowrap">${displayAddr}</span>
-            ${etaText ? `
-              <span class="text-[8px] font-mono font-extrabold text-emerald-500 mt-1 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 whitespace-nowrap leading-none">${etaText}</span>
-            ` : ""}
-            <!-- Downward-pointing speech bubble arrow -->
-            <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 rotate-45 ${arrowBg}"></div>
+        <div class="relative flex flex-col items-center select-none" style="width: 210px;">
+          <!-- DiDi / Uber Style Callout Card Container -->
+          <div class="relative flex flex-col items-start w-full transition-transform duration-300 transform hover:scale-105 filter drop-shadow-[0_12px_24px_rgba(0,0,0,0.35)]">
+            
+            <!-- Top Slanted Badge Tab -->
+            <div class="inline-flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-t-lg rounded-tr-2xl text-[8.5px] font-black uppercase tracking-wider leading-none shadow-md ml-2.5 z-10 border-t border-x border-emerald-400/40">
+              <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+              <span>Recommended Pickup</span>
+            </div>
+
+            <!-- Main White Address Card -->
+            <div class="w-full ${isDark ? 'bg-neutral-900 border-neutral-700 text-white' : 'bg-white border-neutral-200 text-neutral-900'} border rounded-2xl rounded-tl-none p-2.5 shadow-2xl flex items-center justify-between gap-2 z-20">
+              <div class="flex flex-col min-w-0 flex-1">
+                <span class="text-[7.5px] font-extrabold text-emerald-500 uppercase tracking-widest leading-none mb-0.5">MAHALI PA KUCHUKULIWA</span>
+                <span class="text-[11px] font-black truncate leading-tight">${displayAddr}</span>
+                ${etaText ? `<span class="text-[8.5px] font-mono font-bold text-emerald-500 mt-0.5 leading-none bg-emerald-500/10 px-1.5 py-0.5 rounded w-max">${etaText}</span>` : ''}
+              </div>
+              <div class="w-5 h-5 rounded-full ${isDark ? 'bg-neutral-800 text-neutral-300' : 'bg-neutral-100 text-neutral-600'} flex items-center justify-center shrink-0">
+                <svg class="w-3 h-3 stroke-current stroke-[3]" fill="none" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+              </div>
+            </div>
           </div>
-          
-          <!-- Glowing Golden Hexagonal Pin on Ground -->
-          <div class="relative flex items-center justify-center w-8 h-8 pb-1">
-            <div class="absolute w-6 h-6 rounded-full bg-amber-500/25 blur-sm animate-pulse"></div>
-            <svg width="26" height="26" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" class="drop-shadow-[0_4px_8px_rgba(0,0,0,0.4)]">
-              <path d="M18 4 L30 11 L30 25 L18 32 L6 25 L6 11 Z" fill="url(#goldGradient)" stroke="#FFFFFF" stroke-width="1.5" stroke-linejoin="round"/>
-              <path d="M18 10 L24 13.5 L24 22.5 L18 26 L12 22.5 L12 13.5 Z" fill="url(#darkGoldCenter)" stroke="#FFE259" stroke-width="1.2" stroke-linejoin="round"/>
-              <defs>
-                <linearGradient id="goldGradient" x1="6" y1="4" x2="30" y2="32" gradientUnits="userSpaceOnUse">
-                  <stop offset="0%" stop-color="#FFE259"/>
-                  <stop offset="30%" stop-color="#FFA751"/>
-                  <stop offset="70%" stop-color="#D4AF37"/>
-                  <stop offset="100%" stop-color="#8A640F"/>
-                </linearGradient>
-                <linearGradient id="darkGoldCenter" x1="12" y1="10" x2="24" y2="26" gradientUnits="userSpaceOnUse">
-                  <stop offset="0%" stop-color="#3A2D15"/>
-                  <stop offset="100%" stop-color="#1A1305"/>
-                </linearGradient>
-              </defs>
-            </svg>
+
+          <!-- Vertical Connecting Stem Line -->
+          <div class="w-1 h-4 bg-emerald-500 shadow-sm z-10 -mt-0.5"></div>
+
+          <!-- Ground Pin Dot Base -->
+          <div class="relative flex items-center justify-center -mt-0.5 z-20">
+            <div class="absolute w-6 h-6 rounded-full bg-emerald-500/35 animate-ping"></div>
+            <div class="w-4 h-4 rounded-full bg-emerald-500 border-2 border-white shadow-lg flex items-center justify-center">
+              <div class="w-1.5 h-1.5 rounded-full bg-white"></div>
+            </div>
           </div>
         </div>
       `,
-      iconSize: [150, 110],
-      iconAnchor: [75, 105],
+      iconSize: [210, 95],
+      iconAnchor: [105, 92],
     });
   };
 
@@ -2057,55 +2049,51 @@ export default function TaxiBooking() {
       if (parts.length > 2) {
         return `${parts[0].trim()}, ${parts[1].trim()}`;
       }
-      return addr.length > 30 ? addr.substring(0, 27) + "..." : addr;
+      return addr.length > 28 ? addr.substring(0, 25) + "..." : addr;
     };
 
     const displayAddr = cleanAddr(destination);
 
-    // Dark vs Light Mode Speech Bubble styling
-    const bgClass = isDark 
-      ? "bg-gradient-to-b from-[#0B1528]/95 to-[#020712]/95 border border-sky-500/40 shadow-[0_12px_30px_rgba(56,189,248,0.3)]" 
-      : "bg-gradient-to-b from-[#FDFBF7]/98 to-[#F5F2EB]/98 border border-[#D9D2C5] shadow-[0_12px_30px_rgba(139,115,85,0.2)]";
-
-    const titleColor = isDark ? "text-sky-400" : "text-[#1E3A8A]";
-    const addrColor = isDark ? "text-white" : "text-[#1F2937]";
-    const arrowBg = isDark ? "bg-[#020712] border-r border-b border-sky-500/40" : "bg-[#F5F2EB] border-r border-b border-[#D9D2C5]";
-
     return L.divIcon({
       className: "custom-div-icon",
       html: `
-        <div class="relative flex flex-col items-center w-[150px] h-[110px] justify-end">
-          <!-- Speech Bubble Container -->
-          <div class="${bgClass} px-2.5 py-1.5 rounded-[12px] flex flex-col items-center min-w-[110px] max-w-[140px] relative mb-2.5 vibango-premium-float transition-all duration-300">
-            <span class="text-[7.5px] font-black ${titleColor} tracking-[0.12em] uppercase leading-none font-heading font-semibold text-center">HATIMA YAKO</span>
-            <span class="text-[10px] font-extrabold ${addrColor} tracking-tight mt-1 leading-tight text-center truncate w-full whitespace-nowrap">${displayAddr}</span>
-            ${etaText ? `
-              <span class="text-[8px] font-mono font-extrabold text-sky-500 mt-1 bg-sky-500/10 px-1.5 py-0.5 rounded border border-sky-500/20 whitespace-nowrap leading-none">${etaText}</span>
-            ` : ""}
-            <!-- Downward-pointing speech bubble arrow -->
-            <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 rotate-45 ${arrowBg}"></div>
+        <div class="relative flex flex-col items-center select-none" style="width: 210px;">
+          <!-- DiDi / Uber Style Callout Card Container -->
+          <div class="relative flex flex-col items-start w-full transition-transform duration-300 transform hover:scale-105 filter drop-shadow-[0_12px_24px_rgba(0,0,0,0.35)]">
+            
+            <!-- Top Slanted Badge Tab -->
+            <div class="inline-flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-amber-600 to-orange-500 text-white rounded-t-lg rounded-tr-2xl text-[8.5px] font-black uppercase tracking-wider leading-none shadow-md ml-2.5 z-10 border-t border-x border-amber-400/40">
+              <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+              <span>Recommended Drop-off</span>
+            </div>
+
+            <!-- Main White Address Card -->
+            <div class="w-full ${isDark ? 'bg-neutral-900 border-neutral-700 text-white' : 'bg-white border-neutral-200 text-neutral-900'} border rounded-2xl rounded-tl-none p-2.5 shadow-2xl flex items-center justify-between gap-2 z-20">
+              <div class="flex flex-col min-w-0 flex-1">
+                <span class="text-[7.5px] font-extrabold text-amber-500 uppercase tracking-widest leading-none mb-0.5">HATIMA YAKO</span>
+                <span class="text-[11px] font-black truncate leading-tight">${displayAddr}</span>
+                ${etaText ? `<span class="text-[8.5px] font-mono font-bold text-amber-500 mt-0.5 leading-none bg-amber-500/10 px-1.5 py-0.5 rounded w-max">${etaText}</span>` : ''}
+              </div>
+              <div class="w-5 h-5 rounded-full ${isDark ? 'bg-neutral-800 text-neutral-300' : 'bg-neutral-100 text-neutral-600'} flex items-center justify-center shrink-0">
+                <svg class="w-3 h-3 stroke-current stroke-[3]" fill="none" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+              </div>
+            </div>
           </div>
-          
-          <!-- Concentric Target Pin on Ground -->
-          <div class="relative flex items-center justify-center w-8 h-8 pb-1">
-            <div class="absolute w-6 h-6 rounded-full border border-sky-500/40 animate-ping opacity-75"></div>
-            <svg width="26" height="26" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" class="drop-shadow-[0_4px_8px_rgba(0,0,0,0.4)]">
-              <circle cx="18" cy="18" r="14" fill="url(#metallicTarget)" stroke="#FFFFFF" stroke-width="2.5" />
-              <circle cx="18" cy="18" r="8" fill="#111827" stroke="#9CA3AF" stroke-width="1" />
-              <circle cx="18" cy="18" r="3.5" fill="#FFFFFF"/>
-              <defs>
-                <linearGradient id="metallicTarget" x1="4" y1="4" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-                  <stop offset="0%" stop-color="#4B5563"/>
-                  <stop offset="50%" stop-color="#1F2937"/>
-                  <stop offset="100%" stop-color="#111827"/>
-                </linearGradient>
-              </defs>
-            </svg>
+
+          <!-- Vertical Connecting Stem Line -->
+          <div class="w-1 h-4 bg-amber-500 shadow-sm z-10 -mt-0.5"></div>
+
+          <!-- Ground Pin Dot Base -->
+          <div class="relative flex items-center justify-center -mt-0.5 z-20">
+            <div class="absolute w-6 h-6 rounded-full bg-amber-500/35 animate-ping"></div>
+            <div class="w-4 h-4 rounded-full bg-amber-500 border-2 border-white shadow-lg flex items-center justify-center">
+              <div class="w-1.5 h-1.5 rounded-full bg-white"></div>
+            </div>
           </div>
         </div>
       `,
-      iconSize: [150, 110],
-      iconAnchor: [75, 105],
+      iconSize: [210, 95],
+      iconAnchor: [105, 92],
     });
   };
 
