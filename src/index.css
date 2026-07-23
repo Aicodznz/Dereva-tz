@@ -60,8 +60,8 @@
     --card-foreground: oklch(0.145 0 0);
     --popover: oklch(1 0 0);
     --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
+    --primary: #ea580c;
+    --primary-foreground: #ffffff;
     --secondary: oklch(0.97 0 0);
     --secondary-foreground: oklch(0.205 0 0);
     --muted: oklch(0.97 0 0);
@@ -71,28 +71,31 @@
     --destructive: oklch(0.577 0.245 27.325);
     --border: oklch(0.922 0 0);
     --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
+    --ring: #ea580c;
+    --chart-1: #ea580c;
+    --chart-2: #f97316;
+    --chart-3: #fb923c;
+    --chart-4: #0369a1;
+    --chart-5: #0284c7;
     --radius: 0.625rem;
     --sidebar: oklch(0.985 0 0);
     --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-primary: #ea580c;
+    --sidebar-primary-foreground: #ffffff;
     --sidebar-accent: oklch(0.97 0 0);
     --sidebar-accent-foreground: oklch(0.205 0 0);
     --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
+    --sidebar-ring: #ea580c;
 
-    /* RideApp V2 Design System */
+    /* RideApp V2 Design System - Papo Hapo Orange Theme */
     --bg-primary: #0A0A0F;
     --bg-card: #12121A;
     --bg-elevated: #1A1A28;
-    --accent-green: #00FF88;
-    --accent-orange: #FF6B35;
+    --accent-green: #f97316;
+    --accent-orange: #ea580c;
+    --papo-orange: #ea580c;
+    --papo-orange-light: #f97316;
+    --papo-orange-bright: #ff5500;
     --text-primary: #FFFFFF;
     --text-secondary: #8B8BA0;
     --app-border: rgba(255,255,255,0.08);
@@ -105,7 +108,7 @@
     --card-foreground: #FFFFFF;
     --popover: #12121A;
     --popover-foreground: #FFFFFF;
-    --primary: #00FF88;
+    --primary: #f97316;
     --primary-foreground: #0A0A0F;
     --secondary: #1A1A28;
     --secondary-foreground: #FFFFFF;
@@ -116,8 +119,8 @@
     --destructive: oklch(0.704 0.191 22.216);
     --border: rgba(255,255,255,0.08);
     --input: rgba(255,255,255,0.1);
-    --ring: #00FF88;
-    --chart-1: #00FF88;
+    --ring: #f97316;
+    --chart-1: #f97316;
     --chart-2: #FF6B35;
     --chart-3: oklch(0.439 0 0);
     --chart-4: oklch(0.371 0 0);
