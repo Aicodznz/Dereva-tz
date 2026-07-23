@@ -1141,9 +1141,11 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
           <div class="relative flex flex-col items-start w-full transition-transform duration-200 transform hover:scale-105 filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.3)]">
             
             <!-- Top Slanted Badge Tab -->
-            <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-t-md rounded-tr-xl text-[6.5px] font-bold uppercase tracking-wide leading-none shadow-sm ml-2 z-10 border-t border-x border-emerald-400/40">
-              <span class="w-1 h-1 rounded-full bg-white animate-pulse"></span>
-              <span>Recommended Pickup</span>
+            <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-t-md rounded-tr-xl text-[6.5px] font-bold uppercase tracking-wide leading-none shadow-sm ml-2 z-10 border-t border-x border-emerald-400/40 max-w-[105px] overflow-hidden">
+              <span class="w-1 h-1 rounded-full bg-white animate-pulse shrink-0"></span>
+              <div class="overflow-hidden min-w-0 flex-1">
+                <span class="badge-text-slide">Recommended Pickup</span>
+              </div>
             </div>
 
             <!-- Main White Address Card -->
@@ -1198,9 +1200,11 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
           <div class="relative flex flex-col items-start w-full transition-transform duration-200 transform hover:scale-105 filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.3)]">
             
             <!-- Top Slanted Badge Tab -->
-            <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-amber-600 to-orange-500 text-white rounded-t-md rounded-tr-xl text-[6.5px] font-bold uppercase tracking-wide leading-none shadow-sm ml-2 z-10 border-t border-x border-amber-400/40">
-              <span class="w-1 h-1 rounded-full bg-white animate-pulse"></span>
-              <span>Recommended Drop-off</span>
+            <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-amber-600 to-orange-500 text-white rounded-t-md rounded-tr-xl text-[6.5px] font-bold uppercase tracking-wide leading-none shadow-sm ml-2 z-10 border-t border-x border-amber-400/40 max-w-[105px] overflow-hidden">
+              <span class="w-1 h-1 rounded-full bg-white animate-pulse shrink-0"></span>
+              <div class="overflow-hidden min-w-0 flex-1">
+                <span class="badge-text-slide">Recommended Drop-off</span>
+              </div>
             </div>
 
             <!-- Main White Address Card -->

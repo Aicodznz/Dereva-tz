@@ -916,20 +916,8 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                 </button>
               </div>
 
-              {/* Heatmap & Expansion Toggles */}
+              {/* Expansion Toggle */}
               <div className="absolute top-4 right-4 z-[1000] flex items-center gap-2">
-                <button 
-                  onClick={() => setShowHeatMap(!showHeatMap)}
-                  className={`px-3 py-2 backdrop-blur-md rounded-xl flex items-center gap-1.5 text-xs font-black shadow-lg border transition-all ${
-                    showHeatMap
-                      ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white border-amber-400/60 shadow-orange-500/20'
-                      : 'bg-white/90 text-neutral-900 border-white/50 hover:bg-neutral-100'
-                  }`}
-                  title="AI Smart Demand Heatmap"
-                >
-                  <Flame className={`w-4 h-4 ${showHeatMap ? 'text-amber-100 animate-bounce' : 'text-amber-500'}`} />
-                  <span>{showHeatMap ? 'Heatmap' : 'Heatmap Off'}</span>
-                </button>
                 <button 
                   onClick={() => setIsMapExpanded(!isMapExpanded)}
                   className="w-10 h-10 bg-white/90 backdrop-blur-md rounded-xl flex items-center justify-center text-neutral-900 shadow-lg border border-white/50 hover:bg-orange-600 hover:text-white transition-all"
@@ -1107,8 +1095,6 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                     )}
                   </>
                 )}
-                {/* AI Smart Heat Map Overlay */}
-                <AISmartHeatMap userPos={[position.lat, position.lng]} visible={showHeatMap} />
               </MapContainer>
 
               {/* Category Filter UI - Horizontal Scroll Overlay */}
