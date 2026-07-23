@@ -1127,7 +1127,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
       if (parts.length > 2) {
         return `${parts[0].trim()}, ${parts[1].trim()}`;
       }
-      return addr.length > 28 ? addr.substring(0, 25) + "..." : addr;
+      return addr.length > 24 ? addr.substring(0, 22) + "..." : addr;
     };
 
     const activePickupAddress = activeRide?.pickup?.address || incomingRequest?.pickup?.address || "Pickup Eneo";
@@ -1136,43 +1136,43 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
     return L.divIcon({
       className: "custom-div-icon",
       html: `
-        <div class="relative flex flex-col items-center select-none" style="width: 210px;">
+        <div class="relative flex flex-col items-center select-none" style="width: 150px;">
           <!-- DiDi / Uber Style Callout Card Container -->
-          <div class="relative flex flex-col items-start w-full transition-transform duration-300 transform hover:scale-105 filter drop-shadow-[0_12px_24px_rgba(0,0,0,0.35)]">
+          <div class="relative flex flex-col items-start w-full transition-transform duration-200 transform hover:scale-105 filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.3)]">
             
             <!-- Top Slanted Badge Tab -->
-            <div class="inline-flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-t-lg rounded-tr-2xl text-[8.5px] font-black uppercase tracking-wider leading-none shadow-md ml-2.5 z-10 border-t border-x border-emerald-400/40">
-              <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+            <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-t-md rounded-tr-xl text-[6.5px] font-bold uppercase tracking-wide leading-none shadow-sm ml-2 z-10 border-t border-x border-emerald-400/40">
+              <span class="w-1 h-1 rounded-full bg-white animate-pulse"></span>
               <span>Recommended Pickup</span>
             </div>
 
             <!-- Main White Address Card -->
-            <div class="w-full ${isDark ? 'bg-neutral-900 border-neutral-700 text-white' : 'bg-white border-neutral-200 text-neutral-900'} border rounded-2xl rounded-tl-none p-2.5 shadow-2xl flex items-center justify-between gap-2 z-20">
+            <div class="w-full ${isDark ? 'bg-neutral-900 border-neutral-700 text-white' : 'bg-white border-neutral-200 text-neutral-900'} border rounded-xl rounded-tl-none p-1.5 px-2 shadow-lg flex items-center justify-between gap-1.5 z-20">
               <div class="flex flex-col min-w-0 flex-1">
-                <span class="text-[7.5px] font-extrabold text-emerald-500 uppercase tracking-widest leading-none mb-0.5">MAHALI PA KUCHUKULIWA</span>
-                <span class="text-[11px] font-black truncate leading-tight">${displayAddr}</span>
-                ${etaText ? `<span class="text-[8.5px] font-mono font-bold text-emerald-500 mt-0.5 leading-none bg-emerald-500/10 px-1.5 py-0.5 rounded w-max">${etaText}</span>` : ''}
+                <span class="text-[6.5px] font-extrabold text-emerald-500 uppercase tracking-wider leading-none mb-0.5">MAHALI PA KUCHUKULIWA</span>
+                <span class="text-[9.5px] font-black truncate leading-tight">${displayAddr}</span>
+                ${etaText ? `<span class="text-[7.5px] font-mono font-bold text-emerald-500 mt-0.5 leading-none bg-emerald-500/10 px-1 py-0.2 rounded w-max">${etaText}</span>` : ''}
               </div>
-              <div class="w-5 h-5 rounded-full ${isDark ? 'bg-neutral-800 text-neutral-300' : 'bg-neutral-100 text-neutral-600'} flex items-center justify-center shrink-0">
-                <svg class="w-3 h-3 stroke-current stroke-[3]" fill="none" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+              <div class="w-4 h-4 rounded-full ${isDark ? 'bg-neutral-800 text-neutral-300' : 'bg-neutral-100 text-neutral-600'} flex items-center justify-center shrink-0">
+                <svg class="w-2.5 h-2.5 stroke-current stroke-[3]" fill="none" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
               </div>
             </div>
           </div>
 
           <!-- Vertical Connecting Stem Line -->
-          <div class="w-1 h-4 bg-emerald-500 shadow-sm z-10 -mt-0.5"></div>
+          <div class="w-0.5 h-2.5 bg-emerald-500 shadow-sm z-10 -mt-0.5"></div>
 
           <!-- Ground Pin Dot Base -->
           <div class="relative flex items-center justify-center -mt-0.5 z-20">
-            <div class="absolute w-6 h-6 rounded-full bg-emerald-500/35 animate-ping"></div>
-            <div class="w-4 h-4 rounded-full bg-emerald-500 border-2 border-white shadow-lg flex items-center justify-center">
-              <div class="w-1.5 h-1.5 rounded-full bg-white"></div>
+            <div class="absolute w-4 h-4 rounded-full bg-emerald-500/35 animate-ping"></div>
+            <div class="w-3 h-3 rounded-full bg-emerald-500 border-2 border-white shadow-md flex items-center justify-center">
+              <div class="w-1 h-1 rounded-full bg-white"></div>
             </div>
           </div>
         </div>
       `,
-      iconSize: [210, 95],
-      iconAnchor: [105, 92],
+      iconSize: [150, 68],
+      iconAnchor: [75, 65],
     });
   };
 
@@ -1184,7 +1184,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
       if (parts.length > 2) {
         return `${parts[0].trim()}, ${parts[1].trim()}`;
       }
-      return addr.length > 28 ? addr.substring(0, 25) + "..." : addr;
+      return addr.length > 24 ? addr.substring(0, 22) + "..." : addr;
     };
 
     const activeDestAddress = activeRide?.destination?.address || incomingRequest?.destination?.address || "Eneo la Kushushwa";
@@ -1193,43 +1193,43 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
     return L.divIcon({
       className: "custom-div-icon",
       html: `
-        <div class="relative flex flex-col items-center select-none" style="width: 210px;">
+        <div class="relative flex flex-col items-center select-none" style="width: 150px;">
           <!-- DiDi / Uber Style Callout Card Container -->
-          <div class="relative flex flex-col items-start w-full transition-transform duration-300 transform hover:scale-105 filter drop-shadow-[0_12px_24px_rgba(0,0,0,0.35)]">
+          <div class="relative flex flex-col items-start w-full transition-transform duration-200 transform hover:scale-105 filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.3)]">
             
             <!-- Top Slanted Badge Tab -->
-            <div class="inline-flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-amber-600 to-orange-500 text-white rounded-t-lg rounded-tr-2xl text-[8.5px] font-black uppercase tracking-wider leading-none shadow-md ml-2.5 z-10 border-t border-x border-amber-400/40">
-              <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+            <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-amber-600 to-orange-500 text-white rounded-t-md rounded-tr-xl text-[6.5px] font-bold uppercase tracking-wide leading-none shadow-sm ml-2 z-10 border-t border-x border-amber-400/40">
+              <span class="w-1 h-1 rounded-full bg-white animate-pulse"></span>
               <span>Recommended Drop-off</span>
             </div>
 
             <!-- Main White Address Card -->
-            <div class="w-full ${isDark ? 'bg-neutral-900 border-neutral-700 text-white' : 'bg-white border-neutral-200 text-neutral-900'} border rounded-2xl rounded-tl-none p-2.5 shadow-2xl flex items-center justify-between gap-2 z-20">
+            <div class="w-full ${isDark ? 'bg-neutral-900 border-neutral-700 text-white' : 'bg-white border-neutral-200 text-neutral-900'} border rounded-xl rounded-tl-none p-1.5 px-2 shadow-lg flex items-center justify-between gap-1.5 z-20">
               <div class="flex flex-col min-w-0 flex-1">
-                <span class="text-[7.5px] font-extrabold text-amber-500 uppercase tracking-widest leading-none mb-0.5">HATIMA YAKO</span>
-                <span class="text-[11px] font-black truncate leading-tight">${displayAddr}</span>
-                ${etaText ? `<span class="text-[8.5px] font-mono font-bold text-amber-500 mt-0.5 leading-none bg-amber-500/10 px-1.5 py-0.5 rounded w-max">${etaText}</span>` : ''}
+                <span class="text-[6.5px] font-extrabold text-amber-500 uppercase tracking-wider leading-none mb-0.5">HATIMA YAKO</span>
+                <span class="text-[9.5px] font-black truncate leading-tight">${displayAddr}</span>
+                ${etaText ? `<span class="text-[7.5px] font-mono font-bold text-amber-500 mt-0.5 leading-none bg-amber-500/10 px-1 py-0.2 rounded w-max">${etaText}</span>` : ''}
               </div>
-              <div class="w-5 h-5 rounded-full ${isDark ? 'bg-neutral-800 text-neutral-300' : 'bg-neutral-100 text-neutral-600'} flex items-center justify-center shrink-0">
-                <svg class="w-3 h-3 stroke-current stroke-[3]" fill="none" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+              <div class="w-4 h-4 rounded-full ${isDark ? 'bg-neutral-800 text-neutral-300' : 'bg-neutral-100 text-neutral-600'} flex items-center justify-center shrink-0">
+                <svg class="w-2.5 h-2.5 stroke-current stroke-[3]" fill="none" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
               </div>
             </div>
           </div>
 
           <!-- Vertical Connecting Stem Line -->
-          <div class="w-1 h-4 bg-amber-500 shadow-sm z-10 -mt-0.5"></div>
+          <div class="w-0.5 h-2.5 bg-amber-500 shadow-sm z-10 -mt-0.5"></div>
 
           <!-- Ground Pin Dot Base -->
           <div class="relative flex items-center justify-center -mt-0.5 z-20">
-            <div class="absolute w-6 h-6 rounded-full bg-amber-500/35 animate-ping"></div>
-            <div class="w-4 h-4 rounded-full bg-amber-500 border-2 border-white shadow-lg flex items-center justify-center">
-              <div class="w-1.5 h-1.5 rounded-full bg-white"></div>
+            <div class="absolute w-4 h-4 rounded-full bg-amber-500/35 animate-ping"></div>
+            <div class="w-3 h-3 rounded-full bg-amber-500 border-2 border-white shadow-md flex items-center justify-center">
+              <div class="w-1 h-1 rounded-full bg-white"></div>
             </div>
           </div>
         </div>
       `,
-      iconSize: [210, 95],
-      iconAnchor: [105, 92],
+      iconSize: [150, 68],
+      iconAnchor: [75, 65],
     });
   };
 
@@ -2602,14 +2602,14 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
         </div>
       </div>
 
-      {/* AI Smart Demand Heat Map Top Callout Banner */}
+      {/* AI Smart Demand Heat Map Callout Banner - Positioned below top earnings bar */}
       <AnimatePresence>
         {showHeatMap && (
           <motion.div
             initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            className="absolute top-4 left-4 right-16 sm:left-1/2 sm:-translate-x-1/2 z-40 pointer-events-auto sm:max-w-lg"
+            className="absolute top-20 left-4 right-16 sm:left-1/2 sm:-translate-x-1/2 z-[9990] pointer-events-auto sm:max-w-md"
           >
             <div className={`p-3 rounded-2xl border shadow-[0_16px_40px_rgba(0,0,0,0.35)] backdrop-blur-2xl flex flex-col gap-2 ${
               theme === 'dark'
@@ -2636,14 +2636,19 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
                   </div>
                 </div>
                 
-                {selectedHeatZone && (
-                  <button
-                    onClick={() => setSelectedHeatZone(null)}
-                    className="w-6 h-6 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-400 hover:text-white shrink-0"
-                  >
-                    <CloseX className="w-3.5 h-3.5" />
-                  </button>
-                )}
+                <button
+                  onClick={() => {
+                    if (selectedHeatZone) {
+                      setSelectedHeatZone(null);
+                    } else {
+                      setShowHeatMap(false);
+                    }
+                  }}
+                  className="w-6 h-6 rounded-lg bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 flex items-center justify-center text-neutral-400 hover:text-white shrink-0 transition-colors"
+                  title="Funga"
+                >
+                  <CloseX className="w-3.5 h-3.5" />
+                </button>
               </div>
 
               <p className="text-[10px] text-neutral-400 dark:text-neutral-400 leading-tight">
