@@ -10,8 +10,9 @@ import {
   Clock, TrendingUp, Info, Wifi, Battery, Map as MapIcon,
   CheckCircle2, ArrowRight, RefreshCw, DollarSign, Package, Home, LogOut,
   Volume2, VolumeX, Sun, Moon, Wrench, Sparkles, Plus, Minus, RotateCcw, RotateCw, Compass,
-  AlertTriangle, TrafficCone, Wallet
+  AlertTriangle, TrafficCone, Wallet, Flame
 } from 'lucide-react';
+import { AISmartHeatMap, HeatZone } from '../map/AISmartHeatMap';
 import { useTheme } from 'next-themes';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Chat from '../Chat';
@@ -367,6 +368,9 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
   const [manualRotation, setManualRotation] = useState(0);
   const [is3DMode, setIs3DMode] = useState(false);
   const [showRoadAlerts, setShowRoadAlerts] = useState(true);
+  const [showHeatMap, setShowHeatMap] = useState<boolean>(true);
+  const [heatMapCategory, setHeatMapCategory] = useState<'all' | 'taxi' | 'food' | 'parcel' | 'mart'>('all');
+  const [selectedHeatZone, setSelectedHeatZone] = useState<HeatZone | null>(null);
   const [showEarningsModal, setShowEarningsModal] = useState(false);
   const [earningsTab, setEarningsTab] = useState<'mwezi' | 'mwaka' | 'jumla'>('mwezi');
   const [trafficColor, setTrafficColor] = useState<'red' | 'yellow' | 'green'>('green');
@@ -2585,13 +2589,118 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
               );
             })}
 
+            {/* AI Smart Heat Map Overlay Layer */}
+            <AISmartHeatMap
+              cityName={profile?.city || "Dar es Salaam"}
+              userPos={position}
+              visible={showHeatMap}
+              activeCategory={heatMapCategory}
+              onZoneClick={(zone) => setSelectedHeatZone(zone)}
+            />
+
           </MapContainer>
         </div>
       </div>
 
+      {/* AI Smart Demand Heat Map Top Callout Banner */}
+      <AnimatePresence>
+        {showHeatMap && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            className="absolute top-4 left-4 right-16 sm:left-1/2 sm:-translate-x-1/2 z-40 pointer-events-auto sm:max-w-lg"
+          >
+            <div className={`p-3 rounded-2xl border shadow-[0_16px_40px_rgba(0,0,0,0.35)] backdrop-blur-2xl flex flex-col gap-2 ${
+              theme === 'dark'
+                ? 'bg-neutral-900/95 border-amber-500/40 text-white'
+                : 'bg-white/95 border-amber-500/30 text-neutral-900'
+            }`}>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/30">
+                    <Flame className="w-4 h-4 text-white animate-pulse" />
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-amber-500">
+                        🤖 AI Smart Heat Map
+                      </span>
+                      <span className="text-[8px] font-mono font-bold px-1.5 py-0.2 rounded-full bg-red-500/15 text-red-500 border border-red-500/30">
+                        HIGH DEMAND
+                      </span>
+                    </div>
+                    <p className="text-xs font-black truncate leading-tight mt-0.5">
+                      {selectedHeatZone ? `${selectedHeatZone.name} (${selectedHeatZone.surgeRange})` : `Maeneo ya Uhitaji Mkubwa ya Oda`}
+                    </p>
+                  </div>
+                </div>
+                
+                {selectedHeatZone && (
+                  <button
+                    onClick={() => setSelectedHeatZone(null)}
+                    className="w-6 h-6 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-400 hover:text-white shrink-0"
+                  >
+                    <CloseX className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <p className="text-[10px] text-neutral-400 dark:text-neutral-400 leading-tight">
+                {selectedHeatZone ? selectedHeatZone.descriptionSw : "Elekea maeneo yenye rangi nyekundu/machungwa kupata oda za Taxi, Chakula, Mizigo na Sokoni kwa haraka!"}
+              </p>
+
+              {/* Multi-Category Filter Chips */}
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1 border-t border-neutral-200/50 dark:border-neutral-800/60">
+                {[
+                  { id: 'all', label: '🔥 Zote' },
+                  { id: 'taxi', label: '🚖 Taxi & Boda' },
+                  { id: 'food', label: '🍔 Chakula' },
+                  { id: 'parcel', label: '📦 Mizigo' },
+                  { id: 'mart', label: '🛒 Sokoni' },
+                ].map((cat) => {
+                  const isSelected = heatMapCategory === cat.id;
+                  return (
+                    <button
+                      key={cat.id}
+                      onClick={() => setHeatMapCategory(cat.id as any)}
+                      className={`px-2 py-0.5 rounded-full text-[9px] font-black whitespace-nowrap transition-all border ${
+                        isSelected
+                          ? 'bg-amber-500 text-black border-amber-400 shadow-md shadow-amber-500/20'
+                          : theme === 'dark'
+                          ? 'bg-neutral-800/80 text-neutral-300 border-neutral-700/60 hover:bg-neutral-700'
+                          : 'bg-neutral-100 text-neutral-700 border-neutral-200 hover:bg-neutral-200'
+                      }`}
+                    >
+                      {cat.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Floating Controls Column on the Right - Ultra Clean & Seamless Alignment */}
       {!isMinimized && (
         <div className="absolute right-4 top-24 z-45 flex flex-col gap-2.5 items-center pointer-events-auto">
+          {/* AI Smart Heat Map Toggle Button */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowHeatMap(!showHeatMap)}
+            className={`w-10 h-10 rounded-xl flex items-center justify-center border shadow-lg transition-all ${
+              showHeatMap
+                ? 'bg-gradient-to-br from-amber-500 to-orange-600 text-white border-amber-400/60 shadow-orange-500/25'
+                : theme === 'dark'
+                ? 'bg-white/95 dark:bg-[#111118]/90 border-neutral-200/50 dark:border-[#1e1e2e] text-neutral-400 hover:text-amber-400'
+                : 'bg-white/90 border-neutral-200 text-neutral-600 hover:text-amber-600'
+            }`}
+            title="AI Smart Heatmap (Maeneo ya Uhitaji Mkubwa)"
+          >
+            <Flame className={`w-5 h-5 ${showHeatMap ? 'text-amber-100 animate-bounce' : 'text-amber-500'}`} />
+          </motion.button>
           <AppDownloadButton 
             variant="compact" 
             className="flex items-center justify-center w-10 h-10 rounded-xl bg-orange-600/15 border border-orange-500/20 text-orange-400 hover:bg-orange-600/25 shadow-lg active:scale-95 transition-all"

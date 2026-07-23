@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Search, MapPin, X, Navigation, Loader2, Star, ArrowRight, Package, Clock, RotateCw, Layers, Camera, Volume2, CheckCircle2, Play, ExternalLink, Car } from 'lucide-react';
+import { Search, MapPin, X, Navigation, Loader2, Star, ArrowRight, Package, Clock, RotateCw, Layers, Camera, Volume2, CheckCircle2, Play, ExternalLink, Car, Flame } from 'lucide-react';
+import { AISmartHeatMap } from './map/AISmartHeatMap';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { motion, AnimatePresence } from 'motion/react';
@@ -236,6 +237,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
   const [selectedVendorReviews, setSelectedVendorReviews] = useState<any[]>([]);
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [mapType, setMapType] = useState<'standard' | 'satellite'>('standard');
+  const [showHeatMap, setShowHeatMap] = useState(true);
   const [isMapExpanded, setIsMapExpanded] = useState(false);
   const [recentPlaces, setRecentPlaces] = useState<{ address: string; lat: number; lng: number }[]>([]);
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -914,8 +916,20 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                 </button>
               </div>
 
-              {/* Expansion Toggle */}
-              <div className="absolute top-4 right-4 z-[1000]">
+              {/* Heatmap & Expansion Toggles */}
+              <div className="absolute top-4 right-4 z-[1000] flex items-center gap-2">
+                <button 
+                  onClick={() => setShowHeatMap(!showHeatMap)}
+                  className={`px-3 py-2 backdrop-blur-md rounded-xl flex items-center gap-1.5 text-xs font-black shadow-lg border transition-all ${
+                    showHeatMap
+                      ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white border-amber-400/60 shadow-orange-500/20'
+                      : 'bg-white/90 text-neutral-900 border-white/50 hover:bg-neutral-100'
+                  }`}
+                  title="AI Smart Demand Heatmap"
+                >
+                  <Flame className={`w-4 h-4 ${showHeatMap ? 'text-amber-100 animate-bounce' : 'text-amber-500'}`} />
+                  <span>{showHeatMap ? 'Heatmap' : 'Heatmap Off'}</span>
+                </button>
                 <button 
                   onClick={() => setIsMapExpanded(!isMapExpanded)}
                   className="w-10 h-10 bg-white/90 backdrop-blur-md rounded-xl flex items-center justify-center text-neutral-900 shadow-lg border border-white/50 hover:bg-orange-600 hover:text-white transition-all"
@@ -1093,6 +1107,8 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                     )}
                   </>
                 )}
+                {/* AI Smart Heat Map Overlay */}
+                <AISmartHeatMap userPos={[position.lat, position.lng]} visible={showHeatMap} />
               </MapContainer>
 
               {/* Category Filter UI - Horizontal Scroll Overlay */}

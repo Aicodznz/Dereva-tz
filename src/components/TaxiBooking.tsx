@@ -52,7 +52,9 @@ import {
   MessageCircle,
   Languages,
   Globe,
+  Flame,
 } from "lucide-react";
+import { AISmartHeatMap, HeatZone } from "./map/AISmartHeatMap";
 import { useTheme } from "next-themes";
 import Chat from "./Chat";
 import ActiveRideChatPopup from "./ActiveRideChatPopup";
@@ -538,6 +540,9 @@ export default function TaxiBooking() {
   const [waitingTime, setWaitingTime] = useState(0); // minutes
   const [secondsOffset, setSecondsOffset] = useState<number>(0);
   const [mapType, setMapType] = useState<'standard' | 'satellite'>('standard');
+  const [showHeatMap, setShowHeatMap] = useState<boolean>(true);
+  const [heatMapCategory, setHeatMapCategory] = useState<'all' | 'taxi' | 'food' | 'parcel' | 'mart'>('all');
+  const [selectedHeatZone, setSelectedHeatZone] = useState<HeatZone | null>(null);
   const [manualRotation, setManualRotation] = useState(0);
   const [is3DMode, setIs3DMode] = useState(false);
   const justSelectedRef = useRef(false);
@@ -3230,6 +3235,26 @@ export default function TaxiBooking() {
                       </div>
                     )}
                   </div>
+
+                  {/* AI Smart Heat Map Floating Toggle Button */}
+                  <div className="relative pointer-events-auto shrink-0">
+                    <button
+                      onClick={() => setShowHeatMap(!showHeatMap)}
+                      className={`h-10 sm:h-12 px-3 sm:px-3.5 backdrop-blur-xl rounded-xl sm:rounded-2xl flex items-center gap-1.5 shadow-md active:scale-90 transition-all border ${
+                        showHeatMap
+                          ? "bg-gradient-to-r from-amber-500 to-orange-600 text-white border-amber-400/60 shadow-orange-500/25"
+                          : theme === 'dark'
+                          ? "bg-[#111118]/95 border-neutral-800 text-neutral-300 hover:text-amber-400"
+                          : "bg-white/95 border-neutral-200/80 text-neutral-700 hover:text-amber-600"
+                      }`}
+                      title="AI Smart Heatmap (Uhitaji wa Wateja)"
+                    >
+                      <Flame className={`w-4 h-4 sm:w-5 sm:h-5 ${showHeatMap ? "text-amber-100 animate-bounce" : "text-amber-500"}`} />
+                      <span className="text-[11px] sm:text-xs font-black hidden xs:inline tracking-tight">
+                        {showHeatMap ? "Heatmap" : "Heatmap Off"}
+                      </span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Floating Cards removed as requested */}
@@ -3526,7 +3551,99 @@ export default function TaxiBooking() {
                       }
                       return null;
                     })()}
+
+                    {/* AI Smart Heat Map Overlay Layer */}
+                    <AISmartHeatMap
+                      cityName={selectedCity}
+                      userPos={userLivePos ? [userLivePos[0], userLivePos[1]] : undefined}
+                      visible={showHeatMap}
+                      activeCategory={heatMapCategory}
+                      onZoneClick={(zone) => setSelectedHeatZone(zone)}
+                    />
                   </MapContainer>
+
+                  {/* AI Smart Demand Heat Map Banner Callout with Multi-Category Filters */}
+                  <AnimatePresence>
+                    {showHeatMap && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                        className="absolute top-20 sm:top-24 left-3 right-3 sm:left-1/2 sm:-translate-x-1/2 z-[9998] pointer-events-auto sm:max-w-lg"
+                      >
+                        <div className={`p-3 rounded-2xl sm:rounded-3xl border shadow-[0_16px_40px_rgba(0,0,0,0.35)] backdrop-blur-2xl flex flex-col gap-2.5 ${
+                          theme === 'dark'
+                            ? 'bg-neutral-900/95 border-amber-500/40 text-white'
+                            : 'bg-white/95 border-amber-500/30 text-neutral-900'
+                        }`}>
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/30">
+                                <Flame className="w-4 h-4 text-white animate-pulse" />
+                              </div>
+                              <div className="flex flex-col min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="text-[10px] font-black uppercase tracking-widest text-amber-500 font-heading">
+                                    🤖 AI Smart Heat Map
+                                  </span>
+                                  <span className="text-[8px] font-mono font-bold px-1.5 py-0.2 rounded-full bg-red-500/15 text-red-500 border border-red-500/30">
+                                    LIVE DEMAND
+                                  </span>
+                                </div>
+                                <p className="text-xs font-black truncate leading-tight mt-0.5">
+                                  {selectedHeatZone 
+                                    ? `${selectedHeatZone.name} (${selectedHeatZone.surgeRange})` 
+                                    : `Uhitaji wa Oda - ${selectedCity}`}
+                                </p>
+                              </div>
+                            </div>
+                            
+                            {selectedHeatZone && (
+                              <button
+                                onClick={() => setSelectedHeatZone(null)}
+                                className="w-7 h-7 rounded-xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-400 hover:text-white shrink-0"
+                              >
+                                <CloseX className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Swahili description or hint */}
+                          <p className="text-[10px] text-neutral-400 dark:text-neutral-400 leading-tight">
+                            {selectedHeatZone ? selectedHeatZone.descriptionSw : "Ramani inaonyesha maeneo yenye fursa nyingi za oda ili kuongeza mapato yako kwa wakati halisi."}
+                          </p>
+
+                          {/* Multi-Category Filter Chips */}
+                          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1 border-t border-neutral-200/50 dark:border-neutral-800/60">
+                            {[
+                              { id: 'all', label: '🔥 Zote' },
+                              { id: 'taxi', label: '🚖 Taxi & Boda' },
+                              { id: 'food', label: '🍔 Chakula' },
+                              { id: 'parcel', label: '📦 Mizigo' },
+                              { id: 'mart', label: '🛒 Sokoni' },
+                            ].map((cat) => {
+                              const isSelected = heatMapCategory === cat.id;
+                              return (
+                                <button
+                                  key={cat.id}
+                                  onClick={() => setHeatMapCategory(cat.id as any)}
+                                  className={`px-2.5 py-1 rounded-full text-[10px] font-black whitespace-nowrap transition-all border ${
+                                    isSelected
+                                      ? 'bg-amber-500 text-black border-amber-400 shadow-md shadow-amber-500/20'
+                                      : theme === 'dark'
+                                      ? 'bg-neutral-800/80 text-neutral-300 border-neutral-700/60 hover:bg-neutral-700'
+                                      : 'bg-neutral-100 text-neutral-700 border-neutral-200 hover:bg-neutral-200'
+                                  }`}
+                                >
+                                  {cat.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               </motion.div>
             )}
