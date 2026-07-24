@@ -618,7 +618,7 @@ export async function handleSMSInput(
   // --- MODULE: PAPOBOT USSD PIN UNLOCK ---
   if (session.step === 'PAPOBOT_PIN_UNLOCK') {
     if (cleanInput === '0') {
-      session.step = 'START';
+      session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
       return getWelcomeMessage(session);
     }
@@ -637,7 +637,7 @@ export async function handleSMSInput(
   }
   if (session.step === 'QUICK_REORDER_MENU') {
     if (cleanInput === '0') {
-      session.step = 'START';
+      session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
       return getWelcomeMessage(session);
     }
@@ -724,7 +724,7 @@ export async function handleSMSInput(
   // --- MODULE 1: ACTIVE ORDER STATUS ---
   if (session.step === 'ACTIVE_ORDER_STATUS') {
     if (cleanInput === '0') {
-      session.step = 'START';
+      session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
       return getWelcomeMessage(session);
     }
@@ -737,7 +737,7 @@ export async function handleSMSInput(
   // --- MODULE 2 & 3: PAPOWALLET & PAPOPOINTS & PROMO CODES ---
   if (session.step === 'PAPOWALLET_MAIN') {
     if (cleanInput === '0') {
-      session.step = 'START';
+      session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
       return getWelcomeMessage(session);
     }
@@ -899,7 +899,7 @@ export async function handleSMSInput(
   // --- MODULE: SAVED LOCATIONS (MAENEO PENDWA) ---
   if (session.step === 'SAVED_LOCATIONS_MENU') {
     if (cleanInput === '0') {
-      session.step = 'START';
+      session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
       return getWelcomeMessage(session);
     }
@@ -985,7 +985,7 @@ export async function handleSMSInput(
   // --- MODULE: USSD AUTOMATED VOICE CALLBACK (IVR CALL) ---
   if (session.step === 'VOICE_CALLBACK_MENU') {
     if (cleanInput === '0') {
-      session.step = 'START';
+      session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
       return getWelcomeMessage(session);
     }
@@ -1104,18 +1104,18 @@ export async function handleSMSInput(
   if (session.step === 'LANGUAGE_SWITCH_MENU') {
     if (cleanInput === '1') {
       session.language = 'sw';
-      session.step = 'START';
+      session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
       return `🇹🇿 Lugha imebadilishwa kuwa Kiswahili kikamilifu!\n\n` + getWelcomeMessage(session);
     }
     if (cleanInput === '2') {
       session.language = 'en';
-      session.step = 'START';
+      session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
       return `🇬🇧 Language successfully set to English!\n\n` + getWelcomeMessage(session);
     }
     if (cleanInput === '0') {
-      session.step = 'START';
+      session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
       return getWelcomeMessage(session);
     }
@@ -1137,9 +1137,9 @@ export async function handleSMSInput(
       await saveSession(session, dbAdmin);
       return "🚕 MFUMO WA TAXI:\n\nTafadhali tuma njia unayotaka kusafiri (Kutoka - Kwenda).\nMfano: POSTA - KINONDONI";
     } else if (cleanInput === '0') {
-      session.step = 'START';
+      session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
-      return welcomeMessage;
+      return getWelcomeMessage(session);
     } else {
       return "⚠️ Chaguo si sahihi. Tafadhali tuma:\n1. Agiza Taxi kwa Haraka\n2. Kadirio la Nauli\n3. Andika Njia Yako";
     }
@@ -1271,9 +1271,9 @@ export async function handleSMSInput(
   if (session.step === 'TAXI_FARE_ESTIMATE_CONFIRM' && session.selectedService === 'taxi') {
     const calcData = session.optionsList?.[0];
     if (cleanInput === '0') {
-      session.step = 'START';
+      session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
-      return welcomeMessage;
+      return getWelcomeMessage(session);
     }
 
     let selectedType = '';
@@ -1323,9 +1323,9 @@ export async function handleSMSInput(
   // 3. PAPOSEND FLOW (TUMA & FUATILIA MZIGO)
   if (session.step === 'PAPOSEND_MAIN_MENU') {
     if (cleanInput === '0') {
-      session.step = 'START';
+      session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
-      return welcomeMessage;
+      return getWelcomeMessage(session);
     }
 
     if (cleanInput === '1' || lowerInput.includes('tuma') || lowerInput.includes('send')) {
@@ -1526,7 +1526,7 @@ export async function handleSMSInput(
   // 4. DRIVER AUTHENTICATION & REGISTRATION HANDLERS
   if (session.step === 'DRIVER_LOGIN_PROMPT') {
     if (cleanInput === '0') {
-      session.step = 'START';
+      session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
       return getWelcomeMessage(session);
     }
@@ -1549,7 +1549,7 @@ export async function handleSMSInput(
 
   if (session.step === 'DRIVER_ENTER_PIN') {
     if (cleanInput === '0') {
-      session.step = 'START';
+      session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
       return getWelcomeMessage(session);
     }
@@ -1570,7 +1570,7 @@ export async function handleSMSInput(
   // --- MULTI-STEP DRIVER REGISTRATION ---
   if (session.step === 'DRIVER_REG_VEHICLE') {
     if (cleanInput === '0') {
-      session.step = 'START';
+      session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
       return getWelcomeMessage(session);
     }
@@ -1588,7 +1588,7 @@ export async function handleSMSInput(
 
   if (session.step === 'DRIVER_REG_NAME') {
     if (cleanInput === '0') {
-      session.step = 'START';
+      session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
       return getWelcomeMessage(session);
     }
@@ -1605,7 +1605,7 @@ export async function handleSMSInput(
 
   if (session.step === 'DRIVER_REG_PHONE') {
     if (cleanInput === '0') {
-      session.step = 'START';
+      session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
       return getWelcomeMessage(session);
     }
@@ -1622,7 +1622,7 @@ export async function handleSMSInput(
 
   if (session.step === 'DRIVER_REG_BRAND') {
     if (cleanInput === '0') {
-      session.step = 'START';
+      session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
       return getWelcomeMessage(session);
     }
@@ -1638,7 +1638,7 @@ export async function handleSMSInput(
 
   if (session.step === 'DRIVER_REG_COLOR') {
     if (cleanInput === '0') {
-      session.step = 'START';
+      session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
       return getWelcomeMessage(session);
     }
@@ -1654,7 +1654,7 @@ export async function handleSMSInput(
 
   if (session.step === 'DRIVER_REG_PLATE') {
     if (cleanInput === '0') {
-      session.step = 'START';
+      session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
       return getWelcomeMessage(session);
     }
@@ -1670,7 +1670,7 @@ export async function handleSMSInput(
 
   if (session.step === 'DRIVER_REG_YEAR') {
     if (cleanInput === '0') {
-      session.step = 'START';
+      session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
       return getWelcomeMessage(session);
     }
@@ -1686,7 +1686,7 @@ export async function handleSMSInput(
 
   if (session.step === 'DRIVER_REG_LICENSE') {
     if (cleanInput === '0') {
-      session.step = 'START';
+      session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
       return getWelcomeMessage(session);
     }
@@ -1702,7 +1702,7 @@ export async function handleSMSInput(
 
   if (session.step === 'DRIVER_REG_LICENSE_EXP') {
     if (cleanInput === '0') {
-      session.step = 'START';
+      session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
       return getWelcomeMessage(session);
     }
@@ -1718,7 +1718,7 @@ export async function handleSMSInput(
 
   if (session.step === 'DRIVER_REG_LATRA') {
     if (cleanInput === '0') {
-      session.step = 'START';
+      session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
       return getWelcomeMessage(session);
     }
@@ -1734,7 +1734,7 @@ export async function handleSMSInput(
 
   if (session.step === 'DRIVER_REG_LATRA_EXP') {
     if (cleanInput === '0') {
-      session.step = 'START';
+      session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
       return getWelcomeMessage(session);
     }
@@ -1750,7 +1750,7 @@ export async function handleSMSInput(
 
   if (session.step === 'DRIVER_REG_NIDA') {
     if (cleanInput === '0') {
-      session.step = 'START';
+      session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
       return getWelcomeMessage(session);
     }
@@ -1766,7 +1766,7 @@ export async function handleSMSInput(
 
   if (session.step === 'DRIVER_REG_AVAILABILITY') {
     if (cleanInput === '0') {
-      session.step = 'START';
+      session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
       return getWelcomeMessage(session);
     }
@@ -1782,7 +1782,7 @@ export async function handleSMSInput(
 
   if (session.step === 'DRIVER_REG_PIN') {
     if (cleanInput === '0') {
-      session.step = 'START';
+      session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
       return getWelcomeMessage(session);
     }
@@ -1954,9 +1954,9 @@ export async function handleSMSInput(
              `📉 Kamisheni Inayodaiwa: *TZS 1,900/=*`;
     } 
     else if (cleanInput === '0') {
-      session.step = 'START';
+      session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
-      return welcomeMessage;
+      return getWelcomeMessage(session);
     } 
     else {
       return "⚠️ Chaguo si sahihi. Tafadhali tuma namba kuanzia 1 hadi 4, au 0 kurudi Menu Kuu.";
@@ -2696,9 +2696,9 @@ export async function handleSMSInput(
   // CHAKULA & SOKONI (FOOD & GROCERY SUPER APP FLOW)
   if (session.step === 'FOOD_MAIN_MENU') {
     if (cleanInput === '0') {
-      session.step = 'START';
+      session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
-      return welcomeMessage;
+      return getWelcomeMessage(session);
     }
 
     if (cleanInput === '1' || lowerInput.includes('chakula') || lowerInput.includes('food')) {
@@ -3439,9 +3439,9 @@ export async function handleSMSInput(
   }
 
   // Fallback reset
-  session.step = 'START';
+  session.step = 'SELECT_SERVICE';
   await saveSession(session, dbAdmin);
-  return welcomeMessage;
+  return getWelcomeMessage(session);
 }
 
 /**
