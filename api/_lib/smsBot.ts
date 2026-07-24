@@ -112,12 +112,203 @@ export const defaultTwilioConfig: TwilioConfig = {
   }
 };
 
-export function getWelcomeMessage(session: SMSSession): string {
-  const isEn = session.language === 'en';
-  if (isEn) {
-    return "Welcome to Papo Hapo! 🌟\n\nSelect service:\n1. 🚕 PapoRide (Taxi & Fare)\n2. 📦 PapoSend (Send & Track Parcel)\n3. 🛵 PapoDriver (Offline Mode)\n4. 🚌 PapoBus (Bus Tickets)\n5. 💇‍♀️ PapoStyle (Salon & Beauty)\n6. 🍔 PapoFood (Food & Groceries)\n7. 📋 Live Order Status\n8. 💰 PapoWallet, Split Fare & Points\n9. 📍 Saved Locations (Home/Work)\n10. 🌐 Language / Lugha (SW/EN)";
+export async function getBusinessConfig(dbAdmin: any): Promise<any> {
+  if (!dbAdmin) return null;
+  try {
+    const snap = await dbAdmin.collection('config').doc('business').get();
+    if (snap.exists) {
+      return snap.data();
+    }
+  } catch (e) {
+    console.warn("[SMS Bot] Error fetching business config:", e);
   }
-  return "Karibu Papo Hapo! 🌟\n\nChagua huduma:\n1. 🚕 PapoRide (Taxi & Nauli)\n2. 📦 PapoSend (Tuma & Fuatilia Mzigo)\n3. 🛵 PapoDriver (Offline Mode)\n4. 🚌 PapoBus (Tiketi za Mabasi)\n5. 💇‍♀️ PapoStyle (Saluni & Urembo)\n6. 🍔 PapoFood (Chakula & Sokoni)\n7. 📋 Hali ya Agizo (Live Status)\n8. 💰 PapoWallet, Gawana Nauli & Points\n9. 📍 Maeneo Pendwa (Saved Locations)\n10. 🌐 Lugha / Language (SW/EN)";
+  return null;
+}
+
+export interface USSDServiceDef {
+  id: string;
+  key: string;
+  emoji: string;
+  titleSw: string;
+  titleEn: string;
+  isMaintenance: boolean;
+  maintenanceMessage?: string;
+}
+
+export function getAvailableServices(session: SMSSession, businessConfig?: any): USSDServiceDef[] {
+  const isEn = session.language === 'en';
+  const servicesConfig = businessConfig?.services || {};
+
+  const masterList: {
+    id: string;
+    key: string;
+    emoji: string;
+    titleSw: string;
+    titleEn: string;
+    defaultMaintSw: string;
+    defaultMaintEn: string;
+    alwaysVisible?: boolean;
+  }[] = [
+    {
+      id: 'teksi',
+      key: 'paporide',
+      emoji: '🚕',
+      titleSw: 'PapoRide (Taxi & Nauli)',
+      titleEn: 'PapoRide (Taxi & Fare)',
+      defaultMaintSw: 'Huduma yetu ya usafiri wa Teksi/Gari/Pikipiki iko kwenye matengenezo mafupi.',
+      defaultMaintEn: 'Our Taxi booking service is currently under brief maintenance.'
+    },
+    {
+      id: 'vifurushi',
+      key: 'paposend',
+      emoji: '📦',
+      titleSw: 'PapoSend (Tuma & Fuatilia Mzigo)',
+      titleEn: 'PapoSend (Send & Track Parcel)',
+      defaultMaintSw: 'Uwasilishaji na uagizaji wa vifurushi upo kwenye matengenezo ya dharura.',
+      defaultMaintEn: 'Parcel delivery service is undergoing emergency maintenance.'
+    },
+    {
+      id: 'chakula',
+      key: 'papofood',
+      emoji: '🍔',
+      titleSw: 'PapoFood (Chakula & Migahawa)',
+      titleEn: 'PapoFood (Food & Restaurants)',
+      defaultMaintSw: 'Huduma ya Chakula inafanyiwa marekebisho kwa sasa. Inarudi hivi punde!',
+      defaultMaintEn: 'Food delivery service is currently under maintenance.'
+    },
+    {
+      id: 'sokoni',
+      key: 'papomart',
+      emoji: '🛒',
+      titleSw: 'PapoMart (Sokoni & Maduka)',
+      titleEn: 'PapoMart (Groceries & Shops)',
+      defaultMaintSw: 'Huduma ya Sokoni & Maduka inafanyiwa marekebisho. Tafadhali jaribu baadaye.',
+      defaultMaintEn: 'Market & Grocery service is under maintenance. Please try again soon.'
+    },
+    {
+      id: 'bus_ticket',
+      key: 'papobus',
+      emoji: '🚌',
+      titleSw: 'PapoBus (Tiketi za Mabasi)',
+      titleEn: 'PapoBus (Bus Tickets)',
+      defaultMaintSw: 'Mfumo wa kukata tiketi za mabasi upo kwenye maboresho ya kiufundi.',
+      defaultMaintEn: 'Bus ticketing system is undergoing technical updates.'
+    },
+    {
+      id: 'saluni',
+      key: 'papostyle',
+      emoji: '💇‍♀️',
+      titleSw: 'PapoStyle (Saluni & Urembo)',
+      titleEn: 'PapoStyle (Salon & Beauty)',
+      defaultMaintSw: 'Huduma za Saluni hazipatikani kwa sasa kutokana na maboresho.',
+      defaultMaintEn: 'Salon booking service is currently unavailable due to updates.'
+    },
+    {
+      id: 'hoteli',
+      key: 'papostay',
+      emoji: '🏨',
+      titleSw: 'PapoStay (Hoteli & Malazi)',
+      titleEn: 'PapoStay (Hotels & Lodging)',
+      defaultMaintSw: 'Huduma ya kukata vyumba vya hoteli ipo kwenye maboresho.',
+      defaultMaintEn: 'Hotel booking service is undergoing maintenance.'
+    },
+    {
+      id: 'car_rental',
+      key: 'paporent',
+      emoji: '🔑',
+      titleSw: 'PapoRent (Kukodi Magari & Vifaa)',
+      titleEn: 'PapoRent (Car & Equipment Rental)',
+      defaultMaintSw: 'Huduma ya kukodi magari ipo kwenye marekebisho ya dharura.',
+      defaultMaintEn: 'Car rental service is under emergency maintenance.'
+    },
+    {
+      id: 'driver',
+      key: 'papodriver',
+      emoji: '🛵',
+      titleSw: 'PapoDriver (Offline Mode & Usajili)',
+      titleEn: 'PapoDriver (Driver Portal)',
+      defaultMaintSw: 'Portal ya madereva ipo kwenye matengenezo kwa sasa.',
+      defaultMaintEn: 'Driver portal is currently undergoing maintenance.',
+      alwaysVisible: true
+    },
+    {
+      id: 'status',
+      key: 'status',
+      emoji: '📋',
+      titleSw: 'Hali ya Agizo (Live Order Status)',
+      titleEn: 'Live Order Status',
+      defaultMaintSw: '',
+      defaultMaintEn: '',
+      alwaysVisible: true
+    },
+    {
+      id: 'wallet',
+      key: 'wallet',
+      emoji: '💰',
+      titleSw: 'PapoWallet & PapoPoints',
+      titleEn: 'PapoWallet & PapoPoints',
+      defaultMaintSw: '',
+      defaultMaintEn: '',
+      alwaysVisible: true
+    },
+    {
+      id: 'language',
+      key: 'language',
+      emoji: '🌐',
+      titleSw: 'Lugha / Language (SW/EN)',
+      titleEn: 'Language / Lugha (SW/EN)',
+      defaultMaintSw: '',
+      defaultMaintEn: '',
+      alwaysVisible: true
+    }
+  ];
+
+  const available: USSDServiceDef[] = [];
+
+  for (const item of masterList) {
+    const adminConfig = servicesConfig[item.id];
+    // Filter out if Admin disabled / hid this service completely
+    if (adminConfig && adminConfig.enabled === false && !item.alwaysVisible) {
+      continue; // Skip hidden service
+    }
+
+    const isMaint = adminConfig?.maintenance === true;
+    const maintMessage = adminConfig?.message || (isEn ? item.defaultMaintEn : item.defaultMaintSw);
+
+    available.push({
+      id: item.id,
+      key: item.key,
+      emoji: item.emoji,
+      titleSw: item.titleSw,
+      titleEn: item.titleEn,
+      isMaintenance: isMaint,
+      maintenanceMessage: maintMessage
+    });
+  }
+
+  return available;
+}
+
+export function getWelcomeMessage(session: SMSSession, businessConfig?: any): string {
+  const isEn = session.language === 'en';
+
+  if (businessConfig?.maintenanceMode) {
+    return isEn
+      ? "🛠️ SYSTEM MAINTENANCE:\n\nThe entire system is under maintenance. Please try again later."
+      : "🛠️ MATENGENEZO YA MFUMO:\n\nMfumo mzima upo kwenye matengenezo kwa sasa. Tafadhali jaribu tena baadaye.";
+  }
+
+  const available = getAvailableServices(session, businessConfig);
+
+  const header = isEn ? "Welcome to Papo Hapo! 🌟\n\nSelect service:" : "Karibu Papo Hapo! 🌟\n\nChagua huduma:";
+  const itemsText = available.map((s, idx) => {
+    const num = idx + 1;
+    const title = isEn ? s.titleEn : s.titleSw;
+    const maintTag = s.isMaintenance ? (isEn ? " [🛠️ Maint]" : " [🛠️ Matengenezo]") : "";
+    return `${num}. ${s.emoji} ${title}${maintTag}`;
+  }).join("\n");
+
+  return `${header}\n${itemsText}`;
 }
 
 export function getPapoWalletText(session: SMSSession): string {
@@ -428,6 +619,9 @@ export async function handleSMSInput(
   // Get existing flow session
   const session = await getSession(fromPhone, dbAdmin);
 
+  // Fetch business config for service status & maintenance check
+  const businessConfig = await getBusinessConfig(dbAdmin);
+
   // Fetch custom welcome message if available
   let welcomeMessage = defaultTwilioConfig.welcomeMessage;
   if (dbAdmin) {
@@ -453,7 +647,7 @@ export async function handleSMSInput(
     welcomeMessage.includes("TAXI (Agiza / Nauli)") ||
     welcomeMessage.includes("MZIGO (Kufuatilia)")
   ) {
-    welcomeMessage = getWelcomeMessage(session);
+    welcomeMessage = getWelcomeMessage(session, businessConfig);
   }
 
   // Restart trigger & Step Initializer
@@ -479,139 +673,315 @@ export async function handleSMSInput(
     if (isGreeting || !cleanInput) {
       session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
-      return getWelcomeMessage(session);
+      return getWelcomeMessage(session, businessConfig);
     }
 
     // If user sent a direct selection (e.g. "1" or "taxi") while step was START, transition step to SELECT_SERVICE
     session.step = 'SELECT_SERVICE';
   }
 
-  // Step 1: Selecting Category Service
+  // Step 1: Selecting Category Service (Dynamic from Business Config)
   if (session.step === 'SELECT_SERVICE') {
-    if (cleanInput === '1' || lowerInput.includes('paporide') || lowerInput.includes('taxi') || lowerInput.includes('teksi')) {
-      session.step = 'TAXI_SUBMENU';
-      session.selectedService = 'taxi';
-      await saveSession(session, dbAdmin);
-      return session.language === 'en'
-        ? "🚕 PapoRide (TAXI & FARE):\n\n1. Quick Ride Booking ⚡\n2. Estimate Fare 🧮\n3. Type Custom Route\n0. Main Menu"
-        : "🚕 PapoRide (TAXI & NAULI):\n\n1. Agiza Taxi Haraka ⚡\n2. Kadiria Nauli 🧮\n3. Andika Njia (Mf: Mwenge - Posta)\n0. Rudi Mwanzo";
-    } 
-    else if (cleanInput === '2' || lowerInput.includes('paposend') || lowerInput.includes('mzigo') || lowerInput.includes('kifurushi') || lowerInput.includes('parcel') || lowerInput.includes('track') || lowerInput.includes('send')) {
-      session.step = 'PAPOSEND_MAIN_MENU';
-      session.selectedService = 'parcel';
-      await saveSession(session, dbAdmin);
-      return session.language === 'en'
-        ? "📦 PapoSend (PARCEL & DELIVERY):\n\n1. 🚚 Send Parcel / Package\n2. 🔍 Track Your Package\n\n0. Main Menu"
-        : "📦 PapoSend (VIFURUSHI & DELIVERY):\n\n1. 🚚 Tuma Mzigo / Kifurushi\n2. 🔍 Fuatilia Mzigo Wako\n\n0. Rudi Mwanzo";
-    } 
-    else if (cleanInput === '3' || lowerInput.includes('papodriver') || lowerInput.includes('dereva') || lowerInput.includes('driver')) {
-      session.selectedService = 'driver';
-      let cleanPhone = session.phone.replace('ussd:', '').replace(/\D/g, '');
-      let isRegisteredDriver = false;
-      let driverName = "Juma Kapoya";
-      let isOnline = true;
+    const available = getAvailableServices(session, businessConfig);
 
-      if (dbAdmin) {
-        try {
-          const dSnap = await dbAdmin.collection('drivers').get();
-          if (!dSnap.empty) {
-            const match = dSnap.docs.find((doc: any) => {
-              const data = doc.data();
-              const p = (data.phone || "").replace(/\D/g, '');
-              return p && (p.endsWith(cleanPhone.slice(-8)) || cleanPhone.endsWith(p.slice(-8)));
-            });
-            if (match) {
-              const dData = match.data();
-              driverName = dData.name || driverName;
-              isOnline = dData.isOnline !== false;
-              session.driverId = match.id;
-              isRegisteredDriver = true;
-            }
-          }
-        } catch (e) {
-          console.warn("[USSD Driver] Error finding driver in Firestore:", e);
-        }
+    let selectedDef: USSDServiceDef | undefined = undefined;
+
+    // Check numeric selection
+    const numChoice = parseInt(cleanInput, 10);
+    if (!isNaN(numChoice) && numChoice >= 1 && numChoice <= available.length) {
+      selectedDef = available[numChoice - 1];
+    } else {
+      // Keyword matching
+      selectedDef = available.find(s => {
+        if (s.key === 'paporide' && (lowerInput.includes('paporide') || lowerInput.includes('taxi') || lowerInput.includes('teksi'))) return true;
+        if (s.key === 'paposend' && (lowerInput.includes('paposend') || lowerInput.includes('mzigo') || lowerInput.includes('kifurushi') || lowerInput.includes('parcel') || lowerInput.includes('track') || lowerInput.includes('send'))) return true;
+        if (s.key === 'papofood' && (lowerInput.includes('papofood') || lowerInput.includes('chakula') || lowerInput.includes('food') || lowerInput.includes('restaurant') || lowerInput.includes('mgahawa'))) return true;
+        if (s.key === 'papomart' && (lowerInput.includes('papomart') || lowerInput.includes('soko') || lowerInput.includes('sokoni') || lowerInput.includes('mart') || lowerInput.includes('duka') || lowerInput.includes('grocery'))) return true;
+        if (s.key === 'papobus' && (lowerInput.includes('papobus') || lowerInput.includes('basi') || lowerInput.includes('mabasi') || lowerInput.includes('bus'))) return true;
+        if (s.key === 'papostyle' && (lowerInput.includes('papostyle') || lowerInput.includes('saluni') || lowerInput.includes('salon') || lowerInput.includes('urembo'))) return true;
+        if (s.key === 'papostay' && (lowerInput.includes('papostay') || lowerInput.includes('hoteli') || lowerInput.includes('hotel') || lowerInput.includes('malazi') || lowerInput.includes('guest'))) return true;
+        if (s.key === 'paporent' && (lowerInput.includes('paporent') || lowerInput.includes('rent') || lowerInput.includes('kukodi') || lowerInput.includes('kodisha'))) return true;
+        if (s.key === 'papodriver' && (lowerInput.includes('papodriver') || lowerInput.includes('dereva') || lowerInput.includes('driver'))) return true;
+        if (s.key === 'status' && (lowerInput.includes('status') || lowerInput.includes('hali') || lowerInput.includes('agizo') || lowerInput.includes('order'))) return true;
+        if (s.key === 'wallet' && (lowerInput.includes('wallet') || lowerInput.includes('salio') || lowerInput.includes('point') || lowerInput.includes('gawana') || lowerInput.includes('split'))) return true;
+        if (s.key === 'language' && (lowerInput.includes('lugha') || lowerInput.includes('language') || lowerInput.includes('sw') || lowerInput.includes('en'))) return true;
+        return false;
+      });
+    }
+
+    if (selectedDef) {
+      // Check if service is under Maintenance
+      if (selectedDef.isMaintenance) {
+        return session.language === 'en'
+          ? `🛠️ SERVICE UNDER MAINTENANCE:\n\n${selectedDef.titleEn} is currently under maintenance.\nNotice: "${selectedDef.maintenanceMessage || 'Please try again later.'}"\n\n0. Main Menu`
+          : `🛠️ HUDUMA KWENYE MATENGENEZO:\n\nHuduma ya ${selectedDef.titleSw} ipo kwenye matengenezo kwa sasa.\nUjumbe wa Admin: "${selectedDef.maintenanceMessage || 'Tafadhali jaribu tena baadaye.'}"\n\n0. Rudi Mwanzo`;
       }
 
-      if (isRegisteredDriver || session.isDriverVerified) {
-        session.isDriverVerified = true;
-        session.step = 'DRIVER_OFFLINE_MENU';
-        await saveSession(session, dbAdmin);
-        return `🛵 PapoDriver (PORTAL YA DEREVA):\n[Dereva: ${driverName || session.driverName || 'Juma Kapoya'} | Hali: ${isOnline ? '🟢 Online' : '🔴 Offline'}]\n\n1. Badili Hali (Online/Offline)\n2. Maombi ya Safari (Pending Bookings)\n3. Safari Inayoendelea (Active Trip)\n4. Mapato ya Leo (Earnings Today)\n0. Rudi Mwanzo`;
-      } else {
-        session.step = 'DRIVER_LOGIN_PROMPT';
+      // 1. PapoRide
+      if (selectedDef.key === 'paporide') {
+        session.step = 'TAXI_SUBMENU';
+        session.selectedService = 'taxi';
         await saveSession(session, dbAdmin);
         return session.language === 'en'
-          ? `🔒 PAPODRIVER - RESTRICTED DRIVER PORTAL\n\nYour number (${cleanPhone}) is not verified as a registered Papo Hapo Driver.\n\n1. 🔑 Enter Driver PIN (Default: 1234)\n2. 🛵 Register as New Driver / Bodaboda\n\n0. Main Menu`
-          : `🔒 PAPODRIVER - PORTAL YA DEREVA\n\nNamba yako (${cleanPhone}) haijathibitishwa kama Dereva/Bodaboda wa Papo Hapo.\n\n1. 🔑 Ingiza PIN ya Dereva (Default: 1234)\n2. 🛵 Sajili kama Dereva / Bodaboda Mpya\n\n0. Rudi Mwanzo`;
+          ? "🚕 PapoRide (TAXI & FARE):\n\n1. Quick Ride Booking ⚡\n2. Estimate Fare 🧮\n3. Saved Locations 📍\n4. Split Fare 50/50 🤝\n5. Custom Route 🗺️\n\n0. Main Menu"
+          : "🚕 PapoRide (TAXI & NAULI):\n\n1. Agiza Taxi Haraka ⚡\n2. Kadiria Nauli 🧮\n3. Maeneo Pendwa (Nyumbani/Ofisini) 📍\n4. Gawana Nauli 50/50 🤝\n5. Andika Njia Yako 🗺️\n\n0. Rudi Mwanzo";
       }
-    } 
-    else if (cleanInput === '4' || lowerInput.includes('papobus') || lowerInput.includes('basi') || lowerInput.includes('mabasi')) {
-      session.step = 'BUS_ROUTE';
-      session.selectedService = 'bus_ticket';
-      await saveSession(session, dbAdmin);
+      // 2. PapoSend
+      else if (selectedDef.key === 'paposend') {
+        session.step = 'PAPOSEND_MAIN_MENU';
+        session.selectedService = 'parcel';
+        await saveSession(session, dbAdmin);
+        return session.language === 'en'
+          ? "📦 PapoSend (PARCEL & DELIVERY):\n\n1. 🚚 Send Parcel / Package\n2. 🔍 Track Your Package\n\n0. Main Menu"
+          : "📦 PapoSend (VIFURUSHI & DELIVERY):\n\n1. 🚚 Tuma Mzigo / Kifurushi\n2. 🔍 Fuatilia Mzigo Wako\n\n0. Rudi Mwanzo";
+      }
+      // 3. PapoFood
+      else if (selectedDef.key === 'papofood') {
+        session.step = 'FOOD_MAIN_MENU';
+        session.selectedService = 'restaurant';
+        session.foodCart = [];
+        await saveSession(session, dbAdmin);
+        return session.language === 'en'
+          ? "🍔 PapoFood (FOOD & RESTAURANTS):\n\n1. 🍔 Restaurants & Food\n2. 🥤 Drinks & Fast Food\n\n0. Main Menu"
+          : "🍔 PapoFood (CHAKULA & MIGAHAWA):\n\n1. 🍔 Migahawa & Chakula\n2. 🥤 Vinywaji & Fast Food\n\n0. Rudi Mwanzo";
+      }
+      // 4. PapoMart
+      else if (selectedDef.key === 'papomart') {
+        session.step = 'PAPOMART_MAIN_MENU';
+        session.selectedService = 'mart';
+        await saveSession(session, dbAdmin);
+        return session.language === 'en'
+          ? "🛒 PapoMart (GROCERIES & SHOPS):\n\n1. 🛒 Grocery & Market (Sokoni)\n2. 💊 Pharmacy & Health (Dawa)\n3. 🛍️ Electronics & Shopping\n\n0. Main Menu"
+          : "🛒 PapoMart (SOKONI, GROCERY & MADUKA):\n\n1. 🛒 Grocery & Sokoni\n2. 💊 Duka la Dawa & Afya\n3. 🛍️ Maduka & Shopping\n\n0. Rudi Mwanzo";
+      }
+      // 5. PapoBus
+      else if (selectedDef.key === 'papobus') {
+        session.step = 'BUS_ROUTE';
+        session.selectedService = 'bus_ticket';
+        await saveSession(session, dbAdmin);
+        return session.language === 'en'
+          ? "🚌 PapoBus (BUS TICKETS):\n\nSend your travel route (Origin - Destination).\nExample: DAR - MWANZA or ARUSHA - KILIMANJARO:"
+          : "🚌 PapoBus (TIKETI ZA MABASI):\n\nTuma njia unayokwenda (Mwanzo - Mwisho).\nMfano: DAR - MWANZA au ARUSHA - KILIMANJARO:";
+      }
+      // 6. PapoStyle
+      else if (selectedDef.key === 'papostyle') {
+        session.step = 'SALON_SUB';
+        session.selectedService = 'salon';
+        await saveSession(session, dbAdmin);
+        return session.language === 'en'
+          ? "💇‍♀️ PapoStyle (SALON & BEAUTY):\n\n1. Barber / Hair Cut\n2. Hair Styling / Braids\n3. Nails / Makeup / Spa\n\n0. Main Menu"
+          : "💇‍♀️ PapoStyle (SALUNI & UREMBO):\n\n1. Kinyozi / Hair Cut\n2. Kusuka / Salon ya Kike\n3. Nails / Makeup / Spa\n\n0. Rudi Mwanzo";
+      }
+      // 7. PapoStay / Hoteli
+      else if (selectedDef.key === 'papostay') {
+        session.step = 'HOTEL_MAIN_MENU';
+        session.selectedService = 'hotel';
+        await saveSession(session, dbAdmin);
+        return session.language === 'en'
+          ? "🏨 PapoStay (HOTELS & LODGING):\n\n1. 🏨 Luxury Hotels (4-5 Star)\n2. 🛏️ Budget Guest Houses\n3. 🏖️ Beach Resorts & Lodges\n\n0. Main Menu"
+          : "🏨 PapoStay (HOTELI & MALAZI):\n\n1. 🏨 Hoteli za Nyota 3-5\n2. 🛏️ Guest Houses & Vyumba\n3. 🏖️ Resoti & Nyumba za Mapumziko\n\n0. Rudi Mwanzo";
+      }
+      // 8. PapoRent
+      else if (selectedDef.key === 'paporent') {
+        session.step = 'PAPORENT_MAIN_MENU';
+        session.selectedService = 'rental';
+        await saveSession(session, dbAdmin);
+        return session.language === 'en'
+          ? "🔑 PapoRent (CAR & EQUIPMENT RENTAL):\n\n1. 🚗 Car Rental\n2. 🛺 Bajaj Rental\n3. 🏍️ Motorcycle Rental\n\n0. Main Menu"
+          : "🔑 PapoRent (KUKODI MAGARI & VIFAA):\n\n1. 🚗 Kukodi Gari (Car Rental)\n2. 🛺 Kukodi Bajaj\n3. 🏍️ Kukodi Bodaboda\n\n0. Rudi Mwanzo";
+      }
+      // 9. PapoDriver
+      else if (selectedDef.key === 'papodriver') {
+        session.selectedService = 'driver';
+        let cleanPhone = session.phone.replace('ussd:', '').replace(/\D/g, '');
+        let isRegisteredDriver = false;
+        let driverName = "Juma Kapoya";
+        let isOnline = true;
+
+        if (dbAdmin) {
+          try {
+            const dSnap = await dbAdmin.collection('drivers').get();
+            if (!dSnap.empty) {
+              const match = dSnap.docs.find((doc: any) => {
+                const data = doc.data();
+                const p = (data.phone || "").replace(/\D/g, '');
+                return p && (p.endsWith(cleanPhone.slice(-8)) || cleanPhone.endsWith(p.slice(-8)));
+              });
+              if (match) {
+                const dData = match.data();
+                driverName = dData.name || driverName;
+                isOnline = dData.isOnline !== false;
+                session.driverId = match.id;
+                isRegisteredDriver = true;
+              }
+            }
+          } catch (e) {
+            console.warn("[USSD Driver] Error finding driver in Firestore:", e);
+          }
+        }
+
+        if (isRegisteredDriver || session.isDriverVerified) {
+          session.isDriverVerified = true;
+          session.step = 'DRIVER_OFFLINE_MENU';
+          await saveSession(session, dbAdmin);
+          return `🛵 PapoDriver (PORTAL YA DEREVA):\n[Dereva: ${driverName || session.driverName || 'Juma Kapoya'} | Hali: ${isOnline ? '🟢 Online' : '🔴 Offline'}]\n\n1. Badili Hali (Online/Offline)\n2. Maombi ya Safari (Pending Bookings)\n3. Safari Inayoendelea (Active Trip)\n4. Mapato ya Leo (Earnings Today)\n\n0. Rudi Mwanzo`;
+        } else {
+          session.step = 'DRIVER_LOGIN_PROMPT';
+          await saveSession(session, dbAdmin);
+          return session.language === 'en'
+            ? `🔒 PAPODRIVER - RESTRICTED DRIVER PORTAL\n\nYour number (${cleanPhone}) is not verified as a registered Papo Hapo Driver.\n\n1. 🔑 Enter Driver PIN (Default: 1234)\n2. 🛵 Register as New Driver / Bodaboda\n\n0. Main Menu`
+            : `🔒 PAPODRIVER - PORTAL YA DEREVA\n\nNamba yako (${cleanPhone}) haijathibitishwa kama Dereva/Bodaboda wa Papo Hapo.\n\n1. 🔑 Ingiza PIN ya Dereva (Default: 1234)\n2. 🛵 Sajili kama Dereva / Bodaboda Mpya\n\n0. Rudi Mwanzo`;
+        }
+      }
+      // 10. Status
+      else if (selectedDef.key === 'status') {
+        session.step = 'ACTIVE_ORDER_STATUS';
+        await saveSession(session, dbAdmin);
+        return await getActiveOrderStatusText(session, dbAdmin, cleanInput);
+      }
+      // 11. Wallet
+      else if (selectedDef.key === 'wallet') {
+        session.step = 'PAPOWALLET_MAIN';
+        await saveSession(session, dbAdmin);
+        return getPapoWalletText(session);
+      }
+      // 12. Language
+      else if (selectedDef.key === 'language') {
+        session.step = 'LANGUAGE_SWITCH_MENU';
+        await saveSession(session, dbAdmin);
+        return `🌐 CHAGUA LUGHA / SELECT LANGUAGE:\n\n1. 🇹🇿 Kiswahili\n2. 🇬🇧 English\n\n0. Rudi Mwanzo / Back`;
+      }
+    } else {
+      // Direct secondary keyword fallbacks if not matched above
+      if (lowerInput.includes('sauti') || lowerInput.includes('voice') || lowerInput.includes('pigiwa') || lowerInput.includes('ivr')) {
+        session.step = 'VOICE_CALLBACK_MENU';
+        await saveSession(session, dbAdmin);
+        return getVoiceCallbackText(session);
+      }
+      else if (lowerInput.includes('reorder') || lowerInput.includes('tena') || lowerInput.includes('rudia')) {
+        session.step = 'QUICK_REORDER_MENU';
+        await saveSession(session, dbAdmin);
+        return getQuickReOrderText(session);
+      }
+      else if (lowerInput.includes('papobot') || lowerInput.includes('robot') || lowerInput.includes('roboti')) {
+        session.step = 'PAPOBOT_PIN_UNLOCK';
+        await saveSession(session, dbAdmin);
+        return session.language === 'en'
+          ? "🤖 PapoBot (AUTONOMOUS DELIVERY ROBOT):\n[Status: 🟢 PapoBot Alpha-1 Arrived at Destination]\n\nPlease enter the 4-digit PIN to unlock the cargo compartment lid (Default: 4829):\n\n0. Main Menu"
+          : "🤖 PapoBot (ROBOTI YA KUWASILISHA MZIGO):\n[Hali: 🟢 PapoBot Alpha-1 Imewasili Eneo Lako]\n\nTafadhali ingiza PIN ya tarakimu 4 kufungua mfuniko wa Mzigo (Default: 4829):\n\n0. Rudi Mwanzo";
+      }
+
       return session.language === 'en'
-        ? "🚌 PapoBus (BUS TICKETS):\n\nSend your travel route (Origin - Destination).\nExample: DAR - MWANZA or ARUSHA - KILIMANJARO:"
-        : "🚌 PapoBus (TIKETI ZA MABASI):\n\nTuma njia unayokwenda (Mwanzo - Mwisho).\nMfano: DAR - MWANZA au ARUSHA - KILIMANJARO:";
-    } 
-    else if (cleanInput === '5' || lowerInput.includes('papostyle') || lowerInput.includes('saluni') || lowerInput.includes('salon')) {
-      session.step = 'SALON_SUB';
-      session.selectedService = 'salon';
-      await saveSession(session, dbAdmin);
-      return session.language === 'en'
-        ? "💇‍♀️ PapoStyle (SALON & BEAUTY):\n\n1. Barber / Hair Cut\n2. Hair Styling / Braids\n3. Nails / Makeup / Spa\n0. Main Menu"
-        : "💇‍♀️ PapoStyle (SALUNI & UREMBO):\n\n1. Kinyozi / Hair Cut\n2. Kusuka / Salon ya Kike\n3. Nails / Makeup / Spa\n0. Rudi Mwanzo";
-    } 
-    else if (cleanInput === '6' || lowerInput.includes('papofood') || lowerInput.includes('chakula') || lowerInput.includes('soko') || lowerInput.includes('dawa')) {
-      session.step = 'FOOD_MAIN_MENU';
-      session.selectedService = 'restaurant';
-      session.foodCart = [];
-      await saveSession(session, dbAdmin);
-      return session.language === 'en'
-        ? "🍔 PapoFood (FOOD & MARKET):\n\n1. 🍔 RESTAURANTS & FOOD\n2. 🛒 GROCERY & MARKET\n\n0. Back"
-        : "🍔 PapoFood (CHAKULA & SOKONI):\n\n1. 🍔 CHAKULA\n2. 🛒 SOKONI\n\n0. Nyuma";
+        ? `⚠️ Invalid choice! Please send numbers 1 to ${available.length}, or send "HI" to restart.`
+        : `⚠️ Chaguo si sahihi! Tuma namba 1 mpaka ${available.length}, au tuma "HI" kuanza upya.`;
     }
-    else if (cleanInput === '7' || lowerInput.includes('status') || lowerInput.includes('hali') || lowerInput.includes('agizo') || lowerInput.includes('order')) {
-      session.step = 'ACTIVE_ORDER_STATUS';
+  }
+
+  // --- MODULE: PAPORIDE (TAXI & NAULI SUBMENU) ---
+  if (session.step === 'TAXI_SUBMENU') {
+    if (cleanInput === '0') {
+      session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
-      return await getActiveOrderStatusText(session, dbAdmin, cleanInput);
+      return getWelcomeMessage(session, businessConfig);
     }
-    else if (cleanInput === '8' || lowerInput.includes('wallet') || lowerInput.includes('salio') || lowerInput.includes('point') || lowerInput.includes('gawana') || lowerInput.includes('split')) {
-      session.step = 'PAPOWALLET_MAIN';
+    const isEn = session.language === 'en';
+    if (cleanInput === '1' || lowerInput.includes('agiza') || lowerInput.includes('haraka') || lowerInput.includes('quick')) {
+      session.step = 'TAXI_QUICK_BOOK';
       await saveSession(session, dbAdmin);
-      return getPapoWalletText(session);
-    }
-    else if (cleanInput === '9' || lowerInput.includes('location') || lowerInput.includes('eneo') || lowerInput.includes('maeneo') || lowerInput.includes('home') || lowerInput.includes('work')) {
+      return isEn
+        ? "🚕 PAPORIDE QUICK BOOKING:\n\nFinding nearby drivers...\n1. Bajaji (3 seats) - TZS 4,000\n2. Gari / Mini (4 seats) - TZS 7,500\n3. Bodaboda (1 seat) - TZS 2,500\n\nReply with option number or 0 to Back."
+        : "🚕 PAPORIDE AGIZA HARAKA:\n\nInatafuta madereva wa karibu...\n1. Bajaji (Siti 3) - TZS 4,000\n2. Gari / Mini (Siti 4) - TZS 7,500\n3. Bodaboda (Siti 1) - TZS 2,500\n\nTuma namba kuchagua usafiri au 0 kurudi Nyuma.";
+    } else if (cleanInput === '2' || lowerInput.includes('kadirio') || lowerInput.includes('nauli') || lowerInput.includes('estimate')) {
+      session.step = 'TAXI_FARE_ESTIMATE';
+      await saveSession(session, dbAdmin);
+      return isEn
+        ? "💰 FARE ESTIMATION:\n\nPlease enter your travel route (Origin - Destination).\nExample: POSTA - KINONDONI"
+        : "💰 KADIRIO LA NAULI:\n\nTafadhali tuma njia unayotaka kusafiri (Kutoka - Kwenda).\nMfano: POSTA - KINONDONI";
+    } else if (cleanInput === '3' || lowerInput.includes('eneo') || lowerInput.includes('maeneo') || lowerInput.includes('saved')) {
       session.step = 'SAVED_LOCATIONS_MENU';
       await saveSession(session, dbAdmin);
       return getSavedLocationsText(session);
-    }
-    else if (cleanInput === '10' || lowerInput.includes('lugha') || lowerInput.includes('language')) {
-      session.step = 'LANGUAGE_SWITCH_MENU';
+    } else if (cleanInput === '4' || lowerInput.includes('gawana') || lowerInput.includes('split')) {
+      session.step = 'PAPOWALLET_SPLIT_FARE';
       await saveSession(session, dbAdmin);
-      return `🌐 CHAGUA LUGHA / SELECT LANGUAGE:\n\n1. 🇹🇿 Kiswahili\n2. 🇬🇧 English\n\n0. Rudi Mwanzo / Back`;
-    }
-    else if (lowerInput.includes('sauti') || lowerInput.includes('voice') || lowerInput.includes('pigiwa') || lowerInput.includes('ivr')) {
-      session.step = 'VOICE_CALLBACK_MENU';
+      return isEn
+        ? "💸 SPLIT FARE 50/50:\n\nPlease enter the phone number of the passenger you want to share fare with:\nExample: 0712345678"
+        : "💸 GAWANA NAULI 50/50:\n\nTafadhali ingiza namba ya simu ya abiria mwenzako wa kugawana naye nauli:\nMfano: 0712345678";
+    } else if (cleanInput === '5' || lowerInput.includes('njia') || lowerInput.includes('route') || lowerInput.includes('custom')) {
+      session.step = 'TAXI_ROUTE';
       await saveSession(session, dbAdmin);
-      return getVoiceCallbackText(session);
+      return isEn
+        ? "🗺️ CUSTOM ROUTE:\n\nPlease enter pick up and drop off locations:\nExample: Mwenge Bus Stand to Posta House"
+        : "🗺️ NJIA YAKO:\n\nTafadhali tuma sehemu ya kuchukuliwa na unapokwenda:\nMfano: Stendi ya Mwenge kwenda Posta Mpya";
     }
-    else if (lowerInput.includes('reorder') || lowerInput.includes('tena') || lowerInput.includes('rudia')) {
-      session.step = 'QUICK_REORDER_MENU';
+  }
+
+  // --- MODULE: PAPOMART (SOKONI, GROCERY & MADUKA) ---
+  if (session.step === 'PAPOMART_MAIN_MENU') {
+    if (cleanInput === '0') {
+      session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
-      return getQuickReOrderText(session);
+      return getWelcomeMessage(session, businessConfig);
     }
-    else if (lowerInput.includes('papobot') || lowerInput.includes('robot') || lowerInput.includes('roboti')) {
-      session.step = 'PAPOBOT_PIN_UNLOCK';
+    const isEn = session.language === 'en';
+    if (cleanInput === '1' || lowerInput.includes('grocery') || lowerInput.includes('soko') || lowerInput.includes('mboga')) {
+      return isEn
+        ? "🛒 SOKONI & GROCERY:\n\n1. Fresh Fruits & Vegetables Basket (TZS 15,000)\n2. Rice & Maize Flour Pack (25kg) (TZS 48,000)\n3. Cooking Oil & Spices Combo (TZS 22,000)\n\nReply with product number to order or 0 to Back."
+        : "🛒 SOKONI & GROCERY:\n\n1. Tenga la Matunda & Mboga (TZS 15,000)\n2. Mfuko wa Mchele & Unga (25kg) (TZS 48,000)\n3. Mafuta ya Kupikia & Viungo (TZS 22,000)\n\nTuma namba ya bidhaa kuagiza au 0 kurudi Nyuma.";
+    } else if (cleanInput === '2' || lowerInput.includes('dawa') || lowerInput.includes('pharmacy')) {
+      return isEn
+        ? "💊 PHARMACY & HEALTH:\n\n1. First Aid Kit Box (TZS 25,000)\n2. Panadol Extra & Vitamins Pack (TZS 5,000)\n3. Hand Sanitizer & Antiseptic (TZS 8,000)\n\nReply with item number or 0 to Back."
+        : "💊 DUKA LA DAWA & AFYA:\n\n1. Sanduku la Huduma ya Kwanza (TZS 25,000)\n2. Panadol Extra & Vitamini Pack (TZS 5,000)\n3. Kitakasa Mikono & Dawa (TZS 8,000)\n\nTuma namba ya dawa au 0 kurudi Nyuma.";
+    } else if (cleanInput === '3' || lowerInput.includes('shopping') || lowerInput.includes('duka')) {
+      return isEn
+        ? "🛍️ ELECTRONICS & SHOPPING:\n\n1. Fast Charger 65W Type-C (TZS 20,000)\n2. Wireless Earbuds Bluetooth (TZS 35,000)\n3. Power Bank 20,000mAh (TZS 45,000)\n\nReply with item number or 0 to Back."
+        : "🛍️ MADUKA & ELECTRONICS:\n\n1. Fast Charger 65W Type-C (TZS 20,000)\n2. Wireless Earbuds Bluetooth (TZS 35,000)\n3. Power Bank 20,000mAh (TZS 45,000)\n\nTuma namba ya kifaa kuagiza au 0 kurudi Nyuma.";
+    }
+  }
+
+  // --- MODULE: PAPOSTAY / HOTELI ---
+  if (session.step === 'HOTEL_MAIN_MENU') {
+    if (cleanInput === '0') {
+      session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
-      return session.language === 'en'
-        ? "🤖 PapoBot (AUTONOMOUS DELIVERY ROBOT):\n[Status: 🟢 PapoBot Alpha-1 Arrived at Destination]\n\nPlease enter the 4-digit PIN to unlock the cargo compartment lid (Default: 4829):\n\n0. Main Menu"
-        : "🤖 PapoBot (ROBOTI YA KUWASILISHA MZIGO):\n[Hali: 🟢 PapoBot Alpha-1 Imewasili Eneo Lako]\n\nTafadhali ingiza PIN ya tarakimu 4 kufungua mfuniko wa Mzigo (Default: 4829):\n\n0. Rudi Mwanzo";
+      return getWelcomeMessage(session, businessConfig);
     }
-    else {
-      return session.language === 'en'
-        ? "⚠️ Invalid choice! Please send numbers 1 to 10, or send \"HI\" to restart."
-        : "⚠️ Chaguo si sahihi! Tuma namba 1 mpaka 10, au tuma \"HI\" kuanza upya.";
+    const isEn = session.language === 'en';
+    if (cleanInput === '1' || lowerInput.includes('luxury') || lowerInput.includes('nyota')) {
+      return isEn
+        ? "🏨 LUXURY HOTELS (4-5 STAR):\n\n1. Serena Hotel Dar - TZS 250,000/night\n2. Gran Melia Arusha - TZS 320,000/night\n\nReply with number to book or 0 to Back."
+        : "🏨 HOTELI ZA LUXURY (4-5 STAR):\n\n1. Serena Hotel Dar - TZS 250,000/usiku\n2. Gran Melia Arusha - TZS 320,000/usiku\n\nTuma namba kuhifadhi au 0 kurudi Nyuma.";
+    } else if (cleanInput === '2' || lowerInput.includes('guest') || lowerInput.includes('chumba')) {
+      return isEn
+        ? "🛏️ BUDGET GUEST HOUSES:\n\n1. Mikocheni Park Lodge - TZS 35,000/night\n2. Sinza Executive Lodge - TZS 40,000/night\n\nReply with number to book or 0 to Back."
+        : "🛏️ GUEST HOUSES & VYUMBA:\n\n1. Mikocheni Park Lodge - TZS 35,000/usiku\n2. Sinza Executive Lodge - TZS 40,000/usiku\n\nTuma namba kuhifadhi au 0 kurudi Nyuma.";
+    } else if (cleanInput === '3' || lowerInput.includes('resort') || lowerInput.includes('beach')) {
+      return isEn
+        ? "🏖️ BEACH RESORTS & LODGES:\n\n1. White Sands Beach Resort - TZS 180,000/night\n2. Kendwa Rocks Resort Zanzibar - TZS 220,000/night\n\nReply with number to book or 0 to Back."
+        : "🏖️ RESOTI NA BEACH LODGES:\n\n1. White Sands Beach Resort - TZS 180,000/usiku\n2. Kendwa Rocks Resort Zanzibar - TZS 220,000/usiku\n\nTuma namba kuhifadhi au 0 kurudi Nyuma.";
+    }
+  }
+
+  // --- MODULE: PAPORENT (CAR & EQUIPMENT RENTAL) ---
+  if (session.step === 'PAPORENT_MAIN_MENU') {
+    if (cleanInput === '0') {
+      session.step = 'SELECT_SERVICE';
+      await saveSession(session, dbAdmin);
+      return getWelcomeMessage(session, businessConfig);
+    }
+    const isEn = session.language === 'en';
+    if (cleanInput === '1' || lowerInput.includes('gari') || lowerInput.includes('car')) {
+      return isEn
+        ? "🚗 CAR RENTAL (PAPORENT):\n\n1. Toyota Prado TX (TZS 120,000/day)\n2. Toyota RAV4 (TZS 65,000/day)\n3. Suzuki Swift (TZS 45,000/day)\n\nReply with vehicle number to request rental or 0 to Back."
+        : "🚗 KUKODI MAGARI (PAPORENT):\n\n1. Toyota Prado TX (TZS 120,000/siku)\n2. Toyota RAV4 (TZS 65,000/siku)\n3. Suzuki Swift (TZS 45,000/siku)\n\nTuma namba ya gari kuomba kukodi au 0 kurudi Nyuma.";
+    } else if (cleanInput === '2' || lowerInput.includes('bajaj') || lowerInput.includes('bajaji')) {
+      return isEn
+        ? "🛺 BAJAJ RENTAL:\n\n1. TVS King Deluxe (TZS 25,000/day)\n2. Bajaj RE Compact (TZS 22,000/day)\n\nReply with number to request rental or 0 to Back."
+        : "🛺 KUKODI BAJAJ:\n\n1. TVS King Deluxe (TZS 25,000/siku)\n2. Bajaj RE Compact (TZS 22,000/siku)\n\nTuma namba kuomba kukodi au 0 kurudi Nyuma.";
+    } else if (cleanInput === '3' || lowerInput.includes('boda') || lowerInput.includes('pikipiki')) {
+      return isEn
+        ? "🏍️ MOTORCYCLE / BODABODA RENTAL:\n\n1. Boxer 150 HD (TZS 15,000/day)\n2. SanLG 125 (TZS 12,000/day)\n\nReply with number to request rental or 0 to Back."
+        : "🏍️ KUKODI BODABODA / PIKIPIKI:\n\n1. Boxer 150 HD (TZS 15,000/siku)\n2. SanLG 125 (TZS 12,000/siku)\n\nTuma namba kuomba kukodi au 0 kurudi Nyuma.";
     }
   }
 
