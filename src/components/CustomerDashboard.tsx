@@ -537,10 +537,9 @@ export default function CustomerDashboard() {
     { id: 'vifurushi', label: 'PapoSend', icon: Package, color: 'bg-orange-500', sub: 'Tuma vifurushi 📦', category: 'parcel', badge: 'ONLY1K' },
     { id: 'dawa', label: 'PapoMed', icon: Pill, color: 'bg-blue-500', sub: 'Dawa na huduma za afya 💊', category: 'pharmacy', badge: 'ONLY1K' },
     { id: 'saluni', label: 'PapoStyle', icon: Scissors, color: 'bg-pink-500', sub: 'Saluni na beauty services 💇', category: 'salon', badge: 'ONLY1K' },
-    { id: 'hoteli', label: 'PapoStay', icon: Hotel, color: 'bg-indigo-500', sub: 'Booking hoteli 🏨', category: 'hotel', badge: 'ONLY6K' },
+    { id: 'hoteli', label: 'PapoStay', icon: Hotel, color: 'bg-indigo-500', sub: 'Booking hoteli, nyumba na malazi 🏨', category: 'hotel', badge: 'ONLY6K' },
     { id: 'bus_ticket', label: 'PapoBus', icon: Bus, color: 'bg-orange-600', sub: 'Tiketi za mabasi 🚌', category: 'bus_ticket', badge: 'ONLY6K' },
     { id: 'car_rental', label: 'PapoRent', icon: Key, color: 'bg-teal-600', sub: 'Rental ya magari 🚘', category: 'taxi', badge: 'ONLY6K' },
-    { id: 'kodi_nyumba', label: 'PapoHoteli', icon: Home, color: 'bg-amber-600', sub: 'Nyumba/vyumba vya kupanga/kuhifadhi 🏠', category: 'hotel', badge: 'ONLY6K' },
     { id: 'maduka', label: 'PapoMall', icon: ShoppingBag, color: 'bg-purple-500', sub: 'Soko la mtandaoni 🛍️', category: 'ecommerce' },
     { id: 'ramani', label: 'PapoMap', icon: MapPin, color: 'bg-neutral-600', sub: 'Ramani ya karibu 📍', category: 'all' },
   ];

@@ -29,7 +29,6 @@ const serviceMapping: Record<string, { category: VendorCategory, labelKey: strin
   'vifurushi': { category: 'parcel', labelKey: 'PapoSend', icon: Package, color: 'bg-orange-500' },
   'bus_ticket': { category: 'bus_ticket', labelKey: 'PapoBus', icon: Bus, color: 'bg-orange-600' },
   'car_rental': { category: 'taxi', labelKey: 'PapoRent', icon: Key, color: 'bg-teal-600' },
-  'kodi_nyumba': { category: 'hotel', labelKey: 'PapoHoteli', icon: Home, color: 'bg-amber-600' },
   'all-stores': { category: 'all' as any, labelKey: 'all_stores', icon: ShoppingBag, color: 'bg-orange-600' },
 };
 
