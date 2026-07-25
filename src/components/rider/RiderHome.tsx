@@ -44,6 +44,7 @@ import PaymentConfirmScreen from '../tegex/PaymentConfirmScreen';
 import RateCustomerScreen from '../tegex/RateCustomerScreen';
 import { AnimatedRoute } from '../map/AnimatedRoute';
 import AppDownloadButton from '../AppDownloadButton';
+import { Navigation3DHudOverlay } from '../map/Navigation3DHudOverlay';
 
 const getNormalizedCoords = (coords: any): [number, number][] => {
   if (!coords || !Array.isArray(coords)) return [];
@@ -3117,18 +3118,36 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
             )}
 
             {activeRide && !showPayment && !showRating && (
-              <DriverTripSheet 
-                ride={activeRide as any}
-                onArrive={() => handleUpdateStatus('driver_arrived')}
-                onStart={() => handleUpdateStatus('on_trip')}
-                onComplete={handleComplete}
-                onMessage={() => {
-                  setSearchParams({ to: activeRide.customerId });
-                  setIsChatOpen(true);
-                }}
-                isMinimized={isTripMinimized}
-                onToggleMinimize={() => setIsTripMinimized(!isTripMinimized)}
-              />
+              <>
+                <Navigation3DHudOverlay
+                  ride={activeRide as any}
+                  isDriver={true}
+                  driverLocation={{ lat: position[0], lng: position[1] }}
+                  targetLocation={activeRide.status === 'on_trip' ? activeRide.destination : activeRide.pickup}
+                  is3DMode={is3DMode}
+                  onToggle3D={() => setIs3DMode(!is3DMode)}
+                  onRecenter={() => setRecenterTrigger(prev => prev + 1)}
+                  onOpenChat={() => {
+                    setSearchParams({ to: activeRide.customerId });
+                    setIsChatOpen(true);
+                  }}
+                  isVoiceMuted={isMuted}
+                  onToggleVoice={toggleMute}
+                  activeViewersCount={Object.keys((activeRide as any).viewers || {}).length}
+                />
+                <DriverTripSheet 
+                  ride={activeRide as any}
+                  onArrive={() => handleUpdateStatus('driver_arrived')}
+                  onStart={() => handleUpdateStatus('on_trip')}
+                  onComplete={handleComplete}
+                  onMessage={() => {
+                    setSearchParams({ to: activeRide.customerId });
+                    setIsChatOpen(true);
+                  }}
+                  isMinimized={isTripMinimized}
+                  onToggleMinimize={() => setIsTripMinimized(!isTripMinimized)}
+                />
+              </>
             )}
 
             {activeRide && showPayment && (

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -8,6 +8,7 @@ import { Ride } from '../../types/trip.types';
 import { useDriverTracking } from '../../hooks/useDriverTracking';
 import { toast } from 'sonner';
 import { useTheme } from 'next-themes';
+import { Navigation3DHudOverlay } from '../map/Navigation3DHudOverlay';
 
 interface LiveTripScreenProps {
   ride: Ride;
@@ -117,6 +118,9 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
     return 12;
   }, [distance, ride.status, ride.distance, isArriving, (ride as any).initialDistance, (ride as any).totalDistance]);
 
+  const [is3DMode, setIs3DMode] = useState(true);
+  const [isVoiceMuted, setIsVoiceMuted] = useState(false);
+
   const statusText = isArriving ? 'Dereva anakuja...' : 'Safari Inaendelea';
   const targetLabel = isArriving ? 'Eneo la Pickup' : 'Unakokwenda';
   const distanceLabel = isArriving ? 'Umbali kwa Dereva' : 'Distance Left';
@@ -125,7 +129,19 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
     <div 
       className="absolute inset-0 bg-transparent z-50 pointer-events-none"
     >
-      {/* Top Floating Content (HUD) has been removed as requested */}
+      {/* 3D Navigation Guidance HUD Overlay */}
+      <Navigation3DHudOverlay
+        ride={ride}
+        isDriver={false}
+        driverLocation={ride.driverLocation}
+        targetLocation={targetLocation}
+        is3DMode={is3DMode}
+        onToggle3D={() => setIs3DMode(!is3DMode)}
+        onOpenChat={onMessage}
+        isVoiceMuted={isVoiceMuted}
+        onToggleVoice={() => setIsVoiceMuted(!isVoiceMuted)}
+        activeViewersCount={activeViewersCount}
+      />
 
       {/* Bottom Sheet Card */}
       <AnimatePresence>

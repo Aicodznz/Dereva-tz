@@ -327,14 +327,18 @@ export function getPapoWalletText(session: SMSSession): string {
 
 export function getSavedLocationsText(session: SMSSession): string {
   const isEn = session.language === 'en';
-  const home = session.savedLocations?.home || 'Mwenge, Dar es Salaam';
-  const work = session.savedLocations?.work || 'Posta Mpya, Victoria';
-  const custom = session.savedLocations?.custom || 'Mlimani City Mall';
+  const home = session.savedLocations?.home;
+  const work = session.savedLocations?.work;
+  const custom = session.savedLocations?.custom;
+
+  const homeStr = home || (isEn ? '[Not set]' : '[Hajaweka]');
+  const workStr = work || (isEn ? '[Not set]' : '[Hajaweka]');
+  const customStr = custom || (isEn ? '[Not set]' : '[Hajaweka]');
 
   if (isEn) {
-    return `📍 SAVED LOCATIONS (MAENEO PENDWA)\n\n1. 🏠 Home: ${home}\n2. 🏢 Work: ${work}\n3. 🏪 Custom: ${custom}\n\nOptions:\n4. ✏️ Edit Home Address\n5. ✏️ Edit Work Address\n6. ➕ Add Custom Location\n\n0. Main Menu`;
+    return `📍 SAVED LOCATIONS (MAENEO PENDWA)\n\n1. 🏠 Home: ${homeStr}\n2. 🏢 Work: ${workStr}\n3. 🏪 Custom: ${customStr}\n\nActions:\n4. ✏️ Edit Home Address\n5. ✏️ Edit Work Address\n6. ➕ Add Custom Location\n\n0. Main Menu`;
   }
-  return `📍 MAENEO PENDWA (Saved Locations)\n\n1. 🏠 Nyumbani: ${home}\n2. 🏢 Ofisini: ${work}\n3. 🏪 Eneo Lingine: ${custom}\n\nHatua:\n4. ✏️ Hariri Nyumbani\n5. ✏️ Hariri Ofisini\n6. ➕ Weka Eneo Lingine\n\n0. Rudi Mwanzo`;
+  return `📍 MAENEO PENDWA (Saved Locations)\n\n1. 🏠 Nyumbani: ${homeStr}\n2. 🏢 Ofisini: ${workStr}\n3. 🏪 Eneo Lingine: ${customStr}\n\nHatua:\n4. ✏️ Hariri Nyumbani\n5. ✏️ Hariri Ofisini\n6. ➕ Weka Eneo Lingine\n\n0. Rudi Mwanzo`;
 }
 
 export function getVoiceCallbackText(session: SMSSession): string {
@@ -723,8 +727,8 @@ export async function handleSMSInput(
         session.selectedService = 'taxi';
         await saveSession(session, dbAdmin);
         return session.language === 'en'
-          ? "🚕 PapoRide (TAXI & FARE):\n\n1. Quick Ride Booking ⚡\n2. Estimate Fare 🧮\n3. Saved Locations 📍\n4. Split Fare 50/50 🤝\n5. Custom Route 🗺️\n\n0. Main Menu"
-          : "🚕 PapoRide (TAXI & NAULI):\n\n1. Agiza Taxi Haraka ⚡\n2. Kadiria Nauli 🧮\n3. Maeneo Pendwa (Nyumbani/Ofisini) 📍\n4. Gawana Nauli 50/50 🤝\n5. Andika Njia Yako 🗺️\n\n0. Rudi Mwanzo";
+          ? "🚕 PapoRide (TAXI & FARE):\n\n1. Estimate Fare 🧮\n2. Saved Locations 📍\n3. Split Fare 50/50 🤝\n4. Custom Route 🗺️\n\n0. Main Menu"
+          : "🚕 PapoRide (TAXI & NAULI):\n\n1. Kadiria Nauli 🧮\n2. Maeneo Pendwa (Nyumbani/Ofisini) 📍\n3. Gawana Nauli 50/50 🤝\n4. Andika Njia Yako 🗺️\n\n0. Rudi Mwanzo";
       }
       // 2. PapoSend
       else if (selectedDef.key === 'paposend') {
@@ -885,30 +889,26 @@ export async function handleSMSInput(
       return getWelcomeMessage(session, businessConfig);
     }
     const isEn = session.language === 'en';
-    if (cleanInput === '1' || lowerInput.includes('agiza') || lowerInput.includes('haraka') || lowerInput.includes('quick')) {
-      session.step = 'TAXI_QUICK_BOOK';
-      await saveSession(session, dbAdmin);
-      return isEn
-        ? "🚕 PAPORIDE QUICK BOOKING:\n\nFinding nearby drivers...\n1. Bajaji (3 seats) - TZS 4,000\n2. Gari / Mini (4 seats) - TZS 7,500\n3. Bodaboda (1 seat) - TZS 2,500\n\nReply with option number or 0 to Back."
-        : "🚕 PAPORIDE AGIZA HARAKA:\n\nInatafuta madereva wa karibu...\n1. Bajaji (Siti 3) - TZS 4,000\n2. Gari / Mini (Siti 4) - TZS 7,500\n3. Bodaboda (Siti 1) - TZS 2,500\n\nTuma namba kuchagua usafiri au 0 kurudi Nyuma.";
-    } else if (cleanInput === '2' || lowerInput.includes('kadirio') || lowerInput.includes('nauli') || lowerInput.includes('estimate')) {
-      session.step = 'TAXI_FARE_ESTIMATE';
+    if (cleanInput === '1' || lowerInput.includes('kadirio') || lowerInput.includes('nauli') || lowerInput.includes('estimate')) {
+      session.step = 'TAXI_FARE_ESTIMATE_INPUT';
+      session.selectedService = 'taxi';
       await saveSession(session, dbAdmin);
       return isEn
         ? "💰 FARE ESTIMATION:\n\nPlease enter your travel route (Origin - Destination).\nExample: POSTA - KINONDONI"
         : "💰 KADIRIO LA NAULI:\n\nTafadhali tuma njia unayotaka kusafiri (Kutoka - Kwenda).\nMfano: POSTA - KINONDONI";
-    } else if (cleanInput === '3' || lowerInput.includes('eneo') || lowerInput.includes('maeneo') || lowerInput.includes('saved')) {
+    } else if (cleanInput === '2' || lowerInput.includes('eneo') || lowerInput.includes('maeneo') || lowerInput.includes('saved')) {
       session.step = 'SAVED_LOCATIONS_MENU';
       await saveSession(session, dbAdmin);
       return getSavedLocationsText(session);
-    } else if (cleanInput === '4' || lowerInput.includes('gawana') || lowerInput.includes('split')) {
-      session.step = 'PAPOWALLET_SPLIT_FARE';
+    } else if (cleanInput === '3' || lowerInput.includes('gawana') || lowerInput.includes('split')) {
+      session.step = 'PAPOWALLET_SPLIT_PHONE';
       await saveSession(session, dbAdmin);
       return isEn
         ? "💸 SPLIT FARE 50/50:\n\nPlease enter the phone number of the passenger you want to share fare with:\nExample: 0712345678"
         : "💸 GAWANA NAULI 50/50:\n\nTafadhali ingiza namba ya simu ya abiria mwenzako wa kugawana naye nauli:\nMfano: 0712345678";
-    } else if (cleanInput === '5' || lowerInput.includes('njia') || lowerInput.includes('route') || lowerInput.includes('custom')) {
+    } else if (cleanInput === '4' || lowerInput.includes('njia') || lowerInput.includes('route') || lowerInput.includes('custom')) {
       session.step = 'TAXI_ROUTE';
+      session.selectedService = 'taxi';
       await saveSession(session, dbAdmin);
       return isEn
         ? "🗺️ CUSTOM ROUTE:\n\nPlease enter pick up and drop off locations:\nExample: Mwenge Bus Stand to Posta House"
@@ -1271,10 +1271,10 @@ export async function handleSMSInput(
     if (cleanInput === '0') {
       session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
-      return getWelcomeMessage(session);
+      return getWelcomeMessage(session, businessConfig);
     }
 
-    if (cleanInput === '4') {
+    if (cleanInput === '1' || cleanInput === '4' || lowerInput.includes('nyumbani') || lowerInput.includes('home')) {
       session.step = 'EDIT_HOME_LOCATION';
       await saveSession(session, dbAdmin);
       return session.language === 'en'
@@ -1282,7 +1282,7 @@ export async function handleSMSInput(
         : "🏠 HARIRI ANWANI YA NYUMBANI\n\nIngiza anwani mpya ya nyumbani (mfano Kinondoni Studio, Dar es Salaam):\n\n0. Ghairi";
     }
 
-    if (cleanInput === '5') {
+    if (cleanInput === '2' || cleanInput === '5' || lowerInput.includes('ofisini') || lowerInput.includes('work')) {
       session.step = 'EDIT_WORK_LOCATION';
       await saveSession(session, dbAdmin);
       return session.language === 'en'
@@ -1290,7 +1290,7 @@ export async function handleSMSInput(
         : "🏢 HARIRI ANWANI YA OFISINI\n\nIngiza anwani mpya ya ofisini (mfano Victoria Tower, Bagamoyo Road):\n\n0. Ghairi";
     }
 
-    if (cleanInput === '6') {
+    if (cleanInput === '3' || cleanInput === '6' || lowerInput.includes('lingine') || lowerInput.includes('custom') || lowerInput.includes('weka')) {
       session.step = 'EDIT_CUSTOM_LOCATION';
       await saveSession(session, dbAdmin);
       return session.language === 'en'
@@ -1560,7 +1560,13 @@ export async function handleSMSInput(
   }
 
   // 2. FARE ESTIMATE HANDLERS
-  if (session.step === 'TAXI_FARE_ESTIMATE_INPUT' && session.selectedService === 'taxi') {
+  if (session.step === 'TAXI_FARE_ESTIMATE_INPUT' || session.step === 'TAXI_FARE_ESTIMATE') {
+    if (cleanInput === '0') {
+      session.step = 'TAXI_SUBMENU';
+      await saveSession(session, dbAdmin);
+      return getWelcomeMessage(session, businessConfig);
+    }
+    session.selectedService = 'taxi';
     const parsed = splitTwoLocations(cleanInput);
     let pickupQuery = "Mwenge";
     let destQuery = cleanInput;
@@ -1573,37 +1579,37 @@ export async function handleSMSInput(
     const pickupRes = await resolvePlace(pickupQuery, dbAdmin);
     const destRes = await resolvePlace(destQuery, dbAdmin);
 
-    const pLoc = pickupRes.matches[0] ? {
+    const pLoc = pickupRes.matches && pickupRes.matches[0] ? {
       placeId: pickupRes.matches[0].placeId || "TZ-DSM-MWENGE",
-      name: pickupRes.matches[0].name || "Mwenge",
-      address: pickupRes.matches[0].displayName || "Mwenge, Dar es Salaam",
+      name: pickupRes.matches[0].name || pickupQuery,
+      address: pickupRes.matches[0].displayName || `${pickupQuery}, Dar es Salaam`,
       lat: typeof pickupRes.matches[0].latitude === 'number' ? pickupRes.matches[0].latitude : -6.7681,
       lng: typeof pickupRes.matches[0].longitude === 'number' ? pickupRes.matches[0].longitude : 39.2274
     } : {
       placeId: "TZ-DSM-MWENGE",
-      name: "Mwenge",
-      address: "Mwenge, Kinondoni, Dar es Salaam",
+      name: pickupQuery,
+      address: `${pickupQuery}, Kinondoni, Dar es Salaam`,
       lat: -6.7681,
       lng: 39.2274
     };
 
-    const dLoc = destRes.matches[0] ? {
+    const dLoc = destRes.matches && destRes.matches[0] ? {
       placeId: destRes.matches[0].placeId || "TZ-DSM-POSTA",
-      name: destRes.matches[0].name || "Posta",
-      address: destRes.matches[0].displayName || "Posta, Dar es Salaam",
+      name: destRes.matches[0].name || destQuery,
+      address: destRes.matches[0].displayName || `${destQuery}, Dar es Salaam`,
       lat: typeof destRes.matches[0].latitude === 'number' ? destRes.matches[0].latitude : -6.8164,
       lng: typeof destRes.matches[0].longitude === 'number' ? destRes.matches[0].longitude : 39.2902
     } : {
       placeId: "TZ-DSM-POSTA",
-      name: "Posta",
-      address: "Posta, Ilala, Dar es Salaam",
+      name: destQuery,
+      address: `${destQuery}, Dar es Salaam`,
       lat: -6.8164,
       lng: 39.2902
     };
 
     const routeInfo = await getRoadDistanceAndDuration(pLoc, dLoc);
-    const distKm = routeInfo.distanceKm;
-    const durMin = routeInfo.durationMin;
+    let distKm = routeInfo.distanceKm || 7.5;
+    let durMin = routeInfo.durationMin || 18;
 
     // Standard Rates + TZS 500 USSD Surcharge
     const USSD_FEE = 500;
@@ -1626,6 +1632,11 @@ export async function handleSMSInput(
     session.step = 'TAXI_FARE_ESTIMATE_CONFIRM';
     await saveSession(session, dbAdmin);
 
+    const isEn = session.language === 'en';
+    if (isEn) {
+      return `🧮 FARE ESTIMATE\n\n📍 From: ${pLoc.name}\n🏁 To: ${dLoc.name}\n📏 Distance: ${distKm} km (~${durMin} mins)\n\n💰 ESTIMATED FARES:\n1. Bodaboda 🏍️: TZS ${bodaFare.toLocaleString()}\n2. Bajaji 🛺: TZS ${bajajFare.toLocaleString()}\n3. Taxi Car 🚕: TZS ${carFare.toLocaleString()}\n\nReply with option number (1-3) to book now, or 0 to Back.`;
+    }
+
     let reply = `🧮 *KADIRIO LA NAULI (FARE ESTIMATE)*\n\n`;
     reply += `📍 Kutoka: *${pLoc.name}*\n`;
     reply += `🏁 Kwenda: *${dLoc.name}*\n`;
@@ -1638,7 +1649,7 @@ export async function handleSMSInput(
     return reply;
   }
 
-  if (session.step === 'TAXI_FARE_ESTIMATE_CONFIRM' && session.selectedService === 'taxi') {
+  if (session.step === 'TAXI_FARE_ESTIMATE_CONFIRM') {
     const calcData = session.optionsList?.[0];
     if (cleanInput === '0') {
       session.step = 'SELECT_SERVICE';
