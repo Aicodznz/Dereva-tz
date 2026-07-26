@@ -541,7 +541,7 @@ export default function TaxiBooking() {
   const [waitingTime, setWaitingTime] = useState(0); // minutes
   const [secondsOffset, setSecondsOffset] = useState<number>(0);
   const [mapType, setMapType] = useState<'standard' | 'satellite'>('standard');
-  const [showHeatMap, setShowHeatMap] = useState<boolean>(true);
+  const [showHeatMap, setShowHeatMap] = useState<boolean>(false);
   const [heatMapCategory, setHeatMapCategory] = useState<'all' | 'taxi' | 'food' | 'parcel' | 'mart'>('all');
   const [selectedHeatZone, setSelectedHeatZone] = useState<HeatZone | null>(null);
   const [manualRotation, setManualRotation] = useState(0);

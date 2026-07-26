@@ -371,7 +371,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
   const [manualRotation, setManualRotation] = useState(0);
   const [is3DMode, setIs3DMode] = useState(false);
   const [showRoadAlerts, setShowRoadAlerts] = useState(true);
-  const [showHeatMap, setShowHeatMap] = useState<boolean>(true);
+  const [showHeatMap, setShowHeatMap] = useState<boolean>(false);
   const [heatMapCategory, setHeatMapCategory] = useState<'all' | 'taxi' | 'food' | 'parcel' | 'mart'>('all');
   const [selectedHeatZone, setSelectedHeatZone] = useState<HeatZone | null>(null);
   const [showEarningsModal, setShowEarningsModal] = useState(false);

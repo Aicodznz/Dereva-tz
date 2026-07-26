@@ -237,7 +237,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
   const [selectedVendorReviews, setSelectedVendorReviews] = useState<any[]>([]);
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [mapType, setMapType] = useState<'standard' | 'satellite'>('standard');
-  const [showHeatMap, setShowHeatMap] = useState(true);
+  const [showHeatMap, setShowHeatMap] = useState(false);
   const [isMapExpanded, setIsMapExpanded] = useState(false);
   const [recentPlaces, setRecentPlaces] = useState<{ address: string; lat: number; lng: number }[]>([]);
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
