@@ -287,7 +287,7 @@ const createTrafficLightIcon = (color: 'red' | 'yellow' | 'green') => {
         <div class="w-7 h-14 bg-neutral-900 border border-neutral-700 rounded-full flex flex-col justify-between items-center p-1.5 shadow-2xl">
           <div class="w-3 h-3 rounded-full ${color === 'red' ? 'bg-red-500 shadow-[0_0_8px_#ef4444]' : 'bg-red-950'} transition-all duration-300"></div>
           <div class="w-3 h-3 rounded-full ${color === 'yellow' ? 'bg-yellow-400 shadow-[0_0_8px_#facc15]' : 'bg-yellow-950'} transition-all duration-300"></div>
-          <div class="w-3 h-3 rounded-full ${color === 'green' ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-emerald-950'} transition-all duration-300 animate-pulse"></div>
+          <div class="w-3 h-3 rounded-full ${color === 'green' ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-emerald-950'} transition-all duration-300"></div>
         </div>
         <div class="w-1 h-3 bg-neutral-700"></div>
       </div>
@@ -302,8 +302,7 @@ const createConstructionIcon = () => {
   return L.divIcon({
     html: `
       <div class="relative flex items-center justify-center w-10 h-10">
-        <div class="absolute inset-0 rounded-full bg-orange-500/20 animate-ping"></div>
-        <div class="absolute inset-1 rounded-full border border-orange-500/40 bg-orange-500/10 animate-pulse"></div>
+        <div class="absolute inset-0 rounded-full bg-orange-500/10 border border-orange-500/30"></div>
         <div class="relative w-8 h-8 rounded-full bg-orange-600 border border-orange-400 flex items-center justify-center text-sm shadow-xl text-white">
           🚧
         </div>
@@ -319,8 +318,7 @@ const createClosedRoadIcon = () => {
   return L.divIcon({
     html: `
       <div class="relative flex items-center justify-center w-10 h-10">
-        <div class="absolute inset-0 rounded-full bg-red-500/20 animate-ping"></div>
-        <div class="absolute inset-1 rounded-full border border-red-500/40 bg-red-500/10 animate-pulse"></div>
+        <div class="absolute inset-0 rounded-full bg-red-500/10 border border-red-500/30"></div>
         <div class="relative w-8 h-8 rounded-full bg-red-600 border border-red-400 flex items-center justify-center text-sm shadow-xl text-white">
           ⛔
         </div>
@@ -336,7 +334,7 @@ const createCornerIcon = (direction: 'left' | 'right') => {
   return L.divIcon({
     html: `
       <div class="relative flex items-center justify-center w-8 h-8">
-        <div class="absolute inset-0 rounded-full border border-amber-500 bg-amber-500/10 animate-pulse"></div>
+        <div class="absolute inset-0 rounded-full border border-amber-500/40 bg-amber-500/10"></div>
         <div class="relative w-6 h-6 rounded-full bg-amber-500 border border-amber-400 flex items-center justify-center font-bold text-xs shadow-xl text-neutral-900 font-sans">
           ${direction === 'left' ? '↰' : '↱'}
         </div>
@@ -615,31 +613,16 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
         }
       }
     } else {
-      // Offline / Waiting mode nearby alerts - Real fixed coordinates across Dar es Salaam (Ubungo, Morocco, Mwenge, Posta, Sinza, Jangwani)
+      // Offline / Waiting mode nearby alerts - dynamically centered on user's current GPS position
+      const cLat = position ? position[0] : -6.7924;
+      const cLng = position ? position[1] : 39.2083;
+
       alerts.push(
-        // UBUNGO AREA
-        { id: 'ra1', type: 'traffic_light', title: 'Taa za Trafiki (Ubungo)', desc: 'Taa za barabarani Ubungo Interchange zinafanya kazi vizuri. Chunga ishara za rangi!', lat: -6.7972, lng: 39.2086 },
-        { id: 'ra4', type: 'corner_left', title: 'Kona Kali Kushoto (Ubungo Flyover)', desc: 'Kona hatari wakati wa kushuka kutoka juu ya barabara ya interchange.', lat: -6.7955, lng: 39.2065 },
-        
-        // MOROCCO / KINONDONI AREA
-        { id: 'ra3', type: 'closed', title: 'Njia Imefungwa - Morocco Access', desc: 'Barabara imefungwa karibu na kituo cha mwendokasi cha Morocco, magari yote yanatakiwa kuchepuka.', lat: -6.7885, lng: 39.2604 },
-        { id: 'ra-morocco-light', type: 'traffic_light', title: 'Taa za Trafiki (Morocco)', desc: 'Taa za makutano ya Morocco zinafanya kazi vizuri. Zingatia ishara za usalama.', lat: -6.7905, lng: 39.2595 },
-        { id: 'ra-morocco-corner', type: 'corner_right', title: 'Kona Kali Kulia (Morocco Loop)', desc: 'Kona kali ya kuingia upande wa Morocco kutoka barabara kuu.', lat: -6.7875, lng: 39.2615 },
-        
-        // MWENGE AREA
-        { id: 'ra-mwenge-light', type: 'traffic_light', title: 'Taa za Trafiki (Mwenge)', desc: 'Taa za makutano makubwa ya Mwenge (karibu na Mlimani City) zinafanya kazi vizuri.', lat: -6.7681, lng: 39.2274 },
-        { id: 'ra2', type: 'construction', title: 'Barabara Inajengwa (Sam Nujoma Rd)', desc: 'Matengenezo ya barabara kuu ya Sam Nujoma, mabehewa ya ujenzi yamepaki.', lat: -6.7720, lng: 39.2250 },
-        
-        // POSTA AREA
-        { id: 'ra-posta-light', type: 'traffic_light', title: 'Taa za Trafiki (Posta Mpya)', desc: 'Taa za makutano ya barabara ya Azikiwe na Samora zinasoma vizuri.', lat: -6.8164, lng: 39.2902 },
-        { id: 'ra-posta-closed', type: 'closed', title: 'Njia Imefungwa (Kivukoni Front)', desc: 'Kipande cha barabara kimefungwa kwa muda karibu na kivuko kutokana na dharura.', lat: -6.8190, lng: 39.2940 },
-
-        // SINZA AREA
-        { id: 'ra-sinza-construction', type: 'construction', title: 'Barabara Inajengwa (Sinza Mori)', desc: 'Maboresho ya miundombinu na uwekaji wa lami mpya kwenye barabara ya kuingia Sinza Mori.', lat: -6.7780, lng: 39.2200 },
-        { id: 'ra5', type: 'corner_right', title: 'Kona Kali Kulia (Shekilango)', desc: 'Kona kali ya kuingia mtaa salama upande wa kulia kutokea Shekilango.', lat: -6.7820, lng: 39.2150 },
-
-        // JANGWANI / MSIMBAZI AREA
-        { id: 'ra-jangwani-closed', type: 'closed', title: 'Barabara Imefungwa (Jangwani)', desc: 'Njia imefungwa kutokana na maji kupita juu ya daraja la Jangwani, tafadhali tumia michepuko mbadala.', lat: -6.8080, lng: 39.2650 }
+        { id: 'ra-curr-light', type: 'traffic_light', title: 'Taa za Trafiki (Eneo la Sasa)', desc: 'Taa za barabarani katika makutano ya karibu. Zingatia ishara za rangi!', lat: cLat + 0.0022, lng: cLng + 0.0015 },
+        { id: 'ra-curr-construction', type: 'construction', title: 'Barabara Inajengwa (Eneo la Sasa)', desc: 'Matengenezo ya barabara mita chache kutoka ulipo. Punguza kasi!', lat: cLat - 0.0018, lng: cLng + 0.0025 },
+        { id: 'ra-curr-closed', type: 'closed', title: 'Njia Imefungwa / Mchepuko', desc: 'Kipande cha barabara kimefungwa karibu nawe, fuata ishara za mchepuko.', lat: cLat - 0.0030, lng: cLng - 0.0020 },
+        { id: 'ra-curr-corner-l', type: 'corner_left', title: 'Kona Kali Kushoto', desc: 'Kona kali ya kuingia mtaa salama upande wa kushoto.', lat: cLat + 0.0012, lng: cLng - 0.0022 },
+        { id: 'ra-curr-corner-r', type: 'corner_right', title: 'Kona Kali Kulia', desc: 'Kona kali inayofuata mbele upande wa kulia.', lat: cLat + 0.0032, lng: cLng - 0.0010 }
       );
     }
     return alerts;
@@ -2552,7 +2535,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
                   <Popup>
                     <div className="p-3 max-w-[200px] text-center space-y-1 bg-white dark:bg-[#111118] text-neutral-850 dark:text-white rounded-xl">
                       <div className="flex items-center gap-1.5 justify-center mb-1">
-                        {alert.type === 'traffic_light' && <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping" />}
+                        {alert.type === 'traffic_light' && <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full" />}
                         {alert.type === 'construction' && <span className="text-orange-500 font-bold">🚧</span>}
                         {alert.type === 'closed' && <span className="text-red-500 font-bold">⛔</span>}
                         <h4 className="font-black text-[11px] uppercase tracking-wider text-neutral-900 dark:text-neutral-100 leading-tight">
