@@ -2038,15 +2038,7 @@ export function useFirebaseBooking(tripId: string) {
                     <ChevronRight className="w-4 h-4" />
                   </button>
 
-                  <a
-                    href={`https://wa.me/14155238886?text=${encodeURIComponent(`Hi! Nataka kukata tiketi ya basi kutoka ${product?.origin || 'Dar es Salaam'} kwenda ${product?.destination || 'Mwanza'} - Basi: ${product?.name}`)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase tracking-widest shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer font-sans"
-                  >
-                    <MessageCircle className="w-4 h-4 shrink-0" />
-                    <span>Kata kwa WhatsApp Bot (Automatic)</span>
-                  </a>
+
 
                   {step === 1 && selectedSeats.length === 0 && (
                     <p className="text-[10px] text-red-500 font-bold text-center mt-2 uppercase font-sans">Chagua angalau Kiti kimoja kwanza!</p>
@@ -2993,15 +2985,7 @@ export function useFirebaseBooking(tripId: string) {
                       <ChevronRight className="w-4 h-4 stroke-[2.5] animate-pulse" />
                     </button>
 
-                    <a
-                      href={`https://wa.me/14155238886?text=${encodeURIComponent(`Hi! Nataka kukata tiketi ya basi kutoka ${product?.origin || 'Dar es Salaam'} kwenda ${product?.destination || 'Mwanza'} - Basi: ${product?.name}`)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-widest shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer text-center"
-                    >
-                      <MessageCircle className="w-4 h-4 shrink-0" />
-                      <span>Kata kwa WhatsApp Bot (Automatic)</span>
-                    </a>
+
                   </div>
                 ) : (
                   <div className="flex gap-2.5 font-sans">

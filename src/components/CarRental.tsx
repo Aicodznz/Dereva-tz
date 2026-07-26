@@ -1109,15 +1109,7 @@ export default function CarRental() {
                     <ChevronRight className="w-4 h-4" />
                   </button>
 
-                  <a 
-                    href={`https://wa.me/14155238886?text=${encodeURIComponent(`Hi! Nataka kukodi gari la: ${selectedCar?.brand} ${selectedCar?.name}`)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-xs uppercase tracking-widest shadow-md flex items-center justify-center gap-2 transition active:scale-[0.98]"
-                  >
-                    <MessageCircle className="w-4 h-4 shrink-0" />
-                    <span>{language === 'sw' ? 'Kodi kwa WhatsApp Bot (Automatic)' : 'Book via WhatsApp Bot'}</span>
-                  </a>
+
                 </div>
               </div>
             </div>

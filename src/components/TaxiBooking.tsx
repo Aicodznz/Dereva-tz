@@ -3992,17 +3992,7 @@ export default function TaxiBooking() {
                     <ArrowRight className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />
                   </button>
 
-                  {destination && selectedRide && (
-                    <a
-                      href={`https://wa.me/14155238886?text=${encodeURIComponent(`Hi! Nataka kuagiza Taxi ya ${selectedRide.name} kutoka ${pickup} kwenda ${destination}`)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full h-12 mt-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black uppercase text-[10px] tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md shrink-0"
-                    >
-                      <MessageCircle className="w-4 h-4 shrink-0" />
-                      <span>Agiza kwa WhatsApp Bot (Automatic)</span>
-                    </a>
-                  )}
+
                 </motion.div>
               )}
 
