@@ -280,70 +280,146 @@ let DefaultIcon = L.icon({
 
 L.Marker.prototype.options.icon = DefaultIcon;
 
-const createTrafficLightIcon = (color: 'red' | 'yellow' | 'green') => {
+const getDistanceInMeters = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
+export const ROAD_STATUS_POINTS = [
+  // UBUNGO AREA
+  { id: 'rsp-ubungo-light', type: 'traffic_light', name: 'Mataa – Ubungo', title: 'Taa za Trafiki (Ubungo Interchange)', desc: 'Taa za barabarani Ubungo Interchange zinafanya kazi vizuri. Chunga ishara za rangi!', lat: -6.7972, lng: 39.2086 },
+  { id: 'rsp-ubungo-curve', type: 'sharp_curve', name: 'Kona Kali – Ubungo Flyover', title: 'Kona Kali Kushoto (Ubungo Flyover)', desc: 'Kona hatari wakati wa kushuka kutoka juu ya barabara ya interchange.', lat: -6.7955, lng: 39.2065 },
+
+  // MOROCCO / KINONDONI
+  { id: 'rsp-morocco-light', type: 'traffic_light', name: 'Mataa – Morocco', title: 'Taa za Trafiki (Morocco)', desc: 'Taa za makutano ya Morocco zinafanya kazi vizuri. Zingatia ishara za usalama.', lat: -6.7905, lng: 39.2595 },
+  { id: 'rsp-morocco-closed', type: 'road_closed', name: 'Njia Imefungwa – Morocco', title: 'Njia Imefungwa (Morocco Access)', desc: 'Barabara imefungwa karibu na kituo cha mwendokasi cha Morocco, mabehewa yanachepuka.', lat: -6.7885, lng: 39.2604 },
+
+  // MWENGE & SAM NUJOMA
+  { id: 'rsp-mwenge-light', type: 'traffic_light', name: 'Mataa – Mwenge', title: 'Taa za Trafiki (Mwenge)', desc: 'Taa za makutano makubwa ya Mwenge (karibu na Mlimani City) zinafanya kazi vizuri.', lat: -6.7681, lng: 39.2274 },
+  { id: 'rsp-nujoma-construction', type: 'road_construction', name: 'Barabara Inajengwa – Sam Nujoma', title: 'Barabara Inajengwa (Sam Nujoma Rd)', desc: 'Matengenezo ya barabara kuu ya Sam Nujoma, mabehewa ya ujenzi yamepaki.', lat: -6.7720, lng: 39.2250 },
+
+  // JANGWANI / MSIMBAZI
+  { id: 'rsp-jangwani-closed', type: 'road_closed', name: 'Barabara Imefungwa – Jangwani', title: 'Barabara Imefungwa (Daraja la Jangwani)', desc: 'Njia imefungwa kutokana na maji kupita juu ya daraja la Jangwani, tumia michepuko mbadala.', lat: -6.8080, lng: 39.2650 },
+
+  // POSTA MPYA & KIVUKONI
+  { id: 'rsp-posta-light', type: 'traffic_light', name: 'Mataa – Posta Mpya', title: 'Taa za Trafiki (Posta Mpya)', desc: 'Taa za makutano ya barabara ya Azikiwe na Samora zinasoma vizuri.', lat: -6.8164, lng: 39.2902 },
+  { id: 'rsp-kivukoni-closed', type: 'road_closed', name: 'Njia Imefungwa – Kivukoni', title: 'Njia Imefungwa (Kivukoni Front)', desc: 'Kipande cha barabara kimefungwa kwa muda karibu na kivuko kutokana na dharura.', lat: -6.8190, lng: 39.2940 },
+
+  // SINZA & SHEKILANGO
+  { id: 'rsp-sinza-construction', type: 'road_construction', name: 'Barabara Inajengwa – Sinza Mori', title: 'Barabara Inajengwa (Sinza Mori)', desc: 'Maboresho ya miundombinu na uwekaji wa lami mpya kwenye barabara ya kuingia Sinza Mori.', lat: -6.7780, lng: 39.2200 },
+  { id: 'rsp-shekilango-curve', type: 'sharp_curve', name: 'Kona Kali – Shekilango', title: 'Kona Kali Kulia (Shekilango)', desc: 'Kona kali ya kuingia mtaa salama upande wa kulia kutokea Shekilango.', lat: -6.7820, lng: 39.2150 },
+
+  // TAZARA & VICTORIA
+  { id: 'rsp-tazara-light', type: 'traffic_light', name: 'Mataa – Tazara Flyover', title: 'Taa za Trafiki (Tazara Flyover)', desc: 'Taa za makutano ya Nyerere Road na Mandela Road (Tazara) zinafanya kazi vizuri.', lat: -6.8290, lng: 39.2450 },
+  { id: 'rsp-victoria-light', type: 'traffic_light', name: 'Mataa – Victoria', title: 'Taa za Trafiki (Victoria Bagamoyo Rd)', desc: 'Taa za makutano ya Victoria katika barabara ya Bagamoyo zinafanya kazi vyema.', lat: -6.7785, lng: 39.2505 }
+];
+
+const createAnchoredRoadStatusIcon = (
+  type: string,
+  name: string,
+  isNearby: boolean,
+  distMeters?: number,
+  trafficColor: 'red' | 'yellow' | 'green' = 'green'
+) => {
+  let iconContent = '';
+  let badgeTheme = 'bg-emerald-600 text-white border-emerald-400';
+
+  if (type === 'traffic_light') {
+    const lightGlow = trafficColor === 'red' ? 'bg-red-500 shadow-[0_0_10px_#ef4444]' : trafficColor === 'yellow' ? 'bg-yellow-400 shadow-[0_0_10px_#facc15]' : 'bg-emerald-500 shadow-[0_0_10px_#10b981]';
+    iconContent = `
+      <div class="w-6 h-11 bg-neutral-900 border border-neutral-700 rounded-full flex flex-col justify-between items-center p-1 shadow-2xl">
+        <div class="w-2.5 h-2.5 rounded-full ${trafficColor === 'red' ? lightGlow : 'bg-red-950'} transition-all duration-300"></div>
+        <div class="w-2.5 h-2.5 rounded-full ${trafficColor === 'yellow' ? lightGlow : 'bg-yellow-950'} transition-all duration-300"></div>
+        <div class="w-2.5 h-2.5 rounded-full ${trafficColor === 'green' ? lightGlow : 'bg-emerald-950'} transition-all duration-300"></div>
+      </div>
+    `;
+    badgeTheme = trafficColor === 'red' ? 'bg-red-900/90 text-red-100 border-red-500/50' : 'bg-emerald-900/90 text-emerald-100 border-emerald-500/50';
+  } else if (type === 'road_construction' || type === 'construction') {
+    iconContent = `
+      <div class="w-8 h-8 rounded-full bg-orange-600 border border-orange-400 flex items-center justify-center text-sm shadow-xl text-white">
+        🚧
+      </div>
+    `;
+    badgeTheme = 'bg-orange-950/90 text-orange-200 border-orange-500/50';
+  } else if (type === 'road_closed' || type === 'closed') {
+    iconContent = `
+      <div class="w-8 h-8 rounded-full bg-red-600 border border-red-400 flex items-center justify-center text-sm shadow-xl text-white">
+        ⛔
+      </div>
+    `;
+    badgeTheme = 'bg-red-950/90 text-red-200 border-red-500/50';
+  } else {
+    // sharp_curve / corner
+    const isLeft = type === 'corner_left';
+    iconContent = `
+      <div class="w-7 h-7 rounded-full bg-amber-500 border border-amber-300 flex items-center justify-center font-bold text-xs shadow-xl text-neutral-900 font-sans">
+        ${isLeft ? '↰' : '↱'}
+      </div>
+    `;
+    badgeTheme = 'bg-amber-950/90 text-amber-200 border-amber-500/50';
+  }
+
+  // When nearby (<= 500m), trigger animated glowing radar rings + bouncing alert label
+  const proximityGlow = isNearby ? `
+    <div class="absolute -inset-3 rounded-full bg-red-500/25 animate-ping pointer-events-none"></div>
+    <div class="absolute -inset-2 rounded-full border-2 border-red-500/80 animate-pulse pointer-events-none"></div>
+  ` : '';
+
+  const distText = distMeters !== undefined && distMeters < 1000 
+    ? `${Math.round(distMeters)}m` 
+    : distMeters !== undefined 
+      ? `${(distMeters / 1000).toFixed(1)}km` 
+      : '';
+
+  const labelClass = isNearby
+    ? 'bg-red-600 text-white font-black text-[10px] px-2.5 py-0.5 rounded-full shadow-2xl border-2 border-white animate-bounce tracking-tight whitespace-nowrap flex items-center gap-1 z-20'
+    : `${badgeTheme} font-bold text-[9px] px-2 py-0.5 rounded-md shadow-md border tracking-tight whitespace-nowrap z-10`;
+
   return L.divIcon({
     html: `
-      <div class="relative flex flex-col items-center">
-        <div class="w-7 h-14 bg-neutral-900 border border-neutral-700 rounded-full flex flex-col justify-between items-center p-1.5 shadow-2xl">
-          <div class="w-3 h-3 rounded-full ${color === 'red' ? 'bg-red-500 shadow-[0_0_8px_#ef4444]' : 'bg-red-950'} transition-all duration-300"></div>
-          <div class="w-3 h-3 rounded-full ${color === 'yellow' ? 'bg-yellow-400 shadow-[0_0_8px_#facc15]' : 'bg-yellow-950'} transition-all duration-300"></div>
-          <div class="w-3 h-3 rounded-full ${color === 'green' ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-emerald-950'} transition-all duration-300"></div>
+      <div class="relative flex flex-col items-center justify-center select-none" style="transform: translate(-50%, -50%);">
+        ${proximityGlow}
+        
+        <!-- Icon Container -->
+        <div class="relative flex items-center justify-center z-10 transition-transform duration-300 ${isNearby ? 'scale-110' : ''}">
+          ${iconContent}
         </div>
-        <div class="w-1 h-3 bg-neutral-700"></div>
+
+        <!-- Location Label Tag (e.g. Mataa – Ubungo) -->
+        <div class="mt-1 ${labelClass}">
+          ${isNearby ? '<span class="text-[9px]">⚠️</span>' : ''}
+          <span>${name}</span>
+          ${isNearby && distText ? `<span class="opacity-90 font-mono text-[8.5px] ml-0.5">(${distText})</span>` : ''}
+        </div>
       </div>
     `,
-    className: 'custom-leaflet-traffic-light',
-    iconSize: [28, 68],
-    iconAnchor: [14, 68]
+    className: 'custom-anchored-road-status-marker',
+    iconSize: [140, 60],
+    iconAnchor: [70, 30]
   });
+};
+
+const createTrafficLightIcon = (color: 'red' | 'yellow' | 'green') => {
+  return createAnchoredRoadStatusIcon('traffic_light', 'Mataa', false, undefined, color);
 };
 
 const createConstructionIcon = () => {
-  return L.divIcon({
-    html: `
-      <div class="relative flex items-center justify-center w-10 h-10">
-        <div class="absolute inset-0 rounded-full bg-orange-500/10 border border-orange-500/30"></div>
-        <div class="relative w-8 h-8 rounded-full bg-orange-600 border border-orange-400 flex items-center justify-center text-sm shadow-xl text-white">
-          🚧
-        </div>
-      </div>
-    `,
-    className: 'custom-leaflet-construction',
-    iconSize: [40, 40],
-    iconAnchor: [20, 20]
-  });
+  return createAnchoredRoadStatusIcon('road_construction', 'Barabara Inajengwa', false);
 };
 
 const createClosedRoadIcon = () => {
-  return L.divIcon({
-    html: `
-      <div class="relative flex items-center justify-center w-10 h-10">
-        <div class="absolute inset-0 rounded-full bg-red-500/10 border border-red-500/30"></div>
-        <div class="relative w-8 h-8 rounded-full bg-red-600 border border-red-400 flex items-center justify-center text-sm shadow-xl text-white">
-          ⛔
-        </div>
-      </div>
-    `,
-    className: 'custom-leaflet-closed-road',
-    iconSize: [40, 40],
-    iconAnchor: [20, 20]
-  });
+  return createAnchoredRoadStatusIcon('road_closed', 'Njia Imefungwa', false);
 };
 
 const createCornerIcon = (direction: 'left' | 'right') => {
-  return L.divIcon({
-    html: `
-      <div class="relative flex items-center justify-center w-8 h-8">
-        <div class="absolute inset-0 rounded-full border border-amber-500/40 bg-amber-500/10"></div>
-        <div class="relative w-6 h-6 rounded-full bg-amber-500 border border-amber-400 flex items-center justify-center font-bold text-xs shadow-xl text-neutral-900 font-sans">
-          ${direction === 'left' ? '↰' : '↱'}
-        </div>
-      </div>
-    `,
-    className: 'custom-leaflet-corner',
-    iconSize: [32, 32],
-    iconAnchor: [16, 16]
-  });
+  return createAnchoredRoadStatusIcon(direction === 'left' ? 'corner_left' : 'corner_right', 'Kona Kali', false);
 };
 
 interface RiderHomeProps {
@@ -541,9 +617,23 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
   const { ride: activeRide } = useRideStatus(rideId);
   const [realTripRoute, setRealTripRoute] = useState<[number, number][]>([]);
 
-  // Road Alerts / Status generator around current position or active route
+  // Road Alerts / Status generator anchored at specific fixed map coordinates
   const roadAlerts = useMemo(() => {
-    const alerts = [];
+    const userLat = position ? position[0] : null;
+    const userLng = position ? position[1] : null;
+
+    const basePoints = ROAD_STATUS_POINTS.map(point => {
+      let distanceMeters = 999999;
+      if (userLat !== null && userLng !== null) {
+        distanceMeters = getDistanceInMeters(userLat, userLng, point.lat, point.lng);
+      }
+      const isNearby = distanceMeters <= 500; // 500 meters proximity alert threshold
+      return {
+        ...point,
+        distanceMeters,
+        isNearby
+      };
+    });
 
     if (activeRide) {
       const hasRealTripRoute = realTripRoute && realTripRoute.length > 0;
@@ -555,77 +645,43 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
             : generateSimulatedRoads([activeRide.pickup.lat, activeRide.pickup.lng], [activeRide.destination.lat, activeRide.destination.lng]));
 
       if (route.length > 5) {
-        // Traffic light at 35% of the route
+        // Traffic light along active route
         const midIdx = Math.floor(route.length * 0.35);
-        alerts.push({
+        const rLat = route[midIdx][0];
+        const rLng = route[midIdx][1];
+        const rDist = userLat !== null && userLng !== null ? getDistanceInMeters(userLat, userLng, rLat, rLng) : 999999;
+        basePoints.push({
           id: 'ra-route-light',
           type: 'traffic_light',
-          title: 'Taa za Trafiki',
+          name: 'Mataa – Kwenye Njia Yako',
+          title: 'Taa za Trafiki (Njia Yako)',
           desc: 'Taa ya barabara kwenye njia yako. Punguza kasi au simama ikileta nyekundu!',
-          lat: route[midIdx][0],
-          lng: route[midIdx][1]
+          lat: rLat,
+          lng: rLng,
+          distanceMeters: rDist,
+          isNearby: rDist <= 500
         });
 
-        // Construction site at 65% of the route
+        // Construction site along active route
         const constIdx = Math.floor(route.length * 0.65);
-        alerts.push({
+        const cLat = route[constIdx][0];
+        const cLng = route[constIdx][1];
+        const cDist = userLat !== null && userLng !== null ? getDistanceInMeters(userLat, userLng, cLat, cLng) : 999999;
+        basePoints.push({
           id: 'ra-route-construction',
-          type: 'construction',
-          title: 'Barabara Inatengenezwa',
+          type: 'road_construction',
+          name: 'Barabara Inajengwa – Mbele',
+          title: 'Barabara Inatengenezwa (Njia Yako)',
           desc: 'Kuna mafundi wanatengeneza barabara mbele yako. Punguza kasi sana!',
-          lat: route[constIdx][0],
-          lng: route[constIdx][1]
+          lat: cLat,
+          lng: cLng,
+          distanceMeters: cDist,
+          isNearby: cDist <= 500
         });
-
-        // Closed road marker
-        const closedIdx = Math.min(route.length - 2, Math.floor(route.length * 0.8));
-        alerts.push({
-          id: 'ra-route-closed',
-          type: 'closed',
-          title: 'Mchepuko / Njia Imefungwa',
-          desc: 'Kipande hiki kimefungwa kwa muda, fuata ishara za barabarani kuelekea mchepuko.',
-          lat: route[closedIdx][0],
-          lng: route[closedIdx][1]
-        });
-
-        // Corner detections along the route!
-        for (let i = 2; i < route.length - 2; i += 4) {
-          const p1 = route[i - 2];
-          const p2 = route[i];
-          const p3 = route[i + 2];
-          
-          const bearing1 = calculateBearing(p1[0], p1[1], p2[0], p2[1]);
-          const bearing2 = calculateBearing(p2[0], p2[1], p3[0], p3[1]);
-          let diff = (bearing2 - bearing1 + 360) % 360;
-          if (diff > 180) diff = 360 - diff;
-          
-          if (diff > 35 && diff < 120) {
-            const isLeft = (bearing2 - bearing1 + 360) % 360 > 180;
-            alerts.push({
-              id: `ra-route-corner-${i}`,
-              type: isLeft ? 'corner_left' : 'corner_right',
-              title: isLeft ? 'Kona Kali Kushoto' : 'Kona Kali Kulia',
-              desc: `Kona kali inayofuata mbele ya mita chache. Chunga usalama wako.`,
-              lat: p2[0],
-              lng: p2[1]
-            });
-          }
-        }
       }
-    } else {
-      // Offline / Waiting mode nearby alerts - dynamically centered on user's current GPS position
-      const cLat = position ? position[0] : -6.7924;
-      const cLng = position ? position[1] : 39.2083;
-
-      alerts.push(
-        { id: 'ra-curr-light', type: 'traffic_light', title: 'Taa za Trafiki (Eneo la Sasa)', desc: 'Taa za barabarani katika makutano ya karibu. Zingatia ishara za rangi!', lat: cLat + 0.0022, lng: cLng + 0.0015 },
-        { id: 'ra-curr-construction', type: 'construction', title: 'Barabara Inajengwa (Eneo la Sasa)', desc: 'Matengenezo ya barabara mita chache kutoka ulipo. Punguza kasi!', lat: cLat - 0.0018, lng: cLng + 0.0025 },
-        { id: 'ra-curr-closed', type: 'closed', title: 'Njia Imefungwa / Mchepuko', desc: 'Kipande cha barabara kimefungwa karibu nawe, fuata ishara za mchepuko.', lat: cLat - 0.0030, lng: cLng - 0.0020 },
-        { id: 'ra-curr-corner-l', type: 'corner_left', title: 'Kona Kali Kushoto', desc: 'Kona kali ya kuingia mtaa salama upande wa kushoto.', lat: cLat + 0.0012, lng: cLng - 0.0022 },
-        { id: 'ra-curr-corner-r', type: 'corner_right', title: 'Kona Kali Kulia', desc: 'Kona kali inayofuata mbele upande wa kulia.', lat: cLat + 0.0032, lng: cLng - 0.0010 }
-      );
     }
-    return alerts;
+
+    return basePoints;
   }, [position, activeRide, realTripRoute]);
 
   const driverApproachRouteRef = React.useRef<[number, number][]>([]);
@@ -768,14 +824,14 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
   useEffect(() => {
     setSecondsOffset(0);
   }, [rideId, activeRide?.status]);
-  const vTypeRaw = (profile?.vehicleType || 'mini').toLowerCase();
-  const vType = (vTypeRaw.includes('bike') || vTypeRaw.includes('piki')) 
+  const vTypeRaw = (profile?.vehicleType || profile?.driverType || profile?.driverRegVehicle || 'pikipiki').toLowerCase();
+  const vType = (vTypeRaw.includes('bike') || vTypeRaw.includes('piki') || vTypeRaw.includes('boda') || vTypeRaw.includes('motorcycle') || vTypeRaw.includes('rider')) 
     ? 'bike' 
     : vTypeRaw.includes('bajaj') 
       ? 'bajaj' 
-      : (vTypeRaw === 'gari' || vTypeRaw === 'mini')
+      : (vTypeRaw === 'gari' || vTypeRaw === 'mini' || vTypeRaw === 'car' || vTypeRaw === 'taxi')
         ? 'mini'
-        : vTypeRaw;
+        : 'bike';
   
   const { showEarnings, toggleEarnings, stats } = useDriverDashboard();
   const nearbyRequests = useIncomingRequests(vType, isOnline, position ? { lat: position[0], lng: position[1] } : null, user?.uid);
@@ -2213,7 +2269,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
                 (profile?.displayName || 'D').split(' ').map(n => n[0]).join(''),
                 isOnline,
                 vehicleHeading,
-                profile?.vehicleType || 'mini',
+                vType,
                 theme,
                 rotation
               )}
@@ -2513,18 +2569,15 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
               ));
             })()}
 
-            {/* Render Road Alerts (Taa za barabarani, Kona, Matengenezo, Njia imefungwa) */}
+            {/* Render Anchored Road Status Points with Location Name Labels and Proximity Alert */}
             {showRoadAlerts && roadAlerts.map((alert: any) => {
-              let icon;
-              if (alert.type === 'traffic_light') {
-                icon = createTrafficLightIcon(trafficColor);
-              } else if (alert.type === 'construction') {
-                icon = createConstructionIcon();
-              } else if (alert.type === 'closed') {
-                icon = createClosedRoadIcon();
-              } else {
-                icon = createCornerIcon(alert.type === 'corner_left' ? 'left' : 'right');
-              }
+              const icon = createAnchoredRoadStatusIcon(
+                alert.type,
+                alert.name || alert.title || 'Eneo La Njia',
+                alert.isNearby,
+                alert.distanceMeters,
+                trafficColor
+              );
 
               return (
                 <Marker 
@@ -2533,19 +2586,24 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
                   icon={icon}
                 >
                   <Popup>
-                    <div className="p-3 max-w-[200px] text-center space-y-1 bg-white dark:bg-[#111118] text-neutral-850 dark:text-white rounded-xl">
+                    <div className="p-3 max-w-[210px] text-center space-y-1 bg-white dark:bg-[#111118] text-neutral-850 dark:text-white rounded-xl shadow-2xl">
                       <div className="flex items-center gap-1.5 justify-center mb-1">
                         {alert.type === 'traffic_light' && <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full" />}
-                        {alert.type === 'construction' && <span className="text-orange-500 font-bold">🚧</span>}
-                        {alert.type === 'closed' && <span className="text-red-500 font-bold">⛔</span>}
+                        {(alert.type === 'road_construction' || alert.type === 'construction') && <span className="text-orange-500 font-bold">🚧</span>}
+                        {(alert.type === 'road_closed' || alert.type === 'closed') && <span className="text-red-500 font-bold">⛔</span>}
                         <h4 className="font-black text-[11px] uppercase tracking-wider text-neutral-900 dark:text-neutral-100 leading-tight">
-                          {alert.title}
+                          {alert.title || alert.name}
                         </h4>
                       </div>
                       <p className="text-[10px] text-neutral-500 dark:text-neutral-400 leading-tight">
                         {alert.desc}
                       </p>
-                      <div className="pt-2 text-[8px] font-bold text-neutral-400 uppercase tracking-widest font-mono">
+                      {alert.isNearby && alert.distanceMeters !== undefined && (
+                        <div className="mt-1 px-2 py-0.5 bg-red-500/10 text-red-500 rounded text-[9px] font-black uppercase tracking-wide">
+                          ⚠️ UPO KARIBU: {Math.round(alert.distanceMeters)}m
+                        </div>
+                      )}
+                      <div className="pt-1.5 text-[8px] font-bold text-neutral-400 uppercase tracking-widest font-mono">
                         TAARIFA YA HALI YA NJIA
                       </div>
                     </div>

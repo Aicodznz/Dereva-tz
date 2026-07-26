@@ -2,7 +2,7 @@ import L from 'leaflet';
 
 export function getDriverSvg(type: string, isDark: boolean = true): string {
   const t = (type || '').toLowerCase();
-  const isBike = t.includes('bike') || t.includes('pikipiki') || t.includes('delivery') || t.includes('motorcycle');
+  const isBike = t.includes('bike') || t.includes('pikipiki') || t.includes('delivery') || t.includes('motorcycle') || t.includes('boda') || t.includes('piki') || t.includes('bodaboda') || t.includes('rider') || t === '' || !t;
   const isBajaj = t.includes('bajaj') || t.includes('bajaji') || t.includes('tuktuk');
 
   if (isBike) {

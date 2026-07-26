@@ -86,20 +86,20 @@ const CurrentLocationPulseIcon = L.divIcon({
 });
 
 // Custom Icon for Vehicles - Dynamic based on type and heading
-const getVehicleIcon = (vehicleType: string, heading: number = 0) => {
-  const type = vehicleType.toLowerCase();
-  let emoji = '🚗';
-  let color = 'bg-yellow-500';
+const getVehicleIcon = (vehicleType: string = '', heading: number = 0) => {
+  const type = (vehicleType || '').toLowerCase();
+  let emoji = '🏍️';
+  let color = 'bg-sky-500';
 
-  if (type.includes('boda') || type.includes('motorcycle') || type.includes('pikipiki')) {
-    emoji = '🏍️';
-    color = 'bg-sky-500';
-  } else if (type.includes('bajaji') || type.includes('rickshaw')) {
+  if (type.includes('bajaj') || type.includes('rickshaw') || type.includes('tuktuk')) {
     emoji = '🛺';
     color = 'bg-amber-500';
   } else if (type.includes('delivery') || type.includes('parcel') || type.includes('cargo') || type.includes('truck')) {
     emoji = '🚚';
     color = 'bg-emerald-500';
+  } else if (type.includes('car') || type.includes('mini') || type.includes('gari') || type.includes('xl') || type.includes('cab') || type.includes('taxi')) {
+    emoji = '🚗';
+    color = 'bg-yellow-500';
   }
 
   return L.divIcon({

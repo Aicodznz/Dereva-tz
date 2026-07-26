@@ -51,7 +51,7 @@ export function useNearbyDrivers() {
           id: d.id,
           lat: d.location.lat,
           lng: d.location.lng,
-          vehicleType: d.vehicleType || 'mini',
+          vehicleType: d.vehicleType || d.driverType || d.driverRegVehicle || d.selectedService || 'bike',
           name: d.name || 'Dereva',
           heading: d.location.heading || d.bearing || d.heading || 0
         }));
