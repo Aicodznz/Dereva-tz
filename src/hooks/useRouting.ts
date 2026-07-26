@@ -22,66 +22,24 @@ export function generateSimulatedRoads(start: [number, number], end: [number, nu
   const lat2 = end[0];
   const lng2 = end[1];
 
+  if (isNaN(lat1) || isNaN(lng1) || isNaN(lat2) || isNaN(lng2)) return [start, end];
+
   const dLat = lat2 - lat1;
   const dLng = lng2 - lng1;
+  const dist = Math.sqrt(dLat * dLat + dLng * dLng) * 111000;
 
-  const segmentCorners: [number, number][] = [];
-  segmentCorners.push(start);
-
-  const absDLat = Math.abs(dLat);
-  const absDLng = Math.abs(dLng);
-
-  // If the distance is too small or it's a tiny movement, just use straight line
-  if (absDLat > 0.00015 && absDLng > 0.00015) {
-    // Generate realistic, axis-aligned street turns to mimic actual roads
-    if (absDLng > absDLat) {
-      // Travel 60% of longitude first (follows East/West grid street)
-      const midLng = lng1 + dLng * 0.6;
-      segmentCorners.push([lat1, midLng]);
-      // Turn North/South to destination latitude (follows North/South grid street)
-      segmentCorners.push([lat2, midLng]);
-    } else {
-      // Travel 60% of latitude first (follows North/South grid street)
-      const midLat = lat1 + dLat * 0.6;
-      segmentCorners.push([midLat, lng1]);
-      // Turn East/West to destination longitude (follows East/West grid street)
-      segmentCorners.push([midLat, lng2]);
-    }
-  }
-  segmentCorners.push(end);
-
+  // Interpolate smoothly every ~15 meters directly along trajectory (no 90-degree box turns)
+  const numSteps = Math.max(2, Math.floor(dist / 15));
   const route: [number, number][] = [];
-  
-  // Interpolate along the calculated street grid corners for a beautiful, smooth path
-  for (let s = 0; s < segmentCorners.length - 1; s++) {
-    const c1 = segmentCorners[s];
-    const c2 = segmentCorners[s + 1];
-    
-    // Push the starting corner of the segment
-    if (route.length === 0 || route[route.length - 1][0] !== c1[0] || route[route.length - 1][1] !== c1[1]) {
-      route.push(c1);
-    }
-    
-    const segmentWidth = c2[1] - c1[1];
-    const segmentHeight = c2[0] - c1[0];
-    const dist = Math.sqrt(segmentHeight * segmentHeight + segmentWidth * segmentWidth) * 111000;
-    
-    // Interpolating every ~12 meters for super smooth animation and tracking
-    const numSteps = Math.max(2, Math.floor(dist / 12));
-    for (let k = 1; k < numSteps; k++) {
-      const r = k / numSteps;
-      route.push([
-        c1[0] + segmentHeight * r,
-        c1[1] + segmentWidth * r
-      ]);
-    }
+
+  for (let k = 0; k <= numSteps; k++) {
+    const r = k / numSteps;
+    route.push([
+      lat1 + dLat * r,
+      lng1 + dLng * r
+    ]);
   }
-  
-  // Ensure the exact destination point is appended at the very end
-  if (route.length === 0 || route[route.length - 1][0] !== end[0] || route[route.length - 1][1] !== end[1]) {
-    route.push(end);
-  }
-  
+
   return route;
 }
 

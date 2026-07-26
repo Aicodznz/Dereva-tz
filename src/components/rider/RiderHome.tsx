@@ -729,17 +729,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
     const currentKey = `${activeRide.id}_${activeRide.status}`;
     if (lastActiveRideIdStatusRef.current !== currentKey) {
       lastActiveRideIdStatusRef.current = currentKey;
-
-      if (['accepted', 'driver_arriving'].includes(activeRide.status) && position) {
-        // Generate approach route once!
-        const generated = generateSimulatedRoads(
-          [position[0], position[1]],
-          [activeRide.pickup.lat, activeRide.pickup.lng]
-        );
-        driverApproachRouteRef.current = generated;
-      } else {
-        driverApproachRouteRef.current = [];
-      }
+      driverApproachRouteRef.current = [];
     }
   }, [activeRide?.id, activeRide?.status]);
 
