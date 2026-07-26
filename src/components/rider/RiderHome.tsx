@@ -3124,6 +3124,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
                   isDriver={true}
                   driverLocation={{ lat: position[0], lng: position[1] }}
                   targetLocation={activeRide.status === 'on_trip' ? activeRide.destination : activeRide.pickup}
+                  routeSteps={steps}
                   is3DMode={is3DMode}
                   onToggle3D={() => setIs3DMode(!is3DMode)}
                   onRecenter={() => setRecenterTrigger(prev => prev + 1)}

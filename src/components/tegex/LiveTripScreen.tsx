@@ -6,6 +6,7 @@ import L from 'leaflet';
 import { Shield, Clock, Navigation2, MapPin, MessageSquare, Star, Trash2 } from 'lucide-react';
 import { Ride } from '../../types/trip.types';
 import { useDriverTracking } from '../../hooks/useDriverTracking';
+import { useRouting } from '../../hooks/useRouting';
 import { toast } from 'sonner';
 import { useTheme } from 'next-themes';
 import { Navigation3DHudOverlay } from '../map/Navigation3DHudOverlay';
@@ -118,6 +119,20 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
     return 12;
   }, [distance, ride.status, ride.distance, isArriving, (ride as any).initialDistance, (ride as any).totalDistance]);
 
+  const pickupTuple: [number, number] = useMemo(() => {
+    return ride.driverLocation 
+      ? [ride.driverLocation.lat, ride.driverLocation.lng] 
+      : [ride.pickup.lat, ride.pickup.lng];
+  }, [ride.driverLocation?.lat, ride.driverLocation?.lng, ride.pickup?.lat, ride.pickup?.lng]);
+
+  const destTuple: [number, number] = useMemo(() => {
+    return targetLocation 
+      ? [targetLocation.lat, targetLocation.lng] 
+      : [ride.destination.lat, ride.destination.lng];
+  }, [targetLocation?.lat, targetLocation?.lng, ride.destination?.lat, ride.destination?.lng]);
+
+  const routing = useRouting(pickupTuple, destTuple, true);
+
   const [is3DMode, setIs3DMode] = useState(true);
   const [isVoiceMuted, setIsVoiceMuted] = useState(false);
 
@@ -135,6 +150,7 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
         isDriver={false}
         driverLocation={ride.driverLocation}
         targetLocation={targetLocation}
+        routeSteps={routing.steps}
         is3DMode={is3DMode}
         onToggle3D={() => setIs3DMode(!is3DMode)}
         onOpenChat={onMessage}

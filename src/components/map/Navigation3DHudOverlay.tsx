@@ -19,12 +19,20 @@ import {
 } from 'lucide-react';
 import { Ride } from '../../types/trip.types';
 
+export interface RouteStepProp {
+  distance: number;
+  duration: number;
+  instruction: string;
+  location: [number, number];
+}
+
 export interface Navigation3DHudOverlayProps {
   ride: Ride;
   isDriver?: boolean;
   driverLocation?: { lat: number; lng: number } | null;
   targetLocation?: { lat: number; lng: number } | null;
   currentSpeed?: number;
+  routeSteps?: RouteStepProp[];
   is3DMode?: boolean;
   onToggle3D?: () => void;
   onRecenter?: () => void;
@@ -40,6 +48,7 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
   driverLocation,
   targetLocation,
   currentSpeed: customSpeed,
+  routeSteps,
   is3DMode = true,
   onToggle3D,
   onRecenter,
@@ -102,6 +111,37 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
     return () => clearInterval(interval);
   }, [customSpeed]);
 
+  // Smooth Speed Interpolation for low latency real-time updates (GPU/raf optimized)
+  const [interpolatedSpeed, setInterpolatedSpeed] = useState<number>(speed);
+  useEffect(() => {
+    let animationFrameId: number;
+    let startTime: number | null = null;
+    const startSpeed = interpolatedSpeed;
+    const targetSpeed = speed;
+    const duration = 600; // ms
+
+    if (Math.abs(startSpeed - targetSpeed) < 0.5) {
+      setInterpolatedSpeed(targetSpeed);
+      return;
+    }
+
+    const animateStep = (timestamp: number) => {
+      if (!startTime) startTime = timestamp;
+      const elapsed = timestamp - startTime;
+      const progress = Math.min(1, elapsed / duration);
+      // Easing curve
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setInterpolatedSpeed(Math.round(startSpeed + (targetSpeed - startSpeed) * eased));
+
+      if (progress < 1) {
+        animationFrameId = requestAnimationFrame(animateStep);
+      }
+    };
+
+    animationFrameId = requestAnimationFrame(animateStep);
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [speed]);
+
   // Dynamic traffic light simulation state
   const [trafficLight, setTrafficLight] = useState<{ color: 'red' | 'green'; timer: number }>({ color: 'green', timer: 12 });
   useEffect(() => {
@@ -118,14 +158,55 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
     return () => clearInterval(timer);
   }, []);
 
-  // Maneuver Turn Logic based on distance remaining
+  // Maneuver Turn Logic driven by real route steps when available, or distance fallback
   const currentManeuver = useMemo(() => {
+    // 1. Real Routing Data Steps (from OSRM / Directions API)
+    if (routeSteps && routeSteps.length > 0 && driverLocation) {
+      const activeStep = routeSteps.find((step) => {
+        const dLat = (step.location[0] - driverLocation.lat) * 111000;
+        const dLng = (step.location[1] - driverLocation.lng) * 111000 * Math.cos((driverLocation.lat * Math.PI) / 180);
+        const dist = Math.sqrt(dLat * dLat + dLng * dLng);
+        return dist > 15;
+      }) || routeSteps[0];
+
+      if (activeStep) {
+        const instr = activeStep.instruction.toLowerCase();
+        let icon: 'left' | 'right' | 'straight' | 'check' = 'straight';
+        let laneActiveIndex = 1;
+
+        if (instr.includes('left') || instr.includes('kushoto')) {
+          icon = 'left';
+          laneActiveIndex = 0;
+        } else if (instr.includes('right') || instr.includes('kulia')) {
+          icon = 'right';
+          laneActiveIndex = 3;
+        } else if (instr.includes('destination') || instr.includes('arrive') || instr.includes('fika')) {
+          icon = 'check';
+          laneActiveIndex = 1;
+        }
+
+        const cleanTitle = activeStep.instruction
+          .replace(/^(Head|Turn|Continue|Merge|Keep|Ingia|Kata|Endelea)\s*(left|right|straight|onto|kushoto|kulia)?\s*/i, '')
+          .trim() || destinationName;
+
+        return {
+          type: icon,
+          icon,
+          title: cleanTitle.length > 25 ? `${cleanTitle.substring(0, 25)}...` : cleanTitle,
+          laneActiveIndex,
+          stepDistFormatted: activeStep.distance >= 1000 ? `${(activeStep.distance / 1000).toFixed(1)} km` : `${Math.round(activeStep.distance)}m`,
+        };
+      }
+    }
+
+    // 2. Fallback based on distance remaining
     if (distMeters <= 80) {
       return {
         type: 'destination',
         icon: 'check',
         title: isArriving ? 'Fika Pickup Point' : 'Umewahi Eneo la Mteja',
         laneActiveIndex: 1,
+        stepDistFormatted: formattedDist,
       };
     } else if (distMeters <= 350) {
       return {
@@ -133,6 +214,7 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
         icon: 'right',
         title: destinationName.length > 22 ? `${destinationName.substring(0, 22)}...` : destinationName,
         laneActiveIndex: 3, // Highlight right lane ↱
+        stepDistFormatted: formattedDist,
       };
     } else if (distMeters <= 700) {
       return {
@@ -140,6 +222,7 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
         icon: 'left',
         title: 'Wangjing Street / Nyerere Rd',
         laneActiveIndex: 0, // Highlight left lane ↰
+        stepDistFormatted: formattedDist,
       };
     } else {
       return {
@@ -147,14 +230,22 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
         icon: 'straight',
         title: destinationName,
         laneActiveIndex: 1, // Highlight middle lane ⬆
+        stepDistFormatted: formattedDist,
       };
     }
-  }, [distMeters, destinationName, isArriving]);
+  }, [routeSteps, driverLocation, distMeters, destinationName, formattedDist, isArriving]);
 
   const isNearJunction = distMeters > 50 && distMeters <= 380;
 
   return (
-    <div className="absolute inset-x-0 top-0 z-[500] pointer-events-none flex flex-col items-center">
+    <div 
+      className="absolute inset-x-0 top-0 z-[500] pointer-events-none flex flex-col items-center"
+      style={{
+        transform: 'translate3d(0,0,0)',
+        backfaceVisibility: 'hidden',
+        willChange: 'transform, opacity',
+      }}
+    >
       {/* --- TOP 3D NAVIGATION GUIDANCE HEADER (DARK GLASS) --- */}
       <motion.div 
         initial={{ y: -100, opacity: 0 }}
@@ -370,7 +461,7 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
             className="w-16 h-16 sm:w-18 sm:h-18 rounded-full bg-white dark:bg-[#0f172a] border-2 border-slate-200 dark:border-slate-700 shadow-2xl flex flex-col items-center justify-center text-slate-900 dark:text-white relative"
           >
             <span className="text-xl sm:text-2xl font-black font-mono leading-none tracking-tight">
-              {speed}
+              {interpolatedSpeed}
             </span>
             <span className="text-[8px] font-bold uppercase text-slate-500 dark:text-slate-400 mt-0.5">
               km/h
