@@ -231,65 +231,67 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
             </div>
           </div>
 
-          {/* Lane Guidance Indicators Bar (Exactly like reference image: ↰ ⬆ ⬆ ↱) */}
-          <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between px-1">
-            <div className="flex items-center gap-2">
-              <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">
-                Njia za Barabara:
-              </span>
-              <div className="flex items-center gap-1 bg-black/40 border border-white/10 p-1 rounded-xl">
-                {/* Lane 1: Left */}
-                <div className={`px-2 py-0.5 rounded-lg flex items-center justify-center transition-all ${
-                  currentManeuver.laneActiveIndex === 0 
-                    ? 'bg-cyan-500 text-black font-black shadow-[0_0_10px_rgba(6,182,212,0.8)] scale-105' 
-                    : 'text-slate-500'
-                }`}>
-                  <span className="text-xs font-black">↰</span>
-                </div>
-                {/* Lane 2: Straight */}
-                <div className={`px-2 py-0.5 rounded-lg flex items-center justify-center transition-all ${
-                  currentManeuver.laneActiveIndex === 1 
-                    ? 'bg-cyan-500 text-black font-black shadow-[0_0_10px_rgba(6,182,212,0.8)] scale-105' 
-                    : 'text-slate-500'
-                }`}>
-                  <span className="text-xs font-black">⬆</span>
-                </div>
-                {/* Lane 3: Straight */}
-                <div className={`px-2 py-0.5 rounded-lg flex items-center justify-center transition-all ${
-                  currentManeuver.laneActiveIndex === 2 
-                    ? 'bg-cyan-500 text-black font-black shadow-[0_0_10px_rgba(6,182,212,0.8)] scale-105' 
-                    : 'text-slate-500'
-                }`}>
-                  <span className="text-xs font-black">⬆</span>
-                </div>
-                {/* Lane 4: Right */}
-                <div className={`px-2 py-0.5 rounded-lg flex items-center justify-center transition-all ${
-                  currentManeuver.laneActiveIndex === 3 
-                    ? 'bg-amber-400 text-black font-black shadow-[0_0_10px_rgba(251,191,36,0.9)] scale-105' 
-                    : 'text-slate-500'
-                }`}>
-                  <span className="text-xs font-black">↱</span>
+          {/* Lane Guidance Indicators Bar (Shown for Driver in full HUD) */}
+          {isDriver && (
+            <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between px-1">
+              <div className="flex items-center gap-2">
+                <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">
+                  Njia za Barabara:
+                </span>
+                <div className="flex items-center gap-1 bg-black/40 border border-white/10 p-1 rounded-xl">
+                  {/* Lane 1: Left */}
+                  <div className={`px-2 py-0.5 rounded-lg flex items-center justify-center transition-all ${
+                    currentManeuver.laneActiveIndex === 0 
+                      ? 'bg-cyan-500 text-black font-black shadow-[0_0_10px_rgba(6,182,212,0.8)] scale-105' 
+                      : 'text-slate-500'
+                  }`}>
+                    <span className="text-xs font-black">↰</span>
+                  </div>
+                  {/* Lane 2: Straight */}
+                  <div className={`px-2 py-0.5 rounded-lg flex items-center justify-center transition-all ${
+                    currentManeuver.laneActiveIndex === 1 
+                      ? 'bg-cyan-500 text-black font-black shadow-[0_0_10px_rgba(6,182,212,0.8)] scale-105' 
+                      : 'text-slate-500'
+                  }`}>
+                    <span className="text-xs font-black">⬆</span>
+                  </div>
+                  {/* Lane 3: Straight */}
+                  <div className={`px-2 py-0.5 rounded-lg flex items-center justify-center transition-all ${
+                    currentManeuver.laneActiveIndex === 2 
+                      ? 'bg-cyan-500 text-black font-black shadow-[0_0_10px_rgba(6,182,212,0.8)] scale-105' 
+                      : 'text-slate-500'
+                  }`}>
+                    <span className="text-xs font-black">⬆</span>
+                  </div>
+                  {/* Lane 4: Right */}
+                  <div className={`px-2 py-0.5 rounded-lg flex items-center justify-center transition-all ${
+                    currentManeuver.laneActiveIndex === 3 
+                      ? 'bg-amber-400 text-black font-black shadow-[0_0_10px_rgba(251,191,36,0.9)] scale-105' 
+                      : 'text-slate-500'
+                  }`}>
+                    <span className="text-xs font-black">↱</span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Live Status Badge */}
-            <div className="flex items-center gap-1.5">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              <span className="text-[9.5px] font-bold text-emerald-400 uppercase tracking-widest">
-                {isDriver ? 'GPS DIRA' : 'SAFARI LIVE'}
-              </span>
+              {/* Live Status Badge */}
+              <div className="flex items-center gap-1.5">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span className="text-[9.5px] font-bold text-emerald-400 uppercase tracking-widest">
+                  GPS DIRA
+                </span>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </motion.div>
 
-      {/* --- 3D JUNCTION PREVIEW CARD (Visible when approaching intersection < 380m, matching Image 2) --- */}
+      {/* --- 3D JUNCTION PREVIEW CARD (Visible for Driver when approaching intersection < 380m) --- */}
       <AnimatePresence>
-        {isNearJunction && (
+        {isDriver && isNearJunction && (
           <motion.div
             initial={{ opacity: 0, scale: 0.9, y: -10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -359,9 +361,9 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
       {/* --- FLOATING MAP BADGES (LEFT & RIGHT OVERLAY) --- */}
       <div className="w-full max-w-[480px] px-3 mt-3 flex items-start justify-between pointer-events-none">
         
-        {/* LEFT COLUMN: SPEEDOMETER, SPEED LIMIT, TRAFFIC LIGHT, PEDESTRIAN ALERT */}
+        {/* LEFT COLUMN: SPEEDOMETER (and driver-specific badges) */}
         <div className="flex flex-col items-start gap-2.5 pointer-events-auto">
-          {/* Circular Speedometer Badge (Exactly like reference images) */}
+          {/* Circular Speedometer Badge (Both Customer & Driver) */}
           <motion.div 
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -378,32 +380,37 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
             <div className="absolute inset-0 rounded-full border-2 border-cyan-500/40 animate-ping opacity-25 pointer-events-none" />
           </motion.div>
 
-          {/* Speed Limit Indicator */}
-          <div className="w-10 h-10 rounded-full bg-white border-2 border-red-600 shadow-lg flex items-center justify-center font-black text-slate-900 text-xs font-mono">
-            50
-          </div>
+          {/* Driver-Specific Extra Badges */}
+          {isDriver && (
+            <>
+              {/* Speed Limit Indicator */}
+              <div className="w-10 h-10 rounded-full bg-white border-2 border-red-600 shadow-lg flex items-center justify-center font-black text-slate-900 text-xs font-mono">
+                50
+              </div>
 
-          {/* Traffic Light Signal Countdown Widget */}
-          <motion.div 
-            animate={{ scale: [1, 1.03, 1] }}
-            transition={{ repeat: Infinity, duration: 2 }}
-            className={`px-2.5 py-1 rounded-full border shadow-lg flex items-center gap-1.5 font-mono text-xs font-black ${
-              trafficLight.color === 'red'
-                ? 'bg-red-950/90 border-red-500/50 text-red-400'
-                : 'bg-emerald-950/90 border-emerald-500/50 text-emerald-400'
-            }`}
-          >
-            <span className="text-sm">
-              {trafficLight.color === 'red' ? '🔴' : '🟢'}
-            </span>
-            <span>{trafficLight.timer}s</span>
-          </motion.div>
+              {/* Traffic Light Signal Countdown Widget */}
+              <motion.div 
+                animate={{ scale: [1, 1.03, 1] }}
+                transition={{ repeat: Infinity, duration: 2 }}
+                className={`px-2.5 py-1 rounded-full border shadow-lg flex items-center gap-1.5 font-mono text-xs font-black ${
+                  trafficLight.color === 'red'
+                    ? 'bg-red-950/90 border-red-500/50 text-red-400'
+                    : 'bg-emerald-950/90 border-emerald-500/50 text-emerald-400'
+                }`}
+              >
+                <span className="text-sm">
+                  {trafficLight.color === 'red' ? '🔴' : '🟢'}
+                </span>
+                <span>{trafficLight.timer}s</span>
+              </motion.div>
 
-          {/* Pedestrian Alert Badge */}
-          <div className="bg-slate-900/90 border border-amber-500/40 px-2.5 py-1 rounded-full shadow-lg flex items-center gap-1.5 text-amber-300 text-[10px] font-black">
-            <span>🚸</span>
-            <span>110m Crossing</span>
-          </div>
+              {/* Pedestrian Alert Badge */}
+              <div className="bg-slate-900/90 border border-amber-500/40 px-2.5 py-1 rounded-full shadow-lg flex items-center gap-1.5 text-amber-300 text-[10px] font-black">
+                <span>🚸</span>
+                <span>110m Crossing</span>
+              </div>
+            </>
+          )}
         </div>
 
         {/* RIGHT COLUMN: RECENTER, CHAT, SHARE, VIEWERS */}
