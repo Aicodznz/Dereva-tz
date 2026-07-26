@@ -2075,12 +2075,12 @@ export default function TaxiBooking() {
     const icon = L.divIcon({
       className: "custom-div-icon",
       html: `
-        <div class="relative flex flex-col items-center select-none" style="width: 150px;">
+        <div class="relative flex flex-col items-center select-none" style="width: 175px;">
           <!-- DiDi / Uber Style Callout Card Container -->
           <div class="relative flex flex-col items-start w-full transition-transform duration-200 transform hover:scale-105 filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.3)]">
             
             <!-- Top Slanted Badge Tab -->
-            <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-amber-600 to-orange-500 text-white rounded-t-md rounded-tr-xl text-[6.5px] font-bold uppercase tracking-wide leading-none shadow-sm ml-2 z-10 border-t border-x border-amber-400/40 w-[110px] overflow-hidden">
+            <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-amber-600 to-orange-500 text-white rounded-t-md rounded-tr-xl text-[6.5px] font-bold uppercase tracking-wide leading-none shadow-sm ml-2 z-10 border-t border-x border-amber-400/40 w-[120px] overflow-hidden">
               <span class="w-1 h-1 rounded-full bg-white animate-pulse shrink-0"></span>
               <div class="overflow-hidden min-w-0 flex-1 relative">
                 <span class="badge-text-slide">Recommended Drop-off</span>
@@ -2092,7 +2092,7 @@ export default function TaxiBooking() {
               <div class="flex flex-col min-w-0 flex-1">
                 <span class="text-[6.5px] font-extrabold text-amber-500 uppercase tracking-wider leading-none mb-0.5">HATIMA YAKO</span>
                 <span class="text-[9.5px] font-black truncate leading-tight">${displayAddr}</span>
-                ${etaText ? `<span class="text-[7.5px] font-mono font-bold text-amber-500 mt-0.5 leading-none bg-amber-500/10 px-1 py-0.2 rounded w-max">${etaText}</span>` : ''}
+                ${etaText ? `<span class="text-[7.5px] font-mono font-bold text-amber-500 mt-0.5 leading-none bg-amber-500/10 px-1.5 py-0.5 rounded w-max">${etaText}</span>` : ''}
               </div>
               <div class="w-4 h-4 rounded-full ${isDark ? 'bg-neutral-800 text-neutral-300' : 'bg-neutral-100 text-neutral-600'} flex items-center justify-center shrink-0">
                 <svg class="w-2.5 h-2.5 stroke-current stroke-[3]" fill="none" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
@@ -2112,8 +2112,8 @@ export default function TaxiBooking() {
           </div>
         </div>
       `,
-      iconSize: [150, 68],
-      iconAnchor: [75, 65],
+      iconSize: [175, 68],
+      iconAnchor: [87, 65],
     });
     taxiPinIconCacheMap[key] = icon;
     return icon;
@@ -2434,6 +2434,14 @@ export default function TaxiBooking() {
         phone: customerPhone,
       };
 
+      const calculatedDistanceKm = (totalDistance && totalDistance > 0)
+        ? (totalDistance / 1000)
+        : ((pickupPos && destPos) ? (getDistanceLocal(pickupPos, destPos) / 1000) : 3.0);
+
+      const calculatedDurationMins = (totalDuration && totalDuration > 0)
+        ? Math.ceil(totalDuration / 60)
+        : Math.ceil((calculatedDistanceKm * 1000 / 9.5) / 60);
+
       const id = await createRide(
         activeUser.uid,
         customerInfo,
@@ -2441,8 +2449,8 @@ export default function TaxiBooking() {
         { lat: destPos[0], lng: destPos[1], address: destination },
         selectedRide.id as any,
         rideOptions.find((r) => r.id === selectedRide.id)?.price || selectedRide.price,
-        totalDistance / 1000,
-        Math.ceil(totalDuration / 60),
+        calculatedDistanceKm,
+        calculatedDurationMins,
         formattedCoords,
       );
 
@@ -2953,6 +2961,8 @@ export default function TaxiBooking() {
     tripDurSecs = dist / 9.5; // average 34 km/h in traffic
   }
 
+  const activeTripKm = (totalDistance > 0 ? (totalDistance / 1000) : (pickupPos && destPos ? getDistanceLocal(pickupPos, destPos) / 1000 : 3.0)).toFixed(1);
+
   if (activeRide) {
     if (activeRide.status === "on_trip") {
       const driverLoc: [number, number] | null = driverLivePos
@@ -2963,16 +2973,17 @@ export default function TaxiBooking() {
 
       if (driverLoc) {
         const remainingDist = getDistanceLocal(driverLoc, destPos);
+        const remainingKm = (remainingDist / 1000).toFixed(1);
         const remainingDurSecs = remainingDist / 9.5; // account for density and road twists
         const realRemainingSecs = Math.max(0, remainingDurSecs - (secondsOffset % 30));
         const minsLeft = Math.floor(realRemainingSecs / 60);
         const etaTime = new Date(Date.now() + realRemainingSecs * 1000);
-        etaDestText = `Kufika: ${formatTimeLocal(etaTime)} (dk ${minsLeft})`;
+        etaDestText = `${remainingKm} km • Kufika: ${formatTimeLocal(etaTime)} (dk ${minsLeft})`;
       } else {
         const realRemainingSecs = Math.max(0, tripDurSecs - secondsOffset);
         const minsLeft = Math.floor(realRemainingSecs / 60);
         const etaTime = new Date(Date.now() + realRemainingSecs * 1000);
-        etaDestText = `Kufika: ${formatTimeLocal(etaTime)} (dk ${minsLeft})`;
+        etaDestText = `${activeTripKm} km • Kufika: ${formatTimeLocal(etaTime)} (dk ${minsLeft})`;
       }
     } else if (["accepted", "driver_arriving", "driver_arrived", "found"].includes(activeRide.status)) {
       // Driver is heading to pickup. Estimated total duration = (time to pickup) + (ride duration)
@@ -2997,19 +3008,19 @@ export default function TaxiBooking() {
       const realRemainingSecs = Math.max(0, totalRemainingSecs - secondsOffset);
       const minsLeft = Math.floor(realRemainingSecs / 60);
       const etaTime = new Date(Date.now() + realRemainingSecs * 1000);
-      etaDestText = `Kufika: ${formatTimeLocal(etaTime)} (dk ${minsLeft})`;
+      etaDestText = `${activeTripKm} km • Kufika: ${formatTimeLocal(etaTime)} (dk ${minsLeft})`;
     } else {
       const realRemainingSecs = Math.max(0, tripDurSecs - secondsOffset);
       const minsLeft = Math.floor(realRemainingSecs / 60);
       const etaTime = new Date(Date.now() + realRemainingSecs * 1000);
-      etaDestText = `Kufika: ${formatTimeLocal(etaTime)} (dk ${minsLeft})`;
+      etaDestText = `${activeTripKm} km • Kufika: ${formatTimeLocal(etaTime)} (dk ${minsLeft})`;
     }
   } else {
     // Before trip starts (during booking setup / search)
     const realRemainingSecs = Math.max(0, tripDurSecs - secondsOffset);
     const minsLeft = Math.floor(realRemainingSecs / 60);
     const etaTime = new Date(Date.now() + realRemainingSecs * 1000);
-    etaDestText = `Kufika: ${formatTimeLocal(etaTime)} (dk ${minsLeft})`;
+    etaDestText = `${activeTripKm} km • Kufika: ${formatTimeLocal(etaTime)} (dk ${minsLeft})`;
   }
 
   return (

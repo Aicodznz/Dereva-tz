@@ -27,6 +27,27 @@ export default function IncomingRideCard({ ride, onAccept, onDecline, onTimeout,
 
   const isDark = theme === 'dark';
 
+  const getCalcDistanceKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  };
+
+  const tripDistKm = ride.distance && Number(ride.distance) > 0 
+    ? Number(ride.distance) 
+    : (ride.pickup?.lat && ride.destination?.lat 
+        ? getCalcDistanceKm(Number(ride.pickup.lat), Number(ride.pickup.lng), Number(ride.destination.lat), Number(ride.destination.lng)) 
+        : 3.0);
+
+  const pickupDistKm = (ride as any).distanceToPickup && Number((ride as any).distanceToPickup) > 0
+    ? Number((ride as any).distanceToPickup)
+    : 0.5;
+
   return (
     <div className="fixed inset-x-0 bottom-4 z-[99999] px-4 pointer-events-none flex justify-center">
       <motion.div 
@@ -108,7 +129,7 @@ export default function IncomingRideCard({ ride, onAccept, onDecline, onTimeout,
                 {ride.pickup.address}
               </p>
               <p className="text-[8.5px] font-bold text-neutral-400 dark:text-neutral-500 mt-0.5 leading-none">
-                Kupakia • {(ride as any).distanceToPickup?.toFixed(1) || '0.5'} km kutoka kwako
+                Kupakia • {pickupDistKm.toFixed(1)} km kutoka kwako
               </p>
             </div>
           </div>
@@ -126,7 +147,7 @@ export default function IncomingRideCard({ ride, onAccept, onDecline, onTimeout,
                 {ride.destination.address}
               </p>
               <p className="text-[8.5px] font-bold text-neutral-400 dark:text-neutral-500 mt-0.5 leading-none">
-                Kushusha
+                Kushusha • {tripDistKm.toFixed(1)} km safari
               </p>
             </div>
           </div>
@@ -141,7 +162,7 @@ export default function IncomingRideCard({ ride, onAccept, onDecline, onTimeout,
           <div>
             <span className="text-[7.5px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-widest block leading-none mb-0.5">UMBALI</span>
             <span className="text-[11px] font-black text-neutral-800 dark:text-white leading-none">
-              {(ride as any).distanceToPickup?.toFixed(1) || '0.5'} km
+              {tripDistKm.toFixed(1)} km
             </span>
           </div>
           <div className="border-r border-neutral-200/30 dark:border-neutral-800/40 my-0.5" />

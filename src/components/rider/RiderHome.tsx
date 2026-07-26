@@ -1237,12 +1237,12 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
     const icon = L.divIcon({
       className: "custom-div-icon",
       html: `
-        <div class="relative flex flex-col items-center select-none" style="width: 150px;">
+        <div class="relative flex flex-col items-center select-none" style="width: 175px;">
           <!-- DiDi / Uber Style Callout Card Container -->
           <div class="relative flex flex-col items-start w-full transition-transform duration-200 transform hover:scale-105 filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.3)]">
             
             <!-- Top Slanted Badge Tab -->
-            <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-amber-600 to-orange-500 text-white rounded-t-md rounded-tr-xl text-[6.5px] font-bold uppercase tracking-wide leading-none shadow-sm ml-2 z-10 border-t border-x border-amber-400/40 w-[110px] overflow-hidden">
+            <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-amber-600 to-orange-500 text-white rounded-t-md rounded-tr-xl text-[6.5px] font-bold uppercase tracking-wide leading-none shadow-sm ml-2 z-10 border-t border-x border-amber-400/40 w-[120px] overflow-hidden">
               <span class="w-1 h-1 rounded-full bg-white animate-pulse shrink-0"></span>
               <div class="overflow-hidden min-w-0 flex-1 relative">
                 <span class="badge-text-slide">Recommended Drop-off</span>
@@ -1254,7 +1254,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
               <div class="flex flex-col min-w-0 flex-1">
                 <span class="text-[6.5px] font-extrabold text-amber-500 uppercase tracking-wider leading-none mb-0.5">HATIMA YAKO</span>
                 <span class="text-[9.5px] font-black truncate leading-tight">${displayAddr}</span>
-                ${etaText ? `<span class="text-[7.5px] font-mono font-bold text-amber-500 mt-0.5 leading-none bg-amber-500/10 px-1 py-0.2 rounded w-max">${etaText}</span>` : ''}
+                ${etaText ? `<span class="text-[7.5px] font-mono font-bold text-amber-500 mt-0.5 leading-none bg-amber-500/10 px-1.5 py-0.5 rounded w-max">${etaText}</span>` : ''}
               </div>
               <div class="w-4 h-4 rounded-full ${isDark ? 'bg-neutral-800 text-neutral-300' : 'bg-neutral-100 text-neutral-600'} flex items-center justify-center shrink-0">
                 <svg class="w-2.5 h-2.5 stroke-current stroke-[3]" fill="none" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
@@ -1274,8 +1274,8 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
           </div>
         </div>
       `,
-      iconSize: [150, 68],
-      iconAnchor: [75, 65],
+      iconSize: [175, 68],
+      iconAnchor: [87, 65],
     });
     pinIconCacheMap[key] = icon;
     return icon;
@@ -2041,32 +2041,36 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
   if (activeRide && position) {
     if (activeRide.status === "on_trip") {
       const distToDest = getDistanceDriver([position[0], position[1]], [activeRide.destination.lat, activeRide.destination.lng]);
+      const currentKm = (distToDest / 1000).toFixed(1);
       const remainingDurSecs = distToDest / 9.5;
       const realRemainingSecs = Math.max(0, remainingDurSecs - (secondsOffset % 30));
       const minsLeft = Math.floor(realRemainingSecs / 60);
       const etaTime = new Date(Date.now() + realRemainingSecs * 1000);
-      etaDestTextD = `Kufika: ${formatTimeDriver(etaTime)} (dk ${minsLeft})`;
+      etaDestTextD = `${currentKm} km • Kufika: ${formatTimeDriver(etaTime)} (dk ${minsLeft})`;
     } else {
       // heading to pickup: total duration = (driver to pickup) + (pickup to destination)
       const distToPickup = getDistanceDriver([position[0], position[1]], [activeRide.pickup.lat, activeRide.pickup.lng]);
       const durToPickupSecs = distToPickup / 6.5;
 
       const distPickupToDest = getDistanceDriver([activeRide.pickup.lat, activeRide.pickup.lng], [activeRide.destination.lat, activeRide.destination.lng]);
+      const tripKm = activeRide.distance && Number(activeRide.distance) > 0 ? Number(activeRide.distance).toFixed(1) : (distPickupToDest / 1000).toFixed(1);
       const durPickupToDestSecs = distPickupToDest / 9.5;
 
       const totalRemainingSecs = durToPickupSecs + durPickupToDestSecs;
       const realRemainingSecs = Math.max(0, totalRemainingSecs - secondsOffset);
       const minsLeft = Math.floor(realRemainingSecs / 60);
       const etaTime = new Date(Date.now() + realRemainingSecs * 1000);
-      etaDestTextD = `Kufika: ${formatTimeDriver(etaTime)} (dk ${minsLeft})`;
+      etaDestTextD = `${tripKm} km • Kufika: ${formatTimeDriver(etaTime)} (dk ${minsLeft})`;
     }
   } else if (incomingRequest) {
-    const distToDest = getDistanceDriver([incomingRequest.pickup.lat, incomingRequest.pickup.lng], [incomingRequest.destination.lat, incomingRequest.destination.lng]);
-    const etSecs = distToDest / 9.5;
+    const distPickupToDest = getDistanceDriver([incomingRequest.pickup.lat, incomingRequest.pickup.lng], [incomingRequest.destination.lat, incomingRequest.destination.lng]);
+    const tripKm = incomingRequest.distance && Number(incomingRequest.distance) > 0 ? Number(incomingRequest.distance).toFixed(1) : (distPickupToDest / 1000).toFixed(1);
+
+    const etSecs = distPickupToDest / 9.5;
     const realRemainingSecs = Math.max(0, etSecs - secondsOffset);
     const minsLeft = Math.floor(realRemainingSecs / 60);
     const etaTime = new Date(Date.now() + realRemainingSecs * 1000);
-    etaDestTextD = `Kufika: ${formatTimeDriver(etaTime)} (dk ${minsLeft})`;
+    etaDestTextD = `${tripKm} km • Kufika: ${formatTimeDriver(etaTime)} (dk ${minsLeft})`;
   } else {
     const realRemainingSecs = Math.max(0, 600 - secondsOffset);
     const minsLeft = Math.floor(realRemainingSecs / 60);
