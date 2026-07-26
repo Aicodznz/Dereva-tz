@@ -4549,8 +4549,20 @@ export default function TaxiBooking() {
                   <div className="grid grid-cols-2 gap-3.5 my-1">
                     {/* Someone Else Option */}
                     <button
-                      onClick={() => setPassengerType('someone_else')}
-                      className={`p-4 rounded-2.5xl border-2 transition-all flex flex-col items-center gap-2.5 group relative ${
+                      onClick={() => {
+                        setPassengerType('someone_else');
+                        const defaultName = profile?.displayName || auth.currentUser?.displayName || "";
+                        let defaultPhone = profile?.phoneNumber || "";
+                        if (defaultPhone.startsWith("+255")) {
+                          defaultPhone = defaultPhone.slice(4);
+                        } else if (defaultPhone.startsWith("255")) {
+                          defaultPhone = defaultPhone.slice(3);
+                        }
+                        if (passengerName === defaultName) setPassengerName('');
+                        if (passengerPhone === defaultPhone) setPassengerPhone('');
+                        setPassengerStep('details');
+                      }}
+                      className={`p-4 rounded-2.5xl border-2 transition-all flex flex-col items-center gap-2.5 group relative cursor-pointer ${
                         passengerType === 'someone_else'
                           ? "bg-indigo-50/60 border-indigo-600 shadow-sm scale-[1.02]"
                           : "bg-white border-neutral-200 hover:border-neutral-300"
@@ -4584,8 +4596,22 @@ export default function TaxiBooking() {
 
                     {/* You Option */}
                     <button
-                      onClick={() => setPassengerType('you')}
-                      className={`p-4 rounded-2.5xl border-2 transition-all flex flex-col items-center gap-2.5 group relative ${
+                      onClick={() => {
+                        setPassengerType('you');
+                        const defaultName = profile?.displayName || auth.currentUser?.displayName || "Mteja";
+                        let defaultPhone = profile?.phoneNumber || "";
+                        if (defaultPhone.startsWith("+255")) {
+                          defaultPhone = defaultPhone.slice(4);
+                        } else if (defaultPhone.startsWith("255")) {
+                          defaultPhone = defaultPhone.slice(3);
+                        }
+                        
+                        setPassengerName(passengerName || defaultName);
+                        setPassengerPhone(passengerPhone || defaultPhone);
+                        setShowPassengerModal(false);
+                        confirmBooking();
+                      }}
+                      className={`p-4 rounded-2.5xl border-2 transition-all flex flex-col items-center gap-2.5 group relative cursor-pointer ${
                         passengerType === 'you'
                           ? "bg-emerald-50 border-emerald-500 shadow-sm scale-[1.02]"
                           : "bg-white border-neutral-200 hover:border-neutral-300"
@@ -4625,7 +4651,7 @@ export default function TaxiBooking() {
                   <button
                     onClick={() => {
                       if (passengerType === 'you') {
-                        const defaultName = profile?.displayName || auth.currentUser?.displayName || "";
+                        const defaultName = profile?.displayName || auth.currentUser?.displayName || "Mteja";
                         let defaultPhone = profile?.phoneNumber || "";
                         if (defaultPhone.startsWith("+255")) {
                           defaultPhone = defaultPhone.slice(4);
@@ -4635,7 +4661,8 @@ export default function TaxiBooking() {
                         
                         setPassengerName(passengerName || defaultName);
                         setPassengerPhone(passengerPhone || defaultPhone);
-                        setPassengerStep('details');
+                        setShowPassengerModal(false);
+                        confirmBooking();
                       } else {
                         const defaultName = profile?.displayName || auth.currentUser?.displayName || "";
                         let defaultPhone = profile?.phoneNumber || "";
@@ -4654,7 +4681,7 @@ export default function TaxiBooking() {
                         setPassengerStep('details');
                       }
                     }}
-                    className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95 transition-all shadow-md"
+                    className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95 transition-all shadow-md cursor-pointer"
                   >
                     Next / Endelea
                   </button>

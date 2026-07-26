@@ -1695,7 +1695,7 @@ export async function handleSMSInput(
       nearbyCount: 3
     }];
 
-    if (session.passengerName && session.passengerPhone) {
+    if (session.passengerName && session.passengerName.trim() && session.passengerPhone && session.passengerPhone.trim()) {
       session.step = 'TAXI_ASK_PREVIOUS_DETAILS';
       await saveSession(session, dbAdmin);
       return `👤 *TAARIFA ZA MSAFIRI*\n\nTumepata taarifa za msafiri ulizowahi kutumia awali:\n- Jina: *${session.passengerName}*\n- Namba: *${session.passengerPhone}*\n\n1. Ndio, Tumia hizi\n2. Hapana, Weka mpya`;
@@ -2769,7 +2769,7 @@ export async function handleSMSInput(
     }
 
     if (cleanInput === '1' || lowerInput.includes('ndio') || lowerInput.includes('tafuta') || lowerInput.includes('kubali') || lowerInput.includes('yes')) {
-      if (session.passengerName && session.passengerPhone) {
+      if (session.passengerName && session.passengerName.trim() && session.passengerPhone && session.passengerPhone.trim()) {
         session.step = 'TAXI_ASK_PREVIOUS_DETAILS';
         await saveSession(session, dbAdmin);
         return `👤 *TAARIFA ZA MSAFIRI*\n\nTumepata taarifa za msafiri ulizowahi kutumia awali:\n- Jina: *${session.passengerName}*\n- Namba ya Simu: *${session.passengerPhone}*\n\nJe, ungependa kutumia taarifa hizi za awali au kuweka mpya?\n\n*1* - Ndio, Tumia hizi hizi\n*2* - Hapana, Badilisha taarifa (Weka mpya)`;
