@@ -1318,7 +1318,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
         return;
       }
       const status = activeRide.status;
-      // If status changed or simulated path is empty, initialize simulation path
+      // Initialize simulation path only when status changes or when path is empty
       if (activeStatusRef.current !== status || simulatedPathRef.current.length === 0) {
         console.log(`[Simulation] Initializing simulated path for status: ${status}. Points: ${dynamicRoute.length}`);
         simulatedPathRef.current = [...dynamicRoute];
@@ -1330,36 +1330,9 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
         if (startPoint) {
           setPosition(startPoint);
         }
-      } else if (!isRoutingLoading) {
-        // If route has finished loading a fresh precise route of real streets, Our enableSlicing-based
-        // useRouting hook gives us a route starting precisely from the driver's current position to target.
-        // We can cleanly re-align the active driver path to the high-precision actual street curves!
-        console.log(`[Simulation] Re-aligning driver path to precise OSM/OSRM streets! Points: ${dynamicRoute.length}`);
-        
-        const oldPosition = position;
-        simulatedPathRef.current = [...dynamicRoute];
-        activeStatusRef.current = status;
-        
-        if (oldPosition) {
-          // Find the index of the closest point on the brand new path matching our current coordinate
-          let minDistance = Infinity;
-          let closestIdx = 0;
-          for (let i = 0; i < dynamicRoute.length; i++) {
-            const latDiff = dynamicRoute[i][0] - oldPosition[0];
-            const lngDiff = dynamicRoute[i][1] - oldPosition[1];
-            const dist = latDiff * latDiff + lngDiff * lngDiff;
-            if (dist < minDistance) {
-              minDistance = dist;
-              closestIdx = i;
-            }
-          }
-          simulatedIndexRef.current = closestIdx;
-        } else {
-          simulatedIndexRef.current = 0;
-        }
       }
     }
-  }, [dynamicRoute, activeRide?.status, isRoutingLoading]);
+  }, [dynamicRoute, activeRide?.status]);
 
   // Automatic GPS Simulation Loop for preview/testing environments
   useEffect(() => {

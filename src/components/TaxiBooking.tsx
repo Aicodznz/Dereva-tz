@@ -470,15 +470,14 @@ const MapRotationController = ({
     if (!map) return;
     const container = map.getContainer();
     if (!container) return;
-    const perspectiveTilt = is3DMode ? 'perspective(1000px) rotateX(50deg) ' : '';
-    if (rotation !== 0 || is3DMode) {
-      container.style.transform = `${perspectiveTilt}rotateZ(${-rotation}deg)`;
-    } else {
-      container.style.transform = 'none';
-    }
+
+    // Stable 3D perspective tilt for Gaode Maps HUD feel without micro-rotation jitter on whole canvas
+    const perspectiveTilt = is3DMode ? 'perspective(1000px) rotateX(28deg)' : 'none';
+    
+    container.style.transform = perspectiveTilt;
     container.style.transformOrigin = 'center center';
-    container.style.transition = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)';
-  }, [map, rotation, is3DMode]);
+    container.style.transition = 'transform 0.5s cubic-bezier(0.25, 1, 0.5, 1)';
+  }, [map, is3DMode]);
 
   return null;
 };

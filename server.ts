@@ -191,14 +191,14 @@ async function startServer() {
         .replace(/\n\s*\n/g, "\n") // remove double blank lines
         .trim();
 
-      // If the step is START (meaning the flow completed or was cancelled), we END the session.
-      // Otherwise, we CON (continue) the session.
-      res.type('text/plain');
+      // If the step is START (meaning the flow completed or was reset), transition to SELECT_SERVICE so the session stays active
       if (finalSession.step === 'START') {
-        res.send(`END ${cleanReply}`);
-      } else {
-        res.send(`CON ${cleanReply}`);
+        finalSession.step = 'SELECT_SERVICE';
+        await saveSession(finalSession, dbAdmin);
       }
+
+      res.type('text/plain');
+      res.send(`CON ${cleanReply}`);
     } catch (error: any) {
       console.error("[Africa's Talking USSD] Error:", error);
       res.type('text/plain');

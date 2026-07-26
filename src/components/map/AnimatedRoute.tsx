@@ -22,9 +22,22 @@ export const AnimatedRoute: React.FC<AnimatedRouteProps> = ({
   useEffect(() => {
     if (!map || !positions || positions.length < 2) return;
 
+    const refs = layersRef.current;
+
+    // If layers already exist on the map, update coordinates directly without re-creating SVG elements!
+    if (refs.glowLine && refs.baseLine && refs.animatedLine) {
+      try {
+        refs.glowLine.setLatLngs(positions);
+        refs.baseLine.setLatLngs(positions);
+        refs.animatedLine.setLatLngs(positions);
+        return;
+      } catch (e) {
+        console.warn("[AnimatedRoute] Update latLngs failed, recreating layers:", e);
+      }
+    }
+
     // 1. Cleanup function to wipe previous layers and halt animation
     const cleanup = () => {
-      const refs = layersRef.current;
       if (refs.animFrameId) {
         cancelAnimationFrame(refs.animFrameId);
         refs.animFrameId = undefined;
@@ -32,12 +45,15 @@ export const AnimatedRoute: React.FC<AnimatedRouteProps> = ({
       try {
         if (refs.glowLine && map.hasLayer(refs.glowLine)) {
           map.removeLayer(refs.glowLine);
+          refs.glowLine = undefined;
         }
         if (refs.baseLine && map.hasLayer(refs.baseLine)) {
           map.removeLayer(refs.baseLine);
+          refs.baseLine = undefined;
         }
         if (refs.animatedLine && map.hasLayer(refs.animatedLine)) {
           map.removeLayer(refs.animatedLine);
+          refs.animatedLine = undefined;
         }
       } catch (err) {
         console.warn("[AnimatedRoute] Cleanup failed or map already unmounted:", err);
@@ -80,7 +96,8 @@ export const AnimatedRoute: React.FC<AnimatedRouteProps> = ({
     layersRef.current = {
       glowLine,
       baseLine,
-      animatedLine
+      animatedLine,
+      animFrameId: refs.animFrameId
     };
 
     // 5. Native performance animation loop on SVG stroke-dashoffset

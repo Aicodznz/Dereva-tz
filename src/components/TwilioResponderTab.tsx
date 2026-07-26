@@ -316,9 +316,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
       timer = setInterval(() => {
         setUssdTimeLeft((prev) => {
           if (prev <= 1) {
-            setUssdIsEnd(true);
-            setUssdCurrentResponse("This session has expired. (Muda wa session umeisha. Tafadhali piga tena code ya USSD *384#)");
-            return 0;
+            return 60; // Auto-renew timer so session never expires until user cancels
           }
           return prev - 1;
         });
@@ -332,21 +330,17 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
   const parseUssdResponse = (text: string) => {
     setUssdTimeLeft(60); // Reset session timer to 60s for new prompt
     const trimmed = text.trim();
+    setUssdIsEnd(false); // Keep session continuously active for user responses
     if (trimmed.startsWith("CON ")) {
       setUssdCurrentResponse(trimmed.substring(4));
-      setUssdIsEnd(false);
     } else if (trimmed.startsWith("END ")) {
       setUssdCurrentResponse(trimmed.substring(4));
-      setUssdIsEnd(true);
     } else if (trimmed.startsWith("CON")) {
       setUssdCurrentResponse(trimmed.substring(3));
-      setUssdIsEnd(false);
     } else if (trimmed.startsWith("END")) {
       setUssdCurrentResponse(trimmed.substring(3));
-      setUssdIsEnd(true);
     } else {
       setUssdCurrentResponse(trimmed);
-      setUssdIsEnd(true);
     }
   };
 
@@ -4407,13 +4401,13 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                           </div>
 
                           {/* Dialog Input & Actions */}
-                          {!ussdLoading && !ussdIsEnd && (
+                          {!ussdLoading && (
                             <div className="space-y-3 pt-1">
                               <Input
                                 autoFocus
                                 value={ussdInputValue}
                                 onChange={(e) => setUssdInputValue(e.target.value)}
-                                placeholder="Andika hapa..."
+                                placeholder="Andika hapa... (mfano 0 au HI)"
                                 className="h-8.5 text-xs bg-neutral-50 dark:bg-neutral-950 border-neutral-200 focus-visible:ring-orange-500 rounded-xl"
                                 onKeyDown={(e) => {
                                   if (e.key === 'Enter' && ussdInputValue.trim()) {
@@ -4421,38 +4415,35 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                                   }
                                 }}
                               />
-                              <div className="flex items-center justify-end gap-3 text-xs font-bold uppercase tracking-wider">
-                                <button
-                                  type="button"
-                                  onClick={() => { setUssdSessionActive(false); setUssdAccumulatedText(""); }}
-                                  className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 cursor-pointer text-[11px]"
-                                >
-                                  Cancel
-                                </button>
+                              <div className="flex items-center justify-between gap-2 text-xs font-bold uppercase tracking-wider">
                                 <Button
                                   type="button"
+                                  variant="outline"
                                   size="sm"
-                                  disabled={!ussdInputValue.trim()}
-                                  onClick={() => submitUssdInput(ussdInputValue.trim())}
-                                  className="bg-orange-600 hover:bg-orange-700 text-white rounded-xl h-8 px-4 font-black"
+                                  onClick={() => submitUssdInput("0")}
+                                  className="border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 rounded-xl h-8 px-2.5 text-[10.5px] font-extrabold cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                                 >
-                                  Send
+                                  ↩️ Rudi Mwanzo (0)
                                 </Button>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => { setUssdSessionActive(false); setUssdAccumulatedText(""); }}
+                                    className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 cursor-pointer text-[11px] font-bold px-1"
+                                  >
+                                    Sitisha
+                                  </button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    disabled={!ussdInputValue.trim()}
+                                    onClick={() => submitUssdInput(ussdInputValue.trim())}
+                                    className="bg-orange-600 hover:bg-orange-700 text-white rounded-xl h-8 px-4 font-black cursor-pointer"
+                                  >
+                                    Send
+                                  </Button>
+                                </div>
                               </div>
-                            </div>
-                          )}
-
-                          {/* Dialog Session Ended (END state) */}
-                          {!ussdLoading && ussdIsEnd && (
-                            <div className="flex items-center justify-end pt-1">
-                              <Button
-                                type="button"
-                                size="sm"
-                                onClick={() => { setUssdSessionActive(false); setUssdAccumulatedText(""); }}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-8 px-5 font-black text-xs uppercase tracking-wider"
-                              >
-                                OK
-                              </Button>
                             </div>
                           )}
                         </div>

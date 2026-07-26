@@ -654,10 +654,14 @@ export async function handleSMSInput(
     welcomeMessage = getWelcomeMessage(session, businessConfig);
   }
 
-  // Restart trigger & Step Initializer
+  // Restart trigger, Back Navigation & Step Initializer
   const isGreeting = ['hi', 'mambo', 'vip', 'vipi', 'habari', 'hello', 'habari gani', 'anza', 'start', 'menu', 'ya', 'oje', 'hodi', ''].includes(lowerInput);
-  
-  if (session.step === 'START' || isGreeting) {
+  const isBackToMain = [
+    '0', '00', 'rudi', 'back', 'mwanzo', '0. rudi mwanzo', '0. main menu', 
+    '0. rudi', 'kurudi', 'main menu', 'rudi mwanzo', 'menu', 'start', '00. rudi mwanzo'
+  ].includes(lowerInput) || lowerInput === '0' || lowerInput === '00';
+
+  if (session.step === 'START' || isGreeting || isBackToMain) {
     session.selectedService = undefined;
     session.busRoute = undefined;
     session.selectedOperatorId = undefined;
@@ -671,10 +675,11 @@ export async function handleSMSInput(
     session.selectedProductId = undefined;
     session.selectedProductName = undefined;
     session.selectedProductPrice = undefined;
+    session.foodCart = [];
     session.optionsList = [];
 
-    // If it's a greeting or empty input, show the welcome menu
-    if (isGreeting || !cleanInput) {
+    // If it's a greeting, back command, or empty input, show the welcome menu
+    if (isGreeting || isBackToMain || !cleanInput) {
       session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
       return getWelcomeMessage(session, businessConfig);
