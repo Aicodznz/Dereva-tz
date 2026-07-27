@@ -11,10 +11,10 @@ interface AuthLayoutProps {
 
 export default function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
   return (
-    <div className="min-h-screen bg-neutral-50 flex flex-col items-center justify-center p-4 relative">
+    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 flex flex-col items-center justify-center p-4 pt-safe pb-safe scroll-touch relative">
       <Link 
         to="/" 
-        className="absolute top-8 left-8 flex items-center gap-2 text-neutral-500 hover:text-orange-600 font-bold transition-colors group"
+        className="absolute top-4 left-4 sm:top-8 sm:left-8 flex items-center gap-2 text-neutral-500 hover:text-orange-600 font-bold transition-colors group z-20"
       >
         <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm group-hover:shadow-md transition-all">
           <ArrowLeft className="w-5 h-5" />
