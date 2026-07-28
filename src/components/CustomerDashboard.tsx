@@ -537,6 +537,7 @@ export default function CustomerDashboard() {
     { id: 'vifurushi', label: 'PapoSend', icon: Package, color: 'bg-orange-500', sub: 'Tuma vifurushi 📦', category: 'parcel', badge: 'ONLY1K' },
     { id: 'dawa', label: 'PapoMed', icon: Pill, color: 'bg-blue-500', sub: 'Dawa na huduma za afya 💊', category: 'pharmacy', badge: 'ONLY1K' },
     { id: 'saluni', label: 'PapoStyle', icon: Scissors, color: 'bg-pink-500', sub: 'Saluni na beauty services 💇', category: 'salon', badge: 'ONLY1K' },
+    { id: 'fundi', label: 'PapoFix', icon: Wrench, color: 'bg-amber-600', sub: 'Home Services, Mafundi na Booking 🛠️', category: 'handyman', badge: 'BOOKING' },
     { id: 'hoteli', label: 'PapoStay', icon: Hotel, color: 'bg-indigo-500', sub: 'Booking hoteli, nyumba na malazi 🏨', category: 'hotel', badge: 'ONLY6K' },
     { id: 'bus_ticket', label: 'PapoBus', icon: Bus, color: 'bg-orange-600', sub: 'Tiketi za mabasi 🚌', category: 'bus_ticket', badge: 'ONLY6K' },
     { id: 'car_rental', label: 'PapoRent', icon: Key, color: 'bg-teal-600', sub: 'Rental ya magari 🚘', category: 'taxi', badge: 'ONLY6K' },
@@ -569,6 +570,8 @@ export default function CustomerDashboard() {
             pharmacy: 'dawa',
             ecommerce: 'maduka',
             salon: 'saluni',
+            handyman: 'fundi',
+            home_services: 'fundi',
             bus_ticket: 'bus_ticket',
             car_rental: 'car_rental',
             car_sale: 'car_sale'

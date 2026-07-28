@@ -235,7 +235,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
   const [copied, setCopied] = useState(false);
   const [isEnabled, setIsEnabled] = useState(true);
   const [welcomeText, setWelcomeText] = useState(
-    "Karibu Papo Hapo! 🌟\n\nChagua huduma:\n1. 🚕 PapoRide (Taxi & Nauli)\n2. 📦 PapoSend (Tuma & Fuatilia Mzigo)\n3. 🍔 PapoFood (Chakula & Migahawa)\n4. 🛒 PapoMart (Sokoni & Maduka)\n5. 🚌 PapoBus (Tiketi za Mabasi)\n6. 💇‍♀️ PapoStyle (Saluni & Urembo)\n7. 🏨 PapoStay (Hoteli & Malazi)\n8. 🔑 PapoRent (Kukodi Magari & Vifaa)\n9. 🛵 PapoDriver (Offline Mode)\n10. 📋 Hali ya Agizo (Live Status)\n11. 💰 PapoWallet & PapoPoints\n12. 🌐 Lugha / Language (SW/EN)"
+    "Karibu Papo Hapo! 🌟\n\nChagua huduma:\n1. 🚕 PapoRide (Taxi & Nauli)\n2. 📦 PapoSend (Tuma & Fuatilia Mzigo)\n3. 🍔 PapoFood (Chakula & Migahawa)\n4. 🛒 PapoMart (Sokoni & Maduka)\n5. 🛠️ PapoFix (Home Services & Handyman)\n6. 🚌 PapoBus (Tiketi za Mabasi)\n7. 💇‍♀️ PapoStyle (Saluni & Urembo)\n8. 🏨 PapoStay (Hoteli & Malazi)\n9. 🔑 PapoRent (Kukodi Magari & Vifaa)\n10. 🛵 PapoDriver (Offline Mode)\n11. 📋 Hali ya Agizo (Live Status)\n12. 💰 PapoWallet & PapoPoints\n13. 🌐 Lugha / Language (SW/EN)"
   );
   const [testPhoneNumber, setTestPhoneNumber] = useState('+255712345678');
   const [inputText, setInputText] = useState('');

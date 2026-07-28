@@ -14,6 +14,7 @@ export interface UserProfile {
   status?: string;
   driverType?: 'taxi' | 'delivery';
   vehicleType?: string;
+  driverRegVehicle?: string;
   vehicleBrand?: string;
   vehicleModel?: string;
   vehicleColor?: string;
@@ -68,7 +69,7 @@ export interface UserProfile {
   accountHolderName?: string;
 }
 
-export type VendorCategory = 'pharmacy' | 'grocery' | 'restaurant' | 'parcel' | 'taxi' | 'car_rental' | 'car_sale' | 'salon' | 'hotel' | 'ecommerce' | 'bus_ticket';
+export type VendorCategory = 'pharmacy' | 'grocery' | 'restaurant' | 'parcel' | 'taxi' | 'car_rental' | 'car_sale' | 'salon' | 'hotel' | 'ecommerce' | 'bus_ticket' | 'handyman' | 'home_services';
 export type VendorStatus = 'pending' | 'active' | 'suspended';
 
 export interface VendorProfile {

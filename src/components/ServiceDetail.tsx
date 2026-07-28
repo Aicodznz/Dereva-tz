@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, onSnapshot, getDocs, limit } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, getDocs, limit, addDoc } from 'firebase/firestore';
 import { VendorProfile, Product, VendorCategory } from '../types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,12 +9,14 @@ import { Button } from '@/components/ui/button';
 import { 
   ChevronLeft, Star, Search, Filter, MapPin, ChevronRight,
   Utensils, ShoppingCart, Pill, Package, Car, Scissors, Hotel, ShoppingBag, Bus, Plus,
-  Sparkles, Flower, Droplet, User, Smile, Home, Key
+  Sparkles, Flower, Droplet, User, Smile, Home, Key, Wrench, Zap, Hammer, Paintbrush,
+  Wind, Tv, HardHat, Clock, Calendar, CheckCircle2, ShieldCheck, AlertCircle, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage } from '../LanguageContext';
 import { useCart } from '../CartContext';
 import { useBusinessConfig } from '../BusinessConfigContext';
+import { useAuth } from '../AuthContext';
 import { toast } from 'sonner';
 import BusBooking from './BusBooking';
 
@@ -29,6 +31,7 @@ const serviceMapping: Record<string, { category: VendorCategory, labelKey: strin
   'vifurushi': { category: 'parcel', labelKey: 'PapoSend', icon: Package, color: 'bg-orange-500' },
   'bus_ticket': { category: 'bus_ticket', labelKey: 'PapoBus', icon: Bus, color: 'bg-orange-600' },
   'car_rental': { category: 'taxi', labelKey: 'PapoRent', icon: Key, color: 'bg-teal-600' },
+  'fundi': { category: 'handyman', labelKey: 'PapoFix', icon: Wrench, color: 'bg-amber-600' },
   'all-stores': { category: 'all' as any, labelKey: 'all_stores', icon: ShoppingBag, color: 'bg-orange-600' },
 };
 
@@ -41,13 +44,32 @@ const SALON_SUB_CATEGORIES = [
   { id: 'body', label: 'Urembo wa Mwili', subLabel: 'Body beauty', icon: User, color: 'text-indigo-600', border: 'border-indigo-200 hover:border-indigo-500 bg-indigo-50/20 dark:bg-indigo-950/10 dark:border-indigo-900/30', iconBg: 'bg-indigo-100 dark:bg-indigo-900/30' }
 ];
 
+const HANDYMAN_SUB_CATEGORIES = [
+  { id: 'electrician', label: 'Fundi Umeme', subLabel: 'Electrician & Wiring', icon: Zap, color: 'text-amber-500', border: 'border-amber-200 hover:border-amber-500 bg-amber-50/20 dark:bg-amber-950/10 dark:border-amber-900/30', iconBg: 'bg-amber-100 dark:bg-amber-900/30' },
+  { id: 'plumbing', label: 'Fundi Bomba', subLabel: 'Plumbing & Pipes', icon: Droplet, color: 'text-blue-500', border: 'border-blue-200 hover:border-blue-500 bg-blue-50/20 dark:bg-blue-950/10 dark:border-blue-900/30', iconBg: 'bg-blue-100 dark:bg-blue-900/30' },
+  { id: 'carpentry', label: 'Fundi Mbao & Samani', subLabel: 'Carpentry & Locks', icon: Hammer, color: 'text-orange-600', border: 'border-orange-200 hover:border-orange-500 bg-orange-50/20 dark:bg-orange-950/10 dark:border-orange-900/30', iconBg: 'bg-orange-100 dark:bg-orange-900/30' },
+  { id: 'painting', label: 'Fundi Rangi', subLabel: 'Painting & Touchup', icon: Paintbrush, color: 'text-purple-600', border: 'border-purple-200 hover:border-purple-500 bg-purple-50/20 dark:bg-purple-950/10 dark:border-purple-900/30', iconBg: 'bg-purple-100 dark:bg-purple-900/30' },
+  { id: 'appliances', label: 'AC & Refrigerator', subLabel: 'AC & Friji Repair', icon: Wind, color: 'text-teal-600', border: 'border-teal-200 hover:border-teal-500 bg-teal-50/20 dark:bg-teal-950/10 dark:border-teal-900/30', iconBg: 'bg-teal-100 dark:bg-teal-900/30' },
+  { id: 'cleaning', label: 'Usafi & Pest Control', subLabel: 'Deep Cleaning & Fumigation', icon: Sparkles, color: 'text-emerald-600', border: 'border-emerald-200 hover:border-emerald-500 bg-emerald-50/20 dark:bg-emerald-950/10 dark:border-emerald-900/30', iconBg: 'bg-emerald-100 dark:bg-emerald-900/30' },
+  { id: 'electronics', label: 'Electronics & TV', subLabel: 'TV & Solar Repair', icon: Tv, color: 'text-red-500', border: 'border-red-200 hover:border-red-500 bg-red-50/20 dark:bg-red-950/10 dark:border-red-900/30', iconBg: 'bg-red-100 dark:bg-red-900/30' },
+  { id: 'masonry', label: 'Ujenzi & Paipui', subLabel: 'Masonry & Tiles', icon: HardHat, color: 'text-stone-600', border: 'border-stone-200 hover:border-stone-500 bg-stone-50/20 dark:bg-stone-950/10 dark:border-stone-900/30', iconBg: 'bg-stone-100 dark:bg-stone-900/30' }
+];
+
 const subCategoryKeywords: Record<string, string[]> = {
   hair: ['hair', 'nywele', 'kinyozi', 'shave', 'cut', 'style', 'kusuka', 'weaving', 'braids', 'piko', 'wig', 'dreadlocks'],
   nails: ['nail', 'kucha', 'manicure', 'pedicure', 'polish', 'gel', 'acrylic', 'tips'],
   makeup: ['makeup', 'urembo', 'eyebrow', 'eyelash', 'foundation', 'wanja', 'poda', 'makeup', 'lipstick', 'mascara'],
   skin: ['skin', 'ngozi', 'facial', 'scrub', 'mask', 'acne', 'cleansing', 'lotion', 'face wash'],
   spa: ['spa', 'massage', 'relax', 'arotherapy', 'body massage', 'therapist', 'steam'],
-  body: ['body', 'mwili', 'wax', 'waxing', 'tattoo', 'piercing', 'henna', 'body scrub']
+  body: ['body', 'mwili', 'wax', 'waxing', 'tattoo', 'piercing', 'henna', 'body scrub'],
+  electrician: ['electrician', 'umeme', 'wiring', 'switch', 'socket', 'breaker', 'taa', 'fusi', 'solar'],
+  plumbing: ['plumbing', 'bomba', 'pipe', 'leak', 'sink', 'toilet', 'shower', 'mita', 'tangi'],
+  carpentry: ['carpentry', 'mbao', 'kabati', 'door', 'lock', 'kioo', 'kitanda', 'meza', 'samani'],
+  painting: ['painting', 'rangi', 'wall', 'paka', 'nyumba', 'waterproof'],
+  appliances: ['ac', 'friji', 'fridge', 'refrigerator', 'aircon', 'washing machine', 'hob', 'oven'],
+  cleaning: ['cleaning', 'usafi', 'sofa', 'fumigation', 'pests', 'wadudu', 'carpet', 'kazi za nyumbani'],
+  electronics: ['tv', 'television', 'radio', 'solar', 'dishi', 'decoder', 'camera', 'cctv'],
+  masonry: ['ujenzi', 'tiles', 'roofing', 'paipui', 'ramani', 'plaster', 'simenti', 'ukuta']
 };
 
 export default function ServiceDetail() {
@@ -71,6 +93,61 @@ export default function ServiceDetail() {
       lng: 39.2083
     };
   });
+  const { user, profile } = useAuth();
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [selectedHandymanSub, setSelectedHandymanSub] = useState<string>('electrician');
+  const [bookingVendor, setBookingVendor] = useState<VendorProfile | null>(null);
+  const [bookingDesc, setBookingDesc] = useState('');
+  const [bookingDateSlot, setBookingDateSlot] = useState('Dharura (~30min)');
+  const [bookingAddress, setBookingAddress] = useState(location?.address || 'Kinondoni, Dar es Salaam');
+  const [bookingPhone, setBookingPhone] = useState(profile?.phoneNumber || profile?.phone || '');
+  const [bookingUrgency, setBookingUrgency] = useState<'emergency' | 'normal' | 'scheduled'>('normal');
+  const [bookingPaymentMethod, setBookingPaymentMethod] = useState<'PapoWallet' | 'M-Pesa' | 'Cash'>('PapoWallet');
+  const [isSubmittingBooking, setIsSubmittingBooking] = useState(false);
+  const [confirmedBookingRef, setConfirmedBookingRef] = useState<string | null>(null);
+
+  const handleCreateHandymanBooking = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bookingDesc.trim()) {
+      toast.error('Tafadhali eleza kazi au tatizo linalohitaji kurekebishwa.');
+      return;
+    }
+    setIsSubmittingBooking(true);
+    try {
+      const refCode = 'PFX-' + Math.floor(100000 + Math.random() * 900000);
+      const subInfo = HANDYMAN_SUB_CATEGORIES.find(s => s.id === selectedHandymanSub);
+      const bookingData = {
+        orderType: 'booking',
+        service: 'PapoFix',
+        vendorCategory: 'handyman',
+        subCategory: subInfo?.label || selectedHandymanSub,
+        description: bookingDesc,
+        preferredSlot: bookingDateSlot,
+        urgency: bookingUrgency,
+        deliveryAddress: bookingAddress || 'Eneo la Mteja',
+        customerPhone: bookingPhone || user?.phoneNumber || '0700000000',
+        customerName: profile?.fullName || profile?.displayName || user?.email || 'Mteja',
+        customerId: user?.uid || 'guest',
+        vendorId: bookingVendor?.id || 'papo-fix-express-team',
+        vendorName: bookingVendor?.businessName || 'PapoFix Verified Master Fundi',
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        paymentMethod: bookingPaymentMethod,
+        inspectionFee: 10000,
+        total: 10000,
+        bookingRef: refCode
+      };
+
+      await addDoc(collection(db, 'orders'), bookingData);
+      setConfirmedBookingRef(refCode);
+      toast.success(`Booking ya ${subInfo?.label || 'Fundi'} imethibitishwa! Ref: ${refCode}`);
+    } catch (err: any) {
+      console.error('Error creating handyman booking:', err);
+      toast.error('Haikufanikiwa kutuma booking. Jaribu tena.');
+    } finally {
+      setIsSubmittingBooking(false);
+    }
+  };
 
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
     const R = 6371; // Earth radius in km
@@ -350,8 +427,147 @@ export default function ServiceDetail() {
             </Button>
           </div>
         </div>
+      ) : (id === 'fundi' || config?.category === 'handyman') && !selectedSubCategory && !showAllSalonOnce ? (
+        <div className="flex flex-col items-center justify-center py-6 px-3 text-center space-y-6 animate-fade-in font-sans">
+          <div className="w-full flex justify-start mb-2 px-1">
+            <button
+              onClick={() => navigate(-1)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-900 text-neutral-800 dark:text-neutral-200 font-black text-xs uppercase tracking-widest transition-all active:scale-95 duration-200 shadow-sm"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span>Rudi Nyumbani</span>
+            </button>
+          </div>
+
+          <div className="w-full max-w-xl bg-gradient-to-br from-amber-500/10 via-orange-500/10 to-amber-600/10 dark:from-amber-500/20 dark:to-orange-600/20 p-5 rounded-[2.5rem] border border-amber-500/20 text-left relative overflow-hidden shadow-lg">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-3 bg-amber-500 text-white rounded-2xl shadow-md">
+                <Wrench className="w-6 h-6" />
+              </div>
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 block">PapoFix Masters</span>
+                <h3 className="text-xl font-black uppercase italic tracking-tight text-neutral-900 dark:text-white leading-tight">
+                  Home Services & Handyman
+                </h3>
+              </div>
+            </div>
+            <p className="text-xs text-neutral-600 dark:text-neutral-300 font-medium mb-4">
+              Pata Mafundi walioidhinishwa kwa kurekebisha Umeme, Bomba, AC, Friji, Ujenzi na Usafi kwa bei nafuu na uhakika.
+            </p>
+            <button
+              onClick={() => {
+                setSelectedHandymanSub('electrician');
+                setIsBookingModalOpen(true);
+              }}
+              className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-md active:scale-98 transition-all flex items-center justify-center gap-2"
+            >
+              <Wrench className="w-4 h-4" />
+              <span>Weka Miadi ya Fundi Sasa</span>
+            </button>
+          </div>
+
+          <div className="space-y-1 mt-2">
+            <h2 className="text-xl font-black text-neutral-900 dark:text-white tracking-tight uppercase italic">
+              Unahitaji Fundi wa Aina Gani?
+            </h2>
+            <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-wide">
+              Chagua huduma kupata wataalamu waliokaguliwa
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 min-[480px]:grid-cols-4 gap-3 max-w-2xl w-full">
+            {HANDYMAN_SUB_CATEGORIES.map((sub, i) => {
+              const IconComponent = sub.icon;
+              return (
+                <motion.button
+                  key={sub.id}
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.04 * i }}
+                  whileHover={{ y: -4, scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    setSelectedHandymanSub(sub.id);
+                    setIsBookingModalOpen(true);
+                  }}
+                  className={`p-3 min-[420px]:p-4 rounded-[1.8rem] border-2 bg-white dark:bg-neutral-900 transition-all flex flex-col items-center justify-center text-center space-y-2 shadow-sm min-h-[120px] h-full ${sub.border} group`}
+                >
+                  <div className={`p-2.5 rounded-2xl ${sub.iconBg} transition-transform group-hover:scale-110 duration-300`}>
+                    <IconComponent className={`w-5 h-5 ${sub.color}`} />
+                  </div>
+                  <div className="space-y-0.5">
+                    <h4 className="font-black text-[11px] text-neutral-950 dark:text-white tracking-tight uppercase italic leading-none truncate w-full">
+                      {sub.label}
+                    </h4>
+                    <span className="text-[8px] font-bold text-neutral-400 uppercase tracking-wider block truncate">
+                      {sub.subLabel}
+                    </span>
+                  </div>
+                </motion.button>
+              );
+            })}
+          </div>
+
+          <div className="pt-1">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowAllSalonOnce(true);
+                setViewMode('vendors');
+              }}
+              className="text-amber-600 border-amber-200 hover:bg-amber-50 hover:text-amber-700 font-extrabold text-xs uppercase tracking-widest gap-2 rounded-[20px] dark:border-amber-900/30 dark:hover:bg-amber-950/20"
+            >
+              Angalia Mafundi Wote / View All Handymen <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
       ) : (
         <>
+          {/* Handyman Horizontal Sub-category Switcher */}
+          {(id === 'fundi' || config?.category === 'handyman') && (selectedSubCategory || showAllSalonOnce) && (
+            <div className="flex gap-2 items-center overflow-x-auto pb-4 pt-1 -mx-1 px-1 scrollbar-none sticky top-0 z-20 bg-white/95 dark:bg-neutral-950/95 backdrop-blur-md">
+              <button
+                onClick={() => {
+                  setSelectedSubCategory(null);
+                  setShowAllSalonOnce(false);
+                }}
+                className="px-4 py-2.5 rounded-full text-xs font-black uppercase tracking-wider transition-all duration-300 flex items-center gap-1.5 whitespace-nowrap border bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-900 border-neutral-200 dark:border-white/5 text-neutral-800 dark:text-neutral-200 active:scale-95 duration-200"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                <span>Rudi nyuma</span>
+              </button>
+              <button
+                onClick={() => {
+                  setIsBookingModalOpen(true);
+                }}
+                className="px-4 py-2.5 rounded-full text-xs font-black uppercase tracking-wider transition-all duration-300 whitespace-nowrap bg-amber-500 text-white shadow-md hover:bg-amber-600 flex items-center gap-1.5"
+              >
+                <Wrench className="w-3.5 h-3.5" />
+                <span>Weka Miadi (Book)</span>
+              </button>
+              {HANDYMAN_SUB_CATEGORIES.map((sub) => {
+                const IconComponent = sub.icon;
+                const isSelected = selectedSubCategory === sub.id;
+                return (
+                  <button
+                    key={`switcher-${sub.id}`}
+                    onClick={() => {
+                      setSelectedSubCategory(sub.id);
+                      setSelectedHandymanSub(sub.id);
+                    }}
+                    className={`px-3.5 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all duration-300 flex items-center gap-2 whitespace-nowrap border ${
+                      isSelected
+                        ? 'bg-amber-500 border-amber-500 text-white shadow-lg shadow-amber-500/20 font-black'
+                        : 'bg-neutral-50 border-neutral-200 dark:bg-neutral-900 dark:border-white/5 text-neutral-600 dark:text-neutral-400 hover:border-amber-500/50'
+                    }`}
+                  >
+                    <IconComponent className={`w-3.5 h-3.5 ${isSelected ? 'text-white' : sub.color}`} />
+                    <span>{sub.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
           {/* Salon Horizontal Sub-category Switcher */}
           {id === 'saluni' && (selectedSubCategory || showAllSalonOnce) && (
             <div className="flex gap-2 items-center overflow-x-auto pb-4 pt-1 -mx-1 px-1 scrollbar-none sticky top-0 z-20 bg-white/95 dark:bg-neutral-950/95 backdrop-blur-md">
@@ -622,6 +838,222 @@ export default function ServiceDetail() {
           )}
         </>
       )}
+
+      {/* Handyman Booking Modal */}
+      <AnimatePresence>
+        {isBookingModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm animate-fade-in">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl overflow-y-auto max-h-[90vh] font-sans text-neutral-900 dark:text-white"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-neutral-100 dark:border-neutral-800">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2.5 bg-amber-500 text-white rounded-2xl shadow-sm">
+                    <Wrench className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-base uppercase tracking-tight italic">
+                      {confirmedBookingRef ? 'Booking Imethibitishwa' : 'Weka Miadi ya Fundi'}
+                    </h3>
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold uppercase tracking-wider">
+                      PapoFix Home Services
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setIsBookingModalOpen(false);
+                    setConfirmedBookingRef(null);
+                  }}
+                  className="p-2 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {confirmedBookingRef ? (
+                <div className="py-6 text-center space-y-4">
+                  <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
+                    <CheckCircle2 className="w-10 h-10" />
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="font-black text-lg text-neutral-900 dark:text-white uppercase italic">
+                      Miadi Imewekwa Kwa Mafanikio!
+                    </h4>
+                    <p className="text-xs text-neutral-500 font-medium max-w-xs mx-auto">
+                      Fundi wetu aliyethibitishwa atawasiliana nawe hivi punde kupitia namba uliyotoa.
+                    </p>
+                  </div>
+
+                  <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 rounded-2xl text-left space-y-2">
+                    <div className="flex items-center justify-between text-xs font-bold text-amber-900 dark:text-amber-200">
+                      <span>Namba ya Kumbukumbu:</span>
+                      <span className="font-black font-mono text-sm bg-white dark:bg-neutral-900 px-2.5 py-1 rounded-lg border border-amber-300 dark:border-amber-800">
+                        {confirmedBookingRef}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-neutral-500">
+                      Ada ya Ukaguzi wa Mwanzo (Inspection Fee): <strong className="text-neutral-800 dark:text-neutral-200">TZS 10,000</strong> (Itakatwa kwenye jumla ya gharama ya matengenezo).
+                    </p>
+                  </div>
+
+                  <Button
+                    onClick={() => {
+                      setIsBookingModalOpen(false);
+                      setConfirmedBookingRef(null);
+                      navigate('/my-orders');
+                    }}
+                    className="w-full bg-amber-500 hover:bg-amber-600 text-white font-black text-xs uppercase tracking-widest py-3 rounded-2xl shadow-md"
+                  >
+                    Fuatilia Hali ya Miadi (My Orders)
+                  </Button>
+                </div>
+              ) : (
+                <form onSubmit={handleCreateHandymanBooking} className="mt-4 space-y-4">
+                  {/* Sub category selector chips */}
+                  <div>
+                    <label className="text-[11px] font-black uppercase tracking-wider text-neutral-500 block mb-2">
+                      Aina ya Huduma Unayohitaji
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                      {HANDYMAN_SUB_CATEGORIES.map(sub => (
+                        <button
+                          key={`modal-sub-${sub.id}`}
+                          type="button"
+                          onClick={() => setSelectedHandymanSub(sub.id)}
+                          className={`p-2 rounded-xl text-[10px] font-bold uppercase tracking-tight text-left border transition-all flex items-center gap-1.5 ${
+                            selectedHandymanSub === sub.id
+                              ? 'bg-amber-500 text-white border-amber-500 font-black shadow-sm'
+                              : 'bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300'
+                          }`}
+                        >
+                          <sub.icon className="w-3.5 h-3.5 shrink-0" />
+                          <span className="truncate">{sub.label.split(' ')[1] || sub.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Description input */}
+                  <div>
+                    <label className="text-[11px] font-black uppercase tracking-wider text-neutral-500 block mb-1">
+                      Maelezo ya Kazi au Tatizo *
+                    </label>
+                    <textarea
+                      required
+                      value={bookingDesc}
+                      onChange={e => setBookingDesc(e.target.value)}
+                      placeholder="Mfano: Switch za umeme sebuleni hazina moto / Bomba la maji safi linavuja jikoni / Kufanya deep cleaning ya sofa..."
+                      rows={3}
+                      className="w-full p-3 text-xs bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-2xl focus:outline-none focus:border-amber-500 text-neutral-900 dark:text-white placeholder:text-neutral-400"
+                    />
+                  </div>
+
+                  {/* Date / Slot picker */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[11px] font-black uppercase tracking-wider text-neutral-500 block mb-1">
+                        Muda wa Kuwasili
+                      </label>
+                      <select
+                        value={bookingDateSlot}
+                        onChange={e => setBookingDateSlot(e.target.value)}
+                        className="w-full p-2.5 text-xs bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl font-bold text-neutral-800 dark:text-neutral-200"
+                      >
+                        <option value="Dharura (~30min)">Dharura (~30min)</option>
+                        <option value="Leo (Saa 2 zijazo)">Leo (Saa 2 zijazo)</option>
+                        <option value="Kesho Asubuhi">Kesho Asubuhi (8:00 AM)</option>
+                        <option value="Kesho Jioni">Kesho Jioni (4:00 PM)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-black uppercase tracking-wider text-neutral-500 block mb-1">
+                        Namba ya Simu *
+                      </label>
+                      <input
+                        type="tel"
+                        required
+                        value={bookingPhone}
+                        onChange={e => setBookingPhone(e.target.value)}
+                        placeholder="07XXXXXXXX"
+                        className="w-full p-2.5 text-xs bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl font-bold text-neutral-900 dark:text-white"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Location Address */}
+                  <div>
+                    <label className="text-[11px] font-black uppercase tracking-wider text-neutral-500 block mb-1">
+                      Anwani / Mtaa (Eneo la Kazi)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={bookingAddress}
+                        onChange={e => setBookingAddress(e.target.value)}
+                        placeholder="Mf: Kinondoni Studio, Mtaa wa Biafra..."
+                        className="w-full p-2.5 pl-8 text-xs bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl font-bold text-neutral-900 dark:text-white"
+                      />
+                      <MapPin className="w-4 h-4 text-amber-500 absolute left-2.5 top-3" />
+                    </div>
+                  </div>
+
+                  {/* Payment Method */}
+                  <div>
+                    <label className="text-[11px] font-black uppercase tracking-wider text-neutral-500 block mb-1.5">
+                      Njia ya Kuweka Akiba / Malipo
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { id: 'PapoWallet', label: 'PapoWallet' },
+                        { id: 'M-Pesa', label: 'M-Pesa / Tigo' },
+                        { id: 'Cash', label: 'Cash kwa Fundi' }
+                      ].map(pay => (
+                        <button
+                          key={pay.id}
+                          type="button"
+                          onClick={() => setBookingPaymentMethod(pay.id as any)}
+                          className={`p-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all ${
+                            bookingPaymentMethod === pay.id
+                              ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                              : 'bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300'
+                          }`}
+                        >
+                          {pay.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-amber-50/50 dark:bg-amber-950/20 rounded-2xl border border-amber-200/50 dark:border-amber-900/30 flex items-center justify-between text-xs">
+                    <span className="font-bold text-neutral-600 dark:text-neutral-400">Ada ya Mwanzo (Inspection):</span>
+                    <span className="font-black text-amber-600 dark:text-amber-400 text-sm">TZS 10,000</span>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    disabled={isSubmittingBooking}
+                    className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg active:scale-98 transition-all flex items-center justify-center gap-2"
+                  >
+                    {isSubmittingBooking ? (
+                      <span>Inatuma miadi...</span>
+                    ) : (
+                      <>
+                        <Wrench className="w-4 h-4" />
+                        <span>Thibitisha Miadi ya Fundi</span>
+                      </>
+                    )}
+                  </Button>
+                </form>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

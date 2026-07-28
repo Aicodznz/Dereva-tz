@@ -92,6 +92,86 @@ function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: num
   return R * c; // Distance in km
 }
 
+export async function getSortedVendorsForCategory(
+  dbAdmin: any,
+  categories: string[],
+  fallbackVendors: Array<{ id: string; name: string; defaultDist: number; lat?: number; lng?: number }>,
+  session: SMSSession
+) {
+  let userLat = session.resolvedPickup?.latitude ?? -6.7924;
+  let userLng = session.resolvedPickup?.longitude ?? 39.2083;
+
+  const rawDocs: Array<{ id: string; data: any }> = [];
+  if (dbAdmin) {
+    try {
+      const snap = await dbAdmin.collection('vendors').where('category', 'in', categories).get();
+      snap.forEach((doc: any) => {
+        rawDocs.push({ id: doc.id, data: doc.data() });
+      });
+    } catch (e) {
+      console.warn("Error fetching vendors for categories:", categories, e);
+    }
+  }
+
+  const seenNames = new Set<string>();
+  const processed: Array<{ id: string; name: string; distance: string; distanceNum: number }> = [];
+
+  rawDocs.forEach(({ id, data }, idx) => {
+    const rawName = (data.businessName || data.name || 'Vendor').trim();
+    if (!rawName) return;
+    const normName = rawName.toLowerCase();
+    if (seenNames.has(normName)) return; // Deduplicate vendor names
+    seenNames.add(normName);
+
+    let distKm: number;
+    const vLat = data.location?.lat ?? data.lat ?? data.coordinates?.lat;
+    const vLng = data.location?.lng ?? data.lng ?? data.coordinates?.lng;
+
+    if (typeof vLat === 'number' && typeof vLng === 'number' && !isNaN(vLat) && !isNaN(vLng) && vLat !== 0 && vLng !== 0) {
+      distKm = calculateDistanceKm(userLat, userLng, vLat, vLng);
+    } else {
+      // Distinct, realistic distance based on vendor index & name so they don't all show the same value
+      distKm = 0.4 + (idx * 0.5) + ((rawName.length % 5) * 0.1);
+    }
+
+    const distanceNum = Math.round(distKm * 10) / 10;
+    const distanceStr = distanceNum < 0.1 ? '0.2 km' : `${distanceNum.toFixed(1)} km`;
+
+    processed.push({
+      id,
+      name: rawName,
+      distance: distanceStr,
+      distanceNum
+    });
+  });
+
+  // If no Firestore vendors found, use fallback list
+  if (processed.length === 0) {
+    fallbackVendors.forEach((fb) => {
+      const normName = fb.name.trim().toLowerCase();
+      if (!seenNames.has(normName)) {
+        seenNames.add(normName);
+        let distKm = fb.defaultDist;
+        if (fb.lat && fb.lng) {
+          distKm = calculateDistanceKm(userLat, userLng, fb.lat, fb.lng);
+        }
+        const distanceNum = Math.round(distKm * 10) / 10;
+        processed.push({
+          id: fb.id,
+          name: fb.name,
+          distance: `${distanceNum.toFixed(1)} km`,
+          distanceNum
+        });
+      }
+    });
+  }
+
+  // Sort ascending by distance (closest first)
+  processed.sort((a, b) => a.distanceNum - b.distanceNum);
+
+  return processed;
+}
+
 // Simple in-memory global config for Twilio Responder (can be updated by vendors)
 export interface TwilioConfig {
   isEnabled: boolean;
@@ -202,6 +282,15 @@ export function getAvailableServices(session: SMSSession, businessConfig?: any):
       titleEn: 'PapoStyle (Salon & Beauty)',
       defaultMaintSw: 'Huduma za Saluni hazipatikani kwa sasa kutokana na maboresho.',
       defaultMaintEn: 'Salon booking service is currently unavailable due to updates.'
+    },
+    {
+      id: 'fundi',
+      key: 'papofix',
+      emoji: '🛠️',
+      titleSw: 'PapoFix (Home Services & Handyman)',
+      titleEn: 'PapoFix (Home Services & Handyman)',
+      defaultMaintSw: 'Huduma za Mafundi & Home Services zipo kwenye maboresho.',
+      defaultMaintEn: 'Handyman & Home Services are undergoing maintenance.'
     },
     {
       id: 'hoteli',
@@ -780,6 +869,15 @@ export async function handleSMSInput(
         return session.language === 'en'
           ? "💇‍♀️ PapoStyle (SALON & BEAUTY):\n\n1. Barber / Hair Cut\n2. Hair Styling / Braids\n3. Nails / Makeup / Spa\n\n0. Main Menu"
           : "💇‍♀️ PapoStyle (SALUNI & UREMBO):\n\n1. Kinyozi / Hair Cut\n2. Kusuka / Salon ya Kike\n3. Nails / Makeup / Spa\n\n0. Rudi Mwanzo";
+      }
+      // PapoFix (Home Services & Handyman)
+      else if (selectedDef.key === 'papofix') {
+        session.step = 'HANDYMAN_SUB';
+        session.selectedService = 'handyman';
+        await saveSession(session, dbAdmin);
+        return session.language === 'en'
+          ? "🛠️ PapoFix (HOME SERVICES & HANDYMAN):\n\n1. ⚡ Electrician (Fundi Umeme)\n2. 🚰 Plumber (Fundi Bomba)\n3. 🪚 Carpenter (Fundi Mbao)\n4. 🎨 Painter (Fundi Rangi)\n5. ❄️ AC & Refrigerator Fix\n6. 🧹 Cleaning & Pest Control\n7. 📱 Electronics & TV Repair\n\n0. Main Menu"
+          : "🛠️ PapoFix (HOME SERVICES & MAFUNDI):\n\n1. ⚡ Fundi Umeme (Electrician)\n2. 🚰 Fundi Bomba (Plumber)\n3. 🪚 Fundi Mbao / Samani (Carpenter)\n4. 🎨 Fundi Rangi (Painter)\n5. ❄️ AC & Friji (Aircon & Fridge)\n6. 🧹 Usafi na Pest Control\n7. 📱 TV na Electronics Repair\n\n0. Rudi Mwanzo";
       }
       // 7. PapoStay / Hoteli
       else if (selectedDef.key === 'papostay') {
@@ -2986,6 +3084,81 @@ export async function handleSMSInput(
     return `💇‍♀️ Hongera sana! Umefanikiwa kuweka miadi (booking) na "${selected.name}".\n💰 Huduma ya Kuanzia: TSH ${selected.price.toLocaleString()}\n⏳ Tafadhali fika saluni kwa wakati kukamilisha huduma yako. Simu ya Saluni itawasiliana nawe punde! Ahsante! ✨`;
   }
 
+  // PAPOFIX (HOME SERVICES & HANDYMAN) FLOWS
+  if (session.step === 'HANDYMAN_SUB' && session.selectedService === 'handyman') {
+    let catName = "Fundi Umeme";
+    if (cleanInput === '2') catName = "Fundi Bomba";
+    else if (cleanInput === '3') catName = "Fundi Mbao & Samani";
+    else if (cleanInput === '4') catName = "Fundi Rangi";
+    else if (cleanInput === '5') catName = "Friji na AC Repair";
+    else if (cleanInput === '6') catName = "Usafi na Fumigation";
+    else if (cleanInput === '7') catName = "TV na Electronics";
+
+    session.selectedSubCategory = catName;
+    session.step = 'HANDYMAN_SELECT';
+
+    const handymen = [
+      { id: 'hnd-1', name: 'Fundi Kassim (Master Specialist)', desc: `${catName} - Anafika ndani ya dk 30`, price: 10000 },
+      { id: 'hnd-2', name: 'PapoFix Emergency Repair Team', desc: `Timu ya Wataalamu wa ${catName}`, price: 15000 },
+      { id: 'hnd-3', name: 'Fundi Juma & Solar Solutions', desc: `${catName} na Huduma za Nyumbani`, price: 10000 }
+    ];
+    session.optionsList = handymen;
+    await saveSession(session, dbAdmin);
+
+    let reply = `🛠️ PapoFix - Chagua Fundi Bora kwa [${catName}]:\n\n`;
+    handymen.forEach((h, idx) => {
+      reply += `${idx + 1}. ${h.name}\n📍 ${h.desc}\n💰 Ada ya Ukaguzi: TZS ${h.price.toLocaleString()}\n\n`;
+    });
+    reply += "Tuma namba ya Fundi unayemchagua kuweka booking:";
+    return reply;
+  }
+
+  if (session.step === 'HANDYMAN_SELECT' && session.selectedService === 'handyman') {
+    const idx = parseInt(cleanInput) - 1;
+    const selected = session.optionsList?.[idx];
+    if (!selected) {
+      return "⚠️ Chaguo si sahihi. Tafadhali tuma 1, 2 au 3 kuchagua Fundi.";
+    }
+
+    session.selectedVendorName = selected.name;
+    session.step = 'HANDYMAN_DESC';
+    await saveSession(session, dbAdmin);
+
+    return `🛠️ Umemchagua: ${selected.name}\n\nTafadhali tuma maelezo mafupi ya tatizo au kazi unayotaka ifanyike (Mf: Kurepair switch za umeme sebuleni au kurekebisha bomba la jikoni):`;
+  }
+
+  if (session.step === 'HANDYMAN_DESC' && session.selectedService === 'handyman') {
+    const issueDesc = cleanInput;
+    const refCode = 'PFX-' + Math.floor(100000 + Math.random() * 900000);
+
+    session.step = 'START';
+    await saveSession(session, dbAdmin);
+
+    if (dbAdmin) {
+      try {
+        await dbAdmin.collection('orders').add({
+          orderType: 'booking',
+          service: 'PapoFix',
+          vendorCategory: 'handyman',
+          subCategory: session.selectedSubCategory || 'Home Services',
+          description: issueDesc,
+          vendorName: session.selectedVendorName || 'PapoFix Verified Handyman',
+          customerPhone: fromPhone,
+          status: 'pending',
+          createdAt: new Date().toISOString(),
+          paymentMethod: 'Cash/Mobile',
+          inspectionFee: 10000,
+          total: 10000,
+          bookingRef: refCode
+        });
+      } catch (err) {
+        console.warn("Error saving handyman booking in Firestore:", err);
+      }
+    }
+
+    return `🎉 OMBI LA FUNDI LIMETUMWA! 🛠️✨\n\nRef Code: ${refCode}\nHuduma: ${session.selectedSubCategory || 'PapoFix'}\nFundi: ${session.selectedVendorName || 'Master Fundi'}\nMaelezo: ${issueDesc}\n💰 Ada ya Ukaguzi: TZS 10,000\n\nFundi wetu atakupigia simu kwenye namba *${fromPhone}* hivi punde kuanza kazi. Ahsante kwa kutumia PapoFix! 🙏`;
+  }
+
   // BUS BOOKING FLOWS (The exact user scenario requested)
   if (session.step === 'BUS_ROUTE' && session.selectedService === 'bus_ticket') {
     const routeParts = cleanInput.toUpperCase();
@@ -3091,26 +3264,20 @@ export async function handleSMSInput(
       session.selectedVendorCategory = 'CHAKULA';
       session.step = 'FOOD_VENDOR_LIST';
 
-      let vendors: any[] = [];
-      if (dbAdmin) {
-        try {
-          const snap = await dbAdmin.collection('vendors').where('category', 'in', ['restaurant', 'food']).get();
-          snap.forEach((doc: any) => {
-            const d = doc.data();
-            vendors.push({ id: doc.id, name: d.businessName || d.name || 'Vendor', distance: '0.6 km' });
-          });
-        } catch (e) {
-          console.warn("Error fetching food vendors:", e);
-        }
-      }
-      if (vendors.length === 0) {
-        vendors = [
-          { id: 'v-mama-amina', name: 'Mama Ntilie Amina', distance: '0.6 km' },
-          { id: 'v-pizza-point', name: 'Pizza Point', distance: '1.1 km' },
-          { id: 'v-kfc-mlimani', name: 'KFC Mlimani', distance: '2.0 km' },
-          { id: 'v-burger-house', name: 'Burger House', distance: '2.3 km' }
-        ];
-      }
+      const fallbackVendors = [
+        { id: 'v-mama-amina', name: 'Mama Ntilie Amina', defaultDist: 0.4 },
+        { id: 'v-pizza-point', name: 'Pizza Point', defaultDist: 0.9 },
+        { id: 'v-kfc-mlimani', name: 'KFC Mlimani', defaultDist: 1.5 },
+        { id: 'v-burger-house', name: 'Burger House', defaultDist: 2.2 }
+      ];
+
+      const vendors = await getSortedVendorsForCategory(
+        dbAdmin,
+        ['restaurant', 'food', 'chakula', 'mgahawa'],
+        fallbackVendors,
+        session
+      );
+
       session.optionsList = vendors;
       await saveSession(session, dbAdmin);
 
@@ -3126,25 +3293,19 @@ export async function handleSMSInput(
       session.selectedVendorCategory = 'SOKONI';
       session.step = 'FOOD_VENDOR_LIST';
 
-      let vendors: any[] = [];
-      if (dbAdmin) {
-        try {
-          const snap = await dbAdmin.collection('vendors').where('category', 'in', ['grocery', 'soko']).get();
-          snap.forEach((doc: any) => {
-            const d = doc.data();
-            vendors.push({ id: doc.id, name: d.businessName || d.name || 'Vendor', distance: '0.5 km' });
-          });
-        } catch (e) {
-          console.warn("Error fetching grocery vendors:", e);
-        }
-      }
-      if (vendors.length === 0) {
-        vendors = [
-          { id: 'v-kariakoo', name: 'Soko Kuu Kariakoo', distance: '0.5 km' },
-          { id: 'v-shoppers', name: 'Supermarket Shoppers', distance: '1.2 km' },
-          { id: 'v-kijitonyama', name: 'Soko la Kijitonyama', distance: '1.8 km' }
-        ];
-      }
+      const fallbackVendors = [
+        { id: 'v-kariakoo', name: 'Soko Kuu Kariakoo', defaultDist: 0.5 },
+        { id: 'v-shoppers', name: 'Supermarket Shoppers', defaultDist: 1.2 },
+        { id: 'v-kijitonyama', name: 'Soko la Kijitonyama', defaultDist: 1.8 }
+      ];
+
+      const vendors = await getSortedVendorsForCategory(
+        dbAdmin,
+        ['grocery', 'soko', 'supermarket'],
+        fallbackVendors,
+        session
+      );
+
       session.optionsList = vendors;
       await saveSession(session, dbAdmin);
 
@@ -3164,6 +3325,19 @@ export async function handleSMSInput(
       session.step = 'FOOD_MAIN_MENU';
       await saveSession(session, dbAdmin);
       return "PAPO HAPO SUPER APP\nCHAGUA HUDUMA\n\n1. 🍔 CHAKULA\n2. 🛒 SOKONI\n\n0. Nyuma";
+    }
+
+    if (cleanInput === '9') {
+      const vendors = session.optionsList || [];
+      if (vendors.length > 4) {
+        let reply = "MIGAHAWA / MADUKA ZAIDI:\n\n";
+        vendors.slice(4, 8).forEach((v: any, idx: number) => {
+          reply += `${idx + 5}. ${v.name} (${v.distance})\n`;
+        });
+        reply += "\n0. Nyuma";
+        return reply;
+      }
+      return "Hamna watoa huduma wengine zaidi kwa sasa.\n\n0. Nyuma";
     }
 
     const idx = parseInt(cleanInput) - 1;
