@@ -134,8 +134,7 @@ function AppContent() {
         activeColor = activeSplash?.color || '#0c0c0e';
       }
     } else {
-      const isDarkMode = document.documentElement.classList.contains('dark') || 
-                         window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const isDarkMode = document.documentElement.classList.contains('dark');
       activeColor = isDarkMode ? '#0a0a0f' : '#ffffff';
     }
 
@@ -414,7 +413,7 @@ import { BusinessConfigProvider } from './BusinessConfigContext';
 
 export default function App() {
   return (
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+    <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
       <AuthProvider>
         <LanguageProvider>
           <BusinessConfigProvider>

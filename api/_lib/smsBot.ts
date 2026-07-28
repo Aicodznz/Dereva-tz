@@ -1014,8 +1014,8 @@ export async function handleSMSInput(
       session.selectedService = 'taxi';
       await saveSession(session, dbAdmin);
       return isEn
-        ? "🗺️ CUSTOM ROUTE:\n\nPlease enter pick up and drop off locations:\nExample: Mwenge Bus Stand to Posta House"
-        : "🗺️ NJIA YAKO:\n\nTafadhali tuma sehemu ya kuchukuliwa na unapokwenda:\nMfano: Stendi ya Mwenge kwenda Posta Mpya";
+        ? "🗺️ CUSTOM ROUTE:\n\nEnter pickup and drop off (e.g. Mwenge - Posta)"
+        : "🗺️ NJIA YAKO:\n\nAndika sehemu ya kuchukuliwa na unakokwenda.\nMfano: Mwenge - Posta";
     }
   }
 
@@ -1740,15 +1740,12 @@ export async function handleSMSInput(
       return `🧮 FARE ESTIMATE\n\n📍 From: ${pLoc.name}\n🏁 To: ${dLoc.name}\n📏 Distance: ${distKm} km (~${durMin} mins)\n\n💰 ESTIMATED FARES:\n1. Bodaboda 🏍️: TZS ${bodaFare.toLocaleString()}\n2. Bajaji 🛺: TZS ${bajajFare.toLocaleString()}\n3. Taxi Car 🚕: TZS ${carFare.toLocaleString()}\n\nReply with option number (1-3) to book now, or 0 to Back.`;
     }
 
-    let reply = `🧮 *KADIRIO LA NAULI (FARE ESTIMATE)*\n\n`;
-    reply += `📍 Kutoka: *${pLoc.name}*\n`;
-    reply += `🏁 Kwenda: *${dLoc.name}*\n`;
-    reply += `📏 Umbali: *${distKm} km* (~${durMin} dk)\n\n`;
-    reply += `💰 *GHARAMA ZA SAFARI:*\n`;
-    reply += `1. Boda Boda 🏍️: *TZS ${bodaFare.toLocaleString()}/=*\n`;
+    let reply = `🧮 KADIRIO LA NAULI\n`;
+    reply += `Njia: *${pLoc.name}* ➔ *${dLoc.name}* (${distKm}km, ~${durMin}dk)\n\n`;
+    reply += `1. Boda 🏍️: *TZS ${bodaFare.toLocaleString()}/=*\n`;
     reply += `2. Bajaji 🛺: *TZS ${bajajFare.toLocaleString()}/=*\n`;
-    reply += `3. Gari la Teksi 🚕: *TZS ${carFare.toLocaleString()}/=*\n\n`;
-    reply += `Tuma namba (1-3) kuagiza usafiri sasa hivi, au 0 kurudi Mwanzo.`;
+    reply += `3. Teksi 🚕: *TZS ${carFare.toLocaleString()}/=*\n\n`;
+    reply += `Tuma 1-3 kuagiza, au 0 kurudi.`;
     return reply;
   }
 
@@ -2544,7 +2541,7 @@ export async function handleSMSInput(
         session.step = 'TAXI_VEHICLE_SELECT';
         session.optionsList = [];
         await saveSession(session, dbAdmin);
-        return `🚕 *AINA YA USAFIRI*\n\nTafadhali chagua aina ya usafiri unaopendelea kwa kutuma namba yake:\n\n1. Boda Boda 🏍️ (Haraka na rahisi)\n2. Bajaji 🛺 (Nafuu na salama)\n3. Gari la Teksi 🚕 (Starehe na usalama mkubwa)`;
+        return `🚕 AINA YA USAFIRI:\n1. Boda Boda 🏍️\n2. Bajaji 🛺\n3. Gari la Teksi 🚕`;
       } else {
         // Destination also has multiple matches!
         session.optionsList = destRes.matches.slice(0, 5);
@@ -2562,7 +2559,7 @@ export async function handleSMSInput(
       session.step = 'TAXI_DESTINATION_INPUT';
       session.optionsList = [];
       await saveSession(session, dbAdmin);
-      return `📍 Eneo la kuanzia limethibitishwa: *${selectedPlace.name}*\n\nTafadhali andika eneo unalokwenda (Destination):`;
+      return `📍 Kutoka: *${selectedPlace.name}*\nAndika eneo unalokwenda:`;
     }
   }
 
@@ -2570,14 +2567,14 @@ export async function handleSMSInput(
   if (session.step === 'TAXI_DESTINATION_INPUT' && session.selectedService === 'taxi') {
     const destRes = await resolvePlace(cleanInput, dbAdmin);
     if (destRes.matches.length === 0) {
-      return `⚠️ Hatukuweza kupata eneo la mwisho la '${cleanInput}'.\n\nTafadhali andika eneo lingine unalokwenda (Destination):`;
+      return `⚠️ Hatukuweza kupata eneo la '${cleanInput}'.\n\nAndika eneo unalokwenda:`;
     } else if (destRes.matches.length === 1) {
       session.resolvedDest = destRes.matches[0];
       session.taxiRoute = `${session.resolvedPickup?.name || "Mwenge"} - ${destRes.matches[0].name}`;
       session.step = 'TAXI_VEHICLE_SELECT';
       session.optionsList = [];
       await saveSession(session, dbAdmin);
-      return `🚕 *AINA YA USAFIRI*\n\nTafadhali chagua aina ya usafiri unaopendelea kwa kutuma namba yake:\n\n1. Boda Boda 🏍️ (Haraka na rahisi)\n2. Bajaji 🛺 (Nafuu na salama)\n3. Gari la Teksi 🚕 (Starehe na usalama mkubwa)`;
+      return `🚕 AINA YA USAFIRI:\n1. Boda Boda 🏍️\n2. Bajaji 🛺\n3. Gari la Teksi 🚕`;
     } else {
       // Disambiguate destination
       session.optionsList = destRes.matches.slice(0, 5);
@@ -2597,7 +2594,7 @@ export async function handleSMSInput(
     const idx = parseInt(cleanInput) - 1;
     const candidates = session.optionsList || [];
     if (isNaN(idx) || idx < 0 || idx >= candidates.length) {
-      return `⚠️ Chaguo si sahihi. Tafadhali tuma namba kuanzia 1 hadi ${candidates.length} kuchagua eneo sahihi:`;
+      return `⚠️ Chaguo si sahihi. Tafadhali tuma namba 1 mpaka ${candidates.length}:`;
     }
 
     const selectedPlace = candidates[idx];
@@ -2607,7 +2604,7 @@ export async function handleSMSInput(
     session.optionsList = [];
     await saveSession(session, dbAdmin);
 
-    return `🚕 *AINA YA USAFIRI*\n\nTafadhali chagua aina ya usafiri unaopendelea kwa kutuma namba yake:\n\n1. Boda Boda 🏍️ (Haraka na rahisi)\n2. Bajaji 🛺 (Nafuu na salama)\n3. Gari la Teksi 🚕 (Starehe na usalama mkubwa)`;
+    return `🚕 AINA YA USAFIRI:\n1. Boda Boda 🏍️\n2. Bajaji 🛺\n3. Gari la Teksi 🚕`;
   }
 
   // State: TAXI_ROUTE
@@ -2618,7 +2615,7 @@ export async function handleSMSInput(
       // Two-location route (A - B)
       const pickupRes = await resolvePlace(parsed.rawPickup, dbAdmin);
       if (pickupRes.matches.length === 0) {
-        return `⚠️ Hatukuweza kupata eneo la kuanzia la '${parsed.rawPickup}'. Tafadhali andika upya eneo la kuanzia kwa usahihi au weka eneo lingine la kuanzia (Mfano: Posta - Mikocheni):`;
+        return `⚠️ Hatukuweza kupata eneo la kuanzia la '${parsed.rawPickup}'. Andika eneo la kuanzia na mwisho (Mfano: Posta - Mikocheni):`;
       } else if (pickupRes.matches.length === 1) {
         session.resolvedPickup = pickupRes.matches[0];
 
@@ -2626,13 +2623,13 @@ export async function handleSMSInput(
         if (destRes.matches.length === 0) {
           session.step = 'TAXI_DESTINATION_INPUT';
           await saveSession(session, dbAdmin);
-          return `⚠️ Hatukuweza kupata eneo la mwisho la '${parsed.rawDestination}'.\n\nTafadhali andika eneo unalokwenda sasa hivi (Destination):`;
+          return `⚠️ Hatukuweza kupata eneo la mwisho la '${parsed.rawDestination}'.\n\nAndika eneo unalokwenda:`;
         } else if (destRes.matches.length === 1) {
           session.resolvedDest = destRes.matches[0];
           session.taxiRoute = `${pickupRes.matches[0].name} - ${destRes.matches[0].name}`;
           session.step = 'TAXI_VEHICLE_SELECT';
           await saveSession(session, dbAdmin);
-          return `🚕 *AINA YA USAFIRI*\n\nTafadhali chagua aina ya usafiri unaopendelea kwa kutuma namba yake:\n\n1. Boda Boda 🏍️ (Haraka na rahisi)\n2. Bajaji 🛺 (Nafuu na salama)\n3. Gari la Teksi 🚕 (Starehe na usalama mkubwa)`;
+          return `🚕 AINA YA USAFIRI:\n1. Boda Boda 🏍️\n2. Bajaji 🛺\n3. Gari la Teksi 🚕`;
         } else {
           // Destination needs disambiguation
           session.optionsList = destRes.matches.slice(0, 5);
@@ -2667,7 +2664,7 @@ export async function handleSMSInput(
         session.resolvedPickup = pickupRes.matches[0];
         session.step = 'TAXI_DESTINATION_INPUT';
         await saveSession(session, dbAdmin);
-        return `📍 Eneo la kuanzia limethibitishwa: *${pickupRes.matches[0].name}*\n\nTafadhali andika eneo unalokwenda (Destination):`;
+        return `📍 Kutoka: *${pickupRes.matches[0].name}*\nAndika eneo unalokwenda:`;
       } else {
         // Pickup disambiguation
         session.optionsList = pickupRes.matches.slice(0, 5);
@@ -2845,16 +2842,14 @@ export async function handleSMSInput(
     session.step = 'TAXI_CONFIRM_TRIP';
     await saveSession(session, dbAdmin);
 
-    let reply = `🧮 *KADIRIO LA NAULI*\n\n`;
-    reply += `Kutoka: *${pickupName}*\n`;
-    reply += `Kwenda: *${destName}*\n`;
-    reply += `nisawa na kilometa : *${distanceKm} km* (Muda wa safari: ~${durationMin} dk)\n`;
-    reply += `Aina ya Usafiri: *${typeName}*\n\n`;
-    reply += `💵 *Nauli inayokadiriwa: TZS ${fare.toLocaleString()}/=*\n`;
-    reply += `📌 Tuna madereva *${nearbyCount}* karibu nawe waliotayari!\n\n`;
-    reply += `Je, unakubali kuanza kutafutiwa dereva?\n`;
+    let reply = `📊 KADIRIO LA NAULI\n`;
+    reply += `Njia: *${pickupName}* ➔ *${destName}* (${distanceKm}km, ~${durationMin}dk)\n`;
+    reply += `Usafiri: *${typeName}*\n`;
+    reply += `Nauli: *TZS ${fare.toLocaleString()}/=*\n`;
+    reply += `Madereva: ${nearbyCount} karibu\n\n`;
+    reply += `Tafuta dereva sasa?\n`;
     reply += `1. Ndio, Tafuta Dereva\n`;
-    reply += `2. Hapana, Ghairi Safari`;
+    reply += `2. Hapana, Ghairi`;
     return reply;
   }
 
@@ -2870,20 +2865,20 @@ export async function handleSMSInput(
       if (session.passengerName && session.passengerName.trim() && session.passengerPhone && session.passengerPhone.trim()) {
         session.step = 'TAXI_ASK_PREVIOUS_DETAILS';
         await saveSession(session, dbAdmin);
-        return `👤 *TAARIFA ZA MSAFIRI*\n\nTumepata taarifa za msafiri ulizowahi kutumia awali:\n- Jina: *${session.passengerName}*\n- Namba ya Simu: *${session.passengerPhone}*\n\nJe, ungependa kutumia taarifa hizi za awali au kuweka mpya?\n\n*1* - Ndio, Tumia hizi hizi\n*2* - Hapana, Badilisha taarifa (Weka mpya)`;
+        return `👤 TAARIFA ZA MSAFIRI:\nJina: *${session.passengerName}*\nSimu: *${session.passengerPhone}*\n\nTumia taarifa hizi?\n1. Ndio\n2. Hapana (Weka mpya)`;
       } else {
         session.step = 'TAXI_PASSENGER_NAME';
         await saveSession(session, dbAdmin);
-        return `👤 *TAARIFA ZA MSAFIRI (Hatua ya 1/2)*\n\nTafadhali andika jina lako au la msafiri (Mfano: Juma Kiboko):`;
+        return `👤 MSAFIRI (1/2):\nAndika jina la msafiri (mf: Juma Kiboko):`;
       }
     } else if (cleanInput === '2' || lowerInput.includes('hapana') || lowerInput.includes('ghairi') || lowerInput.includes('no') || lowerInput.includes('cancel')) {
       session.step = 'START';
       session.selectedService = undefined;
       session.optionsList = [];
       await saveSession(session, dbAdmin);
-      return `❌ Safari yako imesitishwa kikamilifu. Karibu tena wakati mwingine ukiwa tayari kusafiri na Papo Hapo! 🚖`;
+      return `❌ Safari imesitishwa. Karibu tena Papo Hapo! 🚖`;
     } else {
-      return `⚠️ Samahani, sielewi chaguo lako. Tafadhali tuma:\n*1* - Ndio, Tafuta Dereva\n*2* - Hapana, Ghairi Safari`;
+      return `⚠️ Chaguo si sahihi. Tuma:\n1. Ndio, Tafuta Dereva\n2. Hapana, Ghairi`;
     }
   }
 
@@ -2940,31 +2935,28 @@ export async function handleSMSInput(
         }
       }
 
-      return `✅ *Oda ya Taxi imewasilishwa!* 🚖\n\n` +
-             `Safari ya msafiri *${finalPassengerName}* (${finalPhone}) imetumwa kwa madereva wa *${calcData.typeName}* waliopo karibu.\n\n` +
-             `- Kutoka: *${calcData.pickupName}*\n` +
-             `- Kwenda: *${calcData.destName}*\n` +
-             `- Umbali: *${calcData.distanceKm} km*\n` +
-             `- Muda wa safari: *~${calcData.durationMin} dk*\n` +
-             `- Nauli: *TZS ${calcData.fare?.toLocaleString()}/=*\n\n` +
-             `Madereva wa karibu wamepewa taarifa sasa hivi. Dereva atakapokubali kukuja kukufuata, msafiri atafahamishwa kupitia SMS na kupigiwa simu kwenye namba *${finalPhone}*. Ahsante sana kwa kutumia Papo Hapo! 🙏✨`;
+      return `✅ ODA IMEWASILISHWA! 🚖\n\n` +
+             `Msafiri: *${finalPassengerName}* (${finalPhone})\n` +
+             `Njia: *${calcData.pickupName}* ➔ *${calcData.destName}*\n` +
+             `Nauli: *TZS ${calcData.fare?.toLocaleString()}/=* (${calcData.typeName})\n\n` +
+             `Madereva wamepewa taarifa. Utapokea SMS/Simu dereva akithibitisha. Ahsante! 🙏`;
     } else if (cleanInput === '2' || lowerInput.includes('hapana') || lowerInput.includes('badilisha') || lowerInput.includes('weka') || lowerInput.includes('mpya') || lowerInput.includes('no')) {
       session.step = 'TAXI_PASSENGER_NAME';
       await saveSession(session, dbAdmin);
-      return `👤 *TAARIFA ZA MSAFIRI (Hatua ya 1/2)*\n\nTafadhali andika jina lako au la msafiri (Mfano: Juma Kiboko):`;
+      return `👤 MSAFIRI (1/2):\nAndika jina la msafiri (mf: Juma Kiboko):`;
     } else {
-      return `⚠️ Chaguo si sahihi. Tafadhali jibu kwa kuandika:\n*1* - Kutumia taarifa za awali\n*2* - Kubadilisha taarifa (Kuweka mpya)`;
+      return `⚠️ Chaguo si sahihi. Tuma:\n1. Kutumia ya awali\n2. Kuweka mpya`;
     }
   }
 
   if (session.step === 'TAXI_PASSENGER_NAME' && session.selectedService === 'taxi') {
     if (!cleanInput) {
-      return `⚠️ Tafadhali andika jina la msafiri (Mfano: John Doe):`;
+      return `⚠️ Andika jina la msafiri (mf: Juma Kiboko):`;
     }
     session.passengerName = cleanInput;
     session.step = 'TAXI_PASSENGER_PHONE';
     await saveSession(session, dbAdmin);
-    return `📞 *TAARIFA ZA MSAFIRI (Hatua ya 2/2)*\n\nTafadhali andika namba ya simu ya msafiri (Mfano: 0712345678).\n\n👉 *Tuma alama ya nyota (*) kama unataka kutumia namba yako hii hii ya sasa (${session.phone.replace('ussd:', '')}):*`;
+    return `📞 MSAFIRI (2/2):\nAndika namba ya simu (mf: 0712345678) au tuma * kutumia hii (${session.phone.replace('ussd:', '')}):`;
   }
 
   if (session.step === 'TAXI_PASSENGER_PHONE' && session.selectedService === 'taxi') {
@@ -2981,7 +2973,7 @@ export async function handleSMSInput(
       if (/^[0-9+]+$/.test(rawInput) && rawInput.length >= 8) {
         finalPhone = rawInput;
       } else {
-        return `⚠️ Namba ya simu si sahihi. Tafadhali andika namba sahihi au tuma alama ya nyota (*) kutumia namba hii ya sasa:`;
+        return `⚠️ Namba si sahihi. Andika namba ya simu au tuma * kutumia hii ya sasa:`;
       }
     }
 
@@ -3029,14 +3021,11 @@ export async function handleSMSInput(
       }
     }
 
-    return `✅ *Oda ya Taxi imewasilishwa!* 🚖\n\n` +
-           `Safari ya msafiri *${finalPassengerName}* (${finalPhone}) imetumwa kwa madereva wa *${calcData.typeName}* waliopo karibu.\n\n` +
-           `- Kutoka: *${calcData.pickupName}*\n` +
-           `- Kwenda: *${calcData.destName}*\n` +
-           `- Umbali: *${calcData.distanceKm} km*\n` +
-           `- Muda wa safari: *~${calcData.durationMin} dk*\n` +
-           `- Nauli: *TZS ${calcData.fare?.toLocaleString()}/=*\n\n` +
-           `Madereva wa karibu wamepewa taarifa sasa hivi. Dereva atakapokubali kukuja kukufuata, msafiri atafahamishwa kupitia SMS na kupigiwa simu kwenye namba *${finalPhone}*. Ahsante sana kwa kutumia Papo Hapo! 🙏✨`;
+    return `✅ ODA IMEWASILISHWA! 🚖\n\n` +
+           `Msafiri: *${finalPassengerName}* (${finalPhone})\n` +
+           `Njia: *${calcData.pickupName}* ➔ *${calcData.destName}*\n` +
+           `Nauli: *TZS ${calcData.fare?.toLocaleString()}/=* (${calcData.typeName})\n\n` +
+           `Madereva wamepewa taarifa. Utapokea SMS/Simu dereva akithibitisha. Ahsante! 🙏`;
   }
 
   // SALON BOOKING FLOWS
