@@ -4368,9 +4368,9 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                     
                     {ussdSessionActive ? (
                       /* Active USSD Popup Dialog Overlay */
-                      <div className="absolute inset-0 z-40 bg-black/40 backdrop-blur-xs flex flex-col justify-center p-3.5">
+                      <div className="absolute inset-0 z-40 bg-black/40 backdrop-blur-xs flex flex-col justify-center p-2.5">
                         
-                        <div className="w-full bg-white dark:bg-neutral-900 rounded-3xl shadow-2xl border border-neutral-200/80 dark:border-neutral-800 p-4.5 flex flex-col space-y-4 animate-scale-up">
+                        <div className="w-full max-h-[96%] bg-white dark:bg-neutral-900 rounded-3xl shadow-2xl border border-neutral-200/80 dark:border-neutral-800 p-3 flex flex-col space-y-2 animate-scale-up overflow-hidden">
                           {/* Dialog Title */}
                           {(() => {
                             const responseText = ussdCurrentResponse || '';
@@ -4455,7 +4455,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                                 )}
 
                                 {/* Dialog Response Message Body */}
-                                <div className="text-xs text-neutral-800 dark:text-neutral-100 font-bold leading-relaxed whitespace-pre-wrap max-h-[340px] overflow-y-auto pr-1">
+                                <div className="text-xs text-neutral-800 dark:text-neutral-100 font-bold leading-relaxed whitespace-pre-wrap max-h-[220px] flex-1 overflow-y-auto pr-1">
                                   {ussdLoading ? (
                                     <div className="flex flex-col items-center justify-center py-6 space-y-2">
                                       <RefreshCw className="w-6 h-6 text-orange-500 animate-spin" />
