@@ -1506,20 +1506,15 @@ export async function handleSMSInput(
     const topupAmt = session.deliveryFee || 10000;
     const userPhone = session.phone.replace('ussd:', '');
 
-    // AUTOMATED MOBILE MONEY STK PUSH: Immediately request STK Push & credit wallet!
     session.topupNetwork = network;
-    session.walletBalance = (session.walletBalance || 15000) + topupAmt;
-    session.papoPoints = (session.papoPoints || 120) + 50; // Bonus 50 points on topup!
-    
-    session.step = 'START';
+    session.step = 'PAPOWALLET_STK_PIN_PROMPT';
     await saveSession(session, dbAdmin);
 
-    const newBal = session.walletBalance.toLocaleString();
     const isEn = session.language === 'en';
 
     return isEn
-      ? `📲 AUTOMATED STK PUSH SENT! ⚡\n\n${network} payment request for TZS ${topupAmt.toLocaleString()} pushed to ${userPhone}.\n\n✅ Transaction auto-confirmed via ${network} STK Push!\nNew PapoWallet Balance: TZS ${newBal}\n🎁 Bonus: +50 PapoPoints!\n\nSend 0 or HI to return to main menu.`
-      : `📲 STK PUSH YATUMWA NA KUKAMILIKA! 📲⚡\n\nOmbi la malipo la ${network} TZS ${topupAmt.toLocaleString()} limetumwa kwa ${userPhone}.\n\n✅ Malipo yamethibitishwa moja kwa moja via ${network} STK Push!\n\nSalio Jipya PapoWallet: TZS ${newBal}\n🎁 Pointi za Zawadi: +50 PTS!\n\nTuma 0 au HI kurudi mwanzo.`;
+      ? `📲 [STK PUSH - ${network.toUpperCase()}]\n\nPay TZS ${topupAmt.toLocaleString()} to PapoWallet.\nMobile: ${userPhone}\n\n🔑 Enter your ${network} 4-digit PIN (e.g. 1234) to authorize payment:\n\n0. Cancel`
+      : `📲 [STK PUSH - ${network.toUpperCase()}]\n\nOmbi la malipo TZS ${topupAmt.toLocaleString()} kuweka salio PapoWallet.\nSimu: ${userPhone}\n\n🔑 Ingiza PIN yako ya ${network} (mfano: 1234) kuthibitisha malipo:\n\n0. Ghairi`;
   }
 
   if (session.step === 'PAPOWALLET_STK_PIN_PROMPT') {
@@ -1542,8 +1537,8 @@ export async function handleSMSInput(
     const isEn = session.language === 'en';
 
     return isEn
-      ? `✅ STK PUSH SUCCESSFUL! 📲⚡\n\n${network} payment of TZS ${topupAmt.toLocaleString()} auto-confirmed.\nNew PapoWallet Balance: TZS ${newBal}\n🎁 Bonus: +50 PapoPoints!\n\nSend 0 or HI to return to main menu.`
-      : `✅ STK PUSH IMEKAMILIKA! 📲⚡\n\nMalipo ya ${network} TZS ${topupAmt.toLocaleString()} yamethibitishwa.\n\nSalio Jipya PapoWallet: TZS ${newBal}\n🎁 Pointi za Zawadi: +50 PTS!\n\nTuma 0 au HI kurudi mwanzo.`;
+      ? `✅ STK PUSH SUCCESSFUL! 📲⚡\n\n${network} payment of TZS ${topupAmt.toLocaleString()} authorized via PIN.\nNew PapoWallet Balance: TZS ${newBal}\n🎁 Bonus: +50 PapoPoints!\n\nSend 0 or HI to return to main menu.`
+      : `✅ STK PUSH IMEKAMILIKA! 📲⚡\n\nMalipo ya ${network} TZS ${topupAmt.toLocaleString()} yamethibitishwa kwa PIN.\n\nSalio Jipya PapoWallet: TZS ${newBal}\n🎁 Pointi za Zawadi: +50 PTS!\n\nTuma 0 au HI kurudi mwanzo.`;
   }
 
   if (session.step === 'PAPOWALLET_CONVERT_POINTS') {
@@ -2510,12 +2505,29 @@ export async function handleSMSInput(
     const topupAmt = session.deliveryFee || 5000;
     const userPhone = session.phone.replace('ussd:', '');
 
+    session.topupNetwork = network;
+    session.step = 'DRIVER_STK_PIN_PROMPT';
+    await saveSession(session, dbAdmin);
+
+    return `📲 [STK PUSH - DEREVA ${network.toUpperCase()}]\n\nOmbi la malipo TZS ${topupAmt.toLocaleString()} salio la kamisheni.\nSimu: ${userPhone}\n\n🔑 Ingiza PIN yako ya ${network} (mfano: 1234) kuthibitisha:\n\n0. Ghairi`;
+  }
+
+  if (session.step === 'DRIVER_STK_PIN_PROMPT') {
+    if (cleanInput === '0') {
+      session.step = 'DRIVER_OFFLINE_MENU';
+      await saveSession(session, dbAdmin);
+      return `🛵 PapoDriver (PORTAL YA DEREVA):\n[Dereva: ${session.driverName || 'Juma Kapoya'}]\n\n1. Badili Hali\n2. Maombi ya Safari\n3. Safari Active\n4. Mapato & Salio\n5. Weka Salio (STK Push)\n0. Rudi Mwanzo`;
+    }
+
+    const network = session.topupNetwork || 'M-Pesa';
+    const topupAmt = session.deliveryFee || 5000;
+
     session.walletBalance = (session.walletBalance || 18200) + topupAmt;
     session.step = 'START';
     await saveSession(session, dbAdmin);
 
     const newBal = session.walletBalance.toLocaleString();
-    return `📲 STK PUSH YATUMWA KWA DEREVA! 📲⚡\n\nOmbi la malipo la ${network} TZS ${topupAmt.toLocaleString()} limetumwa kwa ${userPhone}.\n\n✅ Salio la kamisheni ya dereva limeongezwa kwa mafanikio kupitia STK Push!\n\nSalio Jipya PapoWallet: TZS ${newBal}\n\nTuma 0 au HI kurudi mwanzo.`;
+    return `✅ STK PUSH YAKAMILIKA KWA DEREVA! 📲⚡\n\nMalipo ya ${network} TZS ${topupAmt.toLocaleString()} yamethibitishwa kwa PIN.\n\nSalio Jipya la Kamisheni: TZS ${newBal}\n\nTuma 0 au HI kurudi mwanzo.`;
   }
 
   if (session.step === 'DRIVER_ACCEPT_RIDE_CONFIRM') {
