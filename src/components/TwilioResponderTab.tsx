@@ -4372,80 +4372,153 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                         
                         <div className="w-full bg-white dark:bg-neutral-900 rounded-3xl shadow-2xl border border-neutral-200/80 dark:border-neutral-800 p-4.5 flex flex-col space-y-4 animate-scale-up">
                           {/* Dialog Title */}
-                          <div className="flex items-center justify-between pb-2 border-b border-neutral-100 dark:border-neutral-800/60">
-                            <div className="flex items-center gap-1.5">
-                              <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
-                              <span className="text-[9.5px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-widest font-mono">
-                                USSD Message
-                              </span>
-                            </div>
-                            {!ussdIsEnd && !ussdLoading && (
-                              <span className={`text-[10px] font-black px-2 py-0.5 rounded-full font-mono ${
-                                ussdTimeLeft <= 10 ? 'bg-red-100 text-red-600 dark:bg-red-950/80 dark:text-red-400 animate-bounce' : 'bg-orange-100 text-orange-700 dark:bg-orange-950/80 dark:text-orange-400'
-                              }`}>
-                                ⏱️ {ussdTimeLeft}s
-                              </span>
-                            )}
-                          </div>
+                          {(() => {
+                            const responseText = ussdCurrentResponse || '';
+                            const isStkPush = responseText.includes('STK PUSH') || responseText.includes('[STK PUSH');
+                            const isMPesa = responseText.includes('M-PESA');
+                            const isTigo = responseText.includes('TIGO PESA');
+                            const isAirtel = responseText.includes('AIRTEL');
+                            const isHalo = responseText.includes('HALOPESA');
 
-                          {/* Dialog Response Message Body */}
-                          <div className="text-xs text-neutral-800 dark:text-neutral-100 font-bold leading-relaxed whitespace-pre-wrap max-h-[220px] overflow-y-auto pr-1">
-                            {ussdLoading ? (
-                              <div className="flex flex-col items-center justify-center py-6 space-y-2">
-                                <RefreshCw className="w-6 h-6 text-orange-500 animate-spin" />
-                                <span className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">Kuunganisha...</span>
-                              </div>
-                            ) : (
-                              ussdCurrentResponse || "Hamna ujumbe uliopokelewa."
-                            )}
-                          </div>
+                            let providerBadge = {
+                              name: 'USSD Message',
+                              color: 'bg-orange-500',
+                              bg: 'bg-orange-50 dark:bg-orange-950/40 border-orange-200 dark:border-orange-800/50',
+                              text: 'text-orange-700 dark:text-orange-400'
+                            };
 
-                          {/* Dialog Input & Actions */}
-                          {!ussdLoading && (
-                            <div className="space-y-3 pt-1">
-                              <Input
-                                autoFocus
-                                value={ussdInputValue}
-                                onChange={(e) => setUssdInputValue(e.target.value)}
-                                placeholder="Andika hapa... (mfano 0 au HI)"
-                                className="h-8.5 text-xs bg-neutral-50 dark:bg-neutral-950 border-neutral-200 focus-visible:ring-orange-500 rounded-xl"
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter' && ussdInputValue.trim()) {
-                                    submitUssdInput(ussdInputValue.trim());
-                                  }
-                                }}
-                              />
-                              <div className="flex items-center justify-between gap-2 text-xs font-bold uppercase tracking-wider">
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => submitUssdInput("0")}
-                                  className="border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 rounded-xl h-8 px-2.5 text-[10.5px] font-extrabold cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                                >
-                                  ↩️ Rudi Mwanzo (0)
-                                </Button>
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => { setUssdSessionActive(false); setUssdAccumulatedText(""); }}
-                                    className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 cursor-pointer text-[11px] font-bold px-1"
-                                  >
-                                    Sitisha
-                                  </button>
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    disabled={!ussdInputValue.trim()}
-                                    onClick={() => submitUssdInput(ussdInputValue.trim())}
-                                    className="bg-orange-600 hover:bg-orange-700 text-white rounded-xl h-8 px-4 font-black cursor-pointer"
-                                  >
-                                    Send
-                                  </Button>
+                            if (isStkPush) {
+                              if (isMPesa) {
+                                providerBadge = {
+                                  name: '📲 M-PESA STK PUSH (VODACOM)',
+                                  color: 'bg-emerald-500',
+                                  bg: 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 dark:border-emerald-800',
+                                  text: 'text-emerald-700 dark:text-emerald-300'
+                                };
+                              } else if (isTigo) {
+                                providerBadge = {
+                                  name: '📲 TIGO PESA STK PUSH',
+                                  color: 'bg-blue-500',
+                                  bg: 'bg-blue-50 dark:bg-blue-950/50 border-blue-200 dark:border-blue-800',
+                                  text: 'text-blue-700 dark:text-blue-300'
+                                };
+                              } else if (isAirtel) {
+                                providerBadge = {
+                                  name: '📲 AIRTEL MONEY STK PUSH',
+                                  color: 'bg-red-500',
+                                  bg: 'bg-red-50 dark:bg-red-950/50 border-red-200 dark:border-red-800',
+                                  text: 'text-red-700 dark:text-red-300'
+                                };
+                              } else if (isHalo) {
+                                providerBadge = {
+                                  name: '📲 HALOPESA STK PUSH',
+                                  color: 'bg-amber-500',
+                                  bg: 'bg-amber-50 dark:bg-amber-950/50 border-amber-200 dark:border-amber-800',
+                                  text: 'text-amber-700 dark:text-amber-300'
+                                };
+                              } else {
+                                providerBadge = {
+                                  name: '📲 MOBILE MONEY STK PUSH',
+                                  color: 'bg-emerald-500',
+                                  bg: 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 dark:border-emerald-800',
+                                  text: 'text-emerald-700 dark:text-emerald-300'
+                                };
+                              }
+                            }
+
+                            return (
+                              <>
+                                <div className="flex items-center justify-between pb-2 border-b border-neutral-100 dark:border-neutral-800/60">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className={`w-2.5 h-2.5 rounded-full ${providerBadge.color} animate-pulse`}></span>
+                                    <span className={`text-[10px] font-black uppercase tracking-wider font-mono ${providerBadge.text}`}>
+                                      {providerBadge.name}
+                                    </span>
+                                  </div>
+                                  {!ussdIsEnd && !ussdLoading && (
+                                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full font-mono ${
+                                      ussdTimeLeft <= 10 ? 'bg-red-100 text-red-600 dark:bg-red-950/80 dark:text-red-400 animate-bounce' : 'bg-orange-100 text-orange-700 dark:bg-orange-950/80 dark:text-orange-400'
+                                    }`}>
+                                      ⏱️ {ussdTimeLeft}s
+                                    </span>
+                                  )}
                                 </div>
-                              </div>
-                            </div>
-                          )}
+
+                                {/* STK Push Highlight Banner */}
+                                {isStkPush && (
+                                  <div className={`p-2.5 rounded-2xl border text-[11px] font-extrabold flex items-center justify-between ${providerBadge.bg} ${providerBadge.text}`}>
+                                    <span>🔒 POP-UP YA INGIZO LA PIN</span>
+                                    <span className="text-[9.5px] font-mono opacity-80 uppercase bg-white/60 dark:bg-black/40 px-2 py-0.5 rounded-md">
+                                      Moja kwa Moja
+                                    </span>
+                                  </div>
+                                )}
+
+                                {/* Dialog Response Message Body */}
+                                <div className="text-xs text-neutral-800 dark:text-neutral-100 font-bold leading-relaxed whitespace-pre-wrap max-h-[220px] overflow-y-auto pr-1">
+                                  {ussdLoading ? (
+                                    <div className="flex flex-col items-center justify-center py-6 space-y-2">
+                                      <RefreshCw className="w-6 h-6 text-orange-500 animate-spin" />
+                                      <span className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">Kuunganisha STK Push...</span>
+                                    </div>
+                                  ) : (
+                                    ussdCurrentResponse || "Hamna ujumbe uliopokelewa."
+                                  )}
+                                </div>
+
+                                {/* Dialog Input & Actions */}
+                                {!ussdLoading && (
+                                  <div className="space-y-3 pt-1">
+                                    <Input
+                                      autoFocus
+                                      type={isStkPush ? "password" : "text"}
+                                      maxLength={isStkPush ? 8 : 100}
+                                      value={ussdInputValue}
+                                      onChange={(e) => setUssdInputValue(e.target.value)}
+                                      placeholder={isStkPush ? "🔑 Ingiza PIN yako ya sasa (mf: 1234)..." : "Andika hapa... (mfano 0 au HI)"}
+                                      className={`h-9 text-xs border-neutral-200 focus-visible:ring-orange-500 rounded-xl ${
+                                        isStkPush ? 'bg-amber-50/50 dark:bg-neutral-950 text-center font-mono tracking-widest font-black text-sm border-amber-300 dark:border-amber-800' : 'bg-neutral-50 dark:bg-neutral-950'
+                                      }`}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && ussdInputValue.trim()) {
+                                          submitUssdInput(ussdInputValue.trim());
+                                        }
+                                      }}
+                                    />
+                                    <div className="flex items-center justify-between gap-2 text-xs font-bold uppercase tracking-wider">
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => submitUssdInput("0")}
+                                        className="border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 rounded-xl h-8 px-2.5 text-[10.5px] font-extrabold cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                                      >
+                                        ↩️ Rudi Mwanzo (0)
+                                      </Button>
+                                      <div className="flex items-center gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() => { setUssdSessionActive(false); setUssdAccumulatedText(""); }}
+                                          className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 cursor-pointer text-[11px] font-bold px-1"
+                                        >
+                                          Sitisha
+                                        </button>
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          disabled={!ussdInputValue.trim()}
+                                          onClick={() => submitUssdInput(ussdInputValue.trim())}
+                                          className={`${isStkPush ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-orange-600 hover:bg-orange-700 text-white'} rounded-xl h-8 px-4 font-black cursor-pointer shadow-sm`}
+                                        >
+                                          {isStkPush ? "🔑 Thibitisha PIN" : "Send"}
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </>
+                            );
+                          })()}
                         </div>
 
                       </div>

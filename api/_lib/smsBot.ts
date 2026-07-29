@@ -51,6 +51,7 @@ export interface SMSSession {
   // Wallet, Points, Language & Promo fields
   language?: 'sw' | 'en';
   walletBalance?: number;
+  topupNetwork?: string;
   papoPoints?: number;
   appliedPromoCode?: string;
   promoDiscount?: number;
@@ -1504,6 +1505,28 @@ export async function handleSMSInput(
     const network = netMap[cleanInput] || 'M-Pesa';
     const topupAmt = session.deliveryFee || 10000;
     
+    session.topupNetwork = network;
+    session.step = 'PAPOWALLET_STK_PIN_PROMPT';
+    await saveSession(session, dbAdmin);
+
+    const isEn = session.language === 'en';
+    const userPhone = session.phone.replace('ussd:', '');
+
+    return isEn
+      ? `📲 [STK PUSH - ${network.toUpperCase()}]\n\nPay TZS ${topupAmt.toLocaleString()} to PapoWallet.\nMobile: ${userPhone}\n\nEnter your ${network} 4-digit PIN (e.g. 1234) to authorize payment:\n\n0. Cancel`
+      : `📲 [STK PUSH - ${network.toUpperCase()}]\n\nKuweka salio TZS ${topupAmt.toLocaleString()} PapoWallet.\nSimu: ${userPhone}\n\nIngiza PIN yako ya ${network} (mfano: 1234) kuthibitisha malipo:\n\n0. Ghairi`;
+  }
+
+  if (session.step === 'PAPOWALLET_STK_PIN_PROMPT') {
+    if (cleanInput === '0') {
+      session.step = 'PAPOWALLET_MAIN';
+      await saveSession(session, dbAdmin);
+      return getPapoWalletText(session);
+    }
+
+    const network = session.topupNetwork || 'M-Pesa';
+    const topupAmt = session.deliveryFee || 10000;
+    
     session.walletBalance = (session.walletBalance || 15000) + topupAmt;
     session.papoPoints = (session.papoPoints || 120) + 50; // Bonus 50 points on topup!
     
@@ -1511,10 +1534,11 @@ export async function handleSMSInput(
     await saveSession(session, dbAdmin);
 
     const newBal = session.walletBalance.toLocaleString();
+    const isEn = session.language === 'en';
 
-    return session.language === 'en'
-      ? `📱 ${network} Payment Request Sent!\n\n✅ Top-up successful! Your new PapoWallet balance is TZS ${newBal}.\n🎁 +50 PapoPoints Bonus earned!\n\nSend 0 or HI to return to main menu.`
-      : `📱 Ombi la ${network} TZS ${topupAmt.toLocaleString()} limetumwa kwenye simu yako!\n\n✅ Deposit imekamilika! Salio lako jipya la PapoWallet ni TZS ${newBal}.\n🎁 Pamoja na Pointi za Zawadi +50 PTS!\n\nTuma 0 au HI kurudi mwanzo.`;
+    return isEn
+      ? `✅ STK PUSH SUCCESSFUL! 📲⚡\n\n${network} payment of TZS ${topupAmt.toLocaleString()} authorized via PIN.\nNew PapoWallet Balance: TZS ${newBal}\n🎁 Bonus: +50 PapoPoints!\n\nSend 0 or HI to return to main menu.`
+      : `✅ STK PUSH IMEKAMILIKA! 📲⚡\n\nMalipo ya ${network} TZS ${topupAmt.toLocaleString()} yamethibitishwa kwa PIN.\n\nSalio Jipya PapoWallet: TZS ${newBal}\n🎁 Pointi za Zawadi: +50 PTS!\n\nTuma 0 au HI kurudi mwanzo.`;
   }
 
   if (session.step === 'PAPOWALLET_CONVERT_POINTS') {
