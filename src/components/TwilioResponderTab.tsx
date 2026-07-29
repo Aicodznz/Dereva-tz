@@ -4455,7 +4455,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                                 )}
 
                                 {/* Dialog Response Message Body */}
-                                <div className="text-xs text-neutral-800 dark:text-neutral-100 font-bold leading-relaxed whitespace-pre-wrap max-h-[220px] overflow-y-auto pr-1">
+                                <div className="text-xs text-neutral-800 dark:text-neutral-100 font-bold leading-relaxed whitespace-pre-wrap max-h-[340px] overflow-y-auto pr-1">
                                   {ussdLoading ? (
                                     <div className="flex flex-col items-center justify-center py-6 space-y-2">
                                       <RefreshCw className="w-6 h-6 text-orange-500 animate-spin" />

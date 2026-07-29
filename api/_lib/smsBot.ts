@@ -183,7 +183,7 @@ export interface TwilioConfig {
 
 export const defaultTwilioConfig: TwilioConfig = {
   isEnabled: true,
-  welcomeMessage: "Karibu Papo Hapo! 🌟\n\nChagua huduma:\n1. 🚕 PapoRide (Taxi & Nauli)\n2. 📦 PapoSend (Tuma & Fuatilia Mzigo)\n3. 🛵 PapoDriver (Offline Mode)\n4. 🚌 PapoBus (Tiketi za Mabasi)\n5. 💇‍♀️ PapoStyle (Saluni & Urembo)\n6. 🍔 PapoFood (Chakula & Sokoni)\n7. 📋 Hali ya Agizo (Live Status)\n8. 💰 PapoWallet, Gawana Nauli & Points\n9. 📍 Maeneo Pendwa (Saved Locations)\n10. 🌐 Lugha / Language (SW/EN)",
+  welcomeMessage: "Karibu Papo Hapo! 🌟\n\nChagua huduma:\n1. 🚕 PapoRide (Taxi)\n2. 📦 PapoSend (Mzigo)\n3. 🛵 PapoDriver (Dereva)\n4. 🚌 PapoBus (Tiketi)\n5. 💇‍♀️ PapoStyle (Saluni)\n6. 🍔 PapoFood (Chakula)\n7. 📋 Hali ya Agizo\n8. 💰 PapoWallet & Points\n9. 🌐 Lugha / Language",
   phoneNumber: "+14155238886", // Default twilio sandbox or custom
   vendorRules: {
     "all-stores": {
@@ -234,99 +234,99 @@ export function getAvailableServices(session: SMSSession, businessConfig?: any):
       id: 'teksi',
       key: 'paporide',
       emoji: '🚕',
-      titleSw: 'PapoRide (Taxi & Nauli)',
-      titleEn: 'PapoRide (Taxi & Fare)',
-      defaultMaintSw: 'Huduma yetu ya usafiri wa Teksi/Gari/Pikipiki iko kwenye matengenezo mafupi.',
-      defaultMaintEn: 'Our Taxi booking service is currently under brief maintenance.'
+      titleSw: 'PapoRide (Taxi)',
+      titleEn: 'PapoRide (Taxi)',
+      defaultMaintSw: 'Huduma ya Teksi ipo kwenye matengenezo mafupi.',
+      defaultMaintEn: 'Taxi service is under brief maintenance.'
     },
     {
       id: 'vifurushi',
       key: 'paposend',
       emoji: '📦',
-      titleSw: 'PapoSend (Tuma & Fuatilia Mzigo)',
-      titleEn: 'PapoSend (Send & Track Parcel)',
-      defaultMaintSw: 'Uwasilishaji na uagizaji wa vifurushi upo kwenye matengenezo ya dharura.',
-      defaultMaintEn: 'Parcel delivery service is undergoing emergency maintenance.'
+      titleSw: 'PapoSend (Mzigo)',
+      titleEn: 'PapoSend (Parcel)',
+      defaultMaintSw: 'Huduma ya Mzigo ipo kwenye matengenezo.',
+      defaultMaintEn: 'Parcel service is under maintenance.'
     },
     {
       id: 'chakula',
       key: 'papofood',
       emoji: '🍔',
-      titleSw: 'PapoFood (Chakula & Migahawa)',
-      titleEn: 'PapoFood (Food & Restaurants)',
-      defaultMaintSw: 'Huduma ya Chakula inafanyiwa marekebisho kwa sasa. Inarudi hivi punde!',
-      defaultMaintEn: 'Food delivery service is currently under maintenance.'
+      titleSw: 'PapoFood (Chakula)',
+      titleEn: 'PapoFood (Food)',
+      defaultMaintSw: 'Huduma ya Chakula inafanyiwa marekebisho.',
+      defaultMaintEn: 'Food service is under maintenance.'
     },
     {
       id: 'sokoni',
       key: 'papomart',
       emoji: '🛒',
-      titleSw: 'PapoMart (Sokoni & Maduka)',
-      titleEn: 'PapoMart (Groceries & Shops)',
-      defaultMaintSw: 'Huduma ya Sokoni & Maduka inafanyiwa marekebisho. Tafadhali jaribu baadaye.',
-      defaultMaintEn: 'Market & Grocery service is under maintenance. Please try again soon.'
+      titleSw: 'PapoMart (Sokoni)',
+      titleEn: 'PapoMart (Groceries)',
+      defaultMaintSw: 'Huduma ya Sokoni inafanyiwa marekebisho.',
+      defaultMaintEn: 'Groceries service is under maintenance.'
     },
     {
       id: 'bus_ticket',
       key: 'papobus',
       emoji: '🚌',
-      titleSw: 'PapoBus (Tiketi za Mabasi)',
-      titleEn: 'PapoBus (Bus Tickets)',
-      defaultMaintSw: 'Mfumo wa kukata tiketi za mabasi upo kwenye maboresho ya kiufundi.',
-      defaultMaintEn: 'Bus ticketing system is undergoing technical updates.'
+      titleSw: 'PapoBus (Tiketi)',
+      titleEn: 'PapoBus (Tickets)',
+      defaultMaintSw: 'Kukata tiketi kuko kwenye maboresho.',
+      defaultMaintEn: 'Bus ticketing is under maintenance.'
     },
     {
       id: 'saluni',
       key: 'papostyle',
       emoji: '💇‍♀️',
-      titleSw: 'PapoStyle (Saluni & Urembo)',
-      titleEn: 'PapoStyle (Salon & Beauty)',
-      defaultMaintSw: 'Huduma za Saluni hazipatikani kwa sasa kutokana na maboresho.',
-      defaultMaintEn: 'Salon booking service is currently unavailable due to updates.'
+      titleSw: 'PapoStyle (Saluni)',
+      titleEn: 'PapoStyle (Beauty)',
+      defaultMaintSw: 'Huduma za Saluni ziko kwenye maboresho.',
+      defaultMaintEn: 'Beauty service is under maintenance.'
     },
     {
       id: 'fundi',
       key: 'papofix',
       emoji: '🛠️',
-      titleSw: 'PapoFix (Home Services & Handyman)',
-      titleEn: 'PapoFix (Home Services & Handyman)',
-      defaultMaintSw: 'Huduma za Mafundi & Home Services zipo kwenye maboresho.',
-      defaultMaintEn: 'Handyman & Home Services are undergoing maintenance.'
+      titleSw: 'PapoFix (Mafundi)',
+      titleEn: 'PapoFix (Handyman)',
+      defaultMaintSw: 'Huduma za Mafundi zipo kwenye maboresho.',
+      defaultMaintEn: 'Handyman service is under maintenance.'
     },
     {
       id: 'hoteli',
       key: 'papostay',
       emoji: '🏨',
-      titleSw: 'PapoStay (Hoteli & Malazi)',
-      titleEn: 'PapoStay (Hotels & Lodging)',
-      defaultMaintSw: 'Huduma ya kukata vyumba vya hoteli ipo kwenye maboresho.',
-      defaultMaintEn: 'Hotel booking service is undergoing maintenance.'
+      titleSw: 'PapoStay (Hoteli)',
+      titleEn: 'PapoStay (Hotels)',
+      defaultMaintSw: 'Huduma ya Hoteli ipo kwenye maboresho.',
+      defaultMaintEn: 'Hotel service is under maintenance.'
     },
     {
       id: 'car_rental',
       key: 'paporent',
       emoji: '🔑',
-      titleSw: 'PapoRent (Kukodi Magari & Vifaa)',
-      titleEn: 'PapoRent (Car & Equipment Rental)',
-      defaultMaintSw: 'Huduma ya kukodi magari ipo kwenye marekebisho ya dharura.',
-      defaultMaintEn: 'Car rental service is under emergency maintenance.'
+      titleSw: 'PapoRent (Kukodi)',
+      titleEn: 'PapoRent (Rentals)',
+      defaultMaintSw: 'Kukodi magari kupo kwenye marekebisho.',
+      defaultMaintEn: 'Rental service is under maintenance.'
     },
     {
       id: 'driver',
       key: 'papodriver',
       emoji: '🛵',
-      titleSw: 'PapoDriver (Offline Mode & Usajili)',
-      titleEn: 'PapoDriver (Driver Portal)',
-      defaultMaintSw: 'Portal ya madereva ipo kwenye matengenezo kwa sasa.',
-      defaultMaintEn: 'Driver portal is currently undergoing maintenance.',
+      titleSw: 'PapoDriver (Dereva)',
+      titleEn: 'PapoDriver (Driver)',
+      defaultMaintSw: 'Portal ya dereva ipo kwenye matengenezo.',
+      defaultMaintEn: 'Driver portal is under maintenance.',
       alwaysVisible: true
     },
     {
       id: 'status',
       key: 'status',
       emoji: '📋',
-      titleSw: 'Hali ya Agizo (Live Order Status)',
-      titleEn: 'Live Order Status',
+      titleSw: 'Hali ya Agizo',
+      titleEn: 'Order Status',
       defaultMaintSw: '',
       defaultMaintEn: '',
       alwaysVisible: true
@@ -335,8 +335,8 @@ export function getAvailableServices(session: SMSSession, businessConfig?: any):
       id: 'wallet',
       key: 'wallet',
       emoji: '💰',
-      titleSw: 'PapoWallet & PapoPoints',
-      titleEn: 'PapoWallet & PapoPoints',
+      titleSw: 'PapoWallet & Points',
+      titleEn: 'PapoWallet & Points',
       defaultMaintSw: '',
       defaultMaintEn: '',
       alwaysVisible: true
@@ -345,8 +345,8 @@ export function getAvailableServices(session: SMSSession, businessConfig?: any):
       id: 'language',
       key: 'language',
       emoji: '🌐',
-      titleSw: 'Lugha / Language (SW/EN)',
-      titleEn: 'Language / Lugha (SW/EN)',
+      titleSw: 'Lugha / Language',
+      titleEn: 'Language / Lugha',
       defaultMaintSw: '',
       defaultMaintEn: '',
       alwaysVisible: true
