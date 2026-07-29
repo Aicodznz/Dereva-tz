@@ -86,7 +86,7 @@ export function getInitialNodes() {
       position: { x: 420, y: 30 },
       data: { 
         label: 'Msaada wa Kawaida (Default Menu)', 
-        text: '👋 *Karibu Papo Hapo Super App Bot!*\n\nAndika *Taxi* kuanza booking ya usafiri, au andika *Chakula* ili kupata menyu ya leo! Unaweza kutafuta msaada kwa kusema *Saa za kazi*.', 
+        text: ' *Karibu Papo Hapo Super App Bot!*\n\nAndika *Taxi* kuanza booking ya usafiri, au andika *Chakula* ili kupata menyu ya leo! Unaweza kutafuta msaada kwa kusema *Saa za kazi*.', 
         nextNodeId: 'n_end' 
       }
     },
@@ -96,7 +96,7 @@ export function getInitialNodes() {
       position: { x: 420, y: 150 },
       data: { 
         label: 'Maelezo ya Ofisi & Saa za kazi', 
-        text: '⏰ *Masaa ya kazi:* Masaa 24 kila siku!\n📍 *Ofisi zetu:* Mwenge Tower, Ghorofa ya 3, Dar es Salaam.\n☎️ *Namba ya Simu:* +255 716 543 210', 
+        text: ' *Masaa ya kazi:* Masaa 24 kila siku!\n *Ofisi zetu:* Mwenge Tower, Ghorofa ya 3, Dar es Salaam.\n *Namba ya Simu:* +255 716 543 210', 
         nextNodeId: 'n_end' 
       }
     },
@@ -106,7 +106,7 @@ export function getInitialNodes() {
       position: { x: 420, y: 280 },
       data: { 
         label: 'Ujumbe wa Karibu - Taxi', 
-        text: '🚖 *Karibu kwenye Huduma ya Taxi Papo Hapo!*\n\nTunaanza booking yako sasa hivi. Tutatumia AI kupanga usafiri wako.', 
+        text: ' *Karibu kwenye Huduma ya Taxi Papo Hapo!*\n\nTunaanza booking yako sasa hivi. Tutatumia AI kupanga usafiri wako.', 
         nextNodeId: 'n_ask_pickup' 
       }
     },
@@ -116,7 +116,7 @@ export function getInitialNodes() {
       position: { x: 620, y: 280 },
       data: { 
         label: 'Kuuliza Mahali pa Kuchukuliwa', 
-        text: '📍 *Upo wapi kwa sasa hivi?* \n(Tafadhali andika mahali ulipo, mfano: Mwenge, Posta, Kimara)', 
+        text: ' *Upo wapi kwa sasa hivi?* \n(Tafadhali andika mahali ulipo, mfano: Mwenge, Posta, Kimara)', 
         variableName: 'pickup', 
         nextNodeId: 'n_ask_dest' 
       }
@@ -127,7 +127,7 @@ export function getInitialNodes() {
       position: { x: 820, y: 280 },
       data: { 
         label: 'Kuuliza Mahali pa Kwenda', 
-        text: '🏁 *Unakwenda wapi?* \n(Andika eneo unaloenda, mfano: Posta, Kariakoo, Masaki)', 
+        text: ' *Unakwenda wapi?* \n(Andika eneo unaloenda, mfano: Posta, Kariakoo, Masaki)', 
         variableName: 'destination', 
         nextNodeId: 'n_create_ride' 
       }
@@ -148,7 +148,7 @@ export function getInitialNodes() {
       position: { x: 420, y: 410 },
       data: { 
         label: 'Karibu Food Ordering', 
-        text: '🍔 *Karibu kwenye Huduma ya Chakula ya Papo Hapo!*\n\nTunaandaa agizo lako la chips kuku, biryani, au pizza hivi sasa.', 
+        text: ' *Karibu kwenye Huduma ya Chakula ya Papo Hapo!*\n\nTunaandaa agizo lako la chips kuku, biryani, au pizza hivi sasa.', 
         nextNodeId: 'n_ask_food_detail' 
       }
     },
@@ -158,7 +158,7 @@ export function getInitialNodes() {
       position: { x: 620, y: 410 },
       data: { 
         label: 'Ask Food Details', 
-        text: '🍔 *Ungependa kuagiza chakula gani leo?* \n(Andika chakula na idadi, mfano: Chips Kuku 1)', 
+        text: ' *Ungependa kuagiza chakula gani leo?* \n(Andika chakula na idadi, mfano: Chips Kuku 1)', 
         variableName: 'pickup', 
         nextNodeId: 'n_ask_food_dest' 
       }
@@ -169,7 +169,7 @@ export function getInitialNodes() {
       position: { x: 820, y: 410 },
       data: { 
         label: 'Ask Delivery Address', 
-        text: '📍 *Tulete chakula hiki eneo gani?* \n(Andika anuani ya kuwasilisha, mfano: Mwenge)', 
+        text: ' *Tulete chakula hiki eneo gani?* \n(Andika anuani ya kuwasilisha, mfano: Mwenge)', 
         variableName: 'destination', 
         nextNodeId: 'n_create_food_order' 
       }
@@ -190,7 +190,7 @@ export function getInitialNodes() {
       position: { x: 1240, y: 200 },
       data: { 
         label: 'Mwisho wa Soga (End)', 
-        text: '🎉 *Huduma yako ya Papo Hapo imeandaliwa kikamilifu!*\n\n- ID ya Mteja: *{{customer.phone}}*\n- Mtandao: *{{channel}}*\n\nNenda kwenye tab ya Orders kufuatilia maendeleo ya safari au chakula chako! Asante kwa kutumia Papo Hapo! 🇹🇿' 
+        text: ' *Huduma yako ya Papo Hapo imeandaliwa kikamilifu!*\n\n- ID ya Mteja: *{{customer.phone}}*\n- Mtandao: *{{channel}}*\n\nNenda kwenye tab ya Orders kufuatilia maendeleo ya safari au chakula chako! Asante kwa kutumia Papo Hapo! 🇹🇿' 
       }
     }
   ];
@@ -210,7 +210,7 @@ export function getFreshNodes() {
       position: { x: 450, y: 150 },
       data: { 
         label: 'Mwisho (End)', 
-        text: 'Asante kwa kuchagua huduma zetu! Tunakuthamini sana. 🙏' 
+        text: 'Asante kwa kuchagua huduma zetu! Tunakuthamini sana. ' 
       }
     }
   ];
@@ -235,7 +235,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
   const [copied, setCopied] = useState(false);
   const [isEnabled, setIsEnabled] = useState(true);
   const [welcomeText, setWelcomeText] = useState(
-    "Karibu Papo Hapo! 🌟\n\nChagua huduma:\n1. 🚕 PapoRide (Taxi & Nauli)\n2. 📦 PapoSend (Tuma & Fuatilia Mzigo)\n3. 🍔 PapoFood (Chakula & Migahawa)\n4. 🛒 PapoMart (Sokoni & Maduka)\n5. 🛠️ PapoFix (Home Services & Handyman)\n6. 🚌 PapoBus (Tiketi za Mabasi)\n7. 💇‍♀️ PapoStyle (Saluni & Urembo)\n8. 🏨 PapoStay (Hoteli & Malazi)\n9. 🔑 PapoRent (Kukodi Magari & Vifaa)\n10. 🛵 PapoDriver (Offline Mode)\n11. 📋 Hali ya Agizo (Live Status)\n12. 💰 PapoWallet & PapoPoints\n13. 🌐 Lugha / Language (SW/EN)"
+    "Karibu Papo Hapo! \n\nChagua huduma:\n1. PapoRide (Taxi & Nauli)\n2. PapoSend (Tuma & Fuatilia Mzigo)\n3. PapoFood (Chakula & Migahawa)\n4. PapoMart (Sokoni & Maduka)\n5. PapoFix (Home Services & Handyman)\n6. PapoBus (Tiketi za Mabasi)\n7. PapoStyle (Saluni & Urembo)\n8. PapoStay (Hoteli & Malazi)\n9. PapoRent (Kukodi Magari & Vifaa)\n10. PapoDriver (Offline Mode)\n11. Hali ya Agizo (Live Status)\n12. PapoWallet & PapoPoints\n13. Lugha / Language (SW/EN)"
   );
   const [testPhoneNumber, setTestPhoneNumber] = useState('+255712345678');
   const [inputText, setInputText] = useState('');
@@ -256,7 +256,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
   const [metaChatMessages, setMetaChatMessages] = useState<Message[]>([
     {
       sender: 'bot',
-      text: "👋 Karibu Papo Hapo AI Assistant!\n\nMimi ni Chatbot wako mwenye uwezo wa AI. Unaweza kuandika ombi lako kwa Kiswahili au Sheng rahisi (mfano: \"Nahitaji taxi Mwenge kwenda Posta\", \"Kuna chips kuku?\", \"Nahitaji kukata tiketi ya basi\", au \"Naomba kinyozi leo\").\n\nNami nitagundua (Intent detection) na kukuletea orodha ya huduma punde! ✨",
+      text: " Karibu Papo Hapo AI Assistant!\n\nMimi ni Chatbot wako mwenye uwezo wa AI. Unaweza kuandika ombi lako kwa Kiswahili au Sheng rahisi (mfano: \"Nahitaji taxi Mwenge kwenda Posta\", \"Kuna chips kuku?\", \"Nahitaji kukata tiketi ya basi\", au \"Naomba kinyozi leo\").\n\nNami nitagundua (Intent detection) na kukuletea orodha ya huduma punde! ",
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ]);
@@ -429,15 +429,15 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
 
   const getDynamicWelcomeText = (channelLabel: string) => {
     const DEFAULT_SERVICES = [
-      { key: 'taxi', id: 'teksi', emoji: '🚖', title: 'TAXI', desc: 'Agiza boda, bajaji au gari' },
-      { key: 'food', id: 'chakula', emoji: '🍔', title: 'CHAKULA', desc: 'Chips, Pizza, Burger, Biryani' },
-      { key: 'grocery', id: 'sokoni', emoji: '🛍️', title: 'SOKONI', desc: 'Groceries, Nyanya, Vitunguu, Mchele' },
-      { key: 'parcel', id: 'vifurushi', emoji: '📦', title: 'PARCEL', desc: 'Tuma au wasilisha mzigo haraka' },
-      { key: 'salon', id: 'saluni', emoji: '💇‍♀️', title: 'SALUNI', desc: 'Hair cut, Nails, Spa, Makeup' },
-      { key: 'hotel', id: 'hoteli', emoji: '🏨', title: 'HOTELI', desc: 'Weka vyumba vya hoteli karibu nawe' },
-      { key: 'car_rental', id: 'car_rental', emoji: '🚗', title: 'KODI GARI', desc: 'Kodisha Prado, Cruiser, Harrier' },
-      { key: 'pharmacy', id: 'dawa', emoji: '💊', title: 'PHARMACY', desc: 'Agiza Dawa na vifaa vya afya' },
-      { key: 'bus_ticket', id: 'bus_ticket', emoji: '🚌', title: 'MABASI', desc: 'Kata tiketi za mabasi ya mikoani' }
+      { key: 'taxi', id: 'teksi', emoji: '', title: 'TAXI', desc: 'Agiza boda, bajaji au gari' },
+      { key: 'food', id: 'chakula', emoji: '', title: 'CHAKULA', desc: 'Chips, Pizza, Burger, Biryani' },
+      { key: 'grocery', id: 'sokoni', emoji: '', title: 'SOKONI', desc: 'Groceries, Nyanya, Vitunguu, Mchele' },
+      { key: 'parcel', id: 'vifurushi', emoji: '', title: 'PARCEL', desc: 'Tuma au wasilisha mzigo haraka' },
+      { key: 'salon', id: 'saluni', emoji: '', title: 'SALUNI', desc: 'Hair cut, Nails, Spa, Makeup' },
+      { key: 'hotel', id: 'hoteli', emoji: '', title: 'HOTELI', desc: 'Weka vyumba vya hoteli karibu nawe' },
+      { key: 'car_rental', id: 'car_rental', emoji: '', title: 'KODI GARI', desc: 'Kodisha Prado, Cruiser, Harrier' },
+      { key: 'pharmacy', id: 'dawa', emoji: '', title: 'PHARMACY', desc: 'Agiza Dawa na vifaa vya afya' },
+      { key: 'bus_ticket', id: 'bus_ticket', emoji: '', title: 'MABASI', desc: 'Kata tiketi za mabasi ya mikoani' }
     ];
 
     const active = DEFAULT_SERVICES.filter(item => {
@@ -452,14 +452,14 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
       };
     });
 
-    let welcome = `👋 *Karibu Papo Hapo Super App Bot!* (${channelLabel})\n\nMimi ni Assistant wako wa Papo Hapo. Unaweza kupata na kuagiza huduma zote kwa haraka kupitia hapa!\n\n*Tafadhali chagua au andika unachotaka:* \n`;
+    let welcome = ` *Karibu Papo Hapo Super App Bot!* (${channelLabel})\n\nMimi ni Assistant wako wa Papo Hapo. Unaweza kupata na kuagiza huduma zote kwa haraka kupitia hapa!\n\n*Tafadhali chagua au andika unachotaka:* \n`;
     
     active.forEach(srv => {
-      const maintTag = srv.isMaintenance ? " *(MABORESHO ⚠️)*" : "";
+      const maintTag = srv.isMaintenance ? " *(MABORESHO )*" : "";
       welcome += `${srv.emoji} *${srv.displayNum}. ${srv.title}* (${srv.desc})${maintTag}\n`;
     });
 
-    welcome += `\n*Andika namba au taja unachohitaji moja kwa moja! (Mfano: "Naomba taxi kwenda Posta")* ✨`;
+    welcome += `\n*Andika namba au taja unachohitaji moja kwa moja! (Mfano: "Naomba taxi kwenda Posta")* `;
     return welcome;
   };
 
@@ -468,15 +468,15 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
     if (!servicesConfig || Object.keys(servicesConfig).length === 0) return text;
 
     const DEFAULT_SERVICES = [
-      { key: 'taxi', id: 'teksi', emoji: '🚖', title: 'TAXI', desc: 'Agiza boda, bajaji au gari' },
-      { key: 'food', id: 'chakula', emoji: '🍔', title: 'CHAKULA', desc: 'Chips, Pizza, Burger, Biryani' },
-      { key: 'grocery', id: 'sokoni', emoji: '🛍️', title: 'SOKONI', desc: 'Groceries, Nyanya, Vitunguu, Mchele' },
-      { key: 'parcel', id: 'vifurushi', emoji: '📦', title: 'PARCEL', desc: 'Tuma au wasilisha mzigo haraka' },
-      { key: 'salon', id: 'saluni', emoji: '💇‍♀️', title: 'SALUNI', desc: 'Hair cut, Nails, Spa, Makeup' },
-      { key: 'hotel', id: 'hoteli', emoji: '🏨', title: 'HOTELI', desc: 'Weka vyumba vya hoteli karibu nawe' },
-      { key: 'car_rental', id: 'car_rental', emoji: '🚗', title: 'KODI GARI', desc: 'Kodisha Prado, Cruiser, Harrier' },
-      { key: 'pharmacy', id: 'dawa', emoji: '💊', title: 'PHARMACY', desc: 'Agiza Dawa na vifaa vya afya' },
-      { key: 'bus_ticket', id: 'bus_ticket', emoji: '🚌', title: 'MABASI', desc: 'Kata tiketi za mabasi ya mikoani' }
+      { key: 'taxi', id: 'teksi', emoji: '', title: 'TAXI', desc: 'Agiza boda, bajaji au gari' },
+      { key: 'food', id: 'chakula', emoji: '', title: 'CHAKULA', desc: 'Chips, Pizza, Burger, Biryani' },
+      { key: 'grocery', id: 'sokoni', emoji: '', title: 'SOKONI', desc: 'Groceries, Nyanya, Vitunguu, Mchele' },
+      { key: 'parcel', id: 'vifurushi', emoji: '', title: 'PARCEL', desc: 'Tuma au wasilisha mzigo haraka' },
+      { key: 'salon', id: 'saluni', emoji: '', title: 'SALUNI', desc: 'Hair cut, Nails, Spa, Makeup' },
+      { key: 'hotel', id: 'hoteli', emoji: '', title: 'HOTELI', desc: 'Weka vyumba vya hoteli karibu nawe' },
+      { key: 'car_rental', id: 'car_rental', emoji: '', title: 'KODI GARI', desc: 'Kodisha Prado, Cruiser, Harrier' },
+      { key: 'pharmacy', id: 'dawa', emoji: '', title: 'PHARMACY', desc: 'Agiza Dawa na vifaa vya afya' },
+      { key: 'bus_ticket', id: 'bus_ticket', emoji: '', title: 'MABASI', desc: 'Kata tiketi za mabasi ya mikoani' }
     ];
 
     const hasServiceList = text.includes("TAXI") || text.includes("CHAKULA") || text.includes("SOKONI");
@@ -494,19 +494,19 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
       };
     });
 
-    const firstServiceIndex = text.search(/(🚖|🍔|🛍️|📦|💇‍♀️|🏨|🚗|💊|🚌|\*\d\.)/);
-    let welcomeHeader = `👋 *Karibu Papo Hapo Super App Bot!*\n\nMimi ni Assistant wako wa Papo Hapo. Unaweza kupata na kuagiza huduma zote kwa haraka kupitia hapa!\n\n*Tafadhali chagua au andika unachotaka:* \n`;
+    const firstServiceIndex = text.search(/(|||||||||\*\d\.)/);
+    let welcomeHeader = ` *Karibu Papo Hapo Super App Bot!*\n\nMimi ni Assistant wako wa Papo Hapo. Unaweza kupata na kuagiza huduma zote kwa haraka kupitia hapa!\n\n*Tafadhali chagua au andika unachotaka:* \n`;
     if (firstServiceIndex !== -1) {
       welcomeHeader = text.substring(0, firstServiceIndex);
     }
 
     let welcomeBody = "";
     active.forEach(srv => {
-      const maintTag = srv.isMaintenance ? " *(MABORESHO ⚠️)*" : "";
+      const maintTag = srv.isMaintenance ? " *(MABORESHO )*" : "";
       welcomeBody += `${srv.emoji} *${srv.displayNum}. ${srv.title}* (${srv.desc})${maintTag}\n`;
     });
 
-    let welcomeFooter = `\n*Andika namba au taja unachohitaji moja kwa moja! (Mfano: "Naomba taxi kwenda Posta")* ✨`;
+    let welcomeFooter = `\n*Andika namba au taja unachohitaji moja kwa moja! (Mfano: "Naomba taxi kwenda Posta")* `;
     const footerStart = text.indexOf("*Andika namba");
     if (footerStart !== -1) {
       welcomeFooter = "\n" + text.substring(footerStart);
@@ -545,7 +545,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
     }
 
     if (!rawText) {
-      const channelLabel = metaChannel === 'whatsapp' ? '🟢 WhatsApp' : metaChannel === 'instagram' ? '📸 Instagram' : '🔵 Messenger';
+      const channelLabel = metaChannel === 'whatsapp' ? ' WhatsApp' : metaChannel === 'instagram' ? ' Instagram' : ' Messenger';
       if (metaWelcomeText) {
         rawText = metaWelcomeText.replace(/{channel}/g, channelLabel);
       } else {
@@ -582,7 +582,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
           success: true,
           responseText: `HTTP ${res.status} OK — Response: "${text.slice(0, 120)}"`
         });
-        toast.success("Webhook Endpoint IPO LIVE na Inafanya Kazi 100%! Response: 200 OK 🟢");
+        toast.success("Webhook Endpoint IPO LIVE na Inafanya Kazi 100%! Response: 200 OK ");
       } else {
         setLivePingStatus({
           testing: false,
@@ -689,7 +689,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
       }
     }, 50);
 
-    toast.info(`View ya Flow imewekwa sawa (${Math.round(optimalScale * 100)}%)! 🎯`);
+    toast.info(`View ya Flow imewekwa sawa (${Math.round(optimalScale * 100)}%)! `);
   };
 
   const [studioTab, setStudioTab] = useState<'canvas' | 'kb' | 'crm' | 'broadcast' | 'templates' | 'meta_settings'>('canvas');
@@ -799,7 +799,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
     try {
       const response = await fetch('/api/meta/clear-logs', { method: 'POST' });
       if (response.ok) {
-        toast.success("Logs za soga zimefutwa vizuri! 🧹");
+        toast.success("Logs za soga zimefutwa vizuri! ");
         fetchMetaHistory();
       } else {
         toast.error("Imeshindwa kufuta logs za soga.");
@@ -820,7 +820,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
           if (data.welcomeText) {
             const isLegacy = data.welcomeText.includes("SALUNI (Salons)") || data.welcomeText.includes("Karibu kwenye Mfumo wa") || data.welcomeText.includes("Tafadhali chagua huduma unayotaka");
             const cleanText = isLegacy 
-              ? "Karibu Papo Hapo! 🌟\n\nChagua huduma:\n1. 🚕 PapoRide (Taxi & Nauli)\n2. 📦 PapoSend (Tuma & Fuatilia Mzigo)\n3. 🛵 PapoDriver (Offline Mode)\n4. 🚌 PapoBus (Tiketi za Mabasi)\n5. 💇‍♀️ PapoStyle (Saluni & Urembo)\n6. 🍔 PapoFood (Chakula & Sokoni)\n7. 📋 Hali ya Agizo (Live Status)\n8. 💰 PapoWallet, Gawana Nauli & Points\n9. 📍 Maeneo Pendwa (Saved Locations)\n10. 🌐 Lugha / Language (SW/EN)"
+              ? "Karibu Papo Hapo! \n\nChagua huduma:\n1. PapoRide (Taxi & Nauli)\n2. PapoSend (Tuma & Fuatilia Mzigo)\n3. PapoDriver (Offline Mode)\n4. PapoBus (Tiketi za Mabasi)\n5. PapoStyle (Saluni & Urembo)\n6. PapoFood (Chakula & Sokoni)\n7. Hali ya Agizo (Live Status)\n8. PapoWallet, Gawana Nauli & Points\n9. Maeneo Pendwa (Saved Locations)\n10. Lugha / Language (SW/EN)"
               : data.welcomeText;
             setWelcomeText(cleanText);
             if (isLegacy) {
@@ -885,24 +885,24 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
         } else {
           // Default fallbacks for simulator showcase
           setMetaWelcomeText(
-            `👋 *Karibu Papo Hapo Super App Bot!* ({channel})\n\n` +
+            ` *Karibu Papo Hapo Super App Bot!* ({channel})\n\n` +
             `Mimi ni Assistant wako wa Papo Hapo. Unaweza kupata na kuagiza huduma zote kwa haraka kupitia hapa!\n\n` +
             `*Tafadhali chagua au andika unachotaka:* \n` +
-            `🚖 *1. TAXI* (Agiza boda, bajaji au gari)\n` +
-            `🍔 *2. CHAKULA* (Chips, Pizza, Burger, Biryani)\n` +
-            `🛍️ *3. SOKONI* (Groceries, Nyanya, Vitunguu, Mchele)\n` +
-            `📦 *4. PARCEL* (Tuma au wasilisha mzigo haraka)\n` +
-            `💇‍♀️ *5. SALUNI* (Hair cut, Nails, Spa, Makeup)\n` +
-            `🏨 *6. HOTELI* (Weka vyumba vya hoteli karibu nawe)\n` +
-            `🚗 *7. KODI GARI* (Kodisha Prado, Cruiser, Harrier)\n` +
-            `💊 *8. PHARMACY* (Agiza Dawa na vifaa vya afya)\n` +
-            `🚌 *9. MABASI* (Kata tiketi za mabasi ya mikoani)\n\n` +
-            `*Andika namba au taja unachohitaji moja kwa moja! (Mfano: "Naomba taxi kwenda Posta")* ✨`
+            ` *1. TAXI* (Agiza boda, bajaji au gari)\n` +
+            ` *2. CHAKULA* (Chips, Pizza, Burger, Biryani)\n` +
+            ` *3. SOKONI* (Groceries, Nyanya, Vitunguu, Mchele)\n` +
+            ` *4. PARCEL* (Tuma au wasilisha mzigo haraka)\n` +
+            ` *5. SALUNI* (Hair cut, Nails, Spa, Makeup)\n` +
+            ` *6. HOTELI* (Weka vyumba vya hoteli karibu nawe)\n` +
+            ` *7. KODI GARI* (Kodisha Prado, Cruiser, Harrier)\n` +
+            ` *8. PHARMACY* (Agiza Dawa na vifaa vya afya)\n` +
+            ` *9. MABASI* (Kata tiketi za mabasi ya mikoani)\n\n` +
+            `*Andika namba au taja unachohitaji moja kwa moja! (Mfano: "Naomba taxi kwenda Posta")* `
           );
           setMetaTriggers([
-            { id: 't1', title: 'Bei za Usafiri / Rates', keywords: 'bei, kiasi, bei gani, rates', response: '🚕 *Papo Hapo Rates:* \n\n*1. Boda Boda:* Kuanzia TSH 1,000 tu!\n*2. Bajaji:* Kuanzia TSH 2,500!\n*3. Taxi Ndogo (Passo):* Kuanzia TSH 4,000!\n\nAndika *Menu* au *Hi* kurudi mwanzo.' },
-            { id: 't2', title: 'Masaa ya Kazi', keywords: 'masaa, saa, muda, masaa ya kazi, operating hours', response: '⏰ *Masaa ya Kazi ya Papo Hapo:* \n\nHuduma zetu za madereva na booking hufanya kazi masaa 24! Ofisi zetu na duka la huduma hufunguliwa kuanzia saa 2:00 Asubuhi hadi saa 4:00 Usiku kila siku.\n\nTupo hapa kukuhudumia! ✨' },
-            { id: 't3', title: 'Wasiliana Nasi', keywords: 'wasiliana, namba, simu, contact, ofisi, mahali', response: '📞 *Mawasiliano na Ofisi zetu:* \n\n📍 Ofisi kuu: Mwenge Tower, Ghorofa ya 3, Dar es Salaam.\n☎️ Simu: *+255 716 543 210*\n📧 Barua Pepe: *support@papohapo.co.tz*\n\nKaribu ofisini au piga simu sasa! 😊' }
+            { id: 't1', title: 'Bei za Usafiri / Rates', keywords: 'bei, kiasi, bei gani, rates', response: ' *Papo Hapo Rates:* \n\n*1. Boda Boda:* Kuanzia TSH 1,000 tu!\n*2. Bajaji:* Kuanzia TSH 2,500!\n*3. Taxi Ndogo (Passo):* Kuanzia TSH 4,000!\n\nAndika *Menu* au *Hi* kurudi mwanzo.' },
+            { id: 't2', title: 'Masaa ya Kazi', keywords: 'masaa, saa, muda, masaa ya kazi, operating hours', response: ' *Masaa ya Kazi ya Papo Hapo:* \n\nHuduma zetu za madereva na booking hufanya kazi masaa 24! Ofisi zetu na duka la huduma hufunguliwa kuanzia saa 2:00 Asubuhi hadi saa 4:00 Usiku kila siku.\n\nTupo hapa kukuhudumia! ' },
+            { id: 't3', title: 'Wasiliana Nasi', keywords: 'wasiliana, namba, simu, contact, ofisi, mahali', response: ' *Mawasiliano na Ofisi zetu:* \n\n Ofisi kuu: Mwenge Tower, Ghorofa ya 3, Dar es Salaam.\n Simu: *+255 716 543 210*\n Barua Pepe: *support@papohapo.co.tz*\n\nKaribu ofisini au piga simu sasa! ' }
           ]);
           setMetaNodes(getInitialNodes());
         }
@@ -981,7 +981,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
         metaVerifyToken,
         updatedAt: new Date()
       }, { merge: true });
-      toast.success("Muunganisho wote wa Meta na Webhooks umehifadhiwa kikamilifu kwenye Database! 🟢💾");
+      toast.success("Muunganisho wote wa Meta na Webhooks umehifadhiwa kikamilifu kwenye Database! ");
     } catch (err: any) {
       toast.error("Imeshindwa kuhifadhi muunganisho wa Meta: " + err.message);
     }
@@ -1231,7 +1231,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
         ...payload,
         updatedAt: new Date()
       }, { merge: true });
-      toast.success("Ujumbe wa Karibu umehifadhiwa kikamilifu kwenye Database na kusawazishwa kwenye Flow! 🟢💾");
+      toast.success("Ujumbe wa Karibu umehifadhiwa kikamilifu kwenye Database na kusawazishwa kwenye Flow! ");
     } catch (err: any) {
       toast.error("Imeshindwa kuhifadhi Ujumbe wa Karibu: " + err.message);
     }
@@ -1271,7 +1271,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
         edges: edgesToSave,
         updatedAt: new Date()
       }, { merge: true });
-      toast.success(`Flow ya "${newFlow.name}" imehifadhiwa kikamilifu kwenye Orodha! 💾✨`);
+      toast.success(`Flow ya "${newFlow.name}" imehifadhiwa kikamilifu kwenye Orodha! `);
     } catch (err: any) {
       toast.error("Imeshindwa kuhifadhi Flow: " + err.message);
     }
@@ -1281,7 +1281,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
     setMetaNodes(flow.nodes || []);
     setMetaEdges(flow.edges || []);
     handleSaveWorkflowConfig(flow.nodes || [], flow.edges || [], useWorkflow);
-    toast.success(`Flow ya "${flow.name}" imepakiwa na sasa unaweza kuihariri! 🚀✏️`);
+    toast.success(`Flow ya "${flow.name}" imepakiwa na sasa unaweza kuihariri! `);
   };
 
   const handleDeleteSavedFlow = async (flowId: string) => {
@@ -1488,7 +1488,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
       setStudioTab('canvas');
       setSelectedNodeId(matchedNode.id);
       
-      toast.success(`Umepelekwa kwenye node "${matchedNode.data?.label || matchedNode.id}" ili uweze kuiboresha au kuifuta! 🚀✨`);
+      toast.success(`Umepelekwa kwenye node "${matchedNode.data?.label || matchedNode.id}" ili uweze kuiboresha au kuifuta! `);
       
       // Attempt to scroll to the selected node element after a brief timeout to let tab switch
       setTimeout(() => {
@@ -1503,7 +1503,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
       }, 300);
     } else {
       setStudioTab('canvas');
-      toast.info("Imekupeleka kwenye Flow Builder. Bofya node yoyote unayotaka kuiboresha au kuifuta! 🛠️");
+      toast.info("Imekupeleka kwenye Flow Builder. Bofya node yoyote unayotaka kuiboresha au kuifuta! ");
     }
   };
 
@@ -1806,7 +1806,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                     <CardTitle className="text-sm font-black dark:text-neutral-100 uppercase tracking-wider flex items-center gap-2">
                       <span>Ujumbe wa Karibu (Welcome Menu Settings)</span>
                       <Badge variant="outline" className="text-[9px] uppercase font-mono font-bold bg-fuchsia-500/10 text-fuchsia-600 border-fuchsia-200">
-                        Sanidi Maneno Husika 🛠️
+                        Sanidi Maneno Husika 
                       </Badge>
                     </CardTitle>
                     <CardDescription className="text-xs">
@@ -1821,7 +1821,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                     <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block">Maandishi ya Ujumbe (Welcome Menu Body)</label>
                     <button
                       onClick={() => {
-                        const defaultTxt = getDynamicWelcomeText(metaChannel === 'whatsapp' ? '🟢 WhatsApp' : metaChannel === 'instagram' ? '📸 Instagram' : '🔵 Messenger');
+                        const defaultTxt = getDynamicWelcomeText(metaChannel === 'whatsapp' ? ' WhatsApp' : metaChannel === 'instagram' ? ' Instagram' : ' Messenger');
                         setWelcomeInputText(defaultTxt);
                         toast.info("Ujumbe wa asili wa mfumo umerejeshwa kwenye kisanduku!");
                       }}
@@ -1849,7 +1849,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                     <span>UTAMBULISHO WA KIOTOMATIKI (ACTIVE INTEGRATION)</span>
                   </div>
                   <p className="text-[10px] text-neutral-500 dark:text-neutral-400 leading-relaxed">
-                    Ujumbe huu umeunganishwa kikamilifu na <strong>Flow Builder</strong> pamoja na skrini ya <strong>Huduma na Matengenezo</strong>. Ukificha huduma, kuifuta, au kuiweka kwenye matengenezo kule juu, itaondolewa au kuwekewa alama ya <code>⚠️ (MABORESHO)</code> kiotomatiki wakati wa kutuma ili mteja asione huduma ulizozizuia.
+                    Ujumbe huu umeunganishwa kikamilifu na <strong>Flow Builder</strong> pamoja na skrini ya <strong>Huduma na Matengenezo</strong>. Ukificha huduma, kuifuta, au kuiweka kwenye matengenezo kule juu, itaondolewa au kuwekewa alama ya <code> (MABORESHO)</code> kiotomatiki wakati wa kutuma ili mteja asione huduma ulizozizuia.
                   </p>
                 </div>
 
@@ -1858,7 +1858,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                     onClick={() => handleSaveWelcomeMessageDirect(welcomeInputText)}
                     className="bg-fuchsia-600 hover:bg-fuchsia-700 text-white text-xs font-black uppercase tracking-wider py-2 px-5 cursor-pointer rounded-xl h-9 shadow-xs"
                   >
-                    Hifadhi Ujumbe & Sawazisha Flow 💾
+                    Hifadhi Ujumbe & Sawazisha Flow 
                   </Button>
                 </div>
               </CardContent>
@@ -1886,7 +1886,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                         const nextVal = !useWorkflow;
                         setUseWorkflow(nextVal);
                         handleSaveWorkflowConfig(metaNodes, metaEdges, nextVal);
-                        toast.success(nextVal ? "Visual Flow Automation imewezeshwa! 🟢" : "Visual Flow Automation imezimwa (Legacy triggers are active).");
+                        toast.success(nextVal ? "Visual Flow Automation imewezeshwa! " : "Visual Flow Automation imezimwa (Legacy triggers are active).");
                       }}
                       className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
                         useWorkflow ? "bg-fuchsia-600" : "bg-neutral-300 dark:bg-neutral-700"
@@ -2016,9 +2016,9 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                                 setMetaEdges(derivedEdges);
                                 handleSaveWorkflowConfig(data.nodes, derivedEdges, useWorkflow);
                                 if (metaNodes && metaNodes.length > 0) {
-                                  toast.success("AI Copilot imerekebisha na kuendeleza Flow iliyopo kikamilifu! 🤖✨");
+                                  toast.success("AI Copilot imerekebisha na kuendeleza Flow iliyopo kikamilifu! ");
                                 } else {
-                                  toast.success("AI Copilot imejenga Flow mpya ya Papo Hapo kikamilifu! 🤖✨");
+                                  toast.success("AI Copilot imejenga Flow mpya ya Papo Hapo kikamilifu! ");
                                 }
                                 setLastAiGeneratedTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
                                 setTimeout(() => handleFitView(), 200);
@@ -2050,14 +2050,14 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                         <button
                           type="button"
                           onClick={() => {
-                            const p = "Nitengezee flow mteja akiuliza au akitaip habari imletee:\nKaribu kwenye Mfumo wa Huduma za Papo Hapo! 🌟\nTafadhali chagua huduma unayotaka kwa kutuma namba yake:\n1. 🚕 TAXI\n2. 💇‍♀️ SALUNI (Salons)\n3. 🚌 MABASI (Bus Tickets)\n4. 🥗 CHAKULA (Restaurants)\n5. 🥦 SOKO (Groceries)\n6. 💊 PHARMACY";
+                            const p = "Nitengezee flow mteja akiuliza au akitaip habari imletee:\nKaribu kwenye Mfumo wa Huduma za Papo Hapo! \nTafadhali chagua huduma unayotaka kwa kutuma namba yake:\n1. TAXI\n2. SALUNI (Salons)\n3. MABASI (Bus Tickets)\n4. CHAKULA (Restaurants)\n5. SOKO (Groceries)\n6. PHARMACY";
                             setCopilotPrompt(p);
                             toast.info("Prompt ya Mfumo wa Huduma 1-6 imewekwa. Bofya 'JENGA FLOW' au jaribu kuisahihisha!");
                           }}
                           className="px-2.5 py-1 rounded-lg bg-fuchsia-500/10 hover:bg-fuchsia-500/20 text-fuchsia-700 dark:text-fuchsia-300 text-[10px] font-bold border border-fuchsia-200 dark:border-fuchsia-900/50 transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
                         >
                           <Sparkles className="w-3 h-3 text-fuchsia-500" />
-                          <span>🌟 Main Services Menu Flow (Taxi, Saluni, Mabasi, Chakula, Soko, Pharmacy)</span>
+                          <span> Main Services Menu Flow (Taxi, Saluni, Mabasi, Chakula, Soko, Pharmacy)</span>
                         </button>
                         <button
                           type="button"
@@ -2067,7 +2067,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                           }}
                           className="px-2 py-0.5 rounded-md bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 text-[10px] font-bold border border-purple-200 dark:border-purple-800 transition-colors cursor-pointer flex items-center gap-1"
                         >
-                          📍 Endeleza TAXI (Location & Eneo)
+                           Endeleza TAXI (Location & Eneo)
                         </button>
                         <button
                           type="button"
@@ -2076,7 +2076,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                           }}
                           className="px-2 py-0.5 rounded-md bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 text-[10px] font-semibold transition-colors cursor-pointer"
                         >
-                          🚕 Taxi Ride Flow
+                           Taxi Ride Flow
                         </button>
                         <button
                           type="button"
@@ -2085,7 +2085,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                           }}
                           className="px-2 py-0.5 rounded-md bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 text-[10px] font-semibold transition-colors cursor-pointer"
                         >
-                          🥗 Chakula Order Flow
+                           Chakula Order Flow
                         </button>
                       </div>
                     </div>
@@ -2096,7 +2096,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                         <div className="flex items-center gap-2">
                           <Sparkles className="w-4 h-4 text-emerald-500 animate-spin-slow shrink-0" />
                           <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
-                            ✨ AI Copilot imejenga/imerekebisha Flow hii hivi karibuni ({lastAiGeneratedTime})! Unapenda kuitunza kwenye Maktaba?
+                             AI Copilot imejenga/imerekebisha Flow hii hivi karibuni ({lastAiGeneratedTime})! Unapenda kuitunza kwenye Maktaba?
                           </span>
                         </div>
                         <Button
@@ -2109,7 +2109,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                           }}
                           className="h-7 text-[10px] font-black uppercase tracking-wider bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 shadow-xs cursor-pointer"
                         >
-                          💾 Hifadhi Flow Hii ya AI
+                           Hifadhi Flow Hii ya AI
                         </Button>
                       </div>
                     )}
@@ -2238,7 +2238,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                                   const freshNodes = getFreshNodes();
                                   setMetaNodes(freshNodes);
                                   handleSaveWorkflowConfig(freshNodes, [], useWorkflow);
-                                  toast.success("Chatflow zote zimefutwa, umeanza upya na canvas safi! 🧹✨");
+                                  toast.success("Chatflow zote zimefutwa, umeanza upya na canvas safi! ");
                                   setShowClearAllConfirm(false);
                                 }}
                                 className="h-6 text-[9px] px-2 font-bold uppercase"
@@ -2309,7 +2309,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                             size="sm"
                             onClick={() => {
                               handleSaveWorkflowConfig(metaNodes, metaEdges, useWorkflow);
-                              toast.success("Mabadiliko yote ya flowchart yamehifadhiwa kwenye Firebase! 🚀");
+                              toast.success("Mabadiliko yote ya flowchart yamehifadhiwa kwenye Firebase! ");
                             }}
                             className="h-8 text-[10px] font-extrabold uppercase tracking-wider bg-fuchsia-600 hover:bg-fuchsia-700 text-white shadow-sm rounded-lg px-4 cursor-pointer"
                           >
@@ -2325,7 +2325,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                             className="h-8 text-[10px] font-black uppercase tracking-wider bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-md rounded-lg px-3.5 flex items-center gap-1.5 cursor-pointer"
                           >
                             <Save className="w-3.5 h-3.5" />
-                            <span>💾 Hifadhi Kama Flow Mpya</span>
+                            <span> Hifadhi Kama Flow Mpya</span>
                           </Button>
                           <Button
                             size="sm"
@@ -2383,7 +2383,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                             className="px-2.5 py-1 text-[10px] font-extrabold uppercase text-purple-700 dark:text-purple-300 bg-purple-500/10 hover:bg-purple-500/20 rounded-lg border border-purple-500/30 transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
                           >
                             <Maximize2 className="w-3 h-3 text-purple-500" />
-                            <span>🎯 Center & Fit All Nodes</span>
+                            <span> Center & Fit All Nodes</span>
                           </button>
                         </div>
 
@@ -2392,12 +2392,12 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                             type="button"
                             onClick={() => {
                               setIsExpandedCanvas(true);
-                              toast.success("Flow Builder imefunguka kwenye Skrini Nzima (Fullscreen)! 🖥️✨");
+                              toast.success("Flow Builder imefunguka kwenye Skrini Nzima (Fullscreen)! ");
                             }}
                             className="px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider text-white bg-gradient-to-r from-fuchsia-600 via-purple-600 to-indigo-600 hover:from-fuchsia-700 hover:to-indigo-700 rounded-lg shadow-md transition-all cursor-pointer flex items-center gap-1.5"
                           >
                             <Maximize2 className="w-3.5 h-3.5" />
-                            <span>🖥️ Skrini Nzima (Fullscreen)</span>
+                            <span> Skrini Nzima (Fullscreen)</span>
                           </button>
                         </div>
                       </div>
@@ -2609,12 +2609,12 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                                   )}
                                   {node.type === 'question' && (
                                     <div className="space-y-0.5">
-                                      <p className="line-clamp-1 italic text-neutral-600 dark:text-neutral-300">❓ "{node.data?.text || 'Swali'}"</p>
-                                      <p className="font-mono text-[8.5px] text-emerald-600 dark:text-emerald-400 font-bold">💾 Var: {node.data?.variableName || 'var'}</p>
+                                      <p className="line-clamp-1 italic text-neutral-600 dark:text-neutral-300"> "{node.data?.text || 'Swali'}"</p>
+                                      <p className="font-mono text-[8.5px] text-emerald-600 dark:text-emerald-400 font-bold"> Var: {node.data?.variableName || 'var'}</p>
                                     </div>
                                   )}
                                   {node.type === 'ai_decision' && (
-                                    <p className="font-bold text-purple-600 dark:text-purple-400">⚡ NLP Intent Classifier ({node.data?.intentMappings?.length || 0} branches)</p>
+                                    <p className="font-bold text-purple-600 dark:text-purple-400"> NLP Intent Classifier ({node.data?.intentMappings?.length || 0} branches)</p>
                                   )}
                                   {node.type === 'condition' && (
                                     <p className="font-mono text-[8px] text-blue-600 font-bold">
@@ -2622,13 +2622,13 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                                     </p>
                                   )}
                                   {node.type === 'payment' && (
-                                    <p className="font-bold text-yellow-600">💸 TSH {node.data?.amount || 0}</p>
+                                    <p className="font-bold text-yellow-600"> TSH {node.data?.amount || 0}</p>
                                   )}
                                   {node.type === 'create_order' && (
-                                    <p className="font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest text-[8px]">🛠️ DB UNDA ORDER: {node.data?.serviceType?.toUpperCase()}</p>
+                                    <p className="font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest text-[8px]"> DB UNDA ORDER: {node.data?.serviceType?.toUpperCase()}</p>
                                   )}
                                   {node.type === 'end' && (
-                                    <p className="line-clamp-1 text-neutral-400">⏹️ Kikomo cha soga</p>
+                                    <p className="line-clamp-1 text-neutral-400"> Kikomo cha soga</p>
                                   )}
                                   
                                   {/* Link descriptor */}
@@ -2705,7 +2705,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                             className="h-8 text-[10px] font-extrabold bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 cursor-pointer"
                           >
                             <Maximize2 className="w-3.5 h-3.5 mr-1 text-purple-400" />
-                            🎯 Center & Fit All Nodes
+                             Center & Fit All Nodes
                           </Button>
 
                           <Button
@@ -2713,7 +2713,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                             type="button"
                             onClick={() => {
                               handleSaveWorkflowConfig(metaNodes, metaEdges, useWorkflow);
-                              toast.success("Mabadiliko yote yamehifadhiwa! 🚀");
+                              toast.success("Mabadiliko yote yamehifadhiwa! ");
                             }}
                             className="h-8 text-[10px] font-black uppercase bg-fuchsia-600 hover:bg-fuchsia-700 text-white shadow-md cursor-pointer"
                           >
@@ -2915,15 +2915,15 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                                       )}
                                       {node.type === 'ai_decision' && (
                                         <div className="space-y-0.5">
-                                          <p className="text-purple-600 dark:text-purple-400 font-bold">🤖 Intent Classifier</p>
+                                          <p className="text-purple-600 dark:text-purple-400 font-bold"> Intent Classifier</p>
                                           <p className="text-[8px] text-neutral-400 font-mono">{node.data?.intentMappings?.length || 0} Matawi (Branches)</p>
                                         </div>
                                       )}
                                       {node.type === 'create_order' && (
-                                        <p className="font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest text-[8px]">🛠️ DB UNDA ORDER: {node.data?.serviceType?.toUpperCase()}</p>
+                                        <p className="font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest text-[8px]"> DB UNDA ORDER: {node.data?.serviceType?.toUpperCase()}</p>
                                       )}
                                       {node.type === 'end' && (
-                                        <p className="line-clamp-1 text-neutral-400">⏹️ Kikomo cha soga</p>
+                                        <p className="line-clamp-1 text-neutral-400"> Kikomo cha soga</p>
                                       )}
                                       
                                       {node.data?.nextNodeId && (
@@ -3325,11 +3325,11 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                                     onChange={(e) => updateNodeData({ serviceType: e.target.value })}
                                     className="w-full text-xs h-8.5 px-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900 text-neutral-800 dark:text-neutral-200 focus:outline-none"
                                   >
-                                    <option value="taxi">🚕 Taxi & Delivery Riders</option>
-                                    <option value="food">🍔 Food & Restaurants</option>
-                                    <option value="parcel">📦 Parcel Courier Services</option>
-                                    <option value="salon">💇‍♀️ Salon & Wellness</option>
-                                    <option value="bus">🚌 Mabasi Tickets</option>
+                                    <option value="taxi"> Taxi & Delivery Riders</option>
+                                    <option value="food"> Food & Restaurants</option>
+                                    <option value="parcel"> Parcel Courier Services</option>
+                                    <option value="salon"> Salon & Wellness</option>
+                                    <option value="bus"> Mabasi Tickets</option>
                                   </select>
                                   <span className="text-[8px] text-neutral-400 block mt-1 leading-relaxed">
                                     Inapoingia hapa, mfumo utachukua kigezo cha <code>{"{pickup}"}</code> na <code>{"{destination}"}</code> na kuunda order halisi kwenye Firestore.
@@ -3405,8 +3405,8 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                                     onChange={(e) => updateNodeData({ serviceType: e.target.value })}
                                     className="w-full text-xs h-8.5 px-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-950 text-neutral-800 dark:text-neutral-200 focus:outline-none"
                                   >
-                                    <option value="taxi">🚕 Taxi & Bodaboda Tracking</option>
-                                    <option value="food">🍔 Food Vendor Delivery Status</option>
+                                    <option value="taxi"> Taxi & Bodaboda Tracking</option>
+                                    <option value="food"> Food Vendor Delivery Status</option>
                                   </select>
                                 </div>
                               </div>
@@ -3473,10 +3473,10 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                                     onChange={(e) => updateNodeData({ eventName: e.target.value })}
                                     className="w-full text-xs h-8.5 px-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-950 text-neutral-800 dark:text-neutral-200 focus:outline-none"
                                   >
-                                    <option value="ride_completed">🚖 Ride Completed</option>
-                                    <option value="payment_success">💳 Payment Success</option>
-                                    <option value="order_delivered">🍔 Order Delivered</option>
-                                    <option value="birthday">🎂 Customer Birthday</option>
+                                    <option value="ride_completed"> Ride Completed</option>
+                                    <option value="payment_success"> Payment Success</option>
+                                    <option value="order_delivered"> Order Delivered</option>
+                                    <option value="birthday"> Customer Birthday</option>
                                   </select>
                                 </div>
                               </div>
@@ -3748,7 +3748,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                                 {msg.sender === 'customer' ? 'Mteja (Customer)' : (matchedNode ? `Node: ${matchedNode.data?.label || matchedNode.id}` : 'Chatflow Node')}
                               </span>
                               <span className={`opacity-0 group-hover:opacity-100 font-extrabold uppercase tracking-wider flex items-center gap-0.5 duration-150 ${msg.sender === 'customer' ? 'text-white' : 'text-fuchsia-600 dark:text-fuchsia-400'}`}>
-                                🛠️ Hariri Flow
+                                 Hariri Flow
                               </span>
                             </div>
                           </div>
@@ -3780,35 +3780,35 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                       disabled={isLoadingMeta}
                       className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full text-[9px] font-black uppercase tracking-wider whitespace-nowrap active:scale-95 duration-100 shrink-0 select-none cursor-pointer shadow-xs"
                     >
-                      🚕 Omba Taxi
+                       Omba Taxi
                     </button>
                     <button
                       onClick={() => sendSimulatedMetaMessage("Mambo! Nataka kuagiza chakula chips kuku hapa Burger Point")}
                       disabled={isLoadingMeta}
                       className="px-2.5 py-1.5 bg-pink-500 hover:bg-pink-600 text-white rounded-full text-[9px] font-black uppercase tracking-wider whitespace-nowrap active:scale-95 duration-100 shrink-0 select-none cursor-pointer shadow-xs"
                     >
-                      🍔 Chips Kuku
+                       Chips Kuku
                     </button>
                     <button
                       onClick={() => sendSimulatedMetaMessage("Inakuaje! Naomba tiketi ya basi kwenda Mwanza leo")}
                       disabled={isLoadingMeta}
                       className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-[9px] font-black uppercase tracking-wider whitespace-nowrap active:scale-95 duration-100 shrink-0 select-none cursor-pointer shadow-xs"
                     >
-                      🚌 Basi Mwanza
+                       Basi Mwanza
                     </button>
                     <button
                       onClick={() => sendSimulatedMetaMessage("Natafuta kinyozi wa salon leo Mwenge")}
                       disabled={isLoadingMeta}
                       className="px-2.5 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-full text-[9px] font-black uppercase tracking-wider whitespace-nowrap active:scale-95 duration-100 shrink-0 select-none cursor-pointer shadow-xs"
                     >
-                      💇‍♀️ Salon Mwenge
+                       Salon Mwenge
                     </button>
                     <button
                       onClick={() => sendSimulatedMetaMessage("Hi! Nahitaji kutuma parcel Posta kwenda Kariakoo")}
                       disabled={isLoadingMeta}
                       className="px-2.5 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-full text-[9px] font-black uppercase tracking-wider whitespace-nowrap active:scale-95 duration-100 shrink-0 select-none cursor-pointer shadow-xs"
                     >
-                      📦 Tuma Parcel
+                       Tuma Parcel
                     </button>
                   </div>
                 </div>
@@ -3887,7 +3887,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                     : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-300'
                 }`}
               >
-                <span>🔴 Twilio WhatsApp & SMS</span>
+                <span> Twilio WhatsApp & SMS</span>
               </button>
               <button
                 type="button"
@@ -3898,7 +3898,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                     : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-300'
                 }`}
               >
-                <span>🌍 Africa's Talking (TZ & East Africa)</span>
+                <span> Africa's Talking (TZ & East Africa)</span>
               </button>
             </div>
 
@@ -4024,7 +4024,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                           const webhookUrl = `${window.location.origin}/api/africastalking/ussd?vendorId=${vendorId}`;
                           navigator.clipboard.writeText(webhookUrl);
                           setCopiedAtUssdWebhook(true);
-                          toast.success("Africa's Talking USSD URL copied! 🚀");
+                          toast.success("Africa's Talking USSD URL copied! ");
                           setTimeout(() => setCopiedAtUssdWebhook(false), 2000);
                         }} 
                         className={`h-9 shrink-0 gap-1.5 ${copiedAtUssdWebhook ? 'bg-green-600 hover:bg-green-700' : 'bg-orange-600 hover:bg-orange-700 text-white dark:bg-orange-500 dark:text-black'}`}
@@ -4041,7 +4041,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                     <p className="font-bold text-amber-600 dark:text-amber-500 uppercase tracking-wider text-[10px]">MIONGOZO YA KUSANIDI CALLBACK URL:</p>
                     <div className="space-y-3">
                       <div>
-                        <span className="font-bold text-neutral-700 dark:text-neutral-300 text-[11px] uppercase tracking-wide block mb-1">💬 KWA AJILI YA SMS:</span>
+                        <span className="font-bold text-neutral-700 dark:text-neutral-300 text-[11px] uppercase tracking-wide block mb-1"> KWA AJILI YA SMS:</span>
                         <ol className="list-decimal list-inside space-y-1 text-[11px] pl-1">
                           <li>Ingia kwenye akaunti yako ya <a href="https://account.africastalking.com/" target="_blank" rel="noopener noreferrer" className="underline font-bold text-orange-600">Africa's Talking Console</a>.</li>
                           <li>Chagua Sandbox App au Live App yako.</li>
@@ -4049,7 +4049,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                         </ol>
                       </div>
                       <div className="pt-2 border-t border-neutral-200/50 dark:border-neutral-800/50">
-                        <span className="font-bold text-orange-600 dark:text-orange-400 text-[11px] uppercase tracking-wide block mb-1">📞 KWA AJILI YA USSD (Kama kwenye screenshot):</span>
+                        <span className="font-bold text-orange-600 dark:text-orange-400 text-[11px] uppercase tracking-wide block mb-1"> KWA AJILI YA USSD (Kama kwenye screenshot):</span>
                         <ol className="list-decimal list-inside space-y-1 text-[11px] pl-1">
                           <li>Kwenye menu ya kushoto nenda <b>USSD</b> &gt; <b>Create Channel</b>.</li>
                           <li>Chagua Service Code (Mfano: <b>*384#</b>) na uandike namba ya Channel (Mfano: <b>200</b>).</li>
@@ -4064,7 +4064,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                   <div className="p-4 rounded-xl border border-dashed border-orange-500/30 bg-orange-500/5 flex flex-col md:flex-row items-center justify-between gap-3.5 transition-all hover:bg-orange-500/[0.08]">
                     <div className="space-y-1 text-center md:text-left">
                       <span className="text-xs font-black text-orange-600 dark:text-orange-400 uppercase tracking-widest flex items-center gap-1.5 justify-center md:justify-start">
-                        <span className="animate-pulse">⚡</span> JARIBU NA AT SIMULATOR
+                        <span className="animate-pulse"></span> JARIBU NA AT SIMULATOR
                       </span>
                       <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-normal max-w-sm">
                         Baada ya kuweka Callback URL yako, unaweza kutumia <b>Africa's Talking Simulator</b> kuiga simu ya mteja inayotuma SMS kuona inavyojibiwa kiotomatiki na mfumo!
@@ -4076,7 +4076,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                       size="sm"
                       className="border-orange-500/60 text-orange-600 hover:bg-orange-600 hover:text-white dark:border-orange-500/40 dark:text-orange-400 dark:hover:bg-orange-600 dark:hover:text-white font-black uppercase text-[10px] tracking-wider shrink-0 h-9 px-4 gap-1.5 shadow-sm hover:shadow-md cursor-pointer"
                     >
-                      <span>Fungua Simulator 🚀</span>
+                      <span>Fungua Simulator </span>
                     </Button>
                   </div>
                 </CardContent>
@@ -4217,7 +4217,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                     : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-300'
                 }`}
               >
-                💬 SMS Simulator
+                 SMS Simulator
               </button>
               <button
                 type="button"
@@ -4228,7 +4228,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                     : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-300'
                 }`}
               >
-                📞 USSD Simulator
+                 USSD Simulator
               </button>
             </div>
 
@@ -4390,35 +4390,35 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                             if (isStkPush) {
                               if (isMPesa) {
                                 providerBadge = {
-                                  name: '📲 M-PESA STK PUSH (VODACOM)',
+                                  name: ' M-PESA STK PUSH (VODACOM)',
                                   color: 'bg-emerald-500',
                                   bg: 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 dark:border-emerald-800',
                                   text: 'text-emerald-700 dark:text-emerald-300'
                                 };
                               } else if (isTigo) {
                                 providerBadge = {
-                                  name: '📲 TIGO PESA STK PUSH',
+                                  name: ' TIGO PESA STK PUSH',
                                   color: 'bg-blue-500',
                                   bg: 'bg-blue-50 dark:bg-blue-950/50 border-blue-200 dark:border-blue-800',
                                   text: 'text-blue-700 dark:text-blue-300'
                                 };
                               } else if (isAirtel) {
                                 providerBadge = {
-                                  name: '📲 AIRTEL MONEY STK PUSH',
+                                  name: ' AIRTEL MONEY STK PUSH',
                                   color: 'bg-red-500',
                                   bg: 'bg-red-50 dark:bg-red-950/50 border-red-200 dark:border-red-800',
                                   text: 'text-red-700 dark:text-red-300'
                                 };
                               } else if (isHalo) {
                                 providerBadge = {
-                                  name: '📲 HALOPESA STK PUSH',
+                                  name: ' HALOPESA STK PUSH',
                                   color: 'bg-amber-500',
                                   bg: 'bg-amber-50 dark:bg-amber-950/50 border-amber-200 dark:border-amber-800',
                                   text: 'text-amber-700 dark:text-amber-300'
                                 };
                               } else {
                                 providerBadge = {
-                                  name: '📲 MOBILE MONEY STK PUSH',
+                                  name: ' MOBILE MONEY STK PUSH',
                                   color: 'bg-emerald-500',
                                   bg: 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 dark:border-emerald-800',
                                   text: 'text-emerald-700 dark:text-emerald-300'
@@ -4439,7 +4439,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                                     <span className={`text-[10px] font-black px-2 py-0.5 rounded-full font-mono ${
                                       ussdTimeLeft <= 10 ? 'bg-red-100 text-red-600 dark:bg-red-950/80 dark:text-red-400 animate-bounce' : 'bg-orange-100 text-orange-700 dark:bg-orange-950/80 dark:text-orange-400'
                                     }`}>
-                                      ⏱️ {ussdTimeLeft}s
+                                       {ussdTimeLeft}s
                                     </span>
                                   )}
                                 </div>
@@ -4447,7 +4447,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                                 {/* STK Push Highlight Banner */}
                                 {isStkPush && (
                                   <div className={`p-2.5 rounded-2xl border text-[11px] font-extrabold flex items-center justify-between ${providerBadge.bg} ${providerBadge.text}`}>
-                                    <span>🔒 POP-UP YA INGIZO LA PIN</span>
+                                    <span> POP-UP YA INGIZO LA PIN</span>
                                     <span className="text-[9.5px] font-mono opacity-80 uppercase bg-white/60 dark:bg-black/40 px-2 py-0.5 rounded-md">
                                       Moja kwa Moja
                                     </span>
@@ -4475,7 +4475,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                                       maxLength={isStkPush ? 8 : 100}
                                       value={ussdInputValue}
                                       onChange={(e) => setUssdInputValue(e.target.value)}
-                                      placeholder={isStkPush ? "🔑 Ingiza PIN yako ya sasa (mf: 1234)..." : "Andika hapa... (mfano 0 au HI)"}
+                                      placeholder={isStkPush ? " Ingiza PIN yako ya sasa (mf: 1234)..." : "Andika hapa... (mfano 0 au HI)"}
                                       className={`h-9 text-xs border-neutral-200 focus-visible:ring-orange-500 rounded-xl ${
                                         isStkPush ? 'bg-amber-50/50 dark:bg-neutral-950 text-center font-mono tracking-widest font-black text-sm border-amber-300 dark:border-amber-800' : 'bg-neutral-50 dark:bg-neutral-950'
                                       }`}
@@ -4493,7 +4493,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                                         onClick={() => submitUssdInput("0")}
                                         className="border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 rounded-xl h-8 px-2.5 text-[10.5px] font-extrabold cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                                       >
-                                        ↩️ Rudi Mwanzo (0)
+                                        ↩ Rudi Mwanzo (0)
                                       </Button>
                                       <div className="flex items-center gap-2">
                                         <button
@@ -4510,7 +4510,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                                           onClick={() => submitUssdInput(ussdInputValue.trim())}
                                           className={`${isStkPush ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-orange-600 hover:bg-orange-700 text-white'} rounded-xl h-8 px-4 font-black cursor-pointer shadow-sm`}
                                         >
-                                          {isStkPush ? "🔑 Thibitisha PIN" : "Send"}
+                                          {isStkPush ? " Thibitisha PIN" : "Send"}
                                         </Button>
                                       </div>
                                     </div>
@@ -4592,7 +4592,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                             onClick={() => setDialedCode(prev => prev.slice(0, -1))}
                             className="text-[9.5px] font-black text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 uppercase tracking-wider transition-colors cursor-pointer"
                           >
-                            ⌫ Del
+                             Del
                           </button>
                         </div>
                       </div>
@@ -4626,7 +4626,7 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                 onClick={() => setIsSaveModalOpen(false)}
                 className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 text-xs font-bold cursor-pointer"
               >
-                ✕
+                
               </button>
             </div>
 

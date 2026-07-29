@@ -183,7 +183,7 @@ export interface TwilioConfig {
 
 export const defaultTwilioConfig: TwilioConfig = {
   isEnabled: true,
-  welcomeMessage: "Karibu Papo Hapo! 🌟\n\nChagua huduma:\n1. 🚕 PapoRide (Taxi)\n2. 📦 PapoSend (Mzigo)\n3. 🛵 PapoDriver (Dereva)\n4. 🚌 PapoBus (Tiketi)\n5. 💇‍♀️ PapoStyle (Saluni)\n6. 🍔 PapoFood (Chakula)\n7. 📋 Hali ya Agizo\n8. 💰 PapoWallet & Points\n9. 🌐 Lugha / Language",
+  welcomeMessage: "Karibu Papo Hapo! \n\nChagua huduma:\n1. PapoRide (Taxi)\n2. PapoSend (Mzigo)\n3. PapoDriver (Dereva)\n4. PapoBus (Tiketi)\n5. PapoStyle (Saluni)\n6. PapoFood (Chakula)\n7. Hali ya Agizo\n8. PapoWallet & Points\n9. Lugha / Language",
   phoneNumber: "+14155238886", // Default twilio sandbox or custom
   vendorRules: {
     "all-stores": {
@@ -234,7 +234,7 @@ export function getAvailableServices(session: SMSSession, businessConfig?: any):
     {
       id: 'teksi',
       key: 'paporide',
-      emoji: '🚕',
+      emoji: '',
       titleSw: 'PapoRide (Taxi)',
       titleEn: 'PapoRide (Taxi)',
       defaultMaintSw: 'Huduma ya Teksi ipo kwenye matengenezo mafupi.',
@@ -243,7 +243,7 @@ export function getAvailableServices(session: SMSSession, businessConfig?: any):
     {
       id: 'vifurushi',
       key: 'paposend',
-      emoji: '📦',
+      emoji: '',
       titleSw: 'PapoSend (Mzigo)',
       titleEn: 'PapoSend (Parcel)',
       defaultMaintSw: 'Huduma ya Mzigo ipo kwenye matengenezo.',
@@ -252,7 +252,7 @@ export function getAvailableServices(session: SMSSession, businessConfig?: any):
     {
       id: 'chakula',
       key: 'papofood',
-      emoji: '🍔',
+      emoji: '',
       titleSw: 'PapoFood (Chakula)',
       titleEn: 'PapoFood (Food)',
       defaultMaintSw: 'Huduma ya Chakula inafanyiwa marekebisho.',
@@ -261,7 +261,7 @@ export function getAvailableServices(session: SMSSession, businessConfig?: any):
     {
       id: 'sokoni',
       key: 'papomart',
-      emoji: '🛒',
+      emoji: '',
       titleSw: 'PapoMart (Sokoni)',
       titleEn: 'PapoMart (Groceries)',
       defaultMaintSw: 'Huduma ya Sokoni inafanyiwa marekebisho.',
@@ -271,7 +271,7 @@ export function getAvailableServices(session: SMSSession, businessConfig?: any):
     {
       id: 'bus_ticket',
       key: 'papobus',
-      emoji: '🚌',
+      emoji: '',
       titleSw: 'PapoBus (Tiketi)',
       titleEn: 'PapoBus (Tickets)',
       defaultMaintSw: 'Kukata tiketi kuko kwenye maboresho.',
@@ -281,7 +281,7 @@ export function getAvailableServices(session: SMSSession, businessConfig?: any):
     {
       id: 'saluni',
       key: 'papostyle',
-      emoji: '💇‍♀️',
+      emoji: '',
       titleSw: 'PapoStyle (Saluni)',
       titleEn: 'PapoStyle (Beauty)',
       defaultMaintSw: 'Huduma za Saluni ziko kwenye maboresho.',
@@ -291,7 +291,7 @@ export function getAvailableServices(session: SMSSession, businessConfig?: any):
     {
       id: 'fundi',
       key: 'papofix',
-      emoji: '🛠️',
+      emoji: '',
       titleSw: 'PapoFix (Mafundi)',
       titleEn: 'PapoFix (Handyman)',
       defaultMaintSw: 'Huduma za Mafundi zipo kwenye maboresho.',
@@ -301,7 +301,7 @@ export function getAvailableServices(session: SMSSession, businessConfig?: any):
     {
       id: 'hoteli',
       key: 'papostay',
-      emoji: '🏨',
+      emoji: '',
       titleSw: 'PapoStay (Hoteli)',
       titleEn: 'PapoStay (Hotels)',
       defaultMaintSw: 'Huduma ya Hoteli ipo kwenye maboresho.',
@@ -311,7 +311,7 @@ export function getAvailableServices(session: SMSSession, businessConfig?: any):
     {
       id: 'car_rental',
       key: 'paporent',
-      emoji: '🔑',
+      emoji: '',
       titleSw: 'PapoRent (Kukodi)',
       titleEn: 'PapoRent (Rentals)',
       defaultMaintSw: 'Kukodi magari kupo kwenye marekebisho.',
@@ -321,7 +321,7 @@ export function getAvailableServices(session: SMSSession, businessConfig?: any):
     {
       id: 'driver',
       key: 'papodriver',
-      emoji: '🛵',
+      emoji: '',
       titleSw: 'PapoDriver (Dereva)',
       titleEn: 'PapoDriver (Driver)',
       defaultMaintSw: 'Portal ya dereva ipo kwenye matengenezo.',
@@ -331,7 +331,7 @@ export function getAvailableServices(session: SMSSession, businessConfig?: any):
     {
       id: 'status',
       key: 'status',
-      emoji: '📋',
+      emoji: '',
       titleSw: 'Hali ya Agizo',
       titleEn: 'Order Status',
       defaultMaintSw: '',
@@ -341,7 +341,7 @@ export function getAvailableServices(session: SMSSession, businessConfig?: any):
     {
       id: 'wallet',
       key: 'wallet',
-      emoji: '💰',
+      emoji: '',
       titleSw: 'PapoWallet & Points',
       titleEn: 'PapoWallet & Points',
       defaultMaintSw: '',
@@ -351,7 +351,7 @@ export function getAvailableServices(session: SMSSession, businessConfig?: any):
     {
       id: 'language',
       key: 'language',
-      emoji: '🌐',
+      emoji: '',
       titleSw: 'Lugha / Language',
       titleEn: 'Language / Lugha',
       defaultMaintSw: '',
@@ -396,17 +396,17 @@ export function getWelcomeMessage(session: SMSSession, businessConfig?: any): st
 
   if (businessConfig?.maintenanceMode) {
     return isEn
-      ? "🛠️ SYSTEM MAINTENANCE:\n\nThe entire system is under maintenance. Please try again later."
-      : "🛠️ MATENGENEZO YA MFUMO:\n\nMfumo mzima upo kwenye matengenezo kwa sasa. Tafadhali jaribu tena baadaye.";
+      ? " SYSTEM MAINTENANCE:\n\nThe entire system is under maintenance. Please try again later."
+      : " MATENGENEZO YA MFUMO:\n\nMfumo mzima upo kwenye matengenezo kwa sasa. Tafadhali jaribu tena baadaye.";
   }
 
   const available = getAvailableServices(session, businessConfig);
 
-  const header = isEn ? "Welcome to Papo Hapo! 🌟\n\nSelect service:" : "Karibu Papo Hapo! 🌟\n\nChagua huduma:";
+  const header = isEn ? "Welcome to Papo Hapo! \n\nSelect service:" : "Karibu Papo Hapo! \n\nChagua huduma:";
   const itemsText = available.map((s, idx) => {
     const num = idx + 1;
     const title = isEn ? s.titleEn : s.titleSw;
-    const maintTag = s.isMaintenance ? (isEn ? " [🛠️ Maint]" : " [🛠️ Matengenezo]") : "";
+    const maintTag = s.isMaintenance ? (isEn ? " [ Maint]" : " [ Matengenezo]") : "";
     return `${num}. ${s.emoji} ${title}${maintTag}`;
   }).join("\n");
 
@@ -417,13 +417,13 @@ export function getPapoWalletText(session: SMSSession): string {
   const isEn = session.language === 'en';
   const balance = (session.walletBalance ?? 0).toLocaleString();
   const points = session.papoPoints ?? 0;
-  const promo = session.appliedPromoCode ? `\n🎟️ Promo: ${session.appliedPromoCode}` : '';
+  const promo = session.appliedPromoCode ? `\n Promo: ${session.appliedPromoCode}` : '';
 
   if (isEn) {
-    return `💰 PAPOWALLET & POINTS\n\nBal: TZS ${balance} | PTS: ${points}${promo}\n\n1. 💳 Top-Up Wallet\n2. 🎁 Redeem Points\n3. 🎟️ Promo Code\n4. 💸 Split Fare\n5. 🎁 Pay for Friend\n6. 📜 History\n\n0. Main Menu`;
+    return ` PAPOWALLET & POINTS\n\nBal: TZS ${balance} | PTS: ${points}${promo}\n\n1. Top-Up Wallet\n2. Redeem Points\n3. Promo Code\n4. Split Fare\n5. Pay for Friend\n6. History\n\n0. Main Menu`;
   }
 
-  return `💰 PAPOWALLET & POINTS\n\nSalio: TZS ${balance} | PTS: ${points}${promo}\n\n1. 💳 Weka Salio\n2. 🎁 Badili Points\n3. 🎟️ Promo Code\n4. 💸 Gawana Nauli\n5. 🎁 Lipia Mwingine\n6. 📜 Miamala\n\n0. Rudi Mwanzo`;
+  return ` PAPOWALLET & POINTS\n\nSalio: TZS ${balance} | PTS: ${points}${promo}\n\n1. Weka Salio\n2. Badili Points\n3. Promo Code\n4. Gawana Nauli\n5. Lipia Mwingine\n6. Miamala\n\n0. Rudi Mwanzo`;
 }
 
 export function getSavedLocationsText(session: SMSSession): string {
@@ -437,9 +437,9 @@ export function getSavedLocationsText(session: SMSSession): string {
   const customStr = custom || (isEn ? '[Not set]' : '[Hajaweka]');
 
   if (isEn) {
-    return `📍 SAVED LOCATIONS (MAENEO PENDWA)\n\n1. 🏠 Home: ${homeStr}\n2. 🏢 Work: ${workStr}\n3. 🏪 Custom: ${customStr}\n\nActions:\n4. ✏️ Edit Home Address\n5. ✏️ Edit Work Address\n6. ➕ Add Custom Location\n\n0. Main Menu`;
+    return ` SAVED LOCATIONS (MAENEO PENDWA)\n\n1. Home: ${homeStr}\n2. Work: ${workStr}\n3. Custom: ${customStr}\n\nActions:\n4. Edit Home Address\n5. Edit Work Address\n6. Add Custom Location\n\n0. Main Menu`;
   }
-  return `📍 MAENEO PENDWA (Saved Locations)\n\n1. 🏠 Nyumbani: ${homeStr}\n2. 🏢 Ofisini: ${workStr}\n3. 🏪 Eneo Lingine: ${customStr}\n\nHatua:\n4. ✏️ Hariri Nyumbani\n5. ✏️ Hariri Ofisini\n6. ➕ Weka Eneo Lingine\n\n0. Rudi Mwanzo`;
+  return ` MAENEO PENDWA (Saved Locations)\n\n1. Nyumbani: ${homeStr}\n2. Ofisini: ${workStr}\n3. Eneo Lingine: ${customStr}\n\nHatua:\n4. Hariri Nyumbani\n5. Hariri Ofisini\n6. Weka Eneo Lingine\n\n0. Rudi Mwanzo`;
 }
 
 export function getVoiceCallbackText(session: SMSSession): string {
@@ -447,17 +447,17 @@ export function getVoiceCallbackText(session: SMSSession): string {
   const phone = session.phone.replace('ussd:', '');
 
   if (isEn) {
-    return `📞 AUTOMATED USSD VOICE CALLBACK 🎧\n\nSystem is dispatching an interactive audio call to ${phone}...\n\n🔊 Voice Audio Prompt (Preview):\n"Hello! Your Papo Hapo order PH-88219 (PapoFood, TZS 12,500) is on the way with driver Bakari Juma (0712345678). Press 1 to speak with courier or 2 to confirm delivery."\n\n1. 📞 Request Call Again\n0. Main Menu`;
+    return ` AUTOMATED USSD VOICE CALLBACK \n\nSystem is dispatching an interactive audio call to ${phone}...\n\n Voice Audio Prompt (Preview):\n"Hello! Your Papo Hapo order PH-88219 (PapoFood, TZS 12,500) is on the way with driver Bakari Juma (0712345678). Press 1 to speak with courier or 2 to confirm delivery."\n\n1. Request Call Again\n0. Main Menu`;
   }
-  return `📞 SIMU YA SAUTI YA MFUMO (Automated IVR Call) 🎧\n\nMfumo unapiga simu ya sauti kwenye namba yako ${phone}...\n\n🔊 Maelezo ya Ujumbe wa Sauti (Audio Preview):\n"Habari! Agizo yako PH-88219 la PapoFood (TZS 12,500) liko njiani na Dereva Bakari Juma (0712345678). Bofya 1 kuongea na dereva au 2 kuthibitisha umepokea."\n\n1. 📞 Piga Tena Simu ya Sauti\n0. Rudi Mwanzo`;
+  return ` SIMU YA SAUTI YA MFUMO (Automated IVR Call) \n\nMfumo unapiga simu ya sauti kwenye namba yako ${phone}...\n\n Maelezo ya Ujumbe wa Sauti (Audio Preview):\n"Habari! Agizo yako PH-88219 la PapoFood (TZS 12,500) liko njiani na Dereva Bakari Juma (0712345678). Bofya 1 kuongea na dereva au 2 kuthibitisha umepokea."\n\n1. Piga Tena Simu ya Sauti\n0. Rudi Mwanzo`;
 }
 
 export function getQuickReOrderText(session: SMSSession): string {
   const isEn = session.language === 'en';
   if (isEn) {
-    return `🔁 QUICK RE-ORDER (AGIZA TENA)\n\nSelect a previous order to re-order instantly:\n\n1. 🚕 PapoRide: Mwenge ➡️ Posta (TZS 4,500)\n2. 🍔 PapoFood: Papo Pizza - 2x Burger (TZS 12,500)\n3. 📦 PapoSend: Parcel to Kariakoo (TZS 3,500)\n4. 🚌 PapoBus: DAR ➡️ MWANZA (TZS 45,000)\n\n0. Main Menu`;
+    return ` QUICK RE-ORDER (AGIZA TENA)\n\nSelect a previous order to re-order instantly:\n\n1. PapoRide: Mwenge  Posta (TZS 4,500)\n2. PapoFood: Papo Pizza - 2x Burger (TZS 12,500)\n3. PapoSend: Parcel to Kariakoo (TZS 3,500)\n4. PapoBus: DAR  MWANZA (TZS 45,000)\n\n0. Main Menu`;
   }
-  return `🔁 AGIZA TENA KWA BOFYA MOJA (Quick Re-Order)\n\nChagua agizo lako la zamani kurudia papo hapo:\n\n1. 🚕 PapoRide: Mwenge ➡️ Posta (TZS 4,500)\n2. 🍔 PapoFood: Papo Pizza - 2x Burger (TZS 12,500)\n3. 📦 PapoSend: Kifurushi Kariakoo (TZS 3,500)\n4. 🚌 PapoBus: DAR ➡️ MWANZA (TZS 45,000)\n\n0. Rudi Mwanzo`;
+  return ` AGIZA TENA KWA BOFYA MOJA (Quick Re-Order)\n\nChagua agizo lako la zamani kurudia papo hapo:\n\n1. PapoRide: Mwenge  Posta (TZS 4,500)\n2. PapoFood: Papo Pizza - 2x Burger (TZS 12,500)\n3. PapoSend: Kifurushi Kariakoo (TZS 3,500)\n4. PapoBus: DAR  MWANZA (TZS 45,000)\n\n0. Rudi Mwanzo`;
 }
 
 export async function getActiveOrderStatusText(session: SMSSession, dbAdmin: any, orderQueryInput?: string): Promise<string> {
@@ -494,8 +494,8 @@ export async function getActiveOrderStatusText(session: SMSSession, dbAdmin: any
       {
         bookingId: 'PR-90123',
         serviceType: 'PapoRide',
-        serviceIcon: '🚕',
-        vendorName: 'PapoRide Taxi (Mwenge ➡️ Posta)',
+        serviceIcon: '',
+        vendorName: 'PapoRide Taxi (Mwenge  Posta)',
         status: 'in_transit',
         totalAmount: 4500,
         driverName: 'Bakari Juma (0712 345 678 - Boda #34)',
@@ -504,7 +504,7 @@ export async function getActiveOrderStatusText(session: SMSSession, dbAdmin: any
       {
         bookingId: 'PF-88219',
         serviceType: 'PapoFood',
-        serviceIcon: '🍔',
+        serviceIcon: '',
         vendorName: 'Papo Pizza & Burger (Kinondoni)',
         status: 'accepted',
         totalAmount: 12500,
@@ -514,8 +514,8 @@ export async function getActiveOrderStatusText(session: SMSSession, dbAdmin: any
       {
         bookingId: 'PS-44912',
         serviceType: 'PapoSend',
-        serviceIcon: '📦',
-        vendorName: 'PapoSend Parcel (Kijitonyama ➡️ Kariakoo)',
+        serviceIcon: '',
+        vendorName: 'PapoSend Parcel (Kijitonyama  Kariakoo)',
         status: 'pending',
         totalAmount: 3500,
         driverName: 'Inasubiri kupangiwa dereva',
@@ -543,22 +543,22 @@ export async function getActiveOrderStatusText(session: SMSSession, dbAdmin: any
   // If user has MULTIPLE orders and hasn't selected a specific one yet:
   if (!foundOrder && allMatchingOrders.length > 1 && (!trimmedInput || trimmedInput === '7' || trimmedInput === '1')) {
     let listText = isEn
-      ? `📋 YOUR ACTIVE ORDERS (${allMatchingOrders.length})\n\n`
-      : `📋 MAAGIZO YAKO YANAYOENDELEA (${allMatchingOrders.length})\n\n`;
+      ? ` YOUR ACTIVE ORDERS (${allMatchingOrders.length})\n\n`
+      : ` MAAGIZO YAKO YANAYOENDELEA (${allMatchingOrders.length})\n\n`;
 
     allMatchingOrders.forEach((o, index) => {
       const orderId = o.bookingId || o.orderId || o.id || `ORD-${index + 1}`;
       const service = o.serviceType || o.type || o.vendorName || 'Papo Service';
-      const icon = o.serviceIcon || (service.includes('Ride') ? '🚕' : service.includes('Food') ? '🍔' : service.includes('Send') ? '📦' : '🛍️');
+      const icon = o.serviceIcon || (service.includes('Ride') ? '' : service.includes('Food') ? '' : service.includes('Send') ? '' : '');
       const amt = (o.totalAmount || o.price || 0).toLocaleString();
       const rawStatus = (o.status || 'pending').toLowerCase();
       
-      let stText = isEn ? '⏳ Preparing' : '⏳ Inatengenezwa';
-      if (['accepted', 'confirmed'].includes(rawStatus)) stText = isEn ? '✅ Confirmed' : '✅ Imethibitishwa';
-      else if (['in_transit', 'delivering', 'on_the_way'].includes(rawStatus)) stText = isEn ? '🚚 On the way' : '🚚 Njia Inakujia';
-      else if (rawStatus === 'completed') stText = isEn ? '🎉 Completed' : '🎉 Imekamilika';
+      let stText = isEn ? ' Preparing' : ' Inatengenezwa';
+      if (['accepted', 'confirmed'].includes(rawStatus)) stText = isEn ? ' Confirmed' : ' Imethibitishwa';
+      else if (['in_transit', 'delivering', 'on_the_way'].includes(rawStatus)) stText = isEn ? ' On the way' : ' Njia Inakujia';
+      else if (rawStatus === 'completed') stText = isEn ? ' Completed' : ' Imekamilika';
 
-      listText += `${index + 1}. ${icon} ${service}\n   🆔 Msimbo: ${orderId}\n   🔄 Status: ${stText}\n   💰 TZS ${amt}\n\n`;
+      listText += `${index + 1}. ${icon} ${service}\n   🆔 Msimbo: ${orderId}\n    Status: ${stText}\n    TZS ${amt}\n\n`;
     });
 
     listText += isEn
@@ -575,15 +575,15 @@ export async function getActiveOrderStatusText(session: SMSSession, dbAdmin: any
 
   if (foundOrder) {
     const rawStatus = (foundOrder.status || 'pending').toLowerCase();
-    let statusText = isEn ? '⏳ In Progress / Preparing' : '⏳ Inakaguliwa na Inatengenezwa';
+    let statusText = isEn ? ' In Progress / Preparing' : ' Inakaguliwa na Inatengenezwa';
     if (['accepted', 'confirmed'].includes(rawStatus)) {
-      statusText = isEn ? '✅ Confirmed by Vendor' : '✅ Imethibitishwa na Muuzaji';
+      statusText = isEn ? ' Confirmed by Vendor' : ' Imethibitishwa na Muuzaji';
     } else if (['in_transit', 'delivering', 'on_the_way'].includes(rawStatus)) {
-      statusText = isEn ? '🚚 On the way (Driver Assigned)' : '🚚 Inawasilishwa na Boda/Dereva';
+      statusText = isEn ? ' On the way (Driver Assigned)' : ' Inawasilishwa na Boda/Dereva';
     } else if (rawStatus === 'completed') {
-      statusText = isEn ? '🎉 Completed' : '🎉 Imekamilika Vizuri';
+      statusText = isEn ? ' Completed' : ' Imekamilika Vizuri';
     } else if (rawStatus === 'cancelled') {
-      statusText = isEn ? '❌ Cancelled' : '❌ Imeghatishwa';
+      statusText = isEn ? ' Cancelled' : ' Imeghatishwa';
     }
 
     const orderId = foundOrder.bookingId || foundOrder.orderId || foundOrder.id || 'PH-88219';
@@ -593,15 +593,15 @@ export async function getActiveOrderStatusText(session: SMSSession, dbAdmin: any
     const pay = foundOrder.paymentMethod || 'PapoWallet';
 
     if (isEn) {
-      return `📋 LIVE ORDER DETAILS\n\n🆔 Order ID: ${orderId}\n🛍️ Service: ${serviceName}\n🔄 Status: ${statusText}\n💰 Total: TZS ${amount}\n💳 Payment: ${pay}\n🛵 Driver/Courier: ${driver}\n\n7. Back to All Active Orders\n0. Main Menu`;
+      return ` LIVE ORDER DETAILS\n\n🆔 Order ID: ${orderId}\n Service: ${serviceName}\n Status: ${statusText}\n Total: TZS ${amount}\n Payment: ${pay}\n Driver/Courier: ${driver}\n\n7. Back to All Active Orders\n0. Main Menu`;
     }
-    return `📋 MAELEZO YA AGIZO (Order Details)\n\n🆔 Msimbo: ${orderId}\n🛍️ Huduma: ${serviceName}\n🔄 Status: ${statusText}\n💰 Gharama: TZS ${amount}\n💳 Malipo: ${pay}\n🛵 Dereva/Boda: ${driver}\n\n7. Angalia Maagizo Yote Yaliyo Hai\n0. Rudi Mwanzo`;
+    return ` MAELEZO YA AGIZO (Order Details)\n\n🆔 Msimbo: ${orderId}\n Huduma: ${serviceName}\n Status: ${statusText}\n Gharama: TZS ${amount}\n Malipo: ${pay}\n Dereva/Boda: ${driver}\n\n7. Angalia Maagizo Yote Yaliyo Hai\n0. Rudi Mwanzo`;
   }
 
   if (isEn) {
-    return `📋 NO ACTIVE ORDERS FOUND\n\nYou currently have no active orders under this phone number.\n\nEnter Order ID (e.g. PS-82910, PH-10293) to search:\n\n0. Main Menu`;
+    return ` NO ACTIVE ORDERS FOUND\n\nYou currently have no active orders under this phone number.\n\nEnter Order ID (e.g. PS-82910, PH-10293) to search:\n\n0. Main Menu`;
   }
-  return `📋 HUNA AGIZO LINALOENDELEA\n\nHujaweka agizo lililo hai kwa sasa kwa namba hii.\n\nIngiza Msimbo wa Agizo (mf. PS-82910, PH-10293) kufuatilia:\n\n0. Rudi Mwanzo`;
+  return ` HUNA AGIZO LINALOENDELEA\n\nHujaweka agizo lililo hai kwa sasa kwa namba hii.\n\nIngiza Msimbo wa Agizo (mf. PS-82910, PH-10293) kufuatilia:\n\n0. Rudi Mwanzo`;
 }
 
 /**
@@ -709,10 +709,29 @@ async function triggerMockOrder(
   }
 }
 
+export function stripUSSDFormatting(text: string): string {
+  if (!text) return text;
+  return text
+    .replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{2300}-\u{23FF}\u{2B00}-\u{2BFF}\u{fe00}-\u{fe0f}\u{200d}]/gu, '')
+    .split('\n')
+    .map(line => line.replace(/(\d+\.) +/g, '$1 ').trimEnd())
+    .join('\n');
+}
+
 /**
  * Master dispatcher handling the conversation text and state transitions
  */
 export async function handleSMSInput(
+  fromPhone: string, 
+  textBody: string, 
+  dbAdmin: any,
+  vendorId: string = 'admin-global'
+): Promise<string> {
+  const result = await handleSMSInputRaw(fromPhone, textBody, dbAdmin, vendorId);
+  return stripUSSDFormatting(result);
+}
+
+async function handleSMSInputRaw(
   fromPhone: string, 
   textBody: string, 
   dbAdmin: any,
@@ -823,8 +842,8 @@ export async function handleSMSInput(
       // Check if service is under Maintenance
       if (selectedDef.isMaintenance) {
         return session.language === 'en'
-          ? `🛠️ SERVICE UNDER MAINTENANCE:\n\n${selectedDef.titleEn} is currently under maintenance.\nNotice: "${selectedDef.maintenanceMessage || 'Please try again later.'}"\n\n0. Main Menu`
-          : `🛠️ HUDUMA KWENYE MATENGENEZO:\n\nHuduma ya ${selectedDef.titleSw} ipo kwenye matengenezo kwa sasa.\nUjumbe wa Admin: "${selectedDef.maintenanceMessage || 'Tafadhali jaribu tena baadaye.'}"\n\n0. Rudi Mwanzo`;
+          ? ` SERVICE UNDER MAINTENANCE:\n\n${selectedDef.titleEn} is currently under maintenance.\nNotice: "${selectedDef.maintenanceMessage || 'Please try again later.'}"\n\n0. Main Menu`
+          : ` HUDUMA KWENYE MATENGENEZO:\n\nHuduma ya ${selectedDef.titleSw} ipo kwenye matengenezo kwa sasa.\nUjumbe wa Admin: "${selectedDef.maintenanceMessage || 'Tafadhali jaribu tena baadaye.'}"\n\n0. Rudi Mwanzo`;
       }
 
       // 1. PapoRide
@@ -833,8 +852,8 @@ export async function handleSMSInput(
         session.selectedService = 'taxi';
         await saveSession(session, dbAdmin);
         return session.language === 'en'
-          ? "🚕 PapoRide (TAXI & FARE):\n\n1. Estimate Fare 🧮\n2. Saved Locations 📍\n3. Split Fare 50/50 🤝\n4. Custom Route 🗺️\n\n0. Main Menu"
-          : "🚕 PapoRide (TAXI & NAULI):\n\n1. Kadiria Nauli 🧮\n2. Maeneo Pendwa (Nyumbani/Ofisini) 📍\n3. Gawana Nauli 50/50 🤝\n4. Andika Njia Yako 🗺️\n\n0. Rudi Mwanzo";
+          ? " PapoRide (TAXI & FARE):\n\n1. Estimate Fare \n2. Saved Locations \n3. Split Fare 50/50 \n4. Custom Route \n\n0. Main Menu"
+          : " PapoRide (TAXI & NAULI):\n\n1. Kadiria Nauli \n2. Maeneo Pendwa (Nyumbani/Ofisini) \n3. Gawana Nauli 50/50 \n4. Andika Njia Yako \n\n0. Rudi Mwanzo";
       }
       // 2. PapoSend
       else if (selectedDef.key === 'paposend') {
@@ -842,8 +861,8 @@ export async function handleSMSInput(
         session.selectedService = 'parcel';
         await saveSession(session, dbAdmin);
         return session.language === 'en'
-          ? "📦 PapoSend (PARCEL & DELIVERY):\n\n1. 🚚 Send Parcel / Package\n2. 🔍 Track Your Package\n\n0. Main Menu"
-          : "📦 PapoSend (VIFURUSHI & DELIVERY):\n\n1. 🚚 Tuma Mzigo / Kifurushi\n2. 🔍 Fuatilia Mzigo Wako\n\n0. Rudi Mwanzo";
+          ? " PapoSend (PARCEL & DELIVERY):\n\n1. Send Parcel / Package\n2. Track Your Package\n\n0. Main Menu"
+          : " PapoSend (VIFURUSHI & DELIVERY):\n\n1. Tuma Mzigo / Kifurushi\n2. Fuatilia Mzigo Wako\n\n0. Rudi Mwanzo";
       }
       // 3. PapoFood
       else if (selectedDef.key === 'papofood') {
@@ -852,8 +871,8 @@ export async function handleSMSInput(
         session.foodCart = [];
         await saveSession(session, dbAdmin);
         return session.language === 'en'
-          ? "🍔 PapoFood (FOOD & RESTAURANTS):\n\n1. 🍔 Restaurants & Food\n2. 🥤 Drinks & Fast Food\n\n0. Main Menu"
-          : "🍔 PapoFood (CHAKULA & MIGAHAWA):\n\n1. 🍔 Migahawa & Chakula\n2. 🥤 Vinywaji & Fast Food\n\n0. Rudi Mwanzo";
+          ? " PapoFood (FOOD & RESTAURANTS):\n\n1. Restaurants & Food\n2. Drinks & Fast Food\n\n0. Main Menu"
+          : " PapoFood (CHAKULA & MIGAHAWA):\n\n1. Migahawa & Chakula\n2. Vinywaji & Fast Food\n\n0. Rudi Mwanzo";
       }
       // 4. PapoMart
       else if (selectedDef.key === 'papomart') {
@@ -861,8 +880,8 @@ export async function handleSMSInput(
         session.selectedService = 'mart';
         await saveSession(session, dbAdmin);
         return session.language === 'en'
-          ? "🛒 PapoMart (GROCERIES & SHOPS):\n\n1. 🛒 Grocery & Market (Sokoni)\n2. 💊 Pharmacy & Health (Dawa)\n3. 🛍️ Electronics & Shopping\n\n0. Main Menu"
-          : "🛒 PapoMart (SOKONI, GROCERY & MADUKA):\n\n1. 🛒 Grocery & Sokoni\n2. 💊 Duka la Dawa & Afya\n3. 🛍️ Maduka & Shopping\n\n0. Rudi Mwanzo";
+          ? " PapoMart (GROCERIES & SHOPS):\n\n1. Grocery & Market (Sokoni)\n2. Pharmacy & Health (Dawa)\n3. Electronics & Shopping\n\n0. Main Menu"
+          : " PapoMart (SOKONI, GROCERY & MADUKA):\n\n1. Grocery & Sokoni\n2. Duka la Dawa & Afya\n3. Maduka & Shopping\n\n0. Rudi Mwanzo";
       }
       // 5. PapoBus
       else if (selectedDef.key === 'papobus') {
@@ -870,8 +889,8 @@ export async function handleSMSInput(
         session.selectedService = 'bus_ticket';
         await saveSession(session, dbAdmin);
         return session.language === 'en'
-          ? "🚌 PapoBus (BUS TICKETS):\n\nSend your travel route (Origin - Destination).\nExample: DAR - MWANZA or ARUSHA - KILIMANJARO:"
-          : "🚌 PapoBus (TIKETI ZA MABASI):\n\nTuma njia unayokwenda (Mwanzo - Mwisho).\nMfano: DAR - MWANZA au ARUSHA - KILIMANJARO:";
+          ? " PapoBus (BUS TICKETS):\n\nSend your travel route (Origin - Destination).\nExample: DAR - MWANZA or ARUSHA - KILIMANJARO:"
+          : " PapoBus (TIKETI ZA MABASI):\n\nTuma njia unayokwenda (Mwanzo - Mwisho).\nMfano: DAR - MWANZA au ARUSHA - KILIMANJARO:";
       }
       // 6. PapoStyle
       else if (selectedDef.key === 'papostyle') {
@@ -879,8 +898,8 @@ export async function handleSMSInput(
         session.selectedService = 'salon';
         await saveSession(session, dbAdmin);
         return session.language === 'en'
-          ? "💇‍♀️ PapoStyle (SALON & BEAUTY):\n\n1. Barber / Hair Cut\n2. Hair Styling / Braids\n3. Nails / Makeup / Spa\n\n0. Main Menu"
-          : "💇‍♀️ PapoStyle (SALUNI & UREMBO):\n\n1. Kinyozi / Hair Cut\n2. Kusuka / Salon ya Kike\n3. Nails / Makeup / Spa\n\n0. Rudi Mwanzo";
+          ? " PapoStyle (SALON & BEAUTY):\n\n1. Barber / Hair Cut\n2. Hair Styling / Braids\n3. Nails / Makeup / Spa\n\n0. Main Menu"
+          : " PapoStyle (SALUNI & UREMBO):\n\n1. Kinyozi / Hair Cut\n2. Kusuka / Salon ya Kike\n3. Nails / Makeup / Spa\n\n0. Rudi Mwanzo";
       }
       // PapoFix (Home Services & Handyman)
       else if (selectedDef.key === 'papofix') {
@@ -888,8 +907,8 @@ export async function handleSMSInput(
         session.selectedService = 'handyman';
         await saveSession(session, dbAdmin);
         return session.language === 'en'
-          ? "🛠️ PapoFix (HOME SERVICES & HANDYMAN):\n\n1. ⚡ Electrician (Fundi Umeme)\n2. 🚰 Plumber (Fundi Bomba)\n3. 🪚 Carpenter (Fundi Mbao)\n4. 🎨 Painter (Fundi Rangi)\n5. ❄️ AC & Refrigerator Fix\n6. 🧹 Cleaning & Pest Control\n7. 📱 Electronics & TV Repair\n\n0. Main Menu"
-          : "🛠️ PapoFix (HOME SERVICES & MAFUNDI):\n\n1. ⚡ Fundi Umeme (Electrician)\n2. 🚰 Fundi Bomba (Plumber)\n3. 🪚 Fundi Mbao / Samani (Carpenter)\n4. 🎨 Fundi Rangi (Painter)\n5. ❄️ AC & Friji (Aircon & Fridge)\n6. 🧹 Usafi na Pest Control\n7. 📱 TV na Electronics Repair\n\n0. Rudi Mwanzo";
+          ? " PapoFix (HOME SERVICES & HANDYMAN):\n\n1. Electrician (Fundi Umeme)\n2. Plumber (Fundi Bomba)\n3. Carpenter (Fundi Mbao)\n4. Painter (Fundi Rangi)\n5. AC & Refrigerator Fix\n6. Cleaning & Pest Control\n7. Electronics & TV Repair\n\n0. Main Menu"
+          : " PapoFix (HOME SERVICES & MAFUNDI):\n\n1. Fundi Umeme (Electrician)\n2. Fundi Bomba (Plumber)\n3. Fundi Mbao / Samani (Carpenter)\n4. Fundi Rangi (Painter)\n5. AC & Friji (Aircon & Fridge)\n6. Usafi na Pest Control\n7. TV na Electronics Repair\n\n0. Rudi Mwanzo";
       }
       // 7. PapoStay / Hoteli
       else if (selectedDef.key === 'papostay') {
@@ -897,8 +916,8 @@ export async function handleSMSInput(
         session.selectedService = 'hotel';
         await saveSession(session, dbAdmin);
         return session.language === 'en'
-          ? "🏨 PapoStay (HOTELS & LODGING):\n\n1. 🏨 Luxury Hotels (4-5 Star)\n2. 🛏️ Budget Guest Houses\n3. 🏖️ Beach Resorts & Lodges\n\n0. Main Menu"
-          : "🏨 PapoStay (HOTELI & MALAZI):\n\n1. 🏨 Hoteli za Nyota 3-5\n2. 🛏️ Guest Houses & Vyumba\n3. 🏖️ Resoti & Nyumba za Mapumziko\n\n0. Rudi Mwanzo";
+          ? " PapoStay (HOTELS & LODGING):\n\n1. Luxury Hotels (4-5 Star)\n2. Budget Guest Houses\n3. Beach Resorts & Lodges\n\n0. Main Menu"
+          : " PapoStay (HOTELI & MALAZI):\n\n1. Hoteli za Nyota 3-5\n2. Guest Houses & Vyumba\n3. Resoti & Nyumba za Mapumziko\n\n0. Rudi Mwanzo";
       }
       // 8. PapoRent
       else if (selectedDef.key === 'paporent') {
@@ -906,8 +925,8 @@ export async function handleSMSInput(
         session.selectedService = 'rental';
         await saveSession(session, dbAdmin);
         return session.language === 'en'
-          ? "🔑 PapoRent (CAR & EQUIPMENT RENTAL):\n\n1. 🚗 Car Rental\n2. 🛺 Bajaj Rental\n3. 🏍️ Motorcycle Rental\n\n0. Main Menu"
-          : "🔑 PapoRent (KUKODI MAGARI & VIFAA):\n\n1. 🚗 Kukodi Gari (Car Rental)\n2. 🛺 Kukodi Bajaj\n3. 🏍️ Kukodi Bodaboda\n\n0. Rudi Mwanzo";
+          ? " PapoRent (CAR & EQUIPMENT RENTAL):\n\n1. Car Rental\n2. Bajaj Rental\n3. Motorcycle Rental\n\n0. Main Menu"
+          : " PapoRent (KUKODI MAGARI & VIFAA):\n\n1. Kukodi Gari (Car Rental)\n2. Kukodi Bajaj\n3. Kukodi Bodaboda\n\n0. Rudi Mwanzo";
       }
       // 9. PapoDriver
       else if (selectedDef.key === 'papodriver') {
@@ -943,13 +962,13 @@ export async function handleSMSInput(
           session.isDriverVerified = true;
           session.step = 'DRIVER_OFFLINE_MENU';
           await saveSession(session, dbAdmin);
-          return `🛵 PapoDriver (PORTAL YA DEREVA):\n[Dereva: ${driverName || session.driverName || 'Juma Kapoya'} | Hali: ${isOnline ? '🟢 Online' : '🔴 Offline'}]\n\n1. Badili Hali (Online/Offline)\n2. Maombi ya Safari (Pending Bookings)\n3. Safari Inayoendelea (Active Trip)\n4. Mapato & Salio la Kamisheni\n5. Weka Salio la Kamisheni (STK Push)\n\n0. Rudi Mwanzo`;
+          return ` PapoDriver (PORTAL YA DEREVA):\n[Dereva: ${driverName || session.driverName || 'Juma Kapoya'} | Hali: ${isOnline ? ' Online' : ' Offline'}]\n\n1. Badili Hali (Online/Offline)\n2. Maombi ya Safari (Pending Bookings)\n3. Safari Inayoendelea (Active Trip)\n4. Mapato & Salio la Kamisheni\n5. Weka Salio la Kamisheni (STK Push)\n\n0. Rudi Mwanzo`;
         } else {
           session.step = 'DRIVER_LOGIN_PROMPT';
           await saveSession(session, dbAdmin);
           return session.language === 'en'
-            ? `🔒 PAPODRIVER - RESTRICTED DRIVER PORTAL\n\nYour number (${cleanPhone}) is not verified as a registered Papo Hapo Driver.\n\n1. 🔑 Enter Driver PIN (Default: 1234)\n2. 🛵 Register as New Driver / Bodaboda\n\n0. Main Menu`
-            : `🔒 PAPODRIVER - PORTAL YA DEREVA\n\nNamba yako (${cleanPhone}) haijathibitishwa kama Dereva/Bodaboda wa Papo Hapo.\n\n1. 🔑 Ingiza PIN ya Dereva (Default: 1234)\n2. 🛵 Sajili kama Dereva / Bodaboda Mpya\n\n0. Rudi Mwanzo`;
+            ? ` PAPODRIVER - RESTRICTED DRIVER PORTAL\n\nYour number (${cleanPhone}) is not verified as a registered Papo Hapo Driver.\n\n1. Enter Driver PIN (Default: 1234)\n2. Register as New Driver / Bodaboda\n\n0. Main Menu`
+            : ` PAPODRIVER - PORTAL YA DEREVA\n\nNamba yako (${cleanPhone}) haijathibitishwa kama Dereva/Bodaboda wa Papo Hapo.\n\n1. Ingiza PIN ya Dereva (Default: 1234)\n2. Sajili kama Dereva / Bodaboda Mpya\n\n0. Rudi Mwanzo`;
         }
       }
       // 10. Status
@@ -968,7 +987,7 @@ export async function handleSMSInput(
       else if (selectedDef.key === 'language') {
         session.step = 'LANGUAGE_SWITCH_MENU';
         await saveSession(session, dbAdmin);
-        return `🌐 CHAGUA LUGHA / SELECT LANGUAGE:\n\n1. 🇹🇿 Kiswahili\n2. 🇬🇧 English\n\n0. Rudi Mwanzo / Back`;
+        return ` CHAGUA LUGHA / SELECT LANGUAGE:\n\n1. 🇹🇿 Kiswahili\n2. 🇬🇧 English\n\n0. Rudi Mwanzo / Back`;
       }
     } else {
       // Direct secondary keyword fallbacks if not matched above
@@ -986,13 +1005,13 @@ export async function handleSMSInput(
         session.step = 'PAPOBOT_PIN_UNLOCK';
         await saveSession(session, dbAdmin);
         return session.language === 'en'
-          ? "🤖 PapoBot (AUTONOMOUS DELIVERY ROBOT):\n[Status: 🟢 PapoBot Alpha-1 Arrived at Destination]\n\nPlease enter the 4-digit PIN to unlock the cargo compartment lid (Default: 4829):\n\n0. Main Menu"
-          : "🤖 PapoBot (ROBOTI YA KUWASILISHA MZIGO):\n[Hali: 🟢 PapoBot Alpha-1 Imewasili Eneo Lako]\n\nTafadhali ingiza PIN ya tarakimu 4 kufungua mfuniko wa Mzigo (Default: 4829):\n\n0. Rudi Mwanzo";
+          ? " PapoBot (AUTONOMOUS DELIVERY ROBOT):\n[Status:  PapoBot Alpha-1 Arrived at Destination]\n\nPlease enter the 4-digit PIN to unlock the cargo compartment lid (Default: 4829):\n\n0. Main Menu"
+          : " PapoBot (ROBOTI YA KUWASILISHA MZIGO):\n[Hali:  PapoBot Alpha-1 Imewasili Eneo Lako]\n\nTafadhali ingiza PIN ya tarakimu 4 kufungua mfuniko wa Mzigo (Default: 4829):\n\n0. Rudi Mwanzo";
       }
 
       return session.language === 'en'
-        ? `⚠️ Invalid choice! Please send numbers 1 to ${available.length}, or send "HI" to restart.`
-        : `⚠️ Chaguo si sahihi! Tuma namba 1 mpaka ${available.length}, au tuma "HI" kuanza upya.`;
+        ? ` Invalid choice! Please send numbers 1 to ${available.length}, or send "HI" to restart.`
+        : ` Chaguo si sahihi! Tuma namba 1 mpaka ${available.length}, au tuma "HI" kuanza upya.`;
     }
   }
 
@@ -1009,8 +1028,8 @@ export async function handleSMSInput(
       session.selectedService = 'taxi';
       await saveSession(session, dbAdmin);
       return isEn
-        ? "💰 FARE ESTIMATION:\n\nPlease enter your travel route (Origin - Destination).\nExample: POSTA - KINONDONI"
-        : "💰 KADIRIO LA NAULI:\n\nTafadhali tuma njia unayotaka kusafiri (Kutoka - Kwenda).\nMfano: POSTA - KINONDONI";
+        ? " FARE ESTIMATION:\n\nPlease enter your travel route (Origin - Destination).\nExample: POSTA - KINONDONI"
+        : " KADIRIO LA NAULI:\n\nTafadhali tuma njia unayotaka kusafiri (Kutoka - Kwenda).\nMfano: POSTA - KINONDONI";
     } else if (cleanInput === '2' || lowerInput.includes('eneo') || lowerInput.includes('maeneo') || lowerInput.includes('saved')) {
       session.step = 'SAVED_LOCATIONS_MENU';
       await saveSession(session, dbAdmin);
@@ -1019,15 +1038,15 @@ export async function handleSMSInput(
       session.step = 'PAPOWALLET_SPLIT_PHONE';
       await saveSession(session, dbAdmin);
       return isEn
-        ? "💸 SPLIT FARE 50/50:\n\nPlease enter the phone number of the passenger you want to share fare with:\nExample: 0712345678"
-        : "💸 GAWANA NAULI 50/50:\n\nTafadhali ingiza namba ya simu ya abiria mwenzako wa kugawana naye nauli:\nMfano: 0712345678";
+        ? " SPLIT FARE 50/50:\n\nPlease enter the phone number of the passenger you want to share fare with:\nExample: 0712345678"
+        : " GAWANA NAULI 50/50:\n\nTafadhali ingiza namba ya simu ya abiria mwenzako wa kugawana naye nauli:\nMfano: 0712345678";
     } else if (cleanInput === '4' || lowerInput.includes('njia') || lowerInput.includes('route') || lowerInput.includes('custom')) {
       session.step = 'TAXI_ROUTE';
       session.selectedService = 'taxi';
       await saveSession(session, dbAdmin);
       return isEn
-        ? "🗺️ CUSTOM ROUTE:\n\nEnter pickup and drop off (e.g. Mwenge - Posta)"
-        : "🗺️ NJIA YAKO:\n\nAndika sehemu ya kuchukuliwa na unakokwenda.\nMfano: Mwenge - Posta";
+        ? " CUSTOM ROUTE:\n\nEnter pickup and drop off (e.g. Mwenge - Posta)"
+        : " NJIA YAKO:\n\nAndika sehemu ya kuchukuliwa na unakokwenda.\nMfano: Mwenge - Posta";
     }
   }
 
@@ -1041,16 +1060,16 @@ export async function handleSMSInput(
     const isEn = session.language === 'en';
     if (cleanInput === '1' || lowerInput.includes('grocery') || lowerInput.includes('soko') || lowerInput.includes('mboga')) {
       return isEn
-        ? "🛒 SOKONI & GROCERY:\n\n1. Fresh Fruits & Vegetables Basket (TZS 15,000)\n2. Rice & Maize Flour Pack (25kg) (TZS 48,000)\n3. Cooking Oil & Spices Combo (TZS 22,000)\n\nReply with product number to order or 0 to Back."
-        : "🛒 SOKONI & GROCERY:\n\n1. Tenga la Matunda & Mboga (TZS 15,000)\n2. Mfuko wa Mchele & Unga (25kg) (TZS 48,000)\n3. Mafuta ya Kupikia & Viungo (TZS 22,000)\n\nTuma namba ya bidhaa kuagiza au 0 kurudi Nyuma.";
+        ? " SOKONI & GROCERY:\n\n1. Fresh Fruits & Vegetables Basket (TZS 15,000)\n2. Rice & Maize Flour Pack (25kg) (TZS 48,000)\n3. Cooking Oil & Spices Combo (TZS 22,000)\n\nReply with product number to order or 0 to Back."
+        : " SOKONI & GROCERY:\n\n1. Tenga la Matunda & Mboga (TZS 15,000)\n2. Mfuko wa Mchele & Unga (25kg) (TZS 48,000)\n3. Mafuta ya Kupikia & Viungo (TZS 22,000)\n\nTuma namba ya bidhaa kuagiza au 0 kurudi Nyuma.";
     } else if (cleanInput === '2' || lowerInput.includes('dawa') || lowerInput.includes('pharmacy')) {
       return isEn
-        ? "💊 PHARMACY & HEALTH:\n\n1. First Aid Kit Box (TZS 25,000)\n2. Panadol Extra & Vitamins Pack (TZS 5,000)\n3. Hand Sanitizer & Antiseptic (TZS 8,000)\n\nReply with item number or 0 to Back."
-        : "💊 DUKA LA DAWA & AFYA:\n\n1. Sanduku la Huduma ya Kwanza (TZS 25,000)\n2. Panadol Extra & Vitamini Pack (TZS 5,000)\n3. Kitakasa Mikono & Dawa (TZS 8,000)\n\nTuma namba ya dawa au 0 kurudi Nyuma.";
+        ? " PHARMACY & HEALTH:\n\n1. First Aid Kit Box (TZS 25,000)\n2. Panadol Extra & Vitamins Pack (TZS 5,000)\n3. Hand Sanitizer & Antiseptic (TZS 8,000)\n\nReply with item number or 0 to Back."
+        : " DUKA LA DAWA & AFYA:\n\n1. Sanduku la Huduma ya Kwanza (TZS 25,000)\n2. Panadol Extra & Vitamini Pack (TZS 5,000)\n3. Kitakasa Mikono & Dawa (TZS 8,000)\n\nTuma namba ya dawa au 0 kurudi Nyuma.";
     } else if (cleanInput === '3' || lowerInput.includes('shopping') || lowerInput.includes('duka')) {
       return isEn
-        ? "🛍️ ELECTRONICS & SHOPPING:\n\n1. Fast Charger 65W Type-C (TZS 20,000)\n2. Wireless Earbuds Bluetooth (TZS 35,000)\n3. Power Bank 20,000mAh (TZS 45,000)\n\nReply with item number or 0 to Back."
-        : "🛍️ MADUKA & ELECTRONICS:\n\n1. Fast Charger 65W Type-C (TZS 20,000)\n2. Wireless Earbuds Bluetooth (TZS 35,000)\n3. Power Bank 20,000mAh (TZS 45,000)\n\nTuma namba ya kifaa kuagiza au 0 kurudi Nyuma.";
+        ? " ELECTRONICS & SHOPPING:\n\n1. Fast Charger 65W Type-C (TZS 20,000)\n2. Wireless Earbuds Bluetooth (TZS 35,000)\n3. Power Bank 20,000mAh (TZS 45,000)\n\nReply with item number or 0 to Back."
+        : " MADUKA & ELECTRONICS:\n\n1. Fast Charger 65W Type-C (TZS 20,000)\n2. Wireless Earbuds Bluetooth (TZS 35,000)\n3. Power Bank 20,000mAh (TZS 45,000)\n\nTuma namba ya kifaa kuagiza au 0 kurudi Nyuma.";
     }
   }
 
@@ -1064,16 +1083,16 @@ export async function handleSMSInput(
     const isEn = session.language === 'en';
     if (cleanInput === '1' || lowerInput.includes('luxury') || lowerInput.includes('nyota')) {
       return isEn
-        ? "🏨 LUXURY HOTELS (4-5 STAR):\n\n1. Serena Hotel Dar - TZS 250,000/night\n2. Gran Melia Arusha - TZS 320,000/night\n\nReply with number to book or 0 to Back."
-        : "🏨 HOTELI ZA LUXURY (4-5 STAR):\n\n1. Serena Hotel Dar - TZS 250,000/usiku\n2. Gran Melia Arusha - TZS 320,000/usiku\n\nTuma namba kuhifadhi au 0 kurudi Nyuma.";
+        ? " LUXURY HOTELS (4-5 STAR):\n\n1. Serena Hotel Dar - TZS 250,000/night\n2. Gran Melia Arusha - TZS 320,000/night\n\nReply with number to book or 0 to Back."
+        : " HOTELI ZA LUXURY (4-5 STAR):\n\n1. Serena Hotel Dar - TZS 250,000/usiku\n2. Gran Melia Arusha - TZS 320,000/usiku\n\nTuma namba kuhifadhi au 0 kurudi Nyuma.";
     } else if (cleanInput === '2' || lowerInput.includes('guest') || lowerInput.includes('chumba')) {
       return isEn
-        ? "🛏️ BUDGET GUEST HOUSES:\n\n1. Mikocheni Park Lodge - TZS 35,000/night\n2. Sinza Executive Lodge - TZS 40,000/night\n\nReply with number to book or 0 to Back."
-        : "🛏️ GUEST HOUSES & VYUMBA:\n\n1. Mikocheni Park Lodge - TZS 35,000/usiku\n2. Sinza Executive Lodge - TZS 40,000/usiku\n\nTuma namba kuhifadhi au 0 kurudi Nyuma.";
+        ? " BUDGET GUEST HOUSES:\n\n1. Mikocheni Park Lodge - TZS 35,000/night\n2. Sinza Executive Lodge - TZS 40,000/night\n\nReply with number to book or 0 to Back."
+        : " GUEST HOUSES & VYUMBA:\n\n1. Mikocheni Park Lodge - TZS 35,000/usiku\n2. Sinza Executive Lodge - TZS 40,000/usiku\n\nTuma namba kuhifadhi au 0 kurudi Nyuma.";
     } else if (cleanInput === '3' || lowerInput.includes('resort') || lowerInput.includes('beach')) {
       return isEn
-        ? "🏖️ BEACH RESORTS & LODGES:\n\n1. White Sands Beach Resort - TZS 180,000/night\n2. Kendwa Rocks Resort Zanzibar - TZS 220,000/night\n\nReply with number to book or 0 to Back."
-        : "🏖️ RESOTI NA BEACH LODGES:\n\n1. White Sands Beach Resort - TZS 180,000/usiku\n2. Kendwa Rocks Resort Zanzibar - TZS 220,000/usiku\n\nTuma namba kuhifadhi au 0 kurudi Nyuma.";
+        ? " BEACH RESORTS & LODGES:\n\n1. White Sands Beach Resort - TZS 180,000/night\n2. Kendwa Rocks Resort Zanzibar - TZS 220,000/night\n\nReply with number to book or 0 to Back."
+        : " RESOTI NA BEACH LODGES:\n\n1. White Sands Beach Resort - TZS 180,000/usiku\n2. Kendwa Rocks Resort Zanzibar - TZS 220,000/usiku\n\nTuma namba kuhifadhi au 0 kurudi Nyuma.";
     }
   }
 
@@ -1087,16 +1106,16 @@ export async function handleSMSInput(
     const isEn = session.language === 'en';
     if (cleanInput === '1' || lowerInput.includes('gari') || lowerInput.includes('car')) {
       return isEn
-        ? "🚗 CAR RENTAL (PAPORENT):\n\n1. Toyota Prado TX (TZS 120,000/day)\n2. Toyota RAV4 (TZS 65,000/day)\n3. Suzuki Swift (TZS 45,000/day)\n\nReply with vehicle number to request rental or 0 to Back."
-        : "🚗 KUKODI MAGARI (PAPORENT):\n\n1. Toyota Prado TX (TZS 120,000/siku)\n2. Toyota RAV4 (TZS 65,000/siku)\n3. Suzuki Swift (TZS 45,000/siku)\n\nTuma namba ya gari kuomba kukodi au 0 kurudi Nyuma.";
+        ? " CAR RENTAL (PAPORENT):\n\n1. Toyota Prado TX (TZS 120,000/day)\n2. Toyota RAV4 (TZS 65,000/day)\n3. Suzuki Swift (TZS 45,000/day)\n\nReply with vehicle number to request rental or 0 to Back."
+        : " KUKODI MAGARI (PAPORENT):\n\n1. Toyota Prado TX (TZS 120,000/siku)\n2. Toyota RAV4 (TZS 65,000/siku)\n3. Suzuki Swift (TZS 45,000/siku)\n\nTuma namba ya gari kuomba kukodi au 0 kurudi Nyuma.";
     } else if (cleanInput === '2' || lowerInput.includes('bajaj') || lowerInput.includes('bajaji')) {
       return isEn
-        ? "🛺 BAJAJ RENTAL:\n\n1. TVS King Deluxe (TZS 25,000/day)\n2. Bajaj RE Compact (TZS 22,000/day)\n\nReply with number to request rental or 0 to Back."
-        : "🛺 KUKODI BAJAJ:\n\n1. TVS King Deluxe (TZS 25,000/siku)\n2. Bajaj RE Compact (TZS 22,000/siku)\n\nTuma namba kuomba kukodi au 0 kurudi Nyuma.";
+        ? " BAJAJ RENTAL:\n\n1. TVS King Deluxe (TZS 25,000/day)\n2. Bajaj RE Compact (TZS 22,000/day)\n\nReply with number to request rental or 0 to Back."
+        : " KUKODI BAJAJ:\n\n1. TVS King Deluxe (TZS 25,000/siku)\n2. Bajaj RE Compact (TZS 22,000/siku)\n\nTuma namba kuomba kukodi au 0 kurudi Nyuma.";
     } else if (cleanInput === '3' || lowerInput.includes('boda') || lowerInput.includes('pikipiki')) {
       return isEn
-        ? "🏍️ MOTORCYCLE / BODABODA RENTAL:\n\n1. Boxer 150 HD (TZS 15,000/day)\n2. SanLG 125 (TZS 12,000/day)\n\nReply with number to request rental or 0 to Back."
-        : "🏍️ KUKODI BODABODA / PIKIPIKI:\n\n1. Boxer 150 HD (TZS 15,000/siku)\n2. SanLG 125 (TZS 12,000/siku)\n\nTuma namba kuomba kukodi au 0 kurudi Nyuma.";
+        ? " MOTORCYCLE / BODABODA RENTAL:\n\n1. Boxer 150 HD (TZS 15,000/day)\n2. SanLG 125 (TZS 12,000/day)\n\nReply with number to request rental or 0 to Back."
+        : " KUKODI BODABODA / PIKIPIKI:\n\n1. Boxer 150 HD (TZS 15,000/siku)\n2. SanLG 125 (TZS 12,000/siku)\n\nTuma namba kuomba kukodi au 0 kurudi Nyuma.";
     }
   }
 
@@ -1112,13 +1131,13 @@ export async function handleSMSInput(
       session.step = 'START';
       await saveSession(session, dbAdmin);
       return session.language === 'en'
-        ? "🔓 PAPOBOT UNLOCKED SUCCESSFULLY! 🤖✨\n\nThe cargo compartment door has opened. Please retrieve your items and push the lid down to lock.\n\nThank you for using Papo Hapo Autonomous Delivery!"
-        : "🔓 PAPOBOT IMEFUNGUKA KIKAMILIFU! 🤖✨\n\nMfuniko wa mzigo umejifungua. Tafadhali chukua mzigo wako kisha sukuma mfuniko chini kujilock.\n\nAhsante kwa kutumia Papo Hapo Autonomous Delivery!";
+        ? " PAPOBOT UNLOCKED SUCCESSFULLY! \n\nThe cargo compartment door has opened. Please retrieve your items and push the lid down to lock.\n\nThank you for using Papo Hapo Autonomous Delivery!"
+        : " PAPOBOT IMEFUNGUKA KIKAMILIFU! \n\nMfuniko wa mzigo umejifungua. Tafadhali chukua mzigo wako kisha sukuma mfuniko chini kujilock.\n\nAhsante kwa kutumia Papo Hapo Autonomous Delivery!";
     }
 
     return session.language === 'en'
-      ? "⚠️ Incorrect PIN! Please enter the 4-digit PIN (Default: 4829) or send 0 to Cancel:"
-      : "⚠️ PIN Si Sahihi! Ingiza PIN ya tarakimu 4 (Default: 4829) au tuma 0 Kughairi:";
+      ? " Incorrect PIN! Please enter the 4-digit PIN (Default: 4829) or send 0 to Cancel:"
+      : " PIN Si Sahihi! Ingiza PIN ya tarakimu 4 (Default: 4829) au tuma 0 Kughairi:";
   }
   if (session.step === 'QUICK_REORDER_MENU') {
     if (cleanInput === '0') {
@@ -1128,10 +1147,10 @@ export async function handleSMSInput(
     }
 
     const reorderOptions: Record<string, any> = {
-      '1': { name: 'PapoRide Taxi (Mwenge ➡️ Posta)', amount: 4500, type: 'PapoRide', icon: '🚕' },
-      '2': { name: 'PapoFood - Papo Pizza (2x Burger)', amount: 12500, type: 'PapoFood', icon: '🍔' },
-      '3': { name: 'PapoSend Kifurushi (Kariakoo)', amount: 3500, type: 'PapoSend', icon: '📦' },
-      '4': { name: 'PapoBus Tiketi (DAR ➡️ MWANZA)', amount: 45000, type: 'PapoBus', icon: '🚌' },
+      '1': { name: 'PapoRide Taxi (Mwenge  Posta)', amount: 4500, type: 'PapoRide', icon: '' },
+      '2': { name: 'PapoFood - Papo Pizza (2x Burger)', amount: 12500, type: 'PapoFood', icon: '' },
+      '3': { name: 'PapoSend Kifurushi (Kariakoo)', amount: 3500, type: 'PapoSend', icon: '' },
+      '4': { name: 'PapoBus Tiketi (DAR  MWANZA)', amount: 45000, type: 'PapoBus', icon: '' },
     };
 
     const selected = reorderOptions[cleanInput];
@@ -1147,9 +1166,9 @@ export async function handleSMSInput(
     const isEn = session.language === 'en';
 
     if (isEn) {
-      return `🔁 CONFIRM QUICK RE-ORDER\n\nService: ${selected.icon} ${selected.name}\nAmount: TZS ${selected.amount.toLocaleString()}\nPayment: PapoWallet (Bal: TZS ${bal})\n\n1. Confirm & Re-Order Now ⚡\n0. Cancel`;
+      return ` CONFIRM QUICK RE-ORDER\n\nService: ${selected.icon} ${selected.name}\nAmount: TZS ${selected.amount.toLocaleString()}\nPayment: PapoWallet (Bal: TZS ${bal})\n\n1. Confirm & Re-Order Now \n0. Cancel`;
     }
-    return `🔁 THIBITISHA AGIZA TENA\n\nHuduma: ${selected.icon} ${selected.name}\nGharama: TZS ${selected.amount.toLocaleString()}\nMalipo: PapoWallet (Salio: TZS ${bal})\n\n1. Thibitisha & Agiza Sasa ⚡\n0. Ghairi`;
+    return ` THIBITISHA AGIZA TENA\n\nHuduma: ${selected.icon} ${selected.name}\nGharama: TZS ${selected.amount.toLocaleString()}\nMalipo: PapoWallet (Salio: TZS ${bal})\n\n1. Thibitisha & Agiza Sasa \n0. Ghairi`;
   }
 
   if (session.step === 'QUICK_REORDER_CONFIRM') {
@@ -1160,14 +1179,14 @@ export async function handleSMSInput(
     }
 
     if (cleanInput === '1') {
-      const item = session.reorderItem || { name: 'PapoFood - Papo Pizza', amount: 12500, icon: '🍔', type: 'PapoFood' };
+      const item = session.reorderItem || { name: 'PapoFood - Papo Pizza', amount: 12500, icon: '', type: 'PapoFood' };
       const cost = item.amount || 5000;
       const isEn = session.language === 'en';
 
       if ((session.walletBalance || 0) < cost) {
         return isEn
-          ? `⚠️ Insufficient PapoWallet balance (Bal: TZS ${(session.walletBalance || 0).toLocaleString()}, Required: TZS ${cost.toLocaleString()}). Please top up first.`
-          : `⚠️ Salio la PapoWallet halitoshi (Salio: TZS ${(session.walletBalance || 0).toLocaleString()}, Inatakiwa: TZS ${cost.toLocaleString()}). Tafadhali weka salio kwanza.`;
+          ? ` Insufficient PapoWallet balance (Bal: TZS ${(session.walletBalance || 0).toLocaleString()}, Required: TZS ${cost.toLocaleString()}). Please top up first.`
+          : ` Salio la PapoWallet halitoshi (Salio: TZS ${(session.walletBalance || 0).toLocaleString()}, Inatakiwa: TZS ${cost.toLocaleString()}). Tafadhali weka salio kwanza.`;
       }
 
       session.walletBalance = (session.walletBalance || 0) - cost;
@@ -1198,9 +1217,9 @@ export async function handleSMSInput(
       await saveSession(session, dbAdmin);
 
       if (isEn) {
-        return `🎉 RE-ORDER SUCCESSFUL! 🔁✨\n\nOrder Code: ${code}\nService: ${item.icon} ${item.name}\nAmount Paid: TZS ${cost.toLocaleString()} (PapoWallet)\n🎁 Earned +${pts} PapoPoints!\n\nVendor & Driver notified. Preparation started instantly!`;
+        return ` RE-ORDER SUCCESSFUL! \n\nOrder Code: ${code}\nService: ${item.icon} ${item.name}\nAmount Paid: TZS ${cost.toLocaleString()} (PapoWallet)\n Earned +${pts} PapoPoints!\n\nVendor & Driver notified. Preparation started instantly!`;
       }
-      return `🎉 AGIZO LAKO LIMETHIBITISHWA PAPO HAPO! 🔁✨\n\nMsimbo: ${code}\nHuduma: ${item.icon} ${item.name}\nKiasi Kilicholipwa: TZS ${cost.toLocaleString()} (PapoWallet)\n🎁 Umepata +${pts} PapoPoints!\n\nMuuzaji na Boda wamearifiwa na maandalizi yameanza mara moja!`;
+      return ` AGIZO LAKO LIMETHIBITISHWA PAPO HAPO! \n\nMsimbo: ${code}\nHuduma: ${item.icon} ${item.name}\nKiasi Kilicholipwa: TZS ${cost.toLocaleString()} (PapoWallet)\n Umepata +${pts} PapoPoints!\n\nMuuzaji na Boda wamearifiwa na maandalizi yameanza mara moja!`;
     }
 
     return session.language === 'en' ? "Send 1 to confirm or 0 to cancel." : "Tuma 1 kuthibitisha au 0 kughairi.";
@@ -1231,8 +1250,8 @@ export async function handleSMSInput(
       session.step = 'PAPOWALLET_TOPUP_AMOUNT';
       await saveSession(session, dbAdmin);
       return session.language === 'en'
-        ? "💳 TOP-UP PAPOWALLET\n\nEnter amount to deposit (e.g. 5000, 10000, 20000, 50000 TZS):\n\n0. Back"
-        : "💳 WEKA SALIO PAPOWALLET\n\nIngiza kiasi unachotaka kuweka (mf. 5000, 10000, 20000, 50000 TZS):\n\n0. Nyuma";
+        ? " TOP-UP PAPOWALLET\n\nEnter amount to deposit (e.g. 5000, 10000, 20000, 50000 TZS):\n\n0. Back"
+        : " WEKA SALIO PAPOWALLET\n\nIngiza kiasi unachotaka kuweka (mf. 5000, 10000, 20000, 50000 TZS):\n\n0. Nyuma";
     }
 
     if (cleanInput === '2') {
@@ -1242,36 +1261,36 @@ export async function handleSMSInput(
       const cashVal = points * 10;
       if (points <= 0) {
         return session.language === 'en'
-          ? "🎁 PAPOPOINTS REWARDS\n\nYou currently have 0 PapoPoints. Earn points automatically with every order placed on Papo Hapo!\n\n0. Back"
-          : "🎁 POINTI ZA ZAWADI\n\nHuna PapoPoints za kutosha sasa (Points: 0). Pata pointi zaidi kila unapoagiza huduma za Papo Hapo!\n\n0. Nyuma";
+          ? " PAPOPOINTS REWARDS\n\nYou currently have 0 PapoPoints. Earn points automatically with every order placed on Papo Hapo!\n\n0. Back"
+          : " POINTI ZA ZAWADI\n\nHuna PapoPoints za kutosha sasa (Points: 0). Pata pointi zaidi kila unapoagiza huduma za Papo Hapo!\n\n0. Nyuma";
       }
       return session.language === 'en'
-        ? `🎁 CONVERT PAPOPOINTS TO CASH\n\nYou have ${points} PTS worth TZS ${cashVal.toLocaleString()}.\n\nSend 1 to confirm conversion into PapoWallet Cash balance.\n0. Cancel`
-        : `🎁 BADILI POINTI KUWA CASH\n\nUna PapoPoints ${points} zenye thamani ya TZS ${cashVal.toLocaleString()}.\n\nTuma 1 kuthibitisha kubadili kuwa salio la PapoWallet.\n0. Ghairi`;
+        ? ` CONVERT PAPOPOINTS TO CASH\n\nYou have ${points} PTS worth TZS ${cashVal.toLocaleString()}.\n\nSend 1 to confirm conversion into PapoWallet Cash balance.\n0. Cancel`
+        : ` BADILI POINTI KUWA CASH\n\nUna PapoPoints ${points} zenye thamani ya TZS ${cashVal.toLocaleString()}.\n\nTuma 1 kuthibitisha kubadili kuwa salio la PapoWallet.\n0. Ghairi`;
     }
 
     if (cleanInput === '3') {
       session.step = 'PAPOWALLET_ENTER_PROMO';
       await saveSession(session, dbAdmin);
       return session.language === 'en'
-        ? "🎟️ ENTER PROMO CODE\n\nEnter your promotional code (e.g. PAPO10, KARIBU, PAPO50):\n\n0. Back"
-        : "🎟️ INGIZA PROMO CODE / PUNGUZO\n\nIngiza msimbo wa punguzo (mfano: PAPO10, KARIBU, PAPO50):\n\n0. Nyuma";
+        ? " ENTER PROMO CODE\n\nEnter your promotional code (e.g. PAPO10, KARIBU, PAPO50):\n\n0. Back"
+        : " INGIZA PROMO CODE / PUNGUZO\n\nIngiza msimbo wa punguzo (mfano: PAPO10, KARIBU, PAPO50):\n\n0. Nyuma";
     }
 
     if (cleanInput === '4') {
       session.step = 'PAPOWALLET_SPLIT_PHONE';
       await saveSession(session, dbAdmin);
       return session.language === 'en'
-        ? "💸 SPLIT FARE 50/50 (GAWANA NAULI)\n\nEnter friend's phone number to split ride or order fare with (e.g. 0712345678):\n\n0. Back"
-        : "💸 GAWANA NAULI 50/50 (Split Fare)\n\nIngiza namba ya simu ya mwenzako unayetaka kugawana naye nauli (mfano 0712345678):\n\n0. Nyuma";
+        ? " SPLIT FARE 50/50 (GAWANA NAULI)\n\nEnter friend's phone number to split ride or order fare with (e.g. 0712345678):\n\n0. Back"
+        : " GAWANA NAULI 50/50 (Split Fare)\n\nIngiza namba ya simu ya mwenzako unayetaka kugawana naye nauli (mfano 0712345678):\n\n0. Nyuma";
     }
 
     if (cleanInput === '5') {
       session.step = 'PAPOWALLET_PAY_FRIEND_PHONE';
       await saveSession(session, dbAdmin);
       return session.language === 'en'
-        ? "🎁 PAY FOR FRIEND / RELATIVE (LIPIA MWINGINE)\n\nEnter phone number of recipient you want to pay for (e.g. 0755123456):\n\n0. Back"
-        : "🎁 LIPIA MWEZI / RAFIKI (Lipia Mwingine)\n\nIngiza namba ya simu ya mtu unayemlipia huduma (mfano 0755123456):\n\n0. Nyuma";
+        ? " PAY FOR FRIEND / RELATIVE (LIPIA MWINGINE)\n\nEnter phone number of recipient you want to pay for (e.g. 0755123456):\n\n0. Back"
+        : " LIPIA MWEZI / RAFIKI (Lipia Mwingine)\n\nIngiza namba ya simu ya mtu unayemlipia huduma (mfano 0755123456):\n\n0. Nyuma";
     }
 
     if (cleanInput === '6') {
@@ -1279,8 +1298,8 @@ export async function handleSMSInput(
       await saveSession(session, dbAdmin);
       const bal = (session.walletBalance || 0).toLocaleString();
       return session.language === 'en'
-        ? `📜 RECENT WALLET TRANSACTIONS\n\n1. 🟢 Top-Up M-Pesa: +TZS 10,000 (Today)\n2. 🔴 PapoFood Order: -TZS 8,500 (Yesterday)\n3. 💸 Split Fare Paid: -TZS 2,500 (Yesterday)\n4. 🎁 Converted Points: +TZS 1,200\n\nCurrent Balance: TZS ${bal}\n\n0. Back`
-        : `📜 MIAMALA YA HIVI KARIBUNI\n\n1. 🟢 Top-Up M-Pesa: +TZS 10,000 (Leo)\n2. 🔴 Agizo la PapoFood: -TZS 8,500 (Jana)\n3. 💸 Gawana Nauli: -TZS 2,500 (Jana)\n4. 🎁 Badili Points: +TZS 1,200\n\nSalio la Sasa: TZS ${bal}\n\n0. Nyuma`;
+        ? ` RECENT WALLET TRANSACTIONS\n\n1. Top-Up M-Pesa: +TZS 10,000 (Today)\n2. PapoFood Order: -TZS 8,500 (Yesterday)\n3. Split Fare Paid: -TZS 2,500 (Yesterday)\n4. Converted Points: +TZS 1,200\n\nCurrent Balance: TZS ${bal}\n\n0. Back`
+        : ` MIAMALA YA HIVI KARIBUNI\n\n1. Top-Up M-Pesa: +TZS 10,000 (Leo)\n2. Agizo la PapoFood: -TZS 8,500 (Jana)\n3. Gawana Nauli: -TZS 2,500 (Jana)\n4. Badili Points: +TZS 1,200\n\nSalio la Sasa: TZS ${bal}\n\n0. Nyuma`;
     }
 
     return getPapoWalletText(session);
@@ -1298,8 +1317,8 @@ export async function handleSMSInput(
     session.step = 'PAPOWALLET_SPLIT_AMOUNT';
     await saveSession(session, dbAdmin);
     return session.language === 'en'
-      ? `💸 SPLIT FARE 50/50 WITH ${cleanInput}\n\nEnter total ride/order amount in TZS (e.g. 5000):\n\n0. Cancel`
-      : `💸 GAWANA NAULI 50/50 NA ${cleanInput}\n\nIngiza jumla ya gharama za nauli/agizo kwa TZS (mfano 5000):\n\n0. Ghairi`;
+      ? ` SPLIT FARE 50/50 WITH ${cleanInput}\n\nEnter total ride/order amount in TZS (e.g. 5000):\n\n0. Cancel`
+      : ` GAWANA NAULI 50/50 NA ${cleanInput}\n\nIngiza jumla ya gharama za nauli/agizo kwa TZS (mfano 5000):\n\n0. Ghairi`;
   }
 
   if (session.step === 'PAPOWALLET_SPLIT_AMOUNT') {
@@ -1311,7 +1330,7 @@ export async function handleSMSInput(
 
     const totalAmt = parseInt(cleanInput.replace(/\D/g, ''), 10);
     if (isNaN(totalAmt) || totalAmt < 500) {
-      return session.language === 'en' ? "⚠️ Invalid amount. Enter total fare (e.g. 5000):" : "⚠️ Kiasi si sahihi. Ingiza jumla ya nauli (mfano 5000):";
+      return session.language === 'en' ? " Invalid amount. Enter total fare (e.g. 5000):" : " Kiasi si sahihi. Ingiza jumla ya nauli (mfano 5000):";
     }
 
     const userShare = Math.round(totalAmt / 2);
@@ -1320,8 +1339,8 @@ export async function handleSMSInput(
 
     if ((session.walletBalance || 0) < userShare) {
       return isEn
-        ? `⚠️ Insufficient balance for your 50% share (TZS ${userShare.toLocaleString()}). Wallet Bal: TZS ${(session.walletBalance || 0).toLocaleString()}`
-        : `⚠️ Salio lako halitoshi kwa sehemu yako 50% (TZS ${userShare.toLocaleString()}). Salio PapoWallet: TZS ${(session.walletBalance || 0).toLocaleString()}`;
+        ? ` Insufficient balance for your 50% share (TZS ${userShare.toLocaleString()}). Wallet Bal: TZS ${(session.walletBalance || 0).toLocaleString()}`
+        : ` Salio lako halitoshi kwa sehemu yako 50% (TZS ${userShare.toLocaleString()}). Salio PapoWallet: TZS ${(session.walletBalance || 0).toLocaleString()}`;
     }
 
     session.walletBalance = (session.walletBalance || 0) - userShare;
@@ -1329,9 +1348,9 @@ export async function handleSMSInput(
     await saveSession(session, dbAdmin);
 
     if (isEn) {
-      return `💸 SPLIT FARE DISPATCHED SUCCESSFULLY! ⚡\n\nTotal Fare: TZS ${totalAmt.toLocaleString()}\nYour 50% Share Paid: TZS ${userShare.toLocaleString()}\nPartner (${friendPhone}): Payment request sent via SMS/USSD!\nNew Wallet Balance: TZS ${session.walletBalance.toLocaleString()}\n\n0. Main Menu`;
+      return ` SPLIT FARE DISPATCHED SUCCESSFULLY! \n\nTotal Fare: TZS ${totalAmt.toLocaleString()}\nYour 50% Share Paid: TZS ${userShare.toLocaleString()}\nPartner (${friendPhone}): Payment request sent via SMS/USSD!\nNew Wallet Balance: TZS ${session.walletBalance.toLocaleString()}\n\n0. Main Menu`;
     }
-    return `💸 OMBI LA GAWANA NAULI LIMETUMWA! ⚡\n\nJumla ya Nauli: TZS ${totalAmt.toLocaleString()}\nSehemu yako 50% Imelipwa: TZS ${userShare.toLocaleString()}\nMwenzako (${friendPhone}): Ombi la TZS ${userShare.toLocaleString()} limetumwa kwa USSD/SMS!\nSalio Jipya PapoWallet: TZS ${session.walletBalance.toLocaleString()}\n\n0. Rudi Mwanzo`;
+    return ` OMBI LA GAWANA NAULI LIMETUMWA! \n\nJumla ya Nauli: TZS ${totalAmt.toLocaleString()}\nSehemu yako 50% Imelipwa: TZS ${userShare.toLocaleString()}\nMwenzako (${friendPhone}): Ombi la TZS ${userShare.toLocaleString()} limetumwa kwa USSD/SMS!\nSalio Jipya PapoWallet: TZS ${session.walletBalance.toLocaleString()}\n\n0. Rudi Mwanzo`;
   }
 
   // --- PAY FOR FRIEND HANDLERS ---
@@ -1346,8 +1365,8 @@ export async function handleSMSInput(
     session.step = 'PAPOWALLET_PAY_FRIEND_AMOUNT';
     await saveSession(session, dbAdmin);
     return session.language === 'en'
-      ? `🎁 PAY FOR FRIEND (${cleanInput})\n\nEnter amount you wish to pay for them in TZS (e.g. 4500):\n\n0. Cancel`
-      : `🎁 LIPIA RAFIKI / MWEZI (${cleanInput})\n\nIngiza kiasi unachotaka kumlipia kwa TZS (mfano 4500):\n\n0. Ghairi`;
+      ? ` PAY FOR FRIEND (${cleanInput})\n\nEnter amount you wish to pay for them in TZS (e.g. 4500):\n\n0. Cancel`
+      : ` LIPIA RAFIKI / MWEZI (${cleanInput})\n\nIngiza kiasi unachotaka kumlipia kwa TZS (mfano 4500):\n\n0. Ghairi`;
   }
 
   if (session.step === 'PAPOWALLET_PAY_FRIEND_AMOUNT') {
@@ -1359,7 +1378,7 @@ export async function handleSMSInput(
 
     const amt = parseInt(cleanInput.replace(/\D/g, ''), 10);
     if (isNaN(amt) || amt < 500) {
-      return session.language === 'en' ? "⚠️ Invalid amount. Enter amount (e.g. 4500):" : "⚠️ Kiasi si sahihi. Ingiza kiasi (mfano 4500):";
+      return session.language === 'en' ? " Invalid amount. Enter amount (e.g. 4500):" : " Kiasi si sahihi. Ingiza kiasi (mfano 4500):";
     }
 
     const recipient = session.splitFarePhone || '0755123456';
@@ -1367,8 +1386,8 @@ export async function handleSMSInput(
 
     if ((session.walletBalance || 0) < amt) {
       return isEn
-        ? `⚠️ Insufficient PapoWallet balance (Bal: TZS ${(session.walletBalance || 0).toLocaleString()}, Required: TZS ${amt.toLocaleString()})`
-        : `⚠️ Salio halitoshi kwenye PapoWallet (Salio: TZS ${(session.walletBalance || 0).toLocaleString()}, Inatakiwa: TZS ${amt.toLocaleString()})`;
+        ? ` Insufficient PapoWallet balance (Bal: TZS ${(session.walletBalance || 0).toLocaleString()}, Required: TZS ${amt.toLocaleString()})`
+        : ` Salio halitoshi kwenye PapoWallet (Salio: TZS ${(session.walletBalance || 0).toLocaleString()}, Inatakiwa: TZS ${amt.toLocaleString()})`;
     }
 
     session.walletBalance = (session.walletBalance || 0) - amt;
@@ -1376,9 +1395,9 @@ export async function handleSMSInput(
     await saveSession(session, dbAdmin);
 
     if (isEn) {
-      return `🎉 PAYMENT TO FRIEND SUCCESSFUL! 🎁\n\nPaid TZS ${amt.toLocaleString()} for ${recipient} via PapoWallet.\nSMS notification sent to ${recipient}.\nYour New Balance: TZS ${session.walletBalance.toLocaleString()}\n\n0. Main Menu`;
+      return ` PAYMENT TO FRIEND SUCCESSFUL! \n\nPaid TZS ${amt.toLocaleString()} for ${recipient} via PapoWallet.\nSMS notification sent to ${recipient}.\nYour New Balance: TZS ${session.walletBalance.toLocaleString()}\n\n0. Main Menu`;
     }
-    return `🎉 MALIPO KWA RAFIKI YAMEKAMILIKA! 🎁\n\nUmemlipia ${recipient} TZS ${amt.toLocaleString()} kutoka PapoWallet.\nUjumbe wa SMS umetumwa kwa ${recipient}.\nSalio Lako Jipya: TZS ${session.walletBalance.toLocaleString()}\n\n0. Rudi Mwanzo`;
+    return ` MALIPO KWA RAFIKI YAMEKAMILIKA! \n\nUmemlipia ${recipient} TZS ${amt.toLocaleString()} kutoka PapoWallet.\nUjumbe wa SMS umetumwa kwa ${recipient}.\nSalio Lako Jipya: TZS ${session.walletBalance.toLocaleString()}\n\n0. Rudi Mwanzo`;
   }
 
   // --- MODULE: SAVED LOCATIONS (MAENEO PENDWA) ---
@@ -1393,24 +1412,24 @@ export async function handleSMSInput(
       session.step = 'EDIT_HOME_LOCATION';
       await saveSession(session, dbAdmin);
       return session.language === 'en'
-        ? "🏠 EDIT HOME ADDRESS\n\nEnter new home address (e.g. Kinondoni Studio, Dar es Salaam):\n\n0. Cancel"
-        : "🏠 HARIRI ANWANI YA NYUMBANI\n\nIngiza anwani mpya ya nyumbani (mfano Kinondoni Studio, Dar es Salaam):\n\n0. Ghairi";
+        ? " EDIT HOME ADDRESS\n\nEnter new home address (e.g. Kinondoni Studio, Dar es Salaam):\n\n0. Cancel"
+        : " HARIRI ANWANI YA NYUMBANI\n\nIngiza anwani mpya ya nyumbani (mfano Kinondoni Studio, Dar es Salaam):\n\n0. Ghairi";
     }
 
     if (cleanInput === '2' || cleanInput === '5' || lowerInput.includes('ofisini') || lowerInput.includes('work')) {
       session.step = 'EDIT_WORK_LOCATION';
       await saveSession(session, dbAdmin);
       return session.language === 'en'
-        ? "🏢 EDIT WORK ADDRESS\n\nEnter new work address (e.g. Victoria Tower, Bagamoyo Road):\n\n0. Cancel"
-        : "🏢 HARIRI ANWANI YA OFISINI\n\nIngiza anwani mpya ya ofisini (mfano Victoria Tower, Bagamoyo Road):\n\n0. Ghairi";
+        ? " EDIT WORK ADDRESS\n\nEnter new work address (e.g. Victoria Tower, Bagamoyo Road):\n\n0. Cancel"
+        : " HARIRI ANWANI YA OFISINI\n\nIngiza anwani mpya ya ofisini (mfano Victoria Tower, Bagamoyo Road):\n\n0. Ghairi";
     }
 
     if (cleanInput === '3' || cleanInput === '6' || lowerInput.includes('lingine') || lowerInput.includes('custom') || lowerInput.includes('weka')) {
       session.step = 'EDIT_CUSTOM_LOCATION';
       await saveSession(session, dbAdmin);
       return session.language === 'en'
-        ? "🏪 ADD CUSTOM LOCATION\n\nEnter place name & address (e.g. Soko la Kariakoo):\n\n0. Cancel"
-        : "🏪 WEKA ENEO LINGINE PENDWA\n\nIngiza jina na anwani ya eneo (mfano Soko la Kariakoo):\n\n0. Ghairi";
+        ? " ADD CUSTOM LOCATION\n\nEnter place name & address (e.g. Soko la Kariakoo):\n\n0. Cancel"
+        : " WEKA ENEO LINGINE PENDWA\n\nIngiza jina na anwani ya eneo (mfano Soko la Kariakoo):\n\n0. Ghairi";
     }
 
     return getSavedLocationsText(session);
@@ -1429,7 +1448,7 @@ export async function handleSMSInput(
     await saveSession(session, dbAdmin);
 
     const isEn = session.language === 'en';
-    const msg = isEn ? "✅ Home address updated successfully!\n\n" : "✅ Anwani ya Nyumbani imehifadhiwa vizuri!\n\n";
+    const msg = isEn ? " Home address updated successfully!\n\n" : " Anwani ya Nyumbani imehifadhiwa vizuri!\n\n";
     return msg + getSavedLocationsText(session);
   }
 
@@ -1446,7 +1465,7 @@ export async function handleSMSInput(
     await saveSession(session, dbAdmin);
 
     const isEn = session.language === 'en';
-    const msg = isEn ? "✅ Work address updated successfully!\n\n" : "✅ Anwani ya Ofisini imehifadhiwa vizuri!\n\n";
+    const msg = isEn ? " Work address updated successfully!\n\n" : " Anwani ya Ofisini imehifadhiwa vizuri!\n\n";
     return msg + getSavedLocationsText(session);
   }
 
@@ -1463,7 +1482,7 @@ export async function handleSMSInput(
     await saveSession(session, dbAdmin);
 
     const isEn = session.language === 'en';
-    const msg = isEn ? "✅ Custom favorite location saved!\n\n" : "✅ Eneo lingine pendwa limehifadhiwa!\n\n";
+    const msg = isEn ? " Custom favorite location saved!\n\n" : " Eneo lingine pendwa limehifadhiwa!\n\n";
     return msg + getSavedLocationsText(session);
   }
 
@@ -1492,8 +1511,8 @@ export async function handleSMSInput(
     const amount = parseInt(cleanInput.replace(/\D/g, ''), 10);
     if (isNaN(amount) || amount < 1000) {
       return session.language === 'en'
-        ? "⚠️ Invalid amount! Please enter at least 1,000 TZS (e.g. 5000):"
-        : "⚠️ Kiasi si sahihi! Ingiza angalau TZS 1,000 (mf. 5000):";
+        ? " Invalid amount! Please enter at least 1,000 TZS (e.g. 5000):"
+        : " Kiasi si sahihi! Ingiza angalau TZS 1,000 (mf. 5000):";
     }
 
     session.deliveryFee = amount; // store temp topup amount
@@ -1501,8 +1520,8 @@ export async function handleSMSInput(
     await saveSession(session, dbAdmin);
 
     return session.language === 'en'
-      ? `💳 Deposit TZS ${amount.toLocaleString()}\n\nSelect Mobile Payment Network:\n1. M-Pesa\n2. Tigo Pesa\n3. Airtel Money\n4. HaloPesa\n\n0. Cancel`
-      : `💳 Weka Salio TZS ${amount.toLocaleString()}\n\nChagua Mtandao wa Malipo:\n1. M-Pesa\n2. Tigo Pesa\n3. Airtel Money\n4. HaloPesa\n\n0. Ghairi`;
+      ? ` Deposit TZS ${amount.toLocaleString()}\n\nSelect Mobile Payment Network:\n1. M-Pesa\n2. Tigo Pesa\n3. Airtel Money\n4. HaloPesa\n\n0. Cancel`
+      : ` Weka Salio TZS ${amount.toLocaleString()}\n\nChagua Mtandao wa Malipo:\n1. M-Pesa\n2. Tigo Pesa\n3. Airtel Money\n4. HaloPesa\n\n0. Ghairi`;
   }
 
   if (session.step === 'PAPOWALLET_TOPUP_PROVIDER') {
@@ -1524,8 +1543,8 @@ export async function handleSMSInput(
     const isEn = session.language === 'en';
 
     return isEn
-      ? `📲 [STK PUSH - ${network.toUpperCase()}]\nPay TZS ${topupAmt.toLocaleString()} (${userPhone}).\n🔑 Enter ${network} 4-digit PIN:\n0. Cancel`
-      : `📲 [STK PUSH - ${network.toUpperCase()}]\nMalipo TZS ${topupAmt.toLocaleString()} (${userPhone}).\n🔑 Ingiza PIN ya ${network}:\n0. Ghairi`;
+      ? ` [STK PUSH - ${network.toUpperCase()}]\nPay TZS ${topupAmt.toLocaleString()} (${userPhone}).\n Enter ${network} 4-digit PIN:\n0. Cancel`
+      : ` [STK PUSH - ${network.toUpperCase()}]\nMalipo TZS ${topupAmt.toLocaleString()} (${userPhone}).\n Ingiza PIN ya ${network}:\n0. Ghairi`;
   }
 
   if (session.step === 'PAPOWALLET_STK_PIN_PROMPT') {
@@ -1548,8 +1567,8 @@ export async function handleSMSInput(
     const isEn = session.language === 'en';
 
     return isEn
-      ? `✅ STK PUSH DONE! ⚡\n${network} payment TZS ${topupAmt.toLocaleString()} confirmed.\nNew Balance: TZS ${newBal} (+50 PTS)\nSend 0 or HI to return to menu.`
-      : `✅ STK PUSH IMEKAMILIKA! ⚡\nMalipo ya ${network} TZS ${topupAmt.toLocaleString()} yamethibitishwa.\nSalio Jipya: TZS ${newBal} (+50 PTS)\nTuma 0 au HI kurudi mwanzo.`;
+      ? ` STK PUSH DONE! \n${network} payment TZS ${topupAmt.toLocaleString()} confirmed.\nNew Balance: TZS ${newBal} (+50 PTS)\nSend 0 or HI to return to menu.`
+      : ` STK PUSH IMEKAMILIKA! \nMalipo ya ${network} TZS ${topupAmt.toLocaleString()} yamethibitishwa.\nSalio Jipya: TZS ${newBal} (+50 PTS)\nTuma 0 au HI kurudi mwanzo.`;
   }
 
   if (session.step === 'PAPOWALLET_CONVERT_POINTS') {
@@ -1569,8 +1588,8 @@ export async function handleSMSInput(
       await saveSession(session, dbAdmin);
 
       return session.language === 'en'
-        ? `🎉 Success! Converted ${pts} PapoPoints into TZS ${cash.toLocaleString()} cash in your PapoWallet!\n\nNew Wallet Balance: TZS ${session.walletBalance.toLocaleString()}\n\nSend 0 to return to main menu.`
-        : `🎉 Hongera! Umefanikiwa kubadili PapoPoints ${pts} kuwa TZS ${cash.toLocaleString()} cash kwenye PapoWallet!\n\nSalio Lako Mpya: TZS ${session.walletBalance.toLocaleString()}\n\nTuma 0 kurudi mwanzo.`;
+        ? ` Success! Converted ${pts} PapoPoints into TZS ${cash.toLocaleString()} cash in your PapoWallet!\n\nNew Wallet Balance: TZS ${session.walletBalance.toLocaleString()}\n\nSend 0 to return to main menu.`
+        : ` Hongera! Umefanikiwa kubadili PapoPoints ${pts} kuwa TZS ${cash.toLocaleString()} cash kwenye PapoWallet!\n\nSalio Lako Mpya: TZS ${session.walletBalance.toLocaleString()}\n\nTuma 0 kurudi mwanzo.`;
     }
 
     return session.language === 'en' ? "Send 1 to confirm or 0 to cancel." : "Tuma 1 kuthibitisha au 0 kughairi.";
@@ -1595,8 +1614,8 @@ export async function handleSMSInput(
     await saveSession(session, dbAdmin);
 
     return session.language === 'en'
-      ? `✅ Promo Code '${code}' (${discText}) applied successfully!\n\nYour discount will automatically apply to your next PapoRide, PapoFood, PapoSend, or PapoBus order.\n\nSend 0 to return to main menu.`
-      : `✅ Promo Code '${code}' (${discText}) imewezeshwa kwa mafanikio!\n\nPunguzo litakatwa moja kwa moja kwenye agizo lako lijalo la PapoRide, PapoFood, PapoSend au PapoBus.\n\nTuma 0 kurudi mwanzo.`;
+      ? ` Promo Code '${code}' (${discText}) applied successfully!\n\nYour discount will automatically apply to your next PapoRide, PapoFood, PapoSend, or PapoBus order.\n\nSend 0 to return to main menu.`
+      : ` Promo Code '${code}' (${discText}) imewezeshwa kwa mafanikio!\n\nPunguzo litakatwa moja kwa moja kwenye agizo lako lijalo la PapoRide, PapoFood, PapoSend au PapoBus.\n\nTuma 0 kurudi mwanzo.`;
   }
 
   if (session.step === 'PAPOWALLET_HISTORY') {
@@ -1627,7 +1646,7 @@ export async function handleSMSInput(
       await saveSession(session, dbAdmin);
       return getWelcomeMessage(session);
     }
-    return "🌐 Please select 1 for Kiswahili or 2 for English (0 to go back):";
+    return " Please select 1 for Kiswahili or 2 for English (0 to go back):";
   }
 
   // 1. TAXI SUBMENU & QUICK BOOKING
@@ -1635,21 +1654,21 @@ export async function handleSMSInput(
     if (cleanInput === '1') {
       session.step = 'TAXI_QUICK_DESTINATION';
       await saveSession(session, dbAdmin);
-      return "⚡ AGIZA TAXI HARAKA:\n\nChagua eneo unalokwenda:\n1. Posta Mpya (City Center)\n2. Kariakoo Sokoni\n3. Mwenge Stand\n4. Ubungo Bus Terminal\n5. Julius Nyerere Airport (JNIA)\n6. Andika Njia Yako Moja kwa Moja";
+      return " AGIZA TAXI HARAKA:\n\nChagua eneo unalokwenda:\n1. Posta Mpya (City Center)\n2. Kariakoo Sokoni\n3. Mwenge Stand\n4. Ubungo Bus Terminal\n5. Julius Nyerere Airport (JNIA)\n6. Andika Njia Yako Moja kwa Moja";
     } else if (cleanInput === '2') {
       session.step = 'TAXI_FARE_ESTIMATE_INPUT';
       await saveSession(session, dbAdmin);
-      return "🧮 KADIRIO LA NAULI (Fare Estimate):\n\nTafadhali tuma njia unayotaka kukadiria gharama zake (Kutoka - Kwenda).\nMfano:\nMwenge - Posta\nau Airport - Mikocheni";
+      return " KADIRIO LA NAULI (Fare Estimate):\n\nTafadhali tuma njia unayotaka kukadiria gharama zake (Kutoka - Kwenda).\nMfano:\nMwenge - Posta\nau Airport - Mikocheni";
     } else if (cleanInput === '3') {
       session.step = 'TAXI_ROUTE';
       await saveSession(session, dbAdmin);
-      return "🚕 MFUMO WA TAXI:\n\nTafadhali tuma njia unayotaka kusafiri (Kutoka - Kwenda).\nMfano: POSTA - KINONDONI";
+      return " MFUMO WA TAXI:\n\nTafadhali tuma njia unayotaka kusafiri (Kutoka - Kwenda).\nMfano: POSTA - KINONDONI";
     } else if (cleanInput === '0') {
       session.step = 'SELECT_SERVICE';
       await saveSession(session, dbAdmin);
       return getWelcomeMessage(session);
     } else {
-      return "⚠️ Chaguo si sahihi. Tafadhali tuma:\n1. Agiza Taxi kwa Haraka\n2. Kadirio la Nauli\n3. Andika Njia Yako";
+      return " Chaguo si sahihi. Tafadhali tuma:\n1. Agiza Taxi kwa Haraka\n2. Kadirio la Nauli\n3. Andika Njia Yako";
     }
   }
 
@@ -1665,7 +1684,7 @@ export async function handleSMSInput(
     if (cleanInput === '6') {
       session.step = 'TAXI_ROUTE';
       await saveSession(session, dbAdmin);
-      return "🚕 Tafadhali tuma njia yako (Mfano: Mwenge - Posta):";
+      return " Tafadhali tuma njia yako (Mfano: Mwenge - Posta):";
     }
 
     const selectedDest = quickDestinations[cleanInput];
@@ -1691,9 +1710,9 @@ export async function handleSMSInput(
       session.step = 'TAXI_VEHICLE_SELECT';
       await saveSession(session, dbAdmin);
 
-      return `🚕 *AINA YA USAFIRI*\n\nNjia: *${pLoc.name}* kuelekea *${dLoc.name}*\n\nTafadhali chagua usafiri:\n\n1. Boda Boda 🏍️ (Haraka & Rahisi)\n2. Bajaji 🛺 (Nafuu & Salama)\n3. Gari la Teksi 🚕 (Starehe & Usalama)`;
+      return ` *AINA YA USAFIRI*\n\nNjia: *${pLoc.name}* kuelekea *${dLoc.name}*\n\nTafadhali chagua usafiri:\n\n1. Boda Boda  (Haraka & Rahisi)\n2. Bajaji  (Nafuu & Salama)\n3. Gari la Teksi  (Starehe & Usalama)`;
     } else {
-      return "⚠️ Chaguo si sahihi. Tafadhali chagua namba 1 mpaka 6:";
+      return " Chaguo si sahihi. Tafadhali chagua namba 1 mpaka 6:";
     }
   }
 
@@ -1772,14 +1791,14 @@ export async function handleSMSInput(
 
     const isEn = session.language === 'en';
     if (isEn) {
-      return `🧮 FARE ESTIMATE\n\n📍 From: ${pLoc.name}\n🏁 To: ${dLoc.name}\n📏 Distance: ${distKm} km (~${durMin} mins)\n\n💰 ESTIMATED FARES:\n1. Bodaboda 🏍️: TZS ${bodaFare.toLocaleString()}\n2. Bajaji 🛺: TZS ${bajajFare.toLocaleString()}\n3. Taxi Car 🚕: TZS ${carFare.toLocaleString()}\n\nReply with option number (1-3) to book now, or 0 to Back.`;
+      return ` FARE ESTIMATE\n\n From: ${pLoc.name}\n To: ${dLoc.name}\n Distance: ${distKm} km (~${durMin} mins)\n\n ESTIMATED FARES:\n1. Bodaboda : TZS ${bodaFare.toLocaleString()}\n2. Bajaji : TZS ${bajajFare.toLocaleString()}\n3. Taxi Car : TZS ${carFare.toLocaleString()}\n\nReply with option number (1-3) to book now, or 0 to Back.`;
     }
 
-    let reply = `🧮 KADIRIO LA NAULI\n`;
-    reply += `Njia: *${pLoc.name}* ➔ *${dLoc.name}* (${distKm}km, ~${durMin}dk)\n\n`;
-    reply += `1. Boda 🏍️: *TZS ${bodaFare.toLocaleString()}/=*\n`;
-    reply += `2. Bajaji 🛺: *TZS ${bajajFare.toLocaleString()}/=*\n`;
-    reply += `3. Teksi 🚕: *TZS ${carFare.toLocaleString()}/=*\n\n`;
+    let reply = ` KADIRIO LA NAULI\n`;
+    reply += `Njia: *${pLoc.name}*  *${dLoc.name}* (${distKm}km, ~${durMin}dk)\n\n`;
+    reply += `1. Boda : *TZS ${bodaFare.toLocaleString()}/=*\n`;
+    reply += `2. Bajaji : *TZS ${bajajFare.toLocaleString()}/=*\n`;
+    reply += `3. Teksi : *TZS ${carFare.toLocaleString()}/=*\n\n`;
     reply += `Tuma 1-3 kuagiza, au 0 kurudi.`;
     return reply;
   }
@@ -1798,18 +1817,18 @@ export async function handleSMSInput(
 
     if (cleanInput === '1') {
       selectedType = 'bike';
-      typeName = 'Boda Boda 🏍️';
+      typeName = 'Boda Boda ';
       fare = calcData?.bodaFare || 2000;
     } else if (cleanInput === '2') {
       selectedType = 'bajaj';
-      typeName = 'Bajaji 🛺';
+      typeName = 'Bajaji ';
       fare = calcData?.bajajFare || 3500;
     } else if (cleanInput === '3') {
       selectedType = 'mini';
-      typeName = 'Gari la Teksi 🚕';
+      typeName = 'Gari la Teksi ';
       fare = calcData?.carFare || 7000;
     } else {
-      return "⚠️ Chaguo si sahihi. Tafadhali tuma 1 (Boda), 2 (Bajaji), 3 (Gari), au 0 (Rudi Mwanzo).";
+      return " Chaguo si sahihi. Tafadhali tuma 1 (Boda), 2 (Bajaji), 3 (Gari), au 0 (Rudi Mwanzo).";
     }
 
     session.optionsList = [{
@@ -1828,11 +1847,11 @@ export async function handleSMSInput(
     if (session.passengerName && session.passengerName.trim() && session.passengerPhone && session.passengerPhone.trim()) {
       session.step = 'TAXI_ASK_PREVIOUS_DETAILS';
       await saveSession(session, dbAdmin);
-      return `👤 *TAARIFA ZA MSAFIRI*\n\nTumepata taarifa za msafiri ulizowahi kutumia awali:\n- Jina: *${session.passengerName}*\n- Namba: *${session.passengerPhone}*\n\n1. Ndio, Tumia hizi\n2. Hapana, Weka mpya`;
+      return ` *TAARIFA ZA MSAFIRI*\n\nTumepata taarifa za msafiri ulizowahi kutumia awali:\n- Jina: *${session.passengerName}*\n- Namba: *${session.passengerPhone}*\n\n1. Ndio, Tumia hizi\n2. Hapana, Weka mpya`;
     } else {
       session.step = 'TAXI_PASSENGER_NAME';
       await saveSession(session, dbAdmin);
-      return `👤 *TAARIFA ZA MSAFIRI (Hatua ya 1/2)*\n\nTafadhali andika jina lako au la msafiri (Mfano: Juma Kiboko):`;
+      return ` *TAARIFA ZA MSAFIRI (Hatua ya 1/2)*\n\nTafadhali andika jina lako au la msafiri (Mfano: Juma Kiboko):`;
     }
   }
 
@@ -1847,23 +1866,23 @@ export async function handleSMSInput(
     if (cleanInput === '1' || lowerInput.includes('tuma') || lowerInput.includes('send')) {
       session.step = 'PAPOSEND_PICKUP_DEST';
       await saveSession(session, dbAdmin);
-      return "🚚 PapoSend - TUMA MZIGO\n\nIngiza eneo la kuchukulia na kufikisha mzigo.\nMfano:\nKariakoo - Sinza\nau Mwenge - Posta";
+      return " PapoSend - TUMA MZIGO\n\nIngiza eneo la kuchukulia na kufikisha mzigo.\nMfano:\nKariakoo - Sinza\nau Mwenge - Posta";
     }
 
     if (cleanInput === '2' || lowerInput.includes('fuatilia') || lowerInput.includes('track')) {
       session.step = 'PARCEL_TRACK_INPUT';
       await saveSession(session, dbAdmin);
-      return "🔍 PapoSend - FUATILIA MZIGO\n\nIngiza Namba ya Mzigo (mf. PS-82910) au Simu ya Mtumaji/Mpokeaji:";
+      return " PapoSend - FUATILIA MZIGO\n\nIngiza Namba ya Mzigo (mf. PS-82910) au Simu ya Mtumaji/Mpokeaji:";
     }
 
-    return "⚠️ Chaguo si sahihi!\nTuma 1 Kutuma Mzigo, 2 Kufuatilia Mzigo, au 0 Rudi Mwanzo.";
+    return " Chaguo si sahihi!\nTuma 1 Kutuma Mzigo, 2 Kufuatilia Mzigo, au 0 Rudi Mwanzo.";
   }
 
   if (session.step === 'PAPOSEND_PICKUP_DEST') {
     if (cleanInput === '0') {
       session.step = 'PAPOSEND_MAIN_MENU';
       await saveSession(session, dbAdmin);
-      return "📦 PapoSend (VIFURUSHI & DELIVERY):\n\n1. 🚚 Tuma Mzigo / Kifurushi\n2. 🔍 Fuatilia Mzigo Wako\n\n0. Rudi Mwanzo";
+      return " PapoSend (VIFURUSHI & DELIVERY):\n\n1. Tuma Mzigo / Kifurushi\n2. Fuatilia Mzigo Wako\n\n0. Rudi Mwanzo";
     }
 
     let parts = cleanInput.split(/ - | to | kwenda |-|—/i);
@@ -1875,21 +1894,21 @@ export async function handleSMSInput(
     session.step = 'PAPOSEND_DESC';
     await saveSession(session, dbAdmin);
 
-    return `📍 Kuchukulia: ${pickup}\n🏁 Kufikisha: ${dest}\n\nAndika maelezo ya mzigo (mf. Mkataba na Simu, Viatu, Au Mzigo wa Kilo 3):`;
+    return ` Kuchukulia: ${pickup}\n Kufikisha: ${dest}\n\nAndika maelezo ya mzigo (mf. Mkataba na Simu, Viatu, Au Mzigo wa Kilo 3):`;
   }
 
   if (session.step === 'PAPOSEND_DESC') {
     if (cleanInput === '0') {
       session.step = 'PAPOSEND_PICKUP_DEST';
       await saveSession(session, dbAdmin);
-      return "🚚 PapoSend - TUMA MZIGO\n\nIngiza eneo la kuchukulia na kufikisha mzigo (Mf: Kariakoo - Sinza):";
+      return " PapoSend - TUMA MZIGO\n\nIngiza eneo la kuchukulia na kufikisha mzigo (Mf: Kariakoo - Sinza):";
     }
 
     session.parcelDesc = cleanInput;
     session.step = 'PAPOSEND_RECEIVER_PHONE';
     await saveSession(session, dbAdmin);
 
-    return `📦 Mzigo: ${cleanInput}\n\nIngiza namba ya simu ya mpokeaji (mf. 0755123456):`;
+    return ` Mzigo: ${cleanInput}\n\nIngiza namba ya simu ya mpokeaji (mf. 0755123456):`;
   }
 
   if (session.step === 'PAPOSEND_RECEIVER_PHONE') {
@@ -1909,8 +1928,8 @@ export async function handleSMSInput(
       const appliedDisc = disc < 1 ? Math.round(basePrice * disc) : disc;
       basePrice = Math.max(1000, basePrice - appliedDisc);
       promoText = session.language === 'en' 
-        ? `\n🎟️ Promo Applied (${session.appliedPromoCode}): -TZS ${appliedDisc.toLocaleString()}\nTotal: TZS ${basePrice.toLocaleString()}`
-        : `\n🎟️ Promo Imekubaliwa (${session.appliedPromoCode}): -TZS ${appliedDisc.toLocaleString()}\nJumla: TZS ${basePrice.toLocaleString()}`;
+        ? `\n Promo Applied (${session.appliedPromoCode}): -TZS ${appliedDisc.toLocaleString()}\nTotal: TZS ${basePrice.toLocaleString()}`
+        : `\n Promo Imekubaliwa (${session.appliedPromoCode}): -TZS ${appliedDisc.toLocaleString()}\nJumla: TZS ${basePrice.toLocaleString()}`;
     }
 
     session.step = 'PAPOSEND_CONFIRM_PAYMENT';
@@ -1919,8 +1938,8 @@ export async function handleSMSInput(
     const walletBal = (session.walletBalance || 0).toLocaleString();
 
     return session.language === 'en'
-      ? `📦 CONFIRM PAPOSEND\n\nRoute: ${session.parcelPickup} ➡️ ${session.parcelDest}\nPackage: ${session.parcelDesc}\nReceiver: ${session.parcelReceiverPhone}\nFare: TZS 3,500${promoText}\n\nSelect Payment Method:\n1. 💳 PapoWallet (Bal: TZS ${walletBal})\n2. M-Pesa\n3. Airtel Money\n4. Tigo Pesa\n5. HaloPesa\n6. Cash\n\n0. Back`
-      : `📦 THIBITISHA PAPOSEND\n\nNjia: ${session.parcelPickup} ➡️ ${session.parcelDest}\nMzigo: ${session.parcelDesc}\nMpokeaji: ${session.parcelReceiverPhone}\nNauli: TZS 3,500${promoText}\n\nChagua Njia ya Malipo:\n1. 💳 PapoWallet (Salio: TZS ${walletBal})\n2. M-Pesa\n3. Airtel Money\n4. Tigo Pesa\n5. HaloPesa\n6. Cash\n\n0. Nyuma`;
+      ? ` CONFIRM PAPOSEND\n\nRoute: ${session.parcelPickup}  ${session.parcelDest}\nPackage: ${session.parcelDesc}\nReceiver: ${session.parcelReceiverPhone}\nFare: TZS 3,500${promoText}\n\nSelect Payment Method:\n1. PapoWallet (Bal: TZS ${walletBal})\n2. M-Pesa\n3. Airtel Money\n4. Tigo Pesa\n5. HaloPesa\n6. Cash\n\n0. Back`
+      : ` THIBITISHA PAPOSEND\n\nNjia: ${session.parcelPickup}  ${session.parcelDest}\nMzigo: ${session.parcelDesc}\nMpokeaji: ${session.parcelReceiverPhone}\nNauli: TZS 3,500${promoText}\n\nChagua Njia ya Malipo:\n1. PapoWallet (Salio: TZS ${walletBal})\n2. M-Pesa\n3. Airtel Money\n4. Tigo Pesa\n5. HaloPesa\n6. Cash\n\n0. Nyuma`;
   }
 
   if (session.step === 'PAPOSEND_CONFIRM_PAYMENT') {
@@ -1950,8 +1969,8 @@ export async function handleSMSInput(
     if (method === 'PapoWallet') {
       if ((session.walletBalance || 0) < price) {
         return session.language === 'en'
-          ? `⚠️ Insufficient PapoWallet balance (Bal: TZS ${(session.walletBalance || 0).toLocaleString()}, Required: TZS ${price.toLocaleString()}). Please select another payment method or top up.`
-          : `⚠️ Salio la PapoWallet halitoshi (Salio: TZS ${(session.walletBalance || 0).toLocaleString()}, Inatakiwa: TZS ${price.toLocaleString()}). Chagua njia ingine ya malipo au weka salio.`;
+          ? ` Insufficient PapoWallet balance (Bal: TZS ${(session.walletBalance || 0).toLocaleString()}, Required: TZS ${price.toLocaleString()}). Please select another payment method or top up.`
+          : ` Salio la PapoWallet halitoshi (Salio: TZS ${(session.walletBalance || 0).toLocaleString()}, Inatakiwa: TZS ${price.toLocaleString()}). Chagua njia ingine ya malipo au weka salio.`;
       }
       session.walletBalance = (session.walletBalance || 0) - price;
     }
@@ -1990,10 +2009,10 @@ export async function handleSMSInput(
     await saveSession(session, dbAdmin);
 
     if (session.language === 'en') {
-      return `PapoSend Order Confirmed! 📦✨\n\nTracking Code: ${trackingCode}\nRoute: ${session.parcelPickup} ➡️ ${session.parcelDest}\nPayment Method: ${method}\nTotal Fare: TZS ${price.toLocaleString()}\n🎁 Earned +${earnedPoints} PapoPoints!\n\nOur driver will contact you shortly!`;
+      return `PapoSend Order Confirmed! \n\nTracking Code: ${trackingCode}\nRoute: ${session.parcelPickup}  ${session.parcelDest}\nPayment Method: ${method}\nTotal Fare: TZS ${price.toLocaleString()}\n Earned +${earnedPoints} PapoPoints!\n\nOur driver will contact you shortly!`;
     }
 
-    return `Agizo la PapoSend limethibitishwa! 📦✨\n\nNamba ya Mzigo: ${trackingCode}\nNjia: ${session.parcelPickup} ➡️ ${session.parcelDest}\nNjia ya Malipo: ${method}\nNauli: TZS ${price.toLocaleString()}\n🎁 Umepata +${earnedPoints} PapoPoints!\n\nDereva wetu wa PapoSend atawasiliana nawe punde!`;
+    return `Agizo la PapoSend limethibitishwa! \n\nNamba ya Mzigo: ${trackingCode}\nNjia: ${session.parcelPickup}  ${session.parcelDest}\nNjia ya Malipo: ${method}\nNauli: TZS ${price.toLocaleString()}\n Umepata +${earnedPoints} PapoPoints!\n\nDereva wetu wa PapoSend atawasiliana nawe punde!`;
   }
 
   // PARCEL TRACKING HANDLER
@@ -2021,21 +2040,21 @@ export async function handleSMSInput(
     await saveSession(session, dbAdmin);
 
     const trackingId = foundParcel?.bookingId || foundParcel?.id || `#P-${rawCode || '8291'}`;
-    const statusText = foundParcel?.status === 'completed' ? 'Imewasilishwa Kikamilifu ✅' : 'Uko Njiani 🚚 (Ukiwasilishwa)';
+    const statusText = foundParcel?.status === 'completed' ? 'Imewasilishwa Kikamilifu ' : 'Uko Njiani  (Ukiwasilishwa)';
     const sender = foundParcel?.customerName || "Amina Rashid";
     const receiver = foundParcel?.notes ? (foundParcel.notes.split('Mpokeaji:')[1] || "Kassim Ally") : "Kassim Ally";
     const driverName = foundParcel?.driverInfo?.name || "Juma Kapoya";
     const driverPhone = foundParcel?.driverInfo?.phone || "0712345678";
     const totalFare = foundParcel?.totalAmount || 5000;
 
-    return `📦 *HALI YA MZIGO / KIFURUSHI*\n` +
+    return ` *HALI YA MZIGO / KIFURUSHI*\n` +
            `Namba: *${trackingId}*\n\n` +
-           `📌 Hali: *${statusText}*\n` +
-           `👤 Mtumaji: *${sender}* (Posta)\n` +
-           `👤 Mpokeaji: *${receiver}* (Mwenge)\n` +
-           `🛵 Dereva: *${driverName}* (${driverPhone})\n` +
-           `💵 Nauli: *TZS ${totalFare.toLocaleString()}/=* (Imelipwa ✅)\n` +
-           `⏱️ Muda wa Kuwasili: *Takribani dk 12*\n\n` +
+           ` Hali: *${statusText}*\n` +
+           ` Mtumaji: *${sender}* (Posta)\n` +
+           ` Mpokeaji: *${receiver}* (Mwenge)\n` +
+           ` Dereva: *${driverName}* (${driverPhone})\n` +
+           ` Nauli: *TZS ${totalFare.toLocaleString()}/=* (Imelipwa )\n` +
+           ` Muda wa Kuwasili: *Takribani dk 12*\n\n` +
            `Tuma "0" au "HI" kurudi Menu Kuu.`;
   }
 
@@ -2050,15 +2069,15 @@ export async function handleSMSInput(
       session.step = 'DRIVER_ENTER_PIN';
       await saveSession(session, dbAdmin);
       return session.language === 'en'
-        ? "🔑 ENTER DRIVER PIN\n\nPlease enter your 4-digit Driver PIN (Default: 1234):\n\n0. Cancel"
-        : "🔑 INGIZA PIN YA DEREVA\n\nTafadhali ingiza PIN yako ya Tarakimu 4 (Default: 1234):\n\n0. Ghairi";
+        ? " ENTER DRIVER PIN\n\nPlease enter your 4-digit Driver PIN (Default: 1234):\n\n0. Cancel"
+        : " INGIZA PIN YA DEREVA\n\nTafadhali ingiza PIN yako ya Tarakimu 4 (Default: 1234):\n\n0. Ghairi";
     }
     if (cleanInput === '2') {
       session.step = 'DRIVER_REG_VEHICLE';
       await saveSession(session, dbAdmin);
       return session.language === 'en'
-        ? "🛵 NEW DRIVER REGISTRATION (Step 1/13)\n\nSelect Vehicle / Driver Type:\n1. 🛵 Bodaboda (Motorcycle)\n2. 🛺 Bajaji (TukTuk)\n3. 🚗 Gari / Taxi\n4. 🚚 Mzigo / Bus\n\n0. Cancel"
-        : "🛵 USAJILI WA DEREVA MPYA (Hatua 1/13)\n\nChagua Aina ya Dereva / Chombo:\n1. 🛵 Bodaboda\n2. 🛺 Bajaji\n3. 🚗 Gari (Taxi)\n4. 🚚 Mzigo / Basi\n\n0. Ghairi";
+        ? " NEW DRIVER REGISTRATION (Step 1/13)\n\nSelect Vehicle / Driver Type:\n1. Bodaboda (Motorcycle)\n2. Bajaji (TukTuk)\n3. Gari / Taxi\n4. Mzigo / Bus\n\n0. Cancel"
+        : " USAJILI WA DEREVA MPYA (Hatua 1/13)\n\nChagua Aina ya Dereva / Chombo:\n1. Bodaboda\n2. Bajaji\n3. Gari (Taxi)\n4. Mzigo / Basi\n\n0. Ghairi";
     }
     return session.language === 'en' ? "Send 1 for PIN, 2 for Registration, or 0 to Cancel." : "Tuma 1 kwa PIN, 2 Kujisajili, au 0 kughairi.";
   }
@@ -2075,12 +2094,12 @@ export async function handleSMSInput(
       session.driverName = session.driverName || "Dereva Juma Kapoya";
       session.step = 'DRIVER_OFFLINE_MENU';
       await saveSession(session, dbAdmin);
-      return `✅ UTHIBITISHO UMEFANIKIWA! 🔓\n\n🛵 PapoDriver (PORTAL YA DEREVA):\n[Dereva: ${session.driverName} | Hali: 🟢 Online]\n\n1. Badili Hali (Online/Offline)\n2. Maombi ya Safari (Pending Bookings)\n3. Safari Inayoendelea (Active Trip)\n4. Mapato ya Leo (Earnings Today)\n0. Rudi Mwanzo`;
+      return ` UTHIBITISHO UMEFANIKIWA! \n\n PapoDriver (PORTAL YA DEREVA):\n[Dereva: ${session.driverName} | Hali:  Online]\n\n1. Badili Hali (Online/Offline)\n2. Maombi ya Safari (Pending Bookings)\n3. Safari Inayoendelea (Active Trip)\n4. Mapato ya Leo (Earnings Today)\n0. Rudi Mwanzo`;
     }
 
     return session.language === 'en'
-      ? "⚠️ Invalid Driver PIN! Please enter your 4-digit PIN (Default: 1234) or send 0 to Cancel:"
-      : "⚠️ PIN si sahihi! Ingiza PIN yako ya Tarakimu 4 (Default: 1234) au tuma 0 kughairi:";
+      ? " Invalid Driver PIN! Please enter your 4-digit PIN (Default: 1234) or send 0 to Cancel:"
+      : " PIN si sahihi! Ingiza PIN yako ya Tarakimu 4 (Default: 1234) au tuma 0 kughairi:";
   }
 
   // --- MULTI-STEP DRIVER REGISTRATION ---
@@ -2098,8 +2117,8 @@ export async function handleSMSInput(
     await saveSession(session, dbAdmin);
 
     return session.language === 'en'
-      ? `🛵 NEW DRIVER REGISTRATION (Step 2/13)\nType: ${veh}\n\nEnter your Full Name (e.g. Juma Kapoya):\n\n0. Cancel`
-      : `🛵 USAJILI WA DEREVA (Hatua 2/13)\nAina: ${veh}\n\nIngiza Jina lako Kamili (mfano: Juma Kapoya):\n\n0. Ghairi`;
+      ? ` NEW DRIVER REGISTRATION (Step 2/13)\nType: ${veh}\n\nEnter your Full Name (e.g. Juma Kapoya):\n\n0. Cancel`
+      : ` USAJILI WA DEREVA (Hatua 2/13)\nAina: ${veh}\n\nIngiza Jina lako Kamili (mfano: Juma Kapoya):\n\n0. Ghairi`;
   }
 
   if (session.step === 'DRIVER_REG_NAME') {
@@ -2115,8 +2134,8 @@ export async function handleSMSInput(
 
     const cleanPhone = session.phone.replace('ussd:', '');
     return session.language === 'en'
-      ? `🛵 NEW DRIVER REGISTRATION (Step 3/13)\nName: ${session.driverRegName}\n\nEnter your Phone Number, or send '1' to use this number (${cleanPhone}):\n\n0. Cancel`
-      : `🛵 USAJILI WA DEREVA (Hatua 3/13)\nJina: ${session.driverRegName}\n\nIngiza Namba yako ya Simu, au tuma '1' kutumia namba hii (${cleanPhone}):\n\n0. Ghairi`;
+      ? ` NEW DRIVER REGISTRATION (Step 3/13)\nName: ${session.driverRegName}\n\nEnter your Phone Number, or send '1' to use this number (${cleanPhone}):\n\n0. Cancel`
+      : ` USAJILI WA DEREVA (Hatua 3/13)\nJina: ${session.driverRegName}\n\nIngiza Namba yako ya Simu, au tuma '1' kutumia namba hii (${cleanPhone}):\n\n0. Ghairi`;
   }
 
   if (session.step === 'DRIVER_REG_PHONE') {
@@ -2132,8 +2151,8 @@ export async function handleSMSInput(
     await saveSession(session, dbAdmin);
 
     return session.language === 'en'
-      ? `🛵 NEW DRIVER REGISTRATION (Step 4/13)\n\nEnter Vehicle Brand & Model (e.g. TVS King / Boxer BM150 / Toyota Ist):\n\n0. Cancel`
-      : `🛵 USAJILI WA DEREVA (Hatua 4/13)\n\nIngiza Brand & Model ya Chombo (mfano: TVS King / Boxer BM150 / Toyota Ist):\n\n0. Ghairi`;
+      ? ` NEW DRIVER REGISTRATION (Step 4/13)\n\nEnter Vehicle Brand & Model (e.g. TVS King / Boxer BM150 / Toyota Ist):\n\n0. Cancel`
+      : ` USAJILI WA DEREVA (Hatua 4/13)\n\nIngiza Brand & Model ya Chombo (mfano: TVS King / Boxer BM150 / Toyota Ist):\n\n0. Ghairi`;
   }
 
   if (session.step === 'DRIVER_REG_BRAND') {
@@ -2148,8 +2167,8 @@ export async function handleSMSInput(
     await saveSession(session, dbAdmin);
 
     return session.language === 'en'
-      ? `🛵 NEW DRIVER REGISTRATION (Step 5/13)\nBrand: ${session.driverRegBrand}\n\nEnter Vehicle Color (e.g. Red / Black / White):\n\n0. Cancel`
-      : `🛵 USAJILI WA DEREVA (Hatua 5/13)\nBrand: ${session.driverRegBrand}\n\nIngiza Rangi ya Chombo (mfano: Nyekundu / Mweusi / Nyeupe):\n\n0. Ghairi`;
+      ? ` NEW DRIVER REGISTRATION (Step 5/13)\nBrand: ${session.driverRegBrand}\n\nEnter Vehicle Color (e.g. Red / Black / White):\n\n0. Cancel`
+      : ` USAJILI WA DEREVA (Hatua 5/13)\nBrand: ${session.driverRegBrand}\n\nIngiza Rangi ya Chombo (mfano: Nyekundu / Mweusi / Nyeupe):\n\n0. Ghairi`;
   }
 
   if (session.step === 'DRIVER_REG_COLOR') {
@@ -2164,8 +2183,8 @@ export async function handleSMSInput(
     await saveSession(session, dbAdmin);
 
     return session.language === 'en'
-      ? `🛵 NEW DRIVER REGISTRATION (Step 6/13)\n\nEnter License Plate Number (e.g. T 123 ABC):\n\n0. Cancel`
-      : `🛵 USAJILI WA DEREVA (Hatua 6/13)\n\nIngiza Namba ya Bamba / Plat Namba (mfano: T 123 ABC):\n\n0. Ghairi`;
+      ? ` NEW DRIVER REGISTRATION (Step 6/13)\n\nEnter License Plate Number (e.g. T 123 ABC):\n\n0. Cancel`
+      : ` USAJILI WA DEREVA (Hatua 6/13)\n\nIngiza Namba ya Bamba / Plat Namba (mfano: T 123 ABC):\n\n0. Ghairi`;
   }
 
   if (session.step === 'DRIVER_REG_PLATE') {
@@ -2180,8 +2199,8 @@ export async function handleSMSInput(
     await saveSession(session, dbAdmin);
 
     return session.language === 'en'
-      ? `🛵 NEW DRIVER REGISTRATION (Step 7/13)\nPlate: ${session.driverRegPlate}\n\nEnter Vehicle Year of Manufacture (e.g. 2022):\n\n0. Cancel`
-      : `🛵 USAJILI WA DEREVA (Hatua 7/13)\nPlat: ${session.driverRegPlate}\n\nIngiza Mwaka wa Chombo (mfano: 2022):\n\n0. Ghairi`;
+      ? ` NEW DRIVER REGISTRATION (Step 7/13)\nPlate: ${session.driverRegPlate}\n\nEnter Vehicle Year of Manufacture (e.g. 2022):\n\n0. Cancel`
+      : ` USAJILI WA DEREVA (Hatua 7/13)\nPlat: ${session.driverRegPlate}\n\nIngiza Mwaka wa Chombo (mfano: 2022):\n\n0. Ghairi`;
   }
 
   if (session.step === 'DRIVER_REG_YEAR') {
@@ -2196,8 +2215,8 @@ export async function handleSMSInput(
     await saveSession(session, dbAdmin);
 
     return session.language === 'en'
-      ? `🛵 NEW DRIVER REGISTRATION (Step 8/13)\n\nEnter Driver's License Number (e.g. 1234567890):\n\n0. Cancel`
-      : `🛵 USAJILI WA DEREVA (Hatua 8/13)\n\nIngiza Namba ya Leseni ya Udereva (mfano: 1234567890):\n\n0. Ghairi`;
+      ? ` NEW DRIVER REGISTRATION (Step 8/13)\n\nEnter Driver's License Number (e.g. 1234567890):\n\n0. Cancel`
+      : ` USAJILI WA DEREVA (Hatua 8/13)\n\nIngiza Namba ya Leseni ya Udereva (mfano: 1234567890):\n\n0. Ghairi`;
   }
 
   if (session.step === 'DRIVER_REG_LICENSE') {
@@ -2212,8 +2231,8 @@ export async function handleSMSInput(
     await saveSession(session, dbAdmin);
 
     return session.language === 'en'
-      ? `🛵 NEW DRIVER REGISTRATION (Step 9/13)\n\nEnter License Expiry Date (e.g. 12/2026):\n\n0. Cancel`
-      : `🛵 USAJILI WA DEREVA (Hatua 9/13)\n\nIngiza Tarehe ya Kuisha Leseni (mfano: 12/2026):\n\n0. Ghairi`;
+      ? ` NEW DRIVER REGISTRATION (Step 9/13)\n\nEnter License Expiry Date (e.g. 12/2026):\n\n0. Cancel`
+      : ` USAJILI WA DEREVA (Hatua 9/13)\n\nIngiza Tarehe ya Kuisha Leseni (mfano: 12/2026):\n\n0. Ghairi`;
   }
 
   if (session.step === 'DRIVER_REG_LICENSE_EXP') {
@@ -2228,8 +2247,8 @@ export async function handleSMSInput(
     await saveSession(session, dbAdmin);
 
     return session.language === 'en'
-      ? `🛵 NEW DRIVER REGISTRATION (Step 10/13)\n\nEnter LATRA Permit Number (e.g. LAT-88219):\n\n0. Cancel`
-      : `🛵 USAJILI WA DEREVA (Hatua 10/13)\n\nIngiza Namba ya Kibali cha LATRA (mfano: LAT-88219):\n\n0. Ghairi`;
+      ? ` NEW DRIVER REGISTRATION (Step 10/13)\n\nEnter LATRA Permit Number (e.g. LAT-88219):\n\n0. Cancel`
+      : ` USAJILI WA DEREVA (Hatua 10/13)\n\nIngiza Namba ya Kibali cha LATRA (mfano: LAT-88219):\n\n0. Ghairi`;
   }
 
   if (session.step === 'DRIVER_REG_LATRA') {
@@ -2244,8 +2263,8 @@ export async function handleSMSInput(
     await saveSession(session, dbAdmin);
 
     return session.language === 'en'
-      ? `🛵 NEW DRIVER REGISTRATION (Step 11/13)\n\nEnter LATRA Expiry Date (e.g. 12/2026):\n\n0. Cancel`
-      : `🛵 USAJILI WA DEREVA (Hatua 11/13)\n\nIngiza Tarehe ya Kuisha Kibali cha LATRA (mfano: 12/2026):\n\n0. Ghairi`;
+      ? ` NEW DRIVER REGISTRATION (Step 11/13)\n\nEnter LATRA Expiry Date (e.g. 12/2026):\n\n0. Cancel`
+      : ` USAJILI WA DEREVA (Hatua 11/13)\n\nIngiza Tarehe ya Kuisha Kibali cha LATRA (mfano: 12/2026):\n\n0. Ghairi`;
   }
 
   if (session.step === 'DRIVER_REG_LATRA_EXP') {
@@ -2260,8 +2279,8 @@ export async function handleSMSInput(
     await saveSession(session, dbAdmin);
 
     return session.language === 'en'
-      ? `🛵 NEW DRIVER REGISTRATION (Step 12/13)\n\nEnter NIDA National ID Number (20 Digits):\n\n0. Cancel`
-      : `🛵 USAJILI WA DEREVA (Hatua 12/13)\n\nIngiza Namba yako ya NIDA (Tarakimu 20):\n\n0. Ghairi`;
+      ? ` NEW DRIVER REGISTRATION (Step 12/13)\n\nEnter NIDA National ID Number (20 Digits):\n\n0. Cancel`
+      : ` USAJILI WA DEREVA (Hatua 12/13)\n\nIngiza Namba yako ya NIDA (Tarakimu 20):\n\n0. Ghairi`;
   }
 
   if (session.step === 'DRIVER_REG_NIDA') {
@@ -2276,8 +2295,8 @@ export async function handleSMSInput(
     await saveSession(session, dbAdmin);
 
     return session.language === 'en'
-      ? `🛵 NEW DRIVER REGISTRATION (Step 13/13)\n\nSelect Work Availability:\n1. ⏱️ Full-Time (Muda Wote)\n2. ⏳ Part-Time (Muda Wa Ziada)\n\n0. Cancel`
-      : `🛵 USAJILI WA DEREVA (Hatua 13/13)\n\nChagua Aina ya Upatikanaji Kazi:\n1. ⏱️ Full-Time (Muda Wote)\n2. ⏳ Part-Time (Muda Wa Ziada)\n\n0. Ghairi`;
+      ? ` NEW DRIVER REGISTRATION (Step 13/13)\n\nSelect Work Availability:\n1. Full-Time (Muda Wote)\n2. Part-Time (Muda Wa Ziada)\n\n0. Cancel`
+      : ` USAJILI WA DEREVA (Hatua 13/13)\n\nChagua Aina ya Upatikanaji Kazi:\n1. Full-Time (Muda Wote)\n2. Part-Time (Muda Wa Ziada)\n\n0. Ghairi`;
   }
 
   if (session.step === 'DRIVER_REG_AVAILABILITY') {
@@ -2292,8 +2311,8 @@ export async function handleSMSInput(
     await saveSession(session, dbAdmin);
 
     return session.language === 'en'
-      ? `🔑 SET ACCOUNT LOGIN PIN\n\nSet your 4-digit Driver PIN (e.g. 1234):\n\n0. Cancel`
-      : `🔑 WEKA PIN YA AKANTI\n\nWeka PIN yako mpya ya Tarakimu 4 ya Kuingilia (mfano: 1234):\n\n0. Ghairi`;
+      ? ` SET ACCOUNT LOGIN PIN\n\nSet your 4-digit Driver PIN (e.g. 1234):\n\n0. Cancel`
+      : ` WEKA PIN YA AKANTI\n\nWeka PIN yako mpya ya Tarakimu 4 ya Kuingilia (mfano: 1234):\n\n0. Ghairi`;
   }
 
   if (session.step === 'DRIVER_REG_PIN') {
@@ -2340,8 +2359,8 @@ export async function handleSMSInput(
     await saveSession(session, dbAdmin);
 
     return session.language === 'en'
-      ? `🎉 USAJILI WAKO UMEPOKELEWA! 🛵✨\n\nName: ${session.driverRegName}\nVehicle: ${session.driverRegVehicle} (${session.driverRegBrand})\nPlate: ${session.driverRegPlate}\n\n📌 REQUIRED FINAL VERIFICATION DOCUMENTS:\nPlease send photos of:\n1. 🪪 License Front\n2. 🪪 License Back\n3. 🆔 NIDA / ID Card\n4. 📄 LATRA Permit\n5. 📸 Profile Picture (Passport size)\n\nSend to Office Number via WhatsApp: 0764225358.\nOnce verified, top up wallet to activate your account and start receiving trips! 🚀\n\n0. Main Menu`
-      : `🎉 USAJILI WAKO UMEPOKELEWA KIKAMILIFU! 🛵✨\n\nJina: ${session.driverRegName}\nChombo: ${session.driverRegVehicle} (${session.driverRegBrand})\nPlat: ${session.driverRegPlate}\n\n📌 HATUA YA MWISHO (UTHIBITISHO WA NYARAKA):\nTafadhali tuma picha za:\n1. 🪪 Leseni Mbele (License Front)\n2. 🪪 Leseni Nyuma (License Back)\n3. 🆔 Kadi ya NIDA / Kitambulisho\n4. 📄 Kibali cha LATRA\n5. 📸 Picha ya Pasipoti (Profile Picture)\n\nTuma kwenye namba ya ofisi WhatsApp/SMS: 0764225358.\nKisha subiri uthibitisho. Ukithibitishwa, utatakiwa kuweka salio ili akanti yako iwe Active uanze kupokea kazi! 🚀\n\n0. Rudi Menu Kuu`;
+      ? ` USAJILI WAKO UMEPOKELEWA! \n\nName: ${session.driverRegName}\nVehicle: ${session.driverRegVehicle} (${session.driverRegBrand})\nPlate: ${session.driverRegPlate}\n\n REQUIRED FINAL VERIFICATION DOCUMENTS:\nPlease send photos of:\n1. License Front\n2. License Back\n3. 🆔 NIDA / ID Card\n4. LATRA Permit\n5. Profile Picture (Passport size)\n\nSend to Office Number via WhatsApp: 0764225358.\nOnce verified, top up wallet to activate your account and start receiving trips! \n\n0. Main Menu`
+      : ` USAJILI WAKO UMEPOKELEWA KIKAMILIFU! \n\nJina: ${session.driverRegName}\nChombo: ${session.driverRegVehicle} (${session.driverRegBrand})\nPlat: ${session.driverRegPlate}\n\n HATUA YA MWISHO (UTHIBITISHO WA NYARAKA):\nTafadhali tuma picha za:\n1. Leseni Mbele (License Front)\n2. Leseni Nyuma (License Back)\n3. 🆔 Kadi ya NIDA / Kitambulisho\n4. Kibali cha LATRA\n5. Picha ya Pasipoti (Profile Picture)\n\nTuma kwenye namba ya ofisi WhatsApp/SMS: 0764225358.\nKisha subiri uthibitisho. Ukithibitishwa, utatakiwa kuweka salio ili akanti yako iwe Active uanze kupokea kazi! \n\n0. Rudi Menu Kuu`;
   }
 
   // 5. DRIVER OFFLINE MODE HANDLERS
@@ -2379,8 +2398,8 @@ export async function handleSMSInput(
       session.step = 'START';
       await saveSession(session, dbAdmin);
       return newStatus 
-        ? `🟢 *HALI IMETHIBITISHWA: ONLINE!*\n\nDereva *${driverName}*, sasa upo tayari kupokea maombi ya safari za wateja kupitia USSD bila bando la intaneti!`
-        : `🔴 *HALI IMETHIBITISHWA: OFFLINE.*\n\nDereva *${driverName}*, umesitisha kupokea maombi ya safari kwa sasa.`;
+        ? ` *HALI IMETHIBITISHWA: ONLINE!*\n\nDereva *${driverName}*, sasa upo tayari kupokea maombi ya safari za wateja kupitia USSD bila bando la intaneti!`
+        : ` *HALI IMETHIBITISHWA: OFFLINE.*\n\nDereva *${driverName}*, umesitisha kupokea maombi ya safari kwa sasa.`;
     } 
     else if (cleanInput === '2') {
       let pendingRide: any = null;
@@ -2398,7 +2417,7 @@ export async function handleSMSInput(
       if (!pendingRide) {
         session.step = 'START';
         await saveSession(session, dbAdmin);
-        return `🚖 *SAFARI MPYA*\n\nHakuna safari mpya inayokusubiri kwa sasa. Mfumo utakutumia SMS mara tu ombi jipya linapoingia!`;
+        return ` *SAFARI MPYA*\n\nHakuna safari mpya inayokusubiri kwa sasa. Mfumo utakutumia SMS mara tu ombi jipya linapoingia!`;
       }
 
       session.activeRideId = pendingRide.id;
@@ -2411,11 +2430,11 @@ export async function handleSMSInput(
       const clientName = pendingRide.customerInfo?.name || "Mteja";
       const clientPhone = pendingRide.customerInfo?.phone || "0712345678";
 
-      return `🚖 *SAFARI INAYOKUSUBIRI (#${pendingRide.bookingId || 'PH-8890'})*\n\n` +
-             `📍 Kutoka: *${pName}*\n` +
-             `🏁 Kwenda: *${dName}*\n` +
-             `💵 Nauli: *TZS ${fare.toLocaleString()}/=*\n` +
-             `👤 Mteja: *${clientName}* (${clientPhone})\n\n` +
+      return ` *SAFARI INAYOKUSUBIRI (#${pendingRide.bookingId || 'PH-8890'})*\n\n` +
+             ` Kutoka: *${pName}*\n` +
+             ` Kwenda: *${dName}*\n` +
+             ` Nauli: *TZS ${fare.toLocaleString()}/=*\n` +
+             ` Mteja: *${clientName}* (${clientPhone})\n\n` +
              `1. KUBALI SAFARI (Accept)\n` +
              `2. KATAA SAFARI (Reject)`;
     } 
@@ -2438,7 +2457,7 @@ export async function handleSMSInput(
       if (!activeRide) {
         session.step = 'START';
         await saveSession(session, dbAdmin);
-        return `📍 *SAFARI INAYOENDELEA*\n\nHuna safari inayostahili kusasishwa kwa sasa. Tuma "3" kwenye Menu ya Dereva ukiwa na safari active.`;
+        return ` *SAFARI INAYOENDELEA*\n\nHuna safari inayostahili kusasishwa kwa sasa. Tuma "3" kwenye Menu ya Dereva ukiwa na safari active.`;
       }
 
       session.activeRideId = activeRide.id;
@@ -2451,29 +2470,29 @@ export async function handleSMSInput(
       const fare = activeRide.fare || 5000;
 
       if (currentStatus === 'accepted') {
-        return `📍 *SAFARI INAYOENDELEA*\nStatus: Umekubali kumfuata mteja *${clientName}* (${clientPhone})\n\n1. Nimefika Eneo la Mteja (Arrived)\n2. Ghairi Safari`;
+        return ` *SAFARI INAYOENDELEA*\nStatus: Umekubali kumfuata mteja *${clientName}* (${clientPhone})\n\n1. Nimefika Eneo la Mteja (Arrived)\n2. Ghairi Safari`;
       } else if (currentStatus === 'arrived') {
-        return `📍 *SAFARI INAYOENDELEA*\nStatus: Umewasili kwa mteja *${clientName}*\n\n1. Anza Safari na Mteja (Start Trip)\n2. Ghairi Safari`;
+        return ` *SAFARI INAYOENDELEA*\nStatus: Umewasili kwa mteja *${clientName}*\n\n1. Anza Safari na Mteja (Start Trip)\n2. Ghairi Safari`;
       } else {
-        return `📍 *SAFARI INAYOENDELEA*\nStatus: Safari ipo njiani na mteja *${clientName}*\n\n1. Maliza Safari & Pokea TZS ${fare.toLocaleString()}/= (Complete Trip)`;
+        return ` *SAFARI INAYOENDELEA*\nStatus: Safari ipo njiani na mteja *${clientName}*\n\n1. Maliza Safari & Pokea TZS ${fare.toLocaleString()}/= (Complete Trip)`;
       }
     } 
     else if (cleanInput === '4') {
       session.step = 'START';
       await saveSession(session, dbAdmin);
 
-      return `💰 *SALIO NA MAPATO YA DEREVA*\n\n` +
+      return ` *SALIO NA MAPATO YA DEREVA*\n\n` +
              `Dereva: *${driverName}*\n` +
-             `💵 Mapato ya Leo: *TZS 38,500/=*\n` +
-             `🚖 Safari za Leo: *6 Completed*\n` +
-             `💳 Salio la Wallet: *TZS ${(session.walletBalance || 18200).toLocaleString()}/=*\n` +
-             `📉 Kamisheni Inayodaiwa: *TZS 1,900/=*`;
+             ` Mapato ya Leo: *TZS 38,500/=*\n` +
+             ` Safari za Leo: *6 Completed*\n` +
+             ` Salio la Wallet: *TZS ${(session.walletBalance || 18200).toLocaleString()}/=*\n` +
+             ` Kamisheni Inayodaiwa: *TZS 1,900/=*`;
     } 
     else if (cleanInput === '5') {
       session.step = 'DRIVER_TOPUP_AMOUNT';
       await saveSession(session, dbAdmin);
 
-      return `🛵 WEKA SALIO LA KAMISHENI (STK PUSH)\n\nIngiza kiasi unachotaka kuweka kwa TZS (mfano: 5000):\n\n0. Ghairi`;
+      return ` WEKA SALIO LA KAMISHENI (STK PUSH)\n\nIngiza kiasi unachotaka kuweka kwa TZS (mfano: 5000):\n\n0. Ghairi`;
     }
     else if (cleanInput === '0') {
       session.step = 'SELECT_SERVICE';
@@ -2481,7 +2500,7 @@ export async function handleSMSInput(
       return getWelcomeMessage(session);
     } 
     else {
-      return "⚠️ Chaguo si sahihi. Tafadhali tuma namba kuanzia 1 hadi 5, au 0 kurudi Menu Kuu.";
+      return " Chaguo si sahihi. Tafadhali tuma namba kuanzia 1 hadi 5, au 0 kurudi Menu Kuu.";
     }
   }
 
@@ -2489,26 +2508,26 @@ export async function handleSMSInput(
     if (cleanInput === '0') {
       session.step = 'DRIVER_OFFLINE_MENU';
       await saveSession(session, dbAdmin);
-      return `🛵 PapoDriver (PORTAL YA DEREVA):\n[Dereva: ${session.driverName || 'Juma Kapoya'}]\n\n1. Badili Hali (Online/Offline)\n2. Maombi ya Safari\n3. Safari Inayoendelea\n4. Mapato & Salio\n5. Weka Salio la Kamisheni (STK Push)\n\n0. Rudi Mwanzo`;
+      return ` PapoDriver (PORTAL YA DEREVA):\n[Dereva: ${session.driverName || 'Juma Kapoya'}]\n\n1. Badili Hali (Online/Offline)\n2. Maombi ya Safari\n3. Safari Inayoendelea\n4. Mapato & Salio\n5. Weka Salio la Kamisheni (STK Push)\n\n0. Rudi Mwanzo`;
     }
 
     const amount = parseInt(cleanInput.replace(/\D/g, ''), 10);
     if (isNaN(amount) || amount < 1000) {
-      return "⚠️ Kiasi si sahihi! Ingiza angalau TZS 1,000 (mf. 5000):";
+      return " Kiasi si sahihi! Ingiza angalau TZS 1,000 (mf. 5000):";
     }
 
     session.deliveryFee = amount; // store temp amount
     session.step = 'DRIVER_TOPUP_PROVIDER';
     await saveSession(session, dbAdmin);
 
-    return `💳 Weka Salio la Kamisheni TZS ${amount.toLocaleString()}\n\nChagua Mtandao wa Malipo:\n1. M-Pesa\n2. Tigo Pesa\n3. Airtel Money\n4. HaloPesa\n\n0. Ghairi`;
+    return ` Weka Salio la Kamisheni TZS ${amount.toLocaleString()}\n\nChagua Mtandao wa Malipo:\n1. M-Pesa\n2. Tigo Pesa\n3. Airtel Money\n4. HaloPesa\n\n0. Ghairi`;
   }
 
   if (session.step === 'DRIVER_TOPUP_PROVIDER') {
     if (cleanInput === '0') {
       session.step = 'DRIVER_OFFLINE_MENU';
       await saveSession(session, dbAdmin);
-      return `🛵 PapoDriver (PORTAL YA DEREVA):\n[Dereva: ${session.driverName || 'Juma Kapoya'}]\n\n1. Badili Hali\n2. Maombi ya Safari\n3. Safari Active\n4. Mapato & Salio\n5. Weka Salio (STK Push)\n0. Rudi Mwanzo`;
+      return ` PapoDriver (PORTAL YA DEREVA):\n[Dereva: ${session.driverName || 'Juma Kapoya'}]\n\n1. Badili Hali\n2. Maombi ya Safari\n3. Safari Active\n4. Mapato & Salio\n5. Weka Salio (STK Push)\n0. Rudi Mwanzo`;
     }
 
     const netMap: Record<string, string> = { '1': 'M-Pesa', '2': 'Tigo Pesa', '3': 'Airtel Money', '4': 'HaloPesa' };
@@ -2520,14 +2539,14 @@ export async function handleSMSInput(
     session.step = 'DRIVER_STK_PIN_PROMPT';
     await saveSession(session, dbAdmin);
 
-    return `📲 [STK PUSH - DEREVA ${network.toUpperCase()}]\nMalipo TZS ${topupAmt.toLocaleString()} (${userPhone}).\n🔑 Ingiza PIN ya ${network}:\n0. Ghairi`;
+    return ` [STK PUSH - DEREVA ${network.toUpperCase()}]\nMalipo TZS ${topupAmt.toLocaleString()} (${userPhone}).\n Ingiza PIN ya ${network}:\n0. Ghairi`;
   }
 
   if (session.step === 'DRIVER_STK_PIN_PROMPT') {
     if (cleanInput === '0') {
       session.step = 'DRIVER_OFFLINE_MENU';
       await saveSession(session, dbAdmin);
-      return `🛵 PapoDriver (PORTAL YA DEREVA):\n[Dereva: ${session.driverName || 'Juma Kapoya'}]\n\n1. Badili Hali\n2. Maombi ya Safari\n3. Safari Active\n4. Mapato & Salio\n5. Weka Salio (STK Push)\n0. Rudi Mwanzo`;
+      return ` PapoDriver (PORTAL YA DEREVA):\n[Dereva: ${session.driverName || 'Juma Kapoya'}]\n\n1. Badili Hali\n2. Maombi ya Safari\n3. Safari Active\n4. Mapato & Salio\n5. Weka Salio (STK Push)\n0. Rudi Mwanzo`;
     }
 
     const network = session.topupNetwork || 'M-Pesa';
@@ -2538,7 +2557,7 @@ export async function handleSMSInput(
     await saveSession(session, dbAdmin);
 
     const newBal = session.walletBalance.toLocaleString();
-    return `✅ STK PUSH DEREVA IMEKAMILIKA! ⚡\nMalipo ya ${network} TZS ${topupAmt.toLocaleString()} yamethibitishwa.\nSalio Jipya: TZS ${newBal}\nTuma 0 au HI kurudi mwanzo.`;
+    return ` STK PUSH DEREVA IMEKAMILIKA! \nMalipo ya ${network} TZS ${topupAmt.toLocaleString()} yamethibitishwa.\nSalio Jipya: TZS ${newBal}\nTuma 0 au HI kurudi mwanzo.`;
   }
 
   if (session.step === 'DRIVER_ACCEPT_RIDE_CONFIRM') {
@@ -2564,11 +2583,11 @@ export async function handleSMSInput(
       }
       session.step = 'START';
       await saveSession(session, dbAdmin);
-      return `🎉 *UMEKUBALI SAFARI!*\n\nMteja amefahamishwa kwa SMS na simu. Nenda kumchukua eneo la kuanzia hivi sasa! 🚀`;
+      return ` *UMEKUBALI SAFARI!*\n\nMteja amefahamishwa kwa SMS na simu. Nenda kumchukua eneo la kuanzia hivi sasa! `;
     } else {
       session.step = 'START';
       await saveSession(session, dbAdmin);
-      return `❌ *UMEKATAA SAFARI.*\n\nSafari hii imerejeshwa kwenye mfumo kwa ajili ya dereva mwingine.`;
+      return ` *UMEKATAA SAFARI.*\n\nSafari hii imerejeshwa kwenye mfumo kwa ajili ya dereva mwingine.`;
     }
   }
 
@@ -2576,7 +2595,7 @@ export async function handleSMSInput(
     const rideId = session.activeRideId;
     if (cleanInput === '1') {
       let nextStatus = 'arrived';
-      let msg = "📍 Status imewasilishwa: Nimefika kwa Mteja!";
+      let msg = " Status imewasilishwa: Nimefika kwa Mteja!";
 
       if (dbAdmin && rideId) {
         try {
@@ -2585,13 +2604,13 @@ export async function handleSMSInput(
             const curStatus = rDoc.data()?.status;
             if (curStatus === 'accepted') {
               nextStatus = 'arrived';
-              msg = "📍 Status imewasilishwa: Dereva Amewasili kwa Mteja!";
+              msg = " Status imewasilishwa: Dereva Amewasili kwa Mteja!";
             } else if (curStatus === 'arrived') {
               nextStatus = 'in_progress';
-              msg = "🚘 Status imewasilishwa: Safari imeanza na Mteja!";
+              msg = " Status imewasilishwa: Safari imeanza na Mteja!";
             } else if (curStatus === 'in_progress') {
               nextStatus = 'completed';
-              msg = "🎉 *SAFARI IMEKAMILIKA KIKAMILIFU!*\n\nAhsante kwa kumpa mteja huduma bora. Nauli imeongezwa kwenye mapato yako ya leo!";
+              msg = " *SAFARI IMEKAMILIKA KIKAMILIFU!*\n\nAhsante kwa kumpa mteja huduma bora. Nauli imeongezwa kwenye mapato yako ya leo!";
             }
             await dbAdmin.collection('rides').doc(rideId).update({
               status: nextStatus,
@@ -2608,7 +2627,7 @@ export async function handleSMSInput(
     } else {
       session.step = 'START';
       await saveSession(session, dbAdmin);
-      return `❌ Safari imesitishwa.`;
+      return ` Safari imesitishwa.`;
     }
   }
 
@@ -2618,7 +2637,7 @@ export async function handleSMSInput(
     const idx = parseInt(cleanInput) - 1;
     const candidates = session.optionsList || [];
     if (isNaN(idx) || idx < 0 || idx >= candidates.length) {
-      return `⚠️ Chaguo si sahihi. Tafadhali tuma namba kuanzia 1 hadi ${candidates.length} kuchagua eneo sahihi:`;
+      return ` Chaguo si sahihi. Tafadhali tuma namba kuanzia 1 hadi ${candidates.length} kuchagua eneo sahihi:`;
     }
 
     const selectedPlace = candidates[idx];
@@ -2631,14 +2650,14 @@ export async function handleSMSInput(
         session.step = 'TAXI_DESTINATION_INPUT';
         session.optionsList = [];
         await saveSession(session, dbAdmin);
-        return `⚠️ Hatukuweza kupata eneo la mwisho la '${session.tempRawDestination}'.\n\nTafadhali andika eneo unalokwenda (Destination):`;
+        return ` Hatukuweza kupata eneo la mwisho la '${session.tempRawDestination}'.\n\nTafadhali andika eneo unalokwenda (Destination):`;
       } else if (destRes.matches.length === 1) {
         session.resolvedDest = destRes.matches[0];
         session.taxiRoute = `${selectedPlace.name} - ${destRes.matches[0].name}`;
         session.step = 'TAXI_VEHICLE_SELECT';
         session.optionsList = [];
         await saveSession(session, dbAdmin);
-        return `🚕 AINA YA USAFIRI:\n1. Boda Boda 🏍️\n2. Bajaji 🛺\n3. Gari la Teksi 🚕`;
+        return ` AINA YA USAFIRI:\n1. Boda Boda \n2. Bajaji \n3. Gari la Teksi `;
       } else {
         // Destination also has multiple matches!
         session.optionsList = destRes.matches.slice(0, 5);
@@ -2656,7 +2675,7 @@ export async function handleSMSInput(
       session.step = 'TAXI_DESTINATION_INPUT';
       session.optionsList = [];
       await saveSession(session, dbAdmin);
-      return `📍 Kutoka: *${selectedPlace.name}*\nAndika eneo unalokwenda:`;
+      return ` Kutoka: *${selectedPlace.name}*\nAndika eneo unalokwenda:`;
     }
   }
 
@@ -2664,14 +2683,14 @@ export async function handleSMSInput(
   if (session.step === 'TAXI_DESTINATION_INPUT' && session.selectedService === 'taxi') {
     const destRes = await resolvePlace(cleanInput, dbAdmin);
     if (destRes.matches.length === 0) {
-      return `⚠️ Hatukuweza kupata eneo la '${cleanInput}'.\n\nAndika eneo unalokwenda:`;
+      return ` Hatukuweza kupata eneo la '${cleanInput}'.\n\nAndika eneo unalokwenda:`;
     } else if (destRes.matches.length === 1) {
       session.resolvedDest = destRes.matches[0];
       session.taxiRoute = `${session.resolvedPickup?.name || "Mwenge"} - ${destRes.matches[0].name}`;
       session.step = 'TAXI_VEHICLE_SELECT';
       session.optionsList = [];
       await saveSession(session, dbAdmin);
-      return `🚕 AINA YA USAFIRI:\n1. Boda Boda 🏍️\n2. Bajaji 🛺\n3. Gari la Teksi 🚕`;
+      return ` AINA YA USAFIRI:\n1. Boda Boda \n2. Bajaji \n3. Gari la Teksi `;
     } else {
       // Disambiguate destination
       session.optionsList = destRes.matches.slice(0, 5);
@@ -2691,7 +2710,7 @@ export async function handleSMSInput(
     const idx = parseInt(cleanInput) - 1;
     const candidates = session.optionsList || [];
     if (isNaN(idx) || idx < 0 || idx >= candidates.length) {
-      return `⚠️ Chaguo si sahihi. Tafadhali tuma namba 1 mpaka ${candidates.length}:`;
+      return ` Chaguo si sahihi. Tafadhali tuma namba 1 mpaka ${candidates.length}:`;
     }
 
     const selectedPlace = candidates[idx];
@@ -2701,7 +2720,7 @@ export async function handleSMSInput(
     session.optionsList = [];
     await saveSession(session, dbAdmin);
 
-    return `🚕 AINA YA USAFIRI:\n1. Boda Boda 🏍️\n2. Bajaji 🛺\n3. Gari la Teksi 🚕`;
+    return ` AINA YA USAFIRI:\n1. Boda Boda \n2. Bajaji \n3. Gari la Teksi `;
   }
 
   // State: TAXI_ROUTE
@@ -2712,7 +2731,7 @@ export async function handleSMSInput(
       // Two-location route (A - B)
       const pickupRes = await resolvePlace(parsed.rawPickup, dbAdmin);
       if (pickupRes.matches.length === 0) {
-        return `⚠️ Hatukuweza kupata eneo la kuanzia la '${parsed.rawPickup}'. Andika eneo la kuanzia na mwisho (Mfano: Posta - Mikocheni):`;
+        return ` Hatukuweza kupata eneo la kuanzia la '${parsed.rawPickup}'. Andika eneo la kuanzia na mwisho (Mfano: Posta - Mikocheni):`;
       } else if (pickupRes.matches.length === 1) {
         session.resolvedPickup = pickupRes.matches[0];
 
@@ -2720,13 +2739,13 @@ export async function handleSMSInput(
         if (destRes.matches.length === 0) {
           session.step = 'TAXI_DESTINATION_INPUT';
           await saveSession(session, dbAdmin);
-          return `⚠️ Hatukuweza kupata eneo la mwisho la '${parsed.rawDestination}'.\n\nAndika eneo unalokwenda:`;
+          return ` Hatukuweza kupata eneo la mwisho la '${parsed.rawDestination}'.\n\nAndika eneo unalokwenda:`;
         } else if (destRes.matches.length === 1) {
           session.resolvedDest = destRes.matches[0];
           session.taxiRoute = `${pickupRes.matches[0].name} - ${destRes.matches[0].name}`;
           session.step = 'TAXI_VEHICLE_SELECT';
           await saveSession(session, dbAdmin);
-          return `🚕 AINA YA USAFIRI:\n1. Boda Boda 🏍️\n2. Bajaji 🛺\n3. Gari la Teksi 🚕`;
+          return ` AINA YA USAFIRI:\n1. Boda Boda \n2. Bajaji \n3. Gari la Teksi `;
         } else {
           // Destination needs disambiguation
           session.optionsList = destRes.matches.slice(0, 5);
@@ -2756,12 +2775,12 @@ export async function handleSMSInput(
       // Single leg query (A)
       const pickupRes = await resolvePlace(cleanInput, dbAdmin);
       if (pickupRes.matches.length === 0) {
-        return `⚠️ Hatukuweza kupata eneo la '${cleanInput}'.\n\nTafadhali andika njia yako kwa usahihi kwa kutumia alama ya '-' (Mfano: Posta - Kimara):`;
+        return ` Hatukuweza kupata eneo la '${cleanInput}'.\n\nTafadhali andika njia yako kwa usahihi kwa kutumia alama ya '-' (Mfano: Posta - Kimara):`;
       } else if (pickupRes.matches.length === 1) {
         session.resolvedPickup = pickupRes.matches[0];
         session.step = 'TAXI_DESTINATION_INPUT';
         await saveSession(session, dbAdmin);
-        return `📍 Kutoka: *${pickupRes.matches[0].name}*\nAndika eneo unalokwenda:`;
+        return ` Kutoka: *${pickupRes.matches[0].name}*\nAndika eneo unalokwenda:`;
       } else {
         // Pickup disambiguation
         session.optionsList = pickupRes.matches.slice(0, 5);
@@ -2784,15 +2803,15 @@ export async function handleSMSInput(
     
     if (cleanInput === '1' || lowerInput.includes('boda') || lowerInput.includes('bike') || lowerInput.includes('piki')) {
       vehicleType = 'bike';
-      typeName = 'Boda Boda 🏍️';
+      typeName = 'Boda Boda ';
     } else if (cleanInput === '2' || lowerInput.includes('bajaj') || lowerInput.includes('sharo')) {
       vehicleType = 'bajaj';
-      typeName = 'Bajaji 🛺';
+      typeName = 'Bajaji ';
     } else if (cleanInput === '3' || lowerInput.includes('taxi') || lowerInput.includes('gari') || lowerInput.includes('mini') || lowerInput.includes('car')) {
       vehicleType = 'mini';
-      typeName = 'Gari la Teksi 🚕';
+      typeName = 'Gari la Teksi ';
     } else {
-      return `⚠️ Chaguo si sahihi. Tafadhali tuma:\n1. Boda Boda 🏍️\n2. Bajaji 🛺\n3. Gari la Teksi 🚕`;
+      return ` Chaguo si sahihi. Tafadhali tuma:\n1. Boda Boda \n2. Bajaji \n3. Gari la Teksi `;
     }
 
     // Parse route to extract pickup and destination names for display
@@ -2859,11 +2878,11 @@ export async function handleSMSInput(
               console.log(`[SMS Bot] Overriding ride vehicleType from '${vehicleType}' to '${driverVTypeNormalized}' to match the online testing driver.`);
               vehicleType = driverVTypeNormalized;
               if (driverVTypeNormalized === 'bike') {
-                typeName = 'Boda Boda 🏍️';
+                typeName = 'Boda Boda ';
               } else if (driverVTypeNormalized === 'bajaj') {
-                typeName = 'Bajaji 🛺';
+                typeName = 'Bajaji ';
               } else {
-                typeName = 'Gari la Teksi 🚕';
+                typeName = 'Gari la Teksi ';
               }
             }
           } else {
@@ -2939,8 +2958,8 @@ export async function handleSMSInput(
     session.step = 'TAXI_CONFIRM_TRIP';
     await saveSession(session, dbAdmin);
 
-    let reply = `📊 KADIRIO LA NAULI\n`;
-    reply += `Njia: *${pickupName}* ➔ *${destName}* (${distanceKm}km, ~${durationMin}dk)\n`;
+    let reply = ` KADIRIO LA NAULI\n`;
+    reply += `Njia: *${pickupName}*  *${destName}* (${distanceKm}km, ~${durationMin}dk)\n`;
     reply += `Usafiri: *${typeName}*\n`;
     reply += `Nauli: *TZS ${fare.toLocaleString()}/=*\n`;
     reply += `Madereva: ${nearbyCount} karibu\n\n`;
@@ -2955,27 +2974,27 @@ export async function handleSMSInput(
     if (!calcData) {
       session.step = 'START';
       await saveSession(session, dbAdmin);
-      return `⚠️ Hitilafu imetokea. Tafadhali tuma "HI" kuanza upya.`;
+      return ` Hitilafu imetokea. Tafadhali tuma "HI" kuanza upya.`;
     }
 
     if (cleanInput === '1' || lowerInput.includes('ndio') || lowerInput.includes('tafuta') || lowerInput.includes('kubali') || lowerInput.includes('yes')) {
       if (session.passengerName && session.passengerName.trim() && session.passengerPhone && session.passengerPhone.trim()) {
         session.step = 'TAXI_ASK_PREVIOUS_DETAILS';
         await saveSession(session, dbAdmin);
-        return `👤 TAARIFA ZA MSAFIRI:\nJina: *${session.passengerName}*\nSimu: *${session.passengerPhone}*\n\nTumia taarifa hizi?\n1. Ndio\n2. Hapana (Weka mpya)`;
+        return ` TAARIFA ZA MSAFIRI:\nJina: *${session.passengerName}*\nSimu: *${session.passengerPhone}*\n\nTumia taarifa hizi?\n1. Ndio\n2. Hapana (Weka mpya)`;
       } else {
         session.step = 'TAXI_PASSENGER_NAME';
         await saveSession(session, dbAdmin);
-        return `👤 MSAFIRI (1/2):\nAndika jina la msafiri (mf: Juma Kiboko):`;
+        return ` MSAFIRI (1/2):\nAndika jina la msafiri (mf: Juma Kiboko):`;
       }
     } else if (cleanInput === '2' || lowerInput.includes('hapana') || lowerInput.includes('ghairi') || lowerInput.includes('no') || lowerInput.includes('cancel')) {
       session.step = 'START';
       session.selectedService = undefined;
       session.optionsList = [];
       await saveSession(session, dbAdmin);
-      return `❌ Safari imesitishwa. Karibu tena Papo Hapo! 🚖`;
+      return ` Safari imesitishwa. Karibu tena Papo Hapo! `;
     } else {
-      return `⚠️ Chaguo si sahihi. Tuma:\n1. Ndio, Tafuta Dereva\n2. Hapana, Ghairi`;
+      return ` Chaguo si sahihi. Tuma:\n1. Ndio, Tafuta Dereva\n2. Hapana, Ghairi`;
     }
   }
 
@@ -2984,7 +3003,7 @@ export async function handleSMSInput(
     if (!calcData) {
       session.step = 'START';
       await saveSession(session, dbAdmin);
-      return `⚠️ Hitilafu imetokea. Tafadhali tuma "HI" kuanza upya.`;
+      return ` Hitilafu imetokea. Tafadhali tuma "HI" kuanza upya.`;
     }
 
     if (cleanInput === '1' || lowerInput.includes('ndio') || lowerInput.includes('tumia') || lowerInput.includes('yes') || lowerInput.includes('hizi')) {
@@ -3032,28 +3051,28 @@ export async function handleSMSInput(
         }
       }
 
-      return `✅ ODA IMEWASILISHWA! 🚖\n\n` +
+      return ` ODA IMEWASILISHWA! \n\n` +
              `Msafiri: *${finalPassengerName}* (${finalPhone})\n` +
-             `Njia: *${calcData.pickupName}* ➔ *${calcData.destName}*\n` +
+             `Njia: *${calcData.pickupName}*  *${calcData.destName}*\n` +
              `Nauli: *TZS ${calcData.fare?.toLocaleString()}/=* (${calcData.typeName})\n\n` +
-             `Madereva wamepewa taarifa. Utapokea SMS/Simu dereva akithibitisha. Ahsante! 🙏`;
+             `Madereva wamepewa taarifa. Utapokea SMS/Simu dereva akithibitisha. Ahsante! `;
     } else if (cleanInput === '2' || lowerInput.includes('hapana') || lowerInput.includes('badilisha') || lowerInput.includes('weka') || lowerInput.includes('mpya') || lowerInput.includes('no')) {
       session.step = 'TAXI_PASSENGER_NAME';
       await saveSession(session, dbAdmin);
-      return `👤 MSAFIRI (1/2):\nAndika jina la msafiri (mf: Juma Kiboko):`;
+      return ` MSAFIRI (1/2):\nAndika jina la msafiri (mf: Juma Kiboko):`;
     } else {
-      return `⚠️ Chaguo si sahihi. Tuma:\n1. Kutumia ya awali\n2. Kuweka mpya`;
+      return ` Chaguo si sahihi. Tuma:\n1. Kutumia ya awali\n2. Kuweka mpya`;
     }
   }
 
   if (session.step === 'TAXI_PASSENGER_NAME' && session.selectedService === 'taxi') {
     if (!cleanInput) {
-      return `⚠️ Andika jina la msafiri (mf: Juma Kiboko):`;
+      return ` Andika jina la msafiri (mf: Juma Kiboko):`;
     }
     session.passengerName = cleanInput;
     session.step = 'TAXI_PASSENGER_PHONE';
     await saveSession(session, dbAdmin);
-    return `📞 MSAFIRI (2/2):\nAndika namba ya simu (mf: 0712345678) au tuma * kutumia hii (${session.phone.replace('ussd:', '')}):`;
+    return ` MSAFIRI (2/2):\nAndika namba ya simu (mf: 0712345678) au tuma * kutumia hii (${session.phone.replace('ussd:', '')}):`;
   }
 
   if (session.step === 'TAXI_PASSENGER_PHONE' && session.selectedService === 'taxi') {
@@ -3061,7 +3080,7 @@ export async function handleSMSInput(
     if (!calcData) {
       session.step = 'START';
       await saveSession(session, dbAdmin);
-      return `⚠️ Hitilafu imetokea. Tafadhali tuma "HI" kuanza upya.`;
+      return ` Hitilafu imetokea. Tafadhali tuma "HI" kuanza upya.`;
     }
 
     let finalPhone = session.phone.replace('ussd:', '');
@@ -3070,7 +3089,7 @@ export async function handleSMSInput(
       if (/^[0-9+]+$/.test(rawInput) && rawInput.length >= 8) {
         finalPhone = rawInput;
       } else {
-        return `⚠️ Namba si sahihi. Andika namba ya simu au tuma * kutumia hii ya sasa:`;
+        return ` Namba si sahihi. Andika namba ya simu au tuma * kutumia hii ya sasa:`;
       }
     }
 
@@ -3118,11 +3137,11 @@ export async function handleSMSInput(
       }
     }
 
-    return `✅ ODA IMEWASILISHWA! 🚖\n\n` +
+    return ` ODA IMEWASILISHWA! \n\n` +
            `Msafiri: *${finalPassengerName}* (${finalPhone})\n` +
-           `Njia: *${calcData.pickupName}* ➔ *${calcData.destName}*\n` +
+           `Njia: *${calcData.pickupName}*  *${calcData.destName}*\n` +
            `Nauli: *TZS ${calcData.fare?.toLocaleString()}/=* (${calcData.typeName})\n\n` +
-           `Madereva wamepewa taarifa. Utapokea SMS/Simu dereva akithibitisha. Ahsante! 🙏`;
+           `Madereva wamepewa taarifa. Utapokea SMS/Simu dereva akithibitisha. Ahsante! `;
   }
 
   // SALON BOOKING FLOWS
@@ -3144,9 +3163,9 @@ export async function handleSMSInput(
     session.optionsList = salons;
     await saveSession(session, dbAdmin);
 
-    let reply = `💇‍♀️ Saluni bora kabisa karibu nawe kwa ajili ya [${subLabel}]:\n\n`;
+    let reply = ` Saluni bora kabisa karibu nawe kwa ajili ya [${subLabel}]:\n\n`;
     salons.forEach((sal, idx) => {
-      reply += `${idx + 1}. ${sal.name}\n📍 ${sal.desc}\n💰 Huduma kuanzia: TSH ${sal.price.toLocaleString()}\n\n`;
+      reply += `${idx + 1}. ${sal.name}\n ${sal.desc}\n Huduma kuanzia: TSH ${sal.price.toLocaleString()}\n\n`;
     });
     reply += "Tuma namba ya Saluni unayotaka kujitengeneza miadi (booking) sasa hivi:";
     return reply;
@@ -3156,7 +3175,7 @@ export async function handleSMSInput(
     const idx = parseInt(cleanInput) - 1;
     const selected = session.optionsList?.[idx];
     if (!selected) {
-      return "⚠️ Namba uliyotuma si sahihi. Tafadhali tuma 1, 2 au 3 kulingana na saluni unayotaka.";
+      return " Namba uliyotuma si sahihi. Tafadhali tuma 1, 2 au 3 kulingana na saluni unayotaka.";
     }
 
     session.selectedSalonId = selected.id;
@@ -3167,7 +3186,7 @@ export async function handleSMSInput(
     // Create realistic order
     await triggerMockOrder(dbAdmin, selected.id, 'salon', [{ name: `Service Custom: ${session.selectedSalonCategory}`, price: selected.price, quantity: 1 }], selected.price, fromPhone, "Weka Miadi SMS", `SMS request for ${session.selectedSalonCategory}`);
 
-    return `💇‍♀️ Hongera sana! Umefanikiwa kuweka miadi (booking) na "${selected.name}".\n💰 Huduma ya Kuanzia: TSH ${selected.price.toLocaleString()}\n⏳ Tafadhali fika saluni kwa wakati kukamilisha huduma yako. Simu ya Saluni itawasiliana nawe punde! Ahsante! ✨`;
+    return ` Hongera sana! Umefanikiwa kuweka miadi (booking) na "${selected.name}".\n Huduma ya Kuanzia: TSH ${selected.price.toLocaleString()}\n Tafadhali fika saluni kwa wakati kukamilisha huduma yako. Simu ya Saluni itawasiliana nawe punde! Ahsante! `;
   }
 
   // PAPOFIX (HOME SERVICES & HANDYMAN) FLOWS
@@ -3191,9 +3210,9 @@ export async function handleSMSInput(
     session.optionsList = handymen;
     await saveSession(session, dbAdmin);
 
-    let reply = `🛠️ PapoFix - Chagua Fundi Bora kwa [${catName}]:\n\n`;
+    let reply = ` PapoFix - Chagua Fundi Bora kwa [${catName}]:\n\n`;
     handymen.forEach((h, idx) => {
-      reply += `${idx + 1}. ${h.name}\n📍 ${h.desc}\n💰 Ada ya Ukaguzi: TZS ${h.price.toLocaleString()}\n\n`;
+      reply += `${idx + 1}. ${h.name}\n ${h.desc}\n Ada ya Ukaguzi: TZS ${h.price.toLocaleString()}\n\n`;
     });
     reply += "Tuma namba ya Fundi unayemchagua kuweka booking:";
     return reply;
@@ -3203,14 +3222,14 @@ export async function handleSMSInput(
     const idx = parseInt(cleanInput) - 1;
     const selected = session.optionsList?.[idx];
     if (!selected) {
-      return "⚠️ Chaguo si sahihi. Tafadhali tuma 1, 2 au 3 kuchagua Fundi.";
+      return " Chaguo si sahihi. Tafadhali tuma 1, 2 au 3 kuchagua Fundi.";
     }
 
     session.selectedVendorName = selected.name;
     session.step = 'HANDYMAN_DESC';
     await saveSession(session, dbAdmin);
 
-    return `🛠️ Umemchagua: ${selected.name}\n\nTafadhali tuma maelezo mafupi ya tatizo au kazi unayotaka ifanyike (Mf: Kurepair switch za umeme sebuleni au kurekebisha bomba la jikoni):`;
+    return ` Umemchagua: ${selected.name}\n\nTafadhali tuma maelezo mafupi ya tatizo au kazi unayotaka ifanyike (Mf: Kurepair switch za umeme sebuleni au kurekebisha bomba la jikoni):`;
   }
 
   if (session.step === 'HANDYMAN_DESC' && session.selectedService === 'handyman') {
@@ -3242,7 +3261,7 @@ export async function handleSMSInput(
       }
     }
 
-    return `🎉 OMBI LA FUNDI LIMETUMWA! 🛠️✨\n\nRef Code: ${refCode}\nHuduma: ${session.selectedSubCategory || 'PapoFix'}\nFundi: ${session.selectedVendorName || 'Master Fundi'}\nMaelezo: ${issueDesc}\n💰 Ada ya Ukaguzi: TZS 10,000\n\nFundi wetu atakupigia simu kwenye namba *${fromPhone}* hivi punde kuanza kazi. Ahsante kwa kutumia PapoFix! 🙏`;
+    return ` OMBI LA FUNDI LIMETUMWA! \n\nRef Code: ${refCode}\nHuduma: ${session.selectedSubCategory || 'PapoFix'}\nFundi: ${session.selectedVendorName || 'Master Fundi'}\nMaelezo: ${issueDesc}\n Ada ya Ukaguzi: TZS 10,000\n\nFundi wetu atakupigia simu kwenye namba *${fromPhone}* hivi punde kuanza kazi. Ahsante kwa kutumia PapoFix! `;
   }
 
   // BUS BOOKING FLOWS (The exact user scenario requested)
@@ -3279,9 +3298,9 @@ export async function handleSMSInput(
     session.optionsList = operators;
     await saveSession(session, dbAdmin);
 
-    let reply = `🚌 Safari za route ya ${routeParts}:\nChagua basi kwa kutuma namba yake:\n\n`;
+    let reply = ` Safari za route ya ${routeParts}:\nChagua basi kwa kutuma namba yake:\n\n`;
     operators.forEach((op, idx) => {
-      reply += `${idx + 1}. ${op.businessName}\n💰 Nauli: TSH ${op.price.toLocaleString()}\n\n`;
+      reply += `${idx + 1}. ${op.businessName}\n Nauli: TSH ${op.price.toLocaleString()}\n\n`;
     });
     reply += "Weka namba ya mtoa usafiri sasa hivi kukata kiti chako:";
     return reply;
@@ -3291,7 +3310,7 @@ export async function handleSMSInput(
     const idx = parseInt(cleanInput) - 1;
     const selected = session.optionsList?.[idx];
     if (!selected) {
-      return "⚠️ Namba ya basi uliyotuma si sahihi. Chagua namba sahihi ya opereta kwenye orodha yetu.";
+      return " Namba ya basi uliyotuma si sahihi. Chagua namba sahihi ya opereta kwenye orodha yetu.";
     }
 
     session.selectedOperatorId = selected.id;
@@ -3300,7 +3319,7 @@ export async function handleSMSInput(
     session.step = 'BUS_SEAT';
     await saveSession(session, dbAdmin);
 
-    return `🚌 Umechagua Basi la: ${selected.businessName}.\n\nTafadhali chagua namba ya kiti upendacho kukaa.\nMfano wa viti vilivyowazi sasa:\nA12, B3, C7, D10.\n\nTuma herufi ya kiti chako sasa:`;
+    return ` Umechagua Basi la: ${selected.businessName}.\n\nTafadhali chagua namba ya kiti upendacho kukaa.\nMfano wa viti vilivyowazi sasa:\nA12, B3, C7, D10.\n\nTuma herufi ya kiti chako sasa:`;
   }
 
   if (session.step === 'BUS_SEAT' && session.selectedService === 'bus_ticket') {
@@ -3309,7 +3328,7 @@ export async function handleSMSInput(
     session.step = 'BUS_PHONE';
     await saveSession(session, dbAdmin);
 
-    return `💺 Umechagua *KITI ${seatInput}* kwenye basi la ${session.selectedOperatorName}.\n\nTafadhali tuma namba ya simu ya lipa hapa (pesa ya simu) ya kufanya malipo (Mfano: 0712345678 au 0687123456):`;
+    return ` Umechagua *KITI ${seatInput}* kwenye basi la ${session.selectedOperatorName}.\n\nTafadhali tuma namba ya simu ya lipa hapa (pesa ya simu) ya kufanya malipo (Mfano: 0712345678 au 0687123456):`;
   }
 
   if (session.step === 'BUS_PHONE' && session.selectedService === 'bus_ticket') {
@@ -3329,13 +3348,13 @@ export async function handleSMSInput(
       `Kiti ${session.selectedSeat} uelekeo ${session.busRoute} - Nambari ya malipo ${paymentPhone}`
     );
 
-    return `🎉 ASDANTE SANA! Umefanikiwa kuhifadhi kiti chako:\n\n` +
+    return ` ASDANTE SANA! Umefanikiwa kuhifadhi kiti chako:\n\n` +
            `- Route: ${session.busRoute}\n` +
            `- Basi: ${session.selectedOperatorName}\n` +
            `- Kiti: ${session.selectedSeat}\n` +
            `- Malipo Mapokezi: TSH ${(session.selectedProductPrice || 45000).toLocaleString()}\n` +
            `- Simu ya malipo: ${paymentPhone}\n\n` +
-           `Tumetuma ombi la kulipia kupitia mtandao wa simu (PUSH) kwenda ${paymentPhone}. Tafadhali weka PIN yako kukamilisha ununuzi. Tiketi yako kamili itatuma kwa SMS punde! Safari njema! 🚌✨`;
+           `Tumetuma ombi la kulipia kupitia mtandao wa simu (PUSH) kwenda ${paymentPhone}. Tafadhali weka PIN yako kukamilisha ununuzi. Tiketi yako kamili itatuma kwa SMS punde! Safari njema! `;
   }
 
   // CHAKULA & SOKONI (FOOD & GROCERY SUPER APP FLOW)
@@ -3403,14 +3422,14 @@ export async function handleSMSInput(
       return reply;
     }
 
-    return "⚠️ Chaguo si sahihi! Tuma 1 kwa CHAKULA au 2 kwa SOKONI.\n0. Nyuma";
+    return " Chaguo si sahihi! Tuma 1 kwa CHAKULA au 2 kwa SOKONI.\n0. Nyuma";
   }
 
   if (session.step === 'FOOD_VENDOR_LIST') {
     if (cleanInput === '0') {
       session.step = 'FOOD_MAIN_MENU';
       await saveSession(session, dbAdmin);
-      return "PAPO HAPO SUPER APP\nCHAGUA HUDUMA\n\n1. 🍔 CHAKULA\n2. 🛒 SOKONI\n\n0. Nyuma";
+      return "PAPO HAPO SUPER APP\nCHAGUA HUDUMA\n\n1. CHAKULA\n2. SOKONI\n\n0. Nyuma";
     }
 
     if (cleanInput === '9') {
@@ -3429,7 +3448,7 @@ export async function handleSMSInput(
     const idx = parseInt(cleanInput) - 1;
     const vendor = session.optionsList?.[idx];
     if (!vendor) {
-      return "⚠️ Namba ya mtoa huduma si sahihi.\n0. Nyuma";
+      return " Namba ya mtoa huduma si sahihi.\n0. Nyuma";
     }
 
     session.selectedOperatorId = vendor.id;
@@ -3534,7 +3553,7 @@ export async function handleSMSInput(
     const idx = parseInt(cleanInput) - 1;
     const cat = session.optionsList?.[idx];
     if (!cat) {
-      return "⚠️ Chaguo si sahihi. Chagua namba kutoka kwenye orodha.\n0. Nyuma";
+      return " Chaguo si sahihi. Chagua namba kutoka kwenye orodha.\n0. Nyuma";
     }
 
     session.selectedSubCategory = cat.name;
@@ -3721,7 +3740,7 @@ export async function handleSMSInput(
     const idx = parseInt(cleanInput) - 1;
     const item = session.optionsList?.[idx];
     if (!item) {
-      return "⚠️ Chaguo si sahihi. Chagua namba kutoka kwenye orodha.\n0. Nyuma";
+      return " Chaguo si sahihi. Chagua namba kutoka kwenye orodha.\n0. Nyuma";
     }
 
     session.selectedProductId = item.id;
@@ -3750,7 +3769,7 @@ export async function handleSMSInput(
       return "Ingiza idadi.\n\nMfano:\n1\n2\n3";
     }
 
-    return "⚠️ Bofya 1 Ongeza Kikapu, 2 Maelezo, au 0 Nyuma.";
+    return " Bofya 1 Ongeza Kikapu, 2 Maelezo, au 0 Nyuma.";
   }
 
   if (session.step === 'FOOD_QTY_INPUT') {
@@ -3807,7 +3826,7 @@ export async function handleSMSInput(
       return "DELIVERY\n\n1. Tumia Location yangu\n2. Ingiza eneo\n\n0. Nyuma";
     }
 
-    return "⚠️ Bofya 1 Ongeza bidhaa, 2 Endelea Kulipa, au 3 Futa Kikapu.";
+    return " Bofya 1 Ongeza bidhaa, 2 Endelea Kulipa, au 3 Futa Kikapu.";
   }
 
   if (session.step === 'FOOD_DELIVERY_LOCATION') {
@@ -3840,8 +3859,8 @@ export async function handleSMSInput(
       const walletBal = (session.walletBalance || 0).toLocaleString();
 
       return session.language === 'en'
-        ? `SUMMARY\n\nItems       TZS ${subtotal.toLocaleString()}\nDelivery    TZS 2,500${promoText}\nTotal       TZS ${grandTotal.toLocaleString()}\n\n1. 💳 PapoWallet (Bal: TZS ${walletBal})\n2. M-Pesa\n3. Airtel Money\n4. Tigo Pesa\n5. HaloPesa\n6. Cash\n\n0. Back`
-        : `JUMLA\n\nBidhaa      TZS ${subtotal.toLocaleString()}\nDelivery    TZS 2,500${promoText}\nJumla       TZS ${grandTotal.toLocaleString()}\n\n1. 💳 PapoWallet (Salio: TZS ${walletBal})\n2. M-Pesa\n3. Airtel Money\n4. Tigo Pesa\n5. HaloPesa\n6. Cash\n\n0. Nyuma`;
+        ? `SUMMARY\n\nItems       TZS ${subtotal.toLocaleString()}\nDelivery    TZS 2,500${promoText}\nTotal       TZS ${grandTotal.toLocaleString()}\n\n1. PapoWallet (Bal: TZS ${walletBal})\n2. M-Pesa\n3. Airtel Money\n4. Tigo Pesa\n5. HaloPesa\n6. Cash\n\n0. Back`
+        : `JUMLA\n\nBidhaa      TZS ${subtotal.toLocaleString()}\nDelivery    TZS 2,500${promoText}\nJumla       TZS ${grandTotal.toLocaleString()}\n\n1. PapoWallet (Salio: TZS ${walletBal})\n2. M-Pesa\n3. Airtel Money\n4. Tigo Pesa\n5. HaloPesa\n6. Cash\n\n0. Nyuma`;
     }
 
     if (cleanInput === '2') {
@@ -3853,8 +3872,8 @@ export async function handleSMSInput(
     }
 
     return session.language === 'en'
-      ? "⚠️ Select 1 Use my location, 2 Enter address, or 0 Back."
-      : "⚠️ Chagua 1 Tumia Location yangu, 2 Ingiza eneo, au 0 Nyuma.";
+      ? " Select 1 Use my location, 2 Enter address, or 0 Back."
+      : " Chagua 1 Tumia Location yangu, 2 Ingiza eneo, au 0 Nyuma.";
   }
 
   if (session.step === 'FOOD_INPUT_ADDRESS') {
@@ -3886,8 +3905,8 @@ export async function handleSMSInput(
     const walletBal = (session.walletBalance || 0).toLocaleString();
 
     return session.language === 'en'
-      ? `SUMMARY\n\nItems       TZS ${subtotal.toLocaleString()}\nDelivery    TZS 2,500${promoText}\nTotal       TZS ${grandTotal.toLocaleString()}\n\n1. 💳 PapoWallet (Bal: TZS ${walletBal})\n2. M-Pesa\n3. Airtel Money\n4. Tigo Pesa\n5. HaloPesa\n6. Cash\n\n0. Back`
-      : `JUMLA\n\nBidhaa      TZS ${subtotal.toLocaleString()}\nDelivery    TZS 2,500${promoText}\nJumla       TZS ${grandTotal.toLocaleString()}\n\n1. 💳 PapoWallet (Salio: TZS ${walletBal})\n2. M-Pesa\n3. Airtel Money\n4. Tigo Pesa\n5. HaloPesa\n6. Cash\n\n0. Nyuma`;
+      ? `SUMMARY\n\nItems       TZS ${subtotal.toLocaleString()}\nDelivery    TZS 2,500${promoText}\nTotal       TZS ${grandTotal.toLocaleString()}\n\n1. PapoWallet (Bal: TZS ${walletBal})\n2. M-Pesa\n3. Airtel Money\n4. Tigo Pesa\n5. HaloPesa\n6. Cash\n\n0. Back`
+      : `JUMLA\n\nBidhaa      TZS ${subtotal.toLocaleString()}\nDelivery    TZS 2,500${promoText}\nJumla       TZS ${grandTotal.toLocaleString()}\n\n1. PapoWallet (Salio: TZS ${walletBal})\n2. M-Pesa\n3. Airtel Money\n4. Tigo Pesa\n5. HaloPesa\n6. Cash\n\n0. Nyuma`;
   }
 
   if (session.step === 'FOOD_PAYMENT_METHOD') {
@@ -3922,8 +3941,8 @@ export async function handleSMSInput(
     if (method === 'PapoWallet') {
       if ((session.walletBalance || 0) < grandTotal) {
         return session.language === 'en'
-          ? `⚠️ Insufficient PapoWallet balance (Bal: TZS ${(session.walletBalance || 0).toLocaleString()}, Required: TZS ${grandTotal.toLocaleString()}). Please select another payment method or top up.`
-          : `⚠️ Salio la PapoWallet halitoshi (Salio: TZS ${(session.walletBalance || 0).toLocaleString()}, Inatakiwa: TZS ${grandTotal.toLocaleString()}). Chagua njia ingine ya malipo au weka salio.`;
+          ? ` Insufficient PapoWallet balance (Bal: TZS ${(session.walletBalance || 0).toLocaleString()}, Required: TZS ${grandTotal.toLocaleString()}). Please select another payment method or top up.`
+          : ` Salio la PapoWallet halitoshi (Salio: TZS ${(session.walletBalance || 0).toLocaleString()}, Inatakiwa: TZS ${grandTotal.toLocaleString()}). Chagua njia ingine ya malipo au weka salio.`;
       }
       session.walletBalance = (session.walletBalance || 0) - grandTotal;
     }
@@ -3966,10 +3985,10 @@ export async function handleSMSInput(
     await saveSession(session, dbAdmin);
 
     if (session.language === 'en') {
-      return `Order successfully sent! 🍔✨\n\nVendor: ${vendorName}\nTotal: TZS ${grandTotal.toLocaleString()}\nPayment: ${method}\n🎁 Earned +${earnedPoints} PapoPoints!\nOrder Code: ${orderIdCode}`;
+      return `Order successfully sent! \n\nVendor: ${vendorName}\nTotal: TZS ${grandTotal.toLocaleString()}\nPayment: ${method}\n Earned +${earnedPoints} PapoPoints!\nOrder Code: ${orderIdCode}`;
     }
 
-    return `Agizo lako limetumwa! 🍔✨\n\nVendor: ${vendorName}\nJumla: TZS ${grandTotal.toLocaleString()}\nMalipo: ${method}\n🎁 Umepata +${earnedPoints} PapoPoints!\nOrder Code: ${orderIdCode}`;
+    return `Agizo lako limetumwa! \n\nVendor: ${vendorName}\nJumla: TZS ${grandTotal.toLocaleString()}\nMalipo: ${method}\n Umepata +${earnedPoints} PapoPoints!\nOrder Code: ${orderIdCode}`;
   }
 
   // GENERAL STORES / RESTAURANT / GROCERY FLOWS
@@ -4035,9 +4054,9 @@ export async function handleSMSInput(
     session.optionsList = matches;
     await saveSession(session, dbAdmin);
 
-    let reply = `📦 Bidhaa zote tulizopata kwa neno: ["${cleanInput}"]:\n\n`;
+    let reply = ` Bidhaa zote tulizopata kwa neno: ["${cleanInput}"]:\n\n`;
     matches.forEach((p, idx) => {
-      reply += `${idx + 1}. ${p.name}\n💰 Bei: TSH ${p.price.toLocaleString()}\n\n`;
+      reply += `${idx + 1}. ${p.name}\n Bei: TSH ${p.price.toLocaleString()}\n\n`;
     });
     reply += "Tuma namba ya bidhaa unayotaka kuagiza sasa hivi:";
     return reply;
@@ -4047,7 +4066,7 @@ export async function handleSMSInput(
     const idx = parseInt(cleanInput) - 1;
     const selected = session.optionsList?.[idx];
     if (!selected) {
-      return "⚠️ Namba ya bidhaa si sahihi. Chagua namba sahihi kuanzia kwenye list.";
+      return " Namba ya bidhaa si sahihi. Chagua namba sahihi kuanzia kwenye list.";
     }
 
     session.selectedProductId = selected.id;
@@ -4057,7 +4076,7 @@ export async function handleSMSInput(
     session.step = 'STORE_PHONE';
     await saveSession(session, dbAdmin);
 
-    return `🛍️ Umechagua kuagiza:\n[${selected.name} - TSH ${selected.price.toLocaleString()}]\n\nTafadhali tuma namba ya simu ya kufanyia malipo na uwasilishaji sasa (Mfano: 07XXXXXXXX):`;
+    return ` Umechagua kuagiza:\n[${selected.name} - TSH ${selected.price.toLocaleString()}]\n\nTafadhali tuma namba ya simu ya kufanyia malipo na uwasilishaji sasa (Mfano: 07XXXXXXXX):`;
   }
 
   if (session.step === 'STORE_PHONE') {
@@ -4077,11 +4096,11 @@ export async function handleSMSInput(
       `Order item: ${session.selectedProductName}. Delivery phone: ${deliveryPhone}`
     );
 
-    return `🎉 ODA YAKO IMESAJILIWA!\n\n` +
+    return ` ODA YAKO IMESAJILIWA!\n\n` +
            `- Huduma: ${session.selectedProductName}\n` +
            `- Jumla ya Kulipa: TSH ${(session.selectedProductPrice || 0).toLocaleString()}\n` +
            `- Namba ya mteja: ${deliveryPhone}\n\n` +
-           `Tumetuma ujumbe wa muamala (Push prompt) kwenye simu yako ya malipo tayari. Baada ya kukamilisha weka siri, duka litaandaa na kuwasilisha mzigo wako haraka iwezekanavyo! Ahsante sana! 🍱🚴‍♂️`;
+           `Tumetuma ujumbe wa muamala (Push prompt) kwenye simu yako ya malipo tayari. Baada ya kukamilisha weka siri, duka litaandaa na kuwasilisha mzigo wako haraka iwezekanavyo! Ahsante sana! `;
   }
 
   // Fallback reset
