@@ -405,14 +405,13 @@ export function getPapoWalletText(session: SMSSession): string {
   const isEn = session.language === 'en';
   const balance = (session.walletBalance ?? 15000).toLocaleString();
   const points = session.papoPoints ?? 120;
-  const pointsVal = (points * 10).toLocaleString();
-  const promo = session.appliedPromoCode ? `\n🎟️ Promo Active: ${session.appliedPromoCode}` : '';
+  const promo = session.appliedPromoCode ? `\n🎟️ Promo: ${session.appliedPromoCode}` : '';
 
   if (isEn) {
-    return `💰 PAPOWALLET, SPLIT FARE & POINTS\n\nBalance: TZS ${balance}\nPapoPoints: ${points} PTS (≡ TZS ${pointsVal})${promo}\n\n1. 💳 Top-Up Wallet (M-Pesa / Tigo / Airtel)\n2. 🎁 Convert PapoPoints to Cash\n3. 🎟️ Enter Promo Code\n4. 💸 Split Fare 50/50 (Gawana Nauli)\n5. 🎁 Pay for Friend / Relative (Lipia Mwingine)\n6. 📜 Recent Transactions\n\n0. Main Menu`;
+    return `💰 PAPOWALLET & POINTS\n\nBal: TZS ${balance} | PTS: ${points}${promo}\n\n1. 💳 Top-Up Wallet\n2. 🎁 Redeem Points\n3. 🎟️ Promo Code\n4. 💸 Split Fare\n5. 🎁 Pay for Friend\n6. 📜 History\n\n0. Main Menu`;
   }
 
-  return `💰 PAPOWALLET, GAWANA NAULI & POINTS\n\nSalio Lako: TZS ${balance}\nPapoPoints: ${points} PTS (≡ TZS ${pointsVal})${promo}\n\n1. 💳 Weka Salio (Top-Up M-Pesa / Tigo / Airtel)\n2. 🎁 Badili PapoPoints Kuwa Cash Salio\n3. 🎟️ Ingiza Promo Code (Punguzo)\n4. 💸 Gawana Nauli 50/50 (Split Fare)\n5. 🎁 Lipia Mwezi / Rafiki (Lipia Mwingine)\n6. 📜 Miamala ya Hivi Karibuni\n\n0. Rudi Mwanzo`;
+  return `💰 PAPOWALLET & POINTS\n\nSalio: TZS ${balance} | PTS: ${points}${promo}\n\n1. 💳 Weka Salio\n2. 🎁 Badili Points\n3. 🎟️ Promo Code\n4. 💸 Gawana Nauli\n5. 🎁 Lipia Mwingine\n6. 📜 Miamala\n\n0. Rudi Mwanzo`;
 }
 
 export function getSavedLocationsText(session: SMSSession): string {
