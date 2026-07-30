@@ -3884,7 +3884,26 @@ export default function TaxiBooking() {
                             )}
                             
                             {/* Active state small indicator point */}
-                            <div className={`absolute top-2 right-2 w-1.5 h-1.5 rounded-full transition-all duration-300 ${isSelected ? "bg-indigo-600 scale-100 shadow-[0_0_8px_indigo]" : "bg-transparent scale-0"}`} />
+                            <div className={`absolute top-2 left-2 w-1.5 h-1.5 rounded-full transition-all duration-300 ${isSelected ? "bg-indigo-600 scale-100 shadow-[0_0_8px_indigo]" : "bg-transparent scale-0"}`} />
+
+                            {/* Kitufe cha Ikoni cha Gharama ya Uwazi (Breakdown Icon) */}
+                            <div
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedRide(ride);
+                                setShowBreakdownModal(true);
+                              }}
+                              title="Tazama Mchanganuo wa Gharama za Usafiri Huu"
+                              className={`absolute top-1.5 right-1.5 z-20 w-6 h-6 rounded-full flex items-center justify-center transition-all shadow-sm active:scale-90 ${
+                                isSelected
+                                  ? "bg-indigo-600 text-white shadow-indigo-500/30 hover:bg-indigo-500"
+                                  : (theme === 'dark'
+                                    ? "bg-neutral-800/90 text-indigo-400 border border-neutral-700 hover:bg-neutral-700"
+                                    : "bg-white/95 text-indigo-600 border border-neutral-200 hover:bg-indigo-50")
+                              }`}
+                            >
+                              <Calculator className="w-3.5 h-3.5" />
+                            </div>
 
                             {/* Beautiful Custom-designed Vehicle Container with a 3D Glowing Podium/Shadow */}
                             <div className="relative w-full aspect-[4/3] max-h-[72px] sm:max-h-[80px] flex items-center justify-center -mt-1 select-none">
@@ -3930,39 +3949,14 @@ export default function TaxiBooking() {
                             </div>
                             
                             {/* Information of capacity and ETA */}
-                            <div className={`w-full flex flex-col gap-1 border-t pt-1.5 mt-0.5 ${theme === 'dark' ? 'border-neutral-800' : 'border-neutral-100'}`}>
-                              <div className="flex items-center justify-around w-full">
-                                <div className={`flex items-center gap-1 text-[8.5px] font-bold ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-600'}`}>
-                                  <Users className="w-2.5 h-2.5 text-indigo-500 shrink-0" />
-                                  <span>Abiria {ride.capacity}</span>
-                                </div>
-                                <div className={`flex items-center gap-1 text-[8.5px] font-bold ${
-                                  isSelected ? "text-emerald-500" : (theme === 'dark' ? 'text-neutral-500' : 'text-neutral-500')
-                                }`}>
-                                  <Clock className={`w-2.5 h-2.5 shrink-0 ${isSelected ? "text-emerald-500 animate-pulse" : "text-neutral-400"}`} />
-                                  <span>Fika: {ride.eta} min</span>
-                                </div>
+                            <div className={`w-full flex items-center justify-between px-2 pt-1.5 mt-1 border-t text-[9px] font-bold ${theme === 'dark' ? 'border-neutral-800 text-neutral-400' : 'border-neutral-100 text-neutral-600'}`}>
+                              <div className="flex items-center gap-1 whitespace-nowrap">
+                                <Users className="w-3 h-3 text-indigo-500 shrink-0" />
+                                <span>Abiria {ride.capacity}</span>
                               </div>
-
-                              {/* Kitufe cha Gharama ya Uwazi kwenye usafiri husika */}
-                              <div className="w-full pt-1.5 mt-1 border-t border-neutral-200/60 dark:border-neutral-800/80">
-                                <span
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedRide(ride);
-                                    setShowBreakdownModal(true);
-                                  }}
-                                  className={`w-full py-1.5 px-1 rounded-xl text-[8px] sm:text-[8.5px] font-black uppercase tracking-tight flex items-center justify-center gap-1 transition-all shadow-sm active:scale-95 ${
-                                    isSelected
-                                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500"
-                                      : (theme === 'dark'
-                                        ? "bg-indigo-950/70 text-indigo-300 border border-indigo-800/50 hover:bg-indigo-900"
-                                        : "bg-indigo-50/90 text-indigo-700 border border-indigo-200/60 hover:bg-indigo-100")
-                                  }`}
-                                >
-                                  <Calculator className="w-2.5 h-2.5 shrink-0" />
-                                  <span className="truncate">Gharama ya Uwazi</span>
-                                </span>
+                              <div className={`flex items-center gap-1 whitespace-nowrap ${isSelected ? "text-emerald-500 font-extrabold" : ""}`}>
+                                <Clock className={`w-3 h-3 shrink-0 ${isSelected ? "text-emerald-500 animate-pulse" : "text-neutral-400"}`} />
+                                <span>{ride.eta} min</span>
                               </div>
                             </div>
                           </button>
@@ -4356,14 +4350,10 @@ export default function TaxiBooking() {
                 )}
               </div>
 
-              {/* Ride Options Breakdowns */}
+              {/* Ride Options Breakdowns - KWA USAFIRI HUSIKA ULIOCHAGULIWA TU */}
               <div className="space-y-4">
-                {[...rideOptions]
-                  .sort((a, b) => {
-                    if (selectedRide?.id === a.id) return -1;
-                    if (selectedRide?.id === b.id) return 1;
-                    return 0;
-                  })
+                {rideOptions
+                  .filter((ride) => ride.id === (selectedRide?.id || "mini"))
                   .map((ride) => {
                   const id = ride.id;
                   const vehicleConfig = config?.vehicles?.[id];
@@ -4412,97 +4402,101 @@ export default function TaxiBooking() {
                   return (
                     <div 
                       key={ride.id} 
-                      className={`p-4 rounded-3xl border transition-all ${
-                        selectedRide?.id === ride.id 
-                          ? 'bg-[#7F77DD]/10 border-[#7F77DD] shadow-[0_0_15px_rgba(127,119,221,0.15)]' 
-                          : 'bg-[#12121e]/50 border-white/5'
-                      }`}
+                      className="p-5 rounded-3xl bg-gradient-to-b from-[#141426] to-[#0D0D17] border border-indigo-500/30 shadow-[0_0_25px_rgba(127,119,221,0.2)] space-y-4"
                     >
-                      {selectedRide?.id === ride.id && (
-                        <div className="mb-3 flex items-center gap-1.5 bg-[#7F77DD]/20 border border-[#7F77DD]/40 px-2.5 py-1 rounded-full w-fit">
+                      {/* Hero card badge */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 bg-emerald-500/20 border border-emerald-500/40 px-3 py-1 rounded-full">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                          <span className="text-[9px] font-black uppercase tracking-wider text-[#7F77DD]">
-                            USAFIRI HALISI ULIOCHAGUA
+                          <span className="text-[9px] font-black uppercase tracking-wider text-emerald-300">
+                            Mchanganuo Halisi wa {ride.name}
                           </span>
                         </div>
-                      )}
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center overflow-hidden shrink-0">
+                        <span className="text-[9px] font-bold text-neutral-400">0% Gharama Zilizojificha</span>
+                      </div>
+
+                      {/* Vehicle summary header */}
+                      <div className="flex items-center justify-between py-2 border-b border-white/10">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
                             {ride.imageUrl ? (
-                              <img src={ride.imageUrl} className="w-7 h-7 object-contain" referrerPolicy="no-referrer" />
+                              <img src={ride.imageUrl} className="w-10 h-10 object-contain drop-shadow" referrerPolicy="no-referrer" alt={ride.name} />
                             ) : (
-                              <span className="text-sm">{ride.image || (id === 'mini' ? '🚗' : id === 'bajaj' ? '🛺' : '🏍️')}</span>
+                              <span className="text-xl">{ride.image || (id === 'mini' ? '🚗' : id === 'bajaj' ? '🛺' : '🏍️')}</span>
                             )}
                           </div>
                           <div>
-                            <h4 className="text-xs font-black uppercase tracking-wide">{ride.name}</h4>
-                            <p className="text-[8px] text-neutral-400 font-bold uppercase">{ride.sub}</p>
+                            <h4 className="text-sm font-black uppercase tracking-wide text-white">{ride.name}</h4>
+                            <p className="text-[9px] text-indigo-300 font-bold uppercase">{ride.sub} • Abiria {ride.capacity}</p>
                           </div>
                         </div>
-                        <span className="text-xs font-black text-[#7F77DD]">
-                          TZS {ride.price.toLocaleString()}
-                        </span>
+                        <div className="text-right">
+                          <p className="text-[9px] text-neutral-400 uppercase font-black tracking-wider">Jumla ya Gharama</p>
+                          <span className="text-base font-black text-emerald-400">
+                            TZS {ride.price.toLocaleString()}
+                          </span>
+                        </div>
                       </div>
 
-                      <div className="space-y-2 text-[10px] text-neutral-300 font-medium">
+                      {/* Breakdown Rows */}
+                      <div className="space-y-2 text-xs text-neutral-300 font-medium">
                         {/* Base Fare */}
-                        <div className="flex justify-between items-center bg-white/[0.02] p-1.5 rounded-lg">
-                          <span className="text-neutral-400">1. Kuanza Safari:</span>
-                          <span>TZS {Math.round(baseFare).toLocaleString()}</span>
+                        <div className="flex justify-between items-center bg-white/[0.03] p-2.5 rounded-xl border border-white/5">
+                          <span className="text-neutral-300 font-semibold">1. Kuanza Safari (Base Fare):</span>
+                          <span className="font-bold text-white">TZS {Math.round(baseFare).toLocaleString()}</span>
                         </div>
 
                         {/* Distance Cost */}
-                        <div className="flex justify-between items-center bg-white/[0.02] p-1.5 rounded-lg">
-                          <span className="text-neutral-400">
+                        <div className="flex justify-between items-center bg-white/[0.03] p-2.5 rounded-xl border border-white/5">
+                          <span className="text-neutral-300 font-semibold">
                             2. Kilometa ({distKm.toFixed(1)} KM × {Math.round(pricePerKm)} TZS):
                           </span>
-                          <span>TZS {Math.round(kmCost).toLocaleString()}</span>
+                          <span className="font-bold text-white">TZS {Math.round(kmCost).toLocaleString()}</span>
                         </div>
 
                         {/* Duration Cost */}
-                        <div className="flex justify-between items-center bg-white/[0.02] p-1.5 rounded-lg">
-                          <span className="text-neutral-400">
+                        <div className="flex justify-between items-center bg-white/[0.03] p-2.5 rounded-xl border border-white/5">
+                          <span className="text-neutral-300 font-semibold">
                             3. Muda njiani ({durMins} Dk × {pricePerMin} TZS):
                           </span>
                           {pricePerMin === 0 ? (
-                            <span className="text-[8px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded font-black uppercase">
-                              Trafiki Bure 🎉
+                            <span className="text-[9px] text-emerald-300 bg-emerald-500/20 border border-emerald-500/30 px-2.5 py-1 rounded-full font-black uppercase">
+                              Trafiki Bure 🎉 (0 TZS)
                             </span>
                           ) : (
-                            <span>TZS {Math.round(minCost).toLocaleString()}</span>
+                            <span className="font-bold text-white">TZS {Math.round(minCost).toLocaleString()}</span>
                           )}
                         </div>
 
                         {/* Waiting Time Cost (Muda wa Subira) */}
                         {waitingTime > 0 && (
-                          <div className="flex justify-between items-center bg-amber-500/5 p-1.5 rounded-lg text-amber-400">
-                            <span>4. Subira ({waitingTime} Dk × {waitingRate} TZS):</span>
-                            <span>+ TZS {waitingCost.toLocaleString()}</span>
+                          <div className="flex justify-between items-center bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-xl text-amber-300">
+                            <span className="font-semibold">4. Subira ({waitingTime} Dk × {waitingRate} TZS):</span>
+                            <span className="font-bold">+ TZS {waitingCost.toLocaleString()}</span>
                           </div>
                         )}
 
                         {/* Code for City Taxes */}
                         {taxRate > 0 && (
-                          <div className="flex justify-between items-center bg-emerald-500/5 p-1.5 rounded-lg text-emerald-400">
-                            <span>Tozo/Kodi ({cityData.taxName || "Kodi"} - {taxRate}%):</span>
-                            <span>Imijumuishwa kwenye jumla</span>
+                          <div className="flex justify-between items-center bg-emerald-500/10 border border-emerald-500/20 p-2.5 rounded-xl text-emerald-300">
+                            <span className="font-semibold">Tozo/Kodi ({cityData.taxName || "Kodi"} - {taxRate}%):</span>
+                            <span className="font-bold">Imejumuishwa</span>
                           </div>
                         )}
 
                         {/* Surcharges info row */}
-                        <div className="flex flex-wrap gap-1.5 pt-1">
+                        <div className="flex flex-wrap gap-1.5 pt-2 border-t border-white/5">
                           {isNightSurcharge && (
-                            <span className="text-[8px] text-[#7F77DD] bg-[#7F77DD]/10 px-2 py-0.5 rounded-full font-black uppercase tracking-wider">
+                            <span className="text-[9px] text-indigo-300 bg-indigo-500/20 border border-indigo-500/30 px-2.5 py-1 rounded-full font-black uppercase tracking-wider">
                               Usiku ({nm}x Nomino)
                             </span>
                           )}
                           {surgeLevel !== "normal" && (
-                            <span className="text-[8px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full font-black uppercase tracking-wider">
+                            <span className="text-[9px] text-amber-300 bg-amber-500/20 border border-amber-500/30 px-2.5 py-1 rounded-full font-black uppercase tracking-wider">
                               Uhitaji Surcharge ({surgeMultiplier}x)
                             </span>
                           )}
-                          <span className="text-[8px] text-neutral-400 bg-white/5 px-2 py-0.5 rounded-full font-black uppercase tracking-wider">
+                          <span className="text-[9px] text-neutral-300 bg-white/10 px-2.5 py-1 rounded-full font-black uppercase tracking-wider">
                             Mji: {selectedCity}
                           </span>
                         </div>
@@ -4513,18 +4507,18 @@ export default function TaxiBooking() {
               </div>
 
               {/* Informative Swahili explanation of why it is different */}
-              <div className="bg-[#141424] border border-[#7F77DD]/20 p-4 rounded-2.5xl space-y-1.5">
-                <h4 className="text-[10px] font-black text-[#7F77DD] uppercase tracking-wide">💡 TOFAUTI yetu ya Kipekee:</h4>
-                <p className="text-[9.2px] text-neutral-200 leading-relaxed font-semibold">
-                  Sisi ni waigizaji kulingana na miji mbalimbali nchini Tanzania. <strong>Dar es Salaam</strong> ina nauli ya kawaida, <strong>Arusha</strong> imeongezwa kutokana na milima, huku miji ya <strong>Dodoma</strong> na <strong>Mwanza</strong> ikileta unafuu zaidi! Pia kwa Pikipiki na Bajaji, <strong>hutoizwi hela ya foleni</strong> hata kidogo!
+              <div className="bg-[#141424] border border-[#7F77DD]/30 p-4 rounded-2.5xl space-y-1.5">
+                <h4 className="text-[10px] font-black text-[#7F77DD] uppercase tracking-wide">💡 UWIANO WA HAKI ZA PAPO HAPO:</h4>
+                <p className="text-[10px] text-neutral-200 leading-relaxed font-semibold">
+                  Sisi ni waigizaji kulingana na miji mbalimbali nchini Tanzania. <strong>Dar es Salaam</strong> ina nauli ya kawaida, <strong>Arusha</strong> imeongezwa kutokana na milima, huku miji ya <strong>Dodoma</strong> na <strong>Mwanza</strong> ikileta unafuu zaidi! Pia kwa Pikipiki na Bajaji, <strong>hutozwi hela ya foleni</strong> hata kidogo!
                 </p>
               </div>
 
               <button
                 onClick={() => setShowBreakdownModal(false)}
-                className="w-full py-4 bg-gradient-to-r from-[#7F77DD] to-[#6056d6] text-white rounded-2.5xl text-xs font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all"
+                className="w-full py-4 bg-gradient-to-r from-[#7F77DD] to-[#6056d6] hover:from-[#6d64d1] hover:to-[#5349c2] text-white rounded-2.5xl text-xs font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all"
               >
-                NIMEFAHAMU, ASANTE!
+                FUNGA MCHANGANUO NA ENDELEA
               </button>
             </motion.div>
           </div>
