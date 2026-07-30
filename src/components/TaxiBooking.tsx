@@ -3930,34 +3930,44 @@ export default function TaxiBooking() {
                             </div>
                             
                             {/* Information of capacity and ETA */}
-                            <div className={`w-full flex flex-col gap-1 border-t pt-2 mt-0.5 ${theme === 'dark' ? 'border-neutral-800' : 'border-neutral-100'}`}>
-                              <div className={`flex items-center justify-center gap-1 text-[8.5px] font-bold ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-600'}`}>
-                                <Users className="w-2.5 h-2.5 text-indigo-500 shrink-0" />
-                                <span>Abiria {ride.capacity}</span>
+                            <div className={`w-full flex flex-col gap-1 border-t pt-1.5 mt-0.5 ${theme === 'dark' ? 'border-neutral-800' : 'border-neutral-100'}`}>
+                              <div className="flex items-center justify-around w-full">
+                                <div className={`flex items-center gap-1 text-[8.5px] font-bold ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-600'}`}>
+                                  <Users className="w-2.5 h-2.5 text-indigo-500 shrink-0" />
+                                  <span>Abiria {ride.capacity}</span>
+                                </div>
+                                <div className={`flex items-center gap-1 text-[8.5px] font-bold ${
+                                  isSelected ? "text-emerald-500" : (theme === 'dark' ? 'text-neutral-500' : 'text-neutral-500')
+                                }`}>
+                                  <Clock className={`w-2.5 h-2.5 shrink-0 ${isSelected ? "text-emerald-500 animate-pulse" : "text-neutral-400"}`} />
+                                  <span>Fika: {ride.eta} min</span>
+                                </div>
                               </div>
-                              <div className={`flex items-center justify-center gap-1 text-[8.5px] font-bold ${
-                                isSelected ? "text-emerald-500" : (theme === 'dark' ? 'text-neutral-500' : 'text-neutral-500')
-                              }`}>
-                                <Clock className={`w-2.5 h-2.5 shrink-0 ${isSelected ? "text-emerald-500 animate-pulse" : "text-neutral-400"}`} />
-                                <span>Fika: {ride.eta} min</span>
+
+                              {/* Kitufe cha Gharama ya Uwazi kwenye usafiri husika */}
+                              <div className="w-full pt-1.5 mt-1 border-t border-neutral-200/60 dark:border-neutral-800/80">
+                                <span
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedRide(ride);
+                                    setShowBreakdownModal(true);
+                                  }}
+                                  className={`w-full py-1.5 px-1 rounded-xl text-[8px] sm:text-[8.5px] font-black uppercase tracking-tight flex items-center justify-center gap-1 transition-all shadow-sm active:scale-95 ${
+                                    isSelected
+                                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500"
+                                      : (theme === 'dark'
+                                        ? "bg-indigo-950/70 text-indigo-300 border border-indigo-800/50 hover:bg-indigo-900"
+                                        : "bg-indigo-50/90 text-indigo-700 border border-indigo-200/60 hover:bg-indigo-100")
+                                  }`}
+                                >
+                                  <Calculator className="w-2.5 h-2.5 shrink-0" />
+                                  <span className="truncate">Gharama ya Uwazi</span>
+                                </span>
                               </div>
                             </div>
                           </button>
                         );
                       })}
-                    </div>
-                  )}
-                  
-                  {/* Dynamic transparent pricing explanation trigger */}
-                  {destination && totalDistance > 0 && (
-                    <div className="w-full flex justify-center py-1">
-                      <button
-                        onClick={() => setShowBreakdownModal(true)}
-                        className={`text-[9.5px] font-black tracking-widest px-4 py-2 rounded-full uppercase flex items-center gap-1.5 transition-all shadow-sm border active:scale-95 ${theme === 'dark' ? 'text-indigo-400 hover:text-indigo-300 bg-indigo-950/40 border-indigo-900/60' : 'text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border-indigo-100'}`}
-                      >
-                        <Calculator className="w-3 h-3 text-indigo-500" />
-                        <span>Gharama ya Uwazi (Breakdown)</span>
-                      </button>
                     </div>
                   )}
 
@@ -4348,7 +4358,13 @@ export default function TaxiBooking() {
 
               {/* Ride Options Breakdowns */}
               <div className="space-y-4">
-                {rideOptions.map((ride) => {
+                {[...rideOptions]
+                  .sort((a, b) => {
+                    if (selectedRide?.id === a.id) return -1;
+                    if (selectedRide?.id === b.id) return 1;
+                    return 0;
+                  })
+                  .map((ride) => {
                   const id = ride.id;
                   const vehicleConfig = config?.vehicles?.[id];
                   
@@ -4402,6 +4418,14 @@ export default function TaxiBooking() {
                           : 'bg-[#12121e]/50 border-white/5'
                       }`}
                     >
+                      {selectedRide?.id === ride.id && (
+                        <div className="mb-3 flex items-center gap-1.5 bg-[#7F77DD]/20 border border-[#7F77DD]/40 px-2.5 py-1 rounded-full w-fit">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          <span className="text-[9px] font-black uppercase tracking-wider text-[#7F77DD]">
+                            USAFIRI HALISI ULIOCHAGUA
+                          </span>
+                        </div>
+                      )}
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2.5">
                           <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center overflow-hidden shrink-0">
