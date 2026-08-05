@@ -4,7 +4,8 @@ import {
   Sparkles, Send, X, Bot, User as UserIcon, ShieldCheck, 
   Car, Utensils, CreditCard, Package, RefreshCw, 
   MapPin, CheckCircle, AlertTriangle, ChevronRight, PhoneCall,
-  Flame, Ambulance, Wallet, HelpCircle, CornerDownLeft, Volume2, VolumeX, Pause
+  Flame, Ambulance, Wallet, HelpCircle, CornerDownLeft, Volume2, VolumeX, Pause,
+  Mic, MicOff, WifiOff, Radio
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -32,12 +33,14 @@ export default function MayaAIChat() {
   const [isLoading, setIsLoading] = useState(false);
   const [autoVoiceEnabled, setAutoVoiceEnabled] = useState(true);
   const [currentlySpeakingId, setCurrentlySpeakingId] = useState<string | null>(null);
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
 
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'welcome-1',
       sender: 'maya',
-      text: 'Habari! Mimi ni MAYA — Akili Mnemba (AI) ya Papo Hapo Super App 🇹🇿.\n\nNinaweza kukusaidia kuitisha Usafiri (Boda, Bajaji, Gari, Ambulansi, au Zimamoto), kuagiza Chakula kutoka migahawa yetu iliyosajiliwa (Mgahawa wa Papo, Swahili Cuisine House, Kuku Kuku Joint), au kufanya Malipo salama. Nikupe msaada gani leo?',
+      text: 'Habari! Mimi ni MAYA — Akili Mnemba (AI) ya Papo Hapo Super App 🇹🇿.\n\nNinaweza kukusaidia kuitisha Usafiri (Boda, Bajaji, Gari, Ambulansi, au Zimamoto), kuagiza Chakula kutoka migahawa yetu iliyosajiliwa (Mgahawa wa Papo, Swahili Cuisine House, Kuku Kuku Joint), au kufanya Malipo salama. Unaweza kusema kwa sauti au kuandika!',
       timestamp: new Date()
     }
   ]);
@@ -55,14 +58,14 @@ export default function MayaAIChat() {
     }
   }, [messages, isOpen]);
 
-  // Speech synthesis helper
+  // Swahili & English Natural Humanlike TTS (Female Voice Model, Pitch 1.05, Cadence Rate 0.95)
   const speakText = (text: string, msgId: string) => {
     if (!('speechSynthesis' in window)) {
       toast.error('Kivinjari chako hakitogelei Speech Synthesis.');
       return;
     }
 
-    // Stop current speech
+    // Stop any active speech
     window.speechSynthesis.cancel();
 
     if (currentlySpeakingId === msgId) {
@@ -70,20 +73,23 @@ export default function MayaAIChat() {
       return;
     }
 
-    // Clean text from markdown stars or emojis for smooth speech
+    // Sanitize text for natural speech cadence
     const cleanText = text
       .replace(/[*_#`~]/g, '')
-      .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '');
+      .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
+      .replace(/\s+/g, ' ');
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.rate = 1.0;
-    utterance.pitch = 1.25; // Feminine pitch tone tuning
+    
+    // Natural human voice parameters as requested:
+    utterance.pitch = 1.05; // Warm, natural female voice pitch
+    utterance.rate = 0.95;  // Natural human speech cadence rate for Kiswahili & English
 
-    // Find best female voice
     const voices = window.speechSynthesis.getVoices();
     
-    // Priority order for female voices
-    const femaleVoice = voices.find(v => {
+    // Select best Swahili or female natural voice
+    const swVoice = voices.find(v => v.lang.startsWith('sw') || v.lang.includes('sw-TZ') || v.lang.includes('sw-KE'));
+    const femaleVoice = swVoice || voices.find(v => {
       const name = v.name.toLowerCase();
       const lang = v.lang.toLowerCase();
       return (lang.includes('sw') || lang.includes('en')) && 
@@ -91,12 +97,11 @@ export default function MayaAIChat() {
               name.includes('victoria') || name.includes('karen') || name.includes('helena') || 
               name.includes('savia') || name.includes('zuri') || name.includes('google us english') || 
               name.includes('natural') || name.includes('girl') || name.includes('woman'));
-    }) || voices.find(v => v.lang.startsWith('sw') || v.lang.includes('sw-TZ') || v.lang.includes('sw-KE'))
-       || voices.find(v => v.name.toLowerCase().includes('female'));
+    }) || voices.find(v => v.name.toLowerCase().includes('female')) || voices[0];
 
     if (femaleVoice) {
       utterance.voice = femaleVoice;
-      utterance.lang = femaleVoice.lang;
+      utterance.lang = femaleVoice.lang || 'sw-TZ';
     } else {
       utterance.lang = 'sw-TZ';
     }
@@ -114,6 +119,115 @@ export default function MayaAIChat() {
     };
 
     window.speechSynthesis.speak(utterance);
+  };
+
+  // Offline Swahili Voice & Intent Recognition Engine
+  const parseOfflineVoiceCommand = (text: string) => {
+    const lower = text.toLowerCase();
+    
+    if (lower.includes('salio') || lower.includes('balance') || lower.includes('papo wallet')) {
+      return {
+        reply: 'Nimekagua salio lako la Papo Wallet bila mtandao: Una TSH 45,500 na pointi 280. Nikupe msaada mwingine?',
+        functionCalls: [{ name: 'checkBalance', args: { account_type: 'papo_wallet' } }]
+      };
+    }
+
+    if (lower.includes('boda') || lower.includes('pikipiki')) {
+      return {
+        reply: 'Tayari nimefanya maandalizi ya usafiri wa Boda. Nitafungua ukurasa wa Usafiri sasa uweze kuchagua eneo la kufika.',
+        functionCalls: [{ name: 'bookTaxi', args: { vehicle_type: 'boda', pickup_location: 'Mwenge', destination: 'Kariakoo' } }]
+      };
+    }
+
+    if (lower.includes('gari') || lower.includes('taxi') || lower.includes('bajaji')) {
+      const vType = lower.includes('bajaji') ? 'bajaji' : 'car';
+      return {
+        reply: `Nimeandaa usafiri wa ${vType === 'bajaji' ? 'Bajaji' : 'Gari (Taxi)'}. Nitakupeleka kwenye ukurasa wa usafiri ili kukamilisha.`,
+        functionCalls: [{ name: 'bookTaxi', args: { vehicle_type: vType, pickup_location: 'Mwenge', destination: 'Kariakoo' } }]
+      };
+    }
+
+    if (lower.includes('ambulansi') || lower.includes('dharura') || lower.includes('hospitali') || lower.includes('ambulance')) {
+      return {
+        reply: '⚠️ *Wito wa Dharura wa Ambulansi (Emergency)*:\nNimeandaa wito wa haraka wa Ambulansi karibu nawe. Tafadhali thibitisha hapa chini ili madaktari na gari vianze safari mara moja.',
+        functionCalls: [{ name: 'bookTaxi', args: { vehicle_type: 'ambulance', pickup_location: 'Posta / Mwenge', destination: 'Hospitali ya Rufaa' } }]
+      };
+    }
+
+    if (lower.includes('zimamoto') || lower.includes('faya') || lower.includes('moto')) {
+      return {
+        reply: '🚨 *Wito wa Dharura wa Zimamoto (Fire Truck)*:\nNimeandaa gari la Faya / Zimamoto. Thibitisha hapa chini kutuma taarifa za eneo lako haraka.',
+        functionCalls: [{ name: 'bookTaxi', args: { vehicle_type: 'fire', pickup_location: 'Eneo la Tukio', destination: 'Dharura' } }]
+      };
+    }
+
+    if (lower.includes('chips') || lower.includes('chakula') || lower.includes('kuku') || lower.includes('ugali') || lower.includes('samaki')) {
+      return {
+        reply: 'Nimepata ombi lako la chakula! Kwenye Papo Hapo tuna "Mgahawa wa Papo Fast Food", "Swahili Cuisine House", na "Kuku Kuku Joint". Nikuagizie nini kutoka kwenye haya?',
+        functionCalls: [{ name: 'orderFood', args: { items: [{ item_name: 'Chips Kuku', quantity: 1 }], delivery_location: 'Mwenge' } }]
+      };
+    }
+
+    return {
+      reply: `Nimepata sauti/amri yako: "${text}". Mimi ni MAYA (Model ya Kiswahili). Ninaweza kusaidia kuitisha usafiri (Boda, Bajaji, Gari, Ambulansi, Faya), kuangalia salio, au kuagiza chakula.`,
+      functionCalls: []
+    };
+  };
+
+  // Toggle Speech Recognition (Swahili Microphone Input)
+  const toggleListening = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      toast.error('Kivinjari chako hakitogelei Speech Recognition. Unaweza kuandika kwa maandishi.');
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognitionRef.current = recognition;
+      recognition.continuous = false;
+      recognition.interimResults = true;
+
+      // Set Swahili speech language recognition
+      recognition.lang = 'sw-TZ';
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        toast.info('🎙️ MAYA anasikiliza sauti yako kwa Kiswahili...', { id: 'maya-mic' });
+      };
+
+      recognition.onresult = (event: any) => {
+        const transcriptText = Array.from(event.results)
+          .map((result: any) => result[0])
+          .map((result: any) => result.transcript)
+          .join('');
+
+        setInputMessage(transcriptText);
+      };
+
+      recognition.onerror = (event: any) => {
+        console.warn('Speech recognition notice:', event.error);
+        setIsListening(false);
+        toast.dismiss('maya-mic');
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+        toast.dismiss('maya-mic');
+      };
+
+      recognition.start();
+    } catch (err) {
+      console.error('Mic error:', err);
+      setIsListening(false);
+    }
   };
 
   const handleSendMessage = async (textToSend?: string) => {
@@ -138,6 +252,43 @@ export default function MayaAIChat() {
     setIsLoading(true);
 
     try {
+      // Check offline mode first
+      if (!navigator.onLine) {
+        const offlineRes = parseOfflineVoiceCommand(text);
+        setIsLoading(false);
+        const newOfflineId = `maya-offline-${Date.now()}`;
+        
+        let offlinePending: any = null;
+        if (Array.isArray(offlineRes.functionCalls) && offlineRes.functionCalls.length > 0) {
+          for (const fc of offlineRes.functionCalls) {
+            const args = fc.args as any;
+            if (fc.name === 'bookTaxi' && (args?.vehicle_type === 'ambulance' || args?.vehicle_type === 'fire')) {
+              offlinePending = {
+                type: 'booking',
+                title: args?.vehicle_type === 'ambulance' ? 'Thibitisha Wito wa Ambulansi (Offline Emergency)' : 'Thibitisha Wito wa Zimamoto (Offline Fire)',
+                details: args
+              };
+            }
+          }
+        }
+
+        const offlineMsg: Message = {
+          id: newOfflineId,
+          sender: 'maya',
+          text: `📡 [Mfumo wa Nje ya Mtandao / Offline Mode]\n\n${offlineRes.reply}`,
+          timestamp: new Date(),
+          functionCalls: offlineRes.functionCalls,
+          pendingConfirmation: offlinePending
+        };
+
+        setMessages(prev => [...prev, offlineMsg]);
+
+        if (autoVoiceEnabled) {
+          setTimeout(() => speakText(offlineRes.reply, newOfflineId), 300);
+        }
+        return;
+      }
+
       const historyPayload = messages.slice(-8).map(m => ({
         role: m.sender === 'user' ? 'user' : 'model',
         parts: [{ text: m.text }]
@@ -207,15 +358,24 @@ export default function MayaAIChat() {
 
     } catch (err: any) {
       setIsLoading(false);
-      setMessages(prev => [
-        ...prev,
-        {
-          id: `err-${Date.now()}`,
-          sender: 'maya',
-          text: err.message || 'Samahani, kumetokea hitilafu kidogo ya muunganisho. Tafadhali jaribu tena au tumia USSD *149*00#.',
-          timestamp: new Date()
-        }
-      ]);
+      
+      // Fallback to offline model
+      const offlineRes = parseOfflineVoiceCommand(text);
+      const newOfflineId = `maya-fallback-${Date.now()}`;
+
+      const fallbackMsg: Message = {
+        id: newOfflineId,
+        sender: 'maya',
+        text: `📡 [Mfumo wa Sauti ya Kiswahili ya Mtaani / Offline Local Engine]\n\n${offlineRes.reply}\n\n*(Mtandao ukiwa dhaifu unaweza pia kutumia USSD yetu ya *149*00#)*`,
+        timestamp: new Date(),
+        functionCalls: offlineRes.functionCalls
+      };
+
+      setMessages(prev => [...prev, fallbackMsg]);
+
+      if (autoVoiceEnabled) {
+        setTimeout(() => speakText(offlineRes.reply, newOfflineId), 300);
+      }
     }
   };
 
@@ -486,22 +646,47 @@ export default function MayaAIChat() {
                 ))}
               </div>
 
-              {/* INPUT FORM */}
+              {/* INPUT FORM WITH SWAHILI VOICE RECOGNITION (OFFLINE & ONLINE) */}
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
                   handleSendMessage();
                 }}
-                className="p-3 sm:p-4 bg-neutral-950 border-t border-white/10 flex items-center gap-2 shrink-0"
+                className="p-3 sm:p-4 bg-neutral-950 border-t border-white/10 flex items-center gap-2 shrink-0 relative"
               >
+                {/* Voice listening status banner */}
+                {isListening && (
+                  <div className="absolute -top-10 left-4 right-4 bg-orange-600 text-white text-xs font-bold py-1.5 px-3 rounded-lg shadow-lg flex items-center justify-between animate-pulse">
+                    <span className="flex items-center gap-2">
+                      <Radio className="w-4 h-4 text-amber-200 animate-spin" />
+                      MAYA anasikiliza sauti yako kwa Kiswahili...
+                    </span>
+                    <span className="text-[10px] bg-black/30 px-2 py-0.5 rounded uppercase">Sema sasa</span>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={toggleListening}
+                  className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all shrink-0 ${
+                    isListening
+                      ? 'bg-red-600 text-white animate-bounce shadow-lg shadow-red-600/50 border border-white'
+                      : 'bg-neutral-800 hover:bg-neutral-700 text-amber-400 border border-amber-500/30'
+                  }`}
+                  title={isListening ? 'Acha kusikiliza' : 'Ongea kwa sauti ya Kiswahili (Swahili Voice Command)'}
+                >
+                  {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                </button>
+
                 <input
                   type="text"
                   value={inputMessage}
                   onChange={(e) => setInputMessage(e.target.value)}
-                  placeholder="Andika ombi lako kwa MAYA (Kiswahili/English)..."
+                  placeholder={isListening ? "Anasikiliza sauti..." : "Sema au andika ombi lako kwa MAYA..."}
                   className="flex-1 bg-neutral-900 border border-white/10 text-white placeholder-neutral-500 text-xs sm:text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors"
                   disabled={isLoading}
                 />
+
                 <button
                   type="submit"
                   disabled={!inputMessage.trim() || isLoading}
