@@ -1408,7 +1408,7 @@ Wewe ni wa kirafiki, mwepesi, na wa kitaalamu — kama rafiki anayejua mambo. Tu
       // Build context string if provided
       let fullPrompt = message;
       if (userContext) {
-        fullPrompt = `[Taarifa za Mtumiaji: Mji: ${userContext.city || 'Dar es Salaam'}, Mahali alipo: ${userContext.location || 'Haijulikani'}, Namba: ${userContext.phone || 'Haipatikani'}]\n\nSwali/Ombi la Mtumiaji: ${message}`;
+        fullPrompt = `[Taarifa za Mtumiaji Hivi Sasa: Jina la Mtumiaji: ${userContext.userName || 'Mpendwa'}, Mji: ${userContext.city || 'Dar es Salaam'}, Eneo alipo HALISI HAPA NA SASA (Current Exact Location): ${userContext.location || 'Haijulikani'}, Namba: ${userContext.phone || 'Haipatikani'}]\n\nKUMBUKA MUHIMU:\n- Mtumiaji akiuliza yuko wapi au eneo lake la sasa (mfano: "mim nikowapi saiv", "niko wapi", "location yangu", "wapi nilipo"), mtaje jina lake (${userContext.userName || 'Mpendwa'}) na mweleze ENEO LAKE HALISI LA SASA lililopo hapo juu: "${userContext.location || 'Dar es Salaam'}". Usitaje eneo lolote la zamani au la kubuni.\n\nSwali/Ombi la Mtumiaji: ${message}`;
       }
 
       // Format input contents

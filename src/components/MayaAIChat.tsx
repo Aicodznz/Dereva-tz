@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { useAuth } from '../AuthContext';
 
 interface Message {
   id: string;
@@ -28,13 +29,28 @@ interface Message {
 }
 
 export default function MayaAIChat() {
+  const { user, profile } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [autoVoiceEnabled, setAutoVoiceEnabled] = useState(true);
   const [currentlySpeakingId, setCurrentlySpeakingId] = useState<string | null>(null);
   const [isListening, setIsListening] = useState(false);
+  const [userLocation, setUserLocation] = useState<string>('Dar es Salaam');
+  const [isLocating, setIsLocating] = useState<boolean>(false);
+  const [hasGreeted, setHasGreeted] = useState<boolean>(false);
   const recognitionRef = useRef<any>(null);
+
+  const getUserFirstName = () => {
+    if (profile?.displayName) return profile.displayName.split(' ')[0];
+    if (profile?.fullName) return profile.fullName.split(' ')[0];
+    if (user?.displayName) return user.displayName.split(' ')[0];
+    if (user?.email) {
+      const emailName = user.email.split('@')[0].replace(/[._-]/g, ' ');
+      return emailName.charAt(0).toUpperCase() + emailName.slice(1);
+    }
+    return 'Mpendwa';
+  };
 
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -48,6 +64,59 @@ export default function MayaAIChat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
+  const fetchCurrentLocation = () => {
+    // 1. Check cached location first
+    const savedLoc = localStorage.getItem('omniserve_user_location');
+    if (savedLoc) {
+      try {
+        const parsed = JSON.parse(savedLoc);
+        if (typeof parsed === 'string') setUserLocation(parsed);
+        else if (parsed?.name) setUserLocation(parsed.name);
+      } catch (e) {
+        if (typeof savedLoc === 'string') setUserLocation(savedLoc);
+      }
+    }
+
+    // 2. Fetch real-time GPS location & reverse geocode
+    if ('geolocation' in navigator) {
+      setIsLocating(true);
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const lat = position.coords.latitude;
+          const lon = position.coords.longitude;
+          try {
+            const res = await fetch(`/api/geo/reverse?lat=${lat}&lon=${lon}`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data && data.address) {
+                const addr = data.address;
+                const area = addr.suburb || addr.neighbourhood || addr.quarter || addr.residential || addr.road || addr.village || addr.town || addr.city_district || addr.subdivision;
+                const city = addr.city || addr.town || addr.municipality || addr.region || addr.county || 'Dar es Salaam';
+                const fullLocName = area ? `${area}, ${city}` : city;
+                setUserLocation(fullLocName);
+                localStorage.setItem('omniserve_user_location', JSON.stringify({ name: fullLocName, lat, lon }));
+              } else if (data.display_name) {
+                const parts = data.display_name.split(',');
+                const shortName = parts.slice(0, 2).join(',').trim();
+                setUserLocation(shortName);
+                localStorage.setItem('omniserve_user_location', JSON.stringify({ name: shortName, lat, lon }));
+              }
+            }
+          } catch (err) {
+            console.warn('Reverse geocoding error:', err);
+          } finally {
+            setIsLocating(false);
+          }
+        },
+        (err) => {
+          console.warn('Geolocation position error:', err);
+          setIsLocating(false);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+      );
+    }
+  };
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -55,8 +124,39 @@ export default function MayaAIChat() {
   useEffect(() => {
     if (isOpen) {
       scrollToBottom();
+      fetchCurrentLocation();
     }
-  }, [messages, isOpen]);
+  }, [isOpen]);
+
+  // Personalize greeting with user name & location when opening
+  useEffect(() => {
+    if (isOpen && !hasGreeted) {
+      const userName = getUserFirstName();
+      const currentLoc = userLocation;
+      
+      const greetingText = `Habari ${userName}! 👋 Mimi ni MAYA — Female Voice Assistant ya Papo Hapo Super App 🇹🇿.\n\nNinaona upo karibu na **${currentLoc}**. Ninaweza kukusaidia kuitisha Usafiri (Boda, Bajaji, Gari, Ambulansi, Zimamoto), kuagiza Chakula, au kufanya Malipo salama. Nikupe msaada gani leo?`;
+
+      setMessages(prev => {
+        if (prev.length === 1 && prev[0].id === 'welcome-1') {
+          return [{
+            id: 'welcome-1',
+            sender: 'maya',
+            text: greetingText,
+            timestamp: new Date()
+          }];
+        }
+        return prev;
+      });
+
+      setHasGreeted(true);
+
+      if (autoVoiceEnabled) {
+        setTimeout(() => {
+          speakText(`Habari ${userName}! Mimi ni MAYA. Ninaona upo ${currentLoc}. Nikupe msaada gani leo?`, 'welcome-1');
+        }, 500);
+      }
+    }
+  }, [isOpen, user, profile, userLocation, hasGreeted]);
 
   // Swahili & English Natural Humanlike TTS (Female Voice Model, Pitch 1.05, Cadence Rate 0.95)
   const speakText = (text: string, msgId: string) => {
@@ -124,52 +224,60 @@ export default function MayaAIChat() {
   // Offline Swahili Voice & Intent Recognition Engine
   const parseOfflineVoiceCommand = (text: string) => {
     const lower = text.toLowerCase();
+    const userName = getUserFirstName();
+
+    if (lower.includes('niko wapi') || lower.includes('nikowapi') || lower.includes('location') || lower.includes('wapi nilipo') || lower.includes('nilipo') || lower.includes('saiv') || lower.includes('sasa')) {
+      return {
+        reply: `Habari ${userName}! Kwa mujibu wa GPS na mfumo wetu wa Papo Hapo, hivi sasa upo eneo la **${userLocation}**. Kama unataka kwenda sehemu yoyote au kuagiza chakula uletewe hapa, niambie tu!`,
+        functionCalls: []
+      };
+    }
     
     if (lower.includes('salio') || lower.includes('balance') || lower.includes('papo wallet')) {
       return {
-        reply: 'Nimekagua salio lako la Papo Wallet bila mtandao: Una TSH 45,500 na pointi 280. Nikupe msaada mwingine?',
+        reply: `Nimekagua salio lako la Papo Wallet, ${userName}: Una TSH 45,500 na pointi 280. Nikupe msaada mwingine?`,
         functionCalls: [{ name: 'checkBalance', args: { account_type: 'papo_wallet' } }]
       };
     }
 
     if (lower.includes('boda') || lower.includes('pikipiki')) {
       return {
-        reply: 'Tayari nimefanya maandalizi ya usafiri wa Boda. Nitafungua ukurasa wa Usafiri sasa uweze kuchagua eneo la kufika.',
-        functionCalls: [{ name: 'bookTaxi', args: { vehicle_type: 'boda', pickup_location: 'Mwenge', destination: 'Kariakoo' } }]
+        reply: `Tayari nimefanya maandalizi ya usafiri wa Boda kuanzia ${userLocation}. Nitafungua ukurasa wa Usafiri sasa uweze kuchagua eneo la kufika.`,
+        functionCalls: [{ name: 'bookTaxi', args: { vehicle_type: 'boda', pickup_location: userLocation, destination: 'Kariakoo' } }]
       };
     }
 
     if (lower.includes('gari') || lower.includes('taxi') || lower.includes('bajaji')) {
       const vType = lower.includes('bajaji') ? 'bajaji' : 'car';
       return {
-        reply: `Nimeandaa usafiri wa ${vType === 'bajaji' ? 'Bajaji' : 'Gari (Taxi)'}. Nitakupeleka kwenye ukurasa wa usafiri ili kukamilisha.`,
-        functionCalls: [{ name: 'bookTaxi', args: { vehicle_type: vType, pickup_location: 'Mwenge', destination: 'Kariakoo' } }]
+        reply: `Nimeandaa usafiri wa ${vType === 'bajaji' ? 'Bajaji' : 'Gari (Taxi)'} kuanzia ${userLocation}. Nitakupeleka kwenye ukurasa wa usafiri ili kukamilisha.`,
+        functionCalls: [{ name: 'bookTaxi', args: { vehicle_type: vType, pickup_location: userLocation, destination: 'Kariakoo' } }]
       };
     }
 
     if (lower.includes('ambulansi') || lower.includes('dharura') || lower.includes('hospitali') || lower.includes('ambulance')) {
       return {
-        reply: '⚠️ *Wito wa Dharura wa Ambulansi (Emergency)*:\nNimeandaa wito wa haraka wa Ambulansi karibu nawe. Tafadhali thibitisha hapa chini ili madaktari na gari vianze safari mara moja.',
-        functionCalls: [{ name: 'bookTaxi', args: { vehicle_type: 'ambulance', pickup_location: 'Posta / Mwenge', destination: 'Hospitali ya Rufaa' } }]
+        reply: `⚠️ *Wito wa Dharura wa Ambulansi (Emergency)*:\nNimeandaa wito wa haraka wa Ambulansi kuja eneo lako la **${userLocation}**. Tafadhali thibitisha hapa chini ili gari na madaktari vianze safari mara moja.`,
+        functionCalls: [{ name: 'bookTaxi', args: { vehicle_type: 'ambulance', pickup_location: userLocation, destination: 'Hospitali ya Rufaa' } }]
       };
     }
 
     if (lower.includes('zimamoto') || lower.includes('faya') || lower.includes('moto')) {
       return {
-        reply: '🚨 *Wito wa Dharura wa Zimamoto (Fire Truck)*:\nNimeandaa gari la Faya / Zimamoto. Thibitisha hapa chini kutuma taarifa za eneo lako haraka.',
-        functionCalls: [{ name: 'bookTaxi', args: { vehicle_type: 'fire', pickup_location: 'Eneo la Tukio', destination: 'Dharura' } }]
+        reply: `🚨 *Wito wa Dharura wa Zimamoto (Fire Truck)*:\nNimeandaa gari la Faya / Zimamoto kuja eneo la **${userLocation}**. Thibitisha hapa chini kutuma taarifa za eneo lako haraka.`,
+        functionCalls: [{ name: 'bookTaxi', args: { vehicle_type: 'fire', pickup_location: userLocation, destination: 'Dharura' } }]
       };
     }
 
     if (lower.includes('chips') || lower.includes('chakula') || lower.includes('kuku') || lower.includes('ugali') || lower.includes('samaki')) {
       return {
-        reply: 'Nimepata ombi lako la chakula! Kwenye Papo Hapo tuna "Mgahawa wa Papo Fast Food", "Swahili Cuisine House", na "Kuku Kuku Joint". Nikuagizie nini kutoka kwenye haya?',
-        functionCalls: [{ name: 'orderFood', args: { items: [{ item_name: 'Chips Kuku', quantity: 1 }], delivery_location: 'Mwenge' } }]
+        reply: `Nimepata ombi lako la chakula kuletwa **${userLocation}**! Kwenye Papo Hapo tuna "Mgahawa wa Papo Fast Food", "Swahili Cuisine House", na "Kuku Kuku Joint". Nikuagizie nini kutoka kwenye haya?`,
+        functionCalls: [{ name: 'orderFood', args: { items: [{ item_name: 'Chips Kuku', quantity: 1 }], delivery_location: userLocation } }]
       };
     }
 
     return {
-      reply: `Nimepata sauti/amri yako: "${text}". Mimi ni MAYA (Model ya Kiswahili). Ninaweza kusaidia kuitisha usafiri (Boda, Bajaji, Gari, Ambulansi, Faya), kuangalia salio, au kuagiza chakula.`,
+      reply: `Habari ${userName}! Nimepata sauti/amri yako: "${text}". Hivi sasa upo **${userLocation}**. Mimi ni MAYA (Model ya Kiswahili). Ninaweza kusaidia kuitisha usafiri, kuangalia salio, au kuagiza chakula.`,
       functionCalls: []
     };
   };
@@ -301,9 +409,10 @@ export default function MayaAIChat() {
           message: text,
           history: historyPayload,
           userContext: {
-            city: 'Dar es Salaam',
-            location: 'Mwenge / Posta',
-            phone: '+255700000000'
+            userName: getUserFirstName(),
+            city: userLocation.includes(',') ? userLocation.split(',')[1].trim() : 'Dar es Salaam',
+            location: userLocation,
+            phone: profile?.phoneNumber || user?.phoneNumber || '+255700000000'
           }
         })
       });
@@ -464,7 +573,18 @@ export default function MayaAIChat() {
                         Papo Hapo 🇹🇿
                       </span>
                     </div>
-                    <p className="text-[11px] text-neutral-400 font-medium">Mtanzania Kidijitali • Female Voice Assistant</p>
+                    <div className="flex items-center gap-1.5 text-[11px] text-neutral-400 font-medium mt-0.5">
+                      <span>Mtanzania Kidijitali</span>
+                      <span>•</span>
+                      <button 
+                        onClick={fetchCurrentLocation}
+                        className="text-amber-300 flex items-center gap-1 hover:underline font-semibold bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 text-[10px]"
+                        title="Bonyeza kuhuisha eneo lako halisi la sasa (GPS Location)"
+                      >
+                        <MapPin className={`w-3 h-3 text-amber-400 ${isLocating ? 'animate-spin' : ''}`} />
+                        <span className="truncate max-w-[130px]">{userLocation}</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
 
