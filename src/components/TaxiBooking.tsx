@@ -43,6 +43,9 @@ import {
   RotateCcw,
   Sun,
   Moon,
+  Siren,
+  Flame,
+  Ambulance,
   Trash2,
   Loader2,
   Calculator,
@@ -52,7 +55,6 @@ import {
   MessageCircle,
   Languages,
   Globe,
-  Flame,
 } from "lucide-react";
 import { AISmartHeatMap, HeatZone } from "./map/AISmartHeatMap";
 import { useTheme } from "next-themes";
@@ -2796,7 +2798,9 @@ export default function TaxiBooking() {
     const defaultVehicles = {
       mini: { id: "mini", name: "Gari", price: 5000, sub: "Max 4 Siti", image: "🚗", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" },
       bajaj: { id: "bajaj", name: "Bajaji", price: 4000, sub: "3 Siti", image: "🛺", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" },
-      bike: { id: "bike", name: "BODA", price: 2000, sub: "1 Siti", image: "🏍️", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" }
+      bike: { id: "bike", name: "BODA", price: 2000, sub: "1 Siti", image: "🏍️", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" },
+      ambulance: { id: "ambulance", name: "Ambulansi (Dharura)", price: 25000, sub: "Hospital & Madaktari", image: "🚑", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" },
+      fire: { id: "fire", name: "Zimamoto (Faya)", price: 30000, sub: "Kuzima Moto / Dharura", image: "🚒", imageType: "emoji", imageUrl: "", mapMarkerUrl: "" }
     };
 
     const combinedVehicles = {
@@ -2812,6 +2816,10 @@ export default function TaxiBooking() {
         if (id === 'bajaj') iconComponent = BajajSVG;
         else if (id === 'bike' || id.toLowerCase().includes('pikipiki') || id.toLowerCase().includes('bike') || id.toLowerCase().includes('boda')) {
           iconComponent = BikeSVG;
+        } else if (id === 'ambulance' || id.toLowerCase().includes('ambulans')) {
+          iconComponent = Ambulance;
+        } else if (id === 'fire' || id.toLowerCase().includes('zimamoto') || id.toLowerCase().includes('faya')) {
+          iconComponent = Flame;
         }
 
         const speedIndex = id === 'bike' ? 2 : id === 'mini' ? 3 : id === 'bajaj' ? 4 : 5;

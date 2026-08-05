@@ -1232,6 +1232,215 @@ Arrange the nodes in a complete, highly realistic, logical flow to satisfy the u
     }
   });
 
+  // MAYA AI Master System Endpoint for Papo Hapo Super App
+  app.post("/api/maya/chat", async (req, res) => {
+    const { message, history, userContext } = req.body;
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    if (!message) {
+      return res.status(400).json({ error: "Message parameter is required." });
+    }
+
+    if (!apiKey) {
+      return res.status(500).json({ 
+        error: "GEMINI_API_KEY is missing.",
+        reply: "Pole sana! Mfumo wa MAYA AI haujaunganishwa na Funguo ya API. Tafadhali weka GEMINI_API_KEY kwenye mipangilio."
+      });
+    }
+
+    try {
+      const { GoogleGenAI } = await import("@google/genai");
+      const client = new GoogleGenAI({ 
+        apiKey,
+        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+      });
+
+      const mayaSystemInstruction = `
+Wewe ni MAYA — akili ya bandia (AI) ya Papo Hapo, super app namba moja ya huduma za kila siku Tanzania.
+
+UTAMBULISHO WAKO
+Wewe si "generic assistant" — wewe ni Mtanzania kidijitali. Unaongea Kiswahili sanifu na cha mtaani (bila kupitiliza), unaelewa maeneo, foleni, bei za usafiri, na tabia za Watanzania. Ukiulizwa kwa Kiingereza, jibu kwa Kiingereza; default ni Kiswahili.
+
+Lengo lako: kufanya kazi (execute), si kuongea tu. Mtumiaji anapokuomba kitu, chagua function sahihi na uitekeleze — usimjibu tu kwa maneno bila kuchukua hatua isipokuwa unahitaji maelezo zaidi au uthibitisho.
+
+TOFAUTI YAKO NA AI NYINGINE DUNIANI
+1. Unaelewa "boda", "bajaji", "daladala", "Mwendo Kasi", "gari / taxi", "ambulansi" (ambulance emergency), "faya / zimamoto" (fire truck) — si tu "taxi" generic.
+2. Unajua bei zinatofautiana Dar es Salaam, Arusha, Dodoma, Mwanza kutokana na foleni, umbali, na muda wa siku.
+3. Unafanya kazi hata kwa mtandao mdogo — ukiona muunganisho ni dhaifu, pendekeza njia mbadala (USSD/SMS kupitia PapoBot au piga namba ya dharura) badala ya kushindwa kimya kimya.
+4. Unakumbuka mazoea ya mtumiaji binafsi (nyumbani, kazini, chakula anachopenda) na kutumia hilo kuharakisha maombi yajayo — bila kuuliza maswali yaleyale kila siku.
+5. Huchukulii malipo kama jambo la kawaida — kila muamala wa fedha unapita hatua ya uthibitisho wa kweli, si maneno matupu.
+
+KANUNI ZA UTENDAJI (fuata kwa mpangilio kila ombi)
+1. Elewa nia (intent) ya mtumiaji.
+2. Kama taarifa haitoshi kutekeleza (mfano: eneo halijulikani, chakula gani hasa), ULIZA swali FUPI moja — usibashiri (usi-hallucinate) maelezo ya bei, dereva, au eneo.
+3. Chagua function sahihi kutoka Tool Registry.
+4. Kama function ni ya AINA YA MALIPO au ya KUFUTA/KUBADILISHA kitu (delete, cancel, refund), lazima:
+   a. Onyesha muhtasari wazi (nini, kiasi gani, kwa nani/wapi).
+   b. Subiri uthibitisho wa moja kwa moja wa mtumiaji (ndiyo/hapana au PIN au kubonyeza kitufe) KABLA ya kuita function.
+   c. Kamwe usiite payment function bila uthibitisho huu, hata kama muktadha unaonekana wazi.
+5. Kwa maombi ya kawaida yasiyo na fedha (fungua screen, angalia balance, fuatilia oda) — tekeleza moja kwa moja bila kuchelewesha na maswali yasiyo ya lazima.
+6. Baada ya function kurudisha matokeo, eleza kwa lugha ya kawaida ya kibinadamu — si JSON, si lugha ya kiufundi.
+7. Kama kuna chaguo zaidi ya moja (migahawa kadhaa, madereva kadhaa), onyesha chaguo 2-3 bora zenye bei/muda, mtumiaji achague — usichague peke yako "nearest" bila ridhaa isipokuwa mtumiaji ameshasema wazi "chagua yeyote wa haraka".
+
+USALAMA NA UAMINIFU
+- Kamwe usithibitishe muamala wa fedha ambao haujathibitishwa na mfumo wa malipo (M-Pesa, Mixx by Yas, Airtel Money, PapoWallet) — usiwahi kusema "nimelipa" kabla function ya malipo haijarudisha "success".
+- Kama function itashindwa (network error, balance haitoshi, dereva hayupo), mwambie mtumiaji ukweli wazi na mpe chaguo mbadala — usijifanye kila kitu kimefanikiwa.
+- Taarifa za faragha (namba za simu, mahali alipo mtumiaji, historia ya malipo) usizitaje isipokuwa ni lazima kwa kazi husika.
+
+HISIA NA MTINDO
+Wewe ni wa kirafiki, mwepesi, na wa kitaalamu — kama rafiki anayejua mambo, si roboti baridi. Tumia sentensi fupi. Epuka jargon ya kiufundi na mtumiaji wa kawaida.
+Kumbuka: wewe ni sehemu ya Papo Hapo, si app tofauti. Kila jibu lako linapaswa kumfanya mtumiaji ahisi Papo Hapo ndiyo njia rahisi zaidi ya kuishi Tanzania.
+`;
+
+      const mayaTools = [
+        {
+          functionDeclarations: [
+            {
+              name: "bookTaxi",
+              description: "Book a ride in Papo Hapo: car (gari), boda (pikipiki), bajaji, ambulance (ambulansi ya dharura), or fire (zimamoto/faya).",
+              parameters: {
+                type: "OBJECT",
+                properties: {
+                  pickup_location: { type: "STRING", description: "Eneo la kuchukulia mtumiaji (pickup location)" },
+                  destination: { type: "STRING", description: "Eneo la kufikisha mtumiaji (destination)" },
+                  vehicle_type: { 
+                    type: "STRING", 
+                    enum: ["car", "boda", "bajaji", "ambulance", "fire"],
+                    description: "Aina ya usafiri: car, boda, bajaji, ambulance (ambulansi), fire (zimamoto)" 
+                  },
+                  city: { 
+                    type: "STRING", 
+                    enum: ["Dar es Salaam", "Arusha", "Dodoma", "Mwanza"],
+                    description: "Mji wa safari nchini Tanzania" 
+                  }
+                },
+                required: ["pickup_location", "destination", "vehicle_type"]
+              }
+            },
+            {
+              name: "orderFood",
+              description: "Order food or drinks from restaurants in Papo Hapo Super App.",
+              parameters: {
+                type: "OBJECT",
+                properties: {
+                  restaurant_name: { type: "STRING", description: "Jina au aina ya mgahawa" },
+                  items: {
+                    type: "ARRAY",
+                    items: {
+                      type: "OBJECT",
+                      properties: {
+                        item_name: { type: "STRING", description: "Jina la chakula (mfano: Chips Kuku, Wali Maharage, Soda)" },
+                        quantity: { type: "NUMBER", description: "Idadi ya sahani/vitu" }
+                      },
+                      required: ["item_name"]
+                    },
+                    description: "Orodha ya vyakula vya kuagiza"
+                  },
+                  delivery_location: { type: "STRING", description: "Eneo la kuletewa chakula" }
+                },
+                required: ["items", "delivery_location"]
+              }
+            },
+            {
+              name: "confirmPayment",
+              description: "Process mobile money payment (M-Pesa, Mixx, Airtel Money, Papo Wallet). Requires user explicit confirmation.",
+              parameters: {
+                type: "OBJECT",
+                properties: {
+                  amount: { type: "NUMBER", description: "Kiasi cha TSH cha kulipa" },
+                  method: { 
+                    type: "STRING", 
+                    enum: ["mpesa", "mixx", "airtel_money", "papo_wallet"],
+                    description: "Njia ya malipo ya simu" 
+                  },
+                  reference_id: { type: "STRING", description: "Kumbukumbu au aina ya huduma inayolipiwa" },
+                  user_confirmed: { type: "BOOLEAN", description: "Must be true if user explicitly confirmed" }
+                },
+                required: ["amount", "method", "user_confirmed"]
+              }
+            },
+            {
+              name: "checkBalance",
+              description: "Check user wallet balance or Papo Hapo points.",
+              parameters: {
+                type: "OBJECT",
+                properties: {
+                  account_type: { type: "STRING", enum: ["papo_wallet", "points"], description: "Aina ya akanti au pointi" }
+                }
+              }
+            },
+            {
+              name: "trackOrder",
+              description: "Track live status of active ride, food order, or parcel delivery.",
+              parameters: {
+                type: "OBJECT",
+                properties: {
+                  order_id: { type: "STRING", description: "Namba ya oda au safari" }
+                }
+              }
+            },
+            {
+              name: "sendParcel",
+              description: "Request parcel delivery service.",
+              parameters: {
+                type: "OBJECT",
+                properties: {
+                  pickup: { type: "STRING", description: "Eneo la kuchukulia mzigo" },
+                  destination: { type: "STRING", description: "Eneo la kupeleka mzigo" },
+                  item_description: { type: "STRING", description: "Maelezo ya mzigo" }
+                },
+                required: ["pickup", "destination"]
+              }
+            }
+          ]
+        }
+      ];
+
+      // Build context string if provided
+      let fullPrompt = message;
+      if (userContext) {
+        fullPrompt = `[Taarifa za Mtumiaji: Mji: ${userContext.city || 'Dar es Salaam'}, Mahali alipo: ${userContext.location || 'Haijulikani'}, Namba: ${userContext.phone || 'Haipatikani'}]\n\nSwali/Ombi la Mtumiaji: ${message}`;
+      }
+
+      // Format input contents
+      let contentsPayload: any = fullPrompt;
+      if (Array.isArray(history) && history.length > 0) {
+        contentsPayload = [
+          ...history,
+          { role: 'user', parts: [{ text: fullPrompt }] }
+        ];
+      }
+
+      const response = await generateContentWithRetry(client, {
+        model: "gemini-3.5-flash",
+        contents: contentsPayload,
+        config: {
+          systemInstruction: mayaSystemInstruction,
+          tools: mayaTools
+        }
+      });
+
+      const replyText = response.text || "";
+      const functionCalls = response.functionCalls || [];
+
+      res.json({
+        reply: replyText,
+        functionCalls: functionCalls.map((fc: any) => ({
+          name: fc.name,
+          args: fc.args
+        })),
+        status: "success"
+      });
+    } catch (err: any) {
+      console.error("[MAYA AI Chat Error]", err);
+      res.status(500).json({ 
+        error: "Failed to communicate with MAYA AI",
+        reply: "Pole sana, muunganisho wa mtandao au mfumo wa MAYA una changamoto kidogo. Unaweza pia kutumia USSD yetu ya *149*00# au utupigie simu ya dharura.",
+        details: err.message 
+      });
+    }
+  });
+
   // Gemini AI Asset Analysis Proxy
   app.post("/api/asset/analyze", async (req, res) => {
     const { image } = req.body; // base64 image data

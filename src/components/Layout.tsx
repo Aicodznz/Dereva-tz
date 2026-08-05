@@ -11,6 +11,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { motion, AnimatePresence, useScroll, useMotionValueEvent } from 'motion/react';
 import Header from './Header';
+import MayaAIChat from './MayaAIChat';
 import { useLanguage } from '../LanguageContext';
 import { useTheme } from 'next-themes';
 
@@ -352,6 +353,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </>
         )}
       </AnimatePresence>
+
+      {/* MAYA AI Floating Assistant */}
+      <MayaAIChat />
     </div>
   );
 }
