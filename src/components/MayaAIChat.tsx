@@ -77,14 +77,26 @@ export default function MayaAIChat() {
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.rate = 1.0;
-    utterance.pitch = 1.05;
+    utterance.pitch = 1.25; // Feminine pitch tone tuning
 
-    // Try finding Swahili voice if available, else standard fallback
+    // Find best female voice
     const voices = window.speechSynthesis.getVoices();
-    const swVoice = voices.find(v => v.lang.startsWith('sw') || v.lang.includes('sw-TZ') || v.lang.includes('sw-KE'));
-    if (swVoice) {
-      utterance.voice = swVoice;
-      utterance.lang = swVoice.lang;
+    
+    // Priority order for female voices
+    const femaleVoice = voices.find(v => {
+      const name = v.name.toLowerCase();
+      const lang = v.lang.toLowerCase();
+      return (lang.includes('sw') || lang.includes('en')) && 
+             (name.includes('female') || name.includes('zira') || name.includes('samantha') || 
+              name.includes('victoria') || name.includes('karen') || name.includes('helena') || 
+              name.includes('savia') || name.includes('zuri') || name.includes('google us english') || 
+              name.includes('natural') || name.includes('girl') || name.includes('woman'));
+    }) || voices.find(v => v.lang.startsWith('sw') || v.lang.includes('sw-TZ') || v.lang.includes('sw-KE'))
+       || voices.find(v => v.name.toLowerCase().includes('female'));
+
+    if (femaleVoice) {
+      utterance.voice = femaleVoice;
+      utterance.lang = femaleVoice.lang;
     } else {
       utterance.lang = 'sw-TZ';
     }
@@ -261,10 +273,10 @@ export default function MayaAIChat() {
 
         <div className="text-left hidden sm:block">
           <div className="text-[11px] font-black uppercase tracking-wider leading-none text-white flex items-center gap-1">
-            MAYA AI
+            MAYA AI 👩‍💼
             {currentlySpeakingId && <Volume2 className="w-3 h-3 text-amber-300 animate-bounce" />}
           </div>
-          <div className="text-[9px] font-bold text-amber-100 uppercase tracking-widest">Sauti & Chat 🇹🇿</div>
+          <div className="text-[9px] font-bold text-amber-100 uppercase tracking-widest">Female Voice 🇹🇿</div>
         </div>
       </motion.button>
 
@@ -292,7 +304,7 @@ export default function MayaAIChat() {
                         Papo Hapo 🇹🇿
                       </span>
                     </div>
-                    <p className="text-[11px] text-neutral-400 font-medium">Mtanzania Kidijitali • Sauti & Chat</p>
+                    <p className="text-[11px] text-neutral-400 font-medium">Mtanzania Kidijitali • Female Voice Assistant</p>
                   </div>
                 </div>
 
