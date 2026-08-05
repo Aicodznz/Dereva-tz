@@ -4,7 +4,7 @@ import {
   Sparkles, Send, X, Bot, User as UserIcon, ShieldCheck, 
   Car, Utensils, CreditCard, Package, RefreshCw, 
   MapPin, CheckCircle, AlertTriangle, ChevronRight, PhoneCall,
-  Flame, Ambulance, Wallet, HelpCircle, CornerDownLeft
+  Flame, Ambulance, Wallet, HelpCircle, CornerDownLeft, Volume2, VolumeX, Pause
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -30,11 +30,14 @@ export default function MayaAIChat() {
   const [isOpen, setIsOpen] = useState(false);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [autoVoiceEnabled, setAutoVoiceEnabled] = useState(true);
+  const [currentlySpeakingId, setCurrentlySpeakingId] = useState<string | null>(null);
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'welcome-1',
       sender: 'maya',
-      text: 'Habari! Mimi ni MAYA — Akili Mnemba (AI) ya Papo Hapo Super App 🇹🇿.\n\nNinaweza kukusaidia kuitisha Usafiri (Boda, Bajaji, Gari, Ambulansi, au Zimamoto), kuagiza Chakula, au kufanya Malipo salama. Nikupe msaada gani leo?',
+      text: 'Habari! Mimi ni MAYA — Akili Mnemba (AI) ya Papo Hapo Super App 🇹🇿.\n\nNinaweza kukusaidia kuitisha Usafiri (Boda, Bajaji, Gari, Ambulansi, au Zimamoto), kuagiza Chakula kutoka migahawa yetu iliyosajiliwa (Mgahawa wa Papo, Swahili Cuisine House, Kuku Kuku Joint), au kufanya Malipo salama. Nikupe msaada gani leo?',
       timestamp: new Date()
     }
   ]);
@@ -52,9 +55,64 @@ export default function MayaAIChat() {
     }
   }, [messages, isOpen]);
 
+  // Speech synthesis helper
+  const speakText = (text: string, msgId: string) => {
+    if (!('speechSynthesis' in window)) {
+      toast.error('Kivinjari chako hakitogelei Speech Synthesis.');
+      return;
+    }
+
+    // Stop current speech
+    window.speechSynthesis.cancel();
+
+    if (currentlySpeakingId === msgId) {
+      setCurrentlySpeakingId(null);
+      return;
+    }
+
+    // Clean text from markdown stars or emojis for smooth speech
+    const cleanText = text
+      .replace(/[*_#`~]/g, '')
+      .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '');
+
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.rate = 1.0;
+    utterance.pitch = 1.05;
+
+    // Try finding Swahili voice if available, else standard fallback
+    const voices = window.speechSynthesis.getVoices();
+    const swVoice = voices.find(v => v.lang.startsWith('sw') || v.lang.includes('sw-TZ') || v.lang.includes('sw-KE'));
+    if (swVoice) {
+      utterance.voice = swVoice;
+      utterance.lang = swVoice.lang;
+    } else {
+      utterance.lang = 'sw-TZ';
+    }
+
+    utterance.onstart = () => {
+      setCurrentlySpeakingId(msgId);
+    };
+
+    utterance.onend = () => {
+      setCurrentlySpeakingId(null);
+    };
+
+    utterance.onerror = () => {
+      setCurrentlySpeakingId(null);
+    };
+
+    window.speechSynthesis.speak(utterance);
+  };
+
   const handleSendMessage = async (textToSend?: string) => {
     const text = (textToSend || inputMessage).trim();
     if (!text || isLoading) return;
+
+    // Stop any ongoing speech when sending a new message
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      setCurrentlySpeakingId(null);
+    }
 
     const userMsg: Message = {
       id: `msg-${Date.now()}`,
@@ -68,7 +126,6 @@ export default function MayaAIChat() {
     setIsLoading(true);
 
     try {
-      // Build history payload for Gemini
       const historyPayload = messages.slice(-8).map(m => ({
         role: m.sender === 'user' ? 'user' : 'model',
         parts: [{ text: m.text }]
@@ -97,7 +154,6 @@ export default function MayaAIChat() {
 
       let pendingConf: any = null;
 
-      // Check if function call requires payment/confirmation
       if (Array.isArray(data.functionCalls) && data.functionCalls.length > 0) {
         for (const fc of data.functionCalls) {
           if (fc.name === 'confirmPayment') {
@@ -116,16 +172,26 @@ export default function MayaAIChat() {
         }
       }
 
+      const mayaResponseText = data.reply || 'Tumepata ombi lako kikamilifu.';
+      const newMayaId = `maya-${Date.now()}`;
+
       const mayaMsg: Message = {
-        id: `maya-${Date.now()}`,
+        id: newMayaId,
         sender: 'maya',
-        text: data.reply || 'Tumepata ombi lako kikamilifu.',
+        text: mayaResponseText,
         timestamp: new Date(),
         functionCalls: data.functionCalls,
         pendingConfirmation: pendingConf
       };
 
       setMessages(prev => [...prev, mayaMsg]);
+
+      // Speak automatically if autoVoice is enabled
+      if (autoVoiceEnabled) {
+        setTimeout(() => {
+          speakText(mayaResponseText, newMayaId);
+        }, 300);
+      }
 
     } catch (err: any) {
       setIsLoading(false);
@@ -159,7 +225,6 @@ export default function MayaAIChat() {
         text: m.text + '\n\n✅ *Muamala/Wito umethibitishwa kikamilifu!*'
       } : m));
 
-      // Trigger actual UI navigation if booking taxi
       if (details.pickup_location || details.destination) {
         navigate('/taxi');
       }
@@ -168,9 +233,9 @@ export default function MayaAIChat() {
 
   const quickPrompts = [
     { label: '🚖 Boda / Taxi kwenda Kariakoo', prompt: 'Nahitaji usafiri wa Boda kutoka Mwenge kwenda Kariakoo Dar es Salaam' },
+    { label: '🍔 Chips Kuku (Mgahawa wa Papo)', prompt: 'Nahitaji Chips Kuku kutoka Mgahawa wa Papo Fast Food niletee Mwenge' },
+    { label: '🍲 Ugali Samaki (Swahili Cuisine)', prompt: 'Agiza Ugali Samaki wa Kupaka kutoka Swahili Cuisine House' },
     { label: '🚑 Ambulansi ya Dharura', prompt: 'Nahitaji Ambulansi ya dharura haraka sana Posta Dar es Salaam' },
-    { label: '🚒 Zimamoto (Fire Truck)', prompt: 'Nahitaji faya/zimamoto ya dharura Mbezi Beach' },
-    { label: '🍔 Agiza Chips Kuku', prompt: 'Agiza Chips Kuku kutoka Mlimani City ulete Mwenge' },
     { label: '💰 Angalia Salio la Papo Wallet', prompt: 'Angalia salio langu la Papo Wallet' }
   ];
 
@@ -195,8 +260,11 @@ export default function MayaAIChat() {
         </div>
 
         <div className="text-left hidden sm:block">
-          <div className="text-[11px] font-black uppercase tracking-wider leading-none text-white">MAYA AI</div>
-          <div className="text-[9px] font-bold text-amber-100 uppercase tracking-widest">Assistant 🇹🇿</div>
+          <div className="text-[11px] font-black uppercase tracking-wider leading-none text-white flex items-center gap-1">
+            MAYA AI
+            {currentlySpeakingId && <Volume2 className="w-3 h-3 text-amber-300 animate-bounce" />}
+          </div>
+          <div className="text-[9px] font-bold text-amber-100 uppercase tracking-widest">Sauti & Chat 🇹🇿</div>
         </div>
       </motion.button>
 
@@ -224,16 +292,44 @@ export default function MayaAIChat() {
                         Papo Hapo 🇹🇿
                       </span>
                     </div>
-                    <p className="text-[11px] text-neutral-400 font-medium">Mtanzania Kidijitali • Kiswahili & English</p>
+                    <p className="text-[11px] text-neutral-400 font-medium">Mtanzania Kidijitali • Sauti & Chat</p>
                   </div>
                 </div>
 
-                <button
-                  onClick={() => setIsOpen(false)}
-                  className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-neutral-400 hover:text-white transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+                <div className="flex items-center gap-2">
+                  {/* AUTO VOICE TOGGLE */}
+                  <button
+                    onClick={() => {
+                      const nextState = !autoVoiceEnabled;
+                      setAutoVoiceEnabled(nextState);
+                      if (!nextState && 'speechSynthesis' in window) {
+                        window.speechSynthesis.cancel();
+                        setCurrentlySpeakingId(null);
+                      }
+                      toast.info(nextState ? 'Sauti ya MAYA: Wazi (Inasoma majibu)' : 'Sauti ya MAYA: Imefungwa');
+                    }}
+                    className={`px-2.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 border transition-all ${
+                      autoVoiceEnabled 
+                        ? 'bg-amber-500/20 border-amber-500/50 text-amber-300' 
+                        : 'bg-neutral-800 border-white/10 text-neutral-400'
+                    }`}
+                    title={autoVoiceEnabled ? 'Sauti imewaka (Inasoma jibu kiotomatiki)' : 'Sauti imezimwa'}
+                  >
+                    {autoVoiceEnabled ? <Volume2 className="w-4 h-4 text-amber-400 animate-pulse" /> : <VolumeX className="w-4 h-4" />}
+                    <span className="text-[10px] hidden xs:inline">{autoVoiceEnabled ? 'Sauti: WAZI' : 'Sauti: ZIMA'}</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+                      setCurrentlySpeakingId(null);
+                      setIsOpen(false);
+                    }}
+                    className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-neutral-400 hover:text-white transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
 
               {/* MESSAGES BODY */}
@@ -251,11 +347,39 @@ export default function MayaAIChat() {
                       </div>
                     )}
 
-                    <div className={`max-w-[85%] rounded-2xl p-4 text-sm leading-relaxed ${
+                    <div className={`max-w-[85%] rounded-2xl p-4 text-sm leading-relaxed relative ${
                       msg.sender === 'user'
                         ? 'bg-orange-600 text-white rounded-tr-none font-medium'
                         : 'bg-neutral-800/90 border border-white/10 text-neutral-200 rounded-tl-none'
                     }`}>
+                      {/* VOICE READOUT BUTTON FOR MAYA MESSAGES */}
+                      {msg.sender === 'maya' && (
+                        <div className="flex justify-between items-center mb-1 pb-1 border-b border-white/5">
+                          <span className="text-[10px] text-orange-400 font-bold uppercase tracking-wider">MAYA AI Voice</span>
+                          <button
+                            onClick={() => speakText(msg.text, msg.id)}
+                            className={`p-1 rounded-md text-xs flex items-center gap-1 transition-colors ${
+                              currentlySpeakingId === msg.id 
+                                ? 'bg-amber-500 text-black font-bold animate-pulse' 
+                                : 'text-neutral-400 hover:text-white hover:bg-white/10'
+                            }`}
+                            title="Sikiliza sauti ya jibu hili"
+                          >
+                            {currentlySpeakingId === msg.id ? (
+                              <>
+                                <Pause className="w-3.5 h-3.5" />
+                                <span className="text-[9px]">Inasoma...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Volume2 className="w-3.5 h-3.5 text-amber-400" />
+                                <span className="text-[9px]">Sikiliza</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      )}
+
                       <div className="whitespace-pre-wrap">{msg.text}</div>
 
                       {/* CONFIRMATION CARD FOR PAYMENTS OR EMERGENCY BOOKINGS */}
