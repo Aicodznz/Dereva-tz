@@ -21,6 +21,7 @@ import { useLanguage } from '../LanguageContext';
 import { useCart } from '../CartContext';
 import HowToOrder from './HowToOrder';
 import { useHeader } from '../HeaderContext';
+import App3DShowcase from './App3DShowcase';
 
 export default function CustomerDashboard() {
   const navigate = useNavigate();
@@ -938,6 +939,9 @@ export default function CustomerDashboard() {
           </>
         )}
       </div>
+
+      {/* 3D App Showcase Animation Section */}
+      <App3DShowcase />
 
       <section className="mt-1 md:mt-2">
         <div className="flex items-center justify-between mb-2.5 px-2">

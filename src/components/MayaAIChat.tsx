@@ -255,6 +255,13 @@ export default function MayaAIChat() {
       };
     }
 
+    if (lower.includes('3d') || lower.includes('animation') || lower.includes('animat') || lower.includes('showcase')) {
+      return {
+        reply: `Habari ${userName}! Mfumo wetu wa **Interactive 3D App Animation Engine** 🎨📱 unakupa fursa ya kuangalia na kuingiliana na Super App kwa muundo wa 3D WebGL real-time!\n\n✨ **Sifa kuu za 3D Showcase**:\n- 📱 **Interactive 3D Phone Chassis**: Inazunguka na kuitikia kulingana na muonekano wa mouse au mguso wako.\n- 🎙️ **Multi-Screen Visual Switcher**: Inakuonyesha MAYA AI Voice, PapoStay Real Estate, PapoRide Taxi, Delivery Robot na Papo Wallet kwenye 3D Canvas.\n- 🔮 **Particle Field & Lighting Effects**: Atmospheric lighting na visual particles.\n- 🛠️ **Wireframe & Orbit Toggle**: Uwezo wa kuangalia muundo wa 3D Geometry.\n\nUnaweza kuitazama hapo juu kwenye Customer Dashboard au kufungua ukurasa mzima wa 3D Showcase kwa kubofya hapa: **/3d-animation** 🚀!`,
+        functionCalls: []
+      };
+    }
+
     if (lower.includes('ambulansi') || lower.includes('dharura') || lower.includes('hospitali') || lower.includes('ambulance')) {
       return {
         reply: `⚠️ *Wito wa Dharura wa Ambulansi (Emergency)*:\nNimeandaa wito wa haraka wa Ambulansi kuja eneo lako la **${userLocation}**. Tafadhali thibitisha hapa chini ili gari na madaktari vianze safari mara moja.`,
@@ -266,6 +273,20 @@ export default function MayaAIChat() {
       return {
         reply: `🚨 *Wito wa Dharura wa Zimamoto (Fire Truck)*:\nNimeandaa gari la Faya / Zimamoto kuja eneo la **${userLocation}**. Thibitisha hapa chini kutuma taarifa za eneo lako haraka.`,
         functionCalls: [{ name: 'bookTaxi', args: { vehicle_type: 'fire', pickup_location: userLocation, destination: 'Dharura' } }]
+      };
+    }
+
+    if (lower.includes('schema') || lower.includes('database') || lower.includes('landlord') || lower.includes('escrow') || lower.includes('dispute') || lower.includes('payout') || lower.includes('commission') || lower.includes('holding deposit')) {
+      return {
+        reply: `Habari ${userName}! Huu hapa ndio Muundo wa Mfumo na Schema Architecture ya **PapoStay & Real Estate Engine** 🏗️📊:\n\n1️⃣ **Uhusiano wa Broker–Landlord–Listing (Many-to-Many Architecture)**:\n- Tuna 'landlords' (Wamiliki), 'brokers' (Madalali), 'listings' (Nyumba/Vyumba) na 'listing_broker_assignments' (Junction table).\n- Dalali 1 anaweza kuwakilisha nyumba za wamiliki wengi. Nyumba 1 pia inaweza kuwa na madalali wengi (Non-Exclusive) au dalali mmoja wa kipekee (Exclusive).\n\n2️⃣ **Escrow Payout & Commission Split (Mgawanyo wa Malipo)**:\n- Pesa inatunzwa kwenye Escrow Vault mpaka Check-in/Handover.\n- Baada ya kuthibitishwa: Landlord anapata share yake kuu (e.g. 90%), Dalali anapata tume yake ya ubonge (e.g. 10% au Kodi ya mwezi 1), na PapoHapo inachukua platform service fee (2-5%).\n\n3️⃣ **Booking Fee dhidi ya Full Rent Escrow**:\n- **Holding Deposit (50k / 10%)**: Inashikilia nyumba kwa siku 3-7 ili isichukuliwe na mtu mwingine; ina hatari ndogo ya kifedha kwa wallet.\n- **Full Rent Escrow**: Inashikilia kodi ya miezi 3-12 mpaka mpangaji anapokea funguo na kutosheka na nyumba.\n\n4️⃣ **Dispute Resolution & Admin Authority**:\n- Mteja akiripoti tatizo (Hold), pesa inafungwa kiotomatiki.\n- Admin Dashboard ina mamlaka ya kuamuru **Full Refund** (ikibainika uongo/tatizo la nyumba), **Partial Release**, au **Release to Landlord/Broker** endapo mteja alighairi bila msingi.`,
+        functionCalls: []
+      };
+    }
+
+    if (lower.includes('utaratibu') || lower.includes('flow') || lower.includes('floo') || lower.includes('jinsi') || lower.includes('dalali') || lower.includes('madalali') || lower.includes('nyumba') || lower.includes('pango') || lower.includes('chumba') || lower.includes('fremu') || lower.includes('apartment') || lower.includes('papostay')) {
+      return {
+        reply: `Habari ${userName}! Utaratibu (Flow) wa **PapoStay & Real Estate** kwenye Papo Hapo Super App 🏠🇹🇿 uko hivi hatua kwa hatua:\n\n1️⃣ **Utafutaji na Filter (Search)**:\n- Unafungua sehemu ya **PapoStay** kwenye app na kuchagua eneo (mfano: Kinondoni, Sinza, Mbezi, Dodoma n.k.), aina ya nyumba (Single Room, Master, Apartment, Fremu au Hoteli) na bajeti yako.\n\n2️⃣ **Kuangalia Picha na Sifa Halisi (Verified Listing)**:\n- Unaona picha za HD za nyumba, huduma zilizopo (Maji 24/7, Luku ya pekee, Parking, Ulinzi) na bei HALISI iliyohakikiwa bila utapeli.\n\n3️⃣ **Mawasiliano na Dalali / Mwakala Aliyehakikiwa**:\n- Unawasiliana moja kwa moja na Dalali au Mwenye Nyumba aliyethibitishwa (Verified Broker/Host) kupitia Chat au Simu bila kutoa pesa za mtaani za kiholela.\n\n4️⃣ **Ratiba ya Kukagua Nyumba (Viewing Schedule)**:\n- Unapanga miadi (Schedule Visit) ya kwenda kuiona nyumba ana kwa ana au kuikagua mtandaoni.\n\n5️⃣ **Malipo Salama (Escrow Protection)**:\n- Unalipia kodi au booking kupitia M-Pesa, Mixx (Tigo Pesa), Airtel Money au PapoWallet. Pesa inatunzwa kwa usalama na Papo Hapo mpaka upokee funguo na kuridhika.\n\n6️⃣ **Mkataba wa Kidijitali & Risiti**:\n- Unapokea Mkataba wa Pango (Digital Lease) na Risiti ya Kidijitali ya papo hapo kwenye simu yako! 📜✨\n\nJe, ungependa kuanza kutafuta nyumba au hoteli eneo gani hapa **${userLocation}**?`,
+        functionCalls: []
       };
     }
 

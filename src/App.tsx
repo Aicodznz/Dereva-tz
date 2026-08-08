@@ -34,6 +34,7 @@ import ParcelHistory from './components/parcel/ParcelHistory';
 import TaxiHistory from './components/tegex/TaxiHistory';
 
 import DeliveryRobotManager from './components/DeliveryRobotManager';
+import App3DShowcase from './components/App3DShowcase';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -396,6 +397,8 @@ function AppContent() {
             <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
             <Route path="/role-selection" element={<PrivateRoute><RoleSelection /></PrivateRoute>} />
             <Route path="/delivery-robot" element={<DeliveryRobotManager />} />
+            <Route path="/3d-animation" element={<App3DShowcase />} />
+            <Route path="/3d-showcase" element={<App3DShowcase />} />
             <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
           </Routes>
         </Layout>
