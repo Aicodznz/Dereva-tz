@@ -18,12 +18,17 @@ interface DriverArrivedScreenProps {
   isSpectator?: boolean;
 }
 
+const isValidLoc = (loc: any) => loc && typeof loc.lat === 'number' && typeof loc.lng === 'number' && !isNaN(loc.lat) && !isNaN(loc.lng);
+
 const MapControl = ({ position, target }: { position: { lat: number, lng: number } | any, target: { lat: number, lng: number } | any }) => {
   const map = useMap();
   const lastFitRef = React.useRef<{ lat: number, lng: number } | null>(null);
 
   React.useEffect(() => {
-    if (position && target) {
+    const hasPos = isValidLoc(position);
+    const hasTgt = isValidLoc(target);
+
+    if (hasPos && hasTgt) {
       const latLngPos = L.latLng(position.lat, position.lng);
       const latLngTarget = L.latLng(target.lat, target.lng);
       const totalDist = latLngPos.distanceTo(latLngTarget);
@@ -41,7 +46,7 @@ const MapControl = ({ position, target }: { position: { lat: number, lng: number
         map.fitBounds(bounds, { padding: [80, 80], animate: true, duration: 1.5 });
         lastFitRef.current = { lat: position.lat, lng: position.lng };
       }
-    } else if (position) {
+    } else if (hasPos) {
       map.flyTo([position.lat, position.lng], 16, { duration: 0.5 });
     }
   }, [position?.lat, position?.lng, target?.lat, target?.lng, map]);

@@ -40,8 +40,22 @@ export default function CustomerDashboard() {
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [tableSession, setTableSession] = useState<any>(null);
   const [location, setLocation] = useState(() => {
-    const saved = localStorage.getItem('omniserve_user_location');
-    return saved ? JSON.parse(saved) : {
+    try {
+      const saved = localStorage.getItem('omniserve_user_location');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const lat = Number(parsed.lat ?? parsed.latitude ?? -6.7924);
+        const lng = Number(parsed.lng ?? parsed.lon ?? parsed.longitude ?? 39.2083);
+        return {
+          address: parsed.address || '',
+          lat: isNaN(lat) ? -6.7924 : lat,
+          lng: isNaN(lng) ? 39.2083 : lng
+        };
+      }
+    } catch (e) {
+      console.warn("Failed to parse saved location", e);
+    }
+    return {
       address: '',
       lat: -6.7924,
       lng: 39.2083
@@ -487,7 +501,11 @@ export default function CustomerDashboard() {
     if (navigator.geolocation) {
       const watchId = navigator.geolocation.watchPosition(
         async (pos) => {
-          const { latitude, longitude } = pos.coords;
+          const latitude = pos.coords?.latitude;
+          const longitude = pos.coords?.longitude;
+          if (latitude === undefined || longitude === undefined || isNaN(latitude) || isNaN(longitude)) {
+            return;
+          }
           const currentLoc = locationRef.current;
           
           // Only update reverse geocode if location changed significantly (> 200m)

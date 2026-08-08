@@ -218,15 +218,21 @@ function LocationMarker({ position, setPosition, onPositionChange, isMapViewOnly
   );
 }
 
+const safeLatLng = (lat: any, lng: any, defaultLat = -6.7924, defaultLng = 39.2083): L.LatLng => {
+  const nLat = Number(lat);
+  const nLng = Number(lng);
+  const finalLat = (lat !== undefined && lat !== null && !isNaN(nLat)) ? nLat : defaultLat;
+  const finalLng = (lng !== undefined && lng !== null && !isNaN(nLng)) ? nLng : defaultLng;
+  return new L.LatLng(finalLat, finalLng);
+};
+
 export default function LocationPicker({ isOpen, onClose, onSelect, initialLocation, vendors = [], preSelectedVendorId, isMapViewOnly = false, useParcelIcon = false, arRouteId = null }: LocationPickerProps) {
   const navigate = useNavigate();
   const { config: businessConfig } = useBusinessConfig();
-  const [position, setPosition] = useState<L.LatLng>(
-    new L.LatLng(initialLocation?.lat || -6.7924, initialLocation?.lng || 39.2083) // Default to DSM
-  );
-  const [userOrigin, setUserOrigin] = useState<L.LatLng | null>(
-    initialLocation ? new L.LatLng(initialLocation.lat, initialLocation.lng) : new L.LatLng(-6.7924, 39.2083)
-  );
+  const initLat = initialLocation?.lat ?? -6.7924;
+  const initLng = initialLocation?.lng ?? (initialLocation as any)?.lon ?? 39.2083;
+  const [position, setPosition] = useState<L.LatLng>(() => safeLatLng(initLat, initLng));
+  const [userOrigin, setUserOrigin] = useState<L.LatLng | null>(() => safeLatLng(initLat, initLng));
   const [address, setAddress] = useState(initialLocation?.address || '');
   const [isLocating, setIsLocating] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
@@ -704,7 +710,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
 
       const data = await response.json();
       if (data && data.length > 0) {
-        const newPos = new L.LatLng(parseFloat(data[0].lat), parseFloat(data[0].lon));
+        const newPos = safeLatLng(data[0].lat, data[0].lon ?? data[0].lng);
         setPosition(newPos);
         setUserOrigin(newPos);
         setAddress(data[0].display_name);
@@ -736,10 +742,10 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          const newPos = new L.LatLng(pos.coords.latitude, pos.coords.longitude);
+          const newPos = safeLatLng(pos.coords?.latitude, pos.coords?.longitude);
           setPosition(newPos);
           setUserOrigin(newPos);
-          reverseGeocode(pos.coords.latitude, pos.coords.longitude);
+          reverseGeocode(newPos.lat, newPos.lng);
           setIsLocating(false);
         },
         (err) => {
@@ -833,7 +839,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                         <button
                           key={`location-suggest-${suggestion.place_id || index}`}
                           onClick={() => {
-                            const newPos = new L.LatLng(parseFloat(suggestion.lat), parseFloat(suggestion.lon));
+                            const newPos = safeLatLng(suggestion.lat, suggestion.lon ?? suggestion.lng);
                             setPosition(newPos);
                             setAddress(suggestion.display_name);
                             setSuggestions([]);

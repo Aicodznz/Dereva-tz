@@ -272,6 +272,10 @@ const MapEvents = ({
   return null;
 };
 
+const isValidCoord = (pos: any): pos is [number, number] => {
+  return Array.isArray(pos) && pos.length >= 2 && typeof pos[0] === 'number' && typeof pos[1] === 'number' && !isNaN(pos[0]) && !isNaN(pos[1]);
+};
+
 const MapControl = ({
   position,
   step,
@@ -295,10 +299,10 @@ const MapControl = ({
 
   // Handle manual map refitting when mapRefitTrigger changes (re-centers/fits bounds)
   useEffect(() => {
-    if (mapRefitTrigger && mapRefitTrigger > 0 && position) {
+    if (mapRefitTrigger && mapRefitTrigger > 0 && isValidCoord(position)) {
       try {
         map.invalidateSize({ animate: false });
-        if (targetPos) {
+        if (isValidCoord(targetPos)) {
           const bounds = L.latLngBounds([position, targetPos]);
           map.fitBounds(bounds, {
             padding: [80, 80],
@@ -363,13 +367,14 @@ const MapControl = ({
   // Adjust camera to fit the full route or selected position on step 'map'
   useEffect(() => {
     if (step === "map") {
-      if (routeCoords && routeCoords.length > 1) {
-        const hash = routeCoords.map((c) => `${c[0]},${c[1]}`).join("|").slice(0, 500) + `_${containerResizedCount}`;
+      const validCoords = (routeCoords || []).filter(isValidCoord);
+      if (validCoords.length > 1) {
+        const hash = validCoords.map((c) => `${c[0]},${c[1]}`).join("|").slice(0, 500) + `_${containerResizedCount}`;
         if (lastRouteHash.current !== hash) {
           lastRouteHash.current = hash;
           try {
             map.invalidateSize({ animate: false });
-            const bounds = L.latLngBounds(routeCoords);
+            const bounds = L.latLngBounds(validCoords);
             map.fitBounds(bounds, {
               padding: [60, 60],
               maxZoom: 16,
@@ -385,7 +390,7 @@ const MapControl = ({
             console.error("Failed to fit bounds of routeCoords", e);
           }
         }
-      } else if (position) {
+      } else if (isValidCoord(position)) {
         const posKey = `${position[0]},${position[1]}_${containerResizedCount}`;
         if (lastSinglePosRef.current !== posKey) {
           lastSinglePosRef.current = posKey;
@@ -398,24 +403,24 @@ const MapControl = ({
   }, [step, routeCoords, position, map, containerResizedCount, autoFollow]);
 
   useEffect(() => {
-    if (!position || !autoFollow) return;
+    if (!isValidCoord(position) || !autoFollow) return;
 
     // Separate full route fits from dynamic follow center
     if (step === "map") return;
 
     const currentPos = L.latLng(position[0], position[1]);
-    const lastPos = lastCenterRef.current
+    const lastPos = (lastCenterRef.current && isValidCoord(lastCenterRef.current))
       ? L.latLng(lastCenterRef.current[0], lastCenterRef.current[1])
       : null;
 
     // Transition tracking key - include loading state to re-fit when real driver position registers!
-    const isFallback = targetPos && position[0] === targetPos[0] && position[1] === targetPos[1];
+    const isFallback = isValidCoord(targetPos) && position[0] === targetPos[0] && position[1] === targetPos[1];
     const trackingKey = `${step}_${isFallback ? "fallback" : "active"}_${targetPos?.[0] || 0}_${targetPos?.[1] || 0}_${containerResizedCount}`;
 
     // Fit bounds only once when we first enter this booking step
     if (
       ["arriving", "on_trip", "found"].includes(step) &&
-      targetPos &&
+      isValidCoord(targetPos) &&
       lastFittedStepRef.current !== trackingKey
     ) {
       lastFittedStepRef.current = trackingKey;
@@ -1641,11 +1646,19 @@ export default function TaxiBooking() {
   useEffect(() => {
     if (activeRide) {
       if (activeRide.pickup) {
-        setPickupPos([activeRide.pickup.lat, activeRide.pickup.lng]);
+        const pLat = Number(activeRide.pickup.lat ?? (activeRide.pickup as any).latitude);
+        const pLng = Number(activeRide.pickup.lng ?? (activeRide.pickup as any).lon ?? (activeRide.pickup as any).longitude);
+        if (!isNaN(pLat) && !isNaN(pLng)) {
+          setPickupPos([pLat, pLng]);
+        }
         setPickup(activeRide.pickup.address || pickup);
       }
       if (activeRide.destination) {
-        setDestPos([activeRide.destination.lat, activeRide.destination.lng]);
+        const dLat = Number(activeRide.destination.lat ?? (activeRide.destination as any).latitude);
+        const dLng = Number(activeRide.destination.lng ?? (activeRide.destination as any).lon ?? (activeRide.destination as any).longitude);
+        if (!isNaN(dLat) && !isNaN(dLng)) {
+          setDestPos([dLat, dLng]);
+        }
         setDestination(activeRide.destination.address || destination);
       }
 
@@ -1660,17 +1673,20 @@ export default function TaxiBooking() {
           activeRide.driverLocation,
         );
         const loc = activeRide.driverLocation;
-        setDriverLivePos(loc);
+        const drvLat = Number(loc.lat ?? (loc as any).latitude);
+        const drvLng = Number(loc.lng ?? (loc as any).lon ?? (loc as any).longitude);
+        if (!isNaN(drvLat) && !isNaN(drvLng)) {
+          setDriverLivePos({ ...loc, lat: drvLat, lng: drvLng });
+        }
 
         const target =
           activeRide.status === "on_trip"
             ? activeRide.destination
             : activeRide.pickup;
-        if (target && target.lat && target.lng) {
-          const dist = L.latLng(
-            loc.lat,
-            loc.lng,
-          ).distanceTo(L.latLng(target.lat, target.lng));
+        const tgtLat = Number(target?.lat ?? (target as any)?.latitude);
+        const tgtLng = Number(target?.lng ?? (target as any)?.lon ?? (target as any)?.longitude);
+        if (!isNaN(drvLat) && !isNaN(drvLng) && !isNaN(tgtLat) && !isNaN(tgtLng)) {
+          const dist = L.latLng(drvLat, drvLng).distanceTo(L.latLng(tgtLat, tgtLng));
           setLiveDistance(dist / 1000); // km
         }
       } else if (activeRide?.status === "completed") {
@@ -2249,10 +2265,13 @@ export default function TaxiBooking() {
   };
 
   const selectSuggestion = (suggestion: any) => {
-    const pos: [number, number] = [
-      parseFloat(suggestion.lat),
-      parseFloat(suggestion.lon),
-    ];
+    const sLat = parseFloat(suggestion.lat ?? suggestion.latitude);
+    const sLng = parseFloat(suggestion.lon ?? suggestion.lng ?? suggestion.longitude);
+    if (isNaN(sLat) || isNaN(sLng)) {
+      console.warn("Invalid suggestion coordinates:", suggestion);
+      return;
+    }
+    const pos: [number, number] = [sLat, sLng];
     if (settingMode === "pickup") {
       setPickupPos(pos);
       setPickup(suggestion.display_name);
