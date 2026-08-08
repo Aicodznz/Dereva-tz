@@ -7,13 +7,76 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../AuthContext';
 
-export default function App3DShowcase() {
+// Helper for safe roundRect drawing across all mobile browsers
+function drawRoundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number
+) {
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(x, y, width, height, radius);
+  } else {
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + width - radius, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+    ctx.lineTo(x + width, y + height - radius);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    ctx.lineTo(x + radius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+  }
+}
+
+class ShowcaseErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: any) {
+    console.warn('[App3DShowcase ErrorBoundary caught]:', error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="w-full bg-neutral-900 border border-white/10 rounded-3xl p-6 text-center text-white my-4">
+          <Smartphone className="w-10 h-10 text-amber-400 mx-auto mb-2" />
+          <h3 className="text-lg font-bold">3D Showcase (2D Mode)</h3>
+          <p className="text-xs text-neutral-400">WebGL 3D feature is currently in 2D preview mode for your device.</p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export default function SafeApp3DShowcase() {
+  return (
+    <ShowcaseErrorBoundary>
+      <App3DShowcase />
+    </ShowcaseErrorBoundary>
+  );
+}
+
+function App3DShowcase() {
   const mountRef = useRef<HTMLDivElement>(null);
   const [isRotating, setIsRotating] = useState(true);
   const [activeScreen, setActiveScreen] = useState<'maya' | 'papostay' | 'taxi' | 'robot' | 'wallet'>('maya');
   const [wireframeMode, setWireframeMode] = useState(false);
   const [particleDensity, setParticleDensity] = useState<'high' | 'med'>('high');
   const [is3DReady, setIs3DReady] = useState(false);
+  const [hasWebGLError, setHasWebGLError] = useState(false);
 
   const { profile } = useAuth();
 
@@ -65,317 +128,344 @@ export default function App3DShowcase() {
     if (!mountRef.current) return;
 
     const container = mountRef.current;
-    const width = container.clientWidth;
-    const height = container.clientHeight;
+    const width = container.clientWidth || 300;
+    const height = container.clientHeight || 400;
 
-    // 1. Scene Setup
-    const scene = new THREE.Scene();
-
-    // 2. Camera Setup
-    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-    camera.position.set(0, 0, 7.5);
-
-    // 3. Renderer Setup
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
-    renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-
-    // Clear container and append canvas
-    while (container.firstChild) {
-      container.removeChild(container.firstChild);
-    }
-    container.appendChild(renderer.domElement);
-
-    // 4. Lights Setup
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
-    scene.add(ambientLight);
-
-    const dirLight1 = new THREE.DirectionalLight(0xffa500, 2.5);
-    dirLight1.position.set(5, 8, 5);
-    scene.add(dirLight1);
-
-    const dirLight2 = new THREE.DirectionalLight(0x3b82f6, 2.0);
-    dirLight2.position.set(-5, -5, -2);
-    scene.add(dirLight2);
-
-    const pointLight = new THREE.PointLight(0xffffff, 2, 10);
-    pointLight.position.set(0, 0, 3);
-    scene.add(pointLight);
-
-    // 5. Build 3D Phone Geometry
-    const phoneGroup = new THREE.Group();
-
-    // Outer Frame (Chassis)
-    const chassisGeo = new THREE.BoxGeometry(2.2, 4.4, 0.22);
-    const chassisMat = new THREE.MeshPhysicalMaterial({
-      color: 0x111115,
-      metalness: 0.9,
-      roughness: 0.2,
-      clearcoat: 0.8,
-      clearcoatRoughness: 0.1,
-      wireframe: wireframeMode
-    });
-    const chassis = new THREE.Mesh(chassisGeo, chassisMat);
-    phoneGroup.add(chassis);
-
-    // Metallic Bezel Ring
-    const bezelGeo = new THREE.BoxGeometry(2.26, 4.46, 0.20);
-    const bezelMat = new THREE.MeshStandardMaterial({
-      color: 0xd97706, // Amber gold metallic tint
-      metalness: 0.95,
-      roughness: 0.15,
-      wireframe: wireframeMode
-    });
-    const bezel = new THREE.Mesh(bezelGeo, bezelMat);
-    phoneGroup.add(bezel);
-
-    // Front Screen Glass
-    const screenGeo = new THREE.PlaneGeometry(2.05, 4.25);
-    
-    // Create Dynamic Texture for the Screen plane
-    const canvasScreen = document.createElement('canvas');
-    canvasScreen.width = 512;
-    canvasScreen.height = 1024;
-    const ctx = canvasScreen.getContext('2d')!;
-
-    const drawCanvasScreen = (screenKey: string) => {
-      // Draw Screen Canvas Gradient
-      const grad = ctx.createLinearGradient(0, 0, 0, 1024);
-      if (screenKey === 'maya') {
-        grad.addColorStop(0, '#1c1917');
-        grad.addColorStop(0.5, '#451a03');
-        grad.addColorStop(1, '#0c0a09');
-      } else if (screenKey === 'papostay') {
-        grad.addColorStop(0, '#1e1b4b');
-        grad.addColorStop(0.5, '#311042');
-        grad.addColorStop(1, '#0f172a');
-      } else if (screenKey === 'taxi') {
-        grad.addColorStop(0, '#292524');
-        grad.addColorStop(0.5, '#78350f');
-        grad.addColorStop(1, '#0c0a09');
-      } else if (screenKey === 'robot') {
-        grad.addColorStop(0, '#022c22');
-        grad.addColorStop(0.5, '#064e3b');
-        grad.addColorStop(1, '#020617');
-      } else {
-        grad.addColorStop(0, '#172554');
-        grad.addColorStop(0.5, '#1e3a8a');
-        grad.addColorStop(1, '#020617');
-      }
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, 512, 1024);
-
-      // Status Bar
-      ctx.fillStyle = 'rgba(255,255,255,0.85)';
-      ctx.font = 'bold 22px sans-serif';
-      ctx.fillText('09:41', 32, 48);
-      ctx.fillText('5G 🔋 100%', 360, 48);
-
-      // App Header Pill
-      ctx.fillStyle = 'rgba(0,0,0,0.4)';
-      ctx.roundRect(32, 80, 448, 80, 20);
-      ctx.fill();
-      ctx.fillStyle = '#f59e0b';
-      ctx.font = 'bold 28px sans-serif';
-      ctx.fillText('PAPO HAPO 🇹🇿', 56, 130);
-
-      // Main Feature Visual Ring
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(256, 360, 120, 0, Math.PI * 2);
-      ctx.strokeStyle = '#f59e0b';
-      ctx.lineWidth = 12;
-      ctx.shadowColor = '#f59e0b';
-      ctx.shadowBlur = 25;
-      ctx.stroke();
-      ctx.restore();
-
-      // Screen Center Icon / Title
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 34px sans-serif';
-      ctx.textAlign = 'center';
-      
-      if (screenKey === 'maya') {
-        ctx.fillText('MAYA AI VOICE', 256, 350);
-        ctx.font = '22px sans-serif';
-        ctx.fillStyle = '#fcd34d';
-        ctx.fillText('Active & Listening...', 256, 390);
-      } else if (screenKey === 'papostay') {
-        ctx.fillText('PAPOSTAY ROOMS', 256, 350);
-        ctx.font = '22px sans-serif';
-        ctx.fillStyle = '#a78bfa';
-        ctx.fillText('Verified Brokers 🏠', 256, 390);
-      } else if (screenKey === 'taxi') {
-        ctx.fillText('PAPORIDE TAXI', 256, 350);
-        ctx.font = '22px sans-serif';
-        ctx.fillStyle = '#fde047';
-        ctx.fillText('Boda & Bajaji 🚕', 256, 390);
-      } else if (screenKey === 'robot') {
-        ctx.fillText('ROBOT DISPATCH', 256, 350);
-        ctx.font = '22px sans-serif';
-        ctx.fillStyle = '#6ee7b7';
-        ctx.fillText('Autonomous AI 🤖', 256, 390);
-      } else {
-        ctx.fillText('PAPO WALLET', 256, 350);
-        ctx.font = '22px sans-serif';
-        ctx.fillStyle = '#93c5fd';
-        ctx.fillText('TSH 250,000 💳', 256, 390);
-      }
-
-      // Feature Card 1
-      ctx.fillStyle = 'rgba(255,255,255,0.08)';
-      ctx.roundRect(40, 530, 432, 120, 24);
-      ctx.fill();
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 24px sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText('✅ Eneo lako la sasa:', 64, 575);
-      ctx.fillStyle = '#d1d5db';
-      ctx.font = '20px sans-serif';
-      ctx.fillText('Dar es Salaam, Tanzania', 64, 615);
-
-      // Feature Card 2
-      ctx.fillStyle = 'rgba(245, 158, 11, 0.15)';
-      ctx.roundRect(40, 680, 432, 120, 24);
-      ctx.fill();
-      ctx.fillStyle = '#f59e0b';
-      ctx.font = 'bold 24px sans-serif';
-      ctx.fillText('⚡ Papo Escrow Protection', 64, 725);
-      ctx.fillStyle = '#fef3c7';
-      ctx.font = '20px sans-serif';
-      ctx.fillText('Ulinzi Salama wa Malipo 100%', 64, 765);
-
-      // Bottom Navigation Bar
-      ctx.fillStyle = 'rgba(0,0,0,0.6)';
-      ctx.fillRect(0, 920, 512, 104);
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 28px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('🏠    🔍    🎙️    📦    👤', 256, 980);
-    };
-
-    drawCanvasScreen(activeScreen);
-
-    const screenTexture = new THREE.CanvasTexture(canvasScreen);
-    screenTexture.needsUpdate = true;
-
-    const screenMat = new THREE.MeshBasicMaterial({
-      map: screenTexture,
-      wireframe: wireframeMode
-    });
-    const screenMesh = new THREE.Mesh(screenGeo, screenMat);
-    screenMesh.position.z = 0.115;
-    phoneGroup.add(screenMesh);
-
-    // Camera Lens & Speaker Notch on Top
-    const notchGeo = new THREE.BoxGeometry(0.5, 0.08, 0.02);
-    const notchMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
-    const notch = new THREE.Mesh(notchGeo, notchMat);
-    notch.position.set(0, 1.95, 0.12);
-    phoneGroup.add(notch);
-
-    scene.add(phoneGroup);
-
-    // 6. Floating 3D Particles Field
-    const particleCount = particleDensity === 'high' ? 220 : 100;
-    const particleGeo = new THREE.BufferGeometry();
-    const posArray = new Float32Array(particleCount * 3);
-
-    for (let i = 0; i < particleCount * 3; i++) {
-      posArray[i] = (Math.random() - 0.5) * 14;
-    }
-
-    particleGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-    const particleMat = new THREE.PointsMaterial({
-      size: 0.06,
-      color: 0xf59e0b,
-      transparent: true,
-      opacity: 0.65,
-      blending: THREE.AdditiveBlending
-    });
-    const particlePoints = new THREE.Points(particleGeo, particleMat);
-    scene.add(particlePoints);
-
-    // 7. Interactive Mouse Orbit / Rotation
-    let mouseX = 0;
-    let mouseY = 0;
-    let targetRotationX = 0;
-    let targetRotationY = 0;
-
-    const handleMouseMove = (event: MouseEvent) => {
-      const rect = container.getBoundingClientRect();
-      const x = event.clientX - rect.left - rect.width / 2;
-      const y = event.clientY - rect.top - rect.height / 2;
-      mouseX = (x / rect.width) * 2;
-      mouseY = -(y / rect.height) * 2;
-    };
-
-    container.addEventListener('mousemove', handleMouseMove);
-
-    // 8. Animation Loop
     let animationFrameId: number;
-    let clock = new THREE.Clock();
+    let renderer: THREE.WebGLRenderer | null = null;
+    let handleResize = () => {};
+    let handleMouseMove = (event: MouseEvent) => {};
+    let handleTouchMove = (event: TouchEvent) => {};
 
-    const animate = () => {
-      animationFrameId = requestAnimationFrame(animate);
-      const elapsedTime = clock.getElapsedTime();
+    try {
+      // 1. Scene Setup
+      const scene = new THREE.Scene();
 
-      // Floating wave animation
-      phoneGroup.position.y = Math.sin(elapsedTime * 1.5) * 0.15;
+      // 2. Camera Setup
+      const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+      camera.position.set(0, 0, 7.5);
 
-      if (isRotating) {
-        phoneGroup.rotation.y += 0.008;
-        phoneGroup.rotation.x = Math.sin(elapsedTime * 0.8) * 0.1;
-      } else {
-        // Interactive Tilt towards mouse cursor
-        targetRotationY = mouseX * 0.8;
-        targetRotationX = -mouseY * 0.8;
+      // 3. Renderer Setup
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+      renderer.setSize(width, height);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-        phoneGroup.rotation.y += (targetRotationY - phoneGroup.rotation.y) * 0.05;
-        phoneGroup.rotation.x += (targetRotationX - phoneGroup.rotation.x) * 0.05;
+      // Clear container and append canvas
+      while (container.firstChild) {
+        container.removeChild(container.firstChild);
+      }
+      container.appendChild(renderer.domElement);
+
+      // 4. Lights Setup
+      const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
+      scene.add(ambientLight);
+
+      const dirLight1 = new THREE.DirectionalLight(0xffa500, 2.5);
+      dirLight1.position.set(5, 8, 5);
+      scene.add(dirLight1);
+
+      const dirLight2 = new THREE.DirectionalLight(0x3b82f6, 2.0);
+      dirLight2.position.set(-5, -5, -2);
+      scene.add(dirLight2);
+
+      const pointLight = new THREE.PointLight(0xffffff, 2, 10);
+      pointLight.position.set(0, 0, 3);
+      scene.add(pointLight);
+
+      // 5. Build 3D Phone Geometry
+      const phoneGroup = new THREE.Group();
+
+      // Outer Frame (Chassis)
+      const chassisGeo = new THREE.BoxGeometry(2.2, 4.4, 0.22);
+      const chassisMat = new THREE.MeshPhysicalMaterial({
+        color: 0x111115,
+        metalness: 0.9,
+        roughness: 0.2,
+        clearcoat: 0.8,
+        clearcoatRoughness: 0.1,
+        wireframe: wireframeMode
+      });
+      const chassis = new THREE.Mesh(chassisGeo, chassisMat);
+      phoneGroup.add(chassis);
+
+      // Metallic Bezel Ring
+      const bezelGeo = new THREE.BoxGeometry(2.26, 4.46, 0.20);
+      const bezelMat = new THREE.MeshStandardMaterial({
+        color: 0xd97706, // Amber gold metallic tint
+        metalness: 0.95,
+        roughness: 0.15,
+        wireframe: wireframeMode
+      });
+      const bezel = new THREE.Mesh(bezelGeo, bezelMat);
+      phoneGroup.add(bezel);
+
+      // Front Screen Glass
+      const screenGeo = new THREE.PlaneGeometry(2.05, 4.25);
+      
+      // Create Dynamic Texture for the Screen plane
+      const canvasScreen = document.createElement('canvas');
+      canvasScreen.width = 512;
+      canvasScreen.height = 1024;
+      const ctx = canvasScreen.getContext('2d');
+
+      if (ctx) {
+        const drawCanvasScreen = (screenKey: string) => {
+          // Draw Screen Canvas Gradient
+          const grad = ctx.createLinearGradient(0, 0, 0, 1024);
+          if (screenKey === 'maya') {
+            grad.addColorStop(0, '#1c1917');
+            grad.addColorStop(0.5, '#451a03');
+            grad.addColorStop(1, '#0c0a09');
+          } else if (screenKey === 'papostay') {
+            grad.addColorStop(0, '#1e1b4b');
+            grad.addColorStop(0.5, '#311042');
+            grad.addColorStop(1, '#0f172a');
+          } else if (screenKey === 'taxi') {
+            grad.addColorStop(0, '#292524');
+            grad.addColorStop(0.5, '#78350f');
+            grad.addColorStop(1, '#0c0a09');
+          } else if (screenKey === 'robot') {
+            grad.addColorStop(0, '#022c22');
+            grad.addColorStop(0.5, '#064e3b');
+            grad.addColorStop(1, '#020617');
+          } else {
+            grad.addColorStop(0, '#172554');
+            grad.addColorStop(0.5, '#1e3a8a');
+            grad.addColorStop(1, '#020617');
+          }
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, 512, 1024);
+
+          // Status Bar
+          ctx.fillStyle = 'rgba(255,255,255,0.85)';
+          ctx.font = 'bold 22px sans-serif';
+          ctx.fillText('09:41', 32, 48);
+          ctx.fillText('5G 🔋 100%', 360, 48);
+
+          // App Header Pill
+          ctx.fillStyle = 'rgba(0,0,0,0.4)';
+          drawRoundRect(ctx, 32, 80, 448, 80, 20);
+          ctx.fill();
+          ctx.fillStyle = '#f59e0b';
+          ctx.font = 'bold 28px sans-serif';
+          ctx.fillText('PAPO HAPO 🇹🇿', 56, 130);
+
+          // Main Feature Visual Ring
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(256, 360, 120, 0, Math.PI * 2);
+          ctx.strokeStyle = '#f59e0b';
+          ctx.lineWidth = 12;
+          ctx.shadowColor = '#f59e0b';
+          ctx.shadowBlur = 25;
+          ctx.stroke();
+          ctx.restore();
+
+          // Screen Center Icon / Title
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 34px sans-serif';
+          ctx.textAlign = 'center';
+          
+          if (screenKey === 'maya') {
+            ctx.fillText('MAYA AI VOICE', 256, 350);
+            ctx.font = '22px sans-serif';
+            ctx.fillStyle = '#fcd34d';
+            ctx.fillText('Active & Listening...', 256, 390);
+          } else if (screenKey === 'papostay') {
+            ctx.fillText('PAPOSTAY ROOMS', 256, 350);
+            ctx.font = '22px sans-serif';
+            ctx.fillStyle = '#a78bfa';
+            ctx.fillText('Verified Brokers 🏠', 256, 390);
+          } else if (screenKey === 'taxi') {
+            ctx.fillText('PAPORIDE TAXI', 256, 350);
+            ctx.font = '22px sans-serif';
+            ctx.fillStyle = '#fde047';
+            ctx.fillText('Boda & Bajaji 🚕', 256, 390);
+          } else if (screenKey === 'robot') {
+            ctx.fillText('ROBOT DISPATCH', 256, 350);
+            ctx.font = '22px sans-serif';
+            ctx.fillStyle = '#6ee7b7';
+            ctx.fillText('Autonomous AI 🤖', 256, 390);
+          } else {
+            ctx.fillText('PAPO WALLET', 256, 350);
+            ctx.font = '22px sans-serif';
+            ctx.fillStyle = '#93c5fd';
+            ctx.fillText('TSH 250,000 💳', 256, 390);
+          }
+
+          // Feature Card 1
+          ctx.fillStyle = 'rgba(255,255,255,0.08)';
+          drawRoundRect(ctx, 40, 530, 432, 120, 24);
+          ctx.fill();
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 24px sans-serif';
+          ctx.textAlign = 'left';
+          ctx.fillText('✅ Eneo lako la sasa:', 64, 575);
+          ctx.fillStyle = '#d1d5db';
+          ctx.font = '20px sans-serif';
+          ctx.fillText('Dar es Salaam, Tanzania', 64, 615);
+
+          // Feature Card 2
+          ctx.fillStyle = 'rgba(245, 158, 11, 0.15)';
+          drawRoundRect(ctx, 40, 680, 432, 120, 24);
+          ctx.fill();
+          ctx.fillStyle = '#f59e0b';
+          ctx.font = 'bold 24px sans-serif';
+          ctx.fillText('⚡ Papo Escrow Protection', 64, 725);
+          ctx.fillStyle = '#fef3c7';
+          ctx.font = '20px sans-serif';
+          ctx.fillText('Ulinzi Salama wa Malipo 100%', 64, 765);
+
+          // Bottom Navigation Bar
+          ctx.fillStyle = 'rgba(0,0,0,0.6)';
+          ctx.fillRect(0, 920, 512, 104);
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 28px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('🏠    🔍    🎙️    📦    👤', 256, 980);
+        };
+
+        drawCanvasScreen(activeScreen);
       }
 
-      // Rotate particle cloud gently
-      particlePoints.rotation.y = elapsedTime * 0.03;
+      const screenTexture = new THREE.CanvasTexture(canvasScreen);
+      screenTexture.needsUpdate = true;
 
-      renderer.render(scene, camera);
-    };
+      const screenMat = new THREE.MeshBasicMaterial({
+        map: screenTexture,
+        wireframe: wireframeMode
+      });
+      const screenMesh = new THREE.Mesh(screenGeo, screenMat);
+      screenMesh.position.z = 0.115;
+      phoneGroup.add(screenMesh);
 
-    animate();
-    setIs3DReady(true);
+      // Camera Lens & Speaker Notch on Top
+      const notchGeo = new THREE.BoxGeometry(0.5, 0.08, 0.02);
+      const notchMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+      const notch = new THREE.Mesh(notchGeo, notchMat);
+      notch.position.set(0, 1.95, 0.12);
+      phoneGroup.add(notch);
 
-    // Window Resize Handler
-    const handleResize = () => {
-      if (!mountRef.current) return;
-      const w = mountRef.current.clientWidth;
-      const h = mountRef.current.clientHeight;
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
-      renderer.setSize(w, h);
-    };
+      scene.add(phoneGroup);
 
-    window.addEventListener('resize', handleResize);
+      // 6. Floating 3D Particles Field
+      const particleCount = particleDensity === 'high' ? 220 : 100;
+      const particleGeo = new THREE.BufferGeometry();
+      const posArray = new Float32Array(particleCount * 3);
 
-    return () => {
-      cancelAnimationFrame(animationFrameId);
-      container.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('resize', handleResize);
-      if (container.contains(renderer.domElement)) {
-        container.removeChild(renderer.domElement);
+      for (let i = 0; i < particleCount * 3; i++) {
+        posArray[i] = (Math.random() - 0.5) * 14;
       }
-      chassisGeo.dispose();
-      chassisMat.dispose();
-      bezelGeo.dispose();
-      bezelMat.dispose();
-      screenGeo.dispose();
-      screenMat.dispose();
-      particleGeo.dispose();
-      particleMat.dispose();
-      screenTexture.dispose();
-      renderer.dispose();
-    };
+
+      particleGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+      const particleMat = new THREE.PointsMaterial({
+        size: 0.06,
+        color: 0xf59e0b,
+        transparent: true,
+        opacity: 0.65,
+        blending: THREE.AdditiveBlending
+      });
+      const particlePoints = new THREE.Points(particleGeo, particleMat);
+      scene.add(particlePoints);
+
+      // 7. Interactive Mouse / Touch Orbit
+      let mouseX = 0;
+      let mouseY = 0;
+      let targetRotationX = 0;
+      let targetRotationY = 0;
+
+      handleMouseMove = (event: MouseEvent) => {
+        const rect = container.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return;
+        const x = event.clientX - rect.left - rect.width / 2;
+        const y = event.clientY - rect.top - rect.height / 2;
+        mouseX = (x / rect.width) * 2;
+        mouseY = -(y / rect.height) * 2;
+      };
+
+      handleTouchMove = (event: TouchEvent) => {
+        if (!event.touches[0]) return;
+        const rect = container.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return;
+        const x = event.touches[0].clientX - rect.left - rect.width / 2;
+        const y = event.touches[0].clientY - rect.top - rect.height / 2;
+        mouseX = (x / rect.width) * 2;
+        mouseY = -(y / rect.height) * 2;
+      };
+
+      container.addEventListener('mousemove', handleMouseMove);
+      container.addEventListener('touchmove', handleTouchMove, { passive: true });
+
+      // 8. Animation Loop
+      let clock = new THREE.Clock();
+
+      const animate = () => {
+        animationFrameId = requestAnimationFrame(animate);
+        const elapsedTime = clock.getElapsedTime();
+
+        // Floating wave animation
+        phoneGroup.position.y = Math.sin(elapsedTime * 1.5) * 0.15;
+
+        if (isRotating) {
+          phoneGroup.rotation.y += 0.008;
+          phoneGroup.rotation.x = Math.sin(elapsedTime * 0.8) * 0.1;
+        } else {
+          // Interactive Tilt towards mouse/touch
+          targetRotationY = mouseX * 0.8;
+          targetRotationX = -mouseY * 0.8;
+
+          phoneGroup.rotation.y += (targetRotationY - phoneGroup.rotation.y) * 0.05;
+          phoneGroup.rotation.x += (targetRotationX - phoneGroup.rotation.x) * 0.05;
+        }
+
+        // Rotate particle cloud gently
+        particlePoints.rotation.y = elapsedTime * 0.03;
+
+        if (renderer) {
+          renderer.render(scene, camera);
+        }
+      };
+
+      animate();
+      setIs3DReady(true);
+
+      // Window Resize Handler
+      handleResize = () => {
+        if (!mountRef.current || !renderer) return;
+        const w = mountRef.current.clientWidth || 300;
+        const h = mountRef.current.clientHeight || 400;
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        renderer.setSize(w, h);
+      };
+
+      window.addEventListener('resize', handleResize);
+
+      return () => {
+        cancelAnimationFrame(animationFrameId);
+        container.removeEventListener('mousemove', handleMouseMove);
+        container.removeEventListener('touchmove', handleTouchMove);
+        window.removeEventListener('resize', handleResize);
+        if (renderer && container.contains(renderer.domElement)) {
+          container.removeChild(renderer.domElement);
+        }
+        chassisGeo.dispose();
+        chassisMat.dispose();
+        bezelGeo.dispose();
+        bezelMat.dispose();
+        screenGeo.dispose();
+        screenMat.dispose();
+        particleGeo.dispose();
+        particleMat.dispose();
+        screenTexture.dispose();
+        if (renderer) renderer.dispose();
+      };
+    } catch (err) {
+      console.warn('[App3DShowcase] WebGL setup fallback:', err);
+      setHasWebGLError(true);
+    }
   }, [isRotating, activeScreen, wireframeMode, particleDensity]);
 
   const activeMeta = screenMeta[activeScreen];

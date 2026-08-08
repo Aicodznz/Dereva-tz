@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { db } from '../firebase';
+import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, onSnapshot, limit } from 'firebase/firestore';
 import { Ride } from '../types/ride.types';
 
@@ -8,20 +8,26 @@ export function useNearbyRides(vehicleType: string) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const q = query(
-      collection(db, 'rides'),
-      where('status', '==', 'pending'),
-      where('vehicleType', '==', vehicleType),
-      limit(10)
-    );
+    let unsub = () => {};
+    try {
+      const q = query(
+        collection(db, 'rides'),
+        where('status', '==', 'pending'),
+        where('vehicleType', '==', vehicleType),
+        limit(10)
+      );
 
-    const unsub = onSnapshot(q, (snap) => {
-      setRides(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Ride)));
+      unsub = onSnapshot(q, (snap) => {
+        setRides(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Ride)));
+        setIsLoading(false);
+      }, (error) => {
+        handleFirestoreError(error, OperationType.GET, 'rides');
+        setIsLoading(false);
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.GET, 'rides');
       setIsLoading(false);
-    }, (error) => {
-      console.error("Error fetching nearby rides:", error);
-      setIsLoading(false);
-    });
+    }
 
     return () => unsub();
   }, [vehicleType]);

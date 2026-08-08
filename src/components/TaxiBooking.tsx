@@ -1138,7 +1138,7 @@ export default function TaxiBooking() {
             async (errorLow) => {
               if (timer) clearTimeout(timer);
               if (!isInitial) toast.dismiss("gps-loading");
-              console.error("Triangulation failed, falling back to IP:", errorLow);
+              console.warn("[TaxiBooking] Triangulation fallback to IP position:", errorLow);
               await triggerIpFallback();
             },
             { enableHighAccuracy: false, timeout: 6000, maximumAge: 60000 }
