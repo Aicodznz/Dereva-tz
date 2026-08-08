@@ -53,6 +53,16 @@ export default class ErrorBoundary extends React.Component<Props, State> {
             </CardHeader>
             <CardContent className="text-center space-y-6">
               <p className="text-neutral-600">{errorMessage}</p>
+              {this.state.error && (
+                <div className="text-left bg-neutral-100 p-3 rounded text-xs font-mono text-red-600 max-h-40 overflow-auto whitespace-pre-wrap">
+                  {this.state.error.name}: {this.state.error.message}
+                  {this.state.error.stack && (
+                    <div className="mt-2 text-[10px] text-neutral-500">
+                      {this.state.error.stack}
+                    </div>
+                  )}
+                </div>
+              )}
               <Button 
                 onClick={() => window.location.reload()} 
                 className="w-full bg-orange-600 hover:bg-orange-700"
