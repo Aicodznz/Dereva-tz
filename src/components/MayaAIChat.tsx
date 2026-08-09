@@ -5,7 +5,7 @@ import {
   Car, Utensils, CreditCard, Package, RefreshCw, 
   MapPin, CheckCircle, AlertTriangle, ChevronRight, PhoneCall,
   Flame, Ambulance, Wallet, HelpCircle, CornerDownLeft, Volume2, VolumeX, Pause,
-  Mic, MicOff, WifiOff, Radio
+  Mic, MicOff, WifiOff, Radio, Trash2, Sun, Moon, RotateCcw
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -39,7 +39,37 @@ export default function MayaAIChat() {
   const [userLocation, setUserLocation] = useState<string>('Dar es Salaam');
   const [isLocating, setIsLocating] = useState<boolean>(false);
   const [hasGreeted, setHasGreeted] = useState<boolean>(false);
+  const [themeMode, setThemeMode] = useState<'dark' | 'light'>('dark');
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const recognitionRef = useRef<any>(null);
+
+  const handleDeleteMessage = (msgId: string) => {
+    if ('speechSynthesis' in window && currentlySpeakingId === msgId) {
+      window.speechSynthesis.cancel();
+      setCurrentlySpeakingId(null);
+    }
+    setMessages(prev => prev.filter(m => m.id !== msgId));
+    toast.success('Meseji imefutwa');
+  };
+
+  const handleClearAllMessages = () => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      setCurrentlySpeakingId(null);
+    }
+    const userName = getUserFirstName();
+    const currentLoc = userLocation;
+    setMessages([
+      {
+        id: `welcome-${Date.now()}`,
+        sender: 'maya',
+        text: `Habari ${userName}! 👋 Meseji zote zimefutwa kikamilifu.\n\nNinawezaje kukusaidia tena tukiwa hapa **${currentLoc}**?`,
+        timestamp: new Date()
+      }
+    ]);
+    setShowClearConfirm(false);
+    toast.success('Meseji zote zimefutwa kikamilifu!');
+  };
 
   const getUserFirstName = () => {
     if (profile?.displayName) return profile.displayName.split(' ')[0];
@@ -579,37 +609,123 @@ export default function MayaAIChat() {
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: '100%', opacity: 0 }}
               transition={{ type: 'spring', damping: 28, stiffness: 220 }}
-              className="w-full sm:max-w-lg h-[90vh] sm:h-[650px] bg-neutral-900 text-white rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl border border-white/10 flex flex-col overflow-hidden relative"
+              className={`w-full sm:max-w-lg h-[90vh] sm:h-[650px] rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl border flex flex-col overflow-hidden relative transition-colors duration-300 ${
+                themeMode === 'dark' 
+                  ? 'bg-[#121218] text-white border-white/10' 
+                  : 'bg-slate-50 text-slate-900 border-slate-200/80'
+              }`}
             >
+              {/* CLEAR ALL CONFIRMATION OVERLAY MODAL */}
+              <AnimatePresence>
+                {showClearConfirm && (
+                  <div className="absolute inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                    <motion.div
+                      initial={{ scale: 0.9, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.9, opacity: 0 }}
+                      className={`p-6 rounded-3xl max-w-xs w-full shadow-2xl border text-center space-y-4 ${
+                        themeMode === 'dark' ? 'bg-[#1c1c28] border-neutral-700 text-white' : 'bg-white border-slate-200 text-slate-900'
+                      }`}
+                    >
+                      <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-500 flex items-center justify-center mx-auto">
+                        <Trash2 className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h4 className="font-black text-base uppercase tracking-tight">Futa Meseji Zote?</h4>
+                        <p className={`text-xs mt-1 ${themeMode === 'dark' ? 'text-neutral-400' : 'text-slate-500'}`}>
+                          Je, una uhakika unataka kufuta mazungumzo yote na MAYA AI?
+                        </p>
+                      </div>
+                      <div className="flex gap-2 pt-2">
+                        <button
+                          onClick={handleClearAllMessages}
+                          className="flex-1 bg-red-600 hover:bg-red-500 text-white font-black py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all active:scale-95 shadow-md shadow-red-600/30"
+                        >
+                          Futa Zote 🗑️
+                        </button>
+                        <button
+                          onClick={() => setShowClearConfirm(false)}
+                          className={`flex-1 font-bold py-2.5 rounded-xl text-xs uppercase transition-all ${
+                            themeMode === 'dark' ? 'bg-neutral-800 hover:bg-neutral-700 text-neutral-300' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'
+                          }`}
+                        >
+                          Ghairi
+                        </button>
+                      </div>
+                    </motion.div>
+                  </div>
+                )}
+              </AnimatePresence>
+
               {/* HEADER */}
-              <div className="p-4 sm:p-5 bg-gradient-to-r from-neutral-900 via-neutral-800 to-neutral-900 border-b border-white/10 flex items-center justify-between shrink-0">
+              <div className={`p-4 sm:p-5 border-b flex items-center justify-between shrink-0 transition-colors duration-300 ${
+                themeMode === 'dark'
+                  ? 'bg-gradient-to-r from-[#181824] via-[#1f1f2e] to-[#181824] border-white/10'
+                  : 'bg-gradient-to-r from-white via-slate-100 to-white border-slate-200/90 shadow-xs'
+              }`}>
                 <div className="flex items-center gap-3">
                   <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-orange-600 to-amber-400 flex items-center justify-center shadow-lg shadow-orange-500/20 border border-white/20">
                     <Sparkles className="w-6 h-6 text-white" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h3 className="font-black text-base tracking-tight text-white uppercase">MAYA AI</h3>
-                      <span className="bg-orange-500/20 text-orange-400 border border-orange-500/30 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest">
+                      <h3 className={`font-black text-base tracking-tight uppercase ${themeMode === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                        MAYA AI
+                      </h3>
+                      <span className="bg-orange-500/20 text-orange-500 border border-orange-500/30 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest">
                         Papo Hapo 🇹🇿
                       </span>
                     </div>
-                    <div className="flex items-center gap-1.5 text-[11px] text-neutral-400 font-medium mt-0.5">
+                    <div className={`flex items-center gap-1.5 text-[11px] font-medium mt-0.5 ${themeMode === 'dark' ? 'text-neutral-400' : 'text-slate-500'}`}>
                       <span>Mtanzania Kidijitali</span>
                       <span>•</span>
                       <button 
                         onClick={fetchCurrentLocation}
-                        className="text-amber-300 flex items-center gap-1 hover:underline font-semibold bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 text-[10px]"
+                        className={`flex items-center gap-1 hover:underline font-semibold px-1.5 py-0.5 rounded border text-[10px] transition-colors ${
+                          themeMode === 'dark' 
+                            ? 'text-amber-300 bg-amber-500/10 border-amber-500/20' 
+                            : 'text-amber-700 bg-amber-50 border-amber-200'
+                        }`}
                         title="Bonyeza kuhuisha eneo lako halisi la sasa (GPS Location)"
                       >
-                        <MapPin className={`w-3 h-3 text-amber-400 ${isLocating ? 'animate-spin' : ''}`} />
-                        <span className="truncate max-w-[130px]">{userLocation}</span>
+                        <MapPin className={`w-3 h-3 text-amber-500 ${isLocating ? 'animate-spin' : ''}`} />
+                        <span className="truncate max-w-[120px]">{userLocation}</span>
                       </button>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
+                  {/* LIGHT / NIGHT MODE TOGGLE */}
+                  <button
+                    onClick={() => {
+                      const nextMode = themeMode === 'dark' ? 'light' : 'dark';
+                      setThemeMode(nextMode);
+                      toast.info(nextMode === 'light' ? '💡 Light Mode imewashwa' : '🌙 Night Mode imewashwa');
+                    }}
+                    className={`p-2 rounded-full border transition-all ${
+                      themeMode === 'dark' 
+                        ? 'bg-neutral-800 border-white/10 text-amber-300 hover:bg-neutral-700' 
+                        : 'bg-amber-100 border-amber-300 text-amber-800 hover:bg-amber-200'
+                    }`}
+                    title={themeMode === 'dark' ? 'Badili kwenda Light Mode 💡' : 'Badili kwenda Night Mode 🌙'}
+                  >
+                    {themeMode === 'dark' ? <Sun className="w-4 h-4 text-amber-300" /> : <Moon className="w-4 h-4 text-slate-800" />}
+                  </button>
+
+                  {/* CLEAR ALL MESSAGES BUTTON */}
+                  <button
+                    onClick={() => setShowClearConfirm(true)}
+                    className={`p-2 rounded-full border transition-all ${
+                      themeMode === 'dark'
+                        ? 'bg-red-950/40 border-red-900/50 text-red-400 hover:bg-red-900/60'
+                        : 'bg-red-50 border-red-200 text-red-600 hover:bg-red-100'
+                    }`}
+                    title="Futa Meseji Zote (Clear All Messages)"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+
                   {/* AUTO VOICE TOGGLE */}
                   <button
                     onClick={() => {
@@ -621,151 +737,199 @@ export default function MayaAIChat() {
                       }
                       toast.info(nextState ? 'Sauti ya MAYA: Wazi (Inasoma majibu)' : 'Sauti ya MAYA: Imefungwa');
                     }}
-                    className={`px-2.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 border transition-all ${
+                    className={`p-2 rounded-full border transition-all ${
                       autoVoiceEnabled 
-                        ? 'bg-amber-500/20 border-amber-500/50 text-amber-300' 
-                        : 'bg-neutral-800 border-white/10 text-neutral-400'
+                        ? (themeMode === 'dark' ? 'bg-amber-500/20 border-amber-500/50 text-amber-300' : 'bg-amber-100 border-amber-300 text-amber-800')
+                        : (themeMode === 'dark' ? 'bg-neutral-800 border-white/10 text-neutral-400' : 'bg-slate-200 border-slate-300 text-slate-500')
                     }`}
                     title={autoVoiceEnabled ? 'Sauti imewaka (Inasoma jibu kiotomatiki)' : 'Sauti imezimwa'}
                   >
-                    {autoVoiceEnabled ? <Volume2 className="w-4 h-4 text-amber-400 animate-pulse" /> : <VolumeX className="w-4 h-4" />}
-                    <span className="text-[10px] hidden xs:inline">{autoVoiceEnabled ? 'Sauti: WAZI' : 'Sauti: ZIMA'}</span>
+                    {autoVoiceEnabled ? <Volume2 className="w-4 h-4 text-amber-500 animate-pulse" /> : <VolumeX className="w-4 h-4" />}
                   </button>
 
+                  {/* CLOSE BUTTON */}
                   <button
                     onClick={() => {
                       if ('speechSynthesis' in window) window.speechSynthesis.cancel();
                       setCurrentlySpeakingId(null);
                       setIsOpen(false);
                     }}
-                    className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-neutral-400 hover:text-white transition-colors"
+                    className={`p-2 rounded-full border transition-colors ${
+                      themeMode === 'dark' 
+                        ? 'bg-white/5 border-white/10 text-neutral-400 hover:text-white hover:bg-white/10' 
+                        : 'bg-slate-200/80 border-slate-300 text-slate-600 hover:text-slate-900 hover:bg-slate-300'
+                    }`}
                   >
-                    <X className="w-5 h-5" />
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
               </div>
 
               {/* MESSAGES BODY */}
               <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 no-scrollbar">
-                {messages.map((msg) => (
-                  <motion.div
-                    key={msg.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className={`flex gap-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    {msg.sender === 'maya' && (
-                      <div className="w-8 h-8 rounded-xl bg-orange-600/30 border border-orange-500/40 flex items-center justify-center shrink-0 mt-1">
-                        <Sparkles className="w-4 h-4 text-orange-400" />
-                      </div>
-                    )}
-
-                    <div className={`max-w-[85%] rounded-2xl p-4 text-sm leading-relaxed relative ${
-                      msg.sender === 'user'
-                        ? 'bg-orange-600 text-white rounded-tr-none font-medium'
-                        : 'bg-neutral-800/90 border border-white/10 text-neutral-200 rounded-tl-none'
-                    }`}>
-                      {/* VOICE READOUT BUTTON FOR MAYA MESSAGES */}
+                <AnimatePresence initial={false}>
+                  {messages.map((msg) => (
+                    <motion.div
+                      key={msg.id}
+                      initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8, x: -20 }}
+                      className={`flex gap-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
                       {msg.sender === 'maya' && (
-                        <div className="flex justify-between items-center mb-1 pb-1 border-b border-white/5">
-                          <span className="text-[10px] text-orange-400 font-bold uppercase tracking-wider">MAYA AI Voice</span>
-                          <button
-                            onClick={() => speakText(msg.text, msg.id)}
-                            className={`p-1 rounded-md text-xs flex items-center gap-1 transition-colors ${
-                              currentlySpeakingId === msg.id 
-                                ? 'bg-amber-500 text-black font-bold animate-pulse' 
-                                : 'text-neutral-400 hover:text-white hover:bg-white/10'
-                            }`}
-                            title="Sikiliza sauti ya jibu hili"
-                          >
-                            {currentlySpeakingId === msg.id ? (
-                              <>
-                                <Pause className="w-3.5 h-3.5" />
-                                <span className="text-[9px]">Inasoma...</span>
-                              </>
-                            ) : (
-                              <>
-                                <Volume2 className="w-3.5 h-3.5 text-amber-400" />
-                                <span className="text-[9px]">Sikiliza</span>
-                              </>
-                            )}
-                          </button>
+                        <div className="w-8 h-8 rounded-xl bg-orange-600/20 border border-orange-500/40 flex items-center justify-center shrink-0 mt-1 shadow-xs">
+                          <Sparkles className="w-4 h-4 text-orange-500" />
                         </div>
                       )}
 
-                      <div className="whitespace-pre-wrap">{msg.text}</div>
+                      <div className={`max-w-[85%] rounded-2xl p-4 text-sm leading-relaxed relative group transition-all ${
+                        msg.sender === 'user'
+                          ? 'bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 text-white rounded-tr-none font-medium shadow-md shadow-orange-600/20 pr-8'
+                          : themeMode === 'dark'
+                            ? 'bg-[#1c1c28] border border-white/10 text-neutral-200 rounded-tl-none shadow-sm'
+                            : 'bg-white border border-slate-200/90 text-slate-800 rounded-tl-none shadow-sm'
+                      }`}>
+                        {/* USER MESSAGE DELETE BUTTON */}
+                        {msg.sender === 'user' && (
+                          <button
+                            onClick={() => handleDeleteMessage(msg.id)}
+                            className="absolute top-2.5 right-2 text-white/70 hover:text-white transition-opacity p-1 rounded-md hover:bg-black/20"
+                            title="Futa meseji hii"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
 
-                      {/* CONFIRMATION CARD FOR PAYMENTS OR EMERGENCY BOOKINGS */}
-                      {msg.pendingConfirmation && (
-                        <motion.div
-                          initial={{ scale: 0.95, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          className="mt-4 p-4 rounded-xl bg-neutral-900 border border-amber-500/40 space-y-3"
-                        >
-                          <div className="flex items-center gap-2 text-amber-400 text-xs font-black uppercase tracking-wider">
-                            <ShieldCheck className="w-4 h-4" />
-                            <span>{msg.pendingConfirmation.title}</span>
-                          </div>
+                        {/* VOICE READOUT & DELETE BUTTON FOR MAYA MESSAGES */}
+                        {msg.sender === 'maya' && (
+                          <div className={`flex justify-between items-center mb-2 pb-1.5 border-b ${
+                            themeMode === 'dark' ? 'border-white/10' : 'border-slate-100'
+                          }`}>
+                            <span className="text-[10px] text-orange-500 font-bold uppercase tracking-wider flex items-center gap-1">
+                              MAYA AI Voice
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => speakText(msg.text, msg.id)}
+                                className={`px-2 py-0.5 rounded-md text-xs flex items-center gap-1 transition-colors ${
+                                  currentlySpeakingId === msg.id 
+                                    ? 'bg-amber-500 text-black font-bold animate-pulse' 
+                                    : themeMode === 'dark' ? 'text-neutral-400 hover:text-white hover:bg-white/10' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                                }`}
+                                title="Sikiliza sauti ya jibu hili"
+                              >
+                                {currentlySpeakingId === msg.id ? (
+                                  <>
+                                    <Pause className="w-3.5 h-3.5" />
+                                    <span className="text-[9px]">Inasoma...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Volume2 className="w-3.5 h-3.5 text-amber-500" />
+                                    <span className="text-[9px]">Sikiliza</span>
+                                  </>
+                                )}
+                              </button>
 
-                          <div className="bg-black/40 p-3 rounded-lg text-xs space-y-1 font-mono text-neutral-300">
-                            {msg.pendingConfirmation.details.amount && (
-                              <div className="flex justify-between">
-                                <span>Kiasi:</span>
-                                <span className="text-amber-300 font-bold">TSH {msg.pendingConfirmation.details.amount.toLocaleString()}</span>
-                              </div>
-                            )}
-                            {msg.pendingConfirmation.details.method && (
-                              <div className="flex justify-between">
-                                <span>Njia:</span>
-                                <span className="uppercase text-orange-400">{msg.pendingConfirmation.details.method}</span>
-                              </div>
-                            )}
-                            {msg.pendingConfirmation.details.vehicle_type && (
-                              <div className="flex justify-between">
-                                <span>Usafiri:</span>
-                                <span className="uppercase text-amber-300">{msg.pendingConfirmation.details.vehicle_type}</span>
-                              </div>
-                            )}
-                            {msg.pendingConfirmation.details.pickup_location && (
-                              <div className="flex justify-between">
-                                <span>Kuanzia:</span>
-                                <span className="text-neutral-200">{msg.pendingConfirmation.details.pickup_location}</span>
-                              </div>
-                            )}
-                            {msg.pendingConfirmation.details.destination && (
-                              <div className="flex justify-between">
-                                <span>Kufika:</span>
-                                <span className="text-neutral-200">{msg.pendingConfirmation.details.destination}</span>
-                              </div>
-                            )}
+                              <button
+                                onClick={() => handleDeleteMessage(msg.id)}
+                                className={`p-1 rounded-md text-xs flex items-center gap-1 transition-colors ${
+                                  themeMode === 'dark' ? 'text-neutral-400 hover:text-red-400 hover:bg-white/10' : 'text-slate-400 hover:text-red-600 hover:bg-slate-100'
+                                }`}
+                                title="Futa meseji hii"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </div>
+                        )}
 
-                          <div className="flex gap-2 pt-1">
-                            <button
-                              onClick={() => handleConfirmAction(msg.id, msg.pendingConfirmation?.details, true)}
-                              className="flex-1 bg-amber-500 hover:bg-amber-600 text-black font-black py-2.5 px-3 rounded-lg text-xs uppercase tracking-wider transition-all"
-                            >
-                              Thibitisha Sasa
-                            </button>
-                            <button
-                              onClick={() => handleConfirmAction(msg.id, msg.pendingConfirmation?.details, false)}
-                              className="bg-white/10 hover:bg-white/20 text-white font-bold py-2.5 px-3 rounded-lg text-xs uppercase transition-all"
-                            >
-                              Ghairi
-                            </button>
-                          </div>
-                        </motion.div>
-                      )}
-                    </div>
-                  </motion.div>
-                ))}
+                        <div className="whitespace-pre-wrap">{msg.text}</div>
+
+                        {/* CONFIRMATION CARD FOR PAYMENTS OR EMERGENCY BOOKINGS */}
+                        {msg.pendingConfirmation && (
+                          <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            className={`mt-4 p-4 rounded-xl border space-y-3 ${
+                              themeMode === 'dark' 
+                                ? 'bg-[#12121c] border-amber-500/40' 
+                                : 'bg-amber-50/90 border-amber-300'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 text-amber-600 font-black text-xs uppercase tracking-wider">
+                              <ShieldCheck className="w-4 h-4" />
+                              <span>{msg.pendingConfirmation.title}</span>
+                            </div>
+
+                            <div className={`p-3 rounded-lg text-xs space-y-1 font-mono ${
+                              themeMode === 'dark' ? 'bg-black/40 text-neutral-300' : 'bg-white text-slate-800 border border-amber-200'
+                            }`}>
+                              {msg.pendingConfirmation.details.amount && (
+                                <div className="flex justify-between">
+                                  <span>Kiasi:</span>
+                                  <span className="text-amber-600 font-bold">TSH {msg.pendingConfirmation.details.amount.toLocaleString()}</span>
+                                </div>
+                              )}
+                              {msg.pendingConfirmation.details.method && (
+                                <div className="flex justify-between">
+                                  <span>Njia:</span>
+                                  <span className="uppercase text-orange-600 font-bold">{msg.pendingConfirmation.details.method}</span>
+                                </div>
+                              )}
+                              {msg.pendingConfirmation.details.vehicle_type && (
+                                <div className="flex justify-between">
+                                  <span>Usafiri:</span>
+                                  <span className="uppercase text-amber-600 font-bold">{msg.pendingConfirmation.details.vehicle_type}</span>
+                                </div>
+                              )}
+                              {msg.pendingConfirmation.details.pickup_location && (
+                                <div className="flex justify-between">
+                                  <span>Kuanzia:</span>
+                                  <span className="font-sans font-medium">{msg.pendingConfirmation.details.pickup_location}</span>
+                                </div>
+                              )}
+                              {msg.pendingConfirmation.details.destination && (
+                                <div className="flex justify-between">
+                                  <span>Kufika:</span>
+                                  <span className="font-sans font-medium">{msg.pendingConfirmation.details.destination}</span>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex gap-2 pt-1">
+                              <button
+                                onClick={() => handleConfirmAction(msg.id, msg.pendingConfirmation?.details, true)}
+                                className="flex-1 bg-amber-500 hover:bg-amber-600 text-black font-black py-2.5 px-3 rounded-lg text-xs uppercase tracking-wider transition-all shadow-sm"
+                              >
+                                Thibitisha Sasa
+                              </button>
+                              <button
+                                onClick={() => handleConfirmAction(msg.id, msg.pendingConfirmation?.details, false)}
+                                className={`font-bold py-2.5 px-3 rounded-lg text-xs uppercase transition-all ${
+                                  themeMode === 'dark' ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'
+                                }`}
+                              >
+                                Ghairi
+                              </button>
+                            </div>
+                          </motion.div>
+                        )}
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
 
                 {isLoading && (
                   <div className="flex gap-3 justify-start items-center">
                     <div className="w-8 h-8 rounded-xl bg-orange-600/30 border border-orange-500/40 flex items-center justify-center shrink-0">
                       <Sparkles className="w-4 h-4 text-orange-400 animate-spin" />
                     </div>
-                    <div className="bg-neutral-800 border border-white/10 px-4 py-3 rounded-2xl text-xs text-neutral-400 font-mono flex items-center gap-2">
+                    <div className={`border px-4 py-3 rounded-2xl text-xs font-mono flex items-center gap-2 ${
+                      themeMode === 'dark' 
+                        ? 'bg-[#1c1c28] border-white/10 text-neutral-400' 
+                        : 'bg-white border-slate-200 text-slate-600 shadow-xs'
+                    }`}>
                       <div className="w-2 h-2 bg-orange-500 rounded-full animate-ping" />
                       MAYA inafikiria na kuandaa maelezo...
                     </div>
@@ -775,12 +939,18 @@ export default function MayaAIChat() {
               </div>
 
               {/* QUICK PROMPT CHIPS */}
-              <div className="px-4 py-2 border-t border-white/5 bg-neutral-900/60 flex items-center gap-2 overflow-x-auto no-scrollbar">
+              <div className={`px-4 py-2.5 border-t flex items-center gap-2 overflow-x-auto no-scrollbar ${
+                themeMode === 'dark' ? 'bg-[#0f0f16] border-white/5' : 'bg-slate-100/80 border-slate-200/80'
+              }`}>
                 {quickPrompts.map((qp, idx) => (
                   <button
                     key={idx}
                     onClick={() => handleSendMessage(qp.prompt)}
-                    className="shrink-0 text-[11px] font-medium bg-neutral-800 hover:bg-neutral-700 text-neutral-300 px-3 py-1.5 rounded-full border border-white/10 transition-colors"
+                    className={`shrink-0 text-[11px] font-medium px-3 py-1.5 rounded-full border transition-all active:scale-95 ${
+                      themeMode === 'dark'
+                        ? 'bg-[#1c1c28] hover:bg-[#28283a] text-neutral-300 border-white/10'
+                        : 'bg-white hover:bg-slate-200/60 text-slate-700 border-slate-200 shadow-xs'
+                    }`}
                   >
                     {qp.label}
                   </button>
@@ -793,7 +963,9 @@ export default function MayaAIChat() {
                   e.preventDefault();
                   handleSendMessage();
                 }}
-                className="p-3 sm:p-4 bg-neutral-950 border-t border-white/10 flex items-center gap-2 shrink-0 relative"
+                className={`p-3 sm:p-4 border-t flex items-center gap-2 shrink-0 relative ${
+                  themeMode === 'dark' ? 'bg-[#0a0a0f] border-white/10' : 'bg-white border-slate-200 shadow-md'
+                }`}
               >
                 {/* Voice listening status banner */}
                 {isListening && (
@@ -812,7 +984,9 @@ export default function MayaAIChat() {
                   className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all shrink-0 ${
                     isListening
                       ? 'bg-red-600 text-white animate-bounce shadow-lg shadow-red-600/50 border border-white'
-                      : 'bg-neutral-800 hover:bg-neutral-700 text-amber-400 border border-amber-500/30'
+                      : themeMode === 'dark'
+                        ? 'bg-neutral-800 hover:bg-neutral-700 text-amber-400 border border-amber-500/30'
+                        : 'bg-amber-50 hover:bg-amber-100 text-amber-600 border border-amber-300'
                   }`}
                   title={isListening ? 'Acha kusikiliza' : 'Ongea kwa sauti ya Kiswahili (Swahili Voice Command)'}
                 >
@@ -824,7 +998,11 @@ export default function MayaAIChat() {
                   value={inputMessage}
                   onChange={(e) => setInputMessage(e.target.value)}
                   placeholder={isListening ? "Anasikiliza sauti..." : "Sema au andika ombi lako kwa MAYA..."}
-                  className="flex-1 bg-neutral-900 border border-white/10 text-white placeholder-neutral-500 text-xs sm:text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors"
+                  className={`flex-1 text-xs sm:text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors border ${
+                    themeMode === 'dark'
+                      ? 'bg-[#161622] border-white/10 text-white placeholder-neutral-500'
+                      : 'bg-slate-100 border-slate-200 text-slate-900 placeholder-slate-400 focus:bg-white'
+                  }`}
                   disabled={isLoading}
                 />
 
