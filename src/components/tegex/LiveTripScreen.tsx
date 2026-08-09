@@ -10,6 +10,7 @@ import { useRouting } from '../../hooks/useRouting';
 import { toast } from 'sonner';
 import { useTheme } from 'next-themes';
 import { Navigation3DHudOverlay } from '../map/Navigation3DHudOverlay';
+import { ShareTripModal } from '../common/ShareTripModal';
 
 interface LiveTripScreenProps {
   ride: Ride;
@@ -411,103 +412,17 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
         )}
       </AnimatePresence>
 
-      {/* Share Modal Dialog */}
-      <AnimatePresence>
-        {showShareModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-md flex items-center justify-center p-4 pointer-events-auto"
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: 15 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 15 }}
-              className={`border rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4 ${theme === 'dark' ? 'bg-[#111118] border-neutral-800' : 'bg-white border-neutral-200'}`}
-            >
-              <div className={`flex items-center justify-between border-b pb-3 ${theme === 'dark' ? 'border-neutral-800' : 'border-neutral-100'}`}>
-                <h3 className={`text-sm font-black uppercase tracking-wider ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`}>Shiriki Safari</h3>
-                <button 
-                  onClick={() => setShowShareModal(false)}
-                  className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors text-xs ${theme === 'dark' ? 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200' : 'bg-neutral-100 hover:bg-neutral-200 text-neutral-505 hover:text-neutral-805'}`}
-                >
-                  ✕
-                </button>
-              </div>
-
-              <p className={`text-xs leading-relaxed ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-600'}`}>
-                Ndugu au rafiki anaweza kufuatilia safari yako kwa wakati halisi kupitia kiungo hiki:
-              </p>
-
-              <div className="space-y-2">
-                <input 
-                  type="text" 
-                  readOnly 
-                  value={window.location.origin + "/taxi?rideId=" + ride.id}
-                  onClick={(e) => (e.target as HTMLInputElement).select()}
-                  className={`w-full border rounded-2xl px-4 py-3 font-mono text-center select-all focus:outline-none focus:border-indigo-500/50 text-xs ${theme === 'dark' ? 'bg-[#161622] border-neutral-800 text-indigo-400' : 'bg-neutral-50 border-neutral-200 text-indigo-600'}`}
-                />
-                <p className="text-[10px] text-center text-neutral-400 italic">
-                  Gusa kiungo hapo juu ili kukichagua na kukopi
-                </p>
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  onClick={() => {
-                    const shareUrl = window.location.origin + "/taxi?rideId=" + ride.id;
-                    const showSuccessToast = () => {
-                      toast.success("Kiungo kimenakiliwa!", {
-                        description: "Sasa unaweza kumtumia mtu yeyote ashiriki safari yako."
-                      });
-                    };
-
-                    if (navigator.clipboard && navigator.clipboard.writeText) {
-                      navigator.clipboard.writeText(shareUrl)
-                        .then(() => {
-                          showSuccessToast();
-                          setShowShareModal(false);
-                        })
-                        .catch(() => {
-                          // Fallback manual copy attempt
-                          try {
-                            const input = document.createElement("input");
-                            input.value = shareUrl;
-                            document.body.appendChild(input);
-                            input.select();
-                            document.execCommand("copy");
-                            document.body.removeChild(input);
-                            showSuccessToast();
-                            setShowShareModal(false);
-                          } catch (err) {
-                            toast.error("Tafadhali chagua na kunakili kiungo manually");
-                          }
-                        });
-                    } else {
-                      try {
-                        const input = document.createElement("input");
-                        input.value = shareUrl;
-                        document.body.appendChild(input);
-                        input.select();
-                        document.execCommand("copy");
-                        document.body.removeChild(input);
-                        showSuccessToast();
-                        setShowShareModal(false);
-                      } catch (err) {
-                        toast.error("Tafadhali chagua na kunakili kiungo manually");
-                      }
-                    }
-                  }}
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-2xl text-xs font-black uppercase tracking-wider transition-all active:scale-95"
-                >
-                  Kopi Kiungo 🔗
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Share Modal Component */}
+      <ShareTripModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        rideId={ride.id || "TGX-8821"}
+        pickupAddress={ride.pickup.address}
+        dropoffAddress={ride.destination.address}
+        driverName={ride.driverInfo?.name}
+        vehiclePlate={ride.driverInfo?.vehicle?.plate}
+        vehicleModel={ride.driverInfo?.vehicle?.model}
+      />
     </div>
   );
 };

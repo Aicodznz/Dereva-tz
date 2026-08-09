@@ -3,10 +3,12 @@ import { motion, AnimatePresence } from 'motion/react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { Phone, MessageSquare, Star, Clock, Navigation2 } from 'lucide-react';
+import { Phone, MessageSquare, Star, Clock, Navigation2, Share2, KeyRound } from 'lucide-react';
 import { Ride } from '../../types/trip.types';
 import { useDriverTracking } from '../../hooks/useDriverTracking';
 import { useTheme } from 'next-themes';
+import { RidePinDisplay } from '../common/RidePinVerification';
+import { ShareTripModal } from '../common/ShareTripModal';
 
 interface DriverArrivedScreenProps {
   ride: Ride;
@@ -59,6 +61,7 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
   const theme = resolvedTheme === 'dark' ? 'dark' : 'light';
   
   const [isCollapsed, setIsCollapsed] = React.useState(false);
+  const [showShareModal, setShowShareModal] = React.useState(false);
   const showDetails = !isMinimized && !isCollapsed;
 
   const isArrived = ride.status === 'driver_arrived';
@@ -204,32 +207,58 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
                 </div>
               </div>
             </div>
+
+            {/* Ride Verification PIN Display Badge */}
+            {!isSpectator && (
+              <div className="mb-3 pointer-events-auto">
+                <RidePinDisplay pin={(ride as any).verificationPin || "4821"} />
+              </div>
+            )}
  
              {/* Premium Pill Action Buttons Row */}
              {!isSpectator && (
-               <div className="grid grid-cols-3 gap-2">
+               <div className="grid grid-cols-4 gap-2">
                  <button 
                    onClick={onCall} 
-                   className={`h-10 border rounded-xl flex items-center justify-center gap-1.5 active:scale-95 transition-all pointer-events-auto ${theme === 'dark' ? 'bg-[#161622] border-neutral-800 text-neutral-200 hover:bg-neutral-800' : 'bg-neutral-50 border-neutral-200 text-neutral-800 hover:bg-neutral-100'}`}
+                   className={`h-10 border rounded-xl flex items-center justify-center gap-1 active:scale-95 transition-all pointer-events-auto ${theme === 'dark' ? 'bg-[#161622] border-neutral-800 text-neutral-200 hover:bg-neutral-800' : 'bg-neutral-50 border-neutral-200 text-neutral-800 hover:bg-neutral-100'}`}
                  >
                    <Phone className="w-3.5 h-3.5 text-emerald-500" />
                    <span className="text-[9px] font-black uppercase tracking-[0.08em] font-heading">Call</span>
                  </button>
                  <button 
                    onClick={onMessage} 
-                   className={`h-10 border rounded-xl flex items-center justify-center gap-1.5 active:scale-95 transition-all pointer-events-auto ${theme === 'dark' ? 'bg-[#161622] border-neutral-800 text-neutral-200 hover:bg-neutral-800' : 'bg-neutral-50 border-neutral-200 text-neutral-800 hover:bg-neutral-100'}`}
+                   className={`h-10 border rounded-xl flex items-center justify-center gap-1 active:scale-95 transition-all pointer-events-auto ${theme === 'dark' ? 'bg-[#161622] border-neutral-800 text-neutral-200 hover:bg-neutral-800' : 'bg-neutral-50 border-neutral-200 text-neutral-800 hover:bg-neutral-100'}`}
                  >
                    <MessageSquare className="w-3.5 h-3.5 text-indigo-400" />
                    <span className="text-[9px] font-black uppercase tracking-[0.08em] font-heading">Chat</span>
                  </button>
                  <button 
+                   onClick={() => setShowShareModal(true)} 
+                   className={`h-10 border rounded-xl flex items-center justify-center gap-1 active:scale-95 transition-all pointer-events-auto ${theme === 'dark' ? 'bg-[#161622] border-neutral-800 text-neutral-200 hover:bg-neutral-800' : 'bg-neutral-50 border-neutral-200 text-neutral-800 hover:bg-neutral-100'}`}
+                 >
+                   <Share2 className="w-3.5 h-3.5 text-teal-400" />
+                   <span className="text-[9px] font-black uppercase tracking-[0.08em] font-heading">Share</span>
+                 </button>
+                 <button 
                    onClick={onCancel || (() => {})} 
-                   className={`h-10 border rounded-xl flex items-center justify-center gap-1.5 active:scale-95 transition-all pointer-events-auto ${theme === 'dark' ? 'bg-red-950/20 border-red-900/40 text-red-400 hover:bg-red-950/40' : 'bg-red-50 border-red-100 text-red-600 hover:bg-red-100'}`}
+                   className={`h-10 border rounded-xl flex items-center justify-center gap-1 active:scale-95 transition-all pointer-events-auto ${theme === 'dark' ? 'bg-red-950/20 border-red-900/40 text-red-400 hover:bg-red-950/40' : 'bg-red-50 border-red-100 text-red-600 hover:bg-red-100'}`}
                  >
                    <span className="text-[9px] font-black uppercase tracking-[0.08em] font-heading">✕ Cancel</span>
                  </button>
                </div>
              )}
+
+            {/* Share Trip Modal */}
+            <ShareTripModal
+              isOpen={showShareModal}
+              onClose={() => setShowShareModal(false)}
+              rideId={ride.id || "TGX-8821"}
+              pickupAddress={ride.pickup.address}
+              dropoffAddress={ride.destination.address}
+              driverName={ride.driverInfo?.name}
+              vehiclePlate={ride.driverInfo?.vehicle?.plate}
+              vehicleModel={ride.driverInfo?.vehicle?.model}
+            />
           </motion.div>
         )}
       </AnimatePresence>

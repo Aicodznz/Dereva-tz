@@ -1862,6 +1862,22 @@ export default function TaxiBooking() {
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [searchTimer, setSearchTimer] = useState<any>(null);
 
+  // Advanced Trip Options (Boresha Features)
+  const [isScheduled, setIsScheduled] = useState(false);
+  const [scheduledDate, setScheduledDate] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().split('T')[0];
+  });
+  const [scheduledTime, setScheduledTime] = useState<string>("08:00");
+  
+  const [extraStops, setExtraStops] = useState<Array<{ id: string; address: string; lat?: number; lng?: number }>>([]);
+  const [newStopInput, setNewStopInput] = useState("");
+  const [showAddStopInput, setShowAddStopInput] = useState(false);
+
+  const [usePoints, setUsePoints] = useState(false);
+  const userPointsBalance = 1200; // 1200 Points = TZS 1,200 discount
+
   const { drivers } = useNearbyDrivers();
 
   const getDriverBearing = (driverId: string, lat: number, lng: number): number => {
@@ -2463,16 +2479,27 @@ export default function TaxiBooking() {
         ? Math.ceil(totalDuration / 60)
         : Math.ceil((calculatedDistanceKm * 1000 / 9.5) / 60);
 
+      const rawBasePrice = rideOptions.find((r) => r.id === selectedRide.id)?.price || selectedRide.price;
+      const stopsExtra = extraStops.length * 1500;
+      const discount = usePoints ? Math.min(userPointsBalance, rawBasePrice + stopsExtra - 1000) : 0;
+      const finalPrice = Math.max(1000, rawBasePrice + stopsExtra - discount);
+
       const id = await createRide(
         activeUser.uid,
         customerInfo,
         { lat: pickupPos[0], lng: pickupPos[1], address: pickup },
         { lat: destPos[0], lng: destPos[1], address: destination },
         selectedRide.id as any,
-        rideOptions.find((r) => r.id === selectedRide.id)?.price || selectedRide.price,
+        finalPrice,
         calculatedDistanceKm,
         calculatedDurationMins,
         formattedCoords,
+        {
+          scheduledAt: isScheduled ? `${scheduledDate} ${scheduledTime}` : null,
+          stops: extraStops.map(s => ({ address: s.address, lat: s.lat, lng: s.lng })),
+          pointsUsed: usePoints ? discount : 0,
+          discountAmount: discount,
+        }
       );
 
       if (id) {
@@ -3989,6 +4016,140 @@ export default function TaxiBooking() {
                           </button>
                         );
                       })}
+                    </div>
+                  )}
+
+                  {/* Modernization Options (Scheduled Rides, Multi-Stops, Loyalty Rewards) */}
+                  {destination && (
+                    <div className={`p-3.5 rounded-2xl border space-y-3 transition-all ${theme === 'dark' ? 'bg-[#161622]/60 border-neutral-800' : 'bg-neutral-50 border-neutral-200/80'}`}>
+                      {/* Top Bar Tabs: Instant vs Scheduled */}
+                      <div className="flex items-center justify-between border-b pb-2">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setIsScheduled(false)}
+                            className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
+                              !isScheduled
+                                ? 'bg-indigo-600 text-white shadow-sm'
+                                : (theme === 'dark' ? 'bg-neutral-800 text-neutral-400' : 'bg-neutral-200/70 text-neutral-600')
+                            }`}
+                          >
+                            ⚡ Sasa Hivi
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setIsScheduled(true)}
+                            className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
+                              isScheduled
+                                ? 'bg-indigo-600 text-white shadow-sm'
+                                : (theme === 'dark' ? 'bg-neutral-800 text-neutral-400' : 'bg-neutral-200/70 text-neutral-600')
+                            }`}
+                          >
+                            📅 Weka Miadi (Schedule)
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Scheduled Date/Time Picker */}
+                      {isScheduled && (
+                        <div className="grid grid-cols-2 gap-2 pt-1">
+                          <div>
+                            <label className="text-[9px] font-black text-neutral-400 uppercase tracking-wider block mb-1">Tarehe ya Safari</label>
+                            <input
+                              type="date"
+                              value={scheduledDate}
+                              onChange={(e) => setScheduledDate(e.target.value)}
+                              className={`w-full p-2 rounded-xl text-xs font-bold border ${theme === 'dark' ? 'bg-[#111118] border-neutral-800 text-neutral-200' : 'bg-white border-neutral-300 text-neutral-800'}`}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-black text-neutral-400 uppercase tracking-wider block mb-1">Saa ya Safari</label>
+                            <input
+                              type="time"
+                              value={scheduledTime}
+                              onChange={(e) => setScheduledTime(e.target.value)}
+                              className={`w-full p-2 rounded-xl text-xs font-bold border ${theme === 'dark' ? 'bg-[#111118] border-neutral-800 text-neutral-200' : 'bg-white border-neutral-300 text-neutral-800'}`}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Multi-Stop Rides Section */}
+                      <div className="space-y-1.5 pt-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Vituo vya Safari (Stops)</span>
+                          {extraStops.length < 3 && !showAddStopInput && (
+                            <button
+                              type="button"
+                              onClick={() => setShowAddStopInput(true)}
+                              className="text-[9px] font-black uppercase text-indigo-500 hover:text-indigo-400 tracking-wider flex items-center gap-0.5"
+                            >
+                              + Ongeza Kituo
+                            </button>
+                          )}
+                        </div>
+
+                        {/* List of Extra Stops */}
+                        {extraStops.map((stop, idx) => (
+                          <div key={stop.id} className={`flex items-center justify-between p-2 rounded-xl border text-xs font-bold ${theme === 'dark' ? 'bg-neutral-900 border-neutral-800 text-neutral-200' : 'bg-white border-neutral-200 text-neutral-800'}`}>
+                            <span className="truncate pr-2">📍 Kituo #{idx + 1}: {stop.address}</span>
+                            <button
+                              type="button"
+                              onClick={() => setExtraStops(prev => prev.filter(s => s.id !== stop.id))}
+                              className="text-red-500 font-bold text-xs px-1 hover:text-red-700"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+
+                        {/* Add Stop Input Row */}
+                        {showAddStopInput && (
+                          <div className="flex gap-1.5 pt-1">
+                            <input
+                              type="text"
+                              value={newStopInput}
+                              onChange={(e) => setNewStopInput(e.target.value)}
+                              placeholder="Andika jina la kituo cha kati..."
+                              className={`flex-1 p-2 rounded-xl text-xs font-bold border ${theme === 'dark' ? 'bg-[#111118] border-neutral-800 text-neutral-200' : 'bg-white border-neutral-300 text-neutral-800'}`}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (newStopInput.trim()) {
+                                  setExtraStops(prev => [...prev, { id: Date.now().toString(), address: newStopInput.trim() }]);
+                                  setNewStopInput("");
+                                  setShowAddStopInput(false);
+                                }
+                              }}
+                              className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-xl text-xs font-black uppercase"
+                            >
+                              Weka
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Loyalty Cashback Points Redemption */}
+                      <div className={`flex items-center justify-between p-2.5 rounded-xl border ${theme === 'dark' ? 'bg-emerald-950/20 border-emerald-900/40' : 'bg-emerald-50 border-emerald-200/60'}`}>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            id="usePointsCheck"
+                            checked={usePoints}
+                            onChange={(e) => setUsePoints(e.target.checked)}
+                            className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 accent-indigo-600"
+                          />
+                          <label htmlFor="usePointsCheck" className="text-xs font-bold cursor-pointer select-none">
+                            🎁 Tumia Pointi za Zawadi ({userPointsBalance} Pts)
+                          </label>
+                        </div>
+                        {usePoints && (
+                          <span className="text-xs font-black font-mono text-emerald-500">
+                            -TZS {Math.min(userPointsBalance, 1200).toLocaleString()}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   )}
 
