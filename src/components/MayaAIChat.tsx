@@ -50,10 +50,8 @@ export default function MayaAIChat() {
     return localStorage.getItem('papo_ai_fab_hidden') === 'true';
   });
 
-  // Active AI Role state (Customer / Driver / Vendor)
+  // Active AI Role state (Customer / Driver / Vendor) automatically set
   const [activeRole, setActiveRole] = useState<AIRole>(() => {
-    const saved = localStorage.getItem('papo_ai_role') as AIRole | null;
-    if (saved && ['mteja', 'dereva', 'vendor'].includes(saved)) return saved;
     if (profile?.role === 'rider' || profile?.role === 'driver') return 'dereva';
     if (profile?.role === 'vendor') return 'vendor';
     return 'mteja';
@@ -64,7 +62,7 @@ export default function MayaAIChat() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Automatic AI Role Detection (Updates automatically based on route & profile)
+  // Automatic AI Role Detection (Updates strictly based on route & profile)
   useEffect(() => {
     const path = location.pathname.toLowerCase();
     let detectedRole: AIRole = 'mteja';
@@ -89,8 +87,7 @@ export default function MayaAIChat() {
       detectedRole = 'mteja';
     }
 
-    const manualSaved = localStorage.getItem('papo_ai_role_override');
-    if (!manualSaved && detectedRole !== activeRole) {
+    if (detectedRole !== activeRole) {
       setActiveRole(detectedRole);
       setHasGreeted(false);
     }
@@ -931,14 +928,14 @@ export default function MayaAIChat() {
                 </div>
               </div>
 
-              {/* AUTOMATIC AI ROLE INDICATOR & COMPACT SWITCHER */}
+              {/* AUTOMATIC AI ROLE INDICATOR */}
               <div className={`px-4 py-2 border-b flex items-center justify-between gap-2 overflow-x-auto no-scrollbar ${
                 themeMode === 'dark' ? 'bg-[#12121c] border-white/10' : 'bg-slate-100/90 border-slate-200'
               }`}>
                 <div className="flex items-center gap-2 shrink-0">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
                   <span className="text-[10px] font-black uppercase tracking-wider text-neutral-400 shrink-0">
-                    Mode ya AI (Automatiki):
+                    AI Assistant Yako:
                   </span>
                   <span className={`px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wide flex items-center gap-1.5 shrink-0 shadow-xs ${
                     activeRole === 'dereva'
@@ -954,51 +951,10 @@ export default function MayaAIChat() {
                   </span>
                 </div>
 
-                <div className="flex items-center gap-1 shrink-0">
-                  <span className="text-[9px] font-bold text-neutral-500 uppercase mr-1 hidden sm:inline">Badili:</span>
-                  <button
-                    onClick={() => {
-                      localStorage.setItem('papo_ai_role_override', 'true');
-                      switchRole('mteja');
-                    }}
-                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${
-                      activeRole === 'mteja'
-                        ? 'bg-orange-600 text-white font-black shadow-xs'
-                        : themeMode === 'dark' ? 'bg-neutral-800 text-neutral-400 hover:text-white' : 'bg-white text-slate-600 border border-slate-200'
-                    }`}
-                    title="Mteja AI"
-                  >
-                    Mteja
-                  </button>
-                  <button
-                    onClick={() => {
-                      localStorage.setItem('papo_ai_role_override', 'true');
-                      switchRole('dereva');
-                    }}
-                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${
-                      activeRole === 'dereva'
-                        ? 'bg-emerald-600 text-white font-black shadow-xs'
-                        : themeMode === 'dark' ? 'bg-neutral-800 text-neutral-400 hover:text-white' : 'bg-white text-slate-600 border border-slate-200'
-                    }`}
-                    title="Dereva AI"
-                  >
-                    Dereva
-                  </button>
-                  <button
-                    onClick={() => {
-                      localStorage.setItem('papo_ai_role_override', 'true');
-                      switchRole('vendor');
-                    }}
-                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${
-                      activeRole === 'vendor'
-                        ? 'bg-purple-600 text-white font-black shadow-xs'
-                        : themeMode === 'dark' ? 'bg-neutral-800 text-neutral-400 hover:text-white' : 'bg-white text-slate-600 border border-slate-200'
-                    }`}
-                    title="Vendor AI"
-                  >
-                    Vendor
-                  </button>
-                </div>
+                <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-wider bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                  Tayari 🟢
+                </span>
               </div>
 
               {/* MESSAGES BODY */}
