@@ -353,6 +353,7 @@ export default function CustomerDashboard() {
     if (vendors.length === 0) return;
 
     const interval = setInterval(() => {
+      if (document.hidden) return;
       if (storeScrollRef.current) {
         const container = storeScrollRef.current;
         const scrollWidth = container.scrollWidth;
@@ -379,6 +380,7 @@ export default function CustomerDashboard() {
     if (banners.length === 0) return;
 
     const interval = setInterval(() => {
+      if (document.hidden) return;
       setActiveBannerIdx((prev) => (prev + 1) % banners.length);
     }, 5500);
 
@@ -543,7 +545,7 @@ export default function CustomerDashboard() {
         (err) => {
           if (err.code !== 1) console.log('Location access denied or unavailable:', err);
         },
-        { timeout: 10000, enableHighAccuracy: true }
+        { timeout: 15000, enableHighAccuracy: false, maximumAge: 15000 }
       );
       return () => navigator.geolocation.clearWatch(watchId);
     }

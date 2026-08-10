@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import { useAuth } from '../../../AuthContext';
@@ -7,6 +7,7 @@ export function usePartnerLocation() {
   const { user } = useAuth();
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [error, setError] = useState<GeolocationPositionError | null>(null);
+  const lastWriteTimeRef = useRef<number>(0);
 
   useEffect(() => {
     if (!user) return;
@@ -22,17 +23,21 @@ export function usePartnerLocation() {
         return { lat: latitude, lng: longitude };
       });
 
-      try {
-        const partnerRef = doc(db, 'partners', user.uid);
-        await setDoc(partnerRef, {
-          location: {
-            lat: latitude,
-            lng: longitude,
-          },
-          updatedAt: serverTimestamp(),
-        }, { merge: true });
-      } catch (err) {
-        console.error('Pigo la kusasisha eneo:', err);
+      const now = Date.now();
+      if (now - lastWriteTimeRef.current >= 8000) {
+        lastWriteTimeRef.current = now;
+        try {
+          const partnerRef = doc(db, 'partners', user.uid);
+          await setDoc(partnerRef, {
+            location: {
+              lat: latitude,
+              lng: longitude,
+            },
+            updatedAt: serverTimestamp(),
+          }, { merge: true });
+        } catch (err) {
+          console.error('Pigo la kusasisha eneo:', err);
+        }
       }
     };
 
@@ -43,7 +48,7 @@ export function usePartnerLocation() {
           console.error('Hitilafu ya GPS:', err);
           setError(err);
         },
-        { enableHighAccuracy: true, maximumAge: 10000, timeout: 10000 }
+        { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 }
       );
     }
 

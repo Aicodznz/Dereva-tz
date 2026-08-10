@@ -2016,20 +2016,21 @@ export default function VendorDashboard() {
       }
     };
 
-    fetchOrders();
-    fetchProducts();
-    fetchSections();
-    fetchReviews();
-    fetchRestInventory();
-    fetchRestExpenses();
-
     const errorHandler = (path: string) => (error: any) => {
       handleFirestoreError(error, OperationType.GET, path);
     };
 
     const unsubs = [
-      onSnapshot(query(collection(db, 'orders'), where('vendorId', '==', vendorProfile.id)), () => fetchOrders(), errorHandler('orders')),
-      onSnapshot(query(collection(db, 'products'), where('vendorId', '==', vendorProfile.id)), () => fetchProducts(), errorHandler('products')),
+      onSnapshot(query(collection(db, 'orders'), where('vendorId', '==', vendorProfile.id), limit(100)), (snap) => {
+        const docs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
+        const sorted = docs.sort((a, b) => getSafeTime(b.createdAt) - getSafeTime(a.createdAt));
+        setOrders(sorted);
+      }, errorHandler('orders')),
+
+      onSnapshot(query(collection(db, 'products'), where('vendorId', '==', vendorProfile.id)), (snap) => {
+        setProducts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
+      }, errorHandler('products')),
+
       onSnapshot(collection(db, 'vendors', vendorProfile.id, 'sections'), (snap) => {
         const incoming = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setSections(prev => {
@@ -2042,9 +2043,12 @@ export default function VendorDashboard() {
           });
         });
       }, errorHandler('sections')),
+
       onSnapshot(
         query(collection(db, 'reviews'), where('targetId', '==', vendorProfile.id), where('targetType', '==', 'vendor')), 
-        () => fetchReviews(),
+        (snap) => {
+          setVendorReviews(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Review)));
+        },
         (error: any) => {
           if (error.message?.includes('permission')) {
             console.warn("Vendor reviews restricted by rules");
@@ -2053,8 +2057,14 @@ export default function VendorDashboard() {
           handleFirestoreError(error, OperationType.GET, 'reviews');
         }
       ),
-      onSnapshot(collection(db, 'vendors', vendorProfile.id, 'restaurant_inventory'), () => fetchRestInventory()),
-      onSnapshot(collection(db, 'vendors', vendorProfile.id, 'restaurant_expenses'), () => fetchRestExpenses())
+
+      onSnapshot(collection(db, 'vendors', vendorProfile.id, 'restaurant_inventory'), (snap) => {
+        setRestInventory(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      }),
+
+      onSnapshot(collection(db, 'vendors', vendorProfile.id, 'restaurant_expenses'), (snap) => {
+        setRestExpenses(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      })
     ];
 
     return () => {

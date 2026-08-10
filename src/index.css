@@ -481,8 +481,6 @@
 .badge-text-slide {
   display: inline-flex;
   white-space: nowrap;
-  animation: badgeTextSlide 4s linear infinite;
-  will-change: transform;
 }
 
 @keyframes textMarquee {
@@ -497,6 +495,4 @@
 .animate-marquee-text {
   display: inline-flex;
   white-space: nowrap;
-  animation: textMarquee 12s linear infinite;
-  will-change: transform;
 }

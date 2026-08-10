@@ -1175,7 +1175,7 @@ export default function TaxiBooking() {
         (err) => {
           console.warn("[TaxiBooking] watchPosition error:", err);
         },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 10000 }
+        { enableHighAccuracy: false, timeout: 15000, maximumAge: 15000 }
       );
       return () => navigator.geolocation.clearWatch(watchId);
     }
@@ -2052,14 +2052,9 @@ export default function TaxiBooking() {
           <div class="relative flex flex-col items-start w-full transition-transform duration-200 transform hover:scale-105 filter drop-shadow-[0_6px_12px_rgba(0,0,0,0.25)]">
             
             <!-- Top Slanted Badge Tab -->
-            <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-t-lg rounded-tr-xl text-[7px] font-black uppercase tracking-wider leading-none shadow-md ml-2 z-10 border-t border-x border-emerald-400/40 w-[90px] overflow-hidden">
-              <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse shrink-0"></span>
-              <div class="overflow-hidden min-w-0 flex-1 relative">
-                <div class="badge-text-slide">
-                  <span class="font-black">PICKUP &nbsp;•&nbsp;&nbsp;</span>
-                  <span class="font-black">PICKUP &nbsp;•&nbsp;&nbsp;</span>
-                </div>
-              </div>
+            <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-t-lg rounded-tr-xl text-[7.5px] font-black uppercase tracking-wider leading-none shadow-md ml-2 z-10 border-t border-x border-emerald-400/40">
+              <span class="w-1.5 h-1.5 rounded-full bg-white shrink-0"></span>
+              <span class="font-black whitespace-nowrap">PICKUP</span>
             </div>
           </div>
 
@@ -2086,9 +2081,8 @@ export default function TaxiBooking() {
 
         <!-- Ground Pin Dot Base -->
         <div class="relative flex items-center justify-center -mt-0.5 z-20">
-          <div class="absolute w-4 h-4 rounded-full bg-emerald-500/35 animate-ping"></div>
-          <div class="w-3 h-3 rounded-full bg-emerald-500 border-2 border-white shadow-md flex items-center justify-center">
-            <div class="w-1 h-1 rounded-full bg-white"></div>
+          <div class="w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white shadow-md flex items-center justify-center">
+            <div class="w-1.5 h-1.5 rounded-full bg-white"></div>
           </div>
         </div>
       </div>
@@ -2125,14 +2119,9 @@ const getEndPin = (etaText: string) => {
         <div class="relative flex flex-col items-start w-full transition-transform duration-200 transform hover:scale-105 filter drop-shadow-[0_6px_12px_rgba(0,0,0,0.25)]">
           
           <!-- Top Slanted Badge Tab -->
-          <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-amber-600 to-orange-500 text-white rounded-t-lg rounded-tr-xl text-[7px] font-black uppercase tracking-wider leading-none shadow-md ml-2 z-10 border-t border-x border-amber-400/40 w-[95px] overflow-hidden">
-            <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse shrink-0"></span>
-            <div class="overflow-hidden min-w-0 flex-1 relative">
-              <div class="badge-text-slide">
-                <span class="font-black">DROP-OFF &nbsp;•&nbsp;&nbsp;</span>
-                <span class="font-black">DROP-OFF &nbsp;•&nbsp;&nbsp;</span>
-              </div>
-            </div>
+          <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-gradient-to-r from-amber-600 to-orange-500 text-white rounded-t-lg rounded-tr-xl text-[7.5px] font-black uppercase tracking-wider leading-none shadow-md ml-2 z-10 border-t border-x border-amber-400/40">
+            <span class="w-1.5 h-1.5 rounded-full bg-white shrink-0"></span>
+            <span class="font-black whitespace-nowrap">DROP-OFF</span>
           </div>
 
             <!-- Main White Address Card -->
@@ -2153,9 +2142,8 @@ const getEndPin = (etaText: string) => {
 
           <!-- Ground Pin Dot Base -->
           <div class="relative flex items-center justify-center -mt-0.5 z-20">
-            <div class="absolute w-4 h-4 rounded-full bg-amber-500/35 animate-ping"></div>
-            <div class="w-3 h-3 rounded-full bg-amber-500 border-2 border-white shadow-md flex items-center justify-center">
-              <div class="w-1 h-1 rounded-full bg-white"></div>
+            <div class="w-3.5 h-3.5 rounded-full bg-amber-500 border-2 border-white shadow-md flex items-center justify-center">
+              <div class="w-1.5 h-1.5 rounded-full bg-white"></div>
             </div>
           </div>
         </div>

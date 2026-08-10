@@ -1181,14 +1181,9 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
           <div class="relative flex flex-col items-start w-full transition-transform duration-200 transform hover:scale-105 filter drop-shadow-[0_6px_12px_rgba(0,0,0,0.25)]">
             
             <!-- Top Slanted Badge Tab -->
-            <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-t-lg rounded-tr-xl text-[7px] font-black uppercase tracking-wider leading-none shadow-md ml-2 z-10 border-t border-x border-emerald-400/40 w-[90px] overflow-hidden">
-              <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse shrink-0"></span>
-              <div class="overflow-hidden min-w-0 flex-1 relative">
-                <div class="badge-text-slide">
-                  <span class="font-black">PICKUP &nbsp;•&nbsp;&nbsp;</span>
-                  <span class="font-black">PICKUP &nbsp;•&nbsp;&nbsp;</span>
-                </div>
-              </div>
+            <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-t-lg rounded-tr-xl text-[7.5px] font-black uppercase tracking-wider leading-none shadow-md ml-2 z-10 border-t border-x border-emerald-400/40">
+              <span class="w-1.5 h-1.5 rounded-full bg-white shrink-0"></span>
+              <span class="font-black whitespace-nowrap">PICKUP</span>
             </div>
           </div>
 
@@ -1215,9 +1210,8 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
 
         <!-- Ground Pin Dot Base -->
         <div class="relative flex items-center justify-center -mt-0.5 z-20">
-          <div class="absolute w-4 h-4 rounded-full bg-emerald-500/35 animate-ping"></div>
-          <div class="w-3 h-3 rounded-full bg-emerald-500 border-2 border-white shadow-md flex items-center justify-center">
-            <div class="w-1 h-1 rounded-full bg-white"></div>
+          <div class="w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white shadow-md flex items-center justify-center">
+            <div class="w-1.5 h-1.5 rounded-full bg-white"></div>
           </div>
         </div>
       </div>
@@ -1255,14 +1249,9 @@ const getEndPin = (etaText: string) => {
         <div class="relative flex flex-col items-start w-full transition-transform duration-200 transform hover:scale-105 filter drop-shadow-[0_6px_12px_rgba(0,0,0,0.25)]">
           
           <!-- Top Slanted Badge Tab -->
-          <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-amber-600 to-orange-500 text-white rounded-t-lg rounded-tr-xl text-[7px] font-black uppercase tracking-wider leading-none shadow-md ml-2 z-10 border-t border-x border-amber-400/40 w-[95px] overflow-hidden">
-            <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse shrink-0"></span>
-            <div class="overflow-hidden min-w-0 flex-1 relative">
-              <div class="badge-text-slide">
-                <span class="font-black">DROP-OFF &nbsp;•&nbsp;&nbsp;</span>
-                <span class="font-black">DROP-OFF &nbsp;•&nbsp;&nbsp;</span>
-              </div>
-            </div>
+          <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-gradient-to-r from-amber-600 to-orange-500 text-white rounded-t-lg rounded-tr-xl text-[7.5px] font-black uppercase tracking-wider leading-none shadow-md ml-2 z-10 border-t border-x border-amber-400/40">
+            <span class="w-1.5 h-1.5 rounded-full bg-white shrink-0"></span>
+            <span class="font-black whitespace-nowrap">DROP-OFF</span>
           </div>
 
           <!-- Main White Address Card -->
@@ -1283,9 +1272,8 @@ const getEndPin = (etaText: string) => {
 
         <!-- Ground Pin Dot Base -->
         <div class="relative flex items-center justify-center -mt-0.5 z-20">
-          <div class="absolute w-4 h-4 rounded-full bg-amber-500/35 animate-ping"></div>
-          <div class="w-3 h-3 rounded-full bg-amber-500 border-2 border-white shadow-md flex items-center justify-center">
-            <div class="w-1 h-1 rounded-full bg-white"></div>
+          <div class="w-3.5 h-3.5 rounded-full bg-amber-500 border-2 border-white shadow-md flex items-center justify-center">
+            <div class="w-1.5 h-1.5 rounded-full bg-white"></div>
           </div>
         </div>
       </div>
@@ -1673,6 +1661,7 @@ const getEndPin = (etaText: string) => {
     let watchId: number | null = null;
     let lastErrorTime = 0;
     const prevPosRef = { current: null as [number, number] | null };
+    const lastFsWriteRef = { current: 0 };
 
     const getDistanceInMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
       const R = 6371000;
@@ -1763,25 +1752,29 @@ const getEndPin = (etaText: string) => {
 
             setLastPosition(prevPosRef.current);
             
-            // Update active ride tracking if exists with heading
-            if (activeRide) {
-              updateDriverLocation(loc.lat, loc.lng, currentBearing);
-            }
+            // Throttle Firestore location writes to at most once every 6 seconds (or 4s during active ride)
+            // to save battery and prevent mobile overheating!
+            const now = Date.now();
+            const writeIntervalMs = activeRide ? 4000 : 6000;
+            if (now - lastFsWriteRef.current >= writeIntervalMs) {
+              lastFsWriteRef.current = now;
 
-            // ALWAYS update the public "drivers" collection if online
-            // so passengers can see the driver on their map with the heading
-            try {
-              await updateDoc(doc(db, 'drivers', user.uid), {
-                location: { lat: loc.lat, lng: loc.lng, heading: currentBearing },
-                isOnline: true,
-                receiving: true,
-                status: 'online',
-                lastActive: serverTimestamp(),
-                vehicleType: vType // Keep vehicle type synced
-              });
-            } catch (err) {
-              // Silent fail for Firestore updates to avoid UI flickering
-              console.warn("Silent location sync fail:", err);
+              if (activeRide) {
+                updateDriverLocation(loc.lat, loc.lng, currentBearing);
+              }
+
+              try {
+                await updateDoc(doc(db, 'drivers', user.uid), {
+                  location: { lat: loc.lat, lng: loc.lng, heading: currentBearing },
+                  isOnline: true,
+                  receiving: true,
+                  status: 'online',
+                  lastActive: serverTimestamp(),
+                  vehicleType: vType
+                });
+              } catch (err) {
+                console.warn("Silent location sync fail:", err);
+              }
             }
           }, 
           (err) => {
@@ -1817,7 +1810,7 @@ const getEndPin = (etaText: string) => {
               lastErrorTime = now;
             }
           }, 
-          { enableHighAccuracy: true, timeout: 20000, maximumAge: 5000 }
+          { enableHighAccuracy: true, timeout: 20000, maximumAge: 10000 }
         );
       }
     };
