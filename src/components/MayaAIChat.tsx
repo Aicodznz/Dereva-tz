@@ -8,7 +8,7 @@ import {
   Mic, MicOff, WifiOff, Radio, Trash2, Sun, Moon, RotateCcw,
   EyeOff, Eye, GripVertical, ShoppingBag, Store, TrendingUp, Navigation, BarChart3, Layers
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from '../AuthContext';
 
@@ -62,19 +62,39 @@ export default function MayaAIChat() {
   const recognitionRef = useRef<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
-  // Auto update role if user profile role changes and user hasn't explicitly overridden
+  // Automatic AI Role Detection (Updates automatically based on route & profile)
   useEffect(() => {
-    if (profile?.role) {
-      if ((profile.role === 'rider' || profile.role === 'driver') && activeRole !== 'dereva') {
-        const saved = localStorage.getItem('papo_ai_role');
-        if (!saved) setActiveRole('dereva');
-      } else if (profile.role === 'vendor' && activeRole !== 'vendor') {
-        const saved = localStorage.getItem('papo_ai_role');
-        if (!saved) setActiveRole('vendor');
-      }
+    const path = location.pathname.toLowerCase();
+    let detectedRole: AIRole = 'mteja';
+
+    if (
+      path.includes('rider') || 
+      path.includes('driver') || 
+      path.includes('delivery') || 
+      path.includes('parcel-partner') ||
+      profile?.role === 'rider' || 
+      profile?.role === 'driver'
+    ) {
+      detectedRole = 'dereva';
+    } else if (
+      path.includes('vendor') || 
+      path.includes('restaurant') || 
+      path.includes('merchant') || 
+      profile?.role === 'vendor'
+    ) {
+      detectedRole = 'vendor';
+    } else {
+      detectedRole = 'mteja';
     }
-  }, [profile]);
+
+    const manualSaved = localStorage.getItem('papo_ai_role_override');
+    if (!manualSaved && detectedRole !== activeRole) {
+      setActiveRole(detectedRole);
+      setHasGreeted(false);
+    }
+  }, [location.pathname, profile?.role]);
 
   const toggleFabHidden = (hidden: boolean) => {
     setIsFabHidden(hidden);
@@ -911,47 +931,74 @@ export default function MayaAIChat() {
                 </div>
               </div>
 
-              {/* ROLE SWITCHER TABS BAR */}
-              <div className={`px-4 py-2 border-b flex items-center gap-1.5 overflow-x-auto no-scrollbar ${
+              {/* AUTOMATIC AI ROLE INDICATOR & COMPACT SWITCHER */}
+              <div className={`px-4 py-2 border-b flex items-center justify-between gap-2 overflow-x-auto no-scrollbar ${
                 themeMode === 'dark' ? 'bg-[#12121c] border-white/10' : 'bg-slate-100/90 border-slate-200'
               }`}>
-                <span className="text-[10px] font-black uppercase text-neutral-400 shrink-0 mr-1">Chagua AI Role:</span>
-                
-                <button
-                  onClick={() => switchRole('mteja')}
-                  className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 ${
-                    activeRole === 'mteja'
-                      ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-white shadow-md shadow-orange-600/30'
-                      : themeMode === 'dark' ? 'bg-neutral-800 text-neutral-400 hover:text-white' : 'bg-white text-slate-600 hover:bg-slate-200 border border-slate-200'
-                  }`}
-                >
-                  <ShoppingBag className="w-3.5 h-3.5" />
-                  <span>Mteja AI</span>
-                </button>
-
-                <button
-                  onClick={() => switchRole('dereva')}
-                  className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 ${
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                  <span className="text-[10px] font-black uppercase tracking-wider text-neutral-400 shrink-0">
+                    Mode ya AI (Automatiki):
+                  </span>
+                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wide flex items-center gap-1.5 shrink-0 shadow-xs ${
                     activeRole === 'dereva'
-                      ? 'bg-gradient-to-r from-emerald-600 to-teal-500 text-white shadow-md shadow-emerald-600/30'
-                      : themeMode === 'dark' ? 'bg-neutral-800 text-neutral-400 hover:text-white' : 'bg-white text-slate-600 hover:bg-slate-200 border border-slate-200'
-                  }`}
-                >
-                  <Car className="w-3.5 h-3.5" />
-                  <span>Dereva AI</span>
-                </button>
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                      : activeRole === 'vendor'
+                        ? 'bg-purple-500/20 text-purple-400 border border-purple-500/40'
+                        : 'bg-orange-500/20 text-orange-400 border border-orange-500/40'
+                  }`}>
+                    {activeRole === 'dereva' && <Car className="w-3.5 h-3.5 text-emerald-400" />}
+                    {activeRole === 'vendor' && <Store className="w-3.5 h-3.5 text-purple-400" />}
+                    {activeRole === 'mteja' && <ShoppingBag className="w-3.5 h-3.5 text-orange-400" />}
+                    <span>{activeRole === 'dereva' ? 'Dereva AI 🚖' : activeRole === 'vendor' ? 'Vendor AI 🏪' : 'Mteja AI 🛍️'}</span>
+                  </span>
+                </div>
 
-                <button
-                  onClick={() => switchRole('vendor')}
-                  className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 ${
-                    activeRole === 'vendor'
-                      ? 'bg-gradient-to-r from-purple-600 to-indigo-500 text-white shadow-md shadow-purple-600/30'
-                      : themeMode === 'dark' ? 'bg-neutral-800 text-neutral-400 hover:text-white' : 'bg-white text-slate-600 hover:bg-slate-200 border border-slate-200'
-                  }`}
-                >
-                  <Store className="w-3.5 h-3.5" />
-                  <span>Vendor AI</span>
-                </button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <span className="text-[9px] font-bold text-neutral-500 uppercase mr-1 hidden sm:inline">Badili:</span>
+                  <button
+                    onClick={() => {
+                      localStorage.setItem('papo_ai_role_override', 'true');
+                      switchRole('mteja');
+                    }}
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${
+                      activeRole === 'mteja'
+                        ? 'bg-orange-600 text-white font-black shadow-xs'
+                        : themeMode === 'dark' ? 'bg-neutral-800 text-neutral-400 hover:text-white' : 'bg-white text-slate-600 border border-slate-200'
+                    }`}
+                    title="Mteja AI"
+                  >
+                    Mteja
+                  </button>
+                  <button
+                    onClick={() => {
+                      localStorage.setItem('papo_ai_role_override', 'true');
+                      switchRole('dereva');
+                    }}
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${
+                      activeRole === 'dereva'
+                        ? 'bg-emerald-600 text-white font-black shadow-xs'
+                        : themeMode === 'dark' ? 'bg-neutral-800 text-neutral-400 hover:text-white' : 'bg-white text-slate-600 border border-slate-200'
+                    }`}
+                    title="Dereva AI"
+                  >
+                    Dereva
+                  </button>
+                  <button
+                    onClick={() => {
+                      localStorage.setItem('papo_ai_role_override', 'true');
+                      switchRole('vendor');
+                    }}
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${
+                      activeRole === 'vendor'
+                        ? 'bg-purple-600 text-white font-black shadow-xs'
+                        : themeMode === 'dark' ? 'bg-neutral-800 text-neutral-400 hover:text-white' : 'bg-white text-slate-600 border border-slate-200'
+                    }`}
+                    title="Vendor AI"
+                  >
+                    Vendor
+                  </button>
+                </div>
               </div>
 
               {/* MESSAGES BODY */}
