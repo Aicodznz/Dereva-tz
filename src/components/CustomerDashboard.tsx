@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from './ui/Skeleton';
 import { 
   Utensils, ShoppingCart, Pill, Package, Car, Scissors, Hotel, Star, 
-  Search, Bell, MapPin, ChevronRight, ShoppingBag, Tag, Plus, ShoppingBasket,
+  Search, Bell, MapPin, ChevronRight, ChevronLeft, Megaphone, ShoppingBag, Tag, Plus, ShoppingBasket,
   FileText, Smartphone, Box, Dog, Bus, Sparkles, Wrench, Key, Camera, Home
 } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -33,6 +33,8 @@ export default function CustomerDashboard() {
   const [banners, setBanners] = useState<{id: string, title: string, sub: string, img: string, category?: string}[]>([]);
   const [activeBannerIdx, setActiveBannerIdx] = useState(0);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [adminAnnouncements, setAdminAnnouncements] = useState<any[]>([]);
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
   const [isMapViewOnly, setIsMapViewOnly] = useState(false);
   const [selectedVendorId, setSelectedVendorId] = useState<string | undefined>(undefined);
@@ -693,6 +695,24 @@ export default function CustomerDashboard() {
     };
   }, [user]);
 
+  // Listen for Admin broadcast announcements / notifications
+  useEffect(() => {
+    const qBroadcast = query(
+      collection(db, 'notifications'), 
+      orderBy('createdAt', 'desc'), 
+      limit(10)
+    );
+    const unsub = onSnapshot(qBroadcast, (snap) => {
+      const list = snap.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter((n: any) => n.target === 'all' || n.userId === 'all' || n.category === 'Promotions' || n.category === 'System' || !n.userId);
+      setAdminAnnouncements(list);
+    }, (err) => {
+      console.warn("Slide notifications error:", err);
+    });
+    return () => unsub();
+  }, []);
+
   const getGreeting = () => {
     const hour = new Date().getHours();
     const name = profile?.displayName?.split(' ')[0] || 'Mteja';
@@ -702,32 +722,137 @@ export default function CustomerDashboard() {
     return `HABARI ZA USIKU, ${name.toUpperCase()} 🌙`;
   };
 
+  // Combine greeting slide with active Admin slide announcements
+  const allSlides = [
+    {
+      type: 'greeting',
+      tag: 'PAPO HAPO 🇹🇿',
+      title: getGreeting(),
+      subtitle: 'Karibu Papo Hapo App — Huduma Zote Papo Hapo!',
+      iconType: 'avatar'
+    },
+    ...adminAnnouncements.map((a: any) => ({
+      type: 'announcement',
+      tag: a.category ? `📢 ${a.category.toUpperCase()}` : '📢 TANGAZO LA ADMIN',
+      title: a.title || 'TANGAZO LA PAPO HAPO',
+      subtitle: a.body || a.message || 'Angalia taarifa na maboresho mapya kutoka kwa admin.',
+      iconType: 'megaphone',
+      id: a.id
+    }))
+  ];
+
+  // Auto-slide timer (every 4.5 seconds)
+  useEffect(() => {
+    if (allSlides.length <= 1) return;
+    const timer = setInterval(() => {
+      setCurrentSlideIndex((prev) => (prev + 1) % allSlides.length);
+    }, 4500);
+    return () => clearInterval(timer);
+  }, [allSlides.length]);
+
+  const currentSlide = allSlides[currentSlideIndex] || allSlides[0];
+
   return (
     <div className={`pb-10 space-y-2 md:space-y-3 lg:space-y-4 ${isRTL ? 'text-right' : 'text-left'}`}>
+      {/* SLIDE NOTIFICATION & GREETING HEADER CARD */}
       <div className="px-1 pt-1">
-         <div className="flex items-center justify-between mb-2 px-2">
-            <div className="flex items-center gap-3">
-               <div className="w-12 h-12 rounded-2xl bg-orange-600/20 border border-orange-600/30 flex items-center justify-center overflow-hidden shrink-0">
-                  {profile?.photoURL ? (
-                    <img src={profile.photoURL} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="text-orange-600 font-black text-lg">{profile?.displayName?.charAt(0) || 'U'}</div>
-                  )}
-               </div>
-               <div>
-                  <h2 className="text-lg font-black italic uppercase leading-none tracking-tighter text-neutral-900 dark:text-white transition-colors">
-                     {getGreeting()}
+        <div className="relative overflow-hidden rounded-[2.2rem] bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 text-white p-4 sm:p-5 shadow-xl shadow-orange-600/20 border border-orange-400/30">
+          {/* Ambient background glows */}
+          <div className="absolute -top-12 -right-12 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+          <div className="absolute -bottom-10 -left-10 w-28 h-28 bg-black/10 rounded-full blur-xl pointer-events-none" />
+
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentSlideIndex}
+              initial={{ opacity: 0, x: 25 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -25 }}
+              transition={{ duration: 0.3 }}
+              className="flex items-center justify-between gap-3 relative z-10 cursor-pointer"
+              onClick={() => {
+                if (currentSlide.type === 'announcement') {
+                  navigate('/notifications');
+                }
+              }}
+            >
+              <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                {currentSlide.type === 'greeting' ? (
+                  <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
+                    {profile?.photoURL ? (
+                      <img src={profile.photoURL} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="text-white font-black text-xl tracking-tight">
+                        {profile?.displayName?.charAt(0) || 'U'}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="w-12 h-12 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center shrink-0 shadow-lg shadow-amber-400/30">
+                    <Megaphone className="w-6 h-6 animate-bounce" />
+                  </div>
+                )}
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="bg-black/20 text-white text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-white/20">
+                      {currentSlide.tag}
+                    </span>
+                    {allSlides.length > 1 && (
+                      <span className="text-[9px] text-amber-200 font-bold tracking-wider">
+                        {currentSlideIndex + 1}/{allSlides.length}
+                      </span>
+                    )}
+                  </div>
+
+                  <h2 className="text-base sm:text-lg font-black italic uppercase leading-tight tracking-tight text-white truncate drop-shadow-xs">
+                    {currentSlide.title}
                   </h2>
-                  <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mt-1">Karibu Papo Hapo App</p>
-               </div>
+                  <p className="text-xs text-amber-100 font-medium leading-snug line-clamp-1 mt-0.5 opacity-95">
+                    {currentSlide.subtitle}
+                  </p>
+                </div>
+              </div>
+
+              {allSlides.length > 1 && (
+                <div 
+                  className="flex items-center gap-1 shrink-0 bg-black/20 backdrop-blur-sm p-1 rounded-xl border border-white/10"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    onClick={() => setCurrentSlideIndex((prev) => (prev - 1 + allSlides.length) % allSlides.length)}
+                    className="p-1.5 hover:bg-white/20 rounded-lg text-white transition-colors"
+                    title="Iliyopita"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setCurrentSlideIndex((prev) => (prev + 1) % allSlides.length)}
+                    className="p-1.5 hover:bg-white/20 rounded-lg text-white transition-colors"
+                    title="Inayofuata"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
+
+          {allSlides.length > 1 && (
+            <div className="flex justify-center items-center gap-1.5 mt-2.5 relative z-10">
+              {allSlides.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setCurrentSlideIndex(idx)}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    idx === currentSlideIndex 
+                      ? 'w-6 bg-white shadow-xs' 
+                      : 'w-1.5 bg-white/40 hover:bg-white/60'
+                  }`}
+                />
+              ))}
             </div>
-            <Link to="/notifications" className="relative p-2.5 bg-neutral-100 dark:bg-neutral-800 rounded-2xl text-neutral-600 dark:text-neutral-400 hover:text-orange-600 transition-all">
-               <Bell className="w-5 h-5" />
-               {unreadCount > 0 && (
-                 <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-orange-600 border-2 border-white dark:border-neutral-900 rounded-full" />
-               )}
-            </Link>
-         </div>
+          )}
+        </div>
       </div>
 
       <LocationPicker 
