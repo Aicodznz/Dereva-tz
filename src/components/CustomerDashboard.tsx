@@ -764,10 +764,10 @@ export default function CustomerDashboard() {
           <AnimatePresence mode="wait">
             <motion.div
               key={currentSlideIndex}
-              initial={{ opacity: 0, x: 25 }}
+              initial={{ opacity: 0, x: 40 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -25 }}
-              transition={{ duration: 0.3 }}
+              exit={{ opacity: 0, x: -40 }}
+              transition={{ duration: 0.35, ease: "easeOut" }}
               className="flex items-center justify-between gap-3 relative z-10 cursor-pointer"
               onClick={() => {
                 if (currentSlide.type === 'announcement') {
@@ -804,12 +804,27 @@ export default function CustomerDashboard() {
                     )}
                   </div>
 
-                  <h2 className="text-base sm:text-lg font-black italic uppercase leading-tight tracking-tight text-white truncate drop-shadow-xs">
-                    {currentSlide.title}
-                  </h2>
-                  <p className="text-xs text-amber-100 font-medium leading-snug line-clamp-1 mt-0.5 opacity-95">
-                    {currentSlide.subtitle}
-                  </p>
+                  <div className="overflow-hidden w-full relative my-0.5">
+                    <div className="animate-marquee-text flex items-center" style={{ animationDuration: '10s' }}>
+                      <h2 className="text-base sm:text-lg font-black italic uppercase leading-tight tracking-tight text-white whitespace-nowrap pr-8">
+                        {currentSlide.title}
+                      </h2>
+                      <h2 className="text-base sm:text-lg font-black italic uppercase leading-tight tracking-tight text-white whitespace-nowrap pr-8">
+                        {currentSlide.title}
+                      </h2>
+                    </div>
+                  </div>
+
+                  <div className="overflow-hidden w-full relative">
+                    <div className="animate-marquee-text flex items-center" style={{ animationDuration: '14s' }}>
+                      <p className="text-xs text-amber-100 font-medium leading-snug whitespace-nowrap pr-8">
+                        {currentSlide.subtitle}
+                      </p>
+                      <p className="text-xs text-amber-100 font-medium leading-snug whitespace-nowrap pr-8">
+                        {currentSlide.subtitle}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
