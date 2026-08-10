@@ -752,6 +752,15 @@ export default function CustomerDashboard() {
     return () => clearInterval(timer);
   }, [allSlides.length]);
 
+  // Auto-slide timer for promotional banners (every 5.5 seconds)
+  useEffect(() => {
+    if (banners.length <= 1) return;
+    const timer = setInterval(() => {
+      setActiveBannerIdx((prev) => (prev + 1) % banners.length);
+    }, 5500);
+    return () => clearInterval(timer);
+  }, [banners.length]);
+
   const currentSlide = allSlides[currentSlideIndex] || allSlides[0];
 
   return (
@@ -921,11 +930,10 @@ export default function CustomerDashboard() {
           </div>
         ) : banners.length === 0 ? null : (
           <>
-            {/* The 3D Slider Container */}
+            {/* Modern Fluid Banner Carousel Container */}
             <div 
               ref={bannerScrollRef}
               className="relative w-full h-[220px] xs:h-[240px] sm:h-[300px] md:h-[360px] flex items-center justify-center overflow-hidden"
-              style={{ perspective: '1200px', transformStyle: 'preserve-3d' }}
             >
               {banners.map((banner, idx) => {
                 if (!banner.img) return null;
@@ -940,36 +948,31 @@ export default function CustomerDashboard() {
                 const isLeft = diff === -1;
                 const isRight = diff === 1;
 
-                // Absolute positions with 3D transforms based on diff
-                let rotateYVal = 0;
+                // Smooth position & scaling without 3D rotation distortion
                 let xOffset = "0%";
                 let scaleVal = 1;
                 let zIndexVal = 10;
                 let opacityVal = 1;
 
                 if (isActive) {
-                  rotateYVal = 0;
                   xOffset = "0%";
                   scaleVal = 1.0;
                   zIndexVal = 30;
                   opacityVal = 1;
                 } else if (isLeft) {
-                  rotateYVal = 26; // Tilted back on the left
-                  xOffset = "-45%"; // Peeking left
-                  scaleVal = 0.82;
+                  xOffset = "-58%"; // Peeking left smoothly
+                  scaleVal = 0.88;
                   zIndexVal = 20;
-                  opacityVal = 0.65;
+                  opacityVal = 0.75;
                 } else if (isRight) {
-                  rotateYVal = -26; // Tilted back on the right
-                  xOffset = "45%"; // Peeking right
-                  scaleVal = 0.82;
+                  xOffset = "58%"; // Peeking right smoothly
+                  scaleVal = 0.88;
                   zIndexVal = 20;
-                  opacityVal = 0.65;
+                  opacityVal = 0.75;
                 } else {
-                  // Far away items
-                  rotateYVal = diff < 0 ? 35 : -35;
-                  xOffset = diff < 0 ? "-110%" : "110%";
-                  scaleVal = 0.65;
+                  // Hidden offscreen items
+                  xOffset = diff < 0 ? "-120%" : "120%";
+                  scaleVal = 0.7;
                   zIndexVal = 10;
                   opacityVal = 0;
                 }
@@ -978,20 +981,17 @@ export default function CustomerDashboard() {
                   <motion.div
                     key={`promo-banner-${banner.id || idx}`}
                     style={{
-                      transformStyle: 'preserve-3d',
-                      backfaceVisibility: 'hidden',
                       zIndex: zIndexVal,
                     }}
                     animate={{
                       x: xOffset,
                       scale: scaleVal,
-                      rotateY: rotateYVal,
                       opacity: opacityVal,
                     }}
                     transition={{
                       type: "spring",
-                      stiffness: 280,
-                      damping: 28,
+                      stiffness: 260,
+                      damping: 26,
                     }}
                     drag="x"
                     dragConstraints={{ left: 0, right: 0 }}
@@ -1019,7 +1019,7 @@ export default function CustomerDashboard() {
                         setActiveBannerIdx(idx);
                       }
                     }}
-                    className="absolute w-[82%] sm:w-[75%] md:w-[60%] lg:w-[45%] h-full rounded-[2rem] overflow-hidden shadow-2xl group cursor-pointer border border-white/20 select-none bg-neutral-950 origin-center"
+                    className="absolute w-[86%] sm:w-[78%] md:w-[62%] lg:w-[48%] h-full rounded-[2.2rem] overflow-hidden shadow-2xl group cursor-pointer border border-white/20 select-none bg-black/40 origin-center"
                   >
                     {/* Background Image */}
                     <img 
@@ -1032,9 +1032,9 @@ export default function CustomerDashboard() {
                       }}
                     />
 
-                    {/* Dark overlay for ambient background cards to draw focus to center */}
+                    {/* Smooth dimmed backdrop for ambient background cards */}
                     {!isActive && (
-                      <div className="absolute inset-0 bg-neutral-950/45 backdrop-blur-[0.5px] transition-all duration-300 group-hover:bg-neutral-950/30" />
+                      <div className="absolute inset-0 bg-black/40 backdrop-blur-[0.5px] transition-all duration-300 group-hover:bg-black/25" />
                     )}
 
                     {/* Content Gradient Overlay */}
@@ -1053,7 +1053,7 @@ export default function CustomerDashboard() {
                         {banner.title}
                       </motion.h3>
                       
-                      <p className="text-[10px] sm:text-sm opacity-90 font-medium leading-relaxed max-w-[240px] drop-shadow-sm line-clamp-2">
+                      <p className="text-[10px] sm:text-sm opacity-90 font-medium leading-relaxed max-w-[240px] sm:max-w-xs drop-shadow-sm line-clamp-2">
                         {banner.sub}
                       </p>
                       
@@ -1070,6 +1070,26 @@ export default function CustomerDashboard() {
                   </motion.div>
                 );
               })}
+
+              {/* Prev / Next Navigation Arrows */}
+              {banners.length > 1 && (
+                <>
+                  <button
+                    onClick={() => setActiveBannerIdx((prev) => (prev - 1 + banners.length) % banners.length)}
+                    className="absolute left-2 sm:left-4 z-40 p-2 sm:p-2.5 rounded-full bg-black/40 hover:bg-black/70 text-white backdrop-blur-md border border-white/20 transition-all active:scale-95 shadow-lg"
+                    title="Bango la Nyuma"
+                  >
+                    <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+                  </button>
+                  <button
+                    onClick={() => setActiveBannerIdx((prev) => (prev + 1) % banners.length)}
+                    className="absolute right-2 sm:right-4 z-40 p-2 sm:p-2.5 rounded-full bg-black/40 hover:bg-black/70 text-white backdrop-blur-md border border-white/20 transition-all active:scale-95 shadow-lg"
+                    title="Bango Linalofuata"
+                  >
+                    <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                  </button>
+                </>
+              )}
             </div>
 
             {/* Pagination Indicators (Dots) */}
