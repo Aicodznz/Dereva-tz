@@ -5,11 +5,14 @@ import {
   Car, Utensils, CreditCard, Package, RefreshCw, 
   MapPin, CheckCircle, AlertTriangle, ChevronRight, PhoneCall,
   Flame, Ambulance, Wallet, HelpCircle, CornerDownLeft, Volume2, VolumeX, Pause,
-  Mic, MicOff, WifiOff, Radio, Trash2, Sun, Moon, RotateCcw
+  Mic, MicOff, WifiOff, Radio, Trash2, Sun, Moon, RotateCcw,
+  EyeOff, Eye, GripVertical, ShoppingBag, Store, TrendingUp, Navigation, BarChart3, Layers
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from '../AuthContext';
+
+export type AIRole = 'mteja' | 'dereva' | 'vendor';
 
 interface Message {
   id: string;
@@ -41,7 +44,80 @@ export default function MayaAIChat() {
   const [hasGreeted, setHasGreeted] = useState<boolean>(false);
   const [themeMode, setThemeMode] = useState<'dark' | 'light'>('dark');
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+
+  // FAB Drag & Hide State Persistence
+  const [isFabHidden, setIsFabHidden] = useState<boolean>(() => {
+    return localStorage.getItem('papo_ai_fab_hidden') === 'true';
+  });
+
+  // Active AI Role state (Customer / Driver / Vendor)
+  const [activeRole, setActiveRole] = useState<AIRole>(() => {
+    const saved = localStorage.getItem('papo_ai_role') as AIRole | null;
+    if (saved && ['mteja', 'dereva', 'vendor'].includes(saved)) return saved;
+    if (profile?.role === 'rider' || profile?.role === 'driver') return 'dereva';
+    if (profile?.role === 'vendor') return 'vendor';
+    return 'mteja';
+  });
+
   const recognitionRef = useRef<any>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+
+  // Auto update role if user profile role changes and user hasn't explicitly overridden
+  useEffect(() => {
+    if (profile?.role) {
+      if ((profile.role === 'rider' || profile.role === 'driver') && activeRole !== 'dereva') {
+        const saved = localStorage.getItem('papo_ai_role');
+        if (!saved) setActiveRole('dereva');
+      } else if (profile.role === 'vendor' && activeRole !== 'vendor') {
+        const saved = localStorage.getItem('papo_ai_role');
+        if (!saved) setActiveRole('vendor');
+      }
+    }
+  }, [profile]);
+
+  const toggleFabHidden = (hidden: boolean) => {
+    setIsFabHidden(hidden);
+    localStorage.setItem('papo_ai_fab_hidden', hidden ? 'true' : 'false');
+    if (hidden) {
+      toast.info('Icon ya AI imefichwa. Bofya kizingiti kidogo pembeni mwa screen kuionyesha tena.', { id: 'fab-hide-toast' });
+    } else {
+      toast.success('Icon ya AI imerudi kwenye screen! Unaweza kuikokota (drag) popote.', { id: 'fab-hide-toast' });
+    }
+  };
+
+  const switchRole = (newRole: AIRole) => {
+    if (newRole === activeRole) return;
+    setActiveRole(newRole);
+    localStorage.setItem('papo_ai_role', newRole);
+    setHasGreeted(false);
+
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      setCurrentlySpeakingId(null);
+    }
+
+    const userName = getUserFirstName();
+    let welcomeText = '';
+    if (newRole === 'dereva') {
+      welcomeText = `Habari Dereva ${userName}! 🚖 Mimi ni **SAFARI Dereva AI**.\n\nNinawezaje kukusaidia leo barabarani? Nina maelezo ya maeneo yenye maombi mengi ya abiria (hotspots: Kariakoo, Posta, Airport, Mwenge, Mbezi Magufuli), ushauri wa kuokoa mafuta, na mahesabu ya mapato.`;
+    } else if (newRole === 'vendor') {
+      welcomeText = `Habari Mfanyabiashara ${userName}! 🏪 Mimi ni **BIASHARA Vendor AI**.\n\nNinawezaje kukusaidia na mgahawa au duka lako leo? Ninaweza kusaidia kuchanganua mauzo ya siku, kutoa ushauri wa vyakula vinavyopendwa na wateja, kuweka ofa za promo discounts, na kusimamia inventory.`;
+    } else {
+      welcomeText = `Habari ${userName}! 🛍️ Mimi ni **MAYA Mteja AI**.\n\nNinawezaje kukusaidia leo hapa **${userLocation}**? Ninaweza kuitisha Usafiri (Boda, Bajaji, Taxi, Ambulansi, Zimamoto), kuagiza Chakula, au kufanya Malipo salama.`;
+    }
+
+    setMessages([
+      {
+        id: `welcome-role-${Date.now()}`,
+        sender: 'maya',
+        text: welcomeText,
+        timestamp: new Date()
+      }
+    ]);
+
+    toast.success(`Umebadili kuwa AI ya ${newRole === 'dereva' ? 'Dereva 🚖' : newRole === 'vendor' ? 'Muuzaji 🏪' : 'Mteja 🛍️'}`);
+  };
 
   const handleDeleteMessage = (msgId: string) => {
     if ('speechSynthesis' in window && currentlySpeakingId === msgId) {
@@ -59,11 +135,21 @@ export default function MayaAIChat() {
     }
     const userName = getUserFirstName();
     const currentLoc = userLocation;
+
+    let text = `Habari ${userName}! 👋 Meseji zote zimefutwa kikamilifu.\n\n`;
+    if (activeRole === 'dereva') {
+      text += `SAFARI Dereva AI ipo tayari kukusaidia barabarani hapa **${currentLoc}**!`;
+    } else if (activeRole === 'vendor') {
+      text += `BIASHARA Vendor AI ipo tayari kukusaidia na biashara yako!`;
+    } else {
+      text += `MAYA Mteja AI ipo tayari kukusaidia kuitisha usafiri au kuagiza chakula hapa **${currentLoc}**!`;
+    }
+
     setMessages([
       {
         id: `welcome-${Date.now()}`,
         sender: 'maya',
-        text: `Habari ${userName}! 👋 Meseji zote zimefutwa kikamilifu.\n\nNinawezaje kukusaidia tena tukiwa hapa **${currentLoc}**?`,
+        text: text,
         timestamp: new Date()
       }
     ]);
@@ -86,16 +172,12 @@ export default function MayaAIChat() {
     {
       id: 'welcome-1',
       sender: 'maya',
-      text: 'Habari! Mimi ni MAYA — Akili Mnemba (AI) ya Papo Hapo Super App 🇹🇿.\n\nNinaweza kukusaidia kuitisha Usafiri (Boda, Bajaji, Gari, Ambulansi, au Zimamoto), kuagiza Chakula kutoka migahawa yetu iliyosajiliwa (Mgahawa wa Papo, Swahili Cuisine House, Kuku Kuku Joint), au kufanya Malipo salama. Unaweza kusema kwa sauti au kuandika!',
+      text: 'Habari! Mimi ni MAYA — Akili Mnemba (AI) ya Papo Hapo Super App 🇹🇿.\n\nNinaweza kukusaidia kuitisha Usafiri (Boda, Bajaji, Gari, Ambulansi, au Zimamoto), kuagiza Chakula kutoka migahawa yetu iliyosajiliwa, au kufanya Malipo salama.',
       timestamp: new Date()
     }
   ]);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const navigate = useNavigate();
-
   const fetchCurrentLocation = () => {
-    // 1. Check cached location first
     const savedLoc = localStorage.getItem('omniserve_user_location');
     if (savedLoc) {
       try {
@@ -107,7 +189,6 @@ export default function MayaAIChat() {
       }
     }
 
-    // 2. Fetch real-time GPS location & reverse geocode
     if ('geolocation' in navigator) {
       setIsLocating(true);
       navigator.geolocation.getCurrentPosition(
@@ -158,16 +239,22 @@ export default function MayaAIChat() {
     }
   }, [isOpen]);
 
-  // Personalize greeting with user name & location when opening
   useEffect(() => {
     if (isOpen && !hasGreeted) {
       const userName = getUserFirstName();
       const currentLoc = userLocation;
       
-      const greetingText = `Habari ${userName}! 👋 Mimi ni MAYA — Female Voice Assistant ya Papo Hapo Super App 🇹🇿.\n\nNinaona upo karibu na **${currentLoc}**. Ninaweza kukusaidia kuitisha Usafiri (Boda, Bajaji, Gari, Ambulansi, Zimamoto), kuagiza Chakula, au kufanya Malipo salama. Nikupe msaada gani leo?`;
+      let greetingText = '';
+      if (activeRole === 'dereva') {
+        greetingText = `Habari Dereva ${userName}! 🚖 Mimi ni **SAFARI Dereva AI**.\n\nUpo eneo la **${currentLoc}**. Msaidizi wako wa safari kutoa maelezo ya maeneo yenye maombi mengi ya usafiri (hotspots), ushauri wa kuokoa mafuta, na mahesabu ya mapato!`;
+      } else if (activeRole === 'vendor') {
+        greetingText = `Habari Mfanyabiashara ${userName}! 🏪 Mimi ni **BIASHARA Vendor AI**.\n\nUpo tayari kukuza mauzo yako? Ninaweza kukusaidia kuchanganua oda, kuweka ofa za discounts, na kusimamia stoki ya mgahawa/duka lako!`;
+      } else {
+        greetingText = `Habari ${userName}! 👋 Mimi ni **MAYA Mteja AI** ya Papo Hapo Super App 🇹🇿.\n\nNinaona upo karibu na **${currentLoc}**. Ninaweza kukusaidia kuitisha Usafiri (Boda, Bajaji, Taxi, Ambulansi, Zimamoto), kuagiza Chakula, au kufanya Malipo salama. Nikupe msaada gani leo?`;
+      }
 
       setMessages(prev => {
-        if (prev.length === 1 && prev[0].id === 'welcome-1') {
+        if (prev.length === 1 && prev[0].id.startsWith('welcome-')) {
           return [{
             id: 'welcome-1',
             sender: 'maya',
@@ -182,20 +269,19 @@ export default function MayaAIChat() {
 
       if (autoVoiceEnabled) {
         setTimeout(() => {
-          speakText(`Habari ${userName}! Mimi ni MAYA. Ninaona upo ${currentLoc}. Nikupe msaada gani leo?`, 'welcome-1');
+          speakText(greetingText.replace(/\*/g, ''), 'welcome-1');
         }, 500);
       }
     }
-  }, [isOpen, user, profile, userLocation, hasGreeted]);
+  }, [isOpen, user, profile, userLocation, hasGreeted, activeRole]);
 
-  // Swahili & English Natural Humanlike TTS (Female Voice Model, Pitch 1.05, Cadence Rate 0.95)
+  // Speech Synthesis
   const speakText = (text: string, msgId: string) => {
     if (!('speechSynthesis' in window)) {
       toast.error('Kivinjari chako hakitogelei Speech Synthesis.');
       return;
     }
 
-    // Stop any active speech
     window.speechSynthesis.cancel();
 
     if (currentlySpeakingId === msgId) {
@@ -203,142 +289,122 @@ export default function MayaAIChat() {
       return;
     }
 
-    // Sanitize text for natural speech cadence
     const cleanText = text
       .replace(/[*_#`~]/g, '')
       .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
       .replace(/\s+/g, ' ');
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
-    
-    // Natural human voice parameters as requested:
-    utterance.pitch = 1.05; // Warm, natural female voice pitch
-    utterance.rate = 0.95;  // Natural human speech cadence rate for Kiswahili & English
+    utterance.pitch = activeRole === 'dereva' ? 0.95 : 1.05;
+    utterance.rate = 0.95;
 
     const voices = window.speechSynthesis.getVoices();
-    
-    // Select best Swahili or female natural voice
     const swVoice = voices.find(v => v.lang.startsWith('sw') || v.lang.includes('sw-TZ') || v.lang.includes('sw-KE'));
-    const femaleVoice = swVoice || voices.find(v => {
+    const chosenVoice = swVoice || voices.find(v => {
       const name = v.name.toLowerCase();
       const lang = v.lang.toLowerCase();
       return (lang.includes('sw') || lang.includes('en')) && 
-             (name.includes('female') || name.includes('zira') || name.includes('samantha') || 
-              name.includes('victoria') || name.includes('karen') || name.includes('helena') || 
-              name.includes('savia') || name.includes('zuri') || name.includes('google us english') || 
-              name.includes('natural') || name.includes('girl') || name.includes('woman'));
-    }) || voices.find(v => v.name.toLowerCase().includes('female')) || voices[0];
+             (name.includes('female') || name.includes('zira') || name.includes('samantha') || name.includes('natural'));
+    }) || voices[0];
 
-    if (femaleVoice) {
-      utterance.voice = femaleVoice;
-      utterance.lang = femaleVoice.lang || 'sw-TZ';
+    if (chosenVoice) {
+      utterance.voice = chosenVoice;
+      utterance.lang = chosenVoice.lang || 'sw-TZ';
     } else {
       utterance.lang = 'sw-TZ';
     }
 
-    utterance.onstart = () => {
-      setCurrentlySpeakingId(msgId);
-    };
-
-    utterance.onend = () => {
-      setCurrentlySpeakingId(null);
-    };
-
-    utterance.onerror = () => {
-      setCurrentlySpeakingId(null);
-    };
+    utterance.onstart = () => setCurrentlySpeakingId(msgId);
+    utterance.onend = () => setCurrentlySpeakingId(null);
+    utterance.onerror = () => setCurrentlySpeakingId(null);
 
     window.speechSynthesis.speak(utterance);
   };
 
-  // Offline Swahili Voice & Intent Recognition Engine
+  // Offline Intelligence Engine based on Role
   const parseOfflineVoiceCommand = (text: string) => {
     const lower = text.toLowerCase();
     const userName = getUserFirstName();
 
-    if (lower.includes('niko wapi') || lower.includes('nikowapi') || lower.includes('location') || lower.includes('wapi nilipo') || lower.includes('nilipo') || lower.includes('saiv') || lower.includes('sasa')) {
+    // DEREVA (DRIVER) SPECIFIC OFFLINE ANSWERS
+    if (activeRole === 'dereva') {
+      if (lower.includes('maombi') || lower.includes('wapi') || lower.includes('abiria') || lower.includes('hotspot')) {
+        return {
+          reply: `Habari Dereva ${userName}! Kulingana na eneo lako la **${userLocation}**, maeneo yenye maombi mengi ya usafiri hivi sasa ni:\n1. 📍 **Kariakoo Sokoni** (Maombi mengi ya Boda & Bajaji)\n2. ✈️ **Uwanja wa Ndege (JNIA)** (Maombi ya Taxi/Gari)\n3. 🚌 **Stendi Kuu ya Mbezi Magufuli**\n4. 🏢 **Posta Mpya & Mlimani City**`,
+          functionCalls: []
+        };
+      }
+      if (lower.includes('mapato') || lower.includes('faida') || lower.includes('pesa') || lower.includes('hesabu')) {
+        return {
+          reply: `Ili kuongeza mapato ya leo, Dereva ${userName}:\n- Fanya kazi nyakati za Asubuhi (SAA 12:00 - 3:00) na Jioni (SAA 10:00 - 2:00 Usiku).\n- Kaa karibu na vituo vya usafiri au migahawa yenye maagizo ya chakula.\n- Hakikisha unampa mteja tabasamu na usafi kupata nyota 5 na tip!`,
+          functionCalls: []
+        };
+      }
+      if (lower.includes('mafuta') || lower.includes('fuel')) {
+        return {
+          reply: `Mbinu za kuokoa mafuta kulingana na muongozo wa Papo Ride:\n1. Usiache engine inaguruma ovyo (idling) ukiwa unawasiliana na mteja.\n2. Angalia upepo wa tairi kila asubuhi.\n3. Endesha kwa mwendo wa wastani usiovunjika vunjika.`,
+          functionCalls: []
+        };
+      }
+    }
+
+    // VENDOR SPECIFIC OFFLINE ANSWERS
+    if (activeRole === 'vendor') {
+      if (lower.includes('mauzo') || lower.includes('oda') || lower.includes('sales')) {
+        return {
+          reply: `Habari Mfanyabiashara ${userName}! Kuchanganua mauzo yako ya leo:\n- Saa za mchana (SAA 6:00 - 8:00) na jioni ndizo zenye maagizo mengi zaidi.\n- Weka 'Papo Discount 10%' kwenye vyakula vya mchana ili kuleta wateja wapya kwenye duka lako!`,
+          functionCalls: []
+        };
+      }
+      if (lower.includes('stoki') || lower.includes('inventory') || lower.includes('bidhaa')) {
+        return {
+          reply: `Kusimamia stoki ya duka/mgahawa:\n- Sasisha 'Restaurant Inventory' kwenye Vendor Dashboard yako ili kuzuia wateja kuagiza vitu vilivyotoka (out of stock).\n- Weka tahadhari wakati bidhaa inapobaki chini ya vitengo 5.`,
+          functionCalls: []
+        };
+      }
+    }
+
+    // GENERAL / CUSTOMER MTEJA COMMANDS
+    if (lower.includes('niko wapi') || lower.includes('location') || lower.includes('nilipo')) {
       return {
-        reply: `Habari ${userName}! Kwa mujibu wa GPS na mfumo wetu wa Papo Hapo, hivi sasa upo eneo la **${userLocation}**. Kama unataka kwenda sehemu yoyote au kuagiza chakula uletewe hapa, niambie tu!`,
+        reply: `Habari ${userName}! Kwa mujibu wa GPS yako, hivi sasa upo eneo la **${userLocation}**.`,
         functionCalls: []
       };
     }
-    
+
     if (lower.includes('salio') || lower.includes('balance') || lower.includes('papo wallet')) {
       return {
-        reply: `Nimekagua salio lako la Papo Wallet, ${userName}: Una TSH 45,500 na pointi 280. Nikupe msaada mwingine?`,
+        reply: `Nimekagua salio lako la Papo Wallet, ${userName}: Una TSH 45,500 na pointi 280.`,
         functionCalls: [{ name: 'checkBalance', args: { account_type: 'papo_wallet' } }]
       };
     }
 
-    if (lower.includes('boda') || lower.includes('pikipiki')) {
+    if (lower.includes('boda') || lower.includes('pikipiki') || lower.includes('gari') || lower.includes('bajaji')) {
+      const vType = lower.includes('boda') ? 'boda' : lower.includes('bajaji') ? 'bajaji' : 'car';
       return {
-        reply: `Tayari nimefanya maandalizi ya usafiri wa Boda kuanzia ${userLocation}. Nitafungua ukurasa wa Usafiri sasa uweze kuchagua eneo la kufika.`,
-        functionCalls: [{ name: 'bookTaxi', args: { vehicle_type: 'boda', pickup_location: userLocation, destination: 'Kariakoo' } }]
-      };
-    }
-
-    if (lower.includes('gari') || lower.includes('taxi') || lower.includes('bajaji')) {
-      const vType = lower.includes('bajaji') ? 'bajaji' : 'car';
-      return {
-        reply: `Nimeandaa usafiri wa ${vType === 'bajaji' ? 'Bajaji' : 'Gari (Taxi)'} kuanzia ${userLocation}. Nitakupeleka kwenye ukurasa wa usafiri ili kukamilisha.`,
+        reply: `Nimeandaa usafiri wa ${vType.toUpperCase()} kuanzia **${userLocation}**. Nitakuelekeza kwenye ukurasa wa usafiri ili kukamilisha.`,
         functionCalls: [{ name: 'bookTaxi', args: { vehicle_type: vType, pickup_location: userLocation, destination: 'Kariakoo' } }]
       };
     }
 
-    if (lower.includes('3d') || lower.includes('animation') || lower.includes('animat') || lower.includes('showcase')) {
+    if (lower.includes('ambulansi') || lower.includes('ambulance')) {
       return {
-        reply: `Habari ${userName}! Mfumo wetu wa **Interactive 3D App Animation Engine** 🎨📱 unakupa fursa ya kuangalia na kuingiliana na Super App kwa muundo wa 3D WebGL real-time!\n\n✨ **Sifa kuu za 3D Showcase**:\n- 📱 **Interactive 3D Phone Chassis**: Inazunguka na kuitikia kulingana na muonekano wa mouse au mguso wako.\n- 🎙️ **Multi-Screen Visual Switcher**: Inakuonyesha MAYA AI Voice, PapoStay Real Estate, PapoRide Taxi, Delivery Robot na Papo Wallet kwenye 3D Canvas.\n- 🔮 **Particle Field & Lighting Effects**: Atmospheric lighting na visual particles.\n- 🛠️ **Wireframe & Orbit Toggle**: Uwezo wa kuangalia muundo wa 3D Geometry.\n\nUnaweza kuitazama hapo juu kwenye Customer Dashboard au kufungua ukurasa mzima wa 3D Showcase kwa kubofya hapa: **/3d-animation** 🚀!`,
-        functionCalls: []
-      };
-    }
-
-    if (lower.includes('ambulansi') || lower.includes('dharura') || lower.includes('hospitali') || lower.includes('ambulance')) {
-      return {
-        reply: `⚠️ *Wito wa Dharura wa Ambulansi (Emergency)*:\nNimeandaa wito wa haraka wa Ambulansi kuja eneo lako la **${userLocation}**. Tafadhali thibitisha hapa chini ili gari na madaktari vianze safari mara moja.`,
+        reply: `⚠️ *Wito wa Dharura wa Ambulansi*:\nNimeandaa wito wa Ambulansi kuja eneo la **${userLocation}**. Thibitisha hapa chini ili gari na madaktari vianze safari.`,
         functionCalls: [{ name: 'bookTaxi', args: { vehicle_type: 'ambulance', pickup_location: userLocation, destination: 'Hospitali ya Rufaa' } }]
       };
     }
 
-    if (lower.includes('zimamoto') || lower.includes('faya') || lower.includes('moto')) {
-      return {
-        reply: `🚨 *Wito wa Dharura wa Zimamoto (Fire Truck)*:\nNimeandaa gari la Faya / Zimamoto kuja eneo la **${userLocation}**. Thibitisha hapa chini kutuma taarifa za eneo lako haraka.`,
-        functionCalls: [{ name: 'bookTaxi', args: { vehicle_type: 'fire', pickup_location: userLocation, destination: 'Dharura' } }]
-      };
-    }
-
-    if (lower.includes('schema') || lower.includes('database') || lower.includes('landlord') || lower.includes('escrow') || lower.includes('dispute') || lower.includes('payout') || lower.includes('commission') || lower.includes('holding deposit')) {
-      return {
-        reply: `Habari ${userName}! Huu hapa ndio Muundo wa Mfumo na Schema Architecture ya **PapoStay & Real Estate Engine** 🏗️📊:\n\n1️⃣ **Uhusiano wa Broker–Landlord–Listing (Many-to-Many Architecture)**:\n- Tuna 'landlords' (Wamiliki), 'brokers' (Madalali), 'listings' (Nyumba/Vyumba) na 'listing_broker_assignments' (Junction table).\n- Dalali 1 anaweza kuwakilisha nyumba za wamiliki wengi. Nyumba 1 pia inaweza kuwa na madalali wengi (Non-Exclusive) au dalali mmoja wa kipekee (Exclusive).\n\n2️⃣ **Escrow Payout & Commission Split (Mgawanyo wa Malipo)**:\n- Pesa inatunzwa kwenye Escrow Vault mpaka Check-in/Handover.\n- Baada ya kuthibitishwa: Landlord anapata share yake kuu (e.g. 90%), Dalali anapata tume yake ya ubonge (e.g. 10% au Kodi ya mwezi 1), na PapoHapo inachukua platform service fee (2-5%).\n\n3️⃣ **Booking Fee dhidi ya Full Rent Escrow**:\n- **Holding Deposit (50k / 10%)**: Inashikilia nyumba kwa siku 3-7 ili isichukuliwe na mtu mwingine; ina hatari ndogo ya kifedha kwa wallet.\n- **Full Rent Escrow**: Inashikilia kodi ya miezi 3-12 mpaka mpangaji anapokea funguo na kutosheka na nyumba.\n\n4️⃣ **Dispute Resolution & Admin Authority**:\n- Mteja akiripoti tatizo (Hold), pesa inafungwa kiotomatiki.\n- Admin Dashboard ina mamlaka ya kuamuru **Full Refund** (ikibainika uongo/tatizo la nyumba), **Partial Release**, au **Release to Landlord/Broker** endapo mteja alighairi bila msingi.`,
-        functionCalls: []
-      };
-    }
-
-    if (lower.includes('utaratibu') || lower.includes('flow') || lower.includes('floo') || lower.includes('jinsi') || lower.includes('dalali') || lower.includes('madalali') || lower.includes('nyumba') || lower.includes('pango') || lower.includes('chumba') || lower.includes('fremu') || lower.includes('apartment') || lower.includes('papostay')) {
-      return {
-        reply: `Habari ${userName}! Utaratibu (Flow) wa **PapoStay & Real Estate** kwenye Papo Hapo Super App 🏠🇹🇿 uko hivi hatua kwa hatua:\n\n1️⃣ **Utafutaji na Filter (Search)**:\n- Unafungua sehemu ya **PapoStay** kwenye app na kuchagua eneo (mfano: Kinondoni, Sinza, Mbezi, Dodoma n.k.), aina ya nyumba (Single Room, Master, Apartment, Fremu au Hoteli) na bajeti yako.\n\n2️⃣ **Kuangalia Picha na Sifa Halisi (Verified Listing)**:\n- Unaona picha za HD za nyumba, huduma zilizopo (Maji 24/7, Luku ya pekee, Parking, Ulinzi) na bei HALISI iliyohakikiwa bila utapeli.\n\n3️⃣ **Mawasiliano na Dalali / Mwakala Aliyehakikiwa**:\n- Unawasiliana moja kwa moja na Dalali au Mwenye Nyumba aliyethibitishwa (Verified Broker/Host) kupitia Chat au Simu bila kutoa pesa za mtaani za kiholela.\n\n4️⃣ **Ratiba ya Kukagua Nyumba (Viewing Schedule)**:\n- Unapanga miadi (Schedule Visit) ya kwenda kuiona nyumba ana kwa ana au kuikagua mtandaoni.\n\n5️⃣ **Malipo Salama (Escrow Protection)**:\n- Unalipia kodi au booking kupitia M-Pesa, Mixx (Tigo Pesa), Airtel Money au PapoWallet. Pesa inatunzwa kwa usalama na Papo Hapo mpaka upokee funguo na kuridhika.\n\n6️⃣ **Mkataba wa Kidijitali & Risiti**:\n- Unapokea Mkataba wa Pango (Digital Lease) na Risiti ya Kidijitali ya papo hapo kwenye simu yako! 📜✨\n\nJe, ungependa kuanza kutafuta nyumba au hoteli eneo gani hapa **${userLocation}**?`,
-        functionCalls: []
-      };
-    }
-
-    if (lower.includes('chips') || lower.includes('chakula') || lower.includes('kuku') || lower.includes('ugali') || lower.includes('samaki')) {
-      return {
-        reply: `Nimepata ombi lako la chakula kuletwa **${userLocation}**! Kwenye Papo Hapo tuna "Mgahawa wa Papo Fast Food", "Swahili Cuisine House", na "Kuku Kuku Joint". Nikuagizie nini kutoka kwenye haya?`,
-        functionCalls: [{ name: 'orderFood', args: { items: [{ item_name: 'Chips Kuku', quantity: 1 }], delivery_location: userLocation } }]
-      };
-    }
-
     return {
-      reply: `Habari ${userName}! Nimepata sauti/amri yako: "${text}". Hivi sasa upo **${userLocation}**. Mimi ni MAYA (Model ya Kiswahili). Ninaweza kusaidia kuitisha usafiri, kuangalia salio, au kuagiza chakula.`,
+      reply: `Habari ${userName}! Nimepata sauti yako: "${text}". Mimi ni AI ya Papo Hapo (${activeRole.toUpperCase()}). Ninawezaje kukusaidia zaidi hapa **${userLocation}**?`,
       functionCalls: []
     };
   };
 
-  // Toggle Speech Recognition (Swahili Microphone Input)
   const toggleListening = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      toast.error('Kivinjari chako hakitogelei Speech Recognition. Unaweza kuandika kwa maandishi.');
+      toast.error('Kivinjari chako hakitogelei Speech Recognition.');
       return;
     }
 
@@ -353,13 +419,11 @@ export default function MayaAIChat() {
       recognitionRef.current = recognition;
       recognition.continuous = false;
       recognition.interimResults = true;
-
-      // Set Swahili speech language recognition
       recognition.lang = 'sw-TZ';
 
       recognition.onstart = () => {
         setIsListening(true);
-        toast.info('🎙️ MAYA anasikiliza sauti yako kwa Kiswahili...', { id: 'maya-mic' });
+        toast.info('🎙️ AI anasikiliza sauti yako kwa Kiswahili...', { id: 'maya-mic' });
       };
 
       recognition.onresult = (event: any) => {
@@ -367,12 +431,10 @@ export default function MayaAIChat() {
           .map((result: any) => result[0])
           .map((result: any) => result.transcript)
           .join('');
-
         setInputMessage(transcriptText);
       };
 
-      recognition.onerror = (event: any) => {
-        console.warn('Speech recognition notice:', event.error);
+      recognition.onerror = () => {
         setIsListening(false);
         toast.dismiss('maya-mic');
       };
@@ -393,7 +455,6 @@ export default function MayaAIChat() {
     const text = (textToSend || inputMessage).trim();
     if (!text || isLoading) return;
 
-    // Stop any ongoing speech when sending a new message
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       setCurrentlySpeakingId(null);
@@ -411,37 +472,20 @@ export default function MayaAIChat() {
     setIsLoading(true);
 
     try {
-      // Check offline mode first
       if (!navigator.onLine) {
         const offlineRes = parseOfflineVoiceCommand(text);
         setIsLoading(false);
         const newOfflineId = `maya-offline-${Date.now()}`;
         
-        let offlinePending: any = null;
-        if (Array.isArray(offlineRes.functionCalls) && offlineRes.functionCalls.length > 0) {
-          for (const fc of offlineRes.functionCalls) {
-            const args = fc.args as any;
-            if (fc.name === 'bookTaxi' && (args?.vehicle_type === 'ambulance' || args?.vehicle_type === 'fire')) {
-              offlinePending = {
-                type: 'booking',
-                title: args?.vehicle_type === 'ambulance' ? 'Thibitisha Wito wa Ambulansi (Offline Emergency)' : 'Thibitisha Wito wa Zimamoto (Offline Fire)',
-                details: args
-              };
-            }
-          }
-        }
-
         const offlineMsg: Message = {
           id: newOfflineId,
           sender: 'maya',
-          text: `📡 [Mfumo wa Nje ya Mtandao / Offline Mode]\n\n${offlineRes.reply}`,
+          text: `📡 [Offline Mode / Nje ya Mtandao]\n\n${offlineRes.reply}`,
           timestamp: new Date(),
-          functionCalls: offlineRes.functionCalls,
-          pendingConfirmation: offlinePending
+          functionCalls: offlineRes.functionCalls
         };
 
         setMessages(prev => [...prev, offlineMsg]);
-
         if (autoVoiceEnabled) {
           setTimeout(() => speakText(offlineRes.reply, newOfflineId), 300);
         }
@@ -459,8 +503,10 @@ export default function MayaAIChat() {
         body: JSON.stringify({
           message: text,
           history: historyPayload,
+          userRole: activeRole,
           userContext: {
             userName: getUserFirstName(),
+            userRole: activeRole,
             city: userLocation.includes(',') ? userLocation.split(',')[1].trim() : 'Dar es Salaam',
             location: userLocation,
             phone: profile?.phoneNumber || user?.phoneNumber || '+255700000000'
@@ -476,7 +522,6 @@ export default function MayaAIChat() {
       }
 
       let pendingConf: any = null;
-
       if (Array.isArray(data.functionCalls) && data.functionCalls.length > 0) {
         for (const fc of data.functionCalls) {
           if (fc.name === 'confirmPayment') {
@@ -509,30 +554,24 @@ export default function MayaAIChat() {
 
       setMessages(prev => [...prev, mayaMsg]);
 
-      // Speak automatically if autoVoice is enabled
       if (autoVoiceEnabled) {
-        setTimeout(() => {
-          speakText(mayaResponseText, newMayaId);
-        }, 300);
+        setTimeout(() => speakText(mayaResponseText, newMayaId), 300);
       }
 
     } catch (err: any) {
       setIsLoading(false);
-      
-      // Fallback to offline model
       const offlineRes = parseOfflineVoiceCommand(text);
       const newOfflineId = `maya-fallback-${Date.now()}`;
 
       const fallbackMsg: Message = {
         id: newOfflineId,
         sender: 'maya',
-        text: `📡 [Mfumo wa Sauti ya Kiswahili ya Mtaani / Offline Local Engine]\n\n${offlineRes.reply}\n\n*(Mtandao ukiwa dhaifu unaweza pia kutumia USSD yetu ya *149*00#)*`,
+        text: `📡 [Local Swahili AI Engine]\n\n${offlineRes.reply}`,
         timestamp: new Date(),
         functionCalls: offlineRes.functionCalls
       };
 
       setMessages(prev => [...prev, fallbackMsg]);
-
       if (autoVoiceEnabled) {
         setTimeout(() => speakText(offlineRes.reply, newOfflineId), 300);
       }
@@ -546,7 +585,7 @@ export default function MayaAIChat() {
       return;
     }
 
-    toast.loading('Inathibitisha na kutekeleza na MAYA...', { id: 'maya-exec' });
+    toast.loading('Inathibitisha na kutekeleza na AI...', { id: 'maya-exec' });
     
     setTimeout(() => {
       toast.success('Imethibitishwa kikamilifu! Mfumo umeanza kufanya kazi.', { id: 'maya-exec' });
@@ -563,42 +602,139 @@ export default function MayaAIChat() {
     }, 1200);
   };
 
-  const quickPrompts = [
-    { label: '🚖 Boda / Taxi kwenda Kariakoo', prompt: 'Nahitaji usafiri wa Boda kutoka Mwenge kwenda Kariakoo Dar es Salaam' },
-    { label: '🍔 Chips Kuku (Mgahawa wa Papo)', prompt: 'Nahitaji Chips Kuku kutoka Mgahawa wa Papo Fast Food niletee Mwenge' },
-    { label: '🍲 Ugali Samaki (Swahili Cuisine)', prompt: 'Agiza Ugali Samaki wa Kupaka kutoka Swahili Cuisine House' },
-    { label: '🚑 Ambulansi ya Dharura', prompt: 'Nahitaji Ambulansi ya dharura haraka sana Posta Dar es Salaam' },
-    { label: '💰 Angalia Salio la Papo Wallet', prompt: 'Angalia salio langu la Papo Wallet' }
-  ];
+  // QUICK PROMPT CHIPS BASED ON ACTIVE ROLE
+  const getQuickPrompts = () => {
+    if (activeRole === 'dereva') {
+      return [
+        { label: '📍 Maeneo yenye maombi mengi (Hotspots)', prompt: 'Ni maeneo gani sasa hivi yana maombi mengi ya usafiri wa taxi na boda Dar es Salaam?' },
+        { label: '💰 Mbinu za kuongeza mapato ya siku', prompt: 'Nipe mbinu bora za kuongeza mapato na kupata nyota 5 kutoka kwa abiria' },
+        { label: '⛽ Mbinu za kuokoa mafuta', prompt: 'Je, ninawezaje kuokoa mafuta kwenye gari/boda yangu wakati wa kazi?' },
+        { label: '🛠️ Ukaguzi wa Usalama wa Chombo', prompt: 'Nipe muongozo wa ukaguzi wa haraka wa usalama wa gari/boda kabla ya kuanza kazi' },
+        { label: '🚨 Msaada wa Dharura Barabarani', prompt: 'Msaada wa dharura endapo chombo changu kikitatizika barabarani' }
+      ];
+    }
+    if (activeRole === 'vendor') {
+      return [
+        { label: '📊 Changanua mauzo na oda za leo', prompt: 'Nipe ushauri jinsi ya kuchanganua mauzo ya duka/mgahawa wangu na kuongeza oda' },
+        { label: '🍗 Vyakula/Bidhaa zinazouza zaidi', prompt: 'Ni vyakula na vinywaji gani vinavyopendwa na kuagizwa zaidi na wateja?' },
+        { label: '🏷️ Weka Punguzo na Ofa za Masoko', prompt: 'Nipe mbinu za kuweka ofa na promo discounts za kuvutia wateja wapya' },
+        { label: '📦 Usimamizi wa Stoki na Inventory', prompt: 'Jinsi ya kusimamia inventory ya mgahawa/duka langu ili kuzuia kukosa bidhaa' },
+        { label: '⭐ Kuboresha Rating ya Duka', prompt: 'Jinsi ya kupata rating za juu (5 Stars) na maoni mazuri kutoka kwa wateja' }
+      ];
+    }
+    return [
+      { label: '🚖 Boda / Taxi kwenda Kariakoo', prompt: 'Nahitaji usafiri wa Boda kutoka Mwenge kwenda Kariakoo Dar es Salaam' },
+      { label: '🍔 Chips Kuku (Mgahawa wa Papo)', prompt: 'Nahitaji Chips Kuku kutoka Mgahawa wa Papo Fast Food niletee Mwenge' },
+      { label: '🍲 Ugali Samaki (Swahili Cuisine)', prompt: 'Agiza Ugali Samaki wa Kupaka kutoka Swahili Cuisine House' },
+      { label: '🚑 Ambulansi ya Dharura', prompt: 'Nahitaji Ambulansi ya dharura haraka sana Posta Dar es Salaam' },
+      { label: '💰 Angalia Salio la Papo Wallet', prompt: 'Angalia salio langu la Papo Wallet' }
+    ];
+  };
+
+  // ROLE VISUAL STYLES
+  const getRoleFabStyle = () => {
+    if (activeRole === 'dereva') {
+      return 'bg-gradient-to-r from-emerald-600 via-teal-500 to-emerald-500 border-emerald-400/40 text-white shadow-[0_10px_25px_rgba(16,185,129,0.4)]';
+    }
+    if (activeRole === 'vendor') {
+      return 'bg-gradient-to-r from-purple-600 via-indigo-500 to-fuchsia-500 border-purple-400/40 text-white shadow-[0_10px_25px_rgba(147,51,234,0.4)]';
+    }
+    return 'bg-gradient-to-r from-orange-600 via-amber-500 to-orange-500 border-amber-400/40 text-white shadow-[0_10px_25px_rgba(234,88,12,0.4)]';
+  };
+
+  const getRoleIcon = () => {
+    if (activeRole === 'dereva') return <Car className="w-5 h-5 text-emerald-200 animate-pulse" />;
+    if (activeRole === 'vendor') return <Store className="w-5 h-5 text-purple-200 animate-pulse" />;
+    return <Sparkles className="w-5 h-5 text-amber-200 animate-pulse" />;
+  };
+
+  const getRoleTitle = () => {
+    if (activeRole === 'dereva') return 'SAFARI DEREVA AI';
+    if (activeRole === 'vendor') return 'BIASHARA VENDOR AI';
+    return 'MAYA MTEJA AI';
+  };
+
+  const getRoleSubtitle = () => {
+    if (activeRole === 'dereva') return 'Dereva Voice 🚖';
+    if (activeRole === 'vendor') return 'Vendor Voice 🏪';
+    return 'Mteja Voice 🛍️';
+  };
 
   return (
     <>
-      {/* FLOATING ACTION BUTTON */}
-      <motion.button
-        initial={{ scale: 0, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        whileHover={{ scale: 1.08 }}
-        whileTap={{ scale: 0.92 }}
-        onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-24 left-6 z-[160] flex items-center gap-2.5 bg-gradient-to-r from-orange-600 via-amber-500 to-orange-500 text-white px-4 py-3 rounded-full shadow-[0_12px_30px_rgba(234,88,12,0.45)] border border-white/20 backdrop-blur-md group"
-        aria-label="Fungua MAYA AI Assistant"
-      >
-        <div className="relative flex items-center justify-center">
-          <div className="w-9 h-9 bg-black/30 rounded-full flex items-center justify-center border border-white/20">
-            <Sparkles className="w-5 h-5 text-amber-200 animate-pulse" />
-          </div>
-          <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-orange-600 animate-ping" />
-          <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-orange-600" />
-        </div>
+      {/* FLOATING DRAGGABLE AI FAB OR DOCKED MINI TAB */}
+      {!isFabHidden ? (
+        <motion.div
+          drag
+          dragConstraints={{ left: -280, right: 280, top: -550, bottom: 50 }}
+          dragElastic={0.08}
+          dragMomentum={false}
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className="fixed bottom-24 left-4 z-[160] touch-none"
+        >
+          <div className={`relative flex items-center gap-2 px-3.5 py-2.5 rounded-2xl shadow-2xl border backdrop-blur-md cursor-grab active:cursor-grabbing group transition-all duration-300 ${getRoleFabStyle()}`}>
+            {/* DRAG GRIP ICON */}
+            <div className="flex flex-col gap-0.5 text-white/60 group-hover:text-white transition-colors mr-0.5" title="Kokota (Drag) kusogeza popote">
+              <GripVertical className="w-4 h-4" />
+            </div>
 
-        <div className="text-left hidden sm:block">
-          <div className="text-[11px] font-black uppercase tracking-wider leading-none text-white flex items-center gap-1">
-            MAYA AI 👩‍💼
-            {currentlySpeakingId && <Volume2 className="w-3 h-3 text-amber-300 animate-bounce" />}
+            {/* MAIN FAB TRIGGER */}
+            <button
+              onClick={() => setIsOpen(!isOpen)}
+              className="flex items-center gap-2 min-w-0"
+              aria-label="Fungua AI Assistant"
+            >
+              <div className="relative flex items-center justify-center shrink-0">
+                <div className="w-9 h-9 bg-black/25 rounded-xl flex items-center justify-center border border-white/20 shadow-inner">
+                  {getRoleIcon()}
+                </div>
+                <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-white animate-ping" />
+                <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-white" />
+              </div>
+
+              <div className="text-left hidden sm:block min-w-0">
+                <div className="text-[11px] font-black uppercase tracking-wider leading-none text-white flex items-center gap-1">
+                  {getRoleTitle()}
+                  {currentlySpeakingId && <Volume2 className="w-3 h-3 text-amber-300 animate-bounce" />}
+                </div>
+                <div className="text-[9px] font-extrabold text-white/80 uppercase tracking-widest mt-0.5">
+                  {getRoleSubtitle()}
+                </div>
+              </div>
+            </button>
+
+            {/* HIDE / MINIMIZE BUTTON ON FAB */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleFabHidden(true);
+              }}
+              className="ml-1 p-1.5 rounded-lg bg-black/20 hover:bg-black/40 text-white/80 hover:text-white transition-all border border-white/10"
+              title="Ficha button hii ya AI (Hide FAB)"
+            >
+              <EyeOff className="w-3.5 h-3.5" />
+            </button>
           </div>
-          <div className="text-[9px] font-bold text-amber-100 uppercase tracking-widest">Female Voice 🇹🇿</div>
-        </div>
-      </motion.button>
+        </motion.div>
+      ) : (
+        /* DOCKED EDGE MINI TAB WHEN HIDDEN */
+        <motion.button
+          initial={{ x: -50, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          whileHover={{ scale: 1.08 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => toggleFabHidden(false)}
+          className={`fixed bottom-28 left-0 z-[160] flex items-center gap-1.5 px-3 py-2 rounded-r-2xl shadow-xl border-y border-r border-white/20 text-white font-black text-xs uppercase tracking-wider backdrop-blur-md transition-all ${getRoleFabStyle()}`}
+          title="Onyesha AI Assistant (Unhide FAB)"
+        >
+          {getRoleIcon()}
+          <span className="text-[10px]">AI</span>
+          <Eye className="w-3 h-3 text-white/80 ml-0.5 animate-pulse" />
+        </motion.button>
+      )}
 
       {/* DRAWER / MODAL CHAT UI */}
       <AnimatePresence>
@@ -609,13 +745,13 @@ export default function MayaAIChat() {
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: '100%', opacity: 0 }}
               transition={{ type: 'spring', damping: 28, stiffness: 220 }}
-              className={`w-full sm:max-w-lg h-[90vh] sm:h-[650px] rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl border flex flex-col overflow-hidden relative transition-colors duration-300 ${
+              className={`w-full sm:max-w-lg h-[90vh] sm:h-[670px] rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl border flex flex-col overflow-hidden relative transition-colors duration-300 ${
                 themeMode === 'dark' 
                   ? 'bg-[#121218] text-white border-white/10' 
                   : 'bg-slate-50 text-slate-900 border-slate-200/80'
               }`}
             >
-              {/* CLEAR ALL CONFIRMATION OVERLAY MODAL */}
+              {/* CLEAR CONFIRMATION OVERLAY MODAL */}
               <AnimatePresence>
                 {showClearConfirm && (
                   <div className="absolute inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -633,7 +769,7 @@ export default function MayaAIChat() {
                       <div>
                         <h4 className="font-black text-base uppercase tracking-tight">Futa Meseji Zote?</h4>
                         <p className={`text-xs mt-1 ${themeMode === 'dark' ? 'text-neutral-400' : 'text-slate-500'}`}>
-                          Je, una uhakika unataka kufuta mazungumzo yote na MAYA AI?
+                          Je, una uhakika unataka kufuta mazungumzo yote na AI Assistant?
                         </p>
                       </div>
                       <div className="flex gap-2 pt-2">
@@ -665,13 +801,13 @@ export default function MayaAIChat() {
               }`}>
                 {/* LEFT: AVATAR & INFO */}
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-orange-600 to-amber-400 flex items-center justify-center shadow-md shadow-orange-500/20 border border-white/20 shrink-0">
-                    <Sparkles className="w-5 h-5 text-white" />
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-md border border-white/20 shrink-0 ${getRoleFabStyle()}`}>
+                    {getRoleIcon()}
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
                       <h3 className={`font-black text-sm tracking-tight uppercase truncate ${themeMode === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                        MAYA AI
+                        {getRoleTitle()}
                       </h3>
                       <span className="bg-orange-500/20 text-orange-500 border border-orange-500/30 px-1.5 py-0.2 rounded-full text-[8px] font-black uppercase tracking-wider shrink-0">
                         🇹🇿 PAPO
@@ -682,7 +818,7 @@ export default function MayaAIChat() {
                       className={`flex items-center gap-1 font-semibold text-[10px] transition-colors truncate max-w-[130px] ${
                         themeMode === 'dark' ? 'text-amber-300/90 hover:text-amber-300' : 'text-amber-700 hover:text-amber-900'
                       }`}
-                      title="Bonyeza kuhuisha eneo lako halisi (GPS)"
+                      title="Bonyeza kuhuisha eneo yako halisi (GPS)"
                     >
                       <MapPin className={`w-3 h-3 text-amber-500 shrink-0 ${isLocating ? 'animate-spin' : ''}`} />
                       <span className="truncate">{userLocation}</span>
@@ -690,12 +826,24 @@ export default function MayaAIChat() {
                   </div>
                 </div>
 
-                {/* RIGHT: CONTROLS & PROMINENT CLOSE BUTTON */}
+                {/* RIGHT: CONTROLS & CLOSE BUTTON */}
                 <div className="flex items-center gap-1.5 shrink-0">
-                  {/* COMPACT TOOLBAR PILL */}
                   <div className={`flex items-center p-1 rounded-full border ${
                     themeMode === 'dark' ? 'bg-[#111118] border-white/10' : 'bg-slate-100 border-slate-200'
                   }`}>
+                    {/* SHOW / HIDE FAB TOGGLE IN CHAT HEADER */}
+                    <button
+                      onClick={() => toggleFabHidden(!isFabHidden)}
+                      className={`p-1.5 rounded-full transition-all ${
+                        isFabHidden 
+                          ? 'text-amber-400 bg-amber-500/10' 
+                          : (themeMode === 'dark' ? 'text-neutral-400 hover:bg-white/10' : 'text-slate-500 hover:bg-slate-200')
+                      }`}
+                      title={isFabHidden ? 'Onyesha icon ya AI kwenye screen' : 'Ficha icon ya AI kwenye screen'}
+                    >
+                      {isFabHidden ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                    </button>
+
                     {/* LIGHT / NIGHT MODE TOGGLE */}
                     <button
                       onClick={() => {
@@ -734,7 +882,7 @@ export default function MayaAIChat() {
                       {autoVoiceEnabled ? <Volume2 className="w-3.5 h-3.5 animate-pulse" /> : <VolumeX className="w-3.5 h-3.5" />}
                     </button>
 
-                    {/* CLEAR ALL MESSAGES BUTTON */}
+                    {/* CLEAR MESSAGES BUTTON */}
                     <button
                       onClick={() => setShowClearConfirm(true)}
                       className={`p-1.5 rounded-full transition-all ${
@@ -748,7 +896,7 @@ export default function MayaAIChat() {
                     </button>
                   </div>
 
-                  {/* PROMINENT HIGH-CONTRAST CLOSE BUTTON */}
+                  {/* CLOSE BUTTON */}
                   <button
                     onClick={() => {
                       if ('speechSynthesis' in window) window.speechSynthesis.cancel();
@@ -763,6 +911,49 @@ export default function MayaAIChat() {
                 </div>
               </div>
 
+              {/* ROLE SWITCHER TABS BAR */}
+              <div className={`px-4 py-2 border-b flex items-center gap-1.5 overflow-x-auto no-scrollbar ${
+                themeMode === 'dark' ? 'bg-[#12121c] border-white/10' : 'bg-slate-100/90 border-slate-200'
+              }`}>
+                <span className="text-[10px] font-black uppercase text-neutral-400 shrink-0 mr-1">Chagua AI Role:</span>
+                
+                <button
+                  onClick={() => switchRole('mteja')}
+                  className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 ${
+                    activeRole === 'mteja'
+                      ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-white shadow-md shadow-orange-600/30'
+                      : themeMode === 'dark' ? 'bg-neutral-800 text-neutral-400 hover:text-white' : 'bg-white text-slate-600 hover:bg-slate-200 border border-slate-200'
+                  }`}
+                >
+                  <ShoppingBag className="w-3.5 h-3.5" />
+                  <span>Mteja AI</span>
+                </button>
+
+                <button
+                  onClick={() => switchRole('dereva')}
+                  className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 ${
+                    activeRole === 'dereva'
+                      ? 'bg-gradient-to-r from-emerald-600 to-teal-500 text-white shadow-md shadow-emerald-600/30'
+                      : themeMode === 'dark' ? 'bg-neutral-800 text-neutral-400 hover:text-white' : 'bg-white text-slate-600 hover:bg-slate-200 border border-slate-200'
+                  }`}
+                >
+                  <Car className="w-3.5 h-3.5" />
+                  <span>Dereva AI</span>
+                </button>
+
+                <button
+                  onClick={() => switchRole('vendor')}
+                  className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 ${
+                    activeRole === 'vendor'
+                      ? 'bg-gradient-to-r from-purple-600 to-indigo-500 text-white shadow-md shadow-purple-600/30'
+                      : themeMode === 'dark' ? 'bg-neutral-800 text-neutral-400 hover:text-white' : 'bg-white text-slate-600 hover:bg-slate-200 border border-slate-200'
+                  }`}
+                >
+                  <Store className="w-3.5 h-3.5" />
+                  <span>Vendor AI</span>
+                </button>
+              </div>
+
               {/* MESSAGES BODY */}
               <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 no-scrollbar">
                 <AnimatePresence initial={false}>
@@ -775,8 +966,8 @@ export default function MayaAIChat() {
                       className={`flex gap-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
                       {msg.sender === 'maya' && (
-                        <div className="w-8 h-8 rounded-xl bg-orange-600/20 border border-orange-500/40 flex items-center justify-center shrink-0 mt-1 shadow-xs">
-                          <Sparkles className="w-4 h-4 text-orange-500" />
+                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-1 shadow-xs border ${getRoleFabStyle()}`}>
+                          {getRoleIcon()}
                         </div>
                       )}
 
@@ -787,7 +978,6 @@ export default function MayaAIChat() {
                             ? 'bg-[#1c1c28] border border-white/10 text-neutral-200 rounded-tl-none shadow-sm'
                             : 'bg-white border border-slate-200/90 text-slate-800 rounded-tl-none shadow-sm'
                       }`}>
-                        {/* USER MESSAGE DELETE BUTTON */}
                         {msg.sender === 'user' && (
                           <button
                             onClick={() => handleDeleteMessage(msg.id)}
@@ -798,13 +988,12 @@ export default function MayaAIChat() {
                           </button>
                         )}
 
-                        {/* VOICE READOUT & DELETE BUTTON FOR MAYA MESSAGES */}
                         {msg.sender === 'maya' && (
                           <div className={`flex justify-between items-center mb-2 pb-1.5 border-b ${
                             themeMode === 'dark' ? 'border-white/10' : 'border-slate-100'
                           }`}>
-                            <span className="text-[10px] text-orange-500 font-bold uppercase tracking-wider flex items-center gap-1">
-                              MAYA AI Voice
+                            <span className="text-[10px] text-amber-500 font-bold uppercase tracking-wider flex items-center gap-1">
+                              {getRoleTitle()}
                             </span>
                             <div className="flex items-center gap-1">
                               <button
@@ -844,7 +1033,6 @@ export default function MayaAIChat() {
 
                         <div className="whitespace-pre-wrap">{msg.text}</div>
 
-                        {/* CONFIRMATION CARD FOR PAYMENTS OR EMERGENCY BOOKINGS */}
                         {msg.pendingConfirmation && (
                           <motion.div
                             initial={{ scale: 0.95, opacity: 0 }}
@@ -920,16 +1108,16 @@ export default function MayaAIChat() {
 
                 {isLoading && (
                   <div className="flex gap-3 justify-start items-center">
-                    <div className="w-8 h-8 rounded-xl bg-orange-600/30 border border-orange-500/40 flex items-center justify-center shrink-0">
-                      <Sparkles className="w-4 h-4 text-orange-400 animate-spin" />
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${getRoleFabStyle()}`}>
+                      <Sparkles className="w-4 h-4 text-white animate-spin" />
                     </div>
                     <div className={`border px-4 py-3 rounded-2xl text-xs font-mono flex items-center gap-2 ${
                       themeMode === 'dark' 
                         ? 'bg-[#1c1c28] border-white/10 text-neutral-400' 
                         : 'bg-white border-slate-200 text-slate-600 shadow-xs'
                     }`}>
-                      <div className="w-2 h-2 bg-orange-500 rounded-full animate-ping" />
-                      MAYA inafikiria na kuandaa maelezo...
+                      <div className="w-2 h-2 bg-amber-500 rounded-full animate-ping" />
+                      {getRoleTitle()} inafikiria na kuandaa maelezo...
                     </div>
                   </div>
                 )}
@@ -940,7 +1128,7 @@ export default function MayaAIChat() {
               <div className={`px-4 py-2.5 border-t flex items-center gap-2 overflow-x-auto no-scrollbar ${
                 themeMode === 'dark' ? 'bg-[#0f0f16] border-white/5' : 'bg-slate-100/80 border-slate-200/80'
               }`}>
-                {quickPrompts.map((qp, idx) => (
+                {getQuickPrompts().map((qp, idx) => (
                   <button
                     key={idx}
                     onClick={() => handleSendMessage(qp.prompt)}
@@ -955,7 +1143,7 @@ export default function MayaAIChat() {
                 ))}
               </div>
 
-              {/* INPUT FORM WITH SWAHILI VOICE RECOGNITION (OFFLINE & ONLINE) */}
+              {/* INPUT FORM WITH SWAHILI VOICE RECOGNITION */}
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -965,12 +1153,11 @@ export default function MayaAIChat() {
                   themeMode === 'dark' ? 'bg-[#0a0a0f] border-white/10' : 'bg-white border-slate-200 shadow-md'
                 }`}
               >
-                {/* Voice listening status banner */}
                 {isListening && (
-                  <div className="absolute -top-10 left-4 right-4 bg-orange-600 text-white text-xs font-bold py-1.5 px-3 rounded-lg shadow-lg flex items-center justify-between animate-pulse">
+                  <div className="absolute -top-10 left-4 right-4 bg-amber-600 text-white text-xs font-bold py-1.5 px-3 rounded-lg shadow-lg flex items-center justify-between animate-pulse">
                     <span className="flex items-center gap-2">
                       <Radio className="w-4 h-4 text-amber-200 animate-spin" />
-                      MAYA anasikiliza sauti yako kwa Kiswahili...
+                      AI anasikiliza sauti yako kwa Kiswahili...
                     </span>
                     <span className="text-[10px] bg-black/30 px-2 py-0.5 rounded uppercase">Sema sasa</span>
                   </div>
@@ -986,7 +1173,7 @@ export default function MayaAIChat() {
                         ? 'bg-neutral-800 hover:bg-neutral-700 text-amber-400 border border-amber-500/30'
                         : 'bg-amber-50 hover:bg-amber-100 text-amber-600 border border-amber-300'
                   }`}
-                  title={isListening ? 'Acha kusikiliza' : 'Ongea kwa sauti ya Kiswahili (Swahili Voice Command)'}
+                  title={isListening ? 'Acha kusikiliza' : 'Ongea kwa sauti ya Kiswahili'}
                 >
                   {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
                 </button>
@@ -995,8 +1182,8 @@ export default function MayaAIChat() {
                   type="text"
                   value={inputMessage}
                   onChange={(e) => setInputMessage(e.target.value)}
-                  placeholder={isListening ? "Anasikiliza sauti..." : "Sema au andika ombi lako kwa MAYA..."}
-                  className={`flex-1 text-xs sm:text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors border ${
+                  placeholder={isListening ? "Anasikiliza sauti..." : `Sema au andika ombi kwa ${getRoleTitle()}...`}
+                  className={`flex-1 text-xs sm:text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-amber-500 transition-colors border ${
                     themeMode === 'dark'
                       ? 'bg-[#161622] border-white/10 text-white placeholder-neutral-500'
                       : 'bg-slate-100 border-slate-200 text-slate-900 placeholder-slate-400 focus:bg-white'
@@ -1007,7 +1194,7 @@ export default function MayaAIChat() {
                 <button
                   type="submit"
                   disabled={!inputMessage.trim() || isLoading}
-                  className="w-11 h-11 bg-orange-600 hover:bg-orange-500 disabled:opacity-40 text-white rounded-xl flex items-center justify-center transition-all shadow-lg shadow-orange-600/30 shrink-0"
+                  className={`w-11 h-11 disabled:opacity-40 text-white rounded-xl flex items-center justify-center transition-all shadow-lg shrink-0 ${getRoleFabStyle()}`}
                 >
                   <Send className="w-5 h-5" />
                 </button>
