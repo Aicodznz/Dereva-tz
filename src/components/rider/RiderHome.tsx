@@ -1177,105 +1177,102 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
           <div class="relative flex flex-col items-start w-full transition-transform duration-200 transform hover:scale-105 filter drop-shadow-[0_6px_12px_rgba(0,0,0,0.25)]">
             
             <!-- Top Slanted Badge Tab -->
-            <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-t-md rounded-tr-xl text-[6.5px] font-bold uppercase tracking-wide leading-none shadow-sm ml-2 z-10 border-t border-x border-emerald-400/40 w-[110px] overflow-hidden">
-              <span class="w-1 h-1 rounded-full bg-white animate-pulse shrink-0"></span>
-              <div class="overflow-hidden min-w-0 flex-1 relative">
-                <span class="badge-text-slide">PICKUP</span>
-              </div>
-            </div>
-
-            <!-- Main White Address Card -->
-            <div class="w-full ${isDark ? 'bg-neutral-900 border-neutral-700 text-white' : 'bg-white border-neutral-200 text-neutral-900'} border rounded-xl rounded-tl-none p-1.5 px-2 shadow-lg flex items-center justify-between gap-1.5 z-20">
-              <div class="flex flex-col min-w-0 flex-1">
-                <span class="text-[6.5px] font-extrabold text-emerald-500 uppercase tracking-wider leading-none mb-0.5">MAHALI PA KUCHUKULIWA</span>
-                <span class="text-[9.5px] font-black truncate leading-tight">${displayAddr}</span>
-                ${etaText ? `<span class="text-[7.5px] font-mono font-bold text-emerald-500 mt-0.5 leading-none bg-emerald-500/10 px-1 py-0.2 rounded w-max">${etaText}</span>` : ''}
-              </div>
-              <div class="w-4 h-4 rounded-full ${isDark ? 'bg-neutral-800 text-neutral-300' : 'bg-neutral-100 text-neutral-600'} flex items-center justify-center shrink-0">
-                <svg class="w-2.5 h-2.5 stroke-current stroke-[3]" fill="none" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
-              </div>
+            <div class="inline-flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-t-lg rounded-tr-xl text-[7.5px] font-black uppercase tracking-wider leading-none shadow-md ml-2 z-10 border-t border-x border-emerald-400/40 w-auto">
+              <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse shrink-0"></span>
+              <span class="font-black whitespace-nowrap">PICKUP</span>
             </div>
           </div>
 
-          <!-- Vertical Connecting Stem Line -->
-          <div class="w-0.5 h-2.5 bg-emerald-500 shadow-sm z-10 -mt-0.5"></div>
-
-          <!-- Ground Pin Dot Base -->
-          <div class="relative flex items-center justify-center -mt-0.5 z-20">
-            <div class="absolute w-4 h-4 rounded-full bg-emerald-500/35 animate-ping"></div>
-            <div class="w-3 h-3 rounded-full bg-emerald-500 border-2 border-white shadow-md flex items-center justify-center">
-              <div class="w-1 h-1 rounded-full bg-white"></div>
+          <!-- Main White Address Card -->
+          <div class="w-full ${isDark ? 'bg-neutral-900 border-neutral-700 text-white' : 'bg-white border-neutral-200 text-neutral-900'} border rounded-xl rounded-tl-none p-1.5 px-2 shadow-lg flex items-center justify-between gap-1.5 z-20">
+            <div class="flex flex-col min-w-0 flex-1">
+              <span class="text-[6.5px] font-extrabold text-emerald-500 uppercase tracking-wider leading-none mb-0.5">MAHALI PA KUCHUKULIWA</span>
+              <span class="text-[9.5px] font-black truncate leading-tight">${displayAddr}</span>
+              ${etaText ? `<span class="text-[7.5px] font-mono font-bold text-emerald-500 mt-0.5 leading-none bg-emerald-500/10 px-1 py-0.2 rounded w-max">${etaText}</span>` : ''}
+            </div>
+            <div class="w-4 h-4 rounded-full ${isDark ? 'bg-neutral-800 text-neutral-300' : 'bg-neutral-100 text-neutral-600'} flex items-center justify-center shrink-0">
+              <svg class="w-2.5 h-2.5 stroke-current stroke-[3]" fill="none" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
             </div>
           </div>
         </div>
-      `,
-      iconSize: [110, 48],
-      iconAnchor: [55, 48],
-    });
-    pinIconCacheMap[key] = icon;
-    return icon;
+
+        <!-- Vertical Connecting Stem Line -->
+        <div class="w-0.5 h-2.5 bg-emerald-500 shadow-sm z-10 -mt-0.5"></div>
+
+        <!-- Ground Pin Dot Base -->
+        <div class="relative flex items-center justify-center -mt-0.5 z-20">
+          <div class="absolute w-4 h-4 rounded-full bg-emerald-500/35 animate-ping"></div>
+          <div class="w-3 h-3 rounded-full bg-emerald-500 border-2 border-white shadow-md flex items-center justify-center">
+            <div class="w-1 h-1 rounded-full bg-white"></div>
+          </div>
+        </div>
+      </div>
+    `,
+    iconSize: [150, 68],
+    iconAnchor: [75, 68],
+  });
+  pinIconCacheMap[key] = icon;
+  return icon;
+};
+
+const getEndPin = (etaText: string) => {
+  const isDark = theme === "dark";
+  const cleanAddr = (addr: string) => {
+    if (!addr) return "Tafuta eneo la dropoff...";
+    const parts = addr.split(",");
+    if (parts.length > 2) {
+      return `${parts[0].trim()}, ${parts[1].trim()}`;
+    }
+    return addr.length > 24 ? addr.substring(0, 22) + "..." : addr;
   };
 
-  const getEndPin = (etaText: string) => {
-    const isDark = theme === "dark";
-    const cleanAddr = (addr: string) => {
-      if (!addr) return "Tafuta eneo la dropoff...";
-      const parts = addr.split(",");
-      if (parts.length > 2) {
-        return `${parts[0].trim()}, ${parts[1].trim()}`;
-      }
-      return addr.length > 24 ? addr.substring(0, 22) + "..." : addr;
-    };
+  const activeDestAddress = activeRide?.destination?.address || incomingRequest?.destination?.address || "Eneo la Kushushwa";
+  const displayAddr = cleanAddr(activeDestAddress);
+  const key = `rider-end-scaled-${isDark}-${displayAddr}-${etaText || ''}`;
+  if (pinIconCacheMap[key]) {
+    return pinIconCacheMap[key];
+  }
 
-    const activeDestAddress = activeRide?.destination?.address || incomingRequest?.destination?.address || "Eneo la Kushushwa";
-    const displayAddr = cleanAddr(activeDestAddress);
-    const key = `rider-end-scaled-${isDark}-${displayAddr}-${etaText || ''}`;
-    if (pinIconCacheMap[key]) {
-      return pinIconCacheMap[key];
-    }
-
-    const icon = L.divIcon({
-      className: "custom-div-icon",
-      html: `
-        <div class="relative flex flex-col items-center select-none transform scale-[0.7] origin-bottom" style="width: 175px;">
-          <!-- DiDi / Uber Style Callout Card Container -->
-          <div class="relative flex flex-col items-start w-full transition-transform duration-200 transform hover:scale-105 filter drop-shadow-[0_6px_12px_rgba(0,0,0,0.25)]">
-            
-            <!-- Top Slanted Badge Tab -->
-            <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-amber-600 to-orange-500 text-white rounded-t-md rounded-tr-xl text-[6.5px] font-bold uppercase tracking-wide leading-none shadow-sm ml-2 z-10 border-t border-x border-amber-400/40 w-[120px] overflow-hidden">
-              <span class="w-1 h-1 rounded-full bg-white animate-pulse shrink-0"></span>
-              <div class="overflow-hidden min-w-0 flex-1 relative">
-                <span class="badge-text-slide">DROP-OFF</span>
-              </div>
-            </div>
-
-            <!-- Main White Address Card -->
-            <div class="w-full ${isDark ? 'bg-neutral-900 border-neutral-700 text-white' : 'bg-white border-neutral-200 text-neutral-900'} border rounded-xl rounded-tl-none p-1.5 px-2 shadow-lg flex items-center justify-between gap-1.5 z-20">
-              <div class="flex flex-col min-w-0 flex-1">
-                <span class="text-[6.5px] font-extrabold text-amber-500 uppercase tracking-wider leading-none mb-0.5">HATIMA YAKO</span>
-                <span class="text-[9.5px] font-black truncate leading-tight">${displayAddr}</span>
-                ${etaText ? `<span class="text-[7.5px] font-mono font-bold text-amber-500 mt-0.5 leading-none bg-amber-500/10 px-1.5 py-0.5 rounded w-max">${etaText}</span>` : ''}
-              </div>
-              <div class="w-4 h-4 rounded-full ${isDark ? 'bg-neutral-800 text-neutral-300' : 'bg-neutral-100 text-neutral-600'} flex items-center justify-center shrink-0">
-                <svg class="w-2.5 h-2.5 stroke-current stroke-[3]" fill="none" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
-              </div>
-            </div>
+  const icon = L.divIcon({
+    className: "custom-div-icon",
+    html: `
+      <div class="relative flex flex-col items-center select-none transform scale-[0.7] origin-bottom" style="width: 175px;">
+        <!-- DiDi / Uber Style Callout Card Container -->
+        <div class="relative flex flex-col items-start w-full transition-transform duration-200 transform hover:scale-105 filter drop-shadow-[0_6px_12px_rgba(0,0,0,0.25)]">
+          
+          <!-- Top Slanted Badge Tab -->
+          <div class="inline-flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-amber-600 to-orange-500 text-white rounded-t-lg rounded-tr-xl text-[7.5px] font-black uppercase tracking-wider leading-none shadow-md ml-2 z-10 border-t border-x border-amber-400/40 w-auto">
+            <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse shrink-0"></span>
+            <span class="font-black whitespace-nowrap">DROP-OFF</span>
           </div>
 
-          <!-- Vertical Connecting Stem Line -->
-          <div class="w-0.5 h-2.5 bg-amber-500 shadow-sm z-10 -mt-0.5"></div>
-
-          <!-- Ground Pin Dot Base -->
-          <div class="relative flex items-center justify-center -mt-0.5 z-20">
-            <div class="absolute w-4 h-4 rounded-full bg-amber-500/35 animate-ping"></div>
-            <div class="w-3 h-3 rounded-full bg-amber-500 border-2 border-white shadow-md flex items-center justify-center">
-              <div class="w-1 h-1 rounded-full bg-white"></div>
+          <!-- Main White Address Card -->
+          <div class="w-full ${isDark ? 'bg-neutral-900 border-neutral-700 text-white' : 'bg-white border-neutral-200 text-neutral-900'} border rounded-xl rounded-tl-none p-1.5 px-2 shadow-lg flex items-center justify-between gap-1.5 z-20">
+            <div class="flex flex-col min-w-0 flex-1">
+              <span class="text-[6.5px] font-extrabold text-amber-500 uppercase tracking-wider leading-none mb-0.5">HATIMA YAKO</span>
+              <span class="text-[9.5px] font-black truncate leading-tight">${displayAddr}</span>
+              ${etaText ? `<span class="text-[7.5px] font-mono font-bold text-amber-500 mt-0.5 leading-none bg-amber-500/10 px-1.5 py-0.5 rounded w-max">${etaText}</span>` : ''}
+            </div>
+            <div class="w-4 h-4 rounded-full ${isDark ? 'bg-neutral-800 text-neutral-300' : 'bg-neutral-100 text-neutral-600'} flex items-center justify-center shrink-0">
+              <svg class="w-2.5 h-2.5 stroke-current stroke-[3]" fill="none" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
             </div>
           </div>
         </div>
-      `,
-      iconSize: [122, 48],
-      iconAnchor: [61, 48],
+
+        <!-- Vertical Connecting Stem Line -->
+        <div class="w-0.5 h-2.5 bg-amber-500 shadow-sm z-10 -mt-0.5"></div>
+
+        <!-- Ground Pin Dot Base -->
+        <div class="relative flex items-center justify-center -mt-0.5 z-20">
+          <div class="absolute w-4 h-4 rounded-full bg-amber-500/35 animate-ping"></div>
+          <div class="w-3 h-3 rounded-full bg-amber-500 border-2 border-white shadow-md flex items-center justify-center">
+            <div class="w-1 h-1 rounded-full bg-white"></div>
+          </div>
+        </div>
+      </div>
+    `,
+    iconSize: [175, 68],
+    iconAnchor: [87, 68],
     });
     pinIconCacheMap[key] = icon;
     return icon;
