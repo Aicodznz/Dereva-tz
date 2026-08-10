@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { MapPin, Search, ChevronDown, Sun, Moon, ShoppingCart, MessageSquare, Receipt, LogOut, Bike, Car, Bot } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { MapPin, Search, ChevronDown, Sun, Moon, ShoppingCart, MessageSquare, Receipt, LogOut, Bike, Car, Bot, Bell } from 'lucide-react';
 import { useLanguage } from '../LanguageContext';
 import { useTheme } from 'next-themes';
 import { motion, AnimatePresence, useScroll, useMotionValueEvent } from 'motion/react';
@@ -7,6 +7,8 @@ import { useHeader } from '../HeaderContext';
 import { useCart } from '../CartContext';
 import { useAuth } from '../AuthContext';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { db } from '../firebase';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 
 export default function Header() {
   const { language, setLanguage, t, isRTL } = useLanguage();
@@ -19,6 +21,25 @@ export default function Header() {
   const [showLangMenu, setShowLangMenu] = React.useState(false);
   const [isChangingLanguage, setIsChangingLanguage] = useState(false);
   const [targetLangName, setTargetLangName] = useState('');
+  const [unreadNotifsCount, setUnreadNotifsCount] = useState(0);
+
+  useEffect(() => {
+    if (!user?.uid) {
+      setUnreadNotifsCount(0);
+      return;
+    }
+    const q = query(
+      collection(db, 'notifications'),
+      where('userId', '==', user.uid),
+      where('isRead', '==', false)
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      setUnreadNotifsCount(snap.size);
+    }, (err) => {
+      console.warn("Header unread notifications listener error", err);
+    });
+    return () => unsub();
+  }, [user?.uid]);
   
   const { scrollY } = useScroll();
   const [hidden, setHidden] = useState(false);
@@ -149,9 +170,31 @@ export default function Header() {
           <button 
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
             className="w-9 h-9 md:w-10 md:h-10 flex items-center justify-center rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 transition-all"
+            title="Badili Mandhari (Theme Toggle)"
           >
             {theme === 'dark' ? <Moon className="w-4 h-4 text-blue-400" /> : <Sun className="w-4 h-4 text-orange-500" />}
           </button>
+
+          {/* Notification Icon (Right next to Theme Toggle) */}
+          <Link
+            to="/notifications"
+            className="w-9 h-9 md:w-10 md:h-10 flex items-center justify-center rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 transition-all relative"
+            title="Arifa Na Taarifa (Notifications)"
+          >
+            <Bell className="w-4.5 h-4.5 text-neutral-700 dark:text-neutral-300" />
+            <AnimatePresence>
+              {unreadNotifsCount > 0 && (
+                <motion.span 
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  exit={{ scale: 0 }}
+                  className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-orange-600 text-white text-[9px] font-black flex items-center justify-center rounded-full border-2 border-white dark:border-neutral-900 shadow-sm"
+                >
+                  {unreadNotifsCount > 9 ? '9+' : unreadNotifsCount}
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </Link>
 
           {/* Persistent Cart Icon for Tablet/Desktop */}
           <button 
