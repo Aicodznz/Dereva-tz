@@ -1164,7 +1164,11 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
 
     const activePickupAddress = activeRide?.pickup?.address || incomingRequest?.pickup?.address || "Pickup Eneo";
     const displayAddr = cleanAddr(activePickupAddress);
-    const key = `rider-start-scaled-${isDark}-${displayAddr}-${etaText || ''}`;
+    const activeCustomer = activeRide?.customerInfo || incomingRequest?.customerInfo;
+    const customerPhoto = activeCustomer?.photo || activeCustomer?.avatar || (activeRide?.customerId ? `https://api.dicebear.com/7.x/avataaars/svg?seed=${activeRide.customerId}` : (incomingRequest?.customerId ? `https://api.dicebear.com/7.x/avataaars/svg?seed=${incomingRequest.customerId}` : null));
+    const customerName = activeCustomer?.name || "Mteja";
+
+    const key = `rider-start-scaled-${isDark}-${displayAddr}-${etaText || ''}-${customerPhoto || ''}`;
     if (pinIconCacheMap[key]) {
       return pinIconCacheMap[key];
     }
@@ -1172,7 +1176,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
     const icon = L.divIcon({
       className: "custom-div-icon",
       html: `
-        <div class="relative flex flex-col items-center select-none transform scale-[0.7] origin-bottom" style="width: 150px;">
+        <div class="relative flex flex-col items-center select-none transform scale-[0.7] origin-bottom" style="width: 175px;">
           <!-- DiDi / Uber Style Callout Card Container -->
           <div class="relative flex flex-col items-start w-full transition-transform duration-200 transform hover:scale-105 filter drop-shadow-[0_6px_12px_rgba(0,0,0,0.25)]">
             
@@ -1195,8 +1199,13 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
               <span class="text-[9.5px] font-black truncate leading-tight">${displayAddr}</span>
               ${etaText ? `<span class="text-[7.5px] font-mono font-bold text-emerald-500 mt-0.5 leading-none bg-emerald-500/10 px-1 py-0.2 rounded w-max">${etaText}</span>` : ''}
             </div>
-            <div class="w-4 h-4 rounded-full ${isDark ? 'bg-neutral-800 text-neutral-300' : 'bg-neutral-100 text-neutral-600'} flex items-center justify-center shrink-0">
-              <svg class="w-2.5 h-2.5 stroke-current stroke-[3]" fill="none" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+            
+            <!-- Customer Profile Picture Avatar -->
+            <div class="w-6.5 h-6.5 rounded-full border-2 border-emerald-500 overflow-hidden bg-neutral-100 dark:bg-neutral-800 shrink-0 shadow-sm flex items-center justify-center">
+              ${customerPhoto 
+                ? `<img src="${customerPhoto}" class="w-full h-full object-cover" alt="${customerName}" />`
+                : `<span class="text-[9px] font-black text-emerald-600">${customerName.charAt(0)}</span>`
+              }
             </div>
           </div>
         </div>
@@ -1213,8 +1222,8 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
         </div>
       </div>
     `,
-    iconSize: [150, 68],
-    iconAnchor: [75, 68],
+    iconSize: [175, 68],
+    iconAnchor: [87, 68],
   });
   pinIconCacheMap[key] = icon;
   return icon;

@@ -113,6 +113,39 @@ export default function IncomingRideCard({ ride, onAccept, onDecline, onTimeout,
           </div>
         </div>
 
+        {/* Customer Profile Picture & Name Card */}
+        <div className={`flex items-center justify-between p-2 rounded-xl border ${
+          isDark ? 'bg-[#0a0a0f]/60 border-neutral-800/60' : 'bg-neutral-50 border-neutral-200/80'
+        }`}>
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-indigo-500 shrink-0 shadow-md bg-neutral-200 dark:bg-neutral-800 flex items-center justify-center">
+              <img 
+                src={ride.customerInfo?.photo || ride.customerInfo?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${ride.customerId || 'Mteja'}`} 
+                alt={ride.customerInfo?.name || "Mteja"} 
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <div className="text-left">
+              <div className="flex items-center gap-1">
+                <span className="text-[8px] font-black uppercase tracking-wider text-indigo-500 bg-indigo-500/10 px-1.5 py-0.2 rounded">
+                  MTEJA
+                </span>
+                <span className="text-[9.5px] font-black text-amber-500 flex items-center gap-0.5">
+                  ★ {ride.customerInfo?.rating?.toFixed(1) || '5.0'}
+                </span>
+              </div>
+              <h4 className="text-xs font-black italic uppercase text-neutral-850 dark:text-white leading-tight mt-0.5 truncate max-w-[150px]">
+                {ride.customerInfo?.name || "Mteja wetu"}
+              </h4>
+            </div>
+          </div>
+          {ride.customerInfo?.phone && (
+            <span className="text-[9.5px] font-mono font-bold text-neutral-400 dark:text-neutral-500 bg-neutral-100 dark:bg-neutral-800 px-2 py-1 rounded-md">
+              {ride.customerInfo.phone}
+            </span>
+          )}
+        </div>
+
         {/* Compact Vertical Route Details */}
         <div className={`relative p-3 rounded-xl border space-y-3 ${
           isDark 

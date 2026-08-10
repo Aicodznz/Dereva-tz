@@ -2037,7 +2037,9 @@ export default function TaxiBooking() {
     };
 
     const displayAddr = cleanAddr(pickup);
-    const key = `taxi-start-scaled-${isDark}-${displayAddr}-${etaText || ''}`;
+    const userPhoto = profile?.photoURL || user?.photoURL || null;
+    const userName = profile?.displayName || user?.displayName || "Mteja";
+    const key = `taxi-start-scaled-${isDark}-${displayAddr}-${etaText || ''}-${userPhoto || ''}`;
     if (taxiPinIconCacheMap[key]) {
       return taxiPinIconCacheMap[key];
     }
@@ -2045,7 +2047,7 @@ export default function TaxiBooking() {
     const icon = L.divIcon({
       className: "custom-div-icon",
       html: `
-        <div class="relative flex flex-col items-center select-none transform scale-[0.7] origin-bottom" style="width: 150px;">
+        <div class="relative flex flex-col items-center select-none transform scale-[0.7] origin-bottom" style="width: 175px;">
           <!-- DiDi / Uber Style Callout Card Container -->
           <div class="relative flex flex-col items-start w-full transition-transform duration-200 transform hover:scale-105 filter drop-shadow-[0_6px_12px_rgba(0,0,0,0.25)]">
             
@@ -2068,8 +2070,13 @@ export default function TaxiBooking() {
               <span class="text-[9.5px] font-black truncate leading-tight">${displayAddr}</span>
               ${etaText ? `<span class="text-[7.5px] font-mono font-bold text-emerald-500 mt-0.5 leading-none bg-emerald-500/10 px-1 py-0.2 rounded w-max">${etaText}</span>` : ''}
             </div>
-            <div class="w-4 h-4 rounded-full ${isDark ? 'bg-neutral-800 text-neutral-300' : 'bg-neutral-100 text-neutral-600'} flex items-center justify-center shrink-0">
-              <svg class="w-2.5 h-2.5 stroke-current stroke-[3]" fill="none" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+            
+            <!-- User Profile Picture Avatar -->
+            <div class="w-6.5 h-6.5 rounded-full border-2 border-emerald-500 overflow-hidden bg-neutral-100 dark:bg-neutral-800 shrink-0 shadow-sm flex items-center justify-center">
+              ${userPhoto 
+                ? `<img src="${userPhoto}" class="w-full h-full object-cover" alt="${userName}" />`
+                : `<span class="text-[9px] font-black text-emerald-600">${userName.charAt(0)}</span>`
+              }
             </div>
           </div>
         </div>
@@ -2086,8 +2093,8 @@ export default function TaxiBooking() {
         </div>
       </div>
     `,
-    iconSize: [150, 68],
-    iconAnchor: [75, 68],
+    iconSize: [175, 68],
+    iconAnchor: [87, 68],
   });
   taxiPinIconCacheMap[key] = icon;
   return icon;

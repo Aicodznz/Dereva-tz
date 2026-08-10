@@ -97,7 +97,7 @@ export default function DriverTripSheet({ ride, onArrive, onStart, onComplete, o
              <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-8 h-8 rounded-lg bg-neutral-800 overflow-hidden border border-neutral-200 dark:border-neutral-800">
                    <img 
-                      src={ride.customerInfo?.photo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${ride.customerId}`} 
+                      src={ride.customerInfo?.photo || ride.customerInfo?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${ride.customerId}`} 
                       alt={ride.customerInfo?.name}
                       className="w-full h-full object-cover"
                    />
@@ -119,7 +119,7 @@ export default function DriverTripSheet({ ride, onArrive, onStart, onComplete, o
               <div className="flex items-center gap-2.5 min-w-0">
                  <div className="w-10 h-10 rounded-xl bg-neutral-100 dark:bg-neutral-800 overflow-hidden border border-neutral-200 dark:border-neutral-800 shrink-0 shadow-sm">
                     <img 
-                       src={ride.customerInfo?.photo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${ride.customerId}`} 
+                       src={ride.customerInfo?.photo || ride.customerInfo?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${ride.customerId}`} 
                        alt={ride.customerInfo?.name}
                        className="w-full h-full object-cover"
                     />
