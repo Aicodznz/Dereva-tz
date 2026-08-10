@@ -658,109 +658,107 @@ export default function MayaAIChat() {
               </AnimatePresence>
 
               {/* HEADER */}
-              <div className={`p-4 sm:p-5 border-b flex items-center justify-between shrink-0 transition-colors duration-300 ${
+              <div className={`px-4 py-3 border-b flex items-center justify-between shrink-0 transition-colors duration-300 ${
                 themeMode === 'dark'
-                  ? 'bg-gradient-to-r from-[#181824] via-[#1f1f2e] to-[#181824] border-white/10'
-                  : 'bg-gradient-to-r from-white via-slate-100 to-white border-slate-200/90 shadow-xs'
+                  ? 'bg-[#181824] border-white/10'
+                  : 'bg-white border-slate-200/90 shadow-xs'
               }`}>
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-orange-600 to-amber-400 flex items-center justify-center shadow-lg shadow-orange-500/20 border border-white/20">
-                    <Sparkles className="w-6 h-6 text-white" />
+                {/* LEFT: AVATAR & INFO */}
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-orange-600 to-amber-400 flex items-center justify-center shadow-md shadow-orange-500/20 border border-white/20 shrink-0">
+                    <Sparkles className="w-5 h-5 text-white" />
                   </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className={`font-black text-base tracking-tight uppercase ${themeMode === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <h3 className={`font-black text-sm tracking-tight uppercase truncate ${themeMode === 'dark' ? 'text-white' : 'text-slate-900'}`}>
                         MAYA AI
                       </h3>
-                      <span className="bg-orange-500/20 text-orange-500 border border-orange-500/30 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest">
-                        Papo Hapo 🇹🇿
+                      <span className="bg-orange-500/20 text-orange-500 border border-orange-500/30 px-1.5 py-0.2 rounded-full text-[8px] font-black uppercase tracking-wider shrink-0">
+                        🇹🇿 PAPO
                       </span>
                     </div>
-                    <div className={`flex items-center gap-1.5 text-[11px] font-medium mt-0.5 ${themeMode === 'dark' ? 'text-neutral-400' : 'text-slate-500'}`}>
-                      <span>Mtanzania Kidijitali</span>
-                      <span>•</span>
-                      <button 
-                        onClick={fetchCurrentLocation}
-                        className={`flex items-center gap-1 hover:underline font-semibold px-1.5 py-0.5 rounded border text-[10px] transition-colors ${
-                          themeMode === 'dark' 
-                            ? 'text-amber-300 bg-amber-500/10 border-amber-500/20' 
-                            : 'text-amber-700 bg-amber-50 border-amber-200'
-                        }`}
-                        title="Bonyeza kuhuisha eneo lako halisi la sasa (GPS Location)"
-                      >
-                        <MapPin className={`w-3 h-3 text-amber-500 ${isLocating ? 'animate-spin' : ''}`} />
-                        <span className="truncate max-w-[120px]">{userLocation}</span>
-                      </button>
-                    </div>
+                    <button 
+                      onClick={fetchCurrentLocation}
+                      className={`flex items-center gap-1 font-semibold text-[10px] transition-colors truncate max-w-[130px] ${
+                        themeMode === 'dark' ? 'text-amber-300/90 hover:text-amber-300' : 'text-amber-700 hover:text-amber-900'
+                      }`}
+                      title="Bonyeza kuhuisha eneo lako halisi (GPS)"
+                    >
+                      <MapPin className={`w-3 h-3 text-amber-500 shrink-0 ${isLocating ? 'animate-spin' : ''}`} />
+                      <span className="truncate">{userLocation}</span>
+                    </button>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1.5">
-                  {/* LIGHT / NIGHT MODE TOGGLE */}
-                  <button
-                    onClick={() => {
-                      const nextMode = themeMode === 'dark' ? 'light' : 'dark';
-                      setThemeMode(nextMode);
-                      toast.info(nextMode === 'light' ? '💡 Light Mode imewashwa' : '🌙 Night Mode imewashwa');
-                    }}
-                    className={`p-2 rounded-full border transition-all ${
-                      themeMode === 'dark' 
-                        ? 'bg-neutral-800 border-white/10 text-amber-300 hover:bg-neutral-700' 
-                        : 'bg-amber-100 border-amber-300 text-amber-800 hover:bg-amber-200'
-                    }`}
-                    title={themeMode === 'dark' ? 'Badili kwenda Light Mode 💡' : 'Badili kwenda Night Mode 🌙'}
-                  >
-                    {themeMode === 'dark' ? <Sun className="w-4 h-4 text-amber-300" /> : <Moon className="w-4 h-4 text-slate-800" />}
-                  </button>
+                {/* RIGHT: CONTROLS & PROMINENT CLOSE BUTTON */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {/* COMPACT TOOLBAR PILL */}
+                  <div className={`flex items-center p-1 rounded-full border ${
+                    themeMode === 'dark' ? 'bg-[#111118] border-white/10' : 'bg-slate-100 border-slate-200'
+                  }`}>
+                    {/* LIGHT / NIGHT MODE TOGGLE */}
+                    <button
+                      onClick={() => {
+                        const nextMode = themeMode === 'dark' ? 'light' : 'dark';
+                        setThemeMode(nextMode);
+                        toast.info(nextMode === 'light' ? '💡 Light Mode' : '🌙 Night Mode');
+                      }}
+                      className={`p-1.5 rounded-full transition-all ${
+                        themeMode === 'dark' 
+                          ? 'text-amber-300 hover:bg-white/10' 
+                          : 'text-amber-600 hover:bg-slate-200'
+                      }`}
+                      title={themeMode === 'dark' ? 'Light Mode 💡' : 'Night Mode 🌙'}
+                    >
+                      {themeMode === 'dark' ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+                    </button>
 
-                  {/* CLEAR ALL MESSAGES BUTTON */}
-                  <button
-                    onClick={() => setShowClearConfirm(true)}
-                    className={`p-2 rounded-full border transition-all ${
-                      themeMode === 'dark'
-                        ? 'bg-red-950/40 border-red-900/50 text-red-400 hover:bg-red-900/60'
-                        : 'bg-red-50 border-red-200 text-red-600 hover:bg-red-100'
-                    }`}
-                    title="Futa Meseji Zote (Clear All Messages)"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                    {/* AUTO VOICE TOGGLE */}
+                    <button
+                      onClick={() => {
+                        const nextState = !autoVoiceEnabled;
+                        setAutoVoiceEnabled(nextState);
+                        if (!nextState && 'speechSynthesis' in window) {
+                          window.speechSynthesis.cancel();
+                          setCurrentlySpeakingId(null);
+                        }
+                        toast.info(nextState ? 'Sauti: Wazi' : 'Sauti: Imefungwa');
+                      }}
+                      className={`p-1.5 rounded-full transition-all ${
+                        autoVoiceEnabled 
+                          ? 'text-amber-500' 
+                          : (themeMode === 'dark' ? 'text-neutral-500 hover:bg-white/10' : 'text-slate-400 hover:bg-slate-200')
+                      }`}
+                      title={autoVoiceEnabled ? 'Sauti Wazi' : 'Sauti Imefungwa'}
+                    >
+                      {autoVoiceEnabled ? <Volume2 className="w-3.5 h-3.5 animate-pulse" /> : <VolumeX className="w-3.5 h-3.5" />}
+                    </button>
 
-                  {/* AUTO VOICE TOGGLE */}
-                  <button
-                    onClick={() => {
-                      const nextState = !autoVoiceEnabled;
-                      setAutoVoiceEnabled(nextState);
-                      if (!nextState && 'speechSynthesis' in window) {
-                        window.speechSynthesis.cancel();
-                        setCurrentlySpeakingId(null);
-                      }
-                      toast.info(nextState ? 'Sauti ya MAYA: Wazi (Inasoma majibu)' : 'Sauti ya MAYA: Imefungwa');
-                    }}
-                    className={`p-2 rounded-full border transition-all ${
-                      autoVoiceEnabled 
-                        ? (themeMode === 'dark' ? 'bg-amber-500/20 border-amber-500/50 text-amber-300' : 'bg-amber-100 border-amber-300 text-amber-800')
-                        : (themeMode === 'dark' ? 'bg-neutral-800 border-white/10 text-neutral-400' : 'bg-slate-200 border-slate-300 text-slate-500')
-                    }`}
-                    title={autoVoiceEnabled ? 'Sauti imewaka (Inasoma jibu kiotomatiki)' : 'Sauti imezimwa'}
-                  >
-                    {autoVoiceEnabled ? <Volume2 className="w-4 h-4 text-amber-500 animate-pulse" /> : <VolumeX className="w-4 h-4" />}
-                  </button>
+                    {/* CLEAR ALL MESSAGES BUTTON */}
+                    <button
+                      onClick={() => setShowClearConfirm(true)}
+                      className={`p-1.5 rounded-full transition-all ${
+                        themeMode === 'dark'
+                          ? 'text-red-400 hover:bg-red-950/50'
+                          : 'text-red-500 hover:bg-red-50'
+                      }`}
+                      title="Futa Meseji Zote"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
 
-                  {/* CLOSE BUTTON */}
+                  {/* PROMINENT HIGH-CONTRAST CLOSE BUTTON */}
                   <button
                     onClick={() => {
                       if ('speechSynthesis' in window) window.speechSynthesis.cancel();
                       setCurrentlySpeakingId(null);
                       setIsOpen(false);
                     }}
-                    className={`p-2 rounded-full border transition-colors ${
-                      themeMode === 'dark' 
-                        ? 'bg-white/5 border-white/10 text-neutral-400 hover:text-white hover:bg-white/10' 
-                        : 'bg-slate-200/80 border-slate-300 text-slate-600 hover:text-slate-900 hover:bg-slate-300'
-                    }`}
+                    className="w-8 h-8 rounded-full bg-red-600/90 hover:bg-red-600 text-white font-bold flex items-center justify-center transition-transform active:scale-90 shadow-md shadow-red-600/20 shrink-0 border border-red-400/30"
+                    title="Funga (Close)"
                   >
-                    <X className="w-4 h-4" />
+                    <X className="w-4 h-4 stroke-[2.5]" />
                   </button>
                 </div>
               </div>
