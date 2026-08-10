@@ -776,51 +776,44 @@ export default function CustomerDashboard() {
               }}
             >
               <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                {currentSlide.type === 'greeting' ? (
-                  <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
-                    {profile?.photoURL ? (
-                      <img src={profile.photoURL} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="text-white font-black text-xl tracking-tight">
-                        {profile?.displayName?.charAt(0) || 'U'}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="w-12 h-12 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center shrink-0 shadow-lg shadow-amber-400/30">
-                    <Megaphone className="w-6 h-6 animate-bounce" />
-                  </div>
-                )}
+                {/* Brand / Slide Icon (No profile picture) */}
+                <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center shrink-0 shadow-md">
+                  {currentSlide.type === 'greeting' ? (
+                    <Sparkles className="w-6 h-6 text-amber-200 animate-pulse" />
+                  ) : (
+                    <Megaphone className="w-6 h-6 text-amber-300 animate-bounce" />
+                  )}
+                </div>
 
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="bg-black/20 text-white text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-white/20">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="bg-black/25 backdrop-blur-md text-amber-200 text-[9px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full border border-white/20 shadow-xs">
                       {currentSlide.tag}
                     </span>
                     {allSlides.length > 1 && (
-                      <span className="text-[9px] text-amber-200 font-bold tracking-wider">
+                      <span className="text-[10px] text-amber-100/90 font-mono font-bold tracking-wider bg-white/10 px-1.5 py-0.2 rounded-md">
                         {currentSlideIndex + 1}/{allSlides.length}
                       </span>
                     )}
                   </div>
 
-                  <div className="overflow-hidden w-full relative my-0.5">
-                    <div className="animate-marquee-text flex items-center" style={{ animationDuration: '10s' }}>
-                      <h2 className="text-base sm:text-lg font-black italic uppercase leading-tight tracking-tight text-white whitespace-nowrap pr-8">
+                  <div className="overflow-hidden w-full relative my-0.5 [mask-image:linear-gradient(to_right,transparent,black_8px,black_calc(100%-8px),transparent)]">
+                    <div className="animate-marquee-text flex items-center" style={{ animationDuration: '11s' }}>
+                      <h2 className="text-sm sm:text-base md:text-lg font-black italic uppercase leading-tight tracking-tight text-white whitespace-nowrap pr-8 drop-shadow-xs">
                         {currentSlide.title}
                       </h2>
-                      <h2 className="text-base sm:text-lg font-black italic uppercase leading-tight tracking-tight text-white whitespace-nowrap pr-8">
+                      <h2 className="text-sm sm:text-base md:text-lg font-black italic uppercase leading-tight tracking-tight text-white whitespace-nowrap pr-8 drop-shadow-xs">
                         {currentSlide.title}
                       </h2>
                     </div>
                   </div>
 
-                  <div className="overflow-hidden w-full relative">
-                    <div className="animate-marquee-text flex items-center" style={{ animationDuration: '14s' }}>
-                      <p className="text-xs text-amber-100 font-medium leading-snug whitespace-nowrap pr-8">
+                  <div className="overflow-hidden w-full relative [mask-image:linear-gradient(to_right,transparent,black_8px,black_calc(100%-8px),transparent)]">
+                    <div className="animate-marquee-text flex items-center" style={{ animationDuration: '15s' }}>
+                      <p className="text-xs text-amber-100 font-medium leading-snug whitespace-nowrap pr-8 opacity-95">
                         {currentSlide.subtitle}
                       </p>
-                      <p className="text-xs text-amber-100 font-medium leading-snug whitespace-nowrap pr-8">
+                      <p className="text-xs text-amber-100 font-medium leading-snug whitespace-nowrap pr-8 opacity-95">
                         {currentSlide.subtitle}
                       </p>
                     </div>
