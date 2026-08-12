@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { storageService } from '../services/storageService';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
@@ -1143,37 +1144,41 @@ export default function ProductDetail() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-950 lg:bg-neutral-50 lg:dark:bg-neutral-950 pb-36 lg:pb-16 transition-colors">
-      {/* AR Viewer Overlay */}
-      <AnimatePresence>
-        {showARView && product?.model3dUrl && (
+      {/* AR Viewer Overlay Modal Portal */}
+      {showARView && product?.model3dUrl && createPortal(
+        <AnimatePresence>
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[2000] bg-black flex flex-col"
+            className="fixed inset-0 z-[999999] bg-black flex flex-col overflow-hidden"
           >
-            <div className="p-6 flex items-center justify-between z-[2001] bg-gradient-to-b from-black/90 via-black/40 to-transparent absolute top-0 inset-x-0 h-32">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-orange-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-orange-600/30">
-                  <Box className="w-7 h-7" />
+            {/* Solid Dark Header Bar */}
+            <div className="px-4 py-2.5 flex items-center justify-between z-[999999] bg-black/95 backdrop-blur-2xl border-b border-white/15 absolute top-0 inset-x-0 h-16 shadow-2xl">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-tr from-orange-600 to-amber-500 rounded-xl flex items-center justify-center text-white shadow-md shadow-orange-600/30 shrink-0">
+                  <Box className="w-5 h-5" />
                 </div>
-                <div>
-                  <h3 className="text-white font-black italic text-xl uppercase tracking-tighter leading-none">{product.name}</h3>
-                  <div className="flex items-center gap-2 mt-1">
-                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                    <p className="text-white/60 text-[10px] font-black uppercase tracking-widest">AR Experience Live</p>
+                <div className="overflow-hidden">
+                  <h3 className="text-white font-black italic text-base sm:text-lg uppercase tracking-tight truncate leading-tight max-w-[200px] sm:max-w-md">{product.name}</h3>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                    <p className="text-emerald-400 text-[10px] font-black uppercase tracking-widest">AR Experience Live</p>
                   </div>
                 </div>
               </div>
+
               <button 
                 onClick={() => setShowARView(false)}
-                className="w-12 h-12 bg-white/10 hover:bg-white text-white hover:text-black rounded-2xl flex items-center justify-center backdrop-blur-xl transition-all active:scale-90 border border-white/20"
+                className="w-10 h-10 bg-white/10 hover:bg-white text-white hover:text-black rounded-full flex items-center justify-center backdrop-blur-xl transition-all active:scale-90 border border-white/20 shrink-0"
+                title="Funga AR"
               >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="flex-1 relative bg-neutral-950 overflow-hidden">
+            {/* Main Interactive 3D / Camera Canvas */}
+            <div className="flex-1 relative bg-black overflow-hidden pt-16">
               {/* Background Live Camera Feed */}
               <video
                 ref={videoRef}
@@ -1186,7 +1191,7 @@ export default function ProductDetail() {
               />
 
               {checkIfPageOrWebAR(product?.model3dUrl || '') ? (
-                <div className="w-full h-full flex flex-col pt-20 bg-neutral-900 relative z-10">
+                <div className="w-full h-full flex flex-col pt-16 bg-neutral-950 relative z-10">
                   <iframe
                     id="main-webar-iframe"
                     src={format3dUrl(product?.model3dUrl || '')}
@@ -1196,10 +1201,10 @@ export default function ProductDetail() {
                     title={`WebAR for ${product.name}`}
                   />
                   <div className="absolute bottom-6 inset-x-0 flex flex-col items-center gap-3 pointer-events-none z-20">
-                    <div className="bg-black/90 backdrop-blur-md px-6 py-2.5 rounded-full border border-white/10 shadow-2xl">
+                    <div className="bg-black/90 backdrop-blur-md px-6 py-2 rounded-full border border-white/15 shadow-2xl">
                       <p className="text-white text-xs font-black uppercase tracking-wider flex items-center gap-2">
                         <Smartphone className="w-4 h-4 text-orange-500 animate-bounce" />
-                        Gusa & Zungusha Model 3D • Bonyeza AR kwenye Viewer
+                        Gusa & Zungusha Model 3D
                       </p>
                     </div>
                   </div>
@@ -1227,62 +1232,60 @@ export default function ProductDetail() {
                     style={{ 
                       width: '100%', 
                       height: '100%', 
-                      backgroundColor: isLiveCameraActive ? 'transparent' : 'rgba(10, 10, 15, 0.95)' 
+                      backgroundColor: isLiveCameraActive ? 'transparent' : '#09090b' 
                     }}
                   >
-                    <div slot="ar-failure" className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center p-8 text-center gap-4 z-[2003]">
-                       <div className="w-20 h-20 bg-red-600/20 rounded-full flex items-center justify-center text-red-500 mb-4">
-                          <Box className="w-10 h-10" />
+                    <div slot="ar-failure" className="absolute inset-0 bg-black/95 flex flex-col items-center justify-center p-8 text-center gap-4 z-[2003]">
+                       <div className="w-16 h-16 bg-red-600/20 rounded-2xl flex items-center justify-center text-red-500 mb-2">
+                          <Box className="w-8 h-8" />
                        </div>
-                       <h4 className="text-white font-black italic text-xl uppercase tracking-tighter">AR Native haipatikani</h4>
-                       <p className="text-white/60 text-sm max-w-xs font-medium">
+                       <h4 className="text-white font-black italic text-lg uppercase tracking-tight">AR Native haipatikani</h4>
+                       <p className="text-white/70 text-xs max-w-xs font-medium leading-relaxed">
                          {isModelValid(product?.model3dUrl || '') 
-                           ? "Simu yako haina WebXR/SceneViewer. Tumia kitufe cha 'Washa Kamera Ya Live' chini kuona chakula kwenye kamera yako."
-                           : "Bidhaa hii haina faili halali la 3D (GLB) au kiungo sahihi cha Kivicube/Sketchfab."
+                           ? "Simu yako haina WebXR/SceneViewer. Tumia kitufe cha 'Washa Kamera' chini kuona chakula kwenye kamera yako."
+                           : "Bidhaa hii haina faili halali la 3D (.glb)."
                          }
                        </p>
                        <button 
                          onClick={() => setShowARView(false)}
-                         className="mt-4 px-6 py-2 bg-white/10 hover:bg-white text-white hover:text-black rounded-xl font-bold transition-all"
+                         className="mt-2 px-6 py-2.5 bg-white/10 hover:bg-white text-white hover:text-black rounded-xl font-bold text-xs uppercase tracking-wider transition-all"
                        >
-                         Rudi nyuma
+                         Rudi Nyuma
                        </button>
                     </div>
                     {/* @ts-ignore */}
                   </model-viewer>
 
-                  {/* Interactive AR & Camera Floating Control Toolbar */}
-                  <div className="absolute bottom-6 inset-x-0 z-30 flex flex-col items-center gap-3 px-4">
-                    <div className="flex items-center justify-center flex-wrap gap-2 max-w-md w-full bg-black/80 backdrop-blur-xl p-2.5 rounded-3xl border border-white/20 shadow-2xl">
+                  {/* Sleek Floating Bottom Control Dock */}
+                  <div className="absolute bottom-6 inset-x-0 z-[999999] flex flex-col items-center gap-2 px-4 pointer-events-none">
+                    <div className="pointer-events-auto flex items-center justify-between gap-2 max-w-sm sm:max-w-md w-full bg-black/90 backdrop-blur-2xl p-2 rounded-full border border-white/20 shadow-2xl">
                       {/* Live Camera Toggle Button */}
                       <button
                         onClick={isLiveCameraActive ? stopLiveCamera : startLiveCamera}
-                        className={`px-5 py-3 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center gap-2.5 transition-all active:scale-95 shadow-lg ${
+                        className={`px-4 py-2.5 rounded-full font-black text-xs uppercase tracking-wider flex items-center gap-2 transition-all active:scale-95 shadow-md ${
                           isLiveCameraActive
-                            ? 'bg-red-600 text-white shadow-red-600/40'
+                            ? 'bg-red-600 text-white shadow-red-600/30'
                             : 'bg-gradient-to-r from-orange-600 to-amber-500 text-white shadow-orange-600/30 hover:brightness-110'
                         }`}
                       >
                         <Camera className="w-4 h-4" />
-                        <span>{isLiveCameraActive ? 'Zima Kamera' : '📷 Washa Kamera (Live AR)'}</span>
+                        <span>{isLiveCameraActive ? 'Zima Kamera' : '📷 Washa Kamera'}</span>
                       </button>
 
                       {/* Auto Rotate Toggle */}
                       <button
                         onClick={() => setAutoRotate3D(!autoRotate3D)}
-                        className={`p-3 rounded-2xl text-white border transition-all active:scale-95 ${
+                        className={`px-3 py-2.5 rounded-full text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5 border ${
                           autoRotate3D 
-                            ? 'bg-orange-600/30 border-orange-500/60 text-orange-400' 
-                            : 'bg-white/10 border-white/20 text-white/70 hover:bg-white/20'
+                            ? 'bg-orange-500/20 border-orange-500/50 text-orange-400' 
+                            : 'bg-white/10 border-white/15 text-white/70 hover:bg-white/20'
                         }`}
                         title="Zungusha 360°"
                       >
-                        <span className="text-xs font-bold uppercase flex items-center gap-1.5">
-                          🔄 {autoRotate3D ? 'Spin ON' : 'Spin OFF'}
-                        </span>
+                        <span>🔄 {autoRotate3D ? 'Spin ON' : 'Spin OFF'}</span>
                       </button>
 
-                      {/* Native Device AR Trigger Button */}
+                      {/* Native AR Mode Button */}
                       <button
                         onClick={() => {
                           const viewer = document.getElementById('main-ar-viewer') as any;
@@ -1292,17 +1295,17 @@ export default function ProductDetail() {
                             if (!isLiveCameraActive) startLiveCamera();
                           }
                         }}
-                        className="p-3 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-2xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5"
+                        className="px-3 py-2.5 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-full text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5"
                         title="Tazama katika AR ya simu"
                       >
-                        <Smartphone className="w-4 h-4 text-orange-400" />
+                        <Smartphone className="w-3.5 h-3.5 text-orange-400" />
                         <span>AR Mode</span>
                       </button>
                     </div>
 
-                    <div className="bg-black/60 backdrop-blur-md px-5 py-1.5 rounded-full border border-white/10">
-                      <p className="text-white/80 text-[10px] font-bold text-center tracking-wide">
-                        💡 Tumia kidole kimoja kuzungusha 360° • Vidole viwili kukuza & kusogeza
+                    <div className="pointer-events-auto bg-black/70 backdrop-blur-md px-4 py-1 rounded-full border border-white/10 shadow-lg">
+                      <p className="text-white/80 text-[10px] font-semibold text-center tracking-wide">
+                        💡 Kidole 1: Zungusha 360° • Vidole 2: Kuza / Punguza
                       </p>
                     </div>
                   </div>
@@ -1310,8 +1313,9 @@ export default function ProductDetail() {
               )}
             </div>
           </motion.div>
-        )}
-      </AnimatePresence>
+        </AnimatePresence>,
+        document.body
+      )}
 
       <div className="max-w-7xl mx-auto px-4 lg:px-8 pt-4 lg:pt-8">
         {/* Back Button */}
