@@ -206,16 +206,18 @@ export default function ProductDetail() {
 
   const isModelValid = (url: string) => {
     if (!url) return false;
-    const lowerUrl = url.split('?')[0].toLowerCase();
-    return lowerUrl.endsWith('.glb') || lowerUrl.endsWith('.gltf') || lowerUrl.includes('sketchfab.com') || checkIfPageOrWebAR(url);
+    const cleanUrl = url.split('?')[0].toLowerCase();
+    return cleanUrl.endsWith('.glb') || cleanUrl.endsWith('.gltf') || url.toLowerCase().includes('sketchfab.com') || checkIfPageOrWebAR(url);
   };
 
   const checkIfPageOrWebAR = (url: string) => {
     if (!url) return false;
+    const cleanUrl = url.split('?')[0].toLowerCase();
+    if (cleanUrl.endsWith('.glb') || cleanUrl.endsWith('.gltf')) {
+      return false;
+    }
     const lower = url.toLowerCase();
-    return (lower.startsWith('http://') || lower.startsWith('https://')) && 
-           !lower.endsWith('.glb') && 
-           !lower.endsWith('.gltf');
+    return (lower.startsWith('http://') || lower.startsWith('https://')) && !lower.includes('sketchfab.com');
   };
 
   useEffect(() => {
@@ -223,14 +225,7 @@ export default function ProductDetail() {
       const viewer = document.getElementById('main-ar-viewer');
       if (viewer) {
         const handleError = (e: any) => {
-          console.error('Model viewer error:', e);
-          if (!isModelValid(product?.model3dUrl || '')) {
-            toast.error('Faili uliyoweka siyo ya 3D (AR). Tafadhali tumia faili la .glb badala ya picha.', {
-              duration: 5000
-            });
-          } else {
-            toast.error('Imeshindwa kupakia model ya 3D. Hakikisha internet ni nzuri.');
-          }
+          console.warn('Model viewer event notice:', e);
         };
         viewer.addEventListener('error', handleError);
         return () => viewer.removeEventListener('error', handleError);

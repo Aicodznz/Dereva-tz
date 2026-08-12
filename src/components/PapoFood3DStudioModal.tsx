@@ -21,10 +21,10 @@ export const PRESET_3D_FOODS = [
     id: 'cake-dessert',
     name: 'Keki & Vitafunwa / Dessert Cake',
     category: 'dessert',
-    icon: '🍰',
+    icon: '🥑',
     previewImage: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&w=400&q=80',
-    modelUrl: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Cake/glTF-Binary/Cake.glb',
-    description: 'Bora kwa keki, vitafunwa, na tamutamu.'
+    modelUrl: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Avocado/glTF-Binary/Avocado.glb',
+    description: 'Bora kwa keki, matunda, na tamutamu.'
   },
   {
     id: 'chips-chicken',
@@ -32,43 +32,43 @@ export const PRESET_3D_FOODS = [
     category: 'fastfood',
     icon: '🍗',
     previewImage: 'https://images.unsplash.com/photo-1562967914-608f82629710?auto=format&fit=crop&w=400&q=80',
-    modelUrl: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Cake/glTF-Binary/Cake.glb',
+    modelUrl: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Binary/Duck.glb',
     description: 'Sahani ya Chips Kuku, Chips Mayai au Mishkaki.'
   },
   {
     id: 'burger-special',
-    name: 'Burger & Sandwich / Cheese Burger',
+    name: 'Burger & Sandwich / Special Dish',
     category: 'fastfood',
     icon: '🍔',
     previewImage: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=400&q=80',
-    modelUrl: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Cake/glTF-Binary/Cake.glb',
+    modelUrl: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Avocado/glTF-Binary/Avocado.glb',
     description: 'Aina zote za Burger, Shawarma na Sandwich.'
   },
   {
     id: 'pizza-slice',
-    name: 'Pizza / Pepperoni & Cheese Pizza',
+    name: 'Pizza & Fast Food / Pepperoni Pizza',
     category: 'fastfood',
     icon: '🍕',
     previewImage: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80',
-    modelUrl: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Cake/glTF-Binary/Cake.glb',
+    modelUrl: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Lantern/glTF-Binary/Lantern.glb',
     description: 'Pizza nzima au slice ya Pizza.'
   },
   {
     id: 'rice-fish',
-    name: 'Wali Samaki & Pilau / Rice & Curry',
+    name: 'Wali Samaki & Pilau / Rice & Fish',
     category: 'local',
-    icon: '🍲',
+    icon: '🐟',
     previewImage: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80',
-    modelUrl: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Cake/glTF-Binary/Cake.glb',
+    modelUrl: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/BarramundiFish/glTF-Binary/BarramundiFish.glb',
     description: 'Wali Samaki, Pilau, Biryani au Wali Maharage.'
   },
   {
     id: 'soft-drinks',
-    name: 'Soda & Vinywaji / Soft Drinks & Coffee',
+    name: 'Soda & Vinywaji / Soft Drinks & Water',
     category: 'drinks',
     icon: '🥤',
     previewImage: 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&w=400&q=80',
-    modelUrl: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Cake/glTF-Binary/Cake.glb',
+    modelUrl: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/WaterBottle/glTF-Binary/WaterBottle.glb',
     description: 'Juice, Soda, Kahawa na Vinywaji Baridi.'
   }
 ];
