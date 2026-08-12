@@ -1488,14 +1488,29 @@ export default function ProductDetail() {
               {/* Bottom Actions Overlay Bar (3D Trigger + Gallery Thumbnails) */}
               <div className="absolute bottom-3 inset-x-3 z-20 flex items-center justify-between gap-2 pointer-events-none">
                 {/* 3D/AR Trigger */}
-                {product?.model3dUrl && businessConfig?.enableAR === true ? (
-                  <button 
-                    onClick={() => setShowARView(true)}
-                    className="pointer-events-auto px-3.5 py-2 bg-gradient-to-r from-orange-600 to-amber-500 text-white rounded-xl flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider shadow-xl shadow-orange-600/30 hover:brightness-110 transition-all active:scale-95 shrink-0 border border-white/20"
-                  >
-                    <Box className="w-3.5 h-3.5" />
-                    <span>View 3D</span>
-                  </button>
+                {product?.model3dUrl ? (
+                  <div className="pointer-events-auto flex items-center gap-1.5 flex-wrap">
+                    <button 
+                      onClick={() => {
+                        setShowARView(true);
+                        setTimeout(() => {
+                          startLiveCamera();
+                        }, 300);
+                      }}
+                      className="px-3.5 py-2 bg-gradient-to-r from-orange-600 via-amber-500 to-emerald-500 text-white rounded-xl flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider shadow-xl shadow-orange-600/40 hover:brightness-110 transition-all active:scale-95 shrink-0 border border-white/30 animate-pulse"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                      <span>📸 Onyesha Kwenye Meza (Direct AR)</span>
+                    </button>
+
+                    <button 
+                      onClick={() => setShowARView(true)}
+                      className="px-3 py-2 bg-black/70 backdrop-blur-md text-white/90 hover:text-white rounded-xl flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider border border-white/20 transition-all active:scale-95 shrink-0"
+                    >
+                      <Box className="w-3 h-3 text-orange-400" />
+                      <span>3D View</span>
+                    </button>
+                  </div>
                 ) : <div />}
 
                 {/* Floating thumbnails inside wrapper */}

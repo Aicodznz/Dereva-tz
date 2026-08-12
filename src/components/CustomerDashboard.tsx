@@ -1559,13 +1559,19 @@ export default function CustomerDashboard() {
                               className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
                               referrerPolicy="no-referrer"
                             />
-                            {/* AR Badge */}
-                            {product?.model3dUrl && businessConfig?.enableAR && (
-                              <div className="absolute top-4 left-4 z-10 animate-pulse">
-                                <div className="bg-orange-600 text-white p-1.5 rounded-full shadow-lg border border-orange-400/40">
-                                  <Box className="w-3 h-3" />
-                                </div>
-                              </div>
+                            {/* AR Badge & Direct Table View Trigger */}
+                            {product?.model3dUrl && (
+                              <button 
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setSelectedProduct(product);
+                                }}
+                                className="absolute top-3 left-3 z-10 bg-gradient-to-r from-orange-600 to-amber-500 text-white px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider shadow-lg border border-white/20 flex items-center gap-1 hover:brightness-110 active:scale-95"
+                              >
+                                <Box className="w-3 h-3 text-amber-200 animate-bounce" />
+                                <span>📸 Onyesha Mezani</span>
+                              </button>
                             )}
                             <motion.button 
                               whileHover={{ scale: 1.1 }}
