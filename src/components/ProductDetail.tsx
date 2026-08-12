@@ -157,6 +157,13 @@ export default function ProductDetail() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
+  // Interactive Camera AR Spatial Placement State
+  const [arScale, setArScale] = useState<number>(1.0);
+  const [arPosition, setArPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isArAnchored, setIsArAnchored] = useState<boolean>(false);
+  const isDraggingAr = useRef<boolean>(false);
+  const dragStartPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
   const startLiveCamera = async () => {
     try {
       if (streamRef.current) {
@@ -1206,50 +1213,169 @@ export default function ProductDetail() {
                 </div>
               ) : (
                 <>
-                  {/* 3D Model Viewer with Camera Overlay */}
-                  {/* @ts-ignore */}
-                  <model-viewer
-                    id="main-ar-viewer"
-                    src={product?.model3dUrl}
-                    ar
-                    ar-modes="webxr scene-viewer quick-look"
-                    ar-scale="auto"
-                    camera-controls
-                    touch-action="none"
-                    interaction-prompt="auto"
-                    auto-rotate={autoRotate3D ? true : undefined}
-                    poster={product?.imageUrl}
-                    shadow-intensity="1.5"
-                    shadow-softness="1"
-                    exposure="1"
-                    autoplay
-                    className="w-full h-full relative z-10"
-                    style={{ 
-                      width: '100%', 
-                      height: '100%', 
-                      backgroundColor: isLiveCameraActive ? 'transparent' : '#09090b' 
+                  {/* Interactive Camera Positioning Overlay Wrapper */}
+                  <div 
+                    className="w-full h-full relative z-10 flex items-center justify-center overflow-hidden"
+                    onPointerDown={(e) => {
+                      if (!isLiveCameraActive || isArAnchored) return;
+                      isDraggingAr.current = true;
+                      dragStartPos.current = { x: e.clientX - arPosition.x, y: e.clientY - arPosition.y };
                     }}
+                    onPointerMove={(e) => {
+                      if (!isDraggingAr.current || !isLiveCameraActive || isArAnchored) return;
+                      setArPosition({
+                        x: e.clientX - dragStartPos.current.x,
+                        y: e.clientY - dragStartPos.current.y
+                      });
+                    }}
+                    onPointerUp={() => { isDraggingAr.current = false; }}
                   >
-                    <div slot="ar-failure" className="absolute inset-0 bg-black/95 flex flex-col items-center justify-center p-8 text-center gap-4 z-[2003]">
-                       <div className="w-16 h-16 bg-red-600/20 rounded-2xl flex items-center justify-center text-red-500 mb-2">
-                          <Box className="w-8 h-8" />
-                       </div>
-                       <h4 className="text-white font-black italic text-lg uppercase tracking-tight">AR Native haipatikani</h4>
-                       <p className="text-white/70 text-xs max-w-xs font-medium leading-relaxed">
-                         {isModelValid(product?.model3dUrl || '') 
-                           ? "Simu yako haina WebXR/SceneViewer. Tumia kitufe cha 'Washa Kamera' chini kuona chakula kwenye kamera yako."
-                           : "Bidhaa hii haina faili halali la 3D (.glb)."
-                         }
-                       </p>
-                       <button 
-                         onClick={() => setShowARView(false)}
-                         className="mt-2 px-6 py-2.5 bg-white/10 hover:bg-white text-white hover:text-black rounded-xl font-bold text-xs uppercase tracking-wider transition-all"
-                       >
-                         Rudi Nyuma
-                       </button>
+                    <div 
+                      className="w-full h-full transition-transform duration-75"
+                      style={{
+                        transform: isLiveCameraActive 
+                          ? `translate(${arPosition.x}px, ${arPosition.y}px) scale(${arScale})` 
+                          : 'none'
+                      }}
+                    >
+                      {/* 3D Model Viewer with Camera Overlay */}
+                      {/* @ts-ignore */}
+                      <model-viewer
+                        id="main-ar-viewer"
+                        src={product?.model3dUrl}
+                        ar
+                        ar-modes="webxr scene-viewer quick-look"
+                        ar-scale="fixed"
+                        ar-placement="floor"
+                        camera-controls
+                        touch-action="none"
+                        interaction-prompt="auto"
+                        auto-rotate={autoRotate3D && !isLiveCameraActive ? true : undefined}
+                        poster={isLiveCameraActive ? undefined : product?.imageUrl}
+                        shadow-intensity="1.5"
+                        shadow-softness="1"
+                        exposure="1"
+                        loading="eager"
+                        reveal="auto"
+                        className="w-full h-full relative z-10"
+                        style={{ 
+                          width: '100%', 
+                          height: '100%', 
+                          backgroundColor: isLiveCameraActive ? 'transparent' : '#09090b',
+                          // @ts-ignore
+                          '--poster-color': 'transparent'
+                        }}
+                      >
+                        <div slot="ar-failure" className="absolute inset-0 bg-black/95 flex flex-col items-center justify-center p-8 text-center gap-4 z-[2003]">
+                           <div className="w-16 h-16 bg-red-600/20 rounded-2xl flex items-center justify-center text-red-500 mb-2">
+                              <Box className="w-8 h-8" />
+                           </div>
+                           <h4 className="text-white font-black italic text-lg uppercase tracking-tight">AR Native haipatikani</h4>
+                           <p className="text-white/70 text-xs max-w-xs font-medium leading-relaxed">
+                             {isModelValid(product?.model3dUrl || '') 
+                               ? "Simu yako haina WebXR/SceneViewer. Tumia kitufe cha 'Washa Kamera' chini kuona chakula kwenye kamera yako."
+                               : "Bidhaa hii haina faili halali la 3D (.glb)."
+                             }
+                           </p>
+                           <button 
+                             onClick={() => setShowARView(false)}
+                             className="mt-2 px-6 py-2.5 bg-white/10 hover:bg-white text-white hover:text-black rounded-xl font-bold text-xs uppercase tracking-wider transition-all"
+                           >
+                             Rudi Nyuma
+                           </button>
+                        </div>
+                        {/* @ts-ignore */}
+                      </model-viewer>
                     </div>
-                    {/* @ts-ignore */}
-                  </model-viewer>
+                  </div>
+
+                  {/* AR Spatial Placement Controls (When Live Camera is Active) */}
+                  {isLiveCameraActive && (
+                    <div className="absolute top-20 inset-x-4 z-[999999] flex flex-col items-center gap-2 pointer-events-none">
+                      <div className="pointer-events-auto bg-black/80 backdrop-blur-xl p-2.5 rounded-2xl border border-orange-500/40 shadow-2xl flex flex-wrap items-center justify-center gap-2 max-w-md w-full">
+                        {/* Lock / Anchor Button */}
+                        <button
+                          onClick={() => {
+                            setIsArAnchored(!isArAnchored);
+                            toast.success(isArAnchored ? 'Imefunguliwa! Sasa unaweza kusogeza tena' : '📍 Imewekwa Mezani! Model imefungiwa hapa.');
+                          }}
+                          className={`px-3 py-1.5 rounded-xl font-extrabold text-[11px] uppercase tracking-wider flex items-center gap-1.5 transition-all ${
+                            isArAnchored 
+                              ? 'bg-emerald-600 text-white shadow-emerald-600/30' 
+                              : 'bg-orange-600 text-white shadow-orange-600/30'
+                          }`}
+                        >
+                          <span>{isArAnchored ? '🔒 IMEWEKWA MEZANI' : '📍 WEKA HAPA (ANCHOR)'}</span>
+                        </button>
+
+                        {/* Move Directional Controls */}
+                        {!isArAnchored && (
+                          <div className="flex items-center gap-1 bg-white/10 p-1 rounded-xl">
+                            <button 
+                              onClick={() => setArPosition(p => ({ ...p, y: p.y - 25 }))}
+                              className="w-7 h-7 bg-white/10 hover:bg-white/20 text-white rounded-lg flex items-center justify-center text-xs font-bold"
+                              title="Sogeza Juu"
+                            >
+                              ⬆️
+                            </button>
+                            <button 
+                              onClick={() => setArPosition(p => ({ ...p, y: p.y + 25 }))}
+                              className="w-7 h-7 bg-white/10 hover:bg-white/20 text-white rounded-lg flex items-center justify-center text-xs font-bold"
+                              title="Sogeza Chini"
+                            >
+                              ⬇️
+                            </button>
+                            <button 
+                              onClick={() => setArPosition(p => ({ ...p, x: p.x - 25 }))}
+                              className="w-7 h-7 bg-white/10 hover:bg-white/20 text-white rounded-lg flex items-center justify-center text-xs font-bold"
+                              title="Sogeza Kushoto"
+                            >
+                              ⬅️
+                            </button>
+                            <button 
+                              onClick={() => setArPosition(p => ({ ...p, x: p.x + 25 }))}
+                              className="w-7 h-7 bg-white/10 hover:bg-white/20 text-white rounded-lg flex items-center justify-center text-xs font-bold"
+                              title="Sogeza Kulia"
+                            >
+                              ➡️
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Scale Controls */}
+                        <div className="flex items-center gap-1 bg-white/10 p-1 rounded-xl">
+                          <button 
+                            onClick={() => setArScale(s => Math.min(2.5, s + 0.15))}
+                            className="w-7 h-7 bg-white/10 hover:bg-white/20 text-white rounded-lg flex items-center justify-center text-xs font-bold"
+                            title="Kuza Model"
+                          >
+                            ➕
+                          </button>
+                          <span className="text-[10px] font-mono text-white/80 px-1">{Math.round(arScale * 100)}%</span>
+                          <button 
+                            onClick={() => setArScale(s => Math.max(0.4, s - 0.15))}
+                            className="w-7 h-7 bg-white/10 hover:bg-white/20 text-white rounded-lg flex items-center justify-center text-xs font-bold"
+                            title="Punguza Model"
+                          >
+                            ➖
+                          </button>
+                        </div>
+
+                        {/* Reset Position */}
+                        <button
+                          onClick={() => {
+                            setArPosition({ x: 0, y: 0 });
+                            setArScale(1.0);
+                            setIsArAnchored(false);
+                          }}
+                          className="px-2.5 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl text-[10px] font-bold"
+                          title="Rudi Mwanzo"
+                        >
+                          🔄 Reset
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Sleek Floating Bottom Control Dock */}
                   <div className="absolute bottom-6 inset-x-0 z-[999999] flex flex-col items-center gap-2 px-4 pointer-events-none">
@@ -1300,7 +1426,10 @@ export default function ProductDetail() {
 
                     <div className="pointer-events-auto bg-black/70 backdrop-blur-md px-4 py-1 rounded-full border border-white/10 shadow-lg">
                       <p className="text-white/80 text-[10px] font-semibold text-center tracking-wide">
-                        💡 Kidole 1: Zungusha 360° • Vidole 2: Kuza / Punguza
+                        {isLiveCameraActive 
+                          ? '👉 Vuta Kidole kwenye vioo au tumia vitufe vya juu kuweka chakula mezani'
+                          : '💡 Kidole 1: Zungusha 360° • Vidole 2: Kuza / Punguza'
+                        }
                       </p>
                     </div>
                   </div>

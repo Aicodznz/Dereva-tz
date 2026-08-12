@@ -270,9 +270,62 @@ export const PapoFood3DStudioModal: React.FC<PapoFood3DStudioModalProps> = ({
               <div className="bg-orange-600/10 border border-orange-500/20 rounded-2xl p-3.5 flex items-start gap-3">
                 <Zap className="w-5 h-5 text-orange-400 shrink-0 mt-0.5" />
                 <p className="text-xs text-neutral-300 leading-relaxed">
-                  Chagua mfano wa 3D kutoka kwenye maktaba yetu ya vyakula mashuhuri. Bonyeza **"Tumia 3D Model Hii"** na itaunganishwa moja kwa moja bila kupiga picha!
+                  Chagua mfano wa 3D kutoka kwenye maktaba yetu. Kagua muonekano kwenye kioo cha 3D kisha bonyeza **"Unganisha 3D Model Hii"**.
                 </p>
               </div>
+
+              {/* Live 3D Preview Box for Presets */}
+              {(() => {
+                const currentPreset = PRESET_3D_FOODS.find(p => p.id === selectedPresetId);
+                if (!currentPreset) return null;
+                return (
+                  <div className="bg-neutral-950 border-2 border-orange-500/40 rounded-2xl p-3.5 space-y-3 relative overflow-hidden shadow-2xl">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-orange-400">
+                        <Eye className="w-4 h-4 animate-pulse" />
+                        <h4 className="font-extrabold text-xs uppercase tracking-wider">3D Live Preview: {currentPreset.name}</h4>
+                      </div>
+                      <span className="text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold">
+                        .GLB 360° Ready
+                      </span>
+                    </div>
+
+                    <div className="h-56 sm:h-64 w-full bg-gradient-to-b from-neutral-900 to-black rounded-xl border border-neutral-800 relative overflow-hidden">
+                      {/* @ts-ignore */}
+                      <model-viewer
+                        src={currentPreset.modelUrl}
+                        camera-controls
+                        auto-rotate
+                        shadow-intensity="1.5"
+                        exposure="1"
+                        loading="eager"
+                        reveal="auto"
+                        className="w-full h-full"
+                        style={{ width: '100%', height: '100%', backgroundColor: '#09090b' }}
+                      >
+                        <div slot="poster" className="w-full h-full flex items-center justify-center bg-neutral-900 text-neutral-400 text-xs font-bold">
+                          Inapakia 3D Model...
+                        </div>
+                      {/* @ts-ignore */}
+                      </model-viewer>
+                      <div className="absolute bottom-2 left-2 right-2 bg-black/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 flex items-center justify-between text-[10px] text-neutral-300">
+                        <span>👆 Gusa ufungue/zungushe 360°</span>
+                        <span className="text-orange-400 font-bold">Zoom: Vidole 2</span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-center gap-2 pt-1">
+                      <button
+                        onClick={() => handleApplyModel(currentPreset.modelUrl)}
+                        className="w-full sm:flex-1 py-3 bg-gradient-to-r from-orange-600 to-amber-500 hover:brightness-110 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>✅ Mfano Unapendeza, Unganisha Sasa</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {PRESET_3D_FOODS.map((item) => {
@@ -304,26 +357,13 @@ export const PapoFood3DStudioModal: React.FC<PapoFood3DStudioModalProps> = ({
                         </span>
                         {isSelected && (
                           <span className="flex items-center gap-1 text-[11px] text-emerald-400 font-extrabold">
-                            <Check className="w-3.5 h-3.5" /> Changiwe
+                            <Check className="w-3.5 h-3.5" /> Inakaguliwa
                           </span>
                         )}
                       </div>
                     </div>
                   );
                 })}
-              </div>
-
-              <div className="pt-3">
-                <button
-                  onClick={() => {
-                    const preset = PRESET_3D_FOODS.find(p => p.id === selectedPresetId);
-                    if (preset) handleApplyModel(preset.modelUrl);
-                  }}
-                  className="w-full py-3.5 bg-gradient-to-r from-orange-600 to-amber-500 hover:brightness-110 text-white rounded-2xl font-black text-sm uppercase tracking-wider shadow-xl shadow-orange-600/30 flex items-center justify-center gap-2 transition-all active:scale-95"
-                >
-                  <CheckCircle2 className="w-5 h-5" />
-                  <span>Unganisha 3D Model Hii Moja kwa Moja</span>
-                </button>
               </div>
             </div>
           )}
@@ -407,21 +447,66 @@ export const PapoFood3DStudioModal: React.FC<PapoFood3DStudioModalProps> = ({
 
               {/* Generated Result Preview */}
               {generatedModelUrl && !isAiProcessing && (
-                <div className="bg-emerald-950/30 border border-emerald-500/40 p-4 rounded-2xl space-y-3">
-                  <div className="flex items-center gap-2 text-emerald-400">
-                    <CheckCircle2 className="w-5 h-5 shrink-0" />
-                    <h4 className="font-extrabold text-xs uppercase tracking-wider">3D Model Ipo Tayari!</h4>
+                <div className="bg-neutral-950 border-2 border-emerald-500/50 p-4 rounded-2xl space-y-3 shadow-2xl">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-emerald-400">
+                      <CheckCircle2 className="w-5 h-5 shrink-0 animate-pulse" />
+                      <h4 className="font-extrabold text-xs uppercase tracking-wider">3D AI Model Live Preview</h4>
+                    </div>
+                    <span className="text-[10px] text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold">
+                      Interactive 360°
+                    </span>
                   </div>
+
                   <p className="text-xs text-neutral-300">
-                    Mfumo wa AI umetengeneza faili halali la `.glb` la 3D model ya chakula chako.
+                    Mfumo wa AI umetengeneza 3D Model ya chakula chako. Zungusha na kagua kama iko vizuri kabla ya kuweka kwa wateja:
                   </p>
-                  <button
-                    onClick={() => handleApplyModel(generatedModelUrl)}
-                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-extrabold text-xs uppercase tracking-wider shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
-                  >
-                    <Check className="w-4 h-4" />
-                    <span>Unganisha 3D Model Hii Kwenye Bidhaa</span>
-                  </button>
+
+                  <div className="h-56 sm:h-64 w-full bg-gradient-to-b from-neutral-900 to-black rounded-xl border border-neutral-800 relative overflow-hidden">
+                    {/* @ts-ignore */}
+                    <model-viewer
+                      src={generatedModelUrl}
+                      camera-controls
+                      auto-rotate
+                      shadow-intensity="1.5"
+                      exposure="1"
+                      loading="eager"
+                      reveal="auto"
+                      className="w-full h-full"
+                      style={{ width: '100%', height: '100%', backgroundColor: '#09090b' }}
+                    >
+                      <div slot="poster" className="w-full h-full flex items-center justify-center bg-neutral-900 text-neutral-400 text-xs font-bold">
+                        Inapakia AI 3D Model...
+                      </div>
+                    {/* @ts-ignore */}
+                    </model-viewer>
+                    <div className="absolute bottom-2 left-2 right-2 bg-black/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 flex items-center justify-between text-[10px] text-neutral-300">
+                      <span>👆 Gusa ufungue/zungushe 360°</span>
+                      <span className="text-amber-400 font-bold">Zoom: Vidole 2</span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-center gap-2 pt-1">
+                    <button
+                      onClick={() => handleApplyModel(generatedModelUrl)}
+                      className="w-full sm:flex-1 py-3 bg-gradient-to-r from-emerald-600 to-teal-500 hover:brightness-110 text-white rounded-xl font-extrabold text-xs uppercase tracking-wider shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>✅ Mfano Unapendeza, Unganisha Sasa</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setGeneratedModelUrl('');
+                        setCapturedImages([]);
+                        toast.info('Piga au chagua picha mpya kutengeneza tena.');
+                      }}
+                      className="w-full sm:w-auto px-4 py-3 bg-neutral-800 hover:bg-neutral-700 text-amber-400 border border-neutral-700 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all"
+                    >
+                      <RefreshCw className="w-4 h-4 text-amber-400" />
+                      <span>Haiko Vizuri? Tengeneza Tena</span>
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -490,13 +575,49 @@ export const PapoFood3DStudioModal: React.FC<PapoFood3DStudioModalProps> = ({
               </div>
 
               {customUrl && (
-                <button
-                  onClick={() => handleApplyModel(customUrl)}
-                  className="w-full py-3.5 bg-orange-600 hover:bg-orange-500 text-white rounded-2xl font-black text-sm uppercase tracking-wider shadow-xl flex items-center justify-center gap-2 transition-all"
-                >
-                  <Check className="w-5 h-5" />
-                  <span>Hifadhi & Unganisha 3D Model</span>
-                </button>
+                <div className="bg-neutral-950 border-2 border-orange-500/50 p-4 rounded-2xl space-y-3 shadow-2xl">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-orange-400">
+                      <Eye className="w-4 h-4 animate-pulse" />
+                      <h4 className="font-extrabold text-xs uppercase tracking-wider">3D Uploaded Live Preview</h4>
+                    </div>
+                    <span className="text-[10px] text-orange-400 bg-orange-500/10 border border-orange-500/30 px-2 py-0.5 rounded-full font-bold">
+                      Interactive 360°
+                    </span>
+                  </div>
+
+                  <div className="h-56 sm:h-64 w-full bg-gradient-to-b from-neutral-900 to-black rounded-xl border border-neutral-800 relative overflow-hidden">
+                    {/* @ts-ignore */}
+                    <model-viewer
+                      src={customUrl}
+                      camera-controls
+                      auto-rotate
+                      shadow-intensity="1.5"
+                      exposure="1"
+                      loading="eager"
+                      reveal="auto"
+                      className="w-full h-full"
+                      style={{ width: '100%', height: '100%', backgroundColor: '#09090b' }}
+                    >
+                      <div slot="poster" className="w-full h-full flex items-center justify-center bg-neutral-900 text-neutral-400 text-xs font-bold">
+                        Inapakia 3D Model...
+                      </div>
+                    {/* @ts-ignore */}
+                    </model-viewer>
+                    <div className="absolute bottom-2 left-2 right-2 bg-black/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 flex items-center justify-between text-[10px] text-neutral-300">
+                      <span>👆 Gusa ufungue/zungushe 360°</span>
+                      <span className="text-orange-400 font-bold">Zoom: Vidole 2</span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => handleApplyModel(customUrl)}
+                    className="w-full py-3.5 bg-gradient-to-r from-orange-600 to-amber-500 hover:brightness-110 text-white rounded-2xl font-black text-sm uppercase tracking-wider shadow-xl flex items-center justify-center gap-2 transition-all active:scale-95"
+                  >
+                    <Check className="w-5 h-5" />
+                    <span>✅ Hifadhi & Unganisha 3D Model</span>
+                  </button>
+                </div>
               )}
             </div>
           )}
