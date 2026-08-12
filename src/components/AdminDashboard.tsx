@@ -31,6 +31,7 @@ import { motion, AnimatePresence, useScroll, useMotionValueEvent } from 'motion/
 import { useLanguage } from '../LanguageContext';
 import { playSyntheticNormal, playSyntheticImportant, playSyntheticCritical } from '../utils/soundAlert';
 import { TwilioResponderTab } from './TwilioResponderTab';
+import { MetaMcpHub } from './admin/MetaMcpHub';
 import { DriverProfileDetails } from './admin/DriverProfileDetails';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -117,7 +118,7 @@ interface ProductWithVendor extends Product {
   hidden?: boolean;
 }
 
-type AdminTab = 'overview' | 'vendors' | 'drivers' | 'products' | 'users' | 'orders' | 'banners' | 'notifications' | 'coupons' | 'settings' | 'live_map' | 'payouts' | 'analytics' | 'twilio_responder';
+type AdminTab = 'overview' | 'vendors' | 'drivers' | 'products' | 'users' | 'orders' | 'banners' | 'notifications' | 'coupons' | 'settings' | 'live_map' | 'payouts' | 'analytics' | 'twilio_responder' | 'meta_mcp';
 
 interface Coupon {
   id?: string;
@@ -1114,6 +1115,7 @@ export default function AdminDashboard() {
     { id: 'orders', label: t('admin_sales_feed'), icon: ShoppingBag },
     { id: 'banners', label: t('admin_marketing'), icon: Megaphone },
     { id: 'notifications', label: t('admin_broadcast'), icon: Bell },
+    { id: 'meta_mcp', label: 'Meta MCP Hub', icon: Zap },
     { id: 'twilio_responder', label: 'Meta Bot Studio', icon: MessageSquare },
     { id: 'live_map', label: 'Monitor', icon: Globe },
     { id: 'payouts', label: 'Payouts', icon: Wallet },
@@ -1150,6 +1152,7 @@ export default function AdminDashboard() {
     {
       title: "Mfumo (System)",
       items: [
+        { id: 'meta_mcp', label: 'Meta MCP Hub', icon: Zap },
         { id: 'twilio_responder', label: 'Meta Bot Studio', icon: MessageSquare },
         { id: 'payouts', label: 'Payouts', icon: Wallet },
         { id: 'settings', label: t('admin_settings') || 'Settings', icon: Settings },
@@ -2895,6 +2898,18 @@ export default function AdminDashboard() {
               </Card>
           </motion.div>
         )}
+        {activeTab === 'meta_mcp' && (
+          <motion.div
+            key="meta_mcp"
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.98 }}
+            className="max-w-7xl mx-auto space-y-6 px-1 sm:px-4 lg:px-6"
+          >
+            <MetaMcpHub />
+          </motion.div>
+        )}
+
         {activeTab === 'twilio_responder' && (
           <motion.div
             key="twilio_responder"

@@ -1228,7 +1228,7 @@ export default function ProductDetail() {
                 <>
                   {/* Interactive Camera Positioning Overlay Wrapper */}
                   <div 
-                    className="w-full h-full relative z-10 flex items-center justify-center overflow-hidden"
+                    className={`w-full h-full relative z-10 flex items-center justify-center overflow-hidden ${isArAnchored ? 'pointer-events-none' : 'cursor-grab active:cursor-grabbing'}`}
                     onPointerDown={(e) => {
                       if (!isLiveCameraActive || isArAnchored) return;
                       isDraggingAr.current = true;
@@ -1242,15 +1242,25 @@ export default function ProductDetail() {
                       });
                     }}
                     onPointerUp={() => { isDraggingAr.current = false; }}
+                    onPointerCancel={() => { isDraggingAr.current = false; }}
                   >
                     <div 
-                      className="w-full h-full transition-transform duration-75"
+                      className="w-full h-full transition-transform duration-75 relative"
                       style={{
                         transform: isLiveCameraActive 
                           ? `translate(${arPosition.x}px, ${arPosition.y}px) scale(${arScale})` 
-                          : 'none'
+                          : 'none',
+                        pointerEvents: isArAnchored ? 'none' : 'auto'
                       }}
                     >
+                      {/* Fixed Anchor Badge on Model */}
+                      {isArAnchored && isLiveCameraActive && (
+                        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-30 pointer-events-none flex items-center gap-1.5 bg-emerald-600 text-white px-3.5 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider shadow-2xl border-2 border-white animate-bounce">
+                          <Pin className="w-4 h-4 text-amber-300" />
+                          <span>📍 IMEWEKWA MEZANI</span>
+                        </div>
+                      )}
+
                       {/* 3D Model Viewer with Camera Overlay */}
                       {/* @ts-ignore */}
                       <model-viewer
@@ -1260,7 +1270,7 @@ export default function ProductDetail() {
                         ar-modes="webxr scene-viewer quick-look"
                         ar-scale="fixed"
                         ar-placement="floor"
-                        camera-controls
+                        camera-controls={!isLiveCameraActive}
                         touch-action="none"
                         interaction-prompt="auto"
                         auto-rotate={autoRotate3D && !isLiveCameraActive ? true : undefined}
@@ -1275,6 +1285,7 @@ export default function ProductDetail() {
                           width: '100%', 
                           height: '100%', 
                           backgroundColor: isLiveCameraActive ? 'transparent' : '#09090b',
+                          pointerEvents: isLiveCameraActive ? 'none' : 'auto',
                           // @ts-ignore
                           '--poster-color': 'transparent'
                         }}
@@ -1309,17 +1320,24 @@ export default function ProductDetail() {
                         {/* Lock / Anchor Button */}
                         <button
                           onClick={() => {
-                            setIsArAnchored(!isArAnchored);
-                            toast.success(isArAnchored ? 'Imefunguliwa! Sasa unaweza kusogeza tena' : '📍 Imewekwa Mezani! Model imefungiwa hapa.');
+                            setIsArAnchored((prev) => {
+                              const next = !prev;
+                              if (next) {
+                                toast.success('📍 Imewekwa Mezani! Model imefungiwa hapa.');
+                              } else {
+                                toast.info('🔓 Imefunguliwa! Sasa unaweza kusogeza tena.');
+                              }
+                              return next;
+                            });
                           }}
                           className={`px-3 py-2 rounded-xl font-black text-[11px] uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-lg active:scale-95 ${
                             isArAnchored 
-                              ? 'bg-emerald-600 text-white shadow-emerald-600/30' 
+                              ? 'bg-emerald-600 border border-emerald-400 text-white shadow-emerald-600/30' 
                               : 'bg-gradient-to-r from-orange-600 to-amber-500 text-white shadow-orange-600/30'
                           }`}
                         >
                           <Pin className="w-3.5 h-3.5" />
-                          <span>{isArAnchored ? '🔒 IMEWEKWA MEZANI' : '📍 WEKA HAPA (ANCHOR)'}</span>
+                          <span>{isArAnchored ? '🔒 IMEWEKWA MEZANI (Gusa kufungua)' : '📍 WEKA HAPA (ANCHOR)'}</span>
                         </button>
 
                         {/* Move Directional Controls */}
