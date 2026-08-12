@@ -150,10 +150,63 @@ export default function ProductDetail() {
     });
   };
 
+  // 3D & WebAR Camera State
+  const [isLiveCameraActive, setIsLiveCameraActive] = useState(false);
+  const [autoRotate3D, setAutoRotate3D] = useState(true);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  const startLiveCamera = async () => {
+    try {
+      if (streamRef.current) {
+        stopLiveCamera();
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' } }
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+      setIsLiveCameraActive(true);
+      toast.success('Kamera imefunguka! Sasa unaweza kuona chakula kwenye mazingira yako halisi.');
+    } catch (err: any) {
+      console.error('Camera stream error:', err);
+      toast.error('Imeshindwa kufungua kamera. Hakikisha umetoa ruhusa ya Kamera kwenye browser yako.');
+    }
+  };
+
+  const stopLiveCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setIsLiveCameraActive(false);
+  };
+
+  useEffect(() => {
+    if (!showARView) {
+      stopLiveCamera();
+    }
+  }, [showARView]);
+
+  const format3dUrl = (url: string) => {
+    if (!url) return '';
+    const trimmed = url.trim();
+    if (trimmed.includes('sketchfab.com')) {
+      const match = trimmed.match(/([a-f0-9]{32})/i);
+      if (match && match[1]) {
+        return `https://sketchfab.com/models/${match[1]}/embed?autostart=1&internal=1&tracking=0&ui_ar=1&ui_infos=0&ui_controls=1&ui_watermark=0&camera=0`;
+      }
+    }
+    return trimmed;
+  };
+
   const isModelValid = (url: string) => {
     if (!url) return false;
     const lowerUrl = url.split('?')[0].toLowerCase();
-    return lowerUrl.endsWith('.glb') || lowerUrl.endsWith('.gltf') || checkIfPageOrWebAR(url);
+    return lowerUrl.endsWith('.glb') || lowerUrl.endsWith('.gltf') || lowerUrl.includes('sketchfab.com') || checkIfPageOrWebAR(url);
   };
 
   const checkIfPageOrWebAR = (url: string) => {
@@ -1120,74 +1173,74 @@ export default function ProductDetail() {
               </button>
             </div>
 
-            <div className="flex-1 relative bg-neutral-950">
+            <div className="flex-1 relative bg-neutral-950 overflow-hidden">
+              {/* Background Live Camera Feed */}
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 z-0 ${
+                  isLiveCameraActive ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                }`}
+              />
+
               {checkIfPageOrWebAR(product?.model3dUrl || '') ? (
-                <div className="w-full h-full flex flex-col pt-24 bg-neutral-900">
+                <div className="w-full h-full flex flex-col pt-20 bg-neutral-900 relative z-10">
                   <iframe
                     id="main-webar-iframe"
-                    src={product?.model3dUrl}
+                    src={format3dUrl(product?.model3dUrl || '')}
                     allow="camera; geolocation; microphone; xr-spatial-tracking; gyroscope; accelerometer; xr; webxr"
-                    className="w-full h-full border-0 absolute inset-0 pt-20"
+                    className="w-full h-full border-0 absolute inset-0 pt-16"
                     style={{ width: '100%', height: '100%' }}
                     title={`WebAR for ${product.name}`}
                   />
-                  <div className="absolute bottom-6 inset-x-0 flex flex-col items-center gap-3 pointer-events-none z-10">
-                    <div className="bg-black/80 backdrop-blur-md px-6 py-2.5 rounded-full border border-white/10 shadow-2xl">
+                  <div className="absolute bottom-6 inset-x-0 flex flex-col items-center gap-3 pointer-events-none z-20">
+                    <div className="bg-black/90 backdrop-blur-md px-6 py-2.5 rounded-full border border-white/10 shadow-2xl">
                       <p className="text-white text-xs font-black uppercase tracking-wider flex items-center gap-2">
                         <Smartphone className="w-4 h-4 text-orange-500 animate-bounce" />
-                        Inafungua Kivicube WebAR... Toa Ruhusa ya Kamera!
+                        Gusa & Zungusha Model 3D • Bonyeza AR kwenye Viewer
                       </p>
                     </div>
                   </div>
                 </div>
               ) : (
                 <>
+                  {/* 3D Model Viewer with Camera Overlay */}
                   {/* @ts-ignore */}
                   <model-viewer
                     id="main-ar-viewer"
                     src={product?.model3dUrl}
                     ar
                     ar-modes="webxr scene-viewer quick-look"
-                    ar-placement="floor"
+                    ar-scale="auto"
                     camera-controls
-                    touch-action="pan-y"
+                    touch-action="none"
+                    interaction-prompt="auto"
+                    auto-rotate={autoRotate3D ? true : undefined}
                     poster={product?.imageUrl}
-                    shadow-intensity="1"
+                    shadow-intensity="1.5"
+                    shadow-softness="1"
+                    exposure="1"
                     autoplay
-                    className="w-full h-full"
-                    style={{ width: '100%', height: '100%' }}
+                    className="w-full h-full relative z-10"
+                    style={{ 
+                      width: '100%', 
+                      height: '100%', 
+                      backgroundColor: isLiveCameraActive ? 'transparent' : 'rgba(10, 10, 15, 0.95)' 
+                    }}
                   >
-                    <button 
-                      slot="ar-button" 
-                      onClick={() => {
-                        const viewer = document.getElementById('main-ar-viewer') as any;
-                        if (viewer && viewer.canActivateAR) {
-                          viewer.activateAR();
-                        }
-                      }}
-                      className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-white text-black px-8 py-4 rounded-full font-black uppercase italic tracking-tighter shadow-2xl flex items-center gap-3 border-4 border-orange-600 animate-bounce active:scale-95 transition-all z-[2005]"
-                    >
-                      <Smartphone className="w-5 h-5 text-orange-600" />
-                      View in Space / TAZAMA AR
-                    </button>
-                    
-                    <div slot="ar-failure" className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center p-8 text-center gap-4 z-[2003]">
+                    <div slot="ar-failure" className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center p-8 text-center gap-4 z-[2003]">
                        <div className="w-20 h-20 bg-red-600/20 rounded-full flex items-center justify-center text-red-500 mb-4">
                           <Box className="w-10 h-10" />
                        </div>
-                       <h4 className="text-white font-black italic text-xl uppercase tracking-tighter">AR haipatikani</h4>
+                       <h4 className="text-white font-black italic text-xl uppercase tracking-tighter">AR Native haipatikani</h4>
                        <p className="text-white/60 text-sm max-w-xs font-medium">
                          {isModelValid(product?.model3dUrl || '') 
-                           ? "Simu yako huenda haisupport AR au unapaswa kutoa ruhusa ya kamera kwenye browser yako."
-                           : "Bidhaa hii haina faili halali la 3D (GLB) au kiungo sahihi cha Kivicube WebAR."
+                           ? "Simu yako haina WebXR/SceneViewer. Tumia kitufe cha 'Washa Kamera Ya Live' chini kuona chakula kwenye kamera yako."
+                           : "Bidhaa hii haina faili halali la 3D (GLB) au kiungo sahihi cha Kivicube/Sketchfab."
                          }
                        </p>
-                       {!isModelValid(product?.model3dUrl || '') && (
-                         <div className="bg-orange-600/10 border border-orange-600/20 p-4 rounded-2xl max-w-xs">
-                            <p className="text-orange-500 text-[10px] font-black uppercase tracking-widest mb-1">Kidokezo (Tip)</p>
-                            <p className="text-white/80 text-xs text-left">Huwezi kutumia picha (PNG/JPG) kwa AR. Bidhaa hii inahitaji faili la 3D (.glb) au kiungo cha WebAR kutoka <b>Kivicube.com</b>.</p>
-                         </div>
-                       )}
                        <button 
                          onClick={() => setShowARView(false)}
                          className="mt-4 px-6 py-2 bg-white/10 hover:bg-white text-white hover:text-black rounded-xl font-bold transition-all"
@@ -1198,10 +1251,60 @@ export default function ProductDetail() {
                     {/* @ts-ignore */}
                   </model-viewer>
 
-                  <div className="absolute bottom-10 inset-x-0 flex flex-col items-center gap-4 pointer-events-none">
-                     <div className="bg-black/40 backdrop-blur-md px-6 py-2 rounded-full border border-white/10">
-                        <p className="text-white/60 text-[10px] font-medium text-center">Use your fingers to rotate and zoom • Bonyeza 'View in your space' kwa AR</p>
-                     </div>
+                  {/* Interactive AR & Camera Floating Control Toolbar */}
+                  <div className="absolute bottom-6 inset-x-0 z-30 flex flex-col items-center gap-3 px-4">
+                    <div className="flex items-center justify-center flex-wrap gap-2 max-w-md w-full bg-black/80 backdrop-blur-xl p-2.5 rounded-3xl border border-white/20 shadow-2xl">
+                      {/* Live Camera Toggle Button */}
+                      <button
+                        onClick={isLiveCameraActive ? stopLiveCamera : startLiveCamera}
+                        className={`px-5 py-3 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center gap-2.5 transition-all active:scale-95 shadow-lg ${
+                          isLiveCameraActive
+                            ? 'bg-red-600 text-white shadow-red-600/40'
+                            : 'bg-gradient-to-r from-orange-600 to-amber-500 text-white shadow-orange-600/30 hover:brightness-110'
+                        }`}
+                      >
+                        <Camera className="w-4 h-4" />
+                        <span>{isLiveCameraActive ? 'Zima Kamera' : '📷 Washa Kamera (Live AR)'}</span>
+                      </button>
+
+                      {/* Auto Rotate Toggle */}
+                      <button
+                        onClick={() => setAutoRotate3D(!autoRotate3D)}
+                        className={`p-3 rounded-2xl text-white border transition-all active:scale-95 ${
+                          autoRotate3D 
+                            ? 'bg-orange-600/30 border-orange-500/60 text-orange-400' 
+                            : 'bg-white/10 border-white/20 text-white/70 hover:bg-white/20'
+                        }`}
+                        title="Zungusha 360°"
+                      >
+                        <span className="text-xs font-bold uppercase flex items-center gap-1.5">
+                          🔄 {autoRotate3D ? 'Spin ON' : 'Spin OFF'}
+                        </span>
+                      </button>
+
+                      {/* Native Device AR Trigger Button */}
+                      <button
+                        onClick={() => {
+                          const viewer = document.getElementById('main-ar-viewer') as any;
+                          if (viewer && viewer.canActivateAR) {
+                            viewer.activateAR();
+                          } else {
+                            if (!isLiveCameraActive) startLiveCamera();
+                          }
+                        }}
+                        className="p-3 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-2xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5"
+                        title="Tazama katika AR ya simu"
+                      >
+                        <Smartphone className="w-4 h-4 text-orange-400" />
+                        <span>AR Mode</span>
+                      </button>
+                    </div>
+
+                    <div className="bg-black/60 backdrop-blur-md px-5 py-1.5 rounded-full border border-white/10">
+                      <p className="text-white/80 text-[10px] font-bold text-center tracking-wide">
+                        💡 Tumia kidole kimoja kuzungusha 360° • Vidole viwili kukuza & kusogeza
+                      </p>
+                    </div>
                   </div>
                 </>
               )}
