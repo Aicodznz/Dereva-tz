@@ -1463,21 +1463,25 @@ export default function ProductDetail() {
                         <span>🔄 {autoRotate3D ? 'Spin ON' : 'Spin OFF'}</span>
                       </button>
 
-                      {/* Native AR Mode Button */}
+                      {/* AR Camera Mode Button */}
                       <button
                         onClick={() => {
-                          const viewer = document.getElementById('main-ar-viewer') as any;
-                          if (viewer && viewer.canActivateAR) {
-                            viewer.activateAR();
+                          if (isLiveCameraActive) {
+                            stopLiveCamera();
+                            toast.info('Kamera imefungwa');
                           } else {
-                            if (!isLiveCameraActive) startLiveCamera();
+                            startLiveCamera();
                           }
                         }}
-                        className="px-3 py-2.5 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-full text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5"
-                        title="Tazama katika AR ya simu"
+                        className={`px-3.5 py-2.5 rounded-full text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5 border ${
+                          isLiveCameraActive 
+                            ? 'bg-red-600/90 text-white border-red-500/80 shadow-lg shadow-red-600/30' 
+                            : 'bg-gradient-to-r from-orange-600 to-amber-500 text-white border-white/20 shadow-lg shadow-orange-600/20'
+                        }`}
+                        title="Tazama katika Kamera ya AR"
                       >
-                        <Smartphone className="w-3.5 h-3.5 text-orange-400" />
-                        <span>AR Mode</span>
+                        <Camera className="w-3.5 h-3.5 text-white" />
+                        <span>{isLiveCameraActive ? 'Zima Kamera' : '📷 AR Mode'}</span>
                       </button>
                     </div>
 
