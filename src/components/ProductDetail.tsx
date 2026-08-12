@@ -1333,10 +1333,13 @@ export default function ProductDetail() {
                 src={(product.imageUrls?.[activeImageIndex] || product.imageUrl) || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c'} 
                 alt={product.name}
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80';
+                }}
               />
               
               {/* Star Rating Badge on top-left overlay */}
-              <div className="absolute top-4 left-4 z-10 flex items-center gap-1 bg-white/95 dark:bg-neutral-950/95 backdrop-blur-md px-2.5 py-1.5 rounded-xl shadow-lg border border-neutral-100/10 transition-colors">
+              <div className="absolute top-3 left-3 z-10 flex items-center gap-1 bg-white/95 dark:bg-neutral-950/95 backdrop-blur-md px-2.5 py-1.5 rounded-xl shadow-lg border border-neutral-100/10 transition-colors">
                 <Star className="w-3 h-3 text-orange-500 fill-current" />
                 <span className="font-extrabold text-neutral-900 dark:text-white text-[10px]">
                   {(product.ratingCount || 0) > 0 ? (product.rating || 0).toFixed(1) : '0'}
@@ -1349,38 +1352,46 @@ export default function ProductDetail() {
               {/* Overlay sharing */}
               <button 
                 onClick={handleShare}
-                className="absolute top-4 right-4 w-10 h-10 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-md rounded-full flex items-center justify-center text-neutral-900 dark:text-white shadow-xl hover:bg-white dark:hover:bg-neutral-800 transition-all active:scale-90"
+                className="absolute top-3 right-3 w-9 h-9 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-md rounded-full flex items-center justify-center text-neutral-900 dark:text-white shadow-xl hover:bg-white dark:hover:bg-neutral-800 transition-all active:scale-90 z-10"
               >
                 <Share2 className="w-4 h-4" />
               </button>
 
-              {/* 3D/AR Trigger */}
-              {product?.model3dUrl && businessConfig?.enableAR === true && (
-                <button 
-                  onClick={() => setShowARView(true)}
-                  className="absolute bottom-4 left-4 px-4 py-2 bg-orange-600 text-white rounded-xl flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest shadow-xl shadow-orange-600/30 hover:bg-orange-700 transition-all hover:scale-105 active:scale-95"
-                >
-                  <Box className="w-3.5 h-3.5" />
-                  View in Space
-                </button>
-              )}
+              {/* Bottom Actions Overlay Bar (3D Trigger + Gallery Thumbnails) */}
+              <div className="absolute bottom-3 inset-x-3 z-20 flex items-center justify-between gap-2 pointer-events-none">
+                {/* 3D/AR Trigger */}
+                {product?.model3dUrl && businessConfig?.enableAR === true ? (
+                  <button 
+                    onClick={() => setShowARView(true)}
+                    className="pointer-events-auto px-3.5 py-2 bg-gradient-to-r from-orange-600 to-amber-500 text-white rounded-xl flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider shadow-xl shadow-orange-600/30 hover:brightness-110 transition-all active:scale-95 shrink-0 border border-white/20"
+                  >
+                    <Box className="w-3.5 h-3.5" />
+                    <span>View 3D</span>
+                  </button>
+                ) : <div />}
 
-              {/* Floating thumbnails inside the main image wrapper to save space */}
-              {product.imageUrls && product.imageUrls.length > 1 && (
-                <div className="absolute bottom-4 right-4 left-4 sm:left-auto z-10 flex gap-1.5 justify-center sm:justify-end">
-                  <div className="flex gap-1 bg-black/45 backdrop-blur-md p-1 rounded-xl border border-white/10 max-w-full overflow-x-auto scrollbar-none">
+                {/* Floating thumbnails inside wrapper */}
+                {product.imageUrls && product.imageUrls.length > 1 && (
+                  <div className="pointer-events-auto flex gap-1 bg-black/60 backdrop-blur-md p-1 rounded-xl border border-white/20 max-w-[calc(100%-110px)] overflow-x-auto scrollbar-none shrink-0">
                     {product.imageUrls.map((url, idx) => (
                       <button 
                         key={`thumb-${idx}`}
                         onClick={() => setActiveImageIndex(idx)}
-                        className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg overflow-hidden border-2 flex-shrink-0 cursor-pointer transition-all ${activeImageIndex === idx ? 'border-orange-500 scale-105' : 'border-white/20 hover:border-white/50 opacity-80 hover:opacity-100'}`}
+                        className={`w-9 h-9 sm:w-11 sm:h-11 rounded-lg overflow-hidden border-2 flex-shrink-0 cursor-pointer transition-all ${activeImageIndex === idx ? 'border-orange-500 scale-105 shadow-md' : 'border-white/20 opacity-70 hover:opacity-100'}`}
                       >
-                        <img src={url} className="w-full h-full object-cover" alt="" />
+                        <img 
+                          src={url} 
+                          className="w-full h-full object-cover" 
+                          alt="" 
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=200&q=80';
+                          }}
+                        />
                       </button>
                     ))}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
           {/* Right: Product Content */}
