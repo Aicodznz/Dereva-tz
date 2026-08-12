@@ -49,7 +49,16 @@ import {
   Share2,
   Box,
   Layout,
-  Home
+  Home,
+  ArrowUp,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  RotateCcw,
+  Pin,
+  Move,
+  ZoomIn,
+  ZoomOut
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -158,7 +167,7 @@ export default function ProductDetail() {
   const streamRef = useRef<MediaStream | null>(null);
 
   // Interactive Camera AR Spatial Placement State
-  const [arScale, setArScale] = useState<number>(1.0);
+  const [arScale, setArScale] = useState<number>(0.45);
   const [arPosition, setArPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isArAnchored, setIsArAnchored] = useState<boolean>(false);
   const isDraggingAr = useRef<boolean>(false);
@@ -177,6 +186,10 @@ export default function ProductDetail() {
         videoRef.current.srcObject = stream;
         videoRef.current.play();
       }
+      // Reset position and scale to centered 45% dish size
+      setArScale(0.45);
+      setArPosition({ x: 0, y: 0 });
+      setIsArAnchored(false);
       setIsLiveCameraActive(true);
       toast.success('Kamera imefunguka! Sasa unaweza kuona chakula kwenye mazingira yako halisi.');
     } catch (err: any) {
@@ -1292,72 +1305,75 @@ export default function ProductDetail() {
                   {/* AR Spatial Placement Controls (When Live Camera is Active) */}
                   {isLiveCameraActive && (
                     <div className="absolute top-20 inset-x-4 z-[999999] flex flex-col items-center gap-2 pointer-events-none">
-                      <div className="pointer-events-auto bg-black/80 backdrop-blur-xl p-2.5 rounded-2xl border border-orange-500/40 shadow-2xl flex flex-wrap items-center justify-center gap-2 max-w-md w-full">
+                      <div className="pointer-events-auto bg-neutral-950/90 backdrop-blur-2xl p-2.5 rounded-2xl border border-white/20 shadow-2xl flex flex-wrap items-center justify-center gap-2 max-w-md w-full">
                         {/* Lock / Anchor Button */}
                         <button
                           onClick={() => {
                             setIsArAnchored(!isArAnchored);
                             toast.success(isArAnchored ? 'Imefunguliwa! Sasa unaweza kusogeza tena' : '📍 Imewekwa Mezani! Model imefungiwa hapa.');
                           }}
-                          className={`px-3 py-1.5 rounded-xl font-extrabold text-[11px] uppercase tracking-wider flex items-center gap-1.5 transition-all ${
+                          className={`px-3 py-2 rounded-xl font-black text-[11px] uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-lg active:scale-95 ${
                             isArAnchored 
                               ? 'bg-emerald-600 text-white shadow-emerald-600/30' 
-                              : 'bg-orange-600 text-white shadow-orange-600/30'
+                              : 'bg-gradient-to-r from-orange-600 to-amber-500 text-white shadow-orange-600/30'
                           }`}
                         >
+                          <Pin className="w-3.5 h-3.5" />
                           <span>{isArAnchored ? '🔒 IMEWEKWA MEZANI' : '📍 WEKA HAPA (ANCHOR)'}</span>
                         </button>
 
                         {/* Move Directional Controls */}
                         {!isArAnchored && (
-                          <div className="flex items-center gap-1 bg-white/10 p-1 rounded-xl">
+                          <div className="flex items-center gap-1 bg-neutral-900 border border-white/10 p-1 rounded-xl">
                             <button 
                               onClick={() => setArPosition(p => ({ ...p, y: p.y - 25 }))}
-                              className="w-7 h-7 bg-white/10 hover:bg-white/20 text-white rounded-lg flex items-center justify-center text-xs font-bold"
+                              className="w-8 h-8 bg-neutral-800 hover:bg-neutral-700 active:scale-90 text-white rounded-lg flex items-center justify-center transition-all"
                               title="Sogeza Juu"
                             >
-                              ⬆️
+                              <ArrowUp className="w-4 h-4 text-orange-400" />
                             </button>
                             <button 
                               onClick={() => setArPosition(p => ({ ...p, y: p.y + 25 }))}
-                              className="w-7 h-7 bg-white/10 hover:bg-white/20 text-white rounded-lg flex items-center justify-center text-xs font-bold"
+                              className="w-8 h-8 bg-neutral-800 hover:bg-neutral-700 active:scale-90 text-white rounded-lg flex items-center justify-center transition-all"
                               title="Sogeza Chini"
                             >
-                              ⬇️
+                              <ArrowDown className="w-4 h-4 text-orange-400" />
                             </button>
                             <button 
                               onClick={() => setArPosition(p => ({ ...p, x: p.x - 25 }))}
-                              className="w-7 h-7 bg-white/10 hover:bg-white/20 text-white rounded-lg flex items-center justify-center text-xs font-bold"
+                              className="w-8 h-8 bg-neutral-800 hover:bg-neutral-700 active:scale-90 text-white rounded-lg flex items-center justify-center transition-all"
                               title="Sogeza Kushoto"
                             >
-                              ⬅️
+                              <ArrowLeft className="w-4 h-4 text-orange-400" />
                             </button>
                             <button 
                               onClick={() => setArPosition(p => ({ ...p, x: p.x + 25 }))}
-                              className="w-7 h-7 bg-white/10 hover:bg-white/20 text-white rounded-lg flex items-center justify-center text-xs font-bold"
+                              className="w-8 h-8 bg-neutral-800 hover:bg-neutral-700 active:scale-90 text-white rounded-lg flex items-center justify-center transition-all"
                               title="Sogeza Kulia"
                             >
-                              ➡️
+                              <ArrowRight className="w-4 h-4 text-orange-400" />
                             </button>
                           </div>
                         )}
 
                         {/* Scale Controls */}
-                        <div className="flex items-center gap-1 bg-white/10 p-1 rounded-xl">
+                        <div className="flex items-center gap-1 bg-neutral-900 border border-white/10 p-1 rounded-xl">
                           <button 
-                            onClick={() => setArScale(s => Math.min(2.5, s + 0.15))}
-                            className="w-7 h-7 bg-white/10 hover:bg-white/20 text-white rounded-lg flex items-center justify-center text-xs font-bold"
+                            onClick={() => setArScale(s => Math.min(1.8, s + 0.08))}
+                            className="w-8 h-8 bg-neutral-800 hover:bg-neutral-700 active:scale-90 text-white rounded-lg flex items-center justify-center transition-all"
                             title="Kuza Model"
                           >
-                            ➕
+                            <ZoomIn className="w-4 h-4 text-emerald-400" />
                           </button>
-                          <span className="text-[10px] font-mono text-white/80 px-1">{Math.round(arScale * 100)}%</span>
+                          <span className="text-[10px] font-mono font-bold text-white px-1">
+                            {Math.round((arScale / 0.45) * 100)}%
+                          </span>
                           <button 
-                            onClick={() => setArScale(s => Math.max(0.4, s - 0.15))}
-                            className="w-7 h-7 bg-white/10 hover:bg-white/20 text-white rounded-lg flex items-center justify-center text-xs font-bold"
+                            onClick={() => setArScale(s => Math.max(0.15, s - 0.08))}
+                            className="w-8 h-8 bg-neutral-800 hover:bg-neutral-700 active:scale-90 text-white rounded-lg flex items-center justify-center transition-all"
                             title="Punguza Model"
                           >
-                            ➖
+                            <ZoomOut className="w-4 h-4 text-amber-400" />
                           </button>
                         </div>
 
@@ -1365,13 +1381,14 @@ export default function ProductDetail() {
                         <button
                           onClick={() => {
                             setArPosition({ x: 0, y: 0 });
-                            setArScale(1.0);
+                            setArScale(0.45);
                             setIsArAnchored(false);
                           }}
-                          className="px-2.5 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl text-[10px] font-bold"
+                          className="px-3 py-2 bg-neutral-900 hover:bg-neutral-800 border border-white/10 text-neutral-300 rounded-xl text-[10px] font-bold flex items-center gap-1 transition-all active:scale-90"
                           title="Rudi Mwanzo"
                         >
-                          🔄 Reset
+                          <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Reset</span>
                         </button>
                       </div>
                     </div>
@@ -1441,7 +1458,7 @@ export default function ProductDetail() {
         document.body
       )}
 
-      <div className="max-w-7xl mx-auto px-4 lg:px-8 pt-4 lg:pt-8">
+      <div className="max-w-7xl mx-auto px-4 lg:px-8 pt-4 lg:pt-8 pb-36 lg:pb-20">
         {/* Back Button */}
         <div className="mb-4 flex items-center">
           <button 
@@ -1456,7 +1473,7 @@ export default function ProductDetail() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
           {/* Left: Product Images */}
           <div className="space-y-3">
-            <div className="aspect-[16/10] sm:aspect-square sm:max-h-none max-h-[260px] bg-neutral-100 dark:bg-neutral-900 rounded-[1.5rem] lg:rounded-[2rem] overflow-hidden relative group shadow-xl shadow-neutral-200 dark:shadow-black/50">
+            <div className="aspect-[16/10] sm:aspect-square sm:max-h-none max-h-[280px] bg-neutral-100 dark:bg-neutral-900 rounded-[1.5rem] lg:rounded-[2rem] overflow-hidden relative group shadow-xl shadow-neutral-200 dark:shadow-black/50">
               <img 
                 src={(product.imageUrls?.[activeImageIndex] || product.imageUrl) || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c'} 
                 alt={product.name}
@@ -1485,57 +1502,58 @@ export default function ProductDetail() {
                 <Share2 className="w-4 h-4" />
               </button>
 
-              {/* Bottom Actions Overlay Bar (3D Trigger + Gallery Thumbnails) */}
-              <div className="absolute bottom-3 inset-x-3 z-20 flex items-center justify-between gap-2 pointer-events-none">
-                {/* 3D/AR Trigger */}
-                {product?.model3dUrl ? (
-                  <div className="pointer-events-auto flex items-center gap-1.5 flex-wrap">
-                    <button 
-                      onClick={() => {
-                        setShowARView(true);
-                        setTimeout(() => {
-                          startLiveCamera();
-                        }, 300);
-                      }}
-                      className="px-3.5 py-2 bg-gradient-to-r from-orange-600 via-amber-500 to-emerald-500 text-white rounded-xl flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider shadow-xl shadow-orange-600/40 hover:brightness-110 transition-all active:scale-95 shrink-0 border border-white/30 animate-pulse"
-                    >
-                      <Camera className="w-3.5 h-3.5" />
-                      <span>📸 Onyesha Kwenye Meza (Direct AR)</span>
-                    </button>
+              {/* Sleek AR / 3D Triggers (Bottom-Left Overlay) */}
+              {product?.model3dUrl && (
+                <div className="absolute bottom-3 left-3 z-20 flex items-center gap-2 pointer-events-auto flex-wrap">
+                  <button 
+                    onClick={() => {
+                      setShowARView(true);
+                      setTimeout(() => {
+                        startLiveCamera();
+                      }, 300);
+                    }}
+                    className="px-3.5 py-2 bg-gradient-to-r from-orange-600 via-amber-500 to-emerald-500 text-white rounded-2xl flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider shadow-xl shadow-orange-600/40 hover:brightness-110 transition-all active:scale-95 border border-white/30 animate-pulse"
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                    <span>Onyesha Mezani (AR)</span>
+                  </button>
 
-                    <button 
-                      onClick={() => setShowARView(true)}
-                      className="px-3 py-2 bg-black/70 backdrop-blur-md text-white/90 hover:text-white rounded-xl flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider border border-white/20 transition-all active:scale-95 shrink-0"
-                    >
-                      <Box className="w-3 h-3 text-orange-400" />
-                      <span>3D View</span>
-                    </button>
-                  </div>
-                ) : <div />}
-
-                {/* Floating thumbnails inside wrapper */}
-                {product.imageUrls && product.imageUrls.length > 1 && (
-                  <div className="pointer-events-auto flex gap-1 bg-black/60 backdrop-blur-md p-1 rounded-xl border border-white/20 max-w-[calc(100%-110px)] overflow-x-auto scrollbar-none shrink-0">
-                    {product.imageUrls.map((url, idx) => (
-                      <button 
-                        key={`thumb-${idx}`}
-                        onClick={() => setActiveImageIndex(idx)}
-                        className={`w-9 h-9 sm:w-11 sm:h-11 rounded-lg overflow-hidden border-2 flex-shrink-0 cursor-pointer transition-all ${activeImageIndex === idx ? 'border-orange-500 scale-105 shadow-md' : 'border-white/20 opacity-70 hover:opacity-100'}`}
-                      >
-                        <img 
-                          src={url} 
-                          className="w-full h-full object-cover" 
-                          alt="" 
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=200&q=80';
-                          }}
-                        />
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+                  <button 
+                    onClick={() => setShowARView(true)}
+                    className="px-3 py-2 bg-black/80 backdrop-blur-md text-white/90 hover:text-white rounded-2xl flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider border border-white/20 transition-all active:scale-95"
+                  >
+                    <Box className="w-3.5 h-3.5 text-orange-400" />
+                    <span>3D View</span>
+                  </button>
+                </div>
+              )}
             </div>
+
+            {/* Gallery Thumbnails (Clean Separate Row Below Main Image) */}
+            {product.imageUrls && product.imageUrls.length > 1 && (
+              <div className="flex items-center gap-2.5 pt-1 overflow-x-auto scrollbar-none">
+                {product.imageUrls.map((url, idx) => (
+                  <button 
+                    key={`thumb-${idx}`}
+                    onClick={() => setActiveImageIndex(idx)}
+                    className={`w-14 h-14 rounded-2xl overflow-hidden border-2 flex-shrink-0 cursor-pointer transition-all ${
+                      activeImageIndex === idx 
+                        ? 'border-orange-500 scale-105 shadow-md ring-2 ring-orange-500/30' 
+                        : 'border-neutral-200 dark:border-neutral-800 opacity-70 hover:opacity-100'
+                    }`}
+                  >
+                    <img 
+                      src={url} 
+                      className="w-full h-full object-cover" 
+                      alt="" 
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=200&q=80';
+                      }}
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           {/* Right: Product Content */}
           <div className="space-y-5 lg:pl-0">

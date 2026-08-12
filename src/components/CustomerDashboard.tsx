@@ -1565,7 +1565,7 @@ export default function CustomerDashboard() {
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  setSelectedProduct(product);
+                                  navigate(`/product/${product.id}`);
                                 }}
                                 className="absolute top-3 left-3 z-10 bg-gradient-to-r from-orange-600 to-amber-500 text-white px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider shadow-lg border border-white/20 flex items-center gap-1 hover:brightness-110 active:scale-95"
                               >
