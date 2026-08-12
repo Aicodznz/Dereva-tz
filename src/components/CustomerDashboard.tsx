@@ -1569,8 +1569,8 @@ export default function CustomerDashboard() {
                                 }}
                                 className="absolute top-3 left-3 z-10 bg-gradient-to-r from-orange-600 to-amber-500 text-white px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider shadow-lg border border-white/20 flex items-center gap-1 hover:brightness-110 active:scale-95"
                               >
-                                <Box className="w-3 h-3 text-amber-200 animate-bounce" />
-                                <span>📸 Onyesha Mezani</span>
+                                <Box className="w-3 h-3 text-amber-200" />
+                                <span>3D View</span>
                               </button>
                             )}
                             <motion.button 
