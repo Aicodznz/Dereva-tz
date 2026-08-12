@@ -2370,6 +2370,9 @@ export default function VendorDashboard() {
           vendorCategory: vendorProfile.category,
           updatedAt: serverTimestamp(),
         });
+        if (productData.metaMcpPromo) {
+          toast.success("🚀 Bidhaa imesawazishwa na Meta MCP Studio! Inatangazwa kwenye Facebook, Instagram & WhatsApp Business Catalog.");
+        }
       } else {
         await addDoc(collection(db, 'products'), {
           ...productData,
@@ -2378,6 +2381,9 @@ export default function VendorDashboard() {
           vendorCategory: vendorProfile.category,
           createdAt: serverTimestamp(),
         });
+        if (productData.metaMcpPromo) {
+          toast.success("🚀 Bidhaa imesawazishwa na Meta MCP Studio! Inatangazwa kwenye Facebook, Instagram & WhatsApp Business Catalog.");
+        }
       }
       setIsAddProductOpen(false);
       setEditingProduct(null);
@@ -2398,10 +2404,32 @@ export default function VendorDashboard() {
         model3dUrl: '',
         highlights: [],
         story: '',
-        qualityPromise: { description: '', certifiedBy: '' }
+        qualityPromise: { description: '', certifiedBy: '' },
+        metaMcpPromo: false,
+        metaCatalogSynced: false
       });
     } catch (error) {
       console.error(error);
+    }
+  };
+
+  const handleToggleMetaMcpPromo = async (product: Product) => {
+    if (!product.id) return;
+    const nextVal = !product.metaMcpPromo;
+    try {
+      await updateDoc(doc(db, 'products', product.id), {
+        metaMcpPromo: nextVal,
+        metaCatalogSynced: true,
+        updatedAt: serverTimestamp(),
+      });
+      if (nextVal) {
+        toast.success(`🚀 "${product.name}" imesawazishwa na Meta MCP Studio! Inatangazwa sasa kwenye Meta Commerce, Facebook & WhatsApp.`);
+      } else {
+        toast.info(`ℹ️ Utangazaji wa "${product.name}" kwenye Meta MCP umesitishwa.`);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Imeshindwa kubadilisha status ya Meta MCP');
     }
   };
 
@@ -2468,7 +2496,9 @@ export default function VendorDashboard() {
       carNumber: product.carNumber || '',
       year: product.year || '',
       mileage: product.mileage || undefined,
-      features: product.features || []
+      features: product.features || [],
+      metaMcpPromo: product.metaMcpPromo || false,
+      metaCatalogSynced: product.metaCatalogSynced || false
     });
     setIsAddProductOpen(true);
   };
@@ -7829,6 +7859,20 @@ export default function VendorDashboard() {
                                <div className="flex items-center justify-end gap-2">
                                   {(!staffProfile || staffProfile.role === 'manager') ? (
                                     <>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm"
+                                        title={product.metaMcpPromo ? "Sitisha utangazaji kwenye Meta MCP" : "Tangaza kwenye Meta MCP Hub & Catalog"}
+                                        className={`h-10 px-3 rounded-xl font-bold text-[10px] uppercase flex items-center gap-1.5 transition-all ${
+                                          product.metaMcpPromo 
+                                            ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40 hover:bg-blue-600/30' 
+                                            : 'bg-neutral-900 text-neutral-400 hover:text-blue-400 hover:bg-neutral-800 border border-neutral-800'
+                                        }`} 
+                                        onClick={() => handleToggleMetaMcpPromo(product)}
+                                      >
+                                        <Zap className="w-3.5 h-3.5" />
+                                        <span className="hidden sm:inline">{product.metaMcpPromo ? 'Meta Live' : 'Tangaza Meta MCP'}</span>
+                                      </Button>
                                       <Button variant="ghost" size="icon" className="h-10 w-10 bg-neutral-900 rounded-xl text-neutral-400 hover:text-white" onClick={() => handleEditProduct(product)}>
                                          <Edit2 className="w-4 h-4" />
                                       </Button>
@@ -9447,6 +9491,33 @@ export default function VendorDashboard() {
                         </Button>
                       </div>
                     ))}
+                  </div>
+                </div>
+
+                {/* Meta MCP Promotion & Catalog Sync Card */}
+                <div className="p-4 bg-gradient-to-r from-blue-950/60 via-indigo-950/40 to-neutral-900 border border-blue-500/30 rounded-2xl space-y-3 shadow-lg">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center border border-blue-500/30">
+                        <Zap className="w-5 h-5 animate-pulse" />
+                      </div>
+                      <div>
+                        <label htmlFor="metaMcpPromo" className="text-xs font-black text-white uppercase tracking-wider cursor-pointer flex items-center gap-2">
+                          <span>Tangaza Kwenye Meta MCP Hub</span>
+                          <span className="text-[9px] bg-blue-600 text-white font-extrabold px-2 py-0.5 rounded-full uppercase">Meta AI Ads</span>
+                        </label>
+                        <p className="text-[10px] text-neutral-400 font-medium">
+                          Sawazisha bidhaa hii na Meta Catalog na WhatsApp Business AI Agent ili kutangazwa kiotomatiki.
+                        </p>
+                      </div>
+                    </div>
+                    <input 
+                      type="checkbox"
+                      id="metaMcpPromo"
+                      className="w-5 h-5 rounded border-neutral-700 bg-neutral-900 text-blue-500 focus:ring-blue-500 cursor-pointer"
+                      checked={!!newProduct.metaMcpPromo}
+                      onChange={e => setNewProduct({...newProduct, metaMcpPromo: e.target.checked})}
+                    />
                   </div>
                 </div>
 

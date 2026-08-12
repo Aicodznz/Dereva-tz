@@ -177,6 +177,9 @@ export interface Product {
     description: string;
     certifiedBy?: string;
   };
+  // Meta MCP Promotion & Catalog Integration
+  metaMcpPromo?: boolean;
+  metaCatalogSynced?: boolean;
   // Car Rental & Car Sale specific
   carType?: string;
   transmission?: string;
