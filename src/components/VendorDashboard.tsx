@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { Skeleton } from './ui/Skeleton';
+import { PapoFood3DStudioModal } from './PapoFood3DStudioModal';
 import { 
   Globe,
   LayoutDashboard, 
@@ -666,6 +667,7 @@ export default function VendorDashboard() {
   const [isLogoUploading, setIsLogoUploading] = useState(false);
   const [isProductUploading, setIsProductUploading] = useState(false);
   const [isModelUploading, setIsModelUploading] = useState(false);
+  const [is3DStudioOpen, setIs3DStudioOpen] = useState(false);
   const [isStandBgUploading, setIsStandBgUploading] = useState(false);
   const [isBannerUploading, setIsBannerUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -9122,35 +9124,72 @@ export default function VendorDashboard() {
                 )}
 
 
-                {/* AR & 3D Model Section */}
+                {/* AR & 3D Model Section with PapoFood Direct Studio */}
                 {businessConfig.enableAR && (vendorProfile?.category === 'restaurant' || vendorProfile?.category === 'ecommerce' || vendorProfile?.category === 'grocery') && (
-                  <div className="space-y-3 p-4 bg-orange-600/5 rounded-2xl border border-orange-600/10">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Box className="w-4 h-4 text-orange-600" />
-                      <label className="text-xs font-bold text-orange-600 uppercase">AR & 3D Model (Optional)</label>
+                  <div className="space-y-3 p-4 bg-gradient-to-r from-orange-600/10 via-amber-500/5 to-transparent rounded-2xl border border-orange-600/20">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Box className="w-4 h-4 text-orange-600" />
+                        <label className="text-xs font-bold text-orange-600 uppercase tracking-wider">AR & 3D Model (Direct Studio)</label>
+                      </div>
+                      <span className="text-[10px] bg-orange-600 text-white font-black px-2 py-0.5 rounded-full uppercase tracking-widest">
+                        Live AR
+                      </span>
                     </div>
-                    
+
                     <div className="flex flex-col gap-3">
                       {newProduct.model3dUrl ? (
-                        <div className="flex items-center justify-between p-3 bg-neutral-800 rounded-xl border border-neutral-700">
-                          <div className="flex items-center gap-2 shrink-0">
-                            <Box className="w-5 h-5 text-green-500" />
-                            <span className="text-[10px] text-neutral-300 font-medium truncate max-w-[150px]">
-                              {newProduct.model3dUrl?.split('/').pop()?.split('?')[0] || 'Model Linked'}
-                            </span>
+                        <div className="flex items-center justify-between p-3.5 bg-neutral-800/90 rounded-2xl border border-neutral-700 shadow-md">
+                          <div className="flex items-center gap-2.5 shrink-0">
+                            <div className="w-8 h-8 bg-green-500/20 text-green-400 rounded-xl flex items-center justify-center">
+                              <Box className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <p className="text-xs text-white font-black">3D AR Model Connected</p>
+                              <p className="text-[10px] text-neutral-400 truncate max-w-[180px]">
+                                {newProduct.model3dUrl?.split('/').pop()?.split('?')[0] || 'GLB Model Ready'}
+                              </p>
+                            </div>
                           </div>
-                          <Button 
-                            type="button" 
-                            variant="ghost" 
-                            size="sm" 
-                            className="h-8 text-xs text-red-500 hover:text-red-400 p-0 px-2"
-                            onClick={() => setNewProduct({...newProduct, model3dUrl: ''})}
-                          >
-                            Remove
-                          </Button>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-8 text-xs border-orange-500/40 text-orange-400 hover:bg-orange-500/10 rounded-xl"
+                              onClick={() => setIs3DStudioOpen(true)}
+                            >
+                              Badilisha
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-8 text-xs text-red-500 hover:text-red-400 p-0 px-2"
+                              onClick={() => setNewProduct({...newProduct, model3dUrl: ''})}
+                            >
+                              Ondoa
+                            </Button>
+                          </div>
                         </div>
                       ) : (
-                        <div className="grid grid-cols-1 gap-2">
+                        <div className="space-y-3">
+                          {/* Direct PapoFood 3D Studio Trigger Button */}
+                          <button
+                            type="button"
+                            onClick={() => setIs3DStudioOpen(true)}
+                            className="w-full py-3.5 px-4 bg-gradient-to-r from-orange-600 via-amber-500 to-orange-600 hover:brightness-110 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-orange-600/25 flex items-center justify-center gap-2.5 transition-all active:scale-95 border border-white/20"
+                          >
+                            <Box className="w-4 h-4 animate-bounce" />
+                            <span>✨ Fungua PapoFood 3D Studio (Tengeneza / Chagua 3D Model Direct)</span>
+                          </button>
+
+                          <div className="flex items-center gap-2 my-1">
+                            <div className="h-px bg-neutral-800 flex-1" />
+                            <span className="text-[9px] text-neutral-500 uppercase font-extrabold">au weka link ya .glb</span>
+                            <div className="h-px bg-neutral-800 flex-1" />
+                          </div>
+
                           <Input 
                             className="bg-neutral-800 border-none h-11 rounded-xl text-xs"
                             placeholder="Paste 3D Model URL (.glb / .gltf)"
@@ -9163,52 +9202,8 @@ export default function VendorDashboard() {
                               setNewProduct({...newProduct, model3dUrl: val});
                             }}
                           />
-                          <div className="mt-4 p-4 bg-orange-600/5 rounded-2xl border border-orange-600/10">
-                            <div className="flex items-center gap-2 mb-2">
-                              <div className="w-6 h-6 bg-orange-600 rounded-lg flex items-center justify-center">
-                                <Box className="w-3.5 h-3.5 text-white" />
-                              </div>
-                              <p className="text-[10px] font-black uppercase tracking-widest text-orange-600">Tip: Image to 3D</p>
-                            </div>
-                            <p className="text-[11px] text-neutral-500 leading-relaxed">
-                              Huwezi kutumia picha (PNG/JPG) moja kwa moja kwa AR. Ili kupunguza gharama, tumia app ya <span className="font-bold text-neutral-800">Polycam</span> (kwenye simu ni bure kuanza) au pakua models za bure kutoka <span className="font-bold text-neutral-800">Sketchfab.com</span>. Luma AI pia ina sehemu ya bure ("Genie"). Hakikisha faili ni <span className="bg-neutral-800 text-white px-1 rounded mx-1">.glb</span>.
-                            </p>
-                          </div>
-                          <div className="relative">
-                            <input 
-                              type="file" 
-                              id="model3d-upload"
-                              className="hidden" 
-                              accept=".glb,.gltf"
-                              onChange={handle3DModelUpload}
-                            />
-                            <Button 
-                              type="button"
-                              disabled={isModelUploading}
-                              className="w-full bg-neutral-800 hover:bg-neutral-700 border-2 border-dashed border-neutral-700 text-neutral-400 h-11 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
-                              onClick={() => document.getElementById('model3d-upload')?.click()}
-                            >
-                              {isModelUploading ? (
-                                <>
-                                  <div className="w-3 h-3 border-2 border-orange-600 border-t-transparent rounded-full animate-spin" />
-                                  Uploading {Math.round(uploadProgress)}%
-                                </>
-                              ) : (
-                                <>
-                                  <Plus className="w-4 h-4" />
-                                  Upload .GLB for Augmented Reality
-                                </>
-                              )}
-                            </Button>
-                            <p className="text-[10px] text-orange-600/80 font-bold px-1 mt-2 italic">
-                              ⚠️ Lazima iwe ni faili la .glb. Picha (PNG/JPG) hazikubaliki kwa AR.
-                            </p>
-                          </div>
                         </div>
                       )}
-                      <p className="text-[9px] text-neutral-500 italic">
-                        Upload a GLB file to allow customers to view this food in 3D/AR.
-                      </p>
                     </div>
                   </div>
                 )}
@@ -12249,6 +12244,18 @@ export default function VendorDashboard() {
           }
         }
       `}} />
+      {/* PapoFood Direct 3D Studio Modal */}
+      <PapoFood3DStudioModal
+        isOpen={is3DStudioOpen}
+        onClose={() => setIs3DStudioOpen(false)}
+        onSelect3DModel={(modelUrl) => {
+          setNewProduct(prev => ({ ...prev, model3dUrl: modelUrl }));
+          setIs3DStudioOpen(false);
+        }}
+        vendorId={vendorProfile?.id}
+        productName={newProduct.name || 'Chakula'}
+        initialModelUrl={newProduct.model3dUrl || ''}
+      />
     </div>
   );
 }
