@@ -767,9 +767,9 @@ export default function CustomerDashboard() {
 
   return (
     <div className={`pb-10 space-y-2 sm:space-y-3 ${isRTL ? 'text-right' : 'text-left'}`}>
-      {/* SLIDE NOTIFICATION & GREETING HEADER CARD */}
-      <div className="w-full">
-        <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 text-white px-2.5 py-1.5 sm:px-4 sm:py-2 shadow-md shadow-orange-600/15 border border-orange-400/30">
+      {/* SLIDE NOTIFICATION & GREETING HEADER CARD - FULL WIDTH EDGE-TO-EDGE */}
+      <div className="-mx-2 md:-mx-4 lg:-mx-6 -mt-1.5 md:-mt-2 mb-2 sm:mb-3">
+        <div className="relative overflow-hidden bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 text-white px-3 py-1.5 sm:px-4 sm:py-2 shadow-sm border-b border-orange-400/40">
           {/* Ambient background glows */}
           <div className="absolute -top-10 -right-10 w-24 h-24 bg-white/10 rounded-full blur-xl pointer-events-none" />
           <div className="absolute -bottom-8 -left-8 w-20 h-20 bg-black/10 rounded-full blur-lg pointer-events-none" />
@@ -777,20 +777,20 @@ export default function CustomerDashboard() {
           <AnimatePresence mode="wait">
             <motion.div
               key={currentSlideIndex}
-              initial={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
+              exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.25, ease: "easeOut" }}
-              className="flex items-center justify-between gap-2 relative z-10 cursor-pointer"
+              className="flex items-center justify-between gap-2.5 relative z-10 cursor-pointer max-w-[2400px] mx-auto"
               onClick={() => {
                 if (currentSlide.type === 'announcement') {
                   navigate('/notifications');
                 }
               }}
             >
-              <div className="flex items-center gap-2 min-w-0 flex-1">
+              <div className="flex items-center gap-2.5 min-w-0 flex-1">
                 {/* Brand / Slide Icon */}
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center shrink-0 shadow-xs">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center shrink-0 shadow-xs">
                   {currentSlide.type === 'greeting' ? (
                     <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-200 animate-pulse" />
                   ) : (
@@ -799,37 +799,16 @@ export default function CustomerDashboard() {
                 </div>
 
                 <div className="min-w-0 flex-1 overflow-hidden">
-                  {/* Single Line Sliding Ticker (Kulia kwenda Kushoto) */}
-                  <div className="overflow-hidden w-full relative [mask-image:linear-gradient(to_right,transparent,black_6px,black_calc(100%-6px),transparent)]">
-                    <div className="animate-marquee-text flex items-center">
-                      {/* First set of continuous sliding items */}
-                      <div className="flex items-center whitespace-nowrap">
-                        {[0, 1, 2, 3].map((key) => (
-                          <div key={`track-a-${key}`} className="flex items-center whitespace-nowrap pr-8 sm:pr-12">
-                            <span className="text-xs sm:text-sm font-black italic uppercase tracking-tight text-white drop-shadow-xs">
-                              {currentSlide.title}
-                            </span>
-                            <span className="text-[11px] sm:text-xs text-amber-100 font-semibold opacity-95 ml-2 flex items-center gap-1">
-                              <span className="opacity-60">—</span>
-                              {currentSlide.subtitle}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                      {/* Identical second set for seamless 0% -> -50% loop */}
-                      <div className="flex items-center whitespace-nowrap">
-                        {[0, 1, 2, 3].map((key) => (
-                          <div key={`track-b-${key}`} className="flex items-center whitespace-nowrap pr-8 sm:pr-12">
-                            <span className="text-xs sm:text-sm font-black italic uppercase tracking-tight text-white drop-shadow-xs">
-                              {currentSlide.title}
-                            </span>
-                            <span className="text-[11px] sm:text-xs text-amber-100 font-semibold opacity-95 ml-2 flex items-center gap-1">
-                              <span className="opacity-60">—</span>
-                              {currentSlide.subtitle}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
+                  {/* Single Line Sliding Ticker (Single clean text from right to left) */}
+                  <div className="overflow-hidden w-full relative [mask-image:linear-gradient(to_right,transparent,black_8px,black_calc(100%-8px),transparent)]">
+                    <div className="animate-single-ticker inline-flex items-center whitespace-nowrap">
+                      <span className="text-xs sm:text-sm font-black italic uppercase tracking-tight text-white drop-shadow-xs">
+                        {currentSlide.title}
+                      </span>
+                      <span className="text-[11px] sm:text-xs text-amber-100 font-semibold opacity-95 ml-2.5 flex items-center gap-1.5">
+                        <span className="opacity-60">—</span>
+                        {currentSlide.subtitle}
+                      </span>
                     </div>
                   </div>
                 </div>

@@ -483,22 +483,23 @@
   white-space: nowrap;
 }
 
-@keyframes textMarquee {
+@keyframes singleTicker {
   0% {
-    transform: translateX(0%);
+    transform: translateX(100vw);
   }
   100% {
-    transform: translateX(-50%);
+    transform: translateX(-100%);
   }
 }
 
-.animate-marquee-text {
+.animate-single-ticker {
   display: inline-flex;
   white-space: nowrap;
-  animation: textMarquee 18s linear infinite;
+  animation: singleTicker 22s linear infinite;
   will-change: transform;
 }
 
-.animate-marquee-text:hover {
+.animate-single-ticker:hover {
   animation-play-state: paused;
 }
+
