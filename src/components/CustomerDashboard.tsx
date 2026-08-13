@@ -768,7 +768,7 @@ export default function CustomerDashboard() {
   return (
     <div className={`pb-10 space-y-2 sm:space-y-3 ${isRTL ? 'text-right' : 'text-left'}`}>
       {/* SLIDE NOTIFICATION & GREETING HEADER CARD - FULL WIDTH EDGE-TO-EDGE */}
-      <div className="-mx-2 md:-mx-4 lg:-mx-6 -mt-1.5 md:-mt-2 mb-2 sm:mb-3">
+      <div className="-mx-2 md:-mx-4 lg:-mx-6 w-[calc(100%+1rem)] md:w-[calc(100%+2rem)] lg:w-[calc(100%+3rem)] -mt-1.5 md:-mt-2 mb-2 sm:mb-3">
         <div className="relative overflow-hidden bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 text-white px-3 py-1.5 sm:px-4 sm:py-2 shadow-sm border-b border-orange-400/40">
           {/* Ambient background glows */}
           <div className="absolute -top-10 -right-10 w-24 h-24 bg-white/10 rounded-full blur-xl pointer-events-none" />
@@ -888,7 +888,7 @@ export default function CustomerDashboard() {
 
       {/* 1. Promotional Auto-Slide Carousel (Banners) */}
       <div 
-        className="relative w-full overflow-hidden py-1 sm:py-2 select-none flex flex-col items-center gap-2.5"
+        className="relative -mx-2 md:-mx-4 lg:-mx-6 w-[calc(100%+1rem)] md:w-[calc(100%+2rem)] lg:w-[calc(100%+3rem)] px-0 overflow-hidden py-1 sm:py-2 select-none flex flex-col items-center gap-2.5"
         onMouseEnter={() => setIsBannerHovered(true)}
         onMouseLeave={() => setIsBannerHovered(false)}
         onTouchStart={() => setIsBannerHovered(true)}
@@ -905,7 +905,7 @@ export default function CustomerDashboard() {
             {/* Modern Fluid Banner Carousel Container */}
             <div 
               ref={bannerScrollRef}
-              className="relative w-full h-[220px] xs:h-[240px] sm:h-[300px] md:h-[360px] flex items-center justify-center overflow-hidden"
+              className="relative w-full h-[220px] xs:h-[250px] sm:h-[310px] md:h-[370px] lg:h-[400px] flex items-center justify-center overflow-hidden"
             >
               {banners.map((banner, idx) => {
                 if (!banner.img) return null;
@@ -932,15 +932,15 @@ export default function CustomerDashboard() {
                   zIndexVal = 30;
                   opacityVal = 1;
                 } else if (isLeft) {
-                  xOffset = "-96%"; // Positioned cleanly to the left without covering text
-                  scaleVal = 0.86;
+                  xOffset = "-97%"; // Positioned cleanly to the left without covering text
+                  scaleVal = 0.88;
                   zIndexVal = 20;
-                  opacityVal = 0.55;
+                  opacityVal = 0.65;
                 } else if (isRight) {
-                  xOffset = "96%"; // Positioned cleanly to the right without covering text
-                  scaleVal = 0.86;
+                  xOffset = "97%"; // Positioned cleanly to the right without covering text
+                  scaleVal = 0.88;
                   zIndexVal = 20;
-                  opacityVal = 0.55;
+                  opacityVal = 0.65;
                 } else {
                   // Hidden offscreen items
                   xOffset = diff < 0 ? "-150%" : "150%";
@@ -991,7 +991,7 @@ export default function CustomerDashboard() {
                         setActiveBannerIdx(idx);
                       }
                     }}
-                    className="absolute w-[84%] sm:w-[76%] md:w-[60%] lg:w-[48%] h-full rounded-[2.2rem] overflow-hidden shadow-2xl group cursor-pointer border border-white/20 select-none bg-black/40 origin-center"
+                    className="absolute w-[86%] sm:w-[78%] md:w-[62%] lg:w-[50%] xl:w-[46%] h-full rounded-2xl sm:rounded-3xl md:rounded-[2.2rem] overflow-hidden shadow-2xl group cursor-pointer border border-white/20 select-none bg-black/40 origin-center"
                   >
                     {/* Background Image */}
                     <img 
