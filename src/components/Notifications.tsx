@@ -1,23 +1,18 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import { db } from '../firebase';
 import { 
-  collection, query, where, onSnapshot, getDocs, limit, orderBy, 
+  collection, query, where, onSnapshot, 
   updateDoc, doc, writeBatch, addDoc, serverTimestamp, setDoc, getDoc 
 } from 'firebase/firestore';
 import { useAuth } from '../AuthContext';
 import { useLanguage } from '../LanguageContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  Bell, CheckCircle2, Settings, ChevronRight, ShoppingBag, Tag, Star,
-  AlertCircle, Info, Car, Utensils, ShoppingCart, Pill, Package, Bus, Key,
-  Hotel, Scissors, CreditCard, MessageSquare, Megaphone, Shield, Navigation,
-  Volume2, VolumeX, Upload, Play, Sparkles, Plus, X, User, Users, Check, Flame, AlertTriangle,
-  Undo2
+  Bell, CheckCircle2, Volume2, Upload, Play, Sparkles, User,
+  Flame, Undo2, CheckCheck, Sliders, Inbox, Info
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { playSyntheticNormal, playSyntheticImportant, playSyntheticCritical } from '../utils/soundAlert';
@@ -26,10 +21,10 @@ interface Notification {
   id: string;
   title: string;
   body: string;
-  type: string; // e.g. 'order', 'promotion', 'system', 'review'
+  type?: string;
   role?: 'customer' | 'vendor' | 'rider' | 'admin' | 'all';
-  category: string; // e.g. 'Transport', 'Food', 'Payments', etc.
-  importance: 'critical' | 'important' | 'normal' | 'silent';
+  category?: string;
+  importance?: 'critical' | 'important' | 'normal' | 'silent';
   isRead: boolean;
   createdAt: any;
   actionUrl?: string;
@@ -48,32 +43,13 @@ const DEFAULT_SOUNDS: SoundSettings = {
   normal: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-720.wav', // Pop chime
 };
 
-const CATEGORIES = [
-  { id: 'all', label: 'Zote', icon: Bell, color: 'text-neutral-500 bg-neutral-100' },
-  { id: 'Transport', label: '🚖 Transport', icon: Car, color: 'text-blue-500 bg-blue-50' },
-  { id: 'Food', label: '🍔 Food', icon: Utensils, color: 'text-red-500 bg-red-50' },
-  { id: 'Shopping', label: '🛒 Shopping', icon: ShoppingCart, color: 'text-emerald-500 bg-emerald-50' },
-  { id: 'Pharmacy', label: '💊 Pharmacy', icon: Pill, color: 'text-teal-500 bg-teal-50' },
-  { id: 'Parcel', label: '📦 Parcel', icon: Package, color: 'text-amber-500 bg-amber-50' },
-  { id: 'Bus Tickets', label: '🎫 Bus Tickets', icon: Bus, color: 'text-indigo-500 bg-indigo-50' },
-  { id: 'Car Rental', label: '🚗 Car Rental', icon: Key, color: 'text-cyan-500 bg-cyan-50' },
-  { id: 'Hotels', label: '🏨 Hotels', icon: Hotel, color: 'text-purple-500 bg-purple-50' },
-  { id: 'Salon', label: '💇 Salon', icon: Scissors, color: 'text-pink-500 bg-pink-50' },
-  { id: 'Payments', label: '💰 Payments', icon: CreditCard, color: 'text-green-500 bg-green-50' },
-  { id: 'Messages', label: '💬 Messages', icon: MessageSquare, color: 'text-sky-500 bg-sky-50' },
-  { id: 'Promotions', label: '📢 Promotions', icon: Megaphone, color: 'text-orange-500 bg-orange-50' },
-  { id: 'Security', label: '🔐 Security', icon: Shield, color: 'text-rose-500 bg-rose-50' },
-  { id: 'Navigation', label: '🗺️ Navigation', icon: Navigation, color: 'text-violet-500 bg-violet-50' },
-  { id: 'System', label: '⚙️ System', icon: Settings, color: 'text-slate-500 bg-slate-50' },
-];
-
 export default function Notifications() {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const { t } = useLanguage();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [soundSettings, setSoundSettings] = useState<SoundSettings>(DEFAULT_SOUNDS);
-  const [activeTab, setActiveTab] = useState<'all_notifs' | 'simulator' | 'sound_settings'>('all_notifs');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [activeTab, setActiveTab] = useState<'inbox' | 'sound_settings' | 'simulator'>('inbox');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'unread' | 'critical' | 'important'>('all');
   const [loading, setLoading] = useState(true);
   const [isAudioEnabled, setIsAudioEnabled] = useState(false);
   
@@ -82,7 +58,7 @@ export default function Notifications() {
     id: string;
     title: string;
     body: string;
-    category: string;
+    category?: string;
   } | null>(null);
 
   const componentLoadTime = useRef(Date.now());
@@ -97,7 +73,6 @@ export default function Notifications() {
         if (docSnap.exists()) {
           setSoundSettings({ ...DEFAULT_SOUNDS, ...docSnap.data() } as SoundSettings);
         } else {
-          // Initialize defaults
           await setDoc(docRef, DEFAULT_SOUNDS);
         }
       } catch (err) {
@@ -109,7 +84,10 @@ export default function Notifications() {
 
   // Fetch / Listen to Notifications
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
     const notificationsRef = collection(db, 'notifications');
     const q = query(
@@ -146,9 +124,8 @@ export default function Notifications() {
                 id: change.doc.id,
                 title: docData.title,
                 body: docData.body,
-                category: docData.category || 'System',
+                category: docData.category || 'Dharura',
               });
-              // Simulate physical vibration if supported
               if (navigator.vibrate) {
                 navigator.vibrate([500, 300, 500, 300, 500]);
               }
@@ -182,7 +159,6 @@ export default function Notifications() {
       const audio = new Audio(url);
       activeAudioRef.current = audio;
       
-      // loop critical alerts until acknowledged
       if (importance === 'critical') {
         audio.loop = true;
       }
@@ -190,31 +166,10 @@ export default function Notifications() {
       audio.play().then(() => {
         setIsAudioEnabled(true);
         if (isManualTest) {
-          toast.success(`Mlio wa ${importance} unacheza kikamilifu kutoka kwenye link!`);
+          toast.success(`Mlio wa ${importance} unacheza kikamilifu!`);
         }
       }).catch(err => {
-        console.warn("Autoplay blocked. User needs to interact with the page first.", err);
-        if (err.name === 'NotAllowedError') {
-          if (isManualTest) {
-            toast.info("Ili kusikia sauti, tafadhali fungua mfumo huu kwenye tab mpya (New Tab) ya browser yako (Shared App au Dev URL) kisha ubofye skrini kuruhusu.");
-          }
-        } else {
-          // Play synthetic sound!
-          if (importance === 'critical') {
-            playSyntheticCritical();
-          } else if (importance === 'important') {
-            playSyntheticImportant();
-          } else {
-            playSyntheticNormal();
-          }
-          if (isManualTest) {
-            toast.success(`Mlio wa ${importance} umefanikiwa kuchezwa kutoka kwenye mfumo salama wa ndani!`);
-          }
-        }
-      });
-    } catch (e) {
-      console.error("Audio trigger failed:", e);
-      try {
+        console.warn("Autoplay blocked. Playing fallback sound.", err);
         if (importance === 'critical') {
           playSyntheticCritical();
         } else if (importance === 'important') {
@@ -223,12 +178,17 @@ export default function Notifications() {
           playSyntheticNormal();
         }
         if (isManualTest) {
-          toast.success(`Mlio wa ${importance} umefanikiwa kuchezwa kutoka kwenye mfumo salama wa ndani!`);
+          toast.success(`Mlio wa ${importance} umefanikiwa kuchezwa!`);
         }
-      } catch (innerErr) {
-        if (isManualTest) {
-          toast.error("Hitilafu imetokea wakati wa kucheza sauti.");
-        }
+      });
+    } catch (e) {
+      console.error("Audio trigger failed:", e);
+      if (importance === 'critical') {
+        playSyntheticCritical();
+      } else if (importance === 'important') {
+        playSyntheticImportant();
+      } else {
+        playSyntheticNormal();
       }
     }
   };
@@ -251,7 +211,10 @@ export default function Notifications() {
   const markAllAsRead = async () => {
     if (!user || notifications.length === 0) return;
     const unreadIds = notifications.filter(n => !n.isRead).map(n => n.id);
-    if (unreadIds.length === 0) return;
+    if (unreadIds.length === 0) {
+      toast.info("Taarifa zote tayari zimesomwa.");
+      return;
+    }
 
     try {
       const batch = writeBatch(db);
@@ -265,86 +228,24 @@ export default function Notifications() {
     }
   };
 
-  const getCategoryIcon = (catName: string) => {
-    const found = CATEGORIES.find(c => c.id === catName);
-    if (found) {
-      const IconComponent = found.icon;
-      return <IconComponent className="w-5 h-5" />;
-    }
-    return <Bell className="w-5 h-5" />;
-  };
-
-  const getCategoryColor = (catName: string) => {
-    const found = CATEGORIES.find(c => c.id === catName);
-    return found ? found.color : 'text-neutral-500 bg-neutral-100';
-  };
-
-  const filteredNotifications = notifications.filter(n => {
-    if (selectedCategory === 'all') return true;
-    return n.category === selectedCategory;
-  });
-
-  // Simulator predefined templates
-  const roleTemplates = {
-    customer: [
-      { title: "🆕 Oda imepokelewa", sw: "Oda yako imepokelewa kikamilifu!", cat: "Food", imp: "important" as const },
-      { title: "✅ Oda imekubaliwa", sw: "Muuzaji amekubali kuandaa oda yako.", cat: "Food", imp: "important" as const },
-      { title: "❌ Oda imekataliwa", sw: "Samahani, duka limekataa oda yako kwa sasa.", cat: "Food", imp: "critical" as const },
-      { title: "👨‍🍳 Oda inaandaliwa", sw: "Chakula chako kinaandaliwa jikoni kwa usafi.", cat: "Food", imp: "normal" as const },
-      { title: "📦 Rider amechukua oda", sw: "Msafirishaji ameondoka na oda yako kuileta kwako.", cat: "Parcel", imp: "important" as const },
-      { title: "🚗 Dereva amekubali safari", sw: "Dereva amekubali safari yako ya teksi.", cat: "Transport", imp: "important" as const },
-      { title: "📍 Dereva anakaribia", sw: "Dereva wako amefika karibu na eneo lako la kuanzia.", cat: "Transport", imp: "critical" as const },
-      { title: "🏁 Safari imeanza", sw: "Safari yako imeanza salama. Furahia safari na Antway!", cat: "Transport", imp: "important" as const },
-      { title: "🎉 Safari imekamilika", sw: "Asante kwa kusafiri nasi, safari yako imekamilika.", cat: "Transport", imp: "normal" as const },
-      { title: "💰 Malipo yamefanikiwa", sw: "Malipo ya TZS 15,000 yamefanyika kwa ufanisi.", cat: "Payments", imp: "important" as const },
-      { title: "❌ Malipo yameshindwa", sw: "Muamala umeshindwa. Tafadhali jaribu tena au badili njia ya malipo.", cat: "Payments", imp: "critical" as const },
-      { title: "🎫 Booking Confirmed", sw: "Tiketi yako ya basi imethibitishwa. Kiti namba 14.", cat: "Bus Tickets", imp: "important" as const },
-      { title: "🏨 Reservation Confirmed", sw: "Chumba chako katika Hoteli kimehifadhiwa kikamilifu.", cat: "Hotels", imp: "important" as const },
-      { title: "💇 Appointment Confirmed", sw: "Muda wako wa saluni umethibitishwa na mtaalamu wako.", cat: "Salon", imp: "important" as const },
-      { title: "🗺️ Driver changed route", sw: "Dereva amebadilisha njia! Antway inakuelekeza upya...", cat: "Navigation", imp: "critical" as const },
-      { title: "🎁 Coupon Available", sw: "Una kuponi mpya ya punguzo la 20% kwenye chakula!", cat: "Promotions", imp: "normal" as const },
-      { title: "🔐 OTP verification", sw: "Nambari yako ya siri ya OTP ya kuingia ni: 482910.", cat: "Security", imp: "important" as const }
-    ],
-    vendor: [
-      { title: "🆕 New Order Received", sw: "Una oda mpya ya chakula ya TZS 35,000!", cat: "Food", imp: "critical" as const },
-      { title: "❌ Order Cancelled", sw: "Mteja amesitisha oda namba #2910.", cat: "Food", imp: "critical" as const },
-      { title: "💰 Withdrawal Approved", sw: "Ombi lako la kutoa TZS 150,500 limekubaliwa na kutumwa.", cat: "Payments", imp: "important" as const },
-      { title: "📦 Low Stock Alert", sw: "Bidhaa yako 'Organic Tomatoes' imebaki 3 tu stoo.", cat: "Shopping", imp: "normal" as const },
-      { title: "🏪 Store Approved", sw: "Duka lako limethibitishwa rasmi na sasa lipo live!", cat: "System", imp: "important" as const }
-    ],
-    rider: [
-      { title: "🚖 New Ride Request", sw: "Ombi jipya la safari lipo karibu nawe! Kubali sasa.", cat: "Transport", imp: "critical" as const },
-      { title: "📦 New Delivery Assigned", sw: "Una agizo jipya la kufikisha vifurushi vya dharura.", cat: "Parcel", imp: "critical" as const },
-      { title: "🚨 SOS Emergency Alert", sw: "Mteja wako amebonyeza kitufe cha SOS! Msaada unakuja.", cat: "Security", imp: "critical" as const },
-      { title: "💰 Wallet Credited", sw: "Akaunti yako imeongezewa TZS 12,000 kama bonasi ya leo.", cat: "Payments", imp: "important" as const }
-    ],
-    admin: [
-      { title: "👤 New Vendor Verification", sw: "Duka jipya 'Papo Hapo Store' linasubiri idhini yako.", cat: "System", imp: "important" as const },
-      { title: "⚠️ Server Error Alert", sw: "Hitilafu imetokea kwenye seva ya malipo ya m-pesa.", cat: "System", imp: "critical" as const },
-      { title: "📈 Daily Sales Target Reached", sw: "Hongera! Malengo ya mauzo ya siku yamefikiwa kwa 110%.", cat: "Payments", imp: "normal" as const }
-    ]
-  };
-
-  const simulateNotification = async (notif: { title: string; sw: string; cat: string; imp: 'critical' | 'important' | 'normal' | 'silent' }) => {
-    if (!user) {
-      toast.error("Tafadhali ingia kwenye akaunti kwanza.");
-      return;
-    }
+  const handleCustomSoundLinkSave = async (importance: keyof SoundSettings, url: string) => {
     try {
-      await addDoc(collection(db, 'notifications'), {
-        userId: user.uid,
-        title: notif.title,
-        body: notif.sw,
-        category: notif.cat,
-        importance: notif.imp,
-        isRead: false,
-        createdAt: serverTimestamp(),
-        type: 'system'
-      });
-      toast.success(`Imeigizwa: ${notif.title}`);
+      const updated = { ...soundSettings, [importance]: url };
+      setSoundSettings(updated);
+      await setDoc(doc(db, 'settings', 'notification_sounds'), updated);
+      toast.success(`Link ya sauti ya '${importance}' imehifadhiwa!`);
     } catch (err) {
-      console.error(err);
-      toast.error("Imefeli kutuma taarifa.");
+      toast.error("Imeshindwa kuhifadhi link.");
+    }
+  };
+
+  const handleCustomSoundReset = async () => {
+    try {
+      setSoundSettings(DEFAULT_SOUNDS);
+      await setDoc(doc(db, 'settings', 'notification_sounds'), DEFAULT_SOUNDS);
+      toast.success("Sauti zimerejeshwa katika hali ya kawaida!");
+    } catch (err) {
+      toast.error("Hitilafu imetokea.");
     }
   };
 
@@ -359,101 +260,121 @@ export default function Notifications() {
         const updated = { ...soundSettings, [importance]: base64Url };
         setSoundSettings(updated);
         await setDoc(doc(db, 'settings', 'notification_sounds'), updated);
-        toast.success(`Sauti ya ${importance} imepakiwa na kuhifadhiwa kikamilifu!`);
+        toast.success(`Faili la sauti ya '${importance}' limehifadhiwa kikamilifu!`);
       } catch (err) {
-        console.error(err);
-        toast.error("Imefeli kuhifadhi sauti kwenye database.");
+        toast.error("Faili ni kubwa mno kwa stoo.");
       }
     };
     reader.readAsDataURL(file);
   };
 
-  const handleCustomSoundLinkSave = async (importance: keyof SoundSettings, url: string) => {
-    try {
-      const updated = { ...soundSettings, [importance]: url };
-      setSoundSettings(updated);
-      await setDoc(doc(db, 'settings', 'notification_sounds'), updated);
-      toast.success(`Sauti ya ${importance} imesasishwa kwa link!`);
-    } catch (err) {
-      console.error(err);
-      toast.error("Imefeli kusave link.");
-    }
+  // Filtered Notifications based on status
+  const unreadCount = notifications.filter(n => !n.isRead).length;
+  const criticalCount = notifications.filter(n => n.importance === 'critical').length;
+  const importantCount = notifications.filter(n => n.importance === 'important').length;
+
+  const filteredNotifications = notifications.filter(n => {
+    if (statusFilter === 'unread') return !n.isRead;
+    if (statusFilter === 'critical') return n.importance === 'critical';
+    if (statusFilter === 'important') return n.importance === 'important';
+    return true;
+  });
+
+  // Simulator predefined templates
+  const roleTemplates = {
+    customer: [
+      { title: "🆕 Oda Imepokelewa", sw: "Oda yako imepokelewa kikamilifu na inafanyiwa kazi.", imp: "important" as const },
+      { title: "✅ Oda Imekubaliwa", sw: "Muuzaji amekubali kuandaa oda yako sasa hivi.", imp: "important" as const },
+      { title: "📦 Msafirishaji Amechukua Oda", sw: "Rider ameondoka na oda yako kuileta kwako.", imp: "important" as const },
+      { title: "🚗 Dereva Amefika Eneo Lako", sw: "Dereva wako amefika karibu nawe. Tafadhali jitayarishe.", imp: "critical" as const },
+      { title: "💰 Malipo Yamekamilika", sw: "Malipo ya TZS 25,000 yamefanyika kwa ufanisi.", imp: "important" as const },
+      { title: "🎁 Punguzo la Bei (Ofa)", sw: "Una punguzo la 20% kwenye oda yako inayofuata leo!", imp: "normal" as const },
+    ],
+    driver_vendor: [
+      { title: "🚖 Ombi Jipya la Safari", sw: "Mteja mpya yupo karibu nawe. Kubali safari sasa!", imp: "critical" as const },
+      { title: "🛒 Oda Mpya Dukani", sw: "Una oda mpya ya chakula/bidhaa ya TZS 45,000.", imp: "critical" as const },
+      { title: "🚨 SOS Dharura ya Usalama", sw: "Taarifa ya usalama imepokelewa. Msaada unatolewa mara moja.", imp: "critical" as const },
+      { title: "💵 Pesa Imeingia Kwenye Mkoba", sw: "Mapato ya TZS 60,000 yameingizwa kwenye pochi yako ya Papo Hapo.", imp: "important" as const },
+    ]
   };
 
-  const handleCustomSoundReset = async () => {
+  const simulateNotification = async (notif: { title: string; sw: string; imp: 'critical' | 'important' | 'normal' }) => {
+    if (!user) {
+      toast.error("Tafadhali ingia kwenye akaunti kwanza.");
+      return;
+    }
     try {
-      setSoundSettings(DEFAULT_SOUNDS);
-      await setDoc(doc(db, 'settings', 'notification_sounds'), DEFAULT_SOUNDS);
-      toast.success("Mlio wa notification umerejeshwa kwenye sauti safi za awali!");
+      await addDoc(collection(db, 'notifications'), {
+        userId: user.uid,
+        title: notif.title,
+        body: notif.sw,
+        importance: notif.imp,
+        isRead: false,
+        createdAt: serverTimestamp(),
+        type: 'system'
+      });
+      toast.success(`Imeigizwa: ${notif.title}`);
     } catch (err) {
       console.error(err);
-      toast.error("Imeshindwa kurejesha sauti za awali.");
+      toast.error("Imefeli kutuma taarifa.");
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto pb-32 pt-6 px-4 space-y-8 text-neutral-900 dark:text-neutral-100 relative">
+    <div className="max-w-4xl mx-auto space-y-5 pb-20 px-2 sm:px-4">
       
-      {/* Immersive Siren / Flashing Critical Alert Modal */}
+      {/* FULL-SCREEN CRITICAL POPUP DIALOG */}
       <AnimatePresence>
         {activeCriticalAlert && (
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[9999] bg-red-950/95 backdrop-blur-xl flex flex-col items-center justify-center p-6 text-center overflow-y-auto"
+            className="fixed inset-0 z-[9999] bg-neutral-950/90 backdrop-blur-xl flex flex-col items-center justify-center p-4 sm:p-6 text-center"
           >
-            {/* Flashing Ambient Background Lights */}
-            <div className="absolute inset-0 bg-gradient-to-t from-red-650/30 to-transparent animate-pulse pointer-events-none" />
-            <div className="absolute top-10 w-72 h-72 bg-red-600/20 blur-[120px] rounded-full animate-ping pointer-events-none" />
-
-            <div className="relative max-w-lg w-full bg-neutral-900/90 border-2 border-red-500/50 rounded-[3rem] p-10 shadow-[0_0_80px_rgba(239,68,68,0.4)] space-y-8">
+            <div className="relative max-w-md w-full bg-neutral-900 border-2 border-red-500/60 rounded-3xl p-6 sm:p-8 shadow-[0_0_60px_rgba(239,68,68,0.4)] space-y-6">
               
-              {/* Rotating/Beating Red Icon */}
-              <div className="relative mx-auto w-24 h-24 bg-red-500/10 border-4 border-red-500 rounded-full flex items-center justify-center animate-bounce shadow-[0_0_30px_rgba(239,68,68,0.3)]">
-                <Flame className="w-12 h-12 text-red-500 animate-pulse" />
+              <div className="relative mx-auto w-20 h-20 bg-red-500/20 border-2 border-red-500 rounded-full flex items-center justify-center animate-bounce shadow-lg shadow-red-500/30">
+                <Flame className="w-10 h-10 text-red-500 animate-pulse" />
                 <span className="absolute -top-1 -right-1 flex h-4 w-4">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500"></span>
                 </span>
               </div>
 
-              <div className="space-y-3">
-                <span className="bg-red-500/20 text-red-400 text-[10px] font-black uppercase tracking-[0.3rem] px-4 py-1.5 rounded-full border border-red-500/30">
-                  ⚠️ Critical Notification
+              <div className="space-y-2">
+                <span className="inline-block bg-red-500/20 text-red-400 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border border-red-500/30">
+                  ⚠️ Taarifa ya Dharura (Critical Alert)
                 </span>
-                <h2 className="text-3xl font-black text-white uppercase tracking-tight leading-none mt-2">
+                <h2 className="text-2xl font-black text-white uppercase tracking-tight leading-tight">
                   {activeCriticalAlert.title}
                 </h2>
-                <span className="inline-block text-xs font-bold text-red-400/80 uppercase tracking-widest bg-red-500/10 px-3 py-1 rounded-lg">
-                  Katika: {activeCriticalAlert.category}
-                </span>
               </div>
 
-              <p className="text-sm font-bold text-neutral-300 leading-relaxed bg-neutral-950/50 p-6 rounded-2xl border border-neutral-800">
+              <p className="text-sm font-medium text-neutral-300 bg-neutral-950/70 p-4 rounded-2xl border border-neutral-800 leading-relaxed">
                 "{activeCriticalAlert.body}"
               </p>
 
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-2.5">
                 <Button 
                   onClick={async () => {
                     stopActiveAudio();
                     await markAsRead(activeCriticalAlert.id);
                     setActiveCriticalAlert(null);
-                    toast.success("Taarifa ya dharura imepokelewa na kuzimwa.");
+                    toast.success("Taarifa imethibitishwa.");
                   }}
-                  className="w-full h-16 bg-red-650 hover:bg-red-700 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg shadow-red-900/40 transition-all active:scale-95"
+                  className="w-full h-14 bg-red-600 hover:bg-red-700 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-lg shadow-red-900/40 transition-all active:scale-95"
                 >
-                  ✅ THIBITISHA MAPOKEO (ACKNOWLEDGE)
+                  <CheckCheck className="w-4 h-4 mr-1.5" /> Thibitisha Mapokeo
                 </Button>
                 <button 
                   onClick={() => {
                     stopActiveAudio();
                     setActiveCriticalAlert(null);
                   }}
-                  className="text-neutral-500 hover:text-white text-[10px] font-bold uppercase tracking-widest py-2 transition-all"
+                  className="text-neutral-400 hover:text-white text-xs font-bold py-2 transition-all"
                 >
-                  Soma Baadaye (Keep as Unread)
+                  Funga (Soma Baadaye)
                 </button>
               </div>
             </div>
@@ -461,182 +382,253 @@ export default function Notifications() {
         )}
       </AnimatePresence>
 
-      {/* Header & Sub-nav */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-100 dark:border-neutral-800 pb-6">
+      {/* MODERN SLICK HEADER */}
+      <div className="bg-white dark:bg-neutral-900/90 rounded-3xl p-5 sm:p-6 border border-neutral-200/80 dark:border-neutral-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
-          <div className="w-14 h-14 bg-gradient-to-tr from-orange-500 to-amber-600 text-white rounded-[1.5rem] flex items-center justify-center shadow-lg shadow-orange-500/20">
-            <Bell className="w-7 h-7" />
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-600 text-white flex items-center justify-center shadow-md shadow-orange-500/20 shrink-0">
+            <Bell className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-2xl font-black tracking-tight text-neutral-900 dark:text-white uppercase">Notification Center</h1>
-            <p className="text-xs text-neutral-500 font-bold uppercase tracking-widest">Antway Alert Hub & Sounds Engine</p>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-neutral-900 dark:text-white uppercase italic">
+                Arifa & Taarifa
+              </h1>
+              {unreadCount > 0 && (
+                <span className="px-2 py-0.5 text-[10px] font-black bg-orange-600 text-white rounded-full">
+                  {unreadCount} Mpya
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">
+              Papo Hapo Express Alert & Notification Engine
+            </p>
           </div>
         </div>
 
-        {/* Audio Enable Hint */}
-        {!isAudioEnabled && (
-          <button 
-            onClick={() => {
-              const audio = new Audio(DEFAULT_SOUNDS.normal);
-              audio.play();
-              setIsAudioEnabled(true);
-              toast.success("Sauti za taarifa zimeruhusiwa kikamilifu!");
-            }}
-            className="self-start sm:self-auto bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold text-[10px] uppercase tracking-wider px-4 py-2.5 rounded-2xl flex items-center gap-2 transition-all animate-pulse"
-          >
-            <Volume2 className="w-4 h-4" />
-            Bofya Kuwasha Sauti
-          </button>
-        )}
+        <div className="flex items-center gap-2 self-end sm:self-center">
+          {!isAudioEnabled ? (
+            <button 
+              onClick={() => {
+                const audio = new Audio(DEFAULT_SOUNDS.normal);
+                audio.play().catch(() => {});
+                setIsAudioEnabled(true);
+                toast.success("Sauti za arifa zimewashwa!");
+              }}
+              className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 hover:bg-amber-100 text-amber-700 dark:text-amber-300 text-xs font-black uppercase tracking-wider px-3.5 py-2 rounded-xl flex items-center gap-2 transition-all shadow-xs"
+            >
+              <Volume2 className="w-4 h-4 animate-pulse" /> Washa Sauti
+            </button>
+          ) : (
+            <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Sauti Ipo Wazi
+            </span>
+          )}
+
+          {unreadCount > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={markAllAsRead}
+              className="h-9 px-3 rounded-xl border-neutral-200 dark:border-neutral-700 hover:border-orange-500 hover:text-orange-600 font-bold text-xs gap-1.5"
+            >
+              <CheckCheck className="w-3.5 h-3.5" /> Soma Zote
+            </Button>
+          )}
+        </div>
       </div>
 
-      {/* Primary Tabs */}
-      <div className="flex flex-wrap gap-2.5 p-1.5 bg-neutral-100 dark:bg-neutral-900 rounded-[2rem] border border-neutral-200/55 dark:border-neutral-800/80">
+      {/* TOP LEVEL NAVIGATION TABS */}
+      <div className="flex items-center bg-neutral-100 dark:bg-neutral-900 p-1.5 rounded-2xl border border-neutral-200/80 dark:border-neutral-800">
         <button
-          onClick={() => setActiveTab('all_notifs')}
-          className={`flex-1 py-3 px-4 rounded-3xl text-xs font-black uppercase tracking-widest transition-all ${
-            activeTab === 'all_notifs' 
-              ? 'bg-white dark:bg-neutral-800 text-orange-600 dark:text-white shadow-sm' 
-              : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100'
+          onClick={() => setActiveTab('inbox')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+            activeTab === 'inbox'
+              ? 'bg-white dark:bg-neutral-800 text-orange-600 dark:text-white shadow-xs'
+              : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200'
           }`}
         >
-          🔔 Inbox Zako
+          <Inbox className="w-4 h-4" />
+          <span>Inbox ({notifications.length})</span>
         </button>
-        <button
-          onClick={() => setActiveTab('simulator')}
-          className={`flex-1 py-3 px-4 rounded-3xl text-xs font-black uppercase tracking-widest transition-all ${
-            activeTab === 'simulator' 
-              ? 'bg-white dark:bg-neutral-800 text-orange-600 dark:text-white shadow-sm' 
-              : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100'
-          }`}
-        >
-          🔬 Simulators (Role Guide)
-        </button>
+
         <button
           onClick={() => setActiveTab('sound_settings')}
-          className={`flex-1 py-3 px-4 rounded-3xl text-xs font-black uppercase tracking-widest transition-all ${
-            activeTab === 'sound_settings' 
-              ? 'bg-white dark:bg-neutral-800 text-orange-600 dark:text-white shadow-sm' 
-              : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100'
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+            activeTab === 'sound_settings'
+              ? 'bg-white dark:bg-neutral-800 text-orange-600 dark:text-white shadow-xs'
+              : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200'
           }`}
         >
-          🎛️ Sound Settings
+          <Sliders className="w-4 h-4" />
+          <span>Sauti (Sound Settings)</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('simulator')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+            activeTab === 'simulator'
+              ? 'bg-white dark:bg-neutral-800 text-orange-600 dark:text-white shadow-xs'
+              : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200'
+          }`}
+        >
+          <Sparkles className="w-4 h-4" />
+          <span>Simulate Test</span>
         </button>
       </div>
 
-      {/* Tab content 1: All Notifications Inbox */}
-      {activeTab === 'all_notifs' && (
-        <div className="space-y-6">
+      {/* TAB 1: INBOX */}
+      {activeTab === 'inbox' && (
+        <div className="space-y-4">
           
-          {/* Category Filter Horizontal List */}
-          <div className="flex items-center gap-2.5 overflow-x-auto pb-3 scrollbar-none">
-            {CATEGORIES.map(cat => {
-              const IconComponent = cat.icon;
-              const isSelected = selectedCategory === cat.id;
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => setSelectedCategory(cat.id)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-[11px] font-bold tracking-tight shrink-0 transition-all border ${
-                    isSelected 
-                      ? 'bg-orange-600 border-orange-600 text-white shadow-md shadow-orange-600/10' 
-                      : 'bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:border-orange-500/40'
-                  }`}
-                >
-                  <IconComponent className={`w-3.5 h-3.5 ${isSelected ? 'text-white' : 'text-neutral-400 dark:text-neutral-500'}`} />
-                  {cat.label}
-                </button>
-              );
-            })}
+          {/* CLEAN STATUS FILTERS */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+            <button
+              onClick={() => setStatusFilter('all')}
+              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all shrink-0 border ${
+                statusFilter === 'all'
+                  ? 'bg-orange-600 border-orange-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-neutral-900 border-neutral-200/80 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:border-neutral-300'
+              }`}
+            >
+              Zote ({notifications.length})
+            </button>
+
+            <button
+              onClick={() => setStatusFilter('unread')}
+              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all shrink-0 border ${
+                statusFilter === 'unread'
+                  ? 'bg-orange-600 border-orange-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-neutral-900 border-neutral-200/80 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:border-neutral-300'
+              }`}
+            >
+              Hazijasomwa ({unreadCount})
+            </button>
+
+            <button
+              onClick={() => setStatusFilter('critical')}
+              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all shrink-0 border ${
+                statusFilter === 'critical'
+                  ? 'bg-red-600 border-red-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-neutral-900 border-neutral-200/80 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:border-neutral-300'
+              }`}
+            >
+              Dharura ({criticalCount})
+            </button>
+
+            <button
+              onClick={() => setStatusFilter('important')}
+              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all shrink-0 border ${
+                statusFilter === 'important'
+                  ? 'bg-amber-600 border-amber-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-neutral-900 border-neutral-200/80 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:border-neutral-300'
+              }`}
+            >
+              Muhimu ({importantCount})
+            </button>
           </div>
 
-          <div className="flex items-center justify-between px-2">
-            <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">
-              Imepatikana ({filteredNotifications.length}) katika {CATEGORIES.find(c => c.id === selectedCategory)?.label || 'Zote'}
-            </span>
-            {filteredNotifications.length > 0 && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={markAllAsRead}
-                className="rounded-xl text-neutral-500 hover:text-orange-600 text-xs font-bold gap-1.5"
-              >
-                <CheckCircle2 className="w-4 h-4" /> Somwa Zote
-              </Button>
-            )}
-          </div>
-
-          {/* Inbox List */}
-          <div className="space-y-3">
+          {/* NOTIFICATION LIST */}
+          <div className="space-y-2.5">
             <AnimatePresence mode="popLayout">
-              {filteredNotifications.map((notif, idx) => (
-                <motion.div
-                  key={notif.id || `notif-item-${idx}`}
-                  layout
-                  initial={{ opacity: 0, scale: 0.98 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.98 }}
-                  onClick={() => markAsRead(notif.id)}
-                  className={`relative p-5 rounded-[2rem] border transition-all cursor-pointer group ${
-                    notif.isRead 
-                      ? 'bg-white dark:bg-neutral-950 border-neutral-100 dark:border-neutral-900 hover:border-neutral-200' 
-                      : 'bg-orange-50/40 dark:bg-orange-950/10 border-orange-100 dark:border-orange-950/20 shadow-sm hover:border-orange-200'
-                  }`}
-                >
-                  <div className="flex gap-4">
-                    {/* Unread Indicator Bar */}
+              {filteredNotifications.map((notif) => {
+                const isCritical = notif.importance === 'critical';
+                const isImportant = notif.importance === 'important';
+
+                return (
+                  <motion.div
+                    key={notif.id}
+                    layout
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.98 }}
+                    onClick={() => markAsRead(notif.id)}
+                    className={`relative p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer group ${
+                      notif.isRead
+                        ? 'bg-white dark:bg-neutral-900/70 border-neutral-200/80 dark:border-neutral-800/80 hover:border-neutral-300'
+                        : isCritical
+                        ? 'bg-red-50/60 dark:bg-red-950/20 border-red-200 dark:border-red-900/50 shadow-xs'
+                        : 'bg-orange-50/50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-900/50 shadow-xs'
+                    }`}
+                  >
+                    {/* Unread Left Border Marker */}
                     {!notif.isRead && (
-                      <div className="absolute left-0 top-6 bottom-6 w-1.5 bg-orange-600 rounded-r-full" />
+                      <div className={`absolute left-0 top-3 bottom-3 w-1.5 rounded-r-full ${
+                        isCritical ? 'bg-red-500' : 'bg-orange-500'
+                      }`} />
                     )}
 
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${getCategoryColor(notif.category || 'System')}`}>
-                      {getCategoryIcon(notif.category || 'System')}
-                    </div>
+                    <div className="flex items-start gap-3.5">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                        isCritical 
+                          ? 'bg-red-100 text-red-600 dark:bg-red-950/80 dark:text-red-400' 
+                          : isImportant
+                          ? 'bg-orange-100 text-orange-600 dark:bg-orange-950/80 dark:text-orange-400'
+                          : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400'
+                      }`}>
+                        {isCritical ? (
+                          <Flame className="w-5 h-5 animate-pulse" />
+                        ) : (
+                          <Bell className="w-5 h-5" />
+                        )}
+                      </div>
 
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <h3 className={`text-sm font-bold tracking-tight ${notif.isRead ? 'text-neutral-900 dark:text-white' : 'text-orange-900 dark:text-orange-500'}`}>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <h3 className={`text-sm font-bold tracking-tight ${
+                            notif.isRead 
+                              ? 'text-neutral-800 dark:text-neutral-200' 
+                              : isCritical
+                              ? 'text-red-700 dark:text-red-400 font-extrabold'
+                              : 'text-neutral-900 dark:text-white font-extrabold'
+                          }`}>
                             {notif.title}
                           </h3>
-                          <span className="inline-block text-[9px] font-black uppercase tracking-widest text-neutral-400 mt-0.5">
-                            {notif.category || 'System'}
+
+                          <span className="text-[11px] text-neutral-400 font-medium shrink-0">
+                            {notif.createdAt ? format(new Date(notif.createdAt), 'HH:mm') : ''}
                           </span>
                         </div>
-                        <div className="flex flex-col items-end gap-1.5">
-                          <span className="text-[10px] text-neutral-400 font-bold">
-                            {notif.createdAt ? format(new Date(notif.createdAt), 'HH:mm') : 'Hivi Sasa'}
-                          </span>
+
+                        <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1 leading-relaxed">
+                          {notif.body}
+                        </p>
+
+                        <div className="flex items-center gap-2 mt-2">
                           {notif.importance && notif.importance !== 'normal' && (
-                            <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
-                              notif.importance === 'critical' 
-                                ? 'bg-red-500/10 text-red-500' 
-                                : notif.importance === 'important'
-                                ? 'bg-orange-500/10 text-orange-500'
-                                : 'bg-neutral-500/10 text-neutral-400'
+                            <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                              isCritical 
+                                ? 'bg-red-100 dark:bg-red-950 text-red-600 dark:text-red-400' 
+                                : 'bg-orange-100 dark:bg-orange-950 text-orange-600 dark:text-orange-400'
                             }`}>
                               {notif.importance}
                             </span>
                           )}
+
+                          {!notif.isRead && (
+                            <span className="text-[9px] font-bold text-orange-600 dark:text-orange-400">
+                              • Bofya kusoma
+                            </span>
+                          )}
                         </div>
                       </div>
-                      <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-2 line-clamp-3 leading-relaxed font-medium">
-                        {notif.body}
-                      </p>
                     </div>
-                  </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                );
+              })}
             </AnimatePresence>
 
             {filteredNotifications.length === 0 && (
-              <div className="py-24 text-center space-y-4 bg-neutral-50 dark:bg-neutral-900/40 rounded-[2.5rem] border border-dashed border-neutral-200 dark:border-neutral-800">
-                <div className="w-16 h-16 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center mx-auto text-neutral-300 dark:text-neutral-600">
-                  <Bell className="w-8 h-8" />
+              <div className="py-16 text-center space-y-3 bg-white dark:bg-neutral-900 rounded-3xl border border-dashed border-neutral-200 dark:border-neutral-800">
+                <div className="w-12 h-12 bg-neutral-100 dark:bg-neutral-800 rounded-2xl flex items-center justify-center mx-auto text-neutral-400">
+                  <Inbox className="w-6 h-6" />
                 </div>
-                <div className="space-y-1 max-w-sm mx-auto">
-                  <h3 className="font-bold text-neutral-900 dark:text-white">Hakuna taarifa zozote hapa</h3>
-                  <p className="text-xs text-neutral-400 leading-normal">Bado haujapokea taarifa yoyote katika kitengo cha {CATEGORIES.find(c => c.id === selectedCategory)?.label || 'Zote'}.</p>
+                <div>
+                  <h3 className="font-bold text-sm text-neutral-800 dark:text-neutral-200">
+                    Hakuna taarifa zozote hapa
+                  </h3>
+                  <p className="text-xs text-neutral-400 mt-0.5">
+                    Huna ujumbe au arifa yoyote katika kitengo hiki.
+                  </p>
                 </div>
               </div>
             )}
@@ -644,222 +636,219 @@ export default function Notifications() {
         </div>
       )}
 
-      {/* Tab content 2: Simulator Panel & Role Guide */}
-      {activeTab === 'simulator' && (
-        <div className="space-y-8">
-          <div className="bg-orange-600/5 border border-orange-500/10 rounded-[2.5rem] p-6 sm:p-8 space-y-4">
-            <div className="flex items-center gap-3">
-              <Sparkles className="w-6 h-6 text-orange-600" />
-              <h3 className="text-lg font-black tracking-tight text-neutral-950 dark:text-white uppercase">Notification Simulator</h3>
+      {/* TAB 2: SOUND SETTINGS */}
+      {activeTab === 'sound_settings' && (
+        <div className="bg-white dark:bg-neutral-900 rounded-3xl p-6 border border-neutral-200/80 dark:border-neutral-800 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-100 dark:border-neutral-800 pb-4">
+            <div>
+              <h2 className="text-lg font-black text-neutral-900 dark:text-white uppercase italic">
+                Mipangilio ya Sauti (Sound Alerts)
+              </h2>
+              <p className="text-xs text-neutral-500">
+                Weka sauti na milio ya taarifa kulingana na uzito wa arifa.
+              </p>
             </div>
-            <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed font-bold">
-              Bofya aina yoyote ya taarifa hapa chini ili kuiga (simulate) namna inavyoingia katika mfumo wetu wa sauti na dharura. Taarifa za kiwango cha <strong className="text-red-500">Critical</strong> zitafungua skrini nzima ya king'ora inayopiga kelele mpaka utakapothibitisha.
+            <Button
+              onClick={handleCustomSoundReset}
+              variant="outline"
+              size="sm"
+              className="rounded-xl text-xs font-bold gap-1.5 self-start sm:self-auto"
+            >
+              <Undo2 className="w-3.5 h-3.5" /> Rudisha Sauti za Awali
+            </Button>
+          </div>
+
+          <div className="space-y-6">
+            
+            {/* Critical Sound */}
+            <div className="p-4 rounded-2xl bg-red-50/40 dark:bg-red-950/20 border border-red-100 dark:border-red-900/40 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Flame className="w-4 h-4 text-red-500 animate-pulse" />
+                  <span className="text-xs font-black uppercase tracking-wider text-red-600 dark:text-red-400">
+                    1. Mlio wa Dharura (Critical Alert Siren)
+                  </span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => triggerSound('critical', true)}
+                  className="h-8 rounded-lg text-xs font-bold text-red-600 hover:text-red-700 gap-1.5"
+                >
+                  <Play className="w-3.5 h-3.5" /> Jaribu Sauti
+                </Button>
+              </div>
+              <p className="text-[11px] text-neutral-500">
+                Hupigwa mfululizo kwa safari za teksi, oda mpya za haraka, na dharura.
+              </p>
+              <div className="flex gap-2">
+                <Input 
+                  type="text" 
+                  placeholder="URL ya sauti..." 
+                  className="h-10 text-xs rounded-xl bg-white dark:bg-neutral-950 font-medium"
+                  value={soundSettings.critical}
+                  onChange={(e) => setSoundSettings({ ...soundSettings, critical: e.target.value })}
+                />
+                <Button 
+                  onClick={() => handleCustomSoundLinkSave('critical', soundSettings.critical)}
+                  className="h-10 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold px-4"
+                >
+                  Hifadhi
+                </Button>
+              </div>
+            </div>
+
+            {/* Important Sound */}
+            <div className="p-4 rounded-2xl bg-amber-50/40 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Bell className="w-4 h-4 text-amber-500" />
+                  <span className="text-xs font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                    2. Mlio wa Taarifa Muhimu (Important Notification)
+                  </span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => triggerSound('important', true)}
+                  className="h-8 rounded-lg text-xs font-bold text-amber-600 hover:text-amber-700 gap-1.5"
+                >
+                  <Play className="w-3.5 h-3.5" /> Jaribu Sauti
+                </Button>
+              </div>
+              <p className="text-[11px] text-neutral-500">
+                Hupigwa kwa oda zilizokubaliwa, malipo yaliyofaulu, na rider anapofika.
+              </p>
+              <div className="flex gap-2">
+                <Input 
+                  type="text" 
+                  placeholder="URL ya sauti..." 
+                  className="h-10 text-xs rounded-xl bg-white dark:bg-neutral-950 font-medium"
+                  value={soundSettings.important}
+                  onChange={(e) => setSoundSettings({ ...soundSettings, important: e.target.value })}
+                />
+                <Button 
+                  onClick={() => handleCustomSoundLinkSave('important', soundSettings.important)}
+                  className="h-10 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold px-4"
+                >
+                  Hifadhi
+                </Button>
+              </div>
+            </div>
+
+            {/* Normal Sound */}
+            <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-800/40 border border-neutral-100 dark:border-neutral-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Info className="w-4 h-4 text-neutral-500" />
+                  <span className="text-xs font-black uppercase tracking-wider text-neutral-700 dark:text-neutral-300">
+                    3. Mlio wa Kawaida (Normal Chime)
+                  </span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => triggerSound('normal', true)}
+                  className="h-8 rounded-lg text-xs font-bold text-neutral-600 gap-1.5"
+                >
+                  <Play className="w-3.5 h-3.5" /> Jaribu Sauti
+                </Button>
+              </div>
+              <p className="text-[11px] text-neutral-500">
+                Hupigwa kwa kuponi, ofa na ujumbe wa kawaida.
+              </p>
+              <div className="flex gap-2">
+                <Input 
+                  type="text" 
+                  placeholder="URL ya sauti..." 
+                  className="h-10 text-xs rounded-xl bg-white dark:bg-neutral-950 font-medium"
+                  value={soundSettings.normal}
+                  onChange={(e) => setSoundSettings({ ...soundSettings, normal: e.target.value })}
+                />
+                <Button 
+                  onClick={() => handleCustomSoundLinkSave('normal', soundSettings.normal)}
+                  className="h-10 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold px-4"
+                >
+                  Hifadhi
+                </Button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: SIMULATOR */}
+      {activeTab === 'simulator' && (
+        <div className="bg-white dark:bg-neutral-900 rounded-3xl p-6 border border-neutral-200/80 dark:border-neutral-800 shadow-sm space-y-6">
+          <div>
+            <h2 className="text-lg font-black text-neutral-900 dark:text-white uppercase italic">
+              Jaribu Mfumo wa Taarifa (Notification Simulator)
+            </h2>
+            <p className="text-xs text-neutral-500">
+              Bofya aina yoyote ya taarifa hapa chini ili kuona namna inavyotokea na kusikika live.
             </p>
           </div>
 
-          {(Object.keys(roleTemplates) as Array<keyof typeof roleTemplates>).map(role => (
-            <div key={role} className="space-y-4">
-              <div className="flex items-center gap-2 px-1">
-                <User className="w-5 h-5 text-orange-600" />
-                <h4 className="text-sm font-black uppercase tracking-[0.2rem] text-neutral-800 dark:text-white">
-                  {role === 'customer' ? '1. Customer (Mteja) Alerts' : role === 'vendor' ? '2. Vendor (Duka) Alerts' : role === 'rider' ? '3. Rider (Delivery Boy) Alerts' : '4. Admin Alerts'}
-                </h4>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {roleTemplates[role].map((tmpl, idx) => (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-xs font-black uppercase tracking-wider text-orange-600 mb-3">
+                1. Taarifa za Wateja (Customer Alerts)
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {roleTemplates.customer.map((tmpl, idx) => (
                   <div 
-                    key={`${role}-tmpl-${idx}`}
-                    className="bg-white dark:bg-neutral-950 border border-neutral-100 dark:border-neutral-900 p-5 rounded-[2rem] flex flex-col justify-between gap-4 hover:border-orange-500/20 transition-all shadow-sm"
+                    key={`cust-${idx}`}
+                    className="p-3.5 rounded-2xl border border-neutral-200/80 dark:border-neutral-800 flex items-center justify-between gap-3 hover:border-orange-500 transition-all bg-neutral-50/50 dark:bg-neutral-950/40"
                   >
-                    <div>
-                      <div className="flex items-start justify-between gap-2">
-                        <span className="text-xs font-bold text-neutral-900 dark:text-white leading-snug">
-                          {tmpl.title}
-                        </span>
-                        <div className="flex flex-col items-end gap-1">
-                          <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${
-                            tmpl.imp === 'critical' ? 'bg-red-500/15 text-red-500' : tmpl.imp === 'important' ? 'bg-orange-500/15 text-orange-500' : 'bg-neutral-100 text-neutral-500'
-                          }`}>
-                            {tmpl.imp}
-                          </span>
-                        </div>
-                      </div>
-                      <p className="text-[11px] text-neutral-400 font-bold uppercase mt-1">
-                        Category: {tmpl.cat}
-                      </p>
-                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-2 font-medium italic">
-                        "{tmpl.sw}"
+                    <div className="min-w-0">
+                      <h4 className="text-xs font-bold text-neutral-900 dark:text-white truncate">
+                        {tmpl.title}
+                      </h4>
+                      <p className="text-[11px] text-neutral-500 truncate mt-0.5">
+                        {tmpl.sw}
                       </p>
                     </div>
-
                     <Button
                       size="sm"
                       onClick={() => simulateNotification(tmpl)}
-                      className="w-full bg-neutral-100 hover:bg-orange-600 hover:text-white text-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 rounded-xl font-bold text-[10px] tracking-widest uppercase transition-all py-2.5 flex items-center justify-center gap-1.5 border-none"
+                      className="h-8 text-[10px] font-black uppercase rounded-lg bg-orange-600 hover:bg-orange-700 text-white shrink-0 gap-1"
                     >
-                      <Play className="w-3.5 h-3.5" /> Igiza & Cheza Sauti
+                      <Play className="w-3 h-3" /> Tuma
                     </Button>
                   </div>
                 ))}
               </div>
             </div>
-          ))}
-        </div>
-      )}
 
-      {/* Tab content 3: Sound Settings Dashboard */}
-      {activeTab === 'sound_settings' && (
-        <div className="space-y-8">
-          <div className="bg-neutral-900 text-white rounded-[2.5rem] p-8 space-y-6 shadow-2xl">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800 pb-4">
-              <div className="flex items-center gap-3">
-                <Volume2 className="w-8 h-8 text-orange-500" />
-                <div>
-                  <CardTitle className="text-xl font-black uppercase tracking-widest">Notification Sounds Config</CardTitle>
-                  <CardDescription className="text-neutral-500 font-bold uppercase tracking-wider text-[9px]">Sanidi mlio wa taarifa kulingana na umuhimu wake</CardDescription>
-                </div>
-              </div>
-              <Button 
-                onClick={handleCustomSoundReset} 
-                className="bg-neutral-800 border border-orange-500/30 text-orange-500 hover:bg-orange-500/10 hover:text-orange-400 rounded-2xl h-10 px-4 text-[10px] font-black uppercase tracking-wider flex items-center gap-2 transition-all shadow-lg self-start sm:self-auto"
-              >
-                <Undo2 className="w-3.5 h-3.5" /> Rudisha Sauti za Awali
-              </Button>
-            </div>
-
-            <div className="space-y-8 mt-6">
-              
-              {/* Critical Sounds Input */}
-              <div className="space-y-4 border-b border-neutral-800 pb-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-3.5 h-3.5 bg-red-500 rounded-full animate-pulse" />
-                    <span className="text-xs font-black uppercase tracking-[0.2rem] text-red-500">Critical Alarms (Loop)</span>
+            <div>
+              <h3 className="text-xs font-black uppercase tracking-wider text-orange-600 mb-3">
+                2. Taarifa za Madereva & Maduka (Driver / Vendor Alerts)
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {roleTemplates.driver_vendor.map((tmpl, idx) => (
+                  <div 
+                    key={`drv-${idx}`}
+                    className="p-3.5 rounded-2xl border border-neutral-200/80 dark:border-neutral-800 flex items-center justify-between gap-3 hover:border-orange-500 transition-all bg-neutral-50/50 dark:bg-neutral-950/40"
+                  >
+                    <div className="min-w-0">
+                      <h4 className="text-xs font-bold text-neutral-900 dark:text-white truncate">
+                        {tmpl.title}
+                      </h4>
+                      <p className="text-[11px] text-neutral-500 truncate mt-0.5">
+                        {tmpl.sw}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => simulateNotification(tmpl)}
+                      className="h-8 text-[10px] font-black uppercase rounded-lg bg-red-600 hover:bg-red-700 text-white shrink-0 gap-1"
+                    >
+                      <Play className="w-3 h-3" /> Tuma
+                    </Button>
                   </div>
-                  <button 
-                    onClick={() => triggerSound('critical', true)}
-                    className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all"
-                  >
-                    <Play className="w-4 h-4" /> Jaribu Mlio
-                  </button>
-                </div>
-                <p className="text-[11px] text-neutral-400 font-medium">Inatumika kwa: Taxi Request, New Delivery, SOS Alerts, New Food Order nk.</p>
-                <div className="flex gap-3">
-                  <Input 
-                    type="text" 
-                    placeholder="Weka sound URL link..." 
-                    className="flex-1 bg-neutral-800 border-none h-14 rounded-xl text-xs text-white placeholder:text-neutral-600 font-medium"
-                    value={soundSettings.critical}
-                    onChange={(e) => setSoundSettings({ ...soundSettings, critical: e.target.value })}
-                  />
-                  <Button 
-                    onClick={() => handleCustomSoundLinkSave('critical', soundSettings.critical)}
-                    className="h-14 bg-orange-600 hover:bg-orange-700 text-white px-5 rounded-xl font-bold text-xs"
-                  >
-                    Hifadhi Link
-                  </Button>
-                </div>
-                <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-2 cursor-pointer bg-neutral-800 hover:bg-neutral-700 px-4 py-3 rounded-xl text-xs font-bold text-neutral-300 transition-all">
-                    <Upload className="w-4 h-4 text-orange-500" /> Upload Audio File
-                    <input 
-                      type="file" 
-                      accept="audio/*" 
-                      className="hidden" 
-                      onChange={(e) => e.target.files?.[0] && handleCustomSoundUpload('critical', e.target.files[0])}
-                    />
-                  </label>
-                  <span className="text-[10px] text-neutral-500 font-bold italic">Max 100KB (WAV/MP3)</span>
-                </div>
+                ))}
               </div>
-
-              {/* Important Sounds Input */}
-              <div className="space-y-4 border-b border-neutral-800 pb-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-3.5 h-3.5 bg-orange-500 rounded-full" />
-                    <span className="text-xs font-black uppercase tracking-[0.2rem] text-orange-500">Important Notifications</span>
-                  </div>
-                  <button 
-                    onClick={() => triggerSound('important', true)}
-                    className="p-2 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all"
-                  >
-                    <Play className="w-4 h-4" /> Jaribu Mlio
-                  </button>
-                </div>
-                <p className="text-[11px] text-neutral-400 font-medium">Inatumika kwa: Order Accepted, Rider Assigned, Driver Arrived, Payments, Booking Confirmed nk.</p>
-                <div className="flex gap-3">
-                  <Input 
-                    type="text" 
-                    placeholder="Weka sound URL link..." 
-                    className="flex-1 bg-neutral-800 border-none h-14 rounded-xl text-xs text-white placeholder:text-neutral-600 font-medium"
-                    value={soundSettings.important}
-                    onChange={(e) => setSoundSettings({ ...soundSettings, important: e.target.value })}
-                  />
-                  <Button 
-                    onClick={() => handleCustomSoundLinkSave('important', soundSettings.important)}
-                    className="h-14 bg-orange-600 hover:bg-orange-700 text-white px-5 rounded-xl font-bold text-xs"
-                  >
-                    Hifadhi Link
-                  </Button>
-                </div>
-                <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-2 cursor-pointer bg-neutral-800 hover:bg-neutral-700 px-4 py-3 rounded-xl text-xs font-bold text-neutral-300 transition-all">
-                    <Upload className="w-4 h-4 text-orange-500" /> Upload Audio File
-                    <input 
-                      type="file" 
-                      accept="audio/*" 
-                      className="hidden" 
-                      onChange={(e) => e.target.files?.[0] && handleCustomSoundUpload('important', e.target.files[0])}
-                    />
-                  </label>
-                </div>
-              </div>
-
-              {/* Normal Sounds Input */}
-              <div className="space-y-4 pb-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-3.5 h-3.5 bg-neutral-500 rounded-full" />
-                    <span className="text-xs font-black uppercase tracking-[0.2rem] text-neutral-400">Normal Alerts</span>
-                  </div>
-                  <button 
-                    onClick={() => triggerSound('normal', true)}
-                    className="p-2 bg-neutral-500/10 hover:bg-neutral-500/20 text-neutral-400 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all"
-                  >
-                    <Play className="w-4 h-4" /> Jaribu Mlio
-                  </button>
-                </div>
-                <p className="text-[11px] text-neutral-400 font-medium">Inatumika kwa: Kuponi, Ofa, Maoni ya Bidhaa, Pointi za uaminifu nk.</p>
-                <div className="flex gap-3">
-                  <Input 
-                    type="text" 
-                    placeholder="Weka sound URL link..." 
-                    className="flex-1 bg-neutral-800 border-none h-14 rounded-xl text-xs text-white placeholder:text-neutral-600 font-medium"
-                    value={soundSettings.normal}
-                    onChange={(e) => setSoundSettings({ ...soundSettings, normal: e.target.value })}
-                  />
-                  <Button 
-                    onClick={() => handleCustomSoundLinkSave('normal', soundSettings.normal)}
-                    className="h-14 bg-orange-600 hover:bg-orange-700 text-white px-5 rounded-xl font-bold text-xs"
-                  >
-                    Hifadhi Link
-                  </Button>
-                </div>
-                <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-2 cursor-pointer bg-neutral-800 hover:bg-neutral-700 px-4 py-3 rounded-xl text-xs font-bold text-neutral-300 transition-all">
-                    <Upload className="w-4 h-4 text-orange-500" /> Upload Audio File
-                    <input 
-                      type="file" 
-                      accept="audio/*" 
-                      className="hidden" 
-                      onChange={(e) => e.target.files?.[0] && handleCustomSoundUpload('normal', e.target.files[0])}
-                    />
-                  </label>
-                </div>
-              </div>
-
             </div>
           </div>
         </div>
