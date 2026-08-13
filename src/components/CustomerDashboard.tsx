@@ -808,27 +808,13 @@ export default function CustomerDashboard() {
                     )}
                   </div>
 
-                  <div className="overflow-hidden w-full relative my-0.5 [mask-image:linear-gradient(to_right,transparent,black_8px,black_calc(100%-8px),transparent)]">
-                    <div className="animate-marquee-text flex items-center" style={{ animationDuration: '11s' }}>
-                      <h2 className="text-sm sm:text-base md:text-lg font-black italic uppercase leading-tight tracking-tight text-white whitespace-nowrap pr-8 drop-shadow-xs">
-                        {currentSlide.title}
-                      </h2>
-                      <h2 className="text-sm sm:text-base md:text-lg font-black italic uppercase leading-tight tracking-tight text-white whitespace-nowrap pr-8 drop-shadow-xs">
-                        {currentSlide.title}
-                      </h2>
-                    </div>
-                  </div>
+                  <h2 className="text-sm sm:text-base md:text-lg font-black italic uppercase leading-tight tracking-tight text-white drop-shadow-xs truncate my-0.5">
+                    {currentSlide.title}
+                  </h2>
 
-                  <div className="overflow-hidden w-full relative [mask-image:linear-gradient(to_right,transparent,black_8px,black_calc(100%-8px),transparent)]">
-                    <div className="animate-marquee-text flex items-center" style={{ animationDuration: '15s' }}>
-                      <p className="text-xs text-amber-100 font-medium leading-snug whitespace-nowrap pr-8 opacity-95">
-                        {currentSlide.subtitle}
-                      </p>
-                      <p className="text-xs text-amber-100 font-medium leading-snug whitespace-nowrap pr-8 opacity-95">
-                        {currentSlide.subtitle}
-                      </p>
-                    </div>
-                  </div>
+                  <p className="text-xs text-amber-100 font-medium leading-snug opacity-95 line-clamp-1">
+                    {currentSlide.subtitle}
+                  </p>
                 </div>
               </div>
 
@@ -960,18 +946,18 @@ export default function CustomerDashboard() {
                   zIndexVal = 30;
                   opacityVal = 1;
                 } else if (isLeft) {
-                  xOffset = "-58%"; // Peeking left smoothly
-                  scaleVal = 0.88;
+                  xOffset = "-96%"; // Positioned cleanly to the left without covering text
+                  scaleVal = 0.86;
                   zIndexVal = 20;
-                  opacityVal = 0.75;
+                  opacityVal = 0.55;
                 } else if (isRight) {
-                  xOffset = "58%"; // Peeking right smoothly
-                  scaleVal = 0.88;
+                  xOffset = "96%"; // Positioned cleanly to the right without covering text
+                  scaleVal = 0.86;
                   zIndexVal = 20;
-                  opacityVal = 0.75;
+                  opacityVal = 0.55;
                 } else {
                   // Hidden offscreen items
-                  xOffset = diff < 0 ? "-120%" : "120%";
+                  xOffset = diff < 0 ? "-150%" : "150%";
                   scaleVal = 0.7;
                   zIndexVal = 10;
                   opacityVal = 0;
@@ -1019,7 +1005,7 @@ export default function CustomerDashboard() {
                         setActiveBannerIdx(idx);
                       }
                     }}
-                    className="absolute w-[86%] sm:w-[78%] md:w-[62%] lg:w-[48%] h-full rounded-[2.2rem] overflow-hidden shadow-2xl group cursor-pointer border border-white/20 select-none bg-black/40 origin-center"
+                    className="absolute w-[84%] sm:w-[76%] md:w-[60%] lg:w-[48%] h-full rounded-[2.2rem] overflow-hidden shadow-2xl group cursor-pointer border border-white/20 select-none bg-black/40 origin-center"
                   >
                     {/* Background Image */}
                     <img 

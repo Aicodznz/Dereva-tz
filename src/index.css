@@ -495,4 +495,5 @@
 .animate-marquee-text {
   display: inline-flex;
   white-space: nowrap;
+  animation: textMarquee 15s linear infinite;
 }
