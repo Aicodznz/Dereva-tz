@@ -1449,11 +1449,24 @@ export default function ProductDetail() {
 
                   {/* Sleek Floating Bottom Control Dock */}
                   <div className="absolute bottom-6 inset-x-0 z-[999999] flex flex-col items-center gap-2 px-4 pointer-events-none">
-                    <div className="pointer-events-auto flex items-center justify-center gap-3 max-w-xs sm:max-w-sm w-full bg-black/90 backdrop-blur-2xl p-2 rounded-full border border-white/20 shadow-2xl">
+                    <div className="pointer-events-auto flex items-center justify-between gap-2 max-w-sm sm:max-w-md w-full bg-black/90 backdrop-blur-2xl p-2 rounded-full border border-white/20 shadow-2xl overflow-x-auto scrollbar-none">
+                      {/* Live Camera Toggle Button */}
+                      <button
+                        onClick={isLiveCameraActive ? stopLiveCamera : startLiveCamera}
+                        className={`px-3.5 py-2 rounded-full font-black text-xs uppercase tracking-wider flex items-center gap-1.5 transition-all active:scale-95 shadow-md flex-shrink-0 ${
+                          isLiveCameraActive
+                            ? 'bg-red-600 text-white shadow-red-600/30'
+                            : 'bg-gradient-to-r from-orange-600 to-amber-500 text-white shadow-orange-600/30 hover:brightness-110'
+                        }`}
+                      >
+                        <Camera className="w-4 h-4" />
+                        <span>{isLiveCameraActive ? 'Zima Kamera' : '📷 Washa Kamera'}</span>
+                      </button>
+
                       {/* Auto Rotate Toggle */}
                       <button
                         onClick={() => setAutoRotate3D(!autoRotate3D)}
-                        className={`px-4 py-2.5 rounded-full text-xs font-black transition-all active:scale-95 flex items-center gap-1.5 border ${
+                        className={`px-3 py-2 rounded-full text-xs font-bold transition-all active:scale-95 flex items-center gap-1 border flex-shrink-0 ${
                           autoRotate3D 
                             ? 'bg-orange-500/20 border-orange-500/50 text-orange-400' 
                             : 'bg-white/10 border-white/15 text-white/70 hover:bg-white/20'
@@ -1463,25 +1476,21 @@ export default function ProductDetail() {
                         <span>🔄 {autoRotate3D ? 'Spin ON' : 'Spin OFF'}</span>
                       </button>
 
-                      {/* AR Camera Mode Button */}
+                      {/* Native AR Mode Button (SceneViewer / WebXR / QuickLook) */}
                       <button
                         onClick={() => {
-                          if (isLiveCameraActive) {
-                            stopLiveCamera();
-                            toast.info('Kamera imefungwa');
+                          const viewer = document.getElementById('main-ar-viewer') as any;
+                          if (viewer && viewer.canActivateAR) {
+                            viewer.activateAR();
                           } else {
-                            startLiveCamera();
+                            if (!isLiveCameraActive) startLiveCamera();
                           }
                         }}
-                        className={`px-3.5 py-2.5 rounded-full text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5 border ${
-                          isLiveCameraActive 
-                            ? 'bg-red-600/90 text-white border-red-500/80 shadow-lg shadow-red-600/30' 
-                            : 'bg-gradient-to-r from-orange-600 to-amber-500 text-white border-white/20 shadow-lg shadow-orange-600/20'
-                        }`}
-                        title="Tazama katika Kamera ya AR"
+                        className="px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-full text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5 flex-shrink-0"
+                        title="Tazama katika AR ya simu (Native WebXR)"
                       >
-                        <Camera className="w-3.5 h-3.5 text-white" />
-                        <span>{isLiveCameraActive ? 'Zima Kamera' : '📷 AR Mode'}</span>
+                        <Smartphone className="w-3.5 h-3.5 text-orange-400" />
+                        <span>📱 AR Mode</span>
                       </button>
                     </div>
 
@@ -1546,14 +1555,27 @@ export default function ProductDetail() {
                 <Share2 className="w-4 h-4" />
               </button>
 
-              {/* Sleek 3D Trigger (Bottom-Left Overlay) */}
+              {/* Sleek AR / 3D Triggers (Bottom-Left Overlay) */}
               {product?.model3dUrl && (
-                <div className="absolute bottom-3 left-3 z-20 flex items-center gap-2 pointer-events-auto">
+                <div className="absolute bottom-3 left-3 z-20 flex items-center gap-2 pointer-events-auto flex-wrap">
+                  <button 
+                    onClick={() => {
+                      setShowARView(true);
+                      setTimeout(() => {
+                        startLiveCamera();
+                      }, 300);
+                    }}
+                    className="px-3.5 py-2 bg-gradient-to-r from-orange-600 via-amber-500 to-emerald-500 text-white rounded-2xl flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider shadow-xl shadow-orange-600/40 hover:brightness-110 transition-all active:scale-95 border border-white/30"
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                    <span>Onyesha Mezani (AR)</span>
+                  </button>
+
                   <button 
                     onClick={() => setShowARView(true)}
-                    className="px-3.5 py-2 bg-gradient-to-r from-orange-600 via-amber-500 to-orange-600 text-white rounded-2xl flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider shadow-xl shadow-orange-600/40 hover:brightness-110 transition-all active:scale-95 border border-white/30"
+                    className="px-3 py-2 bg-black/80 backdrop-blur-md text-white/90 hover:text-white rounded-2xl flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider border border-white/20 transition-all active:scale-95"
                   >
-                    <Box className="w-3.5 h-3.5 text-white" />
+                    <Box className="w-3.5 h-3.5 text-orange-400" />
                     <span>3D View</span>
                   </button>
                 </div>
