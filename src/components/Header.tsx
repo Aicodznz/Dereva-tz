@@ -93,25 +93,21 @@ export default function Header() {
     >
       <div className={`${isFullscreen ? 'w-full px-4 md:px-6' : 'max-w-[2400px] mx-auto px-4 md:px-6'} h-16 md:h-20 flex items-center justify-between gap-2 md:gap-4 flex-shrink-0`}>
         
-        {/* Left: Logo & Location */}
+        {/* Left: Logo */}
         <div className="flex items-center gap-2 md:gap-6 min-w-0 flex-shrink">
-          <Link to="/" className="flex items-center gap-2 group shrink-0">
+          <Link to="/" className="flex items-center gap-2.5 group shrink-0">
             <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-700 rounded-2xl flex items-center justify-center transform group-hover:rotate-12 group-hover:scale-110 transition-all shadow-[0_10px_20px_rgba(234,88,12,0.3)] relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
               <span className="text-white font-black text-2xl italic tracking-tighter relative z-10 px-0.5">P</span>
             </div>
-            <div className="hidden lg:flex flex-col leading-none">
-              <span className="font-black text-lg uppercase italic tracking-tighter text-neutral-900 dark:text-white">Papo Hapo</span>
+            <div className="flex flex-col leading-none">
+              <div className="flex items-center gap-1.5">
+                <span className="font-black text-lg sm:text-xl uppercase italic tracking-tighter text-neutral-900 dark:text-white">Papo Hapo</span>
+                <span className="text-base sm:text-lg leading-none select-none">🇹🇿</span>
+              </div>
               <span className="text-[8px] font-black uppercase tracking-widest text-orange-600 block text-right mt-0.5">Express</span>
             </div>
           </Link>
-
-          {isDashboard && !isRiderDashboard && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-600/10 dark:bg-orange-600/20 rounded-full border border-orange-600/20 shadow-sm transition-all">
-              <MapPin className="w-3.5 h-3.5 text-orange-600" />
-              <span className="text-xs font-black text-orange-600 uppercase tracking-widest leading-none">Papo Hapo</span>
-            </div>
-          )}
         </div>
 
         {/* Search Bar Removed as per user request */}
