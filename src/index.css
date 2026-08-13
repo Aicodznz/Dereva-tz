@@ -495,5 +495,10 @@
 .animate-marquee-text {
   display: inline-flex;
   white-space: nowrap;
-  animation: textMarquee 15s linear infinite;
+  animation: textMarquee 18s linear infinite;
+  will-change: transform;
+}
+
+.animate-marquee-text:hover {
+  animation-play-state: paused;
 }

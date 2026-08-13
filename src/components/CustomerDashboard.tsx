@@ -32,6 +32,8 @@ export default function CustomerDashboard() {
   const [products, setProducts] = useState<Product[]>([]);
   const [banners, setBanners] = useState<{id: string, title: string, sub: string, img: string, category?: string}[]>([]);
   const [activeBannerIdx, setActiveBannerIdx] = useState(0);
+  const [isBannerAutoPlay, setIsBannerAutoPlay] = useState(true);
+  const [isBannerHovered, setIsBannerHovered] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [adminAnnouncements, setAdminAnnouncements] = useState<any[]>([]);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
@@ -743,7 +745,7 @@ export default function CustomerDashboard() {
     }))
   ];
 
-  // Auto-slide timer (every 4.5 seconds)
+  // Auto-slide timer for greeting / notification header (every 4.5 seconds)
   useEffect(() => {
     if (allSlides.length <= 1) return;
     const timer = setInterval(() => {
@@ -752,14 +754,14 @@ export default function CustomerDashboard() {
     return () => clearInterval(timer);
   }, [allSlides.length]);
 
-  // Auto-slide timer for promotional banners (every 5.5 seconds)
+  // Auto-slide timer for promotional banners (every 4.5 seconds with pause/resume support)
   useEffect(() => {
-    if (banners.length <= 1) return;
+    if (banners.length <= 1 || !isBannerAutoPlay || isBannerHovered) return;
     const timer = setInterval(() => {
       setActiveBannerIdx((prev) => (prev + 1) % banners.length);
-    }, 5500);
+    }, 4500);
     return () => clearInterval(timer);
-  }, [banners.length]);
+  }, [banners.length, isBannerAutoPlay, isBannerHovered, activeBannerIdx]);
 
   const currentSlide = allSlides[currentSlideIndex] || allSlides[0];
 
@@ -796,8 +798,8 @@ export default function CustomerDashboard() {
                   )}
                 </div>
 
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 mb-1">
+                <div className="min-w-0 flex-1 overflow-hidden">
+                  <div className="flex items-center gap-2 mb-0.5">
                     <span className="bg-black/25 backdrop-blur-md text-amber-200 text-[9px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full border border-white/20 shadow-xs">
                       {currentSlide.tag}
                     </span>
@@ -808,13 +810,29 @@ export default function CustomerDashboard() {
                     )}
                   </div>
 
-                  <h2 className="text-sm sm:text-base md:text-lg font-black italic uppercase leading-tight tracking-tight text-white drop-shadow-xs truncate my-0.5">
-                    {currentSlide.title}
-                  </h2>
-
-                  <p className="text-xs text-amber-100 font-medium leading-snug opacity-95 line-clamp-1">
-                    {currentSlide.subtitle}
-                  </p>
+                  {/* Single Line Sliding Ticker (Kulia kwenda Kushoto) */}
+                  <div className="overflow-hidden w-full relative [mask-image:linear-gradient(to_right,transparent,black_8px,black_calc(100%-8px),transparent)] py-0.5">
+                    <div className="animate-marquee-text flex items-center">
+                      <div className="flex items-center whitespace-nowrap pr-10">
+                        <span className="text-sm sm:text-base md:text-lg font-black italic uppercase tracking-tight text-white drop-shadow-xs">
+                          {currentSlide.title}
+                        </span>
+                        <span className="text-xs sm:text-sm text-amber-100 font-semibold opacity-95 ml-2.5 flex items-center gap-1.5">
+                          <span className="opacity-60">—</span>
+                          {currentSlide.subtitle}
+                        </span>
+                      </div>
+                      <div className="flex items-center whitespace-nowrap pr-10">
+                        <span className="text-sm sm:text-base md:text-lg font-black italic uppercase tracking-tight text-white drop-shadow-xs">
+                          {currentSlide.title}
+                        </span>
+                        <span className="text-xs sm:text-sm text-amber-100 font-semibold opacity-95 ml-2.5 flex items-center gap-1.5">
+                          <span className="opacity-60">—</span>
+                          {currentSlide.subtitle}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -906,8 +924,14 @@ export default function CustomerDashboard() {
         </motion.div>
       )}
 
-      {/* 1. Promotional 3D Coverflow Carousel (Banners) */}
-      <div className="relative w-full overflow-hidden py-3 select-none flex flex-col items-center gap-4">
+      {/* 1. Promotional Auto-Slide Carousel (Banners) */}
+      <div 
+        className="relative w-full overflow-hidden py-3 select-none flex flex-col items-center gap-3.5"
+        onMouseEnter={() => setIsBannerHovered(true)}
+        onMouseLeave={() => setIsBannerHovered(false)}
+        onTouchStart={() => setIsBannerHovered(true)}
+        onTouchEnd={() => setIsBannerHovered(false)}
+      >
         {isLoading ? (
           <div className="w-full flex gap-4 overflow-x-auto pb-3 no-scrollbar px-2 justify-center">
             {Array(3).fill(0).map((_, i) => (
@@ -1057,20 +1081,22 @@ export default function CustomerDashboard() {
                 );
               })}
 
-              {/* Prev / Next Navigation Arrows */}
+              {/* Side Prev / Next Navigation Arrows */}
               {banners.length > 1 && (
                 <>
                   <button
                     onClick={() => setActiveBannerIdx((prev) => (prev - 1 + banners.length) % banners.length)}
-                    className="absolute left-2 sm:left-4 z-40 p-2 sm:p-2.5 rounded-full bg-black/40 hover:bg-black/70 text-white backdrop-blur-md border border-white/20 transition-all active:scale-95 shadow-lg"
-                    title="Bango la Nyuma"
+                    className="absolute left-2 sm:left-4 z-40 p-2.5 sm:p-3 rounded-full bg-black/50 hover:bg-black/80 text-white backdrop-blur-md border border-white/20 transition-all active:scale-95 shadow-xl hover:scale-105"
+                    title="Bango la Nyuma (Prev)"
+                    aria-label="Previous Slide"
                   >
                     <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
                   <button
                     onClick={() => setActiveBannerIdx((prev) => (prev + 1) % banners.length)}
-                    className="absolute right-2 sm:right-4 z-40 p-2 sm:p-2.5 rounded-full bg-black/40 hover:bg-black/70 text-white backdrop-blur-md border border-white/20 transition-all active:scale-95 shadow-lg"
-                    title="Bango Linalofuata"
+                    className="absolute right-2 sm:right-4 z-40 p-2.5 sm:p-3 rounded-full bg-black/50 hover:bg-black/80 text-white backdrop-blur-md border border-white/20 transition-all active:scale-95 shadow-xl hover:scale-105"
+                    title="Bango Linalofuata (Next)"
+                    aria-label="Next Slide"
                   >
                     <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
@@ -1079,20 +1105,22 @@ export default function CustomerDashboard() {
             </div>
 
             {/* Pagination Indicators (Dots) */}
-            <div className="flex gap-1.5 items-center justify-center mt-1">
-              {banners.map((_, i) => (
-                <button
-                  key={`dot-${i}`}
-                  onClick={() => setActiveBannerIdx(i)}
-                  className={`transition-all duration-500 ease-out h-2 rounded-full ${
-                    i === activeBannerIdx 
-                      ? 'w-6 bg-orange-600 shadow-md shadow-orange-600/30 dark:bg-orange-500' 
-                      : 'w-2 bg-neutral-300 hover:bg-neutral-400 dark:bg-neutral-800 dark:hover:bg-neutral-700'
-                  }`}
-                  aria-label={`Nenda kwenye bango la ${i + 1}`}
-                />
-              ))}
-            </div>
+            {banners.length > 1 && (
+              <div className="flex gap-1.5 items-center justify-center mt-1">
+                {banners.map((_, i) => (
+                  <button
+                    key={`dot-${i}`}
+                    onClick={() => setActiveBannerIdx(i)}
+                    className={`transition-all duration-300 ease-out h-2 rounded-full ${
+                      i === activeBannerIdx 
+                        ? 'w-6 bg-orange-600 shadow-md shadow-orange-600/30 dark:bg-orange-500' 
+                        : 'w-2 bg-neutral-300 hover:bg-neutral-400 dark:bg-neutral-700 dark:hover:bg-neutral-600'
+                    }`}
+                    aria-label={`Nenda kwenye bango la ${i + 1}`}
+                  />
+                ))}
+              </div>
+            )}
           </>
         )}
       </div>
