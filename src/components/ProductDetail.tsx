@@ -230,31 +230,106 @@ export default function ProductDetail() {
         ctx.fillRect(0, 0, width, height);
       }
 
-      // 2. Add high quality PapoFood AR Watermark & Product Label
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-      ctx.fillRect(0, height - 90, width, 90);
+      // 2. Capture and draw 3D food model on top of camera frame
+      const viewer = document.getElementById('main-ar-viewer') as any;
+      if (viewer) {
+        try {
+          let modelImgBlob: Blob | null = null;
+          if (typeof viewer.toBlob === 'function') {
+            modelImgBlob = await viewer.toBlob({ mimeType: 'image/png' });
+          }
 
-      ctx.font = 'bold 28px sans-serif';
+          if (modelImgBlob) {
+            const modelImg = new Image();
+            const url = URL.createObjectURL(modelImgBlob);
+            await new Promise((resolve) => {
+              modelImg.onload = resolve;
+              modelImg.onerror = resolve;
+              modelImg.src = url;
+            });
+
+            const rect = viewer.getBoundingClientRect();
+            const containerWidth = rect.width || width;
+            const containerHeight = rect.height || height;
+            const ratio = width / containerWidth;
+
+            const targetCenterX = (width / 2) + ((arPosition.x + (gyroEnabled ? gyroOffset.x : 0)) * ratio);
+            const targetCenterY = (height / 2) + ((arPosition.y + (gyroEnabled ? gyroOffset.y : 0)) * ratio);
+            const drawWidth = containerWidth * ratio * (isLiveCameraActive ? arScale : 1);
+            const drawHeight = containerHeight * ratio * (isLiveCameraActive ? arScale : 1);
+
+            ctx.save();
+            ctx.translate(targetCenterX, targetCenterY);
+            ctx.rotate((arRotation * Math.PI) / 180);
+
+            // Draw soft contact shadow under food
+            if (isLiveCameraActive) {
+              ctx.save();
+              ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+              ctx.beginPath();
+              ctx.ellipse(0, drawHeight * 0.32, drawWidth * 0.35, drawHeight * 0.1, 0, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.restore();
+            }
+
+            ctx.drawImage(modelImg, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+            ctx.restore();
+
+            URL.revokeObjectURL(url);
+          }
+        } catch (err) {
+          console.warn("Could not render 3D model into snapshot canvas:", err);
+        }
+      }
+
+      // 3. Add high quality PapoFood AR Watermark with Restaurant Name & Product Label
+      const restaurantName = vendor?.businessName || businessConfig?.businessName || 'PapoFood Restaurant';
+      
+      const bannerHeight = 110;
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+      ctx.fillRect(0, height - bannerHeight, width, bannerHeight);
+
+      // Top line orange accent bar
       ctx.fillStyle = '#f97316';
-      ctx.fillText('PapoFood AR', 30, height - 50);
+      ctx.fillRect(0, height - bannerHeight, width, 4);
 
-      ctx.font = 'bold 18px sans-serif';
+      // App Title (Left)
+      ctx.font = 'bold 26px sans-serif';
+      ctx.fillStyle = '#f97316';
+      ctx.textAlign = 'left';
+      ctx.fillText('PapoFood AR', 30, height - 68);
+
+      // Restaurant Name (Right)
+      ctx.font = 'bold 22px sans-serif';
+      ctx.fillStyle = '#fbbf24';
+      ctx.textAlign = 'right';
+      ctx.fillText(`🏪 ${restaurantName}`, width - 30, height - 68);
+
+      // Food / Product Title & Price (Left)
+      ctx.textAlign = 'left';
+      ctx.font = 'bold 20px sans-serif';
       ctx.fillStyle = '#ffffff';
-      ctx.fillText(`🍽️ ${product?.name || 'Agiza Sasa PapoFood'}`, 30, height - 22);
+      const priceText = product?.price ? ` • TZS ${product.price.toLocaleString()}` : '';
+      ctx.fillText(`🍽️ ${product?.name || 'Chakula'}${priceText}`, 30, height - 26);
 
-      const timestamp = new Date().toISOString().slice(0, 10);
+      // Date Timestamp (Right)
+      const timestamp = new Date().toLocaleDateString('sw-TZ', { year: 'numeric', month: 'short', day: 'numeric' });
       ctx.font = '14px sans-serif';
-      ctx.fillStyle = '#f59e0b';
-      ctx.fillText(timestamp, width - 150, height - 22);
+      ctx.fillStyle = '#9ca3af';
+      ctx.textAlign = 'right';
+      ctx.fillText(timestamp, width - 30, height - 26);
 
-      // 3. Download image
+      // Reset text alignment
+      ctx.textAlign = 'left';
+
+      // 4. Download image
       const dataUrl = canvas.toDataURL('image/png');
       const a = document.createElement('a');
       a.href = dataUrl;
-      a.download = `PapoFood_AR_${(product?.name || 'chakula').replace(/\s+/g, '_')}.png`;
+      a.download = `${restaurantName.replace(/\s+/g, '_')}_${(product?.name || 'chakula').replace(/\s+/g, '_')}_AR.png`;
       a.click();
 
-      toast.success('📸 Picha imepigwa na kuhifadhiwa kikamilifu!');
+      toast.success(`📸 Picha ya ${product?.name || 'chakula'} kutoka ${restaurantName} imepigwa!`);
     } catch (err) {
       console.error('Snapshot capture error:', err);
       toast.error('Imeshindwa kupiga picha.');
