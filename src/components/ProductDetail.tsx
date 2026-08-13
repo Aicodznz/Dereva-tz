@@ -60,7 +60,10 @@ import {
   Pin,
   Move,
   ZoomIn,
-  ZoomOut
+  ZoomOut,
+  Download,
+  Compass,
+  Sparkles
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -173,8 +176,92 @@ export default function ProductDetail() {
   const [arPosition, setArPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [arRotation, setArRotation] = useState<number>(0);
   const [isArAnchored, setIsArAnchored] = useState<boolean>(false);
+  const [gyroOffset, setGyroOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [gyroEnabled, setGyroEnabled] = useState<boolean>(true);
+  const [isCapturingPhoto, setIsCapturingPhoto] = useState<boolean>(false);
+
   const isDraggingAr = useRef<boolean>(false);
   const dragStartPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  // Gyroscope / Device Motion Spatial Parallax Listener
+  useEffect(() => {
+    if (!isLiveCameraActive || !gyroEnabled) {
+      setGyroOffset({ x: 0, y: 0 });
+      return;
+    }
+
+    const handleOrientation = (e: DeviceOrientationEvent) => {
+      if (e.gamma !== null && e.beta !== null) {
+        // Roll (gamma) & Pitch (beta) mapping for subtle realistic counter-tilt motion
+        const gx = Math.min(25, Math.max(-25, e.gamma)) * 0.7;
+        const gy = Math.min(25, Math.max(-25, e.beta - 40)) * 0.7;
+        setGyroOffset({ x: gx, y: gy });
+      }
+    };
+
+    if (window.DeviceOrientationEvent) {
+      window.addEventListener('deviceorientation', handleOrientation);
+    }
+    return () => {
+      if (window.DeviceOrientationEvent) {
+        window.removeEventListener('deviceorientation', handleOrientation);
+      }
+    };
+  }, [isLiveCameraActive, gyroEnabled]);
+
+  const takeArSnapshot = async () => {
+    try {
+      setIsCapturingPhoto(true);
+      const canvas = document.createElement('canvas');
+      const video = videoRef.current;
+      const width = video?.videoWidth || 1280;
+      const height = video?.videoHeight || 720;
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // 1. Draw camera background frame
+      if (video && video.readyState >= 2) {
+        ctx.drawImage(video, 0, 0, width, height);
+      } else {
+        ctx.fillStyle = '#09090b';
+        ctx.fillRect(0, 0, width, height);
+      }
+
+      // 2. Add high quality PapoFood AR Watermark & Product Label
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+      ctx.fillRect(0, height - 90, width, 90);
+
+      ctx.font = 'bold 28px sans-serif';
+      ctx.fillStyle = '#f97316';
+      ctx.fillText('PapoFood AR', 30, height - 50);
+
+      ctx.font = 'bold 18px sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(`🍽️ ${product?.name || 'Agiza Sasa PapoFood'}`, 30, height - 22);
+
+      const timestamp = new Date().toISOString().slice(0, 10);
+      ctx.font = '14px sans-serif';
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillText(timestamp, width - 150, height - 22);
+
+      // 3. Download image
+      const dataUrl = canvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = `PapoFood_AR_${(product?.name || 'chakula').replace(/\s+/g, '_')}.png`;
+      a.click();
+
+      toast.success('📸 Picha imepigwa na kuhifadhiwa kikamilifu!');
+    } catch (err) {
+      console.error('Snapshot capture error:', err);
+      toast.error('Imeshindwa kupiga picha.');
+    } finally {
+      setTimeout(() => setIsCapturingPhoto(false), 350);
+    }
+  };
 
   const startLiveCamera = async () => {
     try {
@@ -1229,6 +1316,29 @@ export default function ProductDetail() {
                 </div>
               ) : (
                 <>
+                  {/* Photo Capture Flash Overlay */}
+                  {isCapturingPhoto && (
+                    <div className="absolute inset-0 bg-white z-[9999999] pointer-events-none animate-out fade-out duration-300" />
+                  )}
+
+                  {/* Surface Target Reticle Grid (When Live Camera is Active & Not Anchored) */}
+                  {isLiveCameraActive && !isArAnchored && (
+                    <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-10">
+                      <div 
+                        className="w-56 h-28 border-2 border-dashed border-amber-400/80 rounded-[100%] animate-pulse flex flex-col items-center justify-center transition-all duration-75 shadow-2xl"
+                        style={{
+                          transform: `translate(${arPosition.x + (gyroEnabled ? gyroOffset.x : 0)}px, ${arPosition.y + (gyroEnabled ? gyroOffset.y : 0)}px) rotateX(65deg) scale(${arScale})`,
+                          boxShadow: '0 0 25px rgba(245, 158, 11, 0.3)'
+                        }}
+                      >
+                        <div className="w-3.5 h-3.5 bg-amber-400 rounded-full animate-ping opacity-90" />
+                        <span className="text-[10px] font-black uppercase text-amber-300 tracking-wider bg-black/80 px-2.5 py-1 rounded-full mt-1 border border-amber-400/50 shadow-md">
+                          🎯 Lenga Eneo la Meza
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Interactive Camera Positioning Overlay Wrapper */}
                   <div 
                     className={`w-full h-full relative z-10 flex items-center justify-center overflow-hidden ${isArAnchored ? 'pointer-events-none' : 'cursor-grab active:cursor-grabbing'}`}
@@ -1248,17 +1358,31 @@ export default function ProductDetail() {
                     onPointerCancel={() => { isDraggingAr.current = false; }}
                   >
                     <div 
-                      className="w-full h-full transition-transform duration-75 relative"
+                      className="w-full h-full transition-transform duration-75 relative flex items-center justify-center"
                       style={{
                         transform: isLiveCameraActive 
-                          ? `translate(${arPosition.x}px, ${arPosition.y}px) scale(${arScale}) rotate(${arRotation}deg)` 
+                          ? `translate(${arPosition.x + (gyroEnabled ? gyroOffset.x : 0)}px, ${arPosition.y + (gyroEnabled ? gyroOffset.y : 0)}px) scale(${arScale}) rotate(${arRotation}deg)` 
                           : 'none',
                         pointerEvents: isArAnchored ? 'none' : 'auto'
                       }}
                     >
+                      {/* Realistic Soft Surface Contact Shadow */}
+                      {isLiveCameraActive && (
+                        <div 
+                          className="absolute bottom-16 left-1/2 -translate-x-1/2 pointer-events-none transition-all duration-100 z-0"
+                          style={{
+                            width: `${Math.max(140, 260 * arScale)}px`,
+                            height: `${Math.max(35, 70 * arScale)}px`,
+                            background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0) 80%)',
+                            filter: 'blur(8px)',
+                            transform: 'translateY(20px) scaleY(0.45)'
+                          }}
+                        />
+                      )}
+
                       {/* Fixed Anchor Badge on Model */}
                       {isArAnchored && isLiveCameraActive && (
-                        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-30 pointer-events-none flex items-center gap-1.5 bg-emerald-600 text-white px-3.5 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider shadow-2xl border-2 border-white animate-bounce">
+                        <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-30 pointer-events-none flex items-center gap-1.5 bg-emerald-600 text-white px-3.5 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider shadow-2xl border-2 border-white animate-bounce">
                           <Pin className="w-4 h-4 text-amber-300" />
                           <span>📍 IMEWEKWA MEZANI</span>
                         </div>
@@ -1342,6 +1466,23 @@ export default function ProductDetail() {
                         >
                           <Pin className="w-3.5 h-3.5" />
                           <span>{isArAnchored ? '🔒 IMEWEKWA MEZANI (Gusa kufungua)' : '📍 WEKA HAPA (ANCHOR)'}</span>
+                        </button>
+
+                        {/* Gyro Motion Motion Tracker Toggle */}
+                        <button
+                          onClick={() => {
+                            setGyroEnabled(!gyroEnabled);
+                            toast.info(gyroEnabled ? '🧭 Gyro Mode imezimwa' : '🧭 Gyro Mode imewashwa! Chakula kinafuata mwendo wa simu');
+                          }}
+                          className={`px-2.5 py-2 rounded-xl text-[10px] font-bold uppercase flex items-center gap-1 border transition-all active:scale-90 ${
+                            gyroEnabled 
+                              ? 'bg-amber-500/20 text-amber-400 border-amber-500/50' 
+                              : 'bg-neutral-800 text-neutral-400 border-white/10'
+                          }`}
+                          title="Washa/Zima Motion Tracking ya Gyroscope"
+                        >
+                          <Compass className={`w-3.5 h-3.5 ${gyroEnabled ? 'animate-spin text-amber-400' : ''}`} />
+                          <span>Gyro</span>
                         </button>
 
                         {/* Move Directional Controls */}
@@ -1463,6 +1604,18 @@ export default function ProductDetail() {
                         <span>{isLiveCameraActive ? 'Zima Kamera' : '📷 Washa Kamera'}</span>
                       </button>
 
+                      {/* Snapshot / Piga Picha Button (Visible when camera is active) */}
+                      {isLiveCameraActive && (
+                        <button
+                          onClick={takeArSnapshot}
+                          className="px-3.5 py-2 bg-gradient-to-r from-amber-500 to-emerald-500 hover:brightness-110 text-white rounded-full font-black text-xs uppercase tracking-wider flex items-center gap-1.5 transition-all active:scale-95 shadow-md flex-shrink-0 animate-pulse"
+                          title="Piga picha ya kamera na kuhifadhi"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-amber-200" />
+                          <span>📸 Piga Picha</span>
+                        </button>
+                      )}
+
                       {/* Auto Rotate Toggle */}
                       <button
                         onClick={() => setAutoRotate3D(!autoRotate3D)}
@@ -1497,7 +1650,7 @@ export default function ProductDetail() {
                     <div className="pointer-events-auto bg-black/70 backdrop-blur-md px-4 py-1 rounded-full border border-white/10 shadow-lg">
                       <p className="text-white/80 text-[10px] font-semibold text-center tracking-wide">
                         {isLiveCameraActive 
-                          ? '👉 Vuta Kidole kwenye vioo au tumia vitufe vya juu kuweka chakula mezani'
+                          ? '👉 Vuta Kidole, piga picha 📸, au tumia Gyro/Anchor kuweka chakula mezani'
                           : '💡 Kidole 1: Zungusha 360° • Vidole 2: Kuza / Punguza'
                         }
                       </p>
