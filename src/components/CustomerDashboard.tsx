@@ -766,10 +766,10 @@ export default function CustomerDashboard() {
   const currentSlide = allSlides[currentSlideIndex] || allSlides[0];
 
   return (
-    <div className={`pb-10 space-y-2 md:space-y-3 lg:space-y-4 ${isRTL ? 'text-right' : 'text-left'}`}>
+    <div className={`pb-10 space-y-2 sm:space-y-3 ${isRTL ? 'text-right' : 'text-left'}`}>
       {/* SLIDE NOTIFICATION & GREETING HEADER CARD */}
-      <div className="px-1 pt-1">
-        <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 text-white px-3 py-2 sm:px-4 sm:py-2.5 shadow-lg shadow-orange-600/15 border border-orange-400/30">
+      <div className="w-full">
+        <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 text-white px-2.5 py-1.5 sm:px-4 sm:py-2 shadow-md shadow-orange-600/15 border border-orange-400/30">
           {/* Ambient background glows */}
           <div className="absolute -top-10 -right-10 w-24 h-24 bg-white/10 rounded-full blur-xl pointer-events-none" />
           <div className="absolute -bottom-8 -left-8 w-20 h-20 bg-black/10 rounded-full blur-lg pointer-events-none" />
@@ -781,20 +781,20 @@ export default function CustomerDashboard() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.25, ease: "easeOut" }}
-              className="flex items-center justify-between gap-2.5 relative z-10 cursor-pointer"
+              className="flex items-center justify-between gap-2 relative z-10 cursor-pointer"
               onClick={() => {
                 if (currentSlide.type === 'announcement') {
                   navigate('/notifications');
                 }
               }}
             >
-              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
                 {/* Brand / Slide Icon */}
-                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center shrink-0 shadow-xs">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center shrink-0 shadow-xs">
                   {currentSlide.type === 'greeting' ? (
-                    <Sparkles className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-amber-200 animate-pulse" />
+                    <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-200 animate-pulse" />
                   ) : (
-                    <Megaphone className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-amber-300 animate-bounce" />
+                    <Megaphone className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-300 animate-bounce" />
                   )}
                 </div>
 
@@ -802,23 +802,33 @@ export default function CustomerDashboard() {
                   {/* Single Line Sliding Ticker (Kulia kwenda Kushoto) */}
                   <div className="overflow-hidden w-full relative [mask-image:linear-gradient(to_right,transparent,black_6px,black_calc(100%-6px),transparent)]">
                     <div className="animate-marquee-text flex items-center">
-                      <div className="flex items-center whitespace-nowrap pr-10">
-                        <span className="text-xs sm:text-sm md:text-base font-black italic uppercase tracking-tight text-white drop-shadow-xs">
-                          {currentSlide.title}
-                        </span>
-                        <span className="text-[11px] sm:text-xs text-amber-100 font-semibold opacity-95 ml-2.5 flex items-center gap-1.5">
-                          <span className="opacity-60">—</span>
-                          {currentSlide.subtitle}
-                        </span>
+                      {/* First set of continuous sliding items */}
+                      <div className="flex items-center whitespace-nowrap">
+                        {[0, 1, 2, 3].map((key) => (
+                          <div key={`track-a-${key}`} className="flex items-center whitespace-nowrap pr-8 sm:pr-12">
+                            <span className="text-xs sm:text-sm font-black italic uppercase tracking-tight text-white drop-shadow-xs">
+                              {currentSlide.title}
+                            </span>
+                            <span className="text-[11px] sm:text-xs text-amber-100 font-semibold opacity-95 ml-2 flex items-center gap-1">
+                              <span className="opacity-60">—</span>
+                              {currentSlide.subtitle}
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                      <div className="flex items-center whitespace-nowrap pr-10">
-                        <span className="text-xs sm:text-sm md:text-base font-black italic uppercase tracking-tight text-white drop-shadow-xs">
-                          {currentSlide.title}
-                        </span>
-                        <span className="text-[11px] sm:text-xs text-amber-100 font-semibold opacity-95 ml-2.5 flex items-center gap-1.5">
-                          <span className="opacity-60">—</span>
-                          {currentSlide.subtitle}
-                        </span>
+                      {/* Identical second set for seamless 0% -> -50% loop */}
+                      <div className="flex items-center whitespace-nowrap">
+                        {[0, 1, 2, 3].map((key) => (
+                          <div key={`track-b-${key}`} className="flex items-center whitespace-nowrap pr-8 sm:pr-12">
+                            <span className="text-xs sm:text-sm font-black italic uppercase tracking-tight text-white drop-shadow-xs">
+                              {currentSlide.title}
+                            </span>
+                            <span className="text-[11px] sm:text-xs text-amber-100 font-semibold opacity-95 ml-2 flex items-center gap-1">
+                              <span className="opacity-60">—</span>
+                              {currentSlide.subtitle}
+                            </span>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>
@@ -899,7 +909,7 @@ export default function CustomerDashboard() {
 
       {/* 1. Promotional Auto-Slide Carousel (Banners) */}
       <div 
-        className="relative w-full overflow-hidden py-3 select-none flex flex-col items-center gap-3.5"
+        className="relative w-full overflow-hidden py-1 sm:py-2 select-none flex flex-col items-center gap-2.5"
         onMouseEnter={() => setIsBannerHovered(true)}
         onMouseLeave={() => setIsBannerHovered(false)}
         onTouchStart={() => setIsBannerHovered(true)}
