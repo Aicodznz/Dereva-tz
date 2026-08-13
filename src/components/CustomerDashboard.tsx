@@ -769,64 +769,53 @@ export default function CustomerDashboard() {
     <div className={`pb-10 space-y-2 md:space-y-3 lg:space-y-4 ${isRTL ? 'text-right' : 'text-left'}`}>
       {/* SLIDE NOTIFICATION & GREETING HEADER CARD */}
       <div className="px-1 pt-1">
-        <div className="relative overflow-hidden rounded-[2.2rem] bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 text-white p-4 sm:p-5 shadow-xl shadow-orange-600/20 border border-orange-400/30">
+        <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 text-white px-3 py-2 sm:px-4 sm:py-2.5 shadow-lg shadow-orange-600/15 border border-orange-400/30">
           {/* Ambient background glows */}
-          <div className="absolute -top-12 -right-12 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none" />
-          <div className="absolute -bottom-10 -left-10 w-28 h-28 bg-black/10 rounded-full blur-xl pointer-events-none" />
+          <div className="absolute -top-10 -right-10 w-24 h-24 bg-white/10 rounded-full blur-xl pointer-events-none" />
+          <div className="absolute -bottom-8 -left-8 w-20 h-20 bg-black/10 rounded-full blur-lg pointer-events-none" />
 
           <AnimatePresence mode="wait">
             <motion.div
               key={currentSlideIndex}
-              initial={{ opacity: 0, x: 40 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -40 }}
-              transition={{ duration: 0.35, ease: "easeOut" }}
-              className="flex items-center justify-between gap-3 relative z-10 cursor-pointer"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
+              className="flex items-center justify-between gap-2.5 relative z-10 cursor-pointer"
               onClick={() => {
                 if (currentSlide.type === 'announcement') {
                   navigate('/notifications');
                 }
               }}
             >
-              <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                {/* Brand / Slide Icon (No profile picture) */}
-                <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center shrink-0 shadow-md">
+              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                {/* Brand / Slide Icon */}
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center shrink-0 shadow-xs">
                   {currentSlide.type === 'greeting' ? (
-                    <Sparkles className="w-6 h-6 text-amber-200 animate-pulse" />
+                    <Sparkles className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-amber-200 animate-pulse" />
                   ) : (
-                    <Megaphone className="w-6 h-6 text-amber-300 animate-bounce" />
+                    <Megaphone className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-amber-300 animate-bounce" />
                   )}
                 </div>
 
                 <div className="min-w-0 flex-1 overflow-hidden">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="bg-black/25 backdrop-blur-md text-amber-200 text-[9px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full border border-white/20 shadow-xs">
-                      {currentSlide.tag}
-                    </span>
-                    {allSlides.length > 1 && (
-                      <span className="text-[10px] text-amber-100/90 font-mono font-bold tracking-wider bg-white/10 px-1.5 py-0.2 rounded-md">
-                        {currentSlideIndex + 1}/{allSlides.length}
-                      </span>
-                    )}
-                  </div>
-
                   {/* Single Line Sliding Ticker (Kulia kwenda Kushoto) */}
-                  <div className="overflow-hidden w-full relative [mask-image:linear-gradient(to_right,transparent,black_8px,black_calc(100%-8px),transparent)] py-0.5">
+                  <div className="overflow-hidden w-full relative [mask-image:linear-gradient(to_right,transparent,black_6px,black_calc(100%-6px),transparent)]">
                     <div className="animate-marquee-text flex items-center">
                       <div className="flex items-center whitespace-nowrap pr-10">
-                        <span className="text-sm sm:text-base md:text-lg font-black italic uppercase tracking-tight text-white drop-shadow-xs">
+                        <span className="text-xs sm:text-sm md:text-base font-black italic uppercase tracking-tight text-white drop-shadow-xs">
                           {currentSlide.title}
                         </span>
-                        <span className="text-xs sm:text-sm text-amber-100 font-semibold opacity-95 ml-2.5 flex items-center gap-1.5">
+                        <span className="text-[11px] sm:text-xs text-amber-100 font-semibold opacity-95 ml-2.5 flex items-center gap-1.5">
                           <span className="opacity-60">—</span>
                           {currentSlide.subtitle}
                         </span>
                       </div>
                       <div className="flex items-center whitespace-nowrap pr-10">
-                        <span className="text-sm sm:text-base md:text-lg font-black italic uppercase tracking-tight text-white drop-shadow-xs">
+                        <span className="text-xs sm:text-sm md:text-base font-black italic uppercase tracking-tight text-white drop-shadow-xs">
                           {currentSlide.title}
                         </span>
-                        <span className="text-xs sm:text-sm text-amber-100 font-semibold opacity-95 ml-2.5 flex items-center gap-1.5">
+                        <span className="text-[11px] sm:text-xs text-amber-100 font-semibold opacity-95 ml-2.5 flex items-center gap-1.5">
                           <span className="opacity-60">—</span>
                           {currentSlide.subtitle}
                         </span>
@@ -838,43 +827,27 @@ export default function CustomerDashboard() {
 
               {allSlides.length > 1 && (
                 <div 
-                  className="flex items-center gap-1 shrink-0 bg-black/20 backdrop-blur-sm p-1 rounded-xl border border-white/10"
+                  className="flex items-center gap-0.5 shrink-0 bg-black/20 backdrop-blur-sm p-0.5 rounded-lg border border-white/10"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <button
                     onClick={() => setCurrentSlideIndex((prev) => (prev - 1 + allSlides.length) % allSlides.length)}
-                    className="p-1.5 hover:bg-white/20 rounded-lg text-white transition-colors"
+                    className="p-1 hover:bg-white/20 rounded-md text-white transition-colors"
                     title="Iliyopita"
                   >
-                    <ChevronLeft className="w-4 h-4" />
+                    <ChevronLeft className="w-3.5 h-3.5" />
                   </button>
                   <button
                     onClick={() => setCurrentSlideIndex((prev) => (prev + 1) % allSlides.length)}
-                    className="p-1.5 hover:bg-white/20 rounded-lg text-white transition-colors"
+                    className="p-1 hover:bg-white/20 rounded-md text-white transition-colors"
                     title="Inayofuata"
                   >
-                    <ChevronRight className="w-4 h-4" />
+                    <ChevronRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
               )}
             </motion.div>
           </AnimatePresence>
-
-          {allSlides.length > 1 && (
-            <div className="flex justify-center items-center gap-1.5 mt-2.5 relative z-10">
-              {allSlides.map((_, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setCurrentSlideIndex(idx)}
-                  className={`h-1.5 rounded-full transition-all duration-300 ${
-                    idx === currentSlideIndex 
-                      ? 'w-6 bg-white shadow-xs' 
-                      : 'w-1.5 bg-white/40 hover:bg-white/60'
-                  }`}
-                />
-              ))}
-            </div>
-          )}
         </div>
       </div>
 
