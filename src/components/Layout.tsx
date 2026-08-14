@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../AuthContext';
 import { useCart } from '../CartContext';
 import { Button } from '@/components/ui/button';
@@ -9,11 +9,11 @@ import {
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { motion, AnimatePresence, useScroll, useMotionValueEvent } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import Header from './Header';
 import MayaAIChat from './MayaAIChat';
 import { useLanguage } from '../LanguageContext';
-import { useTheme } from 'next-themes';
+import { useTheme } from '../ThemeContext';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { profile, logout, signIn, user } = useAuth();
@@ -25,7 +25,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const [isNavVisible, setIsNavVisible] = useState(true);
   const [badgeAnimateKey, setBadgeAnimateKey] = useState(0);
-  const { scrollY } = useScroll();
+  const lastScrollY = useRef(0);
 
   useEffect(() => {
     const handleCartAdded = () => {
@@ -35,14 +35,20 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('cart-item-added', handleCartAdded);
   }, []);
 
-  useMotionValueEvent(scrollY, "change", (latest) => {
-    const previous = scrollY.getPrevious() || 0;
-    if (latest > previous && latest > 100) {
-      setIsNavVisible(false);
-    } else {
-      setIsNavVisible(true);
-    }
-  });
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      if (currentScrollY > lastScrollY.current && currentScrollY > 100) {
+        setIsNavVisible(false);
+      } else {
+        setIsNavVisible(true);
+      }
+      lastScrollY.current = currentScrollY;
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const isTaxiRoute = location.pathname === '/taxi';
   const isCarRentalRoute = location.pathname === '/car-rental';

@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { usePartnerLocation } from '../../../hooks/parcel/partner/usePartnerLocation';
-import { useTheme } from 'next-themes';
+import { useTheme } from '../../../ThemeContext';
 
 interface Props {
   destination?: { lat: number; lng: number };

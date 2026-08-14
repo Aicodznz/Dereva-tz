@@ -7,7 +7,7 @@ import { db } from '../../../firebase';
 import { Partner } from '../../../types/parcel';
 import CategoryBadge from './CategoryBadge';
 import ParcelMapView from './ParcelMapView';
-import { useTheme } from 'next-themes';
+import { useTheme } from '../../../ThemeContext';
 import { usePartnerLocation } from '../../../hooks/parcel/partner/usePartnerLocation';
 
 const PartnerDashboard: React.FC = () => {

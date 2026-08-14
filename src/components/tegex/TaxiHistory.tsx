@@ -10,7 +10,7 @@ import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useAuth } from '../../AuthContext';
-import { useTheme } from 'next-themes';
+import { useTheme } from '../../ThemeContext';
 import { collection, query, where, onSnapshot, doc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { format } from 'date-fns';

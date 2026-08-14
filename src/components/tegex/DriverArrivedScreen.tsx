@@ -6,7 +6,7 @@ import L from 'leaflet';
 import { Phone, MessageSquare, Star, Clock, Navigation2, Share2, KeyRound } from 'lucide-react';
 import { Ride } from '../../types/trip.types';
 import { useDriverTracking } from '../../hooks/useDriverTracking';
-import { useTheme } from 'next-themes';
+import { useTheme } from '../../ThemeContext';
 import { RidePinDisplay } from '../common/RidePinVerification';
 import { ShareTripModal } from '../common/ShareTripModal';
 

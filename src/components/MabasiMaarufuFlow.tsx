@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot, addDoc, doc, setDoc } from 'firebase/firestore';
 import { useAuth } from '../AuthContext';
-import { useTheme } from 'next-themes';
+import { useTheme } from '../ThemeContext';
 import { toPng } from 'html-to-image';
 
 interface MabasiMaarufuFlowProps {

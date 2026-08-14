@@ -4,7 +4,7 @@ import { Star, Heart, MessageSquare, FastForward } from 'lucide-react';
 import { Ride } from '../../types/ride.types';
 import { db } from '../../firebase';
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { useTheme } from 'next-themes';
+import { useTheme } from '../../ThemeContext';
 
 interface RateCustomerScreenProps {
   ride: Ride;

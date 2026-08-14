@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Sun, Moon } from 'lucide-react';
 import { motion } from 'motion/react';
-import { useTheme } from 'next-themes';
+import { useTheme } from '../ThemeContext';
 
 export default function ThemeToggle() {
   const { theme, setTheme, resolvedTheme } = useTheme();

@@ -1,6 +1,11 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './AuthContext';
+import { LanguageProvider } from './LanguageContext';
+import { CartProvider } from './CartContext';
+import { ThemeProvider } from './ThemeContext';
+import { HeaderProvider } from './HeaderContext';
+import { BusinessConfigProvider } from './BusinessConfigContext';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import RoleSelection from './components/RoleSelection';
@@ -404,12 +409,6 @@ function AppContent() {
     </>
   );
 }
-
-import { LanguageProvider } from './LanguageContext';
-import { CartProvider } from './CartContext';
-import { ThemeProvider } from 'next-themes';
-import { HeaderProvider } from './HeaderContext';
-import { BusinessConfigProvider } from './BusinessConfigContext';
 
 export default function App() {
   return (

@@ -27,6 +27,14 @@ export function useCreateRide() {
       paymentMethod?: string;
       paymentDetails?: any;
       pickupNote?: string;
+      shareMode?: 'solo' | 'share' | 'parcel_addon';
+      allowSharingConsent?: boolean;
+      womenOnlySharing?: boolean;
+      verifiedOnlySharing?: boolean;
+      maxDetourBudgetMinutes?: number;
+      sharedSavings?: number;
+      originalSoloFare?: number;
+      poolStatus?: 'matching' | 'matched' | 'solo_fallback' | 'completed';
     }
   ) => {
     setIsLoading(true);
@@ -65,6 +73,15 @@ export function useCreateRide() {
         isScheduled: Boolean(options?.scheduledAt),
         scheduledAt: options?.scheduledAt || null,
         stops: options?.stops || [],
+        shareMode: options?.shareMode || 'solo',
+        allowSharingConsent: options?.allowSharingConsent ?? false,
+        womenOnlySharing: options?.womenOnlySharing ?? false,
+        verifiedOnlySharing: options?.verifiedOnlySharing ?? false,
+        maxDetourBudgetMinutes: options?.maxDetourBudgetMinutes || 3,
+        sharedSavings: options?.sharedSavings || 0,
+        originalSoloFare: options?.originalSoloFare || fare,
+        poolStatus: options?.shareMode === 'share' ? 'matching' : 'solo_fallback',
+        sharedRidersCount: options?.shareMode === 'share' ? 1 : 1,
       };
 
       const docRef = await addDoc(collection(db, 'rides'), rideData);

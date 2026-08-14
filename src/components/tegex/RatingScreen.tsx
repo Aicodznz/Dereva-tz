@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Star, CheckCircle2, ArrowRight } from 'lucide-react';
 import { Ride } from '../../types/trip.types';
-import { useTheme } from 'next-themes';
+import { useTheme } from '../../ThemeContext';
 
 interface RatingScreenProps {
   ride: Ride;

@@ -4,7 +4,7 @@ import { CreditCard, Banknote, CheckCircle2, QrCode, Phone } from 'lucide-react'
 import { Ride } from '../../types/ride.types';
 import { db } from '../../firebase';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { useTheme } from 'next-themes';
+import { useTheme } from '../../ThemeContext';
 
 interface PaymentConfirmScreenProps {
   ride: Ride;

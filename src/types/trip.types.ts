@@ -53,4 +53,18 @@ export interface Ride {
   isRerouting?: boolean;
   hasDeviated?: boolean;
   navigationMessage?: string;
+  shareMode?: 'solo' | 'share' | 'parcel_addon';
+  allowSharingConsent?: boolean;
+  womenOnlySharing?: boolean;
+  verifiedOnlySharing?: boolean;
+  detourMinutes?: number;
+  maxDetourBudgetMinutes?: number;
+  sharedSavings?: number;
+  originalSoloFare?: number;
+  sharedSegmentKm?: number;
+  sharedRidersCount?: number;
+  sharedRiders?: any[];
+  waypoints?: any[];
+  poolStatus?: 'matching' | 'matched' | 'solo_fallback' | 'completed';
+  parcelAddon?: any;
 }

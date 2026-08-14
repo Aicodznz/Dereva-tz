@@ -13,7 +13,7 @@ import {
   AlertTriangle, TrafficCone, Wallet, Flame
 } from 'lucide-react';
 import { AISmartHeatMap, HeatZone } from '../map/AISmartHeatMap';
-import { useTheme } from 'next-themes';
+import { useTheme } from '../../ThemeContext';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Chat from '../Chat';
 import ActiveRideChatPopup from '../ActiveRideChatPopup';

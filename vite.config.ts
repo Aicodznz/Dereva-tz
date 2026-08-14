@@ -38,6 +38,10 @@ export default defineConfig(({mode}) => {
       alias: {
         '@': fileURLToPath(new URL('.', import.meta.url)),
       },
+      dedupe: ['react', 'react-dom'],
+    },
+    optimizeDeps: {
+      include: ['react', 'react-dom', 'motion/react', 'lucide-react', 'react-router-dom'],
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.

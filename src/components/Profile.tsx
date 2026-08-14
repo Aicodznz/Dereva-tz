@@ -36,7 +36,7 @@ import {
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useLanguage } from '../LanguageContext';
-import { useTheme } from 'next-themes';
+import { useTheme } from '../ThemeContext';
 import MyOrders from './MyOrders';
 import Chat from './Chat';
 import { storageService } from '../services/storageService';

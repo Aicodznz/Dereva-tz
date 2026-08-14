@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MapPin, Search, ChevronDown, Sun, Moon, ShoppingCart, MessageSquare, Receipt, LogOut, Bike, Car, Bot, Bell, Globe } from 'lucide-react';
 import { useLanguage } from '../LanguageContext';
-import { useTheme } from 'next-themes';
-import { motion, AnimatePresence, useScroll, useMotionValueEvent } from 'motion/react';
+import { useTheme } from '../ThemeContext';
+import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../HeaderContext';
 import { useCart } from '../CartContext';
 import { useAuth } from '../AuthContext';
@@ -18,10 +18,12 @@ export default function Header() {
   const { profile, logout, updateRole, user } = useAuth();
   const routerLocation = useLocation();
   const navigate = useNavigate();
-  const [showLangMenu, setShowLangMenu] = React.useState(false);
+  const [showLangMenu, setShowLangMenu] = useState(false);
   const [isChangingLanguage, setIsChangingLanguage] = useState(false);
   const [targetLangName, setTargetLangName] = useState('');
   const [unreadNotifsCount, setUnreadNotifsCount] = useState(0);
+  const [hidden, setHidden] = useState(false);
+  const lastScrollY = useRef(0);
 
   useEffect(() => {
     if (!user?.uid) {
@@ -41,8 +43,20 @@ export default function Header() {
     return () => unsub();
   }, [user?.uid]);
   
-  const { scrollY } = useScroll();
-  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      if (currentScrollY > lastScrollY.current && currentScrollY > 150) {
+        setHidden(true);
+      } else {
+        setHidden(false);
+      }
+      lastScrollY.current = currentScrollY;
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const getTimeGreeting = () => {
     const hour = new Date().getHours();
@@ -53,15 +67,6 @@ export default function Header() {
   };
 
   const greeting = getTimeGreeting();
-
-  useMotionValueEvent(scrollY, "change", (latest) => {
-    const previous = scrollY.getPrevious() ?? 0;
-    if (latest > previous && latest > 150) {
-      setHidden(true);
-    } else {
-      setHidden(false);
-    }
-  });
 
   const isTaxiRoute = routerLocation.pathname === '/taxi';
   const isDashboardRoute = routerLocation.pathname === '/dashboard' || routerLocation.pathname === '/';

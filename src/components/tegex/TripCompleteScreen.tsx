@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Check, Wallet, Smartphone, Banknote, FileText, CheckCircle2 } from 'lucide-react';
 import { Ride } from '../../types/trip.types';
-import { useTheme } from 'next-themes';
+import { useTheme } from '../../ThemeContext';
 import { useAuth } from '../../AuthContext';
 import { UssdPaymentModal } from './UssdPaymentModal';
 import { DigitalReceiptModal } from './DigitalReceiptModal';

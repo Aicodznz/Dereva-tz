@@ -58,7 +58,8 @@ import {
   Globe,
 } from "lucide-react";
 import { AISmartHeatMap, HeatZone } from "./map/AISmartHeatMap";
-import { useTheme } from "next-themes";
+import { useTheme } from "../ThemeContext";
+import { calculateDetourBudget, calculateDistanceBasedPapoShareFare } from "../services/papoShareEngine";
 import Chat from "./Chat";
 import ActiveRideChatPopup from "./ActiveRideChatPopup";
 import { db, auth, handleFirestoreError, OperationType } from "../firebase";
@@ -559,6 +560,13 @@ export default function TaxiBooking() {
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mobile_money' | 'wallet' | 'card'>('cash');
   const [selectedMobileOperator, setSelectedMobileOperator] = useState<'mpesa' | 'tigopesa' | 'airtel' | 'halopesa'>('mpesa');
   const [pickupNote, setPickupNote] = useState<string>('');
+
+  // PapoShare Pooling State
+  const [shareMode, setShareMode] = useState<'solo' | 'share'>('solo');
+  const [allowSharingConsent, setAllowSharingConsent] = useState<boolean>(true);
+  const [womenOnlySharing, setWomenOnlySharing] = useState<boolean>(false);
+  const [verifiedOnlySharing, setVerifiedOnlySharing] = useState<boolean>(false);
+  const [allowBodaParcelAddon, setAllowBodaParcelAddon] = useState<boolean>(true);
 
   const scrollVehicles = (direction: 'left' | 'right') => {
     if (vehicleScrollRef.current) {
@@ -2499,7 +2507,25 @@ const getEndPin = (etaText: string) => {
       const rawBasePrice = rideOptions.find((r) => r.id === selectedRide.id)?.price || selectedRide.price;
       const stopsExtra = extraStops.length * 1500;
       const discount = usePoints ? Math.min(userPointsBalance, rawBasePrice + stopsExtra - 1000) : 0;
-      const finalPrice = Math.max(1000, rawBasePrice + stopsExtra - discount);
+
+      // PapoShare Pooling Fare Calculation
+      const isEligibleForPooling = (selectedRide.id === 'bajaj' || selectedRide.id === 'mini') && shareMode === 'share';
+      const detourBudgetMin = calculateDetourBudget(calculatedDurationMins);
+      const sharedKm = Math.max(1, Math.round(calculatedDistanceKm * 0.75 * 10) / 10);
+      
+      let finalPrice = Math.max(1000, rawBasePrice + stopsExtra - discount);
+      let sharedSavings = 0;
+
+      if (isEligibleForPooling) {
+        const poolCalculation = calculateDistanceBasedPapoShareFare({
+          baseSoloFare: rawBasePrice,
+          totalDistanceKm: calculatedDistanceKm,
+          sharedDistanceKm: sharedKm,
+          vehicleType: selectedRide.id,
+        });
+        finalPrice = Math.max(1000, poolCalculation.finalFare + stopsExtra - discount);
+        sharedSavings = poolCalculation.savings;
+      }
 
       const id = await createRide(
         activeUser.uid,
@@ -2519,6 +2545,14 @@ const getEndPin = (etaText: string) => {
           paymentMethod: paymentMethod,
           paymentDetails: paymentMethod === 'mobile_money' ? { operator: selectedMobileOperator } : null,
           pickupNote: pickupNote.trim(),
+          shareMode: selectedRide.id === 'bike' ? (allowBodaParcelAddon ? 'parcel_addon' : 'solo') : (isEligibleForPooling ? 'share' : 'solo'),
+          allowSharingConsent: isEligibleForPooling ? allowSharingConsent : false,
+          womenOnlySharing: isEligibleForPooling ? womenOnlySharing : false,
+          verifiedOnlySharing: isEligibleForPooling ? verifiedOnlySharing : false,
+          maxDetourBudgetMinutes: detourBudgetMin,
+          sharedSavings: isEligibleForPooling ? sharedSavings : 0,
+          originalSoloFare: rawBasePrice + stopsExtra - discount,
+          poolStatus: isEligibleForPooling ? 'matching' : 'solo_fallback',
         }
       );
 
@@ -4072,6 +4106,177 @@ const getEndPin = (etaText: string) => {
                     </div>
                   )}
 
+                  {/* PapoShare Ride Mode Selector (Solo vs PapoShare) for Bajaji / Gari, and PapoSend for Boda */}
+                  {destination && selectedRide && (
+                    <div className={`p-3.5 rounded-2xl border transition-all duration-300 ${
+                      theme === 'dark' ? 'bg-[#161622]/90 border-neutral-800' : 'bg-white border-neutral-200/90 shadow-sm'
+                    } ${suggestions.length > 0 ? "pointer-events-none opacity-20 grayscale select-none" : ""}`}>
+                      {(selectedRide.id === 'mini' || selectedRide.id === 'bajaj') ? (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-sm">👥</span>
+                              <div>
+                                <h4 className="text-[10px] font-black uppercase tracking-wider text-neutral-800 dark:text-neutral-200">
+                                  Hali ya Safari (PapoShare Pooling)
+                                </h4>
+                                <p className="text-[8px] text-neutral-500 dark:text-neutral-400 font-medium">
+                                  Gawana gharama ya safari na msafiri wa njia moja
+                                </p>
+                              </div>
+                            </div>
+                            <span className="text-[8.5px] font-black text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 px-2 py-0.5 rounded-full border border-purple-200/60 dark:border-purple-800/60">
+                              Okoa hadi 35%
+                            </span>
+                          </div>
+
+                          {/* 2-Mode Tab Switch: Solo vs PapoShare */}
+                          <div className="grid grid-cols-2 gap-2">
+                            {/* Solo Mode */}
+                            <button
+                              type="button"
+                              onClick={() => setShareMode('solo')}
+                              className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                                shareMode === 'solo'
+                                  ? 'bg-indigo-50/80 dark:bg-indigo-950/30 border-indigo-500 text-indigo-950 dark:text-indigo-300 shadow-xs ring-1 ring-indigo-500'
+                                  : 'bg-neutral-50 dark:bg-neutral-900/60 border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:border-neutral-300'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between w-full">
+                                <span className="text-base">⚡</span>
+                                {shareMode === 'solo' && (
+                                  <div className="w-3.5 h-3.5 rounded-full bg-indigo-600 flex items-center justify-center">
+                                    <Check className="w-2 h-2 text-white" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="mt-1">
+                                <p className="text-[10px] font-black leading-tight">Solo (Binafsi)</p>
+                                <p className="text-[8px] text-neutral-500 dark:text-neutral-400 font-medium">Moja kwa moja • 100%</p>
+                              </div>
+                            </button>
+
+                            {/* PapoShare Mode */}
+                            <button
+                              type="button"
+                              onClick={() => setShareMode('share')}
+                              className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                                shareMode === 'share'
+                                  ? 'bg-purple-50/80 dark:bg-purple-950/30 border-purple-500 text-purple-950 dark:text-purple-300 shadow-xs ring-1 ring-purple-500'
+                                  : 'bg-neutral-50 dark:bg-neutral-900/60 border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:border-neutral-300'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between w-full">
+                                <span className="text-base">🤝</span>
+                                {shareMode === 'share' && (
+                                  <div className="w-3.5 h-3.5 rounded-full bg-purple-600 flex items-center justify-center">
+                                    <Check className="w-2 h-2 text-white" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="mt-1">
+                                <p className="text-[10px] font-black leading-tight text-purple-700 dark:text-purple-300">PapoShare (Gawana)</p>
+                                <p className="text-[8px] text-emerald-600 dark:text-emerald-400 font-black">Punguzo la Bei</p>
+                              </div>
+                            </button>
+                          </div>
+
+                          {/* PapoShare Details & Consent Preferences */}
+                          {shareMode === 'share' && (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              className="p-2.5 rounded-xl bg-purple-500/5 border border-purple-500/20 space-y-2 text-xs"
+                            >
+                              {/* Detour Budget & Route Efficiency Banner */}
+                              <div className="flex items-center justify-between text-[9px] font-bold text-purple-700 dark:text-purple-300 bg-purple-500/10 px-2 py-1.5 rounded-lg border border-purple-500/15">
+                                <span>⏱️ Detour Budget: Max {calculateDetourBudget(Math.ceil((totalDuration || 900) / 60))} min</span>
+                                <span className="text-neutral-500 dark:text-neutral-400 font-normal">FIFO / Hakuna Kurudi Nyuma</span>
+                              </div>
+
+                              {/* Consent Checkbox (Ruhusu dereva kupakia msafiri njiani) */}
+                              <label className="flex items-start gap-2 cursor-pointer select-none">
+                                <input
+                                  type="checkbox"
+                                  checked={allowSharingConsent}
+                                  onChange={(e) => setAllowSharingConsent(e.target.checked)}
+                                  className="w-4 h-4 mt-0.5 rounded text-purple-600 focus:ring-purple-500 accent-purple-600"
+                                />
+                                <span className="text-[9.5px] font-bold text-neutral-800 dark:text-neutral-200 leading-tight">
+                                  Ruhusu dereva kuchukua abiria mwingine njiani anayeelekea njia yako
+                                </span>
+                              </label>
+
+                              {/* Women Only & Verified Only Sharing Preferences */}
+                              <div className="pt-1.5 border-t border-purple-500/15 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                                <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={womenOnlySharing}
+                                    onChange={(e) => setWomenOnlySharing(e.target.checked)}
+                                    className="w-3.5 h-3.5 rounded text-purple-600 focus:ring-purple-500 accent-purple-600"
+                                  />
+                                  <span className="text-[8.5px] font-bold text-neutral-700 dark:text-neutral-300">
+                                    👩 Abiria Wanawake Tu
+                                  </span>
+                                </label>
+
+                                <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={verifiedOnlySharing}
+                                    onChange={(e) => setVerifiedOnlySharing(e.target.checked)}
+                                    className="w-3.5 h-3.5 rounded text-purple-600 focus:ring-purple-500 accent-purple-600"
+                                  />
+                                  <span className="text-[8.5px] font-bold text-neutral-700 dark:text-neutral-300">
+                                    ⭐ Waliothibitishwa Tu
+                                  </span>
+                                </label>
+                              </div>
+                            </motion.div>
+                          )}
+                        </div>
+                      ) : selectedRide.id === 'bike' ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-sm">🏍️</span>
+                              <h4 className="text-[10px] font-black uppercase tracking-wider text-neutral-800 dark:text-neutral-200">
+                                Boda Boda • Abiria 1 Tu
+                              </h4>
+                            </div>
+                            <span className="text-[8px] font-bold text-neutral-500 bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 rounded-full">
+                              Sheria za Usalama
+                            </span>
+                          </div>
+
+                          {/* PapoSend Parcel Add-on along the way */}
+                          <label className="flex items-center justify-between p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 cursor-pointer select-none">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={allowBodaParcelAddon}
+                                onChange={(e) => setAllowBodaParcelAddon(e.target.checked)}
+                                className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 accent-amber-600"
+                              />
+                              <div>
+                                <p className="text-[9.5px] font-black text-amber-800 dark:text-amber-300">
+                                  📦 PapoSend Njiani (Kifurushi Kidogo)
+                                </p>
+                                <p className="text-[8px] text-neutral-500 dark:text-neutral-400 font-medium">
+                                  Ruhusu dereva kubeba bahasha/kifurushi kidogo kuelekea njia moja
+                                </p>
+                              </div>
+                            </div>
+                            <span className="text-[8.5px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                              PapoSend
+                            </span>
+                          </label>
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+
                   {/* Payment Method Selection (Aina ya Malipo) */}
                   {destination && (
                     <div className={`p-3.5 rounded-2xl border transition-all duration-300 ${
@@ -4411,7 +4616,10 @@ const getEndPin = (etaText: string) => {
                       {destination ? (
                         selectedRide ? (
                           <div className="flex items-center gap-2 text-left">
-                            <span>THIBITISHA {selectedRide.name.toUpperCase()}</span>
+                            <span>
+                              THIBITISHA {selectedRide.name.toUpperCase()}
+                              {(selectedRide.id === 'mini' || selectedRide.id === 'bajaj') && shareMode === 'share' ? ' (PAPOSHARE)' : ''}
+                            </span>
                             <span className="text-[10px] normal-case tracking-normal px-2 py-0.5 rounded-full bg-white/20 font-bold hidden sm:inline-block">
                               {paymentMethod === 'cash' ? '💵 Cash' : paymentMethod === 'mobile_money' ? `📱 ${selectedMobileOperator === 'mpesa' ? 'M-Pesa' : selectedMobileOperator === 'tigopesa' ? 'TigoPesa' : selectedMobileOperator === 'airtel' ? 'Airtel' : 'HaloPesa'}` : paymentMethod === 'wallet' ? '👛 Mkoba' : '💳 Kadi'}
                             </span>

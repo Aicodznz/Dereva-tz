@@ -3,6 +3,7 @@ import { db } from '../firebase';
 import { doc, updateDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { Ride } from '../types/trip.types';
 import { generateSimulatedRoads, interpolatePoints } from './useRouting';
+import { optimizePapoShareSequence, calculateDistanceBasedPapoShareFare } from '../services/papoShareEngine';
 
 function getBearing(startLat: number, startLng: number, endLat: number, endLng: number): number {
   const radians = Math.PI / 180;
@@ -126,6 +127,86 @@ export function useMatchmaking(ride: Ride | null) {
             }
           };
 
+          let papoShareData: Record<string, any> = {};
+
+          if (ride.shareMode === 'share') {
+            const customerNameA = (ride as any).customerInfo?.name || 'Mteja A';
+            const riderNameB = ride.womenOnlySharing ? 'Neema Mwajuma' : 'Baraka Ally';
+            const midLat = (pickupLat + ride.destination.lat) / 2;
+            const midLng = (pickupLng + ride.destination.lng) / 2;
+
+            // Coordinate for rider B along the corridor
+            const pickupB = {
+              lat: midLat + 0.002,
+              lng: midLng - 0.002,
+              address: 'Kituo cha Kati (Njiani)',
+            };
+            const dropB = {
+              lat: ride.destination.lat - 0.003,
+              lng: ride.destination.lng + 0.002,
+              address: 'Kituo cha Kushukia B',
+            };
+
+            const sequenceOpt = optimizePapoShareSequence({
+              pickupA: ride.pickup,
+              dropA: ride.destination,
+              riderNameA: customerNameA,
+              riderIdA: ride.customerId || 'rider_a',
+              pickupB,
+              dropB,
+              riderNameB,
+              riderIdB: 'rider_b_matched',
+              durationA_Min: Number(ride.duration) || 15,
+            });
+
+            papoShareData = {
+              poolStatus: 'matched',
+              sharedRidersCount: 2,
+              sharedRiders: [
+                {
+                  riderId: ride.customerId || 'rider_a',
+                  riderName: customerNameA,
+                  pickup: ride.pickup,
+                  destination: ride.destination,
+                  role: 'primary',
+                },
+                {
+                  riderId: 'rider_b_matched',
+                  riderName: riderNameB,
+                  pickup: pickupB,
+                  destination: dropB,
+                  role: 'pooled',
+                  fare: Math.round(ride.fare * 0.7),
+                },
+              ],
+              waypoints: sequenceOpt.optimalSequence,
+              detourMinutes: sequenceOpt.detourMinutesForA,
+              maxDetourBudgetMinutes: sequenceOpt.maxDetourBudgetMinutes,
+              chosenSequencePattern: sequenceOpt.chosenPattern,
+            };
+          } else if (ride.vehicleType === 'bike' && ride.shareMode === 'parcel_addon') {
+            papoShareData = {
+              parcelAddon: {
+                id: `pkg-${Date.now().toString().slice(-4)}`,
+                senderName: 'Duka la Vifaa Dar',
+                recipientName: 'Mhandisi John',
+                packageType: 'Bahasha ya Nyaraka',
+                pickup: {
+                  lat: pickupLat + 0.001,
+                  lng: pickupLng + 0.001,
+                  address: 'Mbele ya Kituo (Mita 200)',
+                },
+                delivery: {
+                  lat: ride.destination.lat - 0.001,
+                  lng: ride.destination.lng - 0.001,
+                  address: 'Karibu na Eneo la Kushuka',
+                },
+                bonusEarningsTZS: 2500,
+                detourMinutes: 1,
+              },
+            };
+          }
+
           lastSimulatedCoordsRef.current = { lat: driverStartLat, lng: driverStartLng };
           await updateDoc(doc(db, 'rides', rideId), {
             status: 'accepted',
@@ -133,7 +214,8 @@ export function useMatchmaking(ride: Ride | null) {
             driverInfo: mockDriverInfo,
             driverLocation: { lat: driverStartLat, lng: driverStartLng },
             acceptedAt: serverTimestamp(),
-            updatedAt: serverTimestamp()
+            updatedAt: serverTimestamp(),
+            ...papoShareData,
           });
         } catch (error) {
           console.error("[Simulation] Failed to match mock driver:", error);

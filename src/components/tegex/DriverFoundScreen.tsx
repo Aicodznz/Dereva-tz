@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CheckCircle2 } from 'lucide-react';
-import { useTheme } from 'next-themes';
+import { useTheme } from '../../ThemeContext';
 import { useLanguage } from '../../LanguageContext';
 
 interface DriverFoundScreenProps {

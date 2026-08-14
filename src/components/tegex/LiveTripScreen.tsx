@@ -3,12 +3,12 @@ import { motion, AnimatePresence } from 'motion/react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { Shield, Clock, Navigation2, MapPin, MessageSquare, Star, Trash2 } from 'lucide-react';
+import { Shield, Clock, Navigation2, MapPin, MessageSquare, Star, Trash2, Users, Package, Sparkles, CheckCircle2 } from 'lucide-react';
 import { Ride } from '../../types/trip.types';
 import { useDriverTracking } from '../../hooks/useDriverTracking';
 import { useRouting } from '../../hooks/useRouting';
 import { toast } from 'sonner';
-import { useTheme } from 'next-themes';
+import { useTheme } from '../../ThemeContext';
 import { Navigation3DHudOverlay } from '../map/Navigation3DHudOverlay';
 import { ShareTripModal } from '../common/ShareTripModal';
 
@@ -280,6 +280,77 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
                     </span>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* PapoShare Along-the-Way Waypoint Sequence (for Pooled Rides) */}
+            {(ride.shareMode === 'share' || (ride.waypoints && ride.waypoints.length > 0)) && (
+              <div className={`p-2.5 rounded-xl border mb-2 select-none ${theme === 'dark' ? 'bg-[#161622]/80 border-purple-900/40' : 'bg-purple-50/70 border-purple-200/70'}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                    <span className="text-[10px] font-black uppercase text-purple-700 dark:text-purple-300 tracking-wider">
+                      PapoShare • Vituo Vya Kushusha
+                    </span>
+                  </div>
+                  <span className="text-[8.5px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                    Okoa TZS {ride.sharedSavings?.toLocaleString() || '1,500'}
+                  </span>
+                </div>
+
+                {/* Waypoints Sequence List */}
+                <div className="space-y-1.5">
+                  {(ride.waypoints || [
+                    { id: '1', riderName: 'Wewe (Mteja A)', type: 'pickup', note: 'Kituo Kikuu', status: 'completed' },
+                    { id: '2', riderName: 'Neema Mwajuma (B)', type: 'pickup', note: 'Njiani', status: 'pending' },
+                    { id: '3', riderName: 'Neema Mwajuma (B)', type: 'dropoff', note: 'Shusha B', status: 'pending' },
+                    { id: '4', riderName: 'Wewe (Mteja A)', type: 'dropoff', note: 'Shusha A', status: 'pending' },
+                  ]).map((wp: any, idx: number) => {
+                    const isCompleted = wp.status === 'completed';
+                    return (
+                      <div key={wp.id || idx} className="flex items-center justify-between text-[9px] font-bold">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black ${isCompleted ? 'bg-emerald-500 text-white' : 'bg-purple-500/20 text-purple-600 dark:text-purple-300'}`}>
+                            {idx + 1}
+                          </span>
+                          <span className={`truncate ${isCompleted ? 'line-through text-neutral-400' : 'text-neutral-800 dark:text-neutral-200'}`}>
+                            {wp.type === 'pickup' ? '🟢 Chukua' : '🔴 Shusha'} {wp.riderName}
+                          </span>
+                        </div>
+                        <span className="text-[7.5px] font-black uppercase text-neutral-400 shrink-0 ml-1">
+                          {wp.note || ''}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-2 pt-1.5 border-t border-purple-200/50 dark:border-purple-900/40 flex items-center justify-between text-[8px] text-purple-700 dark:text-purple-300 font-semibold">
+                  <span>⏱️ Detour Budget: Max {ride.maxDetourBudgetMinutes || 3} min</span>
+                  <span className="italic">Njia Imepangwa Kuzuia Foleni</span>
+                </div>
+              </div>
+            )}
+
+            {/* Boda Boda "PapoSend Njiani" (Parcel Add-on Along-the-Way) */}
+            {ride.parcelAddon && (
+              <div className={`p-2.5 rounded-xl border mb-2 select-none flex items-center justify-between ${theme === 'dark' ? 'bg-amber-950/20 border-amber-900/40' : 'bg-amber-50 border-amber-200'}`}>
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                    <Package className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-[9.5px] font-black text-amber-700 dark:text-amber-300 uppercase">
+                      PapoSend Mzigo Njiani: {ride.parcelAddon.packageType}
+                    </p>
+                    <p className="text-[8px] text-neutral-500 dark:text-neutral-400 font-semibold">
+                      Kuelekea {ride.parcelAddon.delivery?.address || 'kituo cha mbele'}
+                    </p>
+                  </div>
+                </div>
+                <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                  +TZS {ride.parcelAddon.bonusEarningsTZS?.toLocaleString() || '2,500'}
+                </span>
               </div>
             )}
 
