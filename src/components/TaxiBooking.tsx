@@ -20,6 +20,7 @@ import {
   Navigation2,
   Clock,
   Star,
+  ChevronLeft,
   ChevronRight,
   ChevronUp,
   X as CloseX,
@@ -554,6 +555,17 @@ export default function TaxiBooking() {
   const [manualRotation, setManualRotation] = useState(0);
   const [is3DMode, setIs3DMode] = useState(false);
   const justSelectedRef = useRef(false);
+  const vehicleScrollRef = useRef<HTMLDivElement>(null);
+
+  const scrollVehicles = (direction: 'left' | 'right') => {
+    if (vehicleScrollRef.current) {
+      const scrollAmount = 180;
+      vehicleScrollRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+      });
+    }
+  };
   const [userLivePos, setUserLivePos] = useState<[number, number] | null>(null);
 
   const [taxiBanners, setTaxiBanners] = useState<{ id?: string; title: string; sub: string; img: string; active?: boolean }[]>([]);
@@ -3904,120 +3916,153 @@ const getEndPin = (etaText: string) => {
 
 
                   {destination && (
-                    <div className={`grid grid-cols-3 gap-2.5 w-full py-3 transition-all duration-200 ${suggestions.length > 0 ? "pointer-events-none opacity-20 grayscale select-none" : ""}`}>
-                      {rideOptions.map((ride) => {
-                        const isSelected = selectedRide?.id === ride.id;
-                        return (
-                          <button
-                            key={ride.id}
-                            onClick={() => {
-                              if (justSelectedRef.current) return;
-                              if (ride.maintenance) {
-                                toast.error(`La hasha! Huduma ya ${ride.name} iko kwenye matengenezo kwa sasa. Tafadhali chagua usafiri mwingine.`);
-                                return;
-                              }
-                              setSelectedRide(ride);
-                            }}
-                            className={`w-full p-3.5 rounded-[24px] border-2 transition-all duration-300 flex flex-col items-center gap-2.5 relative overflow-hidden group ${
-                              ride.maintenance 
-                                ? (theme === 'dark' ? "opacity-50 grayscale pointer-events-auto cursor-not-allowed border-amber-900/40 bg-amber-950/20" : "opacity-50 grayscale pointer-events-auto cursor-not-allowed border-amber-500/25 bg-amber-50") :
-                              isSelected
-                                ? (theme === 'dark' ? "bg-indigo-950/30 border-indigo-500 shadow-md scale-[1.02]" : "bg-indigo-50/60 border-indigo-600 shadow-md scale-[1.02]")
-                                : (theme === 'dark' ? "bg-neutral-900/80 border-neutral-800 hover:border-neutral-700 hover:bg-neutral-800/80" : "bg-white border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50")
-                            }`}
-                          >
-                            {ride.maintenance && (
-                              <div className="absolute top-0 inset-x-0 bg-amber-500 text-black font-black uppercase text-[6.5px] text-center tracking-widest py-0.5 z-20 leading-none">
-                                Matengenezo
-                              </div>
-                            )}
+                    <div className={`relative w-full py-2 transition-all duration-200 ${suggestions.length > 0 ? "pointer-events-none opacity-20 grayscale select-none" : ""}`}>
+                      {/* Left Scroll Button */}
+                      <button
+                        type="button"
+                        onClick={() => scrollVehicles('left')}
+                        className="hidden sm:flex absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 z-30 w-7 h-7 rounded-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 shadow-md items-center justify-center text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all opacity-80 hover:opacity-100 hover:scale-110"
+                        title="Scroll kushoto"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
 
-                            {isSelected && (
-                              <motion.div
-                                layoutId="active-bg"
-                                className="absolute inset-0 bg-indigo-600/5 pointer-events-none"
-                              />
-                            )}
-                            
-                            {/* Active state small indicator point */}
-                            <div className={`absolute top-2 left-2 w-1.5 h-1.5 rounded-full transition-all duration-300 ${isSelected ? "bg-indigo-600 scale-100 shadow-[0_0_8px_indigo]" : "bg-transparent scale-0"}`} />
+                      {/* Right Scroll Button */}
+                      <button
+                        type="button"
+                        onClick={() => scrollVehicles('right')}
+                        className="hidden sm:flex absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 z-30 w-7 h-7 rounded-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 shadow-md items-center justify-center text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all opacity-80 hover:opacity-100 hover:scale-110"
+                        title="Scroll kulia"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
 
-                            {/* Kitufe cha Ikoni cha Gharama ya Uwazi (Breakdown Icon) */}
-                            <div
-                              onClick={(e) => {
-                                e.stopPropagation();
+                      {/* Horizontal Single Row Scroll Container */}
+                      <div 
+                        ref={vehicleScrollRef}
+                        className="flex items-stretch gap-2.5 sm:gap-3 w-full overflow-x-auto pb-2 pt-1 px-1 scroll-smooth snap-x snap-mandatory scrollbar-none flex-nowrap"
+                        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                      >
+                        {rideOptions.map((ride) => {
+                          const isSelected = selectedRide?.id === ride.id;
+                          return (
+                            <button
+                              key={ride.id}
+                              onClick={() => {
+                                if (justSelectedRef.current) return;
+                                if (ride.maintenance) {
+                                  toast.error(`La hasha! Huduma ya ${ride.name} iko kwenye matengenezo kwa sasa. Tafadhali chagua usafiri mwingine.`);
+                                  return;
+                                }
                                 setSelectedRide(ride);
-                                setShowBreakdownModal(true);
                               }}
-                              title="Tazama Mchanganuo wa Gharama za Usafiri Huu"
-                              className={`absolute top-1.5 right-1.5 z-20 w-6 h-6 rounded-full flex items-center justify-center transition-all shadow-sm active:scale-90 ${
+                              className={`min-w-[130px] sm:min-w-[145px] max-w-[155px] flex-1 snap-start shrink-0 p-3 sm:p-3.5 rounded-[22px] border-2 transition-all duration-300 flex flex-col items-center justify-between gap-2 relative overflow-hidden group ${
+                                ride.maintenance 
+                                  ? (theme === 'dark' ? "opacity-50 grayscale pointer-events-auto cursor-not-allowed border-amber-900/40 bg-amber-950/20" : "opacity-50 grayscale pointer-events-auto cursor-not-allowed border-amber-500/25 bg-amber-50") :
                                 isSelected
-                                  ? "bg-indigo-600 text-white shadow-indigo-500/30 hover:bg-indigo-500"
-                                  : (theme === 'dark'
-                                    ? "bg-neutral-800/90 text-indigo-400 border border-neutral-700 hover:bg-neutral-700"
-                                    : "bg-white/95 text-indigo-600 border border-neutral-200 hover:bg-indigo-50")
+                                  ? (theme === 'dark' ? "bg-indigo-950/30 border-indigo-500 shadow-md scale-[1.02]" : "bg-indigo-50/60 border-indigo-600 shadow-md scale-[1.02]")
+                                  : (theme === 'dark' ? "bg-neutral-900/80 border-neutral-800 hover:border-neutral-700 hover:bg-neutral-800/80" : "bg-white border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50")
                               }`}
                             >
-                              <Calculator className="w-3.5 h-3.5" />
-                            </div>
+                              {ride.maintenance && (
+                                <div className="absolute top-0 inset-x-0 bg-amber-500 text-black font-black uppercase text-[6.5px] text-center tracking-widest py-0.5 z-20 leading-none">
+                                  Matengenezo
+                                </div>
+                              )}
 
-                            {/* Beautiful Custom-designed Vehicle Container with a 3D Glowing Podium/Shadow */}
-                            <div className="relative w-full aspect-[4/3] max-h-[72px] sm:max-h-[80px] flex items-center justify-center -mt-1 select-none">
-                              {/* Ambient dynamic glow under the vehicle */}
-                              <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-4/5 h-2.5 rounded-full transition-all duration-300 blur-md ${
-                                isSelected ? "bg-indigo-600/20 scale-110" : (theme === 'dark' ? "bg-neutral-950/60" : "bg-neutral-200/40 group-hover:bg-indigo-600/10")
-                              }`} />
-                              {/* Subtle elegant podium ellipse */}
-                              <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-2/3 h-1 rounded-full border transition-all duration-300 ${
-                                isSelected ? (theme === 'dark' ? "bg-neutral-800 border-indigo-900" : "bg-neutral-100 border-indigo-200") : "bg-transparent border-transparent"
-                              }`} />
+                              {isSelected && (
+                                <motion.div
+                                  layoutId="active-bg"
+                                  className="absolute inset-0 bg-indigo-600/5 pointer-events-none"
+                                />
+                              )}
                               
-                              {/* Floating Vehicle container */}
-                              <div className={`relative z-10 transition-all duration-500 transform ${
-                                isSelected ? "-translate-y-1.5 scale-110 drop-shadow-[0_8px_16px_rgba(0,0,0,0.15)]" : "group-hover:-translate-y-1 group-hover:scale-105"
-                              }`}>
-                                {ride.imageUrl ? (
-                                  <img 
-                                    src={ride.imageUrl} 
-                                    className="w-20 sm:w-24 h-12 sm:h-14 object-contain filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.1)]" 
-                                    referrerPolicy="no-referrer" 
-                                    alt={ride.name}
-                                  />
-                                ) : (
-                                  <span className="text-3.5xl sm:text-4xl">{ride.image}</span>
-                                )}
-                              </div>
-                            </div>
-                            
-                            <div className="text-center w-full">
-                              <h4
-                                className={`text-[9px] font-black uppercase tracking-wider ${isSelected ? "text-indigo-400" : (theme === 'dark' ? 'text-neutral-500' : "text-neutral-500")}`}
+                              {/* Active state small indicator point */}
+                              <div className={`absolute top-2 left-2 w-1.5 h-1.5 rounded-full transition-all duration-300 ${isSelected ? "bg-indigo-600 scale-100 shadow-[0_0_8px_indigo]" : "bg-transparent scale-0"}`} />
+
+                              {/* Kitufe cha Ikoni cha Gharama ya Uwazi (Breakdown Icon) */}
+                              <div
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedRide(ride);
+                                  setShowBreakdownModal(true);
+                                }}
+                                title="Tazama Mchanganuo wa Gharama za Usafiri Huu"
+                                className={`absolute top-1.5 right-1.5 z-20 w-6 h-6 rounded-full flex items-center justify-center transition-all shadow-sm active:scale-90 ${
+                                  isSelected
+                                    ? "bg-indigo-600 text-white shadow-indigo-500/30 hover:bg-indigo-500"
+                                    : (theme === 'dark'
+                                      ? "bg-neutral-800/90 text-indigo-400 border border-neutral-700 hover:bg-neutral-700"
+                                      : "bg-white/95 text-indigo-600 border border-neutral-200 hover:bg-indigo-50")
+                                }`}
                               >
-                                {ride.name}
-                              </h4>
-                              <h3 className={`text-[11px] font-black italic mt-0.5 transition-colors ${
-                                isSelected 
-                                  ? (destination && totalDistance > 0) ? "text-emerald-500 drop-shadow-sm text-xs" : (theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800')
-                                  : (destination && totalDistance > 0) ? "text-emerald-600 text-xs" : (theme === 'dark' ? 'text-neutral-400' : 'text-neutral-700')
-                              }`}>
-                                TZS {ride.price.toLocaleString()}
-                              </h3>
-                            </div>
-                            
-                            {/* Information of capacity and ETA */}
-                            <div className={`w-full flex items-center justify-between px-2 pt-1.5 mt-1 border-t text-[9px] font-bold ${theme === 'dark' ? 'border-neutral-800 text-neutral-400' : 'border-neutral-100 text-neutral-600'}`}>
-                              <div className="flex items-center gap-1 whitespace-nowrap">
-                                <Users className="w-3 h-3 text-indigo-500 shrink-0" />
-                                <span>Abiria {ride.capacity}</span>
+                                <Calculator className="w-3.5 h-3.5" />
                               </div>
-                              <div className={`flex items-center gap-1 whitespace-nowrap ${isSelected ? "text-emerald-500 font-extrabold" : ""}`}>
-                                <Clock className={`w-3 h-3 shrink-0 ${isSelected ? "text-emerald-500 animate-pulse" : "text-neutral-400"}`} />
-                                <span>{ride.eta} min</span>
+
+                              {/* Beautiful Custom-designed Vehicle Container with a 3D Glowing Podium/Shadow */}
+                              <div className="relative w-full aspect-[4/3] max-h-[64px] sm:max-h-[72px] flex items-center justify-center -mt-1 select-none">
+                                {/* Ambient dynamic glow under the vehicle */}
+                                <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-4/5 h-2.5 rounded-full transition-all duration-300 blur-md ${
+                                  isSelected ? "bg-indigo-600/20 scale-110" : (theme === 'dark' ? "bg-neutral-950/60" : "bg-neutral-200/40 group-hover:bg-indigo-600/10")
+                                }`} />
+                                {/* Subtle elegant podium ellipse */}
+                                <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-2/3 h-1 rounded-full border transition-all duration-300 ${
+                                  isSelected ? (theme === 'dark' ? "bg-neutral-800 border-indigo-900" : "bg-neutral-100 border-indigo-200") : "bg-transparent border-transparent"
+                                }`} />
+                                
+                                {/* Floating Vehicle container */}
+                                <div className={`relative z-10 transition-all duration-500 transform flex items-center justify-center ${
+                                  isSelected ? "-translate-y-1.5 scale-110 drop-shadow-[0_8px_16px_rgba(0,0,0,0.15)]" : "group-hover:-translate-y-1 group-hover:scale-105"
+                                }`}>
+                                  {ride.imageUrl ? (
+                                    <img 
+                                      src={ride.imageUrl} 
+                                      className="w-16 sm:w-20 h-10 sm:h-12 object-contain filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.1)]" 
+                                      referrerPolicy="no-referrer" 
+                                      alt={ride.name}
+                                      onError={(e) => {
+                                        (e.target as HTMLElement).style.display = 'none';
+                                        const fb = (e.target as HTMLElement).nextElementSibling as HTMLElement;
+                                        if (fb) fb.style.display = 'block';
+                                      }}
+                                    />
+                                  ) : null}
+                                  <span className={`text-3xl sm:text-3.5xl vehicle-emoji-fallback ${ride.imageUrl ? 'hidden' : 'block'}`}>
+                                    {ride.image || (ride.id === 'mini' ? '🚗' : ride.id === 'bajaj' ? '🛺' : ride.id === 'bike' ? '🏍️' : ride.id === 'ambulance' ? '🚑' : '🚒')}
+                                  </span>
+                                </div>
                               </div>
-                            </div>
-                          </button>
-                        );
-                      })}
+                              
+                              <div className="text-center w-full">
+                                <h4
+                                  className={`text-[9px] font-black uppercase tracking-wider truncate px-1 ${isSelected ? "text-indigo-400" : (theme === 'dark' ? 'text-neutral-500' : "text-neutral-500")}`}
+                                >
+                                  {ride.name}
+                                </h4>
+                                <h3 className={`text-[11px] font-black italic mt-0.5 transition-colors whitespace-nowrap ${
+                                  isSelected 
+                                    ? (destination && totalDistance > 0) ? "text-emerald-500 drop-shadow-sm text-xs" : (theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800')
+                                    : (destination && totalDistance > 0) ? "text-emerald-600 text-xs" : (theme === 'dark' ? 'text-neutral-400' : 'text-neutral-700')
+                                }`}>
+                                  TZS {ride.price.toLocaleString()}
+                                </h3>
+                              </div>
+                              
+                              {/* Information of capacity and ETA */}
+                              <div className={`w-full flex items-center justify-between px-1.5 pt-1.5 mt-0.5 border-t text-[9px] font-bold ${theme === 'dark' ? 'border-neutral-800 text-neutral-400' : 'border-neutral-100 text-neutral-600'}`}>
+                                <div className="flex items-center gap-1 whitespace-nowrap">
+                                  <Users className="w-3 h-3 text-indigo-500 shrink-0" />
+                                  <span>Abiria {ride.capacity}</span>
+                                </div>
+                                <div className={`flex items-center gap-1 whitespace-nowrap ${isSelected ? "text-emerald-500 font-extrabold" : ""}`}>
+                                  <Clock className={`w-3 h-3 shrink-0 ${isSelected ? "text-emerald-500 animate-pulse" : "text-neutral-400"}`} />
+                                  <span>{ride.eta} min</span>
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
 
