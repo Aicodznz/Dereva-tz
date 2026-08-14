@@ -329,80 +329,47 @@ const createAnchoredRoadStatusIcon = (
   trafficColor: 'red' | 'yellow' | 'green' = 'green'
 ) => {
   let iconContent = '';
-  let badgeTheme = 'bg-emerald-600 text-white border-emerald-400';
+  let bgColor = 'bg-emerald-600';
 
   if (type === 'traffic_light') {
-    const lightGlow = trafficColor === 'red' ? 'bg-red-500 shadow-[0_0_10px_#ef4444]' : trafficColor === 'yellow' ? 'bg-yellow-400 shadow-[0_0_10px_#facc15]' : 'bg-emerald-500 shadow-[0_0_10px_#10b981]';
+    const lightDot = trafficColor === 'red' ? 'bg-red-500' : trafficColor === 'yellow' ? 'bg-yellow-400' : 'bg-emerald-400';
     iconContent = `
-      <div class="w-6 h-11 bg-neutral-900 border border-neutral-700 rounded-full flex flex-col justify-between items-center p-1 shadow-2xl">
-        <div class="w-2.5 h-2.5 rounded-full ${trafficColor === 'red' ? lightGlow : 'bg-red-950'} transition-all duration-300"></div>
-        <div class="w-2.5 h-2.5 rounded-full ${trafficColor === 'yellow' ? lightGlow : 'bg-yellow-950'} transition-all duration-300"></div>
-        <div class="w-2.5 h-2.5 rounded-full ${trafficColor === 'green' ? lightGlow : 'bg-emerald-950'} transition-all duration-300"></div>
+      <div class="w-5 h-5 rounded-full bg-neutral-900 border border-neutral-700 flex items-center justify-center shadow-md">
+        <span class="w-2 h-2 rounded-full ${lightDot}"></span>
       </div>
     `;
-    badgeTheme = trafficColor === 'red' ? 'bg-red-900/90 text-red-100 border-red-500/50' : 'bg-emerald-900/90 text-emerald-100 border-emerald-500/50';
+    bgColor = 'bg-neutral-900';
   } else if (type === 'road_construction' || type === 'construction') {
     iconContent = `
-      <div class="w-8 h-8 rounded-full bg-orange-600 border border-orange-400 flex items-center justify-center text-sm shadow-xl text-white">
+      <div class="w-5 h-5 rounded-full bg-amber-500 border border-white text-[10px] flex items-center justify-center shadow-md text-white">
         🚧
       </div>
     `;
-    badgeTheme = 'bg-orange-950/90 text-orange-200 border-orange-500/50';
   } else if (type === 'road_closed' || type === 'closed') {
     iconContent = `
-      <div class="w-8 h-8 rounded-full bg-red-600 border border-red-400 flex items-center justify-center text-sm shadow-xl text-white">
+      <div class="w-5 h-5 rounded-full bg-red-600 border border-white text-[10px] flex items-center justify-center shadow-md text-white">
         ⛔
       </div>
     `;
-    badgeTheme = 'bg-red-950/90 text-red-200 border-red-500/50';
   } else {
     // sharp_curve / corner
     const isLeft = type === 'corner_left';
     iconContent = `
-      <div class="w-7 h-7 rounded-full bg-amber-500 border border-amber-300 flex items-center justify-center font-bold text-xs shadow-xl text-neutral-900 font-sans">
+      <div class="w-5 h-5 rounded-full bg-amber-600 border border-white text-[9px] font-bold flex items-center justify-center shadow-md text-white">
         ${isLeft ? '↰' : '↱'}
       </div>
     `;
-    badgeTheme = 'bg-amber-950/90 text-amber-200 border-amber-500/50';
   }
-
-  // When nearby (<= 500m), trigger animated glowing radar rings + bouncing alert label
-  const proximityGlow = isNearby ? `
-    <div class="absolute -inset-3 rounded-full bg-red-500/25 animate-ping pointer-events-none"></div>
-    <div class="absolute -inset-2 rounded-full border-2 border-red-500/80 animate-pulse pointer-events-none"></div>
-  ` : '';
-
-  const distText = distMeters !== undefined && distMeters < 1000 
-    ? `${Math.round(distMeters)}m` 
-    : distMeters !== undefined 
-      ? `${(distMeters / 1000).toFixed(1)}km` 
-      : '';
-
-  const labelClass = isNearby
-    ? 'bg-red-600 text-white font-black text-[10px] px-2.5 py-0.5 rounded-full shadow-2xl border-2 border-white animate-bounce tracking-tight whitespace-nowrap flex items-center gap-1 z-20'
-    : `${badgeTheme} font-bold text-[9px] px-2 py-0.5 rounded-md shadow-md border tracking-tight whitespace-nowrap z-10`;
 
   return L.divIcon({
     html: `
-      <div class="relative flex flex-col items-center justify-center select-none" style="transform: translate(-50%, -50%);">
-        ${proximityGlow}
-        
-        <!-- Icon Container -->
-        <div class="relative flex items-center justify-center z-10 transition-transform duration-300 ${isNearby ? 'scale-110' : ''}">
-          ${iconContent}
-        </div>
-
-        <!-- Location Label Tag (e.g. Mataa – Ubungo) -->
-        <div class="mt-1 ${labelClass}">
-          ${isNearby ? '<span class="text-[9px]">⚠️</span>' : ''}
-          <span>${name}</span>
-          ${isNearby && distText ? `<span class="opacity-90 font-mono text-[8.5px] ml-0.5">(${distText})</span>` : ''}
-        </div>
+      <div class="relative flex items-center justify-center transition-transform hover:scale-125" style="transform: translate(-50%, -50%);">
+        ${iconContent}
       </div>
     `,
-    className: 'custom-anchored-road-status-marker',
-    iconSize: [140, 60],
-    iconAnchor: [70, 30]
+    className: 'custom-road-hazard-pin',
+    iconSize: [20, 20],
+    iconAnchor: [10, 10]
   });
 };
 
@@ -444,7 +411,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
   const [mapType, setMapType] = useState<'standard' | 'satellite'>('standard');
   const [manualRotation, setManualRotation] = useState(0);
   const [is3DMode, setIs3DMode] = useState(false);
-  const [showRoadAlerts, setShowRoadAlerts] = useState(true);
+  const [showRoadAlerts, setShowRoadAlerts] = useState(false);
   const [showHeatMap, setShowHeatMap] = useState<boolean>(false);
   const [heatMapCategory, setHeatMapCategory] = useState<'all' | 'taxi' | 'food' | 'parcel' | 'mart'>('all');
   const [selectedHeatZone, setSelectedHeatZone] = useState<HeatZone | null>(null);
@@ -622,67 +589,19 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
     const userLat = position ? position[0] : null;
     const userLng = position ? position[1] : null;
 
-    const basePoints = ROAD_STATUS_POINTS.map(point => {
+    return ROAD_STATUS_POINTS.map(point => {
       let distanceMeters = 999999;
       if (userLat !== null && userLng !== null) {
         distanceMeters = getDistanceInMeters(userLat, userLng, point.lat, point.lng);
       }
-      const isNearby = distanceMeters <= 500; // 500 meters proximity alert threshold
+      const isNearby = distanceMeters <= 500;
       return {
         ...point,
         distanceMeters,
         isNearby
       };
     });
-
-    if (activeRide) {
-      const hasRealTripRoute = realTripRoute && realTripRoute.length > 0;
-      const hasFullRoute = activeRide.routeCoords && activeRide.routeCoords.length > 2;
-      const route = hasRealTripRoute
-        ? realTripRoute
-        : (hasFullRoute 
-            ? getNormalizedCoords(activeRide.routeCoords)
-            : generateSimulatedRoads([activeRide.pickup.lat, activeRide.pickup.lng], [activeRide.destination.lat, activeRide.destination.lng]));
-
-      if (route.length > 5) {
-        // Traffic light along active route
-        const midIdx = Math.floor(route.length * 0.35);
-        const rLat = route[midIdx][0];
-        const rLng = route[midIdx][1];
-        const rDist = userLat !== null && userLng !== null ? getDistanceInMeters(userLat, userLng, rLat, rLng) : 999999;
-        basePoints.push({
-          id: 'ra-route-light',
-          type: 'traffic_light',
-          name: 'Mataa – Kwenye Njia Yako',
-          title: 'Taa za Trafiki (Njia Yako)',
-          desc: 'Taa ya barabara kwenye njia yako. Punguza kasi au simama ikileta nyekundu!',
-          lat: rLat,
-          lng: rLng,
-          distanceMeters: rDist,
-          isNearby: rDist <= 500
-        });
-
-        // Construction site along active route
-        const constIdx = Math.floor(route.length * 0.65);
-        const cLat = route[constIdx][0];
-        const cLng = route[constIdx][1];
-        const cDist = userLat !== null && userLng !== null ? getDistanceInMeters(userLat, userLng, cLat, cLng) : 999999;
-        basePoints.push({
-          id: 'ra-route-construction',
-          type: 'road_construction',
-          name: 'Barabara Inajengwa – Mbele',
-          title: 'Barabara Inatengenezwa (Njia Yako)',
-          desc: 'Kuna mafundi wanatengeneza barabara mbele yako. Punguza kasi sana!',
-          lat: cLat,
-          lng: cLng,
-          distanceMeters: cDist,
-          isNearby: cDist <= 500
-        });
-      }
-    }
-
-    return basePoints;
-  }, [position, activeRide, realTripRoute]);
+  }, [position]);
 
   const driverApproachRouteRef = React.useRef<[number, number][]>([]);
   const lastActiveRideIdStatusRef = React.useRef<string>("");
