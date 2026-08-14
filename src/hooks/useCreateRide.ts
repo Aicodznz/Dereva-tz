@@ -24,6 +24,8 @@ export function useCreateRide() {
       stops?: { address: string; lat?: number; lng?: number }[];
       pointsUsed?: number;
       discountAmount?: number;
+      paymentMethod?: string;
+      paymentDetails?: any;
     }
   ) => {
     setIsLoading(true);
@@ -51,6 +53,8 @@ export function useCreateRide() {
         distance,
         duration,
         routeCoords,
+        paymentMethod: options?.paymentMethod || 'cash',
+        paymentDetails: options?.paymentDetails || null,
         createdAt: serverTimestamp(),
         expiresAt: expiresAtDate.toISOString(),
         driverInfo: null,

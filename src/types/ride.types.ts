@@ -54,7 +54,8 @@ export interface Ride {
   driverInfo: DriverInfo | null;
   paymentId?: string;
   paymentStatus?: 'pending' | 'paid';
-  paymentMethod?: 'cash' | 'online';
+  paymentMethod?: 'cash' | 'online' | 'mobile_money' | 'wallet' | 'card' | 'mpesa' | string;
+  paymentDetails?: any;
   isRerouting?: boolean;
   hasDeviated?: boolean;
   navigationMessage?: string;

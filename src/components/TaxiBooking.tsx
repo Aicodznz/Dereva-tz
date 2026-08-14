@@ -556,6 +556,8 @@ export default function TaxiBooking() {
   const [is3DMode, setIs3DMode] = useState(false);
   const justSelectedRef = useRef(false);
   const vehicleScrollRef = useRef<HTMLDivElement>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mobile_money' | 'wallet' | 'card'>('cash');
+  const [selectedMobileOperator, setSelectedMobileOperator] = useState<'mpesa' | 'tigopesa' | 'airtel' | 'halopesa'>('mpesa');
 
   const scrollVehicles = (direction: 'left' | 'right') => {
     if (vehicleScrollRef.current) {
@@ -2513,6 +2515,8 @@ const getEndPin = (etaText: string) => {
           stops: extraStops.map(s => ({ address: s.address, lat: s.lat, lng: s.lng })),
           pointsUsed: usePoints ? discount : 0,
           discountAmount: discount,
+          paymentMethod: paymentMethod,
+          paymentDetails: paymentMethod === 'mobile_money' ? { operator: selectedMobileOperator } : null,
         }
       );
 
@@ -4066,6 +4070,157 @@ const getEndPin = (etaText: string) => {
                     </div>
                   )}
 
+                  {/* Payment Method Selection (Aina ya Malipo) */}
+                  {destination && (
+                    <div className={`p-3.5 rounded-2xl border transition-all duration-300 ${
+                      theme === 'dark' ? 'bg-[#161622]/90 border-neutral-800' : 'bg-white border-neutral-200/90 shadow-sm'
+                    } ${suggestions.length > 0 ? "pointer-events-none opacity-20 grayscale select-none" : ""}`}>
+                      <div className="flex items-center justify-between mb-2.5">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs">💳</span>
+                          <span className="text-[10px] font-black uppercase tracking-wider text-neutral-800 dark:text-neutral-200">
+                            Aina ya Malipo
+                          </span>
+                        </div>
+                        <span className="text-[9px] font-extrabold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-0.5 rounded-full border border-indigo-200/60 dark:border-indigo-800/60">
+                          {paymentMethod === 'cash' 
+                            ? '💵 Pesa Mkononi' 
+                            : paymentMethod === 'mobile_money' 
+                              ? `📱 ${selectedMobileOperator === 'mpesa' ? 'M-Pesa' : selectedMobileOperator === 'tigopesa' ? 'Tigo Pesa' : selectedMobileOperator === 'airtel' ? 'Airtel Money' : 'HaloPesa'}` 
+                              : paymentMethod === 'wallet' 
+                                ? '👛 Mkoba' 
+                                : '💳 Kadi ya Benki'}
+                        </span>
+                      </div>
+
+                      {/* 4 Payment Methods Grid */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {/* 1. Cash */}
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod('cash')}
+                          className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition-all duration-200 cursor-pointer ${
+                            paymentMethod === 'cash'
+                              ? 'bg-emerald-50/80 dark:bg-emerald-950/30 border-emerald-500 text-emerald-950 dark:text-emerald-300 shadow-xs ring-1 ring-emerald-500'
+                              : 'bg-neutral-50 dark:bg-neutral-900/60 border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:border-neutral-300 dark:hover:border-neutral-700'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <span className="text-lg">💵</span>
+                            {paymentMethod === 'cash' && (
+                              <div className="w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center">
+                                <Check className="w-2.5 h-2.5 text-white" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="mt-1">
+                            <p className="text-[10px] font-black leading-tight">Pesa Taslimu</p>
+                            <p className="text-[8px] text-neutral-500 dark:text-neutral-400 font-medium">Lipa Dereva Mkononi</p>
+                          </div>
+                        </button>
+
+                        {/* 2. Mobile Money */}
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod('mobile_money')}
+                          className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition-all duration-200 cursor-pointer ${
+                            paymentMethod === 'mobile_money'
+                              ? 'bg-indigo-50/80 dark:bg-indigo-950/30 border-indigo-500 text-indigo-950 dark:text-indigo-300 shadow-xs ring-1 ring-indigo-500'
+                              : 'bg-neutral-50 dark:bg-neutral-900/60 border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:border-neutral-300 dark:hover:border-neutral-700'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <span className="text-lg">📱</span>
+                            {paymentMethod === 'mobile_money' && (
+                              <div className="w-4 h-4 rounded-full bg-indigo-600 flex items-center justify-center">
+                                <Check className="w-2.5 h-2.5 text-white" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="mt-1">
+                            <p className="text-[10px] font-black leading-tight">Lipa kwa Simu</p>
+                            <p className="text-[8px] text-neutral-500 dark:text-neutral-400 font-medium">M-Pesa / Tigo / Airtel</p>
+                          </div>
+                        </button>
+
+                        {/* 3. Papo Hapo Wallet */}
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod('wallet')}
+                          className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition-all duration-200 cursor-pointer ${
+                            paymentMethod === 'wallet'
+                              ? 'bg-amber-50/80 dark:bg-amber-950/30 border-amber-500 text-amber-950 dark:text-amber-300 shadow-xs ring-1 ring-amber-500'
+                              : 'bg-neutral-50 dark:bg-neutral-900/60 border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:border-neutral-300 dark:hover:border-neutral-700'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <span className="text-lg">👛</span>
+                            {paymentMethod === 'wallet' && (
+                              <div className="w-4 h-4 rounded-full bg-amber-500 flex items-center justify-center">
+                                <Check className="w-2.5 h-2.5 text-white" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="mt-1">
+                            <p className="text-[10px] font-black leading-tight">Papo Mkoba</p>
+                            <p className="text-[8px] text-neutral-500 dark:text-neutral-400 font-medium">Wallet App</p>
+                          </div>
+                        </button>
+
+                        {/* 4. Card / Visa */}
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod('card')}
+                          className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition-all duration-200 cursor-pointer ${
+                            paymentMethod === 'card'
+                              ? 'bg-blue-50/80 dark:bg-blue-950/30 border-blue-500 text-blue-950 dark:text-blue-300 shadow-xs ring-1 ring-blue-500'
+                              : 'bg-neutral-50 dark:bg-neutral-900/60 border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:border-neutral-300 dark:hover:border-neutral-700'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <span className="text-lg">💳</span>
+                            {paymentMethod === 'card' && (
+                              <div className="w-4 h-4 rounded-full bg-blue-600 flex items-center justify-center">
+                                <Check className="w-2.5 h-2.5 text-white" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="mt-1">
+                            <p className="text-[10px] font-black leading-tight">Kadi ya Benki</p>
+                            <p className="text-[8px] text-neutral-500 dark:text-neutral-400 font-medium">Visa / Mastercard</p>
+                          </div>
+                        </button>
+                      </div>
+
+                      {/* Mobile Network Selection (when Lipa kwa Simu is selected) */}
+                      {paymentMethod === 'mobile_money' && (
+                        <div className="mt-2.5 pt-2 border-t border-neutral-200/80 dark:border-neutral-800 flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
+                          <span className="text-[8.5px] font-black uppercase text-neutral-400 shrink-0">Mtandao:</span>
+                          {[
+                            { id: 'mpesa', name: 'Vodacom M-Pesa', emoji: '🔴' },
+                            { id: 'tigopesa', name: 'Tigo Pesa', emoji: '🔵' },
+                            { id: 'airtel', name: 'Airtel Money', emoji: '🔴' },
+                            { id: 'halopesa', name: 'HaloPesa', emoji: '🟠' },
+                          ].map((op) => (
+                            <button
+                              key={op.id}
+                              type="button"
+                              onClick={() => setSelectedMobileOperator(op.id as any)}
+                              className={`px-2 py-1 rounded-lg text-[9px] font-black whitespace-nowrap transition-all border flex items-center gap-1 ${
+                                selectedMobileOperator === op.id
+                                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                                  : 'bg-neutral-100 dark:bg-neutral-850 text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-neutral-700 hover:bg-neutral-200'
+                              }`}
+                            >
+                              <span>{op.emoji}</span>
+                              <span>{op.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Modernization Options (Scheduled Rides, Multi-Stops, Loyalty Rewards) */}
                   {destination && (
                     <div className={`p-3.5 rounded-2xl border space-y-3 transition-all ${theme === 'dark' ? 'bg-[#161622]/60 border-neutral-800' : 'bg-neutral-50 border-neutral-200/80'}`}>
@@ -4225,19 +4380,28 @@ const getEndPin = (etaText: string) => {
                       }
                     }}
                     disabled={isCreatingRide || !destination || suggestions.length > 0}
-                    className={`w-full h-16 rounded-3xl font-black italic uppercase text-xs tracking-[0.2em] flex items-center justify-between px-10 transition-all duration-300 active:scale-95 relative overflow-hidden group shadow-lg ${
+                    className={`w-full h-16 rounded-3xl font-black italic uppercase text-xs tracking-[0.2em] flex items-center justify-between px-8 sm:px-10 transition-all duration-300 active:scale-95 relative overflow-hidden group shadow-lg ${
                       (!destination || suggestions.length > 0)
                         ? "bg-neutral-200 dark:bg-neutral-850 text-neutral-400 dark:text-neutral-500 border border-neutral-300/20 dark:border-neutral-800 cursor-not-allowed opacity-80"
                         : "bg-gradient-to-r from-indigo-600 via-[#7F77DD] to-purple-600 text-white shadow-[0_8px_30px_rgba(99,102,241,0.25)] hover:shadow-[0_12px_40px_rgba(99,102,241,0.4)] hover:scale-[1.01]"
                     }`}
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-                    <span className="relative z-10">
-                      {destination
-                        ? selectedRide
-                          ? "THIBITISHA USAFIRI"
-                          : "CHAGUA USAFIRI"
-                        : "WEKA UNAPOKWENDA"}
+                    <span className="relative z-10 flex items-center gap-2">
+                      {destination ? (
+                        selectedRide ? (
+                          <div className="flex items-center gap-2 text-left">
+                            <span>THIBITISHA {selectedRide.name.toUpperCase()}</span>
+                            <span className="text-[10px] normal-case tracking-normal px-2 py-0.5 rounded-full bg-white/20 font-bold hidden sm:inline-block">
+                              {paymentMethod === 'cash' ? '💵 Cash' : paymentMethod === 'mobile_money' ? `📱 ${selectedMobileOperator === 'mpesa' ? 'M-Pesa' : selectedMobileOperator === 'tigopesa' ? 'TigoPesa' : selectedMobileOperator === 'airtel' ? 'Airtel' : 'HaloPesa'}` : paymentMethod === 'wallet' ? '👛 Mkoba' : '💳 Kadi'}
+                            </span>
+                          </div>
+                        ) : (
+                          "CHAGUA USAFIRI"
+                        )
+                      ) : (
+                        "WEKA UNAPOKWENDA"
+                      )}
                     </span>
                     <ArrowRight className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />
                   </button>
@@ -4998,6 +5162,24 @@ const getEndPin = (etaText: string) => {
                       </div>
                     </div>
                   </div>
+
+                  {/* Selected Ride & Payment Method Preview */}
+                  {selectedRide && (
+                    <div className="bg-neutral-100 dark:bg-neutral-800/80 p-3 rounded-2xl flex items-center justify-between text-xs border border-neutral-200/60 dark:border-neutral-700">
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-xl">{selectedRide.image || '🚗'}</span>
+                        <div>
+                          <p className="font-black text-[11px] uppercase text-neutral-800 dark:text-neutral-200">{selectedRide.name}</p>
+                          <p className="text-[9.5px] text-neutral-500 dark:text-neutral-400 font-semibold">
+                            {paymentMethod === 'cash' ? '💵 Pesa Taslimu' : paymentMethod === 'mobile_money' ? `📱 ${selectedMobileOperator === 'mpesa' ? 'Vodacom M-Pesa' : selectedMobileOperator === 'tigopesa' ? 'Tigo Pesa' : selectedMobileOperator === 'airtel' ? 'Airtel Money' : 'HaloPesa'}` : paymentMethod === 'wallet' ? '👛 Papo Mkoba' : '💳 Kadi ya Benki'}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="font-black text-emerald-600 dark:text-emerald-400 font-mono text-xs">
+                        TZS {selectedRide.price.toLocaleString()}
+                      </span>
+                    </div>
+                  )}
 
                   <p className="text-[9px] text-neutral-500 font-semibold text-center leading-normal px-2">
                     {passengerType === 'you'

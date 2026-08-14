@@ -46,7 +46,8 @@ export interface Ride {
   distance: number;
   duration: number;
   paymentStatus?: 'pending' | 'paid';
-  paymentMethod?: 'cash' | 'online';
+  paymentMethod?: 'cash' | 'online' | 'mobile_money' | 'wallet' | 'card' | 'mpesa' | string;
+  paymentDetails?: any;
   viewers?: Record<string, number>;
   isRerouting?: boolean;
   hasDeviated?: boolean;
