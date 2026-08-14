@@ -30,7 +30,14 @@ export function HeaderProvider({ children }: { children: React.ReactNode }) {
 export function useHeader() {
   const context = useContext(HeaderContext);
   if (context === undefined) {
-    throw new Error('useHeader must be used within a HeaderProvider');
+    return {
+      searchQuery: '',
+      setSearchQuery: () => {},
+      location: 'Papo Hapo',
+      setLocation: () => {},
+      onLocationClick: () => {},
+      setOnLocationClick: () => {}
+    };
   }
   return context;
 }
