@@ -558,6 +558,7 @@ export default function TaxiBooking() {
   const vehicleScrollRef = useRef<HTMLDivElement>(null);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mobile_money' | 'wallet' | 'card'>('cash');
   const [selectedMobileOperator, setSelectedMobileOperator] = useState<'mpesa' | 'tigopesa' | 'airtel' | 'halopesa'>('mpesa');
+  const [pickupNote, setPickupNote] = useState<string>('');
 
   const scrollVehicles = (direction: 'left' | 'right') => {
     if (vehicleScrollRef.current) {
@@ -2517,6 +2518,7 @@ const getEndPin = (etaText: string) => {
           discountAmount: discount,
           paymentMethod: paymentMethod,
           paymentDetails: paymentMethod === 'mobile_money' ? { operator: selectedMobileOperator } : null,
+          pickupNote: pickupNote.trim(),
         }
       );
 
@@ -4330,6 +4332,24 @@ const getEndPin = (etaText: string) => {
                             </button>
                           </div>
                         )}
+                      </div>
+
+                      {/* Pickup Note / Landmark Instructions for Driver */}
+                      <div className="pt-0.5">
+                        <label className="text-[9px] font-black text-neutral-400 uppercase tracking-wider block mb-1">
+                          📍 Maelekezo kwa Dereva (Alama / Landmark)
+                        </label>
+                        <input
+                          type="text"
+                          value={pickupNote}
+                          onChange={(e) => setPickupNote(e.target.value)}
+                          placeholder="Mf. Nipo karibu na duka la dawa, gari nyeusi..."
+                          className={`w-full p-2.5 rounded-xl text-xs font-semibold border transition-all ${
+                            theme === 'dark'
+                              ? 'bg-[#111118] border-neutral-800 text-neutral-200 placeholder-neutral-500 focus:border-indigo-500'
+                              : 'bg-white border-neutral-300 text-neutral-800 placeholder-neutral-400 focus:border-indigo-600'
+                          }`}
+                        />
                       </div>
 
                       {/* Loyalty Cashback Points Redemption */}

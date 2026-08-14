@@ -219,50 +219,67 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
 
             {/* Combined compact Driver details & destination/ETA */}
             {ride.driverInfo && (
-              <div className={`flex items-center justify-between gap-2.5 p-2.5 rounded-xl border mb-2 select-none transition-all ${theme === 'dark' ? 'bg-[#161622]/60 border-neutral-800/80 hover:bg-neutral-800/20' : 'bg-neutral-50/80 border-neutral-200/50 hover:bg-neutral-100'}`}>
-                {/* Left Side: Driver and Vehicle */}
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <div className="w-8 h-8 rounded-full overflow-hidden border border-emerald-500 relative bg-neutral-100 shrink-0">
-                    <img 
-                      src={ride.driverInfo.photo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${ride.driverId}`} 
-                      alt="Driver" 
-                      className="w-full h-full object-cover" 
-                    />
-                    <div className="absolute bottom-0 right-0 w-1.5 h-1.5 bg-emerald-500 border border-white rounded-full shadow-md" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1">
-                      <h4 className={`text-[11px] font-black uppercase font-heading truncate leading-none ${theme === 'dark' ? 'text-neutral-100' : 'text-neutral-800'}`}>
-                        {ride.driverInfo.name || 'Dereva'}
-                      </h4>
-                      <div className="flex items-center gap-0.5 text-yellow-500 shrink-0">
-                        <Star className="w-2.5 h-2.5 fill-yellow-500 text-yellow-500 animate-pulse" />
-                        <span className="text-[8.5px] font-black font-mono leading-none">{ride.driverInfo.rating || '4.8'}</span>
+              <div className={`p-2.5 rounded-xl border mb-2 select-none transition-all ${theme === 'dark' ? 'bg-[#161622]/60 border-neutral-800/80 hover:bg-neutral-800/20' : 'bg-neutral-50/80 border-neutral-200/50 hover:bg-neutral-100'}`}>
+                <div className="flex items-center justify-between gap-2.5">
+                  {/* Left Side: Driver and Vehicle */}
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <div className="w-9 h-9 rounded-xl overflow-hidden border border-emerald-500 relative bg-neutral-100 dark:bg-neutral-800 shrink-0">
+                      <img 
+                        src={ride.driverInfo.photo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${ride.driverId}`} 
+                        alt="Driver" 
+                        className="w-full h-full object-cover" 
+                      />
+                      <div className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 border border-white rounded-full shadow-md" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <h4 className={`text-xs font-black uppercase font-heading truncate leading-none ${theme === 'dark' ? 'text-neutral-100' : 'text-neutral-800'}`}>
+                          {ride.driverInfo.name || 'Dereva'}
+                        </h4>
+                        <div className="flex items-center gap-0.5 text-amber-500 shrink-0">
+                          <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
+                          <span className="text-[8.5px] font-black font-mono leading-none">{ride.driverInfo.rating || '4.9'}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 mt-1 flex-wrap">
+                        <span className="bg-amber-400 text-neutral-950 px-1.5 py-0.2 rounded font-mono font-black text-[9.5px] border border-amber-500">
+                          TZ {ride.driverInfo.vehicle?.plate || 'T 842 DKP'}
+                        </span>
+                        <span className={`text-[8.5px] font-bold uppercase truncate ${theme === 'dark' ? 'text-neutral-300' : 'text-neutral-600'}`}>
+                          {ride.driverInfo.vehicle?.model || 'Toyota IST'} {ride.driverInfo.vehicle?.color ? `• ${ride.driverInfo.vehicle.color}` : ''}
+                        </span>
                       </div>
                     </div>
-                    <p className={`text-[8.5px] font-semibold uppercase tracking-wider mt-0.5 truncate ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-500'}`}>
-                      {ride.driverInfo.vehicle?.model || 'Mini'} · <span className="text-indigo-400 font-mono font-black">{ride.driverInfo.vehicle.plate || 'T 123 ABC'}</span>
-                    </p>
+                  </div>
+
+                  {/* Right Side: Destination & ETA */}
+                  <div className="text-right flex flex-col items-end shrink-0 max-w-[45%]">
+                    <div className="flex items-center gap-1">
+                      <span className={`text-[7.5px] font-black text-neutral-400 uppercase tracking-widest leading-none`}>{targetLabel}:</span>
+                      <span className={`text-[9px] font-bold uppercase truncate max-w-[90px] leading-none ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-700'}`}>
+                        {targetLocation.address}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1 mt-1">
+                      <span className={`text-[7px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${theme === 'dark' ? 'bg-indigo-950/60 text-indigo-400 border border-indigo-900/60' : 'bg-indigo-50 text-indigo-600 border border-indigo-100'}`}>
+                        ETA
+                      </span>
+                      <span className={`text-xs font-black font-mono tracking-wider ${theme === 'dark' ? 'text-indigo-400' : 'text-indigo-600'}`}>
+                        {eta ? `${eta.minutes}:${eta.seconds.toString().padStart(2, '0')}` : '00:00'}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                {/* Right Side: Destination & ETA */}
-                <div className="text-right flex flex-col items-end shrink-0 max-w-[45%]">
-                  <div className="flex items-center gap-1">
-                    <span className={`text-[7.5px] font-black text-neutral-400 uppercase tracking-widest leading-none`}>{targetLabel}:</span>
-                    <span className={`text-[9px] font-bold uppercase truncate max-w-[90px] leading-none ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-700'}`}>
-                      {targetLocation.address}
+                {/* Pickup Note / Landmark if customer provided one */}
+                {(ride.pickupNote || (ride as any).pickupNotes) && (
+                  <div className="mt-2 pt-2 border-t border-neutral-200/40 dark:border-neutral-800/60 flex items-center gap-1.5 text-[9.5px]">
+                    <span className="shrink-0 text-indigo-500 font-bold">📍 Maelekezo:</span>
+                    <span className="truncate italic text-neutral-600 dark:text-neutral-300">
+                      "{ride.pickupNote || (ride as any).pickupNotes}"
                     </span>
                   </div>
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <span className={`text-[6.5px] font-black uppercase tracking-wider px-1 py-0.2 rounded ${theme === 'dark' ? 'bg-indigo-950/40 text-indigo-400 border border-indigo-900/40' : 'bg-indigo-50 text-indigo-600 border border-indigo-100'}`}>
-                      ETA
-                    </span>
-                    <span className={`text-xs font-black font-mono tracking-wider ${theme === 'dark' ? 'text-indigo-400' : 'text-indigo-600'}`}>
-                      {eta ? `${eta.minutes}:${eta.seconds.toString().padStart(2, '0')}` : '00:00'}
-                    </span>
-                  </div>
-                </div>
+                )}
               </div>
             )}
 

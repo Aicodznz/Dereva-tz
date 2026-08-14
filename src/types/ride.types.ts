@@ -56,6 +56,7 @@ export interface Ride {
   paymentStatus?: 'pending' | 'paid';
   paymentMethod?: 'cash' | 'online' | 'mobile_money' | 'wallet' | 'card' | 'mpesa' | string;
   paymentDetails?: any;
+  pickupNote?: string;
   isRerouting?: boolean;
   hasDeviated?: boolean;
   navigationMessage?: string;

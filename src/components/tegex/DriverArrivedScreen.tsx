@@ -133,31 +133,69 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
               </button>
             </div>
         
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-3.5">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full overflow-hidden border border-emerald-500 bg-neutral-50 flex items-center justify-center shadow-sm shrink-0">
-                  {ride.driverInfo?.photo ? (
-                    <img src={ride.driverInfo.photo} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                  ) : (
-                    <div className="text-lg font-bold text-emerald-600 font-heading">{ride.driverInfo?.name?.charAt(0) || 'D'}</div>
-                  )}
+                <div className="relative">
+                  <div className="w-13 h-13 rounded-2xl overflow-hidden border-2 border-emerald-500 bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center shadow-md shrink-0">
+                    {ride.driverInfo?.photo ? (
+                      <img src={ride.driverInfo.photo} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    ) : (
+                      <div className="text-xl font-black text-emerald-600 font-heading">{ride.driverInfo?.name?.charAt(0) || 'D'}</div>
+                    )}
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-white dark:border-neutral-900 flex items-center justify-center text-[10px]" title="Dereva Aliyethibitishwa">
+                    ✓
+                  </div>
                 </div>
+
                 <div className="min-w-0">
-                  <h4 className={`text-base font-black uppercase font-heading tracking-wide leading-none mb-1 truncate ${theme === 'dark' ? 'text-neutral-100' : 'text-neutral-800'}`}>
-                    {ride.driverInfo?.name || "Dereva Swahili"}
-                  </h4>
-                  <p className={`text-[10px] font-semibold uppercase tracking-wider ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-500'}`}>
-                    {ride.driverInfo?.vehicle.model} · <span className="text-indigo-400 font-mono font-black">{ride.driverInfo?.vehicle.plate}</span>
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <h4 className={`text-base font-black uppercase font-heading tracking-wide leading-none truncate ${theme === 'dark' ? 'text-neutral-100' : 'text-neutral-800'}`}>
+                      {ride.driverInfo?.name || "Dereva Swahili"}
+                    </h4>
+                    <span className="text-[8px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800 shrink-0">
+                      🛡️ VERIFIED
+                    </span>
+                  </div>
+
+                  {/* Tanzanian Plate & Vehicle Color / Model Display */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <div className="inline-flex items-center gap-1 bg-amber-400 text-neutral-950 px-2 py-0.5 rounded-md font-mono font-black text-[11px] shadow-xs border border-amber-500 tracking-wider">
+                      <span className="text-[8px] font-bold opacity-75">TZ</span>
+                      <span>{ride.driverInfo?.vehicle.plate || "T 842 DKP"}</span>
+                    </div>
+                    <span className={`text-[10px] font-extrabold uppercase truncate ${theme === 'dark' ? 'text-neutral-300' : 'text-neutral-700'}`}>
+                      {ride.driverInfo?.vehicle.model || "Toyota IST"} {ride.driverInfo?.vehicle.color ? `• ${ride.driverInfo.vehicle.color}` : "• Nyeupe"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className={`flex flex-col items-end justify-center px-2.5 py-1.5 rounded-xl border shrink-0 ${theme === 'dark' ? 'bg-neutral-900 border-neutral-800' : 'bg-neutral-50 border-neutral-200/80 shadow-xs'}`}>
+                <div className="flex items-center gap-1 text-amber-500">
+                  <Star className="w-3.5 h-3.5 fill-current" />
+                  <span className="text-xs font-black font-mono">{ride.driverInfo?.rating || "4.9"}</span>
+                </div>
+                <span className="text-[7.5px] font-bold text-neutral-400 uppercase">500+ Safari</span>
+              </div>
+            </div>
+
+            {/* Customer Pickup Note / Landmark if entered */}
+            {(ride.pickupNote || (ride as any).pickupNotes) && (
+              <div className={`mb-3 p-2.5 rounded-xl border flex items-start gap-2 ${
+                theme === 'dark' ? 'bg-indigo-950/30 border-indigo-900/50 text-indigo-200' : 'bg-indigo-50/70 border-indigo-200/70 text-indigo-950'
+              }`}>
+                <span className="text-sm shrink-0">📍</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[8.5px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                    Maelekezo ya Ziada kwa Dereva:
+                  </p>
+                  <p className="text-[11px] font-semibold italic mt-0.5 leading-snug">
+                    "{ride.pickupNote || (ride as any).pickupNotes}"
                   </p>
                 </div>
               </div>
-              <div className={`flex flex-col items-end justify-center px-2 py-1 rounded-lg border shrink-0 ${theme === 'dark' ? 'bg-neutral-900 border-neutral-800' : 'bg-neutral-50 border-neutral-100'}`}>
-                <div className="flex items-center gap-1 text-yellow-500">
-                  <Star className="w-3.5 h-3.5 fill-current" />
-                  <span className="text-xs font-black font-mono">{ride.driverInfo?.rating || "4.8"}</span>
-                </div>
-              </div>
-            </div>
+            )}
 
             {/* Elegant, Modern Countdown & Pickup Info Container directly below profile pic */}
             <div className={`mb-4 p-3 rounded-xl border transition-all duration-300 text-left ${

@@ -26,6 +26,7 @@ export function useCreateRide() {
       discountAmount?: number;
       paymentMethod?: string;
       paymentDetails?: any;
+      pickupNote?: string;
     }
   ) => {
     setIsLoading(true);
@@ -55,6 +56,7 @@ export function useCreateRide() {
         routeCoords,
         paymentMethod: options?.paymentMethod || 'cash',
         paymentDetails: options?.paymentDetails || null,
+        pickupNote: options?.pickupNote || '',
         createdAt: serverTimestamp(),
         expiresAt: expiresAtDate.toISOString(),
         driverInfo: null,
