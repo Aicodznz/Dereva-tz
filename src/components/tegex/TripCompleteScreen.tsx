@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { Check, Wallet, Smartphone, Banknote, FileText, CheckCircle2 } from 'lucide-react';
 import { Ride } from '../../types/trip.types';
 import { useTheme } from 'next-themes';
+import { useAuth } from '../../AuthContext';
 import { UssdPaymentModal } from './UssdPaymentModal';
 import { DigitalReceiptModal } from './DigitalReceiptModal';
 
@@ -12,11 +13,14 @@ interface TripCompleteScreenProps {
 }
 
 export const TripCompleteScreen: React.FC<TripCompleteScreenProps> = ({ ride, onPay }) => {
-  const [method, setMethod] = useState<'cash' | 'mpesa' | 'tigopesa' | 'wallet'>('mpesa');
+  const { user, profile } = useAuth();
+  const [method, setMethod] = useState<'cash' | 'mpesa' | 'tigopesa' | 'airtel' | 'wallet'>('mpesa');
   const [showUssdModal, setShowUssdModal] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const { resolvedTheme } = useTheme();
   const theme = resolvedTheme === 'dark' ? 'dark' : 'light';
+
+  const defaultUserPhone = profile?.phoneNumber || profile?.phone || user?.phoneNumber || '';
 
   const fare = Number(ride?.fare) || 0;
   const distanceKm = Number(ride?.distance) || 3.8;
@@ -50,16 +54,22 @@ export const TripCompleteScreen: React.FC<TripCompleteScreenProps> = ({ ride, on
   ));
 
   const handlePayClick = () => {
-    if (method === 'mpesa' || method === 'tigopesa') {
+    if (method === 'mpesa' || method === 'tigopesa' || method === 'airtel') {
       setShowUssdModal(true);
     } else {
       onPay(method);
     }
   };
 
-  const handleUssdSuccess = (txId: string) => {
+  const handleUssdSuccess = (txId: string, phone: string, op: string) => {
     setShowUssdModal(false);
-    onPay(method);
+    onPay(op || method);
+  };
+
+  const handleFallbackToCash = () => {
+    setShowUssdModal(false);
+    setMethod('cash');
+    onPay('cash');
   };
 
   return (
@@ -189,11 +199,13 @@ export const TripCompleteScreen: React.FC<TripCompleteScreenProps> = ({ ride, on
       {/* USSD Prompt Simulation */}
       <UssdPaymentModal
         isOpen={showUssdModal}
-        operator={method === 'mpesa' ? 'mpesa' : 'tigopesa'}
+        defaultPhone={defaultUserPhone}
+        initialOperator={method === 'cash' || method === 'wallet' ? 'mpesa' : method}
         amount={fare}
         recipientName="PAPO HAPO RIDES TZ"
         onSuccess={handleUssdSuccess}
         onCancel={() => setShowUssdModal(false)}
+        onFallbackToCash={handleFallbackToCash}
       />
 
       {/* Digital E-Receipt Modal */}
