@@ -23,6 +23,7 @@ export default function RegisterCustomer() {
     fullName: '',
     email: '',
     phone: '',
+    gender: 'male' as 'male' | 'female',
     password: '',
     confirmPassword: ''
   });
@@ -43,7 +44,9 @@ export default function RegisterCustomer() {
     try {
       await signUp(formData.email.trim(), formData.password, 'customer', {
         fullName: formData.fullName,
-        phoneNumber: formData.phone
+        phoneNumber: formData.phone,
+        phone: formData.phone,
+        gender: formData.gender
       });
       toast.success(t('account_created_success'));
       navigate('/');
@@ -102,11 +105,45 @@ export default function RegisterCustomer() {
           <Input 
             type="tel" 
             required
-            placeholder="Phone Number" 
+            placeholder="Phone Number / Namba ya Simu" 
             className="pl-10 h-12 bg-neutral-50 border-none rounded-xl"
             value={formData.phone}
             onChange={e => setFormData({...formData, phone: e.target.value})}
           />
+        </div>
+
+        {/* Gender Selection (Jinsia: Mwanaume / Mwanamke) */}
+        <div className="space-y-1.5 pt-1">
+          <label className="text-xs font-bold text-neutral-600 dark:text-neutral-300 block">
+            Jinsia / Gender <span className="text-red-500">*</span>
+          </label>
+          <div className="grid grid-cols-2 gap-2.5">
+            <button
+              type="button"
+              onClick={() => setFormData({ ...formData, gender: 'male' })}
+              className={`h-12 rounded-xl border flex items-center justify-center gap-2 font-bold text-sm transition-all cursor-pointer ${
+                formData.gender === 'male'
+                  ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-500 text-blue-700 dark:text-blue-300 shadow-sm ring-1 ring-blue-500'
+                  : 'bg-neutral-50 dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:border-neutral-300'
+              }`}
+            >
+              <span className="text-base">👨</span>
+              <span>Mwanaume</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFormData({ ...formData, gender: 'female' })}
+              className={`h-12 rounded-xl border flex items-center justify-center gap-2 font-bold text-sm transition-all cursor-pointer ${
+                formData.gender === 'female'
+                  ? 'bg-pink-50 dark:bg-pink-950/40 border-pink-500 text-pink-700 dark:text-pink-300 shadow-sm ring-1 ring-pink-500'
+                  : 'bg-neutral-50 dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:border-neutral-300'
+              }`}
+            >
+              <span className="text-base">👩</span>
+              <span>Mwanamke</span>
+            </button>
+          </div>
         </div>
 
         <div className="relative">

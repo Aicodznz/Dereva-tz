@@ -86,6 +86,7 @@ export default function RegisterVendor() {
   const [formData, setFormData] = useState({
     // Standard Vendor Fields
     ownerName: '',
+    gender: 'male' as 'male' | 'female',
     businessName: '',
     category: '',
     email: '',
@@ -654,6 +655,40 @@ export default function RegisterVendor() {
             <div className="relative">
               <User className="absolute left-3 top-3 w-5 h-5 text-neutral-400" />
               <Input required placeholder="Jina la Mmiliki / Owner Full Name" className="pl-10 h-12 bg-neutral-50 border-none rounded-xl" value={formData.ownerName} onChange={e => setFormData({...formData, ownerName: e.target.value})} />
+            </div>
+
+            {/* Gender Selection */}
+            <div className="space-y-1.5 pt-1">
+              <label className="text-xs font-bold text-neutral-600 dark:text-neutral-300 block">
+                Jinsia ya Mmiliki / Owner's Gender <span className="text-red-500">*</span>
+              </label>
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, gender: 'male' })}
+                  className={`h-11 rounded-xl border flex items-center justify-center gap-2 font-bold text-sm transition-all cursor-pointer ${
+                    formData.gender === 'male'
+                      ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-500 text-blue-700 dark:text-blue-300 shadow-sm ring-1 ring-blue-500'
+                      : 'bg-neutral-50 dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:border-neutral-300'
+                  }`}
+                >
+                  <span className="text-base">👨</span>
+                  <span>Mwanaume</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, gender: 'female' })}
+                  className={`h-11 rounded-xl border flex items-center justify-center gap-2 font-bold text-sm transition-all cursor-pointer ${
+                    formData.gender === 'female'
+                      ? 'bg-pink-50 dark:bg-pink-950/40 border-pink-500 text-pink-700 dark:text-pink-300 shadow-sm ring-1 ring-pink-500'
+                      : 'bg-neutral-50 dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:border-neutral-300'
+                  }`}
+                >
+                  <span className="text-base">👩</span>
+                  <span>Mwanamke</span>
+                </button>
+              </div>
             </div>
 
             <div className="relative">

@@ -93,7 +93,8 @@ export default function Profile() {
     displayName: profile?.displayName || '',
     email: profile?.email || '',
     phoneNumber: profile?.phoneNumber || '',
-    photoURL: profile?.photoURL || ''
+    photoURL: profile?.photoURL || '',
+    gender: (profile?.gender as string) || ''
   });
 
   const [passwordData, setPasswordData] = useState({
@@ -234,8 +235,15 @@ export default function Profile() {
             </div>
             
             <h1 className="text-3xl font-black text-neutral-900 dark:text-white tracking-tighter uppercase italic">{profile.displayName}</h1>
-            <div className="flex items-center justify-center gap-2 mt-1">
+            <div className="flex items-center justify-center gap-2 mt-1 flex-wrap">
                <Badge className="bg-orange-100 text-orange-600 font-black px-3 py-1 text-[10px] uppercase border-none hover:bg-orange-200">{profile.role}</Badge>
+               {profile.gender && (
+                 <Badge className={`font-black px-3 py-1 text-[10px] uppercase border-none ${
+                   profile.gender === 'female' ? 'bg-pink-100 text-pink-700 dark:bg-pink-950/50 dark:text-pink-300' : 'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300'
+                 }`}>
+                   {profile.gender === 'female' ? '👩 Mwanamke' : '👨 Mwanaume'}
+                 </Badge>
+               )}
                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
             </div>
 
@@ -525,6 +533,35 @@ export default function Profile() {
                   className="bg-neutral-50 border-none h-12 rounded-xl"
                   placeholder="e.g. 0712345678"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs text-neutral-500 uppercase font-bold">Jinsia / Gender</label>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, gender: 'male' })}
+                    className={`h-11 rounded-xl border flex items-center justify-center gap-2 font-bold text-xs transition-all cursor-pointer ${
+                      formData.gender === 'male'
+                        ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-500 text-blue-700 dark:text-blue-300 ring-1 ring-blue-500'
+                        : 'bg-neutral-50 dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400'
+                    }`}
+                  >
+                    <span>👨 Mwanaume (Male)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, gender: 'female' })}
+                    className={`h-11 rounded-xl border flex items-center justify-center gap-2 font-bold text-xs transition-all cursor-pointer ${
+                      formData.gender === 'female'
+                        ? 'bg-pink-50 dark:bg-pink-950/40 border-pink-500 text-pink-700 dark:text-pink-300 ring-1 ring-pink-500'
+                        : 'bg-neutral-50 dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400'
+                    }`}
+                  >
+                    <span>👩 Mwanamke (Female)</span>
+                  </button>
+                </div>
               </div>
             </div>
 

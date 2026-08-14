@@ -273,10 +273,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updatedAt: serverTimestamp(),
       };
       
-      const dbFields = ['phoneNumber', 'address', 'approvalStatus', 'status', 'driverType', 'vehicleType', 'vehicleBrand', 'vehicleModel', 'vehicleColor', 'licensePlate', 'vehicleYear', 'carryingCapacity', 'category', 'businessName', 'tinNumber', 'hotelDescription', 'location'];
+      const dbFields = ['phoneNumber', 'phone', 'gender', 'city', 'address', 'approvalStatus', 'status', 'driverType', 'vehicleType', 'vehicleBrand', 'vehicleModel', 'vehicleColor', 'licensePlate', 'vehicleYear', 'carryingCapacity', 'category', 'businessName', 'tinNumber', 'hotelDescription', 'location', 'nidaNumber', 'licenseNumber'];
       if (extraData) {
         Object.keys(extraData).forEach(key => {
-          if (dbFields.includes(key)) {
+          if (dbFields.includes(key) || key === 'gender') {
             newProfile[key] = extraData[key];
           }
         });
@@ -295,6 +295,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           fullName: extraData.fullName || '',
           email: cleanEmail,
           phoneNumber: extraData.phone || extraData.phoneNumber || '',
+          gender: extraData.gender || '',
           driverType: extraData.driverType || 'taxi',
           vehicleType: extraData.vehicleType || '',
           licensePlate: extraData.licensePlate || '',
