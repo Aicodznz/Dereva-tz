@@ -1649,6 +1649,81 @@ async function handleSMSInputRaw(
     return " Please select 1 for Kiswahili or 2 for English (0 to go back):";
   }
 
+  // Helper to calculate instant multi-vehicle fares
+  const getInstantTaxiFaresPrompt = async (
+    pPlace: any,
+    dPlace: any,
+    sess: SMSSession
+  ) => {
+    const pLoc = {
+      placeId: pPlace?.placeId || "TZ-DSM-PICKUP",
+      name: pPlace?.name || "Mwenge",
+      address: pPlace?.displayName || pPlace?.name || "Mwenge, Dar es Salaam",
+      lat: typeof pPlace?.latitude === 'number' ? pPlace.latitude : (typeof pPlace?.lat === 'number' ? pPlace.lat : -6.7681),
+      lng: typeof pPlace?.longitude === 'number' ? pPlace.longitude : (typeof pPlace?.lng === 'number' ? pPlace.lng : 39.2274)
+    };
+
+    const dLoc = {
+      placeId: dPlace?.placeId || "TZ-DSM-DEST",
+      name: dPlace?.name || "Posta",
+      address: dPlace?.displayName || dPlace?.name || "Posta, Dar es Salaam",
+      lat: typeof dPlace?.latitude === 'number' ? dPlace.latitude : (typeof dPlace?.lat === 'number' ? dPlace.lat : -6.8164),
+      lng: typeof dPlace?.longitude === 'number' ? dPlace.longitude : (typeof dPlace?.lng === 'number' ? dPlace.lng : 39.2902)
+    };
+
+    const routeInfo = await getRoadDistanceAndDuration(pLoc, dLoc);
+    const distKm = routeInfo.distanceKm || 5.0;
+    const durMin = routeInfo.durationMin || 15;
+
+    // Standard Rates + TZS 500 USSD Surcharge
+    const USSD_FEE = 500;
+
+    // Boda Boda: Base 400 + 400/km + 90/min -> Min TZS 2,500
+    const rawBoda = 400 + (distKm * 400) + (durMin * 90);
+    const bodaFare = Math.max(2500, Math.ceil((rawBoda + USSD_FEE) / 500) * 500);
+
+    // Bajaji: Base 500 + 700/km + 90/min -> Min TZS 4,000
+    const rawBajaj = 500 + (distKm * 700) + (durMin * 90);
+    const bajajFare = Math.max(4000, Math.ceil((rawBajaj + USSD_FEE) / 500) * 500);
+
+    // Gari la Teksi: Base 1100 + 1100/km + 120/min -> Min TZS 5,500
+    const rawCar = 1100 + (distKm * 1100) + (durMin * 120);
+    const carFare = Math.max(5500, Math.ceil((rawCar + USSD_FEE) / 500) * 500);
+
+    sess.optionsList = [{
+      pLoc,
+      dLoc,
+      pickupName: pLoc.name,
+      destName: dLoc.name,
+      distKm,
+      durMin,
+      bodaFare,
+      bajajFare,
+      carFare
+    }];
+
+    const isEn = sess.language === 'en';
+    if (isEn) {
+      let reply = ` INSTANT FARE ESTIMATE\n`;
+      reply += `Route: ${pLoc.name} - ${dLoc.name} (${distKm}km, ~${durMin}mins)\n\n`;
+      reply += `Estimated Fares:\n`;
+      reply += `1. Bodaboda : TZS ${bodaFare.toLocaleString()}\n`;
+      reply += `2. Bajaji : TZS ${bajajFare.toLocaleString()}\n`;
+      reply += `3. Taxi Car : TZS ${carFare.toLocaleString()}\n\n`;
+      reply += `Select vehicle (1-3) to book, or 0 to Change Route.`;
+      return reply;
+    }
+
+    let reply = ` KADIRIO LA NAULI PAPO HAPO\n`;
+    reply += `Njia: ${pLoc.name} - ${dLoc.name} (${distKm}km, ~${durMin}dk)\n\n`;
+    reply += `Nauli iliyokadiriwa:\n`;
+    reply += `1. Boda Boda: TZS ${bodaFare.toLocaleString()}\n`;
+    reply += `2. Bajaji: TZS ${bajajFare.toLocaleString()}\n`;
+    reply += `3. Gari la Teksi: TZS ${carFare.toLocaleString()}\n\n`;
+    reply += `Chagua usafiri (1-3) kuagiza, au 0 Kubadili Njia:`;
+    return reply;
+  };
+
   // 1. TAXI SUBMENU & QUICK BOOKING
   if (session.step === 'TAXI_SUBMENU' && session.selectedService === 'taxi') {
     if (cleanInput === '1') {
@@ -1708,9 +1783,10 @@ async function handleSMSInputRaw(
       session.resolvedDest = dLoc as any;
       session.taxiRoute = `${pLoc.name} - ${dLoc.name}`;
       session.step = 'TAXI_VEHICLE_SELECT';
+      const reply = await getInstantTaxiFaresPrompt(pLoc as any, dLoc as any, session);
       await saveSession(session, dbAdmin);
 
-      return ` *AINA YA USAFIRI*\n\nNjia: *${pLoc.name}* kuelekea *${dLoc.name}*\n\nTafadhali chagua usafiri:\n\n1. Boda Boda  (Haraka & Rahisi)\n2. Bajaji  (Nafuu & Salama)\n3. Gari la Teksi  (Starehe & Usalama)`;
+      return reply;
     } else {
       return " Chaguo si sahihi. Tafadhali chagua namba 1 mpaka 6:";
     }
@@ -1785,50 +1861,55 @@ async function handleSMSInputRaw(
 
     session.resolvedPickup = pLoc as any;
     session.resolvedDest = dLoc as any;
-    session.optionsList = [{ pLoc, dLoc, distKm, durMin, bodaFare, bajajFare, carFare }];
+    session.optionsList = [{ pLoc, dLoc, distKm, durMin, bodaFare, bajajFare, carFare, pickupName: pLoc.name, destName: dLoc.name }];
     session.step = 'TAXI_FARE_ESTIMATE_CONFIRM';
     await saveSession(session, dbAdmin);
 
     const isEn = session.language === 'en';
     if (isEn) {
-      return ` FARE ESTIMATE\n\n From: ${pLoc.name}\n To: ${dLoc.name}\n Distance: ${distKm} km (~${durMin} mins)\n\n ESTIMATED FARES:\n1. Bodaboda : TZS ${bodaFare.toLocaleString()}\n2. Bajaji : TZS ${bajajFare.toLocaleString()}\n3. Taxi Car : TZS ${carFare.toLocaleString()}\n\nReply with option number (1-3) to book now, or 0 to Back.`;
+      return ` INSTANT FARE ESTIMATE\n\nFrom: ${pLoc.name}\nTo: ${dLoc.name} (${distKm}km, ~${durMin}mins)\n\nEstimated Fares:\n1. Bodaboda: TZS ${bodaFare.toLocaleString()}\n2. Bajaji: TZS ${bajajFare.toLocaleString()}\n3. Taxi Car: TZS ${carFare.toLocaleString()}\n\nSelect option (1-3) to choose vehicle, or 0 to Change Route.`;
     }
 
-    let reply = ` KADIRIO LA NAULI\n`;
-    reply += `Njia: *${pLoc.name}*  *${dLoc.name}* (${distKm}km, ~${durMin}dk)\n\n`;
-    reply += `1. Boda : *TZS ${bodaFare.toLocaleString()}/=*\n`;
-    reply += `2. Bajaji : *TZS ${bajajFare.toLocaleString()}/=*\n`;
-    reply += `3. Teksi : *TZS ${carFare.toLocaleString()}/=*\n\n`;
-    reply += `Tuma 1-3 kuagiza, au 0 kurudi.`;
+    let reply = ` KADIRIO LA NAULI PAPO HAPO:\n`;
+    reply += `Njia: ${pLoc.name} - ${dLoc.name} (${distKm}km, ~${durMin}dk)\n\n`;
+    reply += `Nauli iliyokadiriwa:\n`;
+    reply += `1. Boda Boda: TZS ${bodaFare.toLocaleString()}\n`;
+    reply += `2. Bajaji: TZS ${bajajFare.toLocaleString()}\n`;
+    reply += `3. Gari la Teksi: TZS ${carFare.toLocaleString()}\n\n`;
+    reply += `Chagua usafiri (1-3), au 0 Kubadili Njia:`;
     return reply;
   }
 
   if (session.step === 'TAXI_FARE_ESTIMATE_CONFIRM') {
     const calcData = session.optionsList?.[0];
     if (cleanInput === '0') {
-      session.step = 'SELECT_SERVICE';
+      session.step = 'TAXI_FARE_ESTIMATE_INPUT';
       await saveSession(session, dbAdmin);
-      return getWelcomeMessage(session);
+      return session.language === 'en'
+        ? " Please enter your route (e.g. Posta - Kinondoni):"
+        : " Tafadhali andika njia unayotaka kusafiri (Mfano: Posta - Kinondoni):";
     }
 
     let selectedType = '';
     let typeName = '';
     let fare = 0;
 
-    if (cleanInput === '1') {
+    if (cleanInput === '1' || lowerInput.includes('boda')) {
       selectedType = 'bike';
-      typeName = 'Boda Boda ';
-      fare = calcData?.bodaFare || 2000;
-    } else if (cleanInput === '2') {
+      typeName = 'Boda Boda';
+      fare = calcData?.bodaFare || 3500;
+    } else if (cleanInput === '2' || lowerInput.includes('bajaj')) {
       selectedType = 'bajaj';
-      typeName = 'Bajaji ';
-      fare = calcData?.bajajFare || 3500;
-    } else if (cleanInput === '3') {
+      typeName = 'Bajaji';
+      fare = calcData?.bajajFare || 4500;
+    } else if (cleanInput === '3' || lowerInput.includes('gari') || lowerInput.includes('taxi')) {
       selectedType = 'mini';
-      typeName = 'Gari la Teksi ';
-      fare = calcData?.carFare || 7000;
+      typeName = 'Gari la Teksi';
+      fare = calcData?.carFare || 6000;
     } else {
-      return " Chaguo si sahihi. Tafadhali tuma 1 (Boda), 2 (Bajaji), 3 (Gari), au 0 (Rudi Mwanzo).";
+      return session.language === 'en'
+        ? " Invalid selection. Reply with 1 (Bodaboda), 2 (Bajaji), 3 (Car), or 0 (Change Route)."
+        : " Chaguo si sahihi. Tafadhali tuma 1 (Boda), 2 (Bajaji), 3 (Gari), au 0 (Kubadili Njia).";
     }
 
     session.optionsList = [{
@@ -1839,20 +1920,39 @@ async function handleSMSInputRaw(
       fare,
       pLoc: calcData?.pLoc,
       dLoc: calcData?.dLoc,
-      pickupName: calcData?.pLoc?.name || "Mwenge",
-      destName: calcData?.dLoc?.name || "Posta",
+      pickupName: calcData?.pickupName || calcData?.pLoc?.name || "Mwenge",
+      destName: calcData?.destName || calcData?.dLoc?.name || "Posta",
+      bodaFare: calcData?.bodaFare || 3500,
+      bajajFare: calcData?.bajajFare || 4500,
+      carFare: calcData?.carFare || 6000,
       nearbyCount: 3
     }];
 
-    if (session.passengerName && session.passengerName.trim() && session.passengerPhone && session.passengerPhone.trim()) {
-      session.step = 'TAXI_ASK_PREVIOUS_DETAILS';
-      await saveSession(session, dbAdmin);
-      return ` *TAARIFA ZA MSAFIRI*\n\nTumepata taarifa za msafiri ulizowahi kutumia awali:\n- Jina: *${session.passengerName}*\n- Namba: *${session.passengerPhone}*\n\n1. Ndio, Tumia hizi\n2. Hapana, Weka mpya`;
-    } else {
-      session.step = 'TAXI_PASSENGER_NAME';
-      await saveSession(session, dbAdmin);
-      return ` *TAARIFA ZA MSAFIRI (Hatua ya 1/2)*\n\nTafadhali andika jina lako au la msafiri (Mfano: Juma Kiboko):`;
+    session.step = 'TAXI_CONFIRM_TRIP';
+    await saveSession(session, dbAdmin);
+
+    const isEn = session.language === 'en';
+    if (isEn) {
+      let reply = ` TRIP CONFIRMATION\n`;
+      reply += `Route: ${calcData?.pickupName || "Mwenge"} - ${calcData?.destName || "Posta"}\n`;
+      reply += `Vehicle: ${typeName}\n`;
+      reply += `Estimated Fare: TZS ${fare.toLocaleString()}\n\n`;
+      reply += `Press:\n`;
+      reply += `1. Confirm & Find Driver\n`;
+      reply += `2. Change Vehicle / Route\n`;
+      reply += `0. Cancel`;
+      return reply;
     }
+
+    let reply = ` KADIRIO LA NAULI:\n`;
+    reply += `Njia: ${calcData?.pickupName || "Mwenge"} - ${calcData?.destName || "Posta"}\n`;
+    reply += `Usafiri: ${typeName}\n`;
+    reply += `Nauli iliyokadiriwa: TZS ${fare.toLocaleString()}\n\n`;
+    reply += `Bonyeza:\n`;
+    reply += `1. Kuthibitisha (Tafuta Dereva)\n`;
+    reply += `2. Kubadili (Aina ya Usafiri / Njia)\n`;
+    reply += `0. Ghairi`;
+    return reply;
   }
 
   // 3. PAPOSEND FLOW (TUMA & FUATILIA MZIGO)
@@ -2631,7 +2731,6 @@ async function handleSMSInputRaw(
     }
   }
 
-  // TAXI BOOKING FLOWS
   // State: TAXI_DISAMBIGUATE_PICKUP
   if (session.step === 'TAXI_DISAMBIGUATE_PICKUP' && session.selectedService === 'taxi') {
     const idx = parseInt(cleanInput) - 1;
@@ -2655,9 +2754,9 @@ async function handleSMSInputRaw(
         session.resolvedDest = destRes.matches[0];
         session.taxiRoute = `${selectedPlace.name} - ${destRes.matches[0].name}`;
         session.step = 'TAXI_VEHICLE_SELECT';
-        session.optionsList = [];
+        const reply = await getInstantTaxiFaresPrompt(selectedPlace, destRes.matches[0], session);
         await saveSession(session, dbAdmin);
-        return ` AINA YA USAFIRI:\n1. Boda Boda \n2. Bajaji \n3. Gari la Teksi `;
+        return reply;
       } else {
         // Destination also has multiple matches!
         session.optionsList = destRes.matches.slice(0, 5);
@@ -2688,9 +2787,9 @@ async function handleSMSInputRaw(
       session.resolvedDest = destRes.matches[0];
       session.taxiRoute = `${session.resolvedPickup?.name || "Mwenge"} - ${destRes.matches[0].name}`;
       session.step = 'TAXI_VEHICLE_SELECT';
-      session.optionsList = [];
+      const reply = await getInstantTaxiFaresPrompt(session.resolvedPickup || { name: 'Mwenge', latitude: -6.7681, longitude: 39.2274 }, destRes.matches[0], session);
       await saveSession(session, dbAdmin);
-      return ` AINA YA USAFIRI:\n1. Boda Boda \n2. Bajaji \n3. Gari la Teksi `;
+      return reply;
     } else {
       // Disambiguate destination
       session.optionsList = destRes.matches.slice(0, 5);
@@ -2717,10 +2816,9 @@ async function handleSMSInputRaw(
     session.resolvedDest = selectedPlace;
     session.taxiRoute = `${session.resolvedPickup?.name || "Mwenge"} - ${selectedPlace.name}`;
     session.step = 'TAXI_VEHICLE_SELECT';
-    session.optionsList = [];
+    const reply = await getInstantTaxiFaresPrompt(session.resolvedPickup || { name: 'Mwenge', latitude: -6.7681, longitude: 39.2274 }, selectedPlace, session);
     await saveSession(session, dbAdmin);
-
-    return ` AINA YA USAFIRI:\n1. Boda Boda \n2. Bajaji \n3. Gari la Teksi `;
+    return reply;
   }
 
   // State: TAXI_ROUTE
@@ -2744,8 +2842,9 @@ async function handleSMSInputRaw(
           session.resolvedDest = destRes.matches[0];
           session.taxiRoute = `${pickupRes.matches[0].name} - ${destRes.matches[0].name}`;
           session.step = 'TAXI_VEHICLE_SELECT';
+          const reply = await getInstantTaxiFaresPrompt(pickupRes.matches[0], destRes.matches[0], session);
           await saveSession(session, dbAdmin);
-          return ` AINA YA USAFIRI:\n1. Boda Boda \n2. Bajaji \n3. Gari la Teksi `;
+          return reply;
         } else {
           // Destination needs disambiguation
           session.optionsList = destRes.matches.slice(0, 5);
@@ -2798,150 +2897,45 @@ async function handleSMSInputRaw(
   }
 
   if (session.step === 'TAXI_VEHICLE_SELECT' && session.selectedService === 'taxi') {
+    if (cleanInput === '0') {
+      session.step = 'TAXI_ROUTE';
+      await saveSession(session, dbAdmin);
+      return session.language === 'en'
+        ? " Please enter your new route (e.g. Mwenge - Posta):"
+        : " Tafadhali andika njia yako mpya (Mfano: Mwenge - Posta):";
+    }
+
+    const calcData = session.optionsList?.[0];
     let vehicleType = '';
     let typeName = '';
+    let fare = 0;
     
     if (cleanInput === '1' || lowerInput.includes('boda') || lowerInput.includes('bike') || lowerInput.includes('piki')) {
       vehicleType = 'bike';
-      typeName = 'Boda Boda ';
+      typeName = 'Boda Boda';
+      fare = calcData?.bodaFare || 3500;
     } else if (cleanInput === '2' || lowerInput.includes('bajaj') || lowerInput.includes('sharo')) {
       vehicleType = 'bajaj';
-      typeName = 'Bajaji ';
+      typeName = 'Bajaji';
+      fare = calcData?.bajajFare || 4500;
     } else if (cleanInput === '3' || lowerInput.includes('taxi') || lowerInput.includes('gari') || lowerInput.includes('mini') || lowerInput.includes('car')) {
       vehicleType = 'mini';
-      typeName = 'Gari la Teksi ';
+      typeName = 'Gari la Teksi';
+      fare = calcData?.carFare || 6000;
     } else {
-      return ` Chaguo si sahihi. Tafadhali tuma:\n1. Boda Boda \n2. Bajaji \n3. Gari la Teksi `;
+      return session.language === 'en'
+        ? ` Invalid selection. Please reply with:\n1. Bodaboda\n2. Bajaji\n3. Taxi Car\n0. Change Route`
+        : ` Chaguo si sahihi. Tafadhali tuma:\n1. Boda Boda\n2. Bajaji\n3. Gari la Teksi\n0. Badili Njia`;
     }
 
-    // Parse route to extract pickup and destination names for display
-    let pickupName = session.resolvedPickup?.name || "Mwenge";
-    let destName = session.resolvedDest?.name || "Posta";
+    const pickupName = calcData?.pickupName || session.resolvedPickup?.name || "Mwenge";
+    const destName = calcData?.destName || session.resolvedDest?.name || "Posta";
+    const distanceKm = calcData?.distKm || 5.0;
+    const durationMin = calcData?.durMin || 15;
+    const pLoc = calcData?.pLoc || session.resolvedPickup || { name: pickupName, lat: -6.7681, lng: 39.2274 };
+    const dLoc = calcData?.dLoc || session.resolvedDest || { name: destName, lat: -6.8164, lng: 39.2902 };
 
-    let pLoc = session.resolvedPickup ? {
-      placeId: session.resolvedPickup.placeId || "TZ-DSM-MWENGE-001",
-      name: session.resolvedPickup.name || "Mwenge",
-      address: session.resolvedPickup.displayName || session.resolvedPickup.name || "Mwenge, Kinondoni, Dar es Salaam",
-      lat: typeof session.resolvedPickup.latitude === 'number' ? session.resolvedPickup.latitude : (typeof (session.resolvedPickup as any).lat === 'number' ? (session.resolvedPickup as any).lat : -6.7681),
-      lng: typeof session.resolvedPickup.longitude === 'number' ? session.resolvedPickup.longitude : (typeof (session.resolvedPickup as any).lng === 'number' ? (session.resolvedPickup as any).lng : 39.2274)
-    } : {
-      placeId: "TZ-DSM-MWENGE-001",
-      name: "Mwenge",
-      address: "Mwenge, Kinondoni, Dar es Salaam",
-      lat: -6.7681,
-      lng: 39.2274
-    };
-
-    let dLoc = session.resolvedDest ? {
-      placeId: session.resolvedDest.placeId || "TZ-DSM-POSTA-001",
-      name: session.resolvedDest.name || "Posta",
-      address: session.resolvedDest.displayName || session.resolvedDest.name || "Posta, Ilala, Dar es Salaam",
-      lat: typeof session.resolvedDest.latitude === 'number' ? session.resolvedDest.latitude : (typeof (session.resolvedDest as any).lat === 'number' ? (session.resolvedDest as any).lat : -6.8164),
-      lng: typeof session.resolvedDest.longitude === 'number' ? session.resolvedDest.longitude : (typeof (session.resolvedDest as any).lng === 'number' ? (session.resolvedDest as any).lng : 39.2902)
-    } : {
-      placeId: "TZ-DSM-POSTA-001",
-      name: "Posta",
-      address: "Posta, Ilala, Dar es Salaam",
-      lat: -6.8164,
-      lng: 39.2902
-    };
-
-    if (dbAdmin) {
-      try {
-        const dSnap = await dbAdmin.collection('drivers')
-          .where('isOnline', '==', true)
-          .get();
-        console.log(`[SMS Bot Debug] Found ${dSnap.empty ? 0 : dSnap.docs.length} online drivers.`);
-        if (!dSnap.empty) {
-          const onlineDrivers = dSnap.docs.map((doc: any) => doc.data());
-          onlineDrivers.forEach((drv: any) => {
-            console.log(`[SMS Bot Debug] Online Driver: name=${drv.name}, vehicleType=${drv.vehicleType}, loc=${JSON.stringify(drv.location)}`);
-          });
-          // Look for any online driver with valid location coordinate
-          const driverWithLoc = onlineDrivers.find((d: any) => d.location && typeof d.location.lat === 'number' && typeof d.location.lng === 'number');
-          if (driverWithLoc) {
-            console.log(`[SMS Bot] Active online driver found at [${driverWithLoc.location.lat}, ${driverWithLoc.location.lng}]. Keeping actual resolved geocoded coordinates for pickup and destination!`);
-
-            // Align vehicle type so the online driver receives the request
-            const dVType = (driverWithLoc.vehicleType || "").toLowerCase();
-            let driverVTypeNormalized = 'mini';
-            if (dVType.includes('bike') || dVType.includes('piki') || dVType.includes('boda')) {
-              driverVTypeNormalized = 'bike';
-            } else if (dVType.includes('bajaj')) {
-              driverVTypeNormalized = 'bajaj';
-            } else {
-              driverVTypeNormalized = 'mini';
-            }
-
-            // Override ride's vehicleType and typeName to match the online driver's type for testing
-            if (vehicleType !== driverVTypeNormalized) {
-              console.log(`[SMS Bot] Overriding ride vehicleType from '${vehicleType}' to '${driverVTypeNormalized}' to match the online testing driver.`);
-              vehicleType = driverVTypeNormalized;
-              if (driverVTypeNormalized === 'bike') {
-                typeName = 'Boda Boda ';
-              } else if (driverVTypeNormalized === 'bajaj') {
-                typeName = 'Bajaji ';
-              } else {
-                typeName = 'Gari la Teksi ';
-              }
-            }
-          } else {
-            console.log(`[SMS Bot Debug] No online driver has valid location coordinates.`);
-          }
-        }
-      } catch (err) {
-        console.warn("[SMS Bot] Failed to auto-detect and match online driver location:", err);
-      }
-    }
-
-    // Calculate distance and duration using OSRM with Haversine fallback!
-    const routeInfo = await getRoadDistanceAndDuration(pLoc, dLoc);
-    const distanceKm = routeInfo.distanceKm;
-    const durationMin = routeInfo.durationMin;
-
-    // Fare calculation
-    let fare = 0;
-    if (vehicleType === 'bike') {
-      fare = 300 + distanceKm * 350;
-      if (fare < 1500) fare = 1500;
-    } else if (vehicleType === 'bajaj') {
-      fare = 500 + distanceKm * 500;
-      if (fare < 2500) fare = 2500;
-    } else {
-      fare = 1000 + distanceKm * 800 + durationMin * 100;
-      if (fare < 4000) fare = 4000;
-    }
-    fare = Math.round(fare / 500) * 500; // Round to nearest 500 TZS
-
-    // Get nearby drivers count
-    let nearbyCount = 0;
-    if (dbAdmin) {
-      try {
-        const dSnap = await dbAdmin.collection('drivers')
-          .where('isOnline', '==', true)
-          .where('receiving', '==', true)
-          .get();
-        if (!dSnap.empty) {
-          const driversList = dSnap.docs.map((doc: any) => doc.data());
-          const matchingDrivers = driversList.filter((d: any) => {
-            const dVType = (d.vehicleType || "").toLowerCase();
-            if (dVType === vehicleType) return true;
-            if (vehicleType === 'bike' && (dVType.includes('bike') || dVType.includes('piki') || dVType.includes('boda'))) return true;
-            if (vehicleType === 'bajaj' && dVType.includes('bajaj')) return true;
-            if (vehicleType === 'mini' && (dVType.includes('mini') || dVType.includes('gari') || dVType.includes('cab') || dVType.includes('car') || dVType.includes('taxi'))) return true;
-            return false;
-          });
-          nearbyCount = matchingDrivers.length;
-        }
-      } catch (e) {
-        console.warn("Could not query live drivers count in SMS bot:", e);
-      }
-    }
-    if (nearbyCount === 0) {
-      nearbyCount = Math.floor(Math.random() * 3) + 2; // Simulated 2-4 drivers
-    }
-
-    // Save calculations in optionsList to carry over to confirm state
+    // Update session optionsList with chosen vehicle details
     session.optionsList = [{
       vehicleType,
       typeName,
@@ -2952,20 +2946,36 @@ async function handleSMSInputRaw(
       dLoc,
       pickupName,
       destName,
-      nearbyCount
+      bodaFare: calcData?.bodaFare || 3500,
+      bajajFare: calcData?.bajajFare || 4500,
+      carFare: calcData?.carFare || 6000,
+      nearbyCount: 3
     }];
     
     session.step = 'TAXI_CONFIRM_TRIP';
     await saveSession(session, dbAdmin);
 
-    let reply = ` KADIRIO LA NAULI\n`;
-    reply += `Njia: *${pickupName}*  *${destName}* (${distanceKm}km, ~${durationMin}dk)\n`;
-    reply += `Usafiri: *${typeName}*\n`;
-    reply += `Nauli: *TZS ${fare.toLocaleString()}/=*\n`;
-    reply += `Madereva: ${nearbyCount} karibu\n\n`;
-    reply += `Tafuta dereva sasa?\n`;
-    reply += `1. Ndio, Tafuta Dereva\n`;
-    reply += `2. Hapana, Ghairi`;
+    const isEn = session.language === 'en';
+    if (isEn) {
+      let reply = ` TRIP CONFIRMATION\n`;
+      reply += `Route: ${pickupName} - ${destName} (${distanceKm}km)\n`;
+      reply += `Vehicle: ${typeName}\n`;
+      reply += `Estimated Fare: TZS ${fare.toLocaleString()}\n\n`;
+      reply += `Press:\n`;
+      reply += `1. Confirm & Find Driver\n`;
+      reply += `2. Change Vehicle / Route\n`;
+      reply += `0. Cancel`;
+      return reply;
+    }
+
+    let reply = ` KADIRIO LA NAULI:\n`;
+    reply += `Njia: ${pickupName} - ${destName} (${distanceKm}km)\n`;
+    reply += `Usafiri: ${typeName}\n`;
+    reply += `Nauli iliyokadiriwa: TZS ${fare.toLocaleString()}\n\n`;
+    reply += `Bonyeza:\n`;
+    reply += `1. Kuthibitisha (Tafuta Dereva)\n`;
+    reply += `2. Kubadili (Aina ya Usafiri / Njia)\n`;
+    reply += `0. Ghairi`;
     return reply;
   }
 
@@ -2977,7 +2987,8 @@ async function handleSMSInputRaw(
       return ` Hitilafu imetokea. Tafadhali tuma "HI" kuanza upya.`;
     }
 
-    if (cleanInput === '1' || lowerInput.includes('ndio') || lowerInput.includes('tafuta') || lowerInput.includes('kubali') || lowerInput.includes('yes')) {
+    // 1. Kuthibitisha (Confirm)
+    if (cleanInput === '1' || lowerInput.includes('ndio') || lowerInput.includes('tafuta') || lowerInput.includes('kubali') || lowerInput.includes('yes') || lowerInput.includes('thibitisha')) {
       if (session.passengerName && session.passengerName.trim() && session.passengerPhone && session.passengerPhone.trim()) {
         session.step = 'TAXI_ASK_PREVIOUS_DETAILS';
         await saveSession(session, dbAdmin);
@@ -2987,14 +2998,40 @@ async function handleSMSInputRaw(
         await saveSession(session, dbAdmin);
         return ` MSAFIRI (1/2):\nAndika jina la msafiri (mf: Juma Kiboko):`;
       }
-    } else if (cleanInput === '2' || lowerInput.includes('hapana') || lowerInput.includes('ghairi') || lowerInput.includes('no') || lowerInput.includes('cancel')) {
+    } 
+    // 2. Kubadili (Change vehicle or route)
+    else if (cleanInput === '2' || lowerInput.includes('badili') || lowerInput.includes('change') || lowerInput.includes('switch')) {
+      session.step = 'TAXI_VEHICLE_SELECT';
+      await saveSession(session, dbAdmin);
+      
+      const isEn = session.language === 'en';
+      if (isEn) {
+        let reply = ` CHANGE VEHICLE / ROUTE\n`;
+        reply += `Route: ${calcData.pickupName} - ${calcData.destName}\n\n`;
+        reply += `1. Bodaboda : TZS ${calcData.bodaFare.toLocaleString()}\n`;
+        reply += `2. Bajaji : TZS ${calcData.bajajFare.toLocaleString()}\n`;
+        reply += `3. Taxi Car : TZS ${calcData.carFare.toLocaleString()}\n\n`;
+        reply += `Reply with 1-3 to switch vehicle, or 0 to enter a new route.`;
+        return reply;
+      }
+
+      let reply = ` BADILI AINA YA USAFIRI / NJIA\n`;
+      reply += `Njia: ${calcData.pickupName} - ${calcData.destName}\n\n`;
+      reply += `1. Boda Boda: TZS ${calcData.bodaFare.toLocaleString()}\n`;
+      reply += `2. Bajaji: TZS ${calcData.bajajFare.toLocaleString()}\n`;
+      reply += `3. Gari la Teksi: TZS ${calcData.carFare.toLocaleString()}\n\n`;
+      reply += `Tuma 1-3 kubadili usafiri, au 0 kuandika njia mpya.`;
+      return reply;
+    } 
+    // 0. Ghairi / Cancel
+    else if (cleanInput === '0' || cleanInput === '3' || lowerInput.includes('hapana') || lowerInput.includes('ghairi') || lowerInput.includes('no') || lowerInput.includes('cancel')) {
       session.step = 'START';
       session.selectedService = undefined;
       session.optionsList = [];
       await saveSession(session, dbAdmin);
       return ` Safari imesitishwa. Karibu tena Papo Hapo! `;
     } else {
-      return ` Chaguo si sahihi. Tuma:\n1. Ndio, Tafuta Dereva\n2. Hapana, Ghairi`;
+      return ` Chaguo si sahihi. Bonyeza:\n1. Kuthibitisha (Tafuta Dereva)\n2. Kubadili\n0. Ghairi`;
     }
   }
 
