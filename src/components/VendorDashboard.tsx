@@ -888,7 +888,42 @@ export default function VendorDashboard() {
   // QR Builder State
   const [isQrBuilderOpen, setIsQrBuilderOpen] = useState(false);
   const [qrBuilderMode, setQrBuilderMode] = useState<'table_stand' | 'store_placard' | 'qr_only'>('table_stand');
-  const [tableStandStyle, setTableStandStyle] = useState<'acrylic' | 'wood' | 'tent' | 'gold_metal' | 'dark_modern'>('acrylic');
+  const [tableStandStyle, setTableStandStyle] = useState<'acrylic' | 'wood' | 'tent' | 'gold_metal' | 'dark_modern'>('gold_metal');
+  const [standDisplayLayout, setStandDisplayLayout] = useState<'gold_menu_showcase' | 'single_stand'>('gold_menu_showcase');
+  const [goldMenuBanner, setGoldMenuBanner] = useState('DELICIOUS FOOD • GREAT TASTE • HAPPY YOU');
+  const [showcaseDishes, setShowcaseDishes] = useState([
+    {
+      id: 'dish-1',
+      name: 'KUKU CHOMA',
+      emoji: '🔥',
+      price: '15,000',
+      badge: 'BEST SELLER',
+      badgeColor: '#dc2626',
+      description: 'Kuku choma tamu na ladha ya kipekee, ikichezwa na viungo bora.',
+      imageUrl: 'https://images.unsplash.com/photo-1598103442097-8b74394b95c6?auto=format&fit=crop&w=400&q=80',
+    },
+    {
+      id: 'dish-2',
+      name: 'UGALI NYAMA',
+      emoji: '🍲',
+      price: '15,000',
+      badge: "CHEF'S CHOICE",
+      badgeColor: '#15803d',
+      description: 'Nyama laini iliyopikwa kwa umahiri, ikipendana na ugali mpya wa moto.',
+      imageUrl: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=400&q=80',
+    },
+    {
+      id: 'dish-3',
+      name: 'FRESH JUICE',
+      emoji: '🌿',
+      price: '15,000',
+      badge: 'FRESH & NATURAL',
+      badgeColor: '#1d4ed8',
+      description: 'Juisi safi za matunda, zilizoandaliwa kila siku kwa afya yako.',
+      imageUrl: 'https://images.unsplash.com/photo-1613478223719-2ab802602423?auto=format&fit=crop&w=400&q=80',
+    }
+  ]);
+  const [activeDishEditIndex, setActiveDishEditIndex] = useState<number>(0);
   const [showWifiOnStand, setShowWifiOnStand] = useState(true);
   const [standWifiName, setStandWifiName] = useState('Guest-WiFi');
   const [standWifiPass, setStandWifiPass] = useState('');
@@ -1089,7 +1124,7 @@ export default function VendorDashboard() {
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [isQrBuilderOpen, qrCodeInstance, printDetails.isPrintMode]);
+  }, [isQrBuilderOpen, qrCodeInstance, printDetails.isPrintMode, qrBuilderMode, tableStandStyle, showWifiOnStand]);
 
   const downloadQr = async () => {
     try {
@@ -5457,7 +5492,18 @@ export default function VendorDashboard() {
                                     variant="outline" 
                                     className="flex-1 h-11 bg-neutral-950 border-neutral-800 text-[10px] font-black uppercase text-white rounded-xl gap-2 hover:border-orange-500/50"
                                     onClick={() => {
-                                      setQrOptions({ ...qrOptions, data: `${window.location.origin}/table/${vendorProfile?.id}/${activeTable.number}` });
+                                      const tableNum = activeTable.number || '01';
+                                      setSelectedSection(activeTable);
+                                      setQrBuilderMode('table_stand');
+                                      setPrintDetails((prev: any) => ({
+                                        ...prev,
+                                        isPrintMode: true,
+                                        seatingLabel: 'TABLE',
+                                        customSeating: activeTable.capacity ? `${activeTable.capacity} VITI` : '4 VITI',
+                                        header: vendorProfile?.businessName || 'RESTAURANT',
+                                        subHeader: `MEZA #${tableNum}`
+                                      }));
+                                      setQrOptions({ ...qrOptions, data: `${window.location.origin}/table/${vendorProfile?.id || ''}/${tableNum}` });
                                       setIsQrBuilderOpen(true);
                                     }}
                                   >
@@ -5713,8 +5759,18 @@ export default function VendorDashboard() {
                                 size="icon" 
                                 className="h-10 w-10 rounded-xl bg-neutral-950 text-neutral-500 hover:text-white border border-neutral-800"
                                 onClick={() => {
+                                  const tableNum = section.number || '01';
                                   setSelectedSection(section);
-                                  setQrOptions({ ...qrOptions, data: `${window.location.origin}/table/${vendorProfile?.id}/${section.number}` });
+                                  setQrBuilderMode('table_stand');
+                                  setPrintDetails((prev: any) => ({
+                                    ...prev,
+                                    isPrintMode: true,
+                                    seatingLabel: 'TABLE',
+                                    customSeating: section.capacity ? `${section.capacity} VITI` : '4 VITI',
+                                    header: vendorProfile?.businessName || 'RESTAURANT',
+                                    subHeader: `MEZA #${tableNum}`
+                                  }));
+                                  setQrOptions({ ...qrOptions, data: `${window.location.origin}/table/${vendorProfile?.id || ''}/${tableNum}` });
                                   setIsQrBuilderOpen(true);
                                 }}
                               >
@@ -11002,7 +11058,7 @@ export default function VendorDashboard() {
       {/* QR Builder Modal */}
       <AnimatePresence>
         {isQrBuilderOpen && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-2 sm:p-4">
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -11011,28 +11067,97 @@ export default function VendorDashboard() {
               className="absolute inset-0 bg-black/90 backdrop-blur-md"
             />
             <motion.div 
-              initial={{ opacity: 0, scale: 0.9, y: 30 }}
+              initial={{ opacity: 0, scale: 0.94, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 30 }}
-              className="relative w-full max-w-5xl bg-[#0F0F11] border border-white/10 rounded-[3rem] overflow-hidden shadow-2xl max-h-[90vh] flex flex-col"
+              exit={{ opacity: 0, scale: 0.94, y: 20 }}
+              className="relative w-full max-w-6xl bg-[#0d0d11] border border-white/10 rounded-[2.5rem] overflow-hidden shadow-2xl max-h-[92vh] flex flex-col z-10"
             >
-              <div className="p-8 border-b border-white/5 flex items-center justify-between shrink-0 bg-black/20">
+              {/* Modal Header & Mode Switcher */}
+              <div className="p-5 sm:p-6 border-b border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0 bg-neutral-950/80 backdrop-blur-xl">
                 <div>
-                  <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter">
-                    Qr Builder {selectedSection && <span className="text-orange-600">— Aisle Stand: {selectedSection.number}</span>}
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-400 text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-xs">
+                      <Sparkles className="w-3 h-3 text-amber-400" />
+                      {qrBuilderMode === 'table_stand' 
+                        ? (standDisplayLayout === 'gold_menu_showcase' ? 'Stand ya Menyu ya Dhahabu (Gold Menu Placard)' : 'Stand ya Mezani (Single Table Stand)') 
+                        : qrBuilderMode === 'store_placard' ? 'Bango la Dukani' : 'QR Code Pekee'}
+                    </span>
+                    {selectedSection && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-white/10 text-white font-mono text-[10px] font-black tracking-tight">
+                        {vendorProfile?.category === 'restaurant' ? `MEZA #${selectedSection.number}` : `AISLE #${selectedSection.number}`}
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-xl sm:text-2xl font-black text-white italic uppercase tracking-tighter flex items-center gap-2">
+                    {qrBuilderMode === 'table_stand' 
+                      ? (standDisplayLayout === 'gold_menu_showcase' 
+                          ? (selectedSection ? `Stand ya Menyu ya Dhahabu: Meza #${selectedSection.number}` : 'Buni Stand ya Menyu ya Dhahabu (Gold Menu Placard)')
+                          : (selectedSection ? `Stand ya Meza: #${selectedSection.number}` : 'Buni Stand ya Mezani (Single Stand)'))
+                      : qrBuilderMode === 'store_placard'
+                      ? (selectedSection ? `Bango la Aisle: #${selectedSection.number}` : 'Bango la Kaunta / Dukani')
+                      : 'QR Code Customizer'}
                   </h3>
-                  <p className="text-xs text-neutral-500 font-bold uppercase tracking-widest">
-                    {selectedSection ? `Design for Aisle ${selectedSection.number}` : 'Customize your digital experience'}
+                  <p className="text-[11px] text-neutral-400 font-medium">
+                    {standDisplayLayout === 'gold_menu_showcase'
+                      ? 'Stand maridadi ya dhahabu yenye vyakula 3 pendwa, picha, bei, maelezo na QR codes za kuagiza papo hapo mezani'
+                      : 'Stand ya mezani yenye QR kuu, WiFi ya wageni, nambari ya meza & nembo ya mgahawa'}
                   </p>
                 </div>
-                <button 
-                  onClick={() => setIsQrBuilderOpen(false)} 
-                  className="text-white bg-white/5 hover:bg-white/10 p-3 rounded-2xl transition-all"
-                >
-                  <X className="w-6 h-6" />
-                </button>
+
+                {/* Mode Selector Tabs */}
+                <div className="flex items-center gap-1 bg-black/60 p-1.5 rounded-2xl border border-white/10 self-start md:self-center shrink-0">
+                  <button
+                    onClick={() => {
+                      setQrBuilderMode('table_stand');
+                      setPrintDetails((prev: any) => ({ ...prev, isPrintMode: true }));
+                    }}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
+                      qrBuilderMode === 'table_stand' 
+                        ? 'bg-gradient-to-r from-amber-600 to-orange-500 text-white shadow-lg shadow-orange-950/50' 
+                        : 'text-neutral-400 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    <UtensilsCrossed className="w-3.5 h-3.5" />
+                    <span>Stand ya Mezani</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setQrBuilderMode('store_placard');
+                      setPrintDetails((prev: any) => ({ ...prev, isPrintMode: true }));
+                    }}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
+                      qrBuilderMode === 'store_placard' 
+                        ? 'bg-gradient-to-r from-amber-600 to-orange-500 text-white shadow-lg shadow-orange-950/50' 
+                        : 'text-neutral-400 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    <Store className="w-3.5 h-3.5" />
+                    <span>Bango la Dukani</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setQrBuilderMode('qr_only');
+                      setPrintDetails((prev: any) => ({ ...prev, isPrintMode: false }));
+                    }}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
+                      qrBuilderMode === 'qr_only' 
+                        ? 'bg-gradient-to-r from-amber-600 to-orange-500 text-white shadow-lg shadow-orange-950/50' 
+                        : 'text-neutral-400 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    <QrCode className="w-3.5 h-3.5" />
+                    <span>QR Pekee</span>
+                  </button>
+                  <button 
+                    onClick={() => setIsQrBuilderOpen(false)} 
+                    className="text-white bg-white/5 hover:bg-white/10 p-2.5 rounded-xl transition-all ml-1.5 cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
 
+              {/* Main Modal Body (Left: Customization Panel, Right: Live Stand Preview) */}
               <div className="flex-1 overflow-hidden flex flex-col lg:flex-row">
                 {/* Options Panel */}
                 {staffProfile?.role === 'waiter' ? (
@@ -11044,64 +11169,501 @@ export default function VendorDashboard() {
                     </p>
                   </div>
                 ) : (
-                  <div className="flex-1 overflow-y-auto p-8 space-y-10 custom-scrollbar border-r border-white/5 bg-black/40">
+                  <div className="flex-1 overflow-y-auto p-5 sm:p-7 space-y-7 custom-scrollbar border-r border-white/5 bg-[#09090b]/90">
                   
-                  {/* QR Data Preview */}
-                  <div className="space-y-4">
-                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] px-1">Target URL / Link ya Bidhaa</label>
-                    <div className="bg-neutral-900 border border-white/5 rounded-2xl p-4 flex items-center gap-3">
-                       <LinkIcon className="w-4 h-4 text-orange-600 shrink-0" />
-                       <p className="text-[10px] font-mono text-neutral-400 break-all">{qrOptions.data || 'Hakuna Link...'}</p>
-                    </div>
-                  </div>
+                  {/* Mode: Table Stand Controls */}
+                  {qrBuilderMode === 'table_stand' && (
+                    <div className="space-y-6">
+                      
+                      {/* Stand Layout Selector: Gold Menu Showcase vs Single Stand */}
+                      <div className="space-y-2.5">
+                        <label className="text-[10px] font-black text-amber-400 uppercase tracking-[0.2em] px-1 flex items-center gap-1.5">
+                          <Crown className="w-3.5 h-3.5 text-amber-400" /> Muundo wa Stand ya Mezani (Stand Layout)
+                        </label>
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <button
+                            onClick={() => {
+                              setStandDisplayLayout('gold_menu_showcase');
+                              setTableStandStyle('gold_metal');
+                            }}
+                            className={`p-3 rounded-2xl border text-left transition-all relative overflow-hidden cursor-pointer ${
+                              standDisplayLayout === 'gold_menu_showcase'
+                                ? 'bg-gradient-to-br from-amber-950/60 to-black border-amber-500 text-white ring-1 ring-amber-400/50 shadow-xl'
+                                : 'bg-neutral-900/60 border-white/5 text-neutral-400 hover:border-white/20'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-lg">🏆</span>
+                              <span className="text-[7.5px] font-black px-1.5 py-0.5 rounded-full bg-amber-500 text-black uppercase tracking-widest">LUXURY GOLD</span>
+                            </div>
+                            <h4 className="text-xs font-black uppercase text-amber-200">Showcase ya Dhahabu</h4>
+                            <p className="text-[9px] text-neutral-400 mt-0.5 leading-tight">Vyakula 3, picha, bei & QR za kila sahani (Kama Picha)</p>
+                          </button>
 
-                  {/* Export Resolution & Custom Size */}
-                  <div className="space-y-4 pt-4 border-t border-white/5">
-                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] px-1">Export Size & Resolution / Vipimo vya Kupakua</label>
-                    <div className="bg-neutral-900/40 border border-white/5 rounded-2xl p-4 space-y-4">
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs font-bold text-neutral-400">Scale / Ukubwa:</span>
-                        <span className="text-xs font-mono font-black text-orange-500">{exportSize * 10} x {exportSize * 10} px</span>
+                          <button
+                            onClick={() => setStandDisplayLayout('single_stand')}
+                            className={`p-3 rounded-2xl border text-left transition-all relative overflow-hidden cursor-pointer ${
+                              standDisplayLayout === 'single_stand'
+                                ? 'bg-gradient-to-br from-orange-950/60 to-black border-orange-500 text-white ring-1 ring-orange-400/50 shadow-xl'
+                                : 'bg-neutral-900/60 border-white/5 text-neutral-400 hover:border-white/20'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-lg">🪟</span>
+                              <span className="text-[7.5px] font-black px-1.5 py-0.5 rounded-full bg-white/10 text-neutral-300 uppercase tracking-widest">MINIMALIST</span>
+                            </div>
+                            <h4 className="text-xs font-black uppercase text-white">Stand ya QR Moja</h4>
+                            <p className="text-[9px] text-neutral-400 mt-0.5 leading-tight">QR kubwa ya meza, nembo & WiFi ya wageni</p>
+                          </button>
+                        </div>
                       </div>
-                      <input 
-                        type="range"
-                        min="50"
-                        max="300"
-                        step="10"
-                        value={exportSize}
-                        onChange={(e) => setExportSize(parseInt(e.target.value))}
-                        className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-orange-600 focus:outline-none"
-                      />
-                      <p className="text-[8px] text-neutral-500 font-bold uppercase tracking-tight">
-                        Chagua azimio (Resolution) unayotaka wakati wa kudownload. Scale kubwa inaleta QR iliyo wazi zaidi wakati wa kuchapisha (Print).
-                      </p>
-                    </div>
-                  </div>
 
-                  {/* QR Pattern Shape */}
-                  <div className="space-y-4">
-                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] px-1">Pattern Shape / Michoro ya QR</label>
-                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+                      {/* Controls for Gold Menu Showcase */}
+                      {standDisplayLayout === 'gold_menu_showcase' && (
+                        <div className="space-y-6 animate-in fade-in duration-300">
+                          
+                          {/* Banner Header & Quick Actions */}
+                          <div className="space-y-3 p-4 bg-amber-950/20 border border-amber-500/20 rounded-2xl">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[9px] font-black text-amber-300 uppercase tracking-widest flex items-center gap-1.5">
+                                <Sparkles className="w-3 h-3 text-amber-400" /> Kichwa cha Juu (Top Banner Text)
+                              </span>
+                              <div className="flex items-center gap-2">
+                                {products.length > 0 && (
+                                  <button
+                                    onClick={() => {
+                                      const autoDishes = products.slice(0, 3).map((p, idx) => ({
+                                        id: `dish-prod-${p.id || idx}`,
+                                        name: p.name.toUpperCase(),
+                                        emoji: idx === 0 ? '🔥' : idx === 1 ? '🍲' : '🌿',
+                                        price: Number(p.price).toLocaleString(),
+                                        badge: idx === 0 ? 'BEST SELLER' : idx === 1 ? "CHEF'S CHOICE" : 'FRESH & NATURAL',
+                                        badgeColor: idx === 0 ? '#dc2626' : idx === 1 ? '#15803d' : '#1d4ed8',
+                                        description: p.description || 'Chakula kizuri kilichoandaliwa kwa ubora na usafi wa hali ya juu.',
+                                        imageUrl: p.imageUrl || 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=400&q=80',
+                                      }));
+                                      if (autoDishes.length < 3) {
+                                        // pad if less than 3
+                                        while (autoDishes.length < 3) {
+                                          autoDishes.push({
+                                            id: `dish-pad-${autoDishes.length}`,
+                                            name: 'SPECIAL DISH',
+                                            emoji: '✨',
+                                            price: '10,000',
+                                            badge: 'POPULAR',
+                                            badgeColor: '#d97706',
+                                            description: 'Chakula kitamu na vinywaji safi kwa ajili yako.',
+                                            imageUrl: 'https://images.unsplash.com/photo-1598103442097-8b74394b95c6?auto=format&fit=crop&w=400&q=80',
+                                          });
+                                        }
+                                      }
+                                      setShowcaseDishes(autoDishes);
+                                      toast.success('Vyakula kutoka duka lako vimepakiwa kwenye stand!');
+                                    }}
+                                    className="px-2.5 py-1 rounded-lg bg-amber-600/30 hover:bg-amber-600/50 text-amber-200 text-[8.5px] font-black uppercase tracking-wider border border-amber-500/30 transition-all cursor-pointer"
+                                  >
+                                    Pakia kutoka Menyu Yangu
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => {
+                                    setShowcaseDishes([
+                                      {
+                                        id: 'dish-1',
+                                        name: 'KUKU CHOMA',
+                                        emoji: '🔥',
+                                        price: '15,000',
+                                        badge: 'BEST SELLER',
+                                        badgeColor: '#dc2626',
+                                        description: 'Kuku choma tamu na ladha ya kipekee, ikichezwa na viungo bora.',
+                                        imageUrl: 'https://images.unsplash.com/photo-1598103442097-8b74394b95c6?auto=format&fit=crop&w=400&q=80',
+                                      },
+                                      {
+                                        id: 'dish-2',
+                                        name: 'UGALI NYAMA',
+                                        emoji: '🍲',
+                                        price: '15,000',
+                                        badge: "CHEF'S CHOICE",
+                                        badgeColor: '#15803d',
+                                        description: 'Nyama laini iliyopikwa kwa umahiri, ikipendana na ugali mpya wa moto.',
+                                        imageUrl: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=400&q=80',
+                                      },
+                                      {
+                                        id: 'dish-3',
+                                        name: 'FRESH JUICE',
+                                        emoji: '🌿',
+                                        price: '15,000',
+                                        badge: 'FRESH & NATURAL',
+                                        badgeColor: '#1d4ed8',
+                                        description: 'Juisi safi za matunda, zilizoandaliwa kila siku kwa afya yako.',
+                                        imageUrl: 'https://images.unsplash.com/photo-1613478223719-2ab802602423?auto=format&fit=crop&w=400&q=80',
+                                      }
+                                    ]);
+                                    toast.success('Mfano wa Dhahabu umerejeshwa!');
+                                  }}
+                                  className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-neutral-400 text-[8.5px] font-black uppercase tracking-wider border border-white/10 transition-all cursor-pointer"
+                                >
+                                  Rudisha Mfano
+                                </button>
+                              </div>
+                            </div>
+
+                            <Input 
+                              value={goldMenuBanner}
+                              onChange={(e) => setGoldMenuBanner(e.target.value.toUpperCase())}
+                              placeholder="DELICIOUS FOOD • GREAT TASTE • HAPPY YOU"
+                              className="bg-black/60 border-amber-500/30 h-10 rounded-xl text-amber-200 font-black text-xs uppercase tracking-wider text-center"
+                            />
+                          </div>
+
+                          {/* 3 Dishes Customizer Accordion/Tabs */}
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <label className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em] px-1">
+                                Rekebisha Sahani 3 za Dhahabu (Custom Dishes)
+                              </label>
+                              <span className="text-[8.5px] font-mono text-amber-400 font-bold">Sahani {activeDishEditIndex + 1} kati ya 3</span>
+                            </div>
+
+                            {/* Dish Select Tabs */}
+                            <div className="grid grid-cols-3 gap-2">
+                              {showcaseDishes.map((dish, idx) => (
+                                <button
+                                  key={`dish-tab-${dish.id}-${idx}`}
+                                  onClick={() => setActiveDishEditIndex(idx)}
+                                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                                    activeDishEditIndex === idx 
+                                      ? 'bg-amber-600/20 border-amber-500 text-amber-300 ring-1 ring-amber-500/40' 
+                                      : 'bg-neutral-900/60 border-white/5 text-neutral-400 hover:border-white/20'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-base">{dish.emoji || '🍽️'}</span>
+                                    <div className="truncate min-w-0">
+                                      <p className="text-[10px] font-black uppercase text-white truncate">#{idx + 1} {dish.name || `Sahani ${idx + 1}`}</p>
+                                      <p className="text-[8.5px] text-amber-400 font-mono font-bold truncate">TSH {dish.price}</p>
+                                    </div>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+
+                            {/* Active Dish Editor Box */}
+                            {showcaseDishes[activeDishEditIndex] && (
+                              <div className="bg-neutral-900/70 border border-white/10 rounded-2xl p-4 space-y-3.5 animate-in fade-in duration-150">
+                                <div className="flex items-center justify-between pb-2 border-b border-white/5">
+                                  <span className="text-[10px] font-black text-white uppercase tracking-wider flex items-center gap-1.5">
+                                    <Utensils className="w-3.5 h-3.5 text-amber-400" />
+                                    Mipangilio ya Sahani #{activeDishEditIndex + 1}: {showcaseDishes[activeDishEditIndex].name}
+                                  </span>
+                                  
+                                  {/* Quick pick from inventory */}
+                                  {products.length > 0 && (
+                                    <select
+                                      onChange={(e) => {
+                                        const prod = products.find(p => p.id === e.target.value);
+                                        if (prod) {
+                                          const updated = [...showcaseDishes];
+                                          updated[activeDishEditIndex] = {
+                                            ...updated[activeDishEditIndex],
+                                            name: prod.name.toUpperCase(),
+                                            price: Number(prod.price).toLocaleString(),
+                                            description: prod.description || 'Chakula kitamu na chenye ladha safi.',
+                                            imageUrl: prod.imageUrl || updated[activeDishEditIndex].imageUrl,
+                                          };
+                                          setShowcaseDishes(updated);
+                                        }
+                                      }}
+                                      className="bg-neutral-950 border border-white/15 text-neutral-300 text-[9px] font-bold rounded-lg px-2 py-1 outline-none max-w-[140px] truncate"
+                                      defaultValue=""
+                                    >
+                                      <option value="" disabled>Chagua kutoka Menyu...</option>
+                                      {products.map(p => (
+                                        <option key={p.id} value={p.id}>{p.name} (TSH {Number(p.price).toLocaleString()})</option>
+                                      ))}
+                                    </select>
+                                  )}
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div className="space-y-1">
+                                    <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest block">Jina la Chakula</span>
+                                    <Input 
+                                      value={showcaseDishes[activeDishEditIndex].name}
+                                      onChange={(e) => {
+                                        const updated = [...showcaseDishes];
+                                        updated[activeDishEditIndex].name = e.target.value.toUpperCase();
+                                        setShowcaseDishes(updated);
+                                      }}
+                                      placeholder="e.g. KUKU CHOMA"
+                                      className="bg-neutral-950 border-white/10 h-10 rounded-xl text-white font-black text-xs uppercase"
+                                    />
+                                  </div>
+
+                                  <div className="space-y-1">
+                                    <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest block">Bei (TSH)</span>
+                                    <Input 
+                                      value={showcaseDishes[activeDishEditIndex].price}
+                                      onChange={(e) => {
+                                        const updated = [...showcaseDishes];
+                                        updated[activeDishEditIndex].price = e.target.value;
+                                        setShowcaseDishes(updated);
+                                      }}
+                                      placeholder="15,000"
+                                      className="bg-neutral-950 border-white/10 h-10 rounded-xl text-amber-300 font-mono font-black text-xs"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div className="space-y-1">
+                                    <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest block">Emoji ya Chakula</span>
+                                    <div className="flex items-center gap-1.5">
+                                      {['🔥', '🍲', '🌿', '🥩', '🍗', '🐟', '🍕', '🍔', '🍹', '☕'].map(em => (
+                                        <button
+                                          key={em}
+                                          type="button"
+                                          onClick={() => {
+                                            const updated = [...showcaseDishes];
+                                            updated[activeDishEditIndex].emoji = em;
+                                            setShowcaseDishes(updated);
+                                          }}
+                                          className={`w-7 h-7 rounded-lg text-xs flex items-center justify-center transition-all ${
+                                            showcaseDishes[activeDishEditIndex].emoji === em ? 'bg-amber-600 text-white scale-110' : 'bg-neutral-950 hover:bg-neutral-800'
+                                          }`}
+                                        >
+                                          {em}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+
+                                  <div className="space-y-1">
+                                    <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest block">Taji / Badge ya Sahani</span>
+                                    <div className="flex items-center gap-1.5">
+                                      <select
+                                        value={showcaseDishes[activeDishEditIndex].badge}
+                                        onChange={(e) => {
+                                          const updated = [...showcaseDishes];
+                                          updated[activeDishEditIndex].badge = e.target.value;
+                                          if (e.target.value === 'BEST SELLER') updated[activeDishEditIndex].badgeColor = '#dc2626';
+                                          if (e.target.value === "CHEF'S CHOICE") updated[activeDishEditIndex].badgeColor = '#15803d';
+                                          if (e.target.value === 'FRESH & NATURAL') updated[activeDishEditIndex].badgeColor = '#1d4ed8';
+                                          if (e.target.value === 'VIP SPECIAL') updated[activeDishEditIndex].badgeColor = '#b45309';
+                                          setShowcaseDishes(updated);
+                                        }}
+                                        className="bg-neutral-950 border border-white/10 text-white text-[10px] font-bold rounded-xl h-10 px-2 w-full outline-none uppercase"
+                                      >
+                                        <option value="BEST SELLER">BEST SELLER ★★★</option>
+                                        <option value="CHEF'S CHOICE">CHEF'S CHOICE ★★★</option>
+                                        <option value="FRESH & NATURAL">FRESH & NATURAL ★★★</option>
+                                        <option value="VIP SPECIAL">VIP SPECIAL 🔥</option>
+                                        <option value="MOST POPULAR">MOST POPULAR ✨</option>
+                                        <option value="HOT OFFER">HOT OFFER 💥</option>
+                                      </select>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="space-y-1">
+                                  <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest block">Maelezo Mafupi ya Chakula (Description)</span>
+                                  <Input 
+                                    value={showcaseDishes[activeDishEditIndex].description}
+                                    onChange={(e) => {
+                                      const updated = [...showcaseDishes];
+                                      updated[activeDishEditIndex].description = e.target.value;
+                                      setShowcaseDishes(updated);
+                                    }}
+                                    placeholder="Kuku choma tamu na ladha ya kipekee, ikichezwa na viungo bora."
+                                    className="bg-neutral-950 border-white/10 h-10 rounded-xl text-neutral-300 text-xs"
+                                  />
+                                </div>
+
+                                <div className="space-y-1">
+                                  <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest block">Picha ya Sahani (Image URL)</span>
+                                  <Input 
+                                    value={showcaseDishes[activeDishEditIndex].imageUrl}
+                                    onChange={(e) => {
+                                      const updated = [...showcaseDishes];
+                                      updated[activeDishEditIndex].imageUrl = e.target.value;
+                                      setShowcaseDishes(updated);
+                                    }}
+                                    placeholder="https://images.unsplash.com/..."
+                                    className="bg-neutral-950 border-white/10 h-10 rounded-xl text-neutral-400 text-[10px] font-mono"
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Controls for Single Table Stand */}
+                      {standDisplayLayout === 'single_stand' && (
+                        <div className="space-y-6 animate-in fade-in duration-300">
+                          {/* 1. Material & Stand Style Selector */}
+                          <div className="space-y-3.5">
+                            <div className="flex items-center justify-between">
+                              <label className="text-[10px] font-black text-orange-500 uppercase tracking-[0.2em] px-1 flex items-center gap-1.5">
+                                <Sparkles className="w-3 h-3" /> Aina ya Stand ya Mezani (Stand Material & Style)
+                              </label>
+                              <span className="text-[9px] font-bold text-neutral-400 uppercase">5 Mitindo ya Kisasa</span>
+                            </div>
+
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                              {[
+                                { id: 'acrylic' as const, name: 'Acrylic Glass', swahili: 'Kioo cha Acrylic', desc: 'Clear translucent & crystal gloss', icon: '🪟', badge: 'POPULAR' },
+                                { id: 'wood' as const, name: 'Wooden Block', swahili: 'Mbao ya Kisasa', desc: 'Mahogany & Teak wood finish', icon: '🪵', badge: 'WARM' },
+                                { id: 'tent' as const, name: 'Table Tent', swahili: 'Kadi ya Pembetatu', desc: 'Foldable double-sided card', icon: '⛺', badge: 'CLASSIC' },
+                                { id: 'gold_metal' as const, name: 'Gold Metal', swahili: 'Dhahabu ya Kifahari', desc: 'Brushed brass & luxury obsidian', icon: '🏆', badge: 'VIP LUXURY' },
+                                { id: 'dark_modern' as const, name: 'Bar / Lounge', swahili: 'Stand ya Bar & Giza', desc: 'Matte black & neon amber glow', icon: '🍸', badge: 'NIGHTCLUB' }
+                              ].map((st) => (
+                                <button
+                                  key={st.id}
+                                  onClick={() => {
+                                    setTableStandStyle(st.id);
+                                    setPrintDetails((prev: any) => ({
+                                      ...prev,
+                                      isPrintMode: true,
+                                      headerBg: st.id === 'acrylic' ? '#ffffff' : st.id === 'wood' ? '#78350f' : st.id === 'gold_metal' ? '#171717' : st.id === 'dark_modern' ? '#0a0a0a' : '#1e293b',
+                                      contentBg: st.id === 'acrylic' ? '#ffffff' : st.id === 'wood' ? '#fef3c7' : st.id === 'gold_metal' ? '#0a0a0a' : st.id === 'dark_modern' ? '#09090b' : '#ffffff',
+                                      accentColor: st.id === 'gold_metal' ? '#d97706' : st.id === 'dark_modern' ? '#f97316' : '#ea580c'
+                                    }));
+                                  }}
+                                  className={`p-3 rounded-2xl border text-left transition-all relative overflow-hidden group cursor-pointer ${
+                                    tableStandStyle === st.id
+                                      ? 'bg-orange-600/15 border-orange-500 text-white ring-1 ring-orange-500/50 shadow-lg shadow-orange-950/30'
+                                      : 'bg-neutral-900/60 border-white/5 text-neutral-400 hover:border-white/20 hover:bg-neutral-900'
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between mb-1">
+                                    <span className="text-xl">{st.icon}</span>
+                                    <span className={`text-[7.5px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-tighter ${
+                                      tableStandStyle === st.id ? 'bg-orange-600 text-white' : 'bg-white/5 text-neutral-500'
+                                    }`}>
+                                      {st.badge}
+                                    </span>
+                                  </div>
+                                  <h4 className="text-xs font-black uppercase text-white truncate">{st.swahili}</h4>
+                                  <p className="text-[9px] text-neutral-400 truncate mt-0.5">{st.name}</p>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Callout Headline */}
+                          <div className="space-y-3 pt-2">
+                            <label className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em] px-1 block">
+                              Wito wa Stand / Callout Headline
+                            </label>
+                            <Input 
+                              placeholder="SCAN & AGIZA HAPA"
+                              className="bg-neutral-900 border-white/10 h-11 rounded-xl text-white font-black text-xs uppercase tracking-wider"
+                              value={standCallout}
+                              onChange={(e) => setStandCallout(e.target.value.toUpperCase())}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Guest WiFi & Table Info (Shared for all table stand formats) */}
+                      <div className="space-y-4 pt-4 border-t border-white/5">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <span className="text-[8.5px] font-black text-neutral-400 uppercase tracking-widest block">Nambari ya Meza (Table #)</span>
+                            <Input 
+                              placeholder="02 au MEZA 02"
+                              className="bg-neutral-900 border-white/10 h-10 rounded-xl text-white font-mono font-black text-center text-sm focus:ring-1 focus:ring-amber-500 uppercase"
+                              value={selectedSection?.number || '02'}
+                              onChange={(e) => {
+                                if (selectedSection) {
+                                  setSelectedSection({ ...selectedSection, number: e.target.value });
+                                }
+                              }}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <span className="text-[8.5px] font-black text-neutral-400 uppercase tracking-widest block">Idadi ya Viti (Capacity)</span>
+                            <Input 
+                              placeholder="4 Viti"
+                              className="bg-neutral-900 border-white/10 h-10 rounded-xl text-white font-black text-center text-xs focus:ring-1 focus:ring-amber-500 uppercase"
+                              value={printDetails.customSeating || (selectedSection?.capacity ? `${selectedSection.capacity} VITI` : '4 VITI')}
+                              onChange={(e) => setPrintDetails({ ...printDetails, customSeating: e.target.value })}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Guest WiFi Toggle */}
+                        <div className="bg-neutral-900/60 border border-white/5 rounded-2xl p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5 text-left">
+                              <div className="flex items-center gap-2">
+                                <Wifi className="w-3.5 h-3.5 text-amber-400" />
+                                <label className="text-[10px] font-black text-white uppercase tracking-[0.2em]">WiFi ya Wageni kwenye Stand</label>
+                              </div>
+                              <p className="text-[8.5px] text-neutral-400 font-medium">Onyesha jina na nenosiri la WiFi moja kwa moja kwenye stand</p>
+                            </div>
+                            <button 
+                              onClick={() => setShowWifiOnStand(!showWifiOnStand)}
+                              className={`w-12 h-6 rounded-full transition-all relative flex items-center px-1 shrink-0 cursor-pointer ${showWifiOnStand ? 'bg-amber-600' : 'bg-neutral-800'}`}
+                            >
+                              <div className={`w-4 h-4 bg-white rounded-full transition-all shadow-sm ${showWifiOnStand ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                            </button>
+                          </div>
+
+                          {showWifiOnStand && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 animate-in fade-in duration-200">
+                              <div className="space-y-1">
+                                <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest block">Jina la WiFi (SSID)</span>
+                                <Input 
+                                  placeholder="e.g. Serena-Guest"
+                                  className="bg-neutral-950 border-white/10 h-9 rounded-xl text-white font-mono text-xs"
+                                  value={standWifiName}
+                                  onChange={(e) => setStandWifiName(e.target.value)}
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest block">Nenosiri (Password)</span>
+                                <Input 
+                                  placeholder="e.g. karibu2026 (au BURE)"
+                                  className="bg-neutral-950 border-white/10 h-9 rounded-xl text-white font-mono text-xs"
+                                  value={standWifiPass}
+                                  onChange={(e) => setStandWifiPass(e.target.value)}
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* QR Pattern Shape (Available for all modes) */}
+                  <div className="space-y-4 pt-4 border-t border-white/5">
+                    <label className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em] px-1 block">
+                      Mchoro wa QR (Pattern Dots & Corners)
+                    </label>
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                       {(['square', 'dots', 'rounded', 'extra-rounded', 'classy', 'classy-rounded'] as DotType[]).map((type, tIdx) => (
                         <button
                           key={`qr-dot-style-${type}-${tIdx}`}
                           onClick={() => setPatternShape(type)}
-                          className={`aspect-square rounded-2xl border transition-all flex flex-col items-center justify-center gap-2 ${
+                          className={`aspect-square rounded-2xl border transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer ${
                             patternShape === type 
-                              ? 'bg-orange-600 border-orange-500 text-white shadow-lg shadow-orange-950/20' 
-                              : 'bg-neutral-900 border-white/5 text-neutral-500 hover:border-white/20'
+                              ? 'bg-amber-600 border-amber-500 text-white shadow-lg shadow-amber-950/30' 
+                              : 'bg-neutral-900 border-white/5 text-neutral-400 hover:border-white/20'
                           }`}
                         >
-                          <div className={`w-8 h-8 border-2 border-current rounded-sm flex flex-wrap p-1 gap-1 overflow-hidden opacity-80`}>
+                          <div className="w-6 h-6 border border-current rounded-xs flex flex-wrap p-0.5 gap-0.5 overflow-hidden opacity-90">
                              {Array.from({length: 4}).map((_, i) => (
-                               <div key={`qr-dot-sub-${type}-${i}`} className={`w-2 h-2 bg-current ${
+                               <div key={`qr-dot-sub-${type}-${i}`} className={`w-1.5 h-1.5 bg-current ${
                                  type === 'dots' ? 'rounded-full' : 
-                                 type === 'rounded' ? 'rounded-sm' : 
+                                 type === 'rounded' ? 'rounded-xs' : 
                                  'rounded-none'
                                }`}></div>
                              ))}
                           </div>
-                          <span className="text-[8px] font-black uppercase tracking-widest">{type.replace('-', ' ')}</span>
+                          <span className="text-[7.5px] font-black uppercase tracking-tighter truncate px-1">{type.replace('-', ' ')}</span>
                         </button>
                       ))}
                     </div>
@@ -11109,969 +11671,488 @@ export default function VendorDashboard() {
 
                   {/* Corner Square & Dot style */}
                   <div className="space-y-4">
-                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] px-1">Corner Style / Muonekano wa Kona (Eyes)</label>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <label className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em] px-1 block">Corner Style (Macho ya QR)</label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                       {(['square', 'dot', 'extra-rounded', 'rounded'] as any[]).map((type, tIdx) => (
                         <button
                           key={`qr-eye-style-${type}-${tIdx}`}
                           onClick={() => setCornerStyle(type)}
-                          className={`h-14 rounded-2xl border transition-all flex items-center justify-center gap-3 ${
+                          className={`h-12 rounded-xl border transition-all flex items-center justify-center gap-2.5 cursor-pointer ${
                             cornerStyle === type 
-                              ? 'bg-orange-600 border-orange-500 text-white shadow-lg shadow-orange-950/20' 
-                              : 'bg-neutral-900 border-white/5 text-neutral-500 hover:border-white/20'
+                              ? 'bg-amber-600 border-amber-500 text-white shadow-md shadow-amber-950/30' 
+                              : 'bg-neutral-900 border-white/5 text-neutral-400 hover:border-white/20'
                           }`}
                         >
-                          <div className={`w-6 h-6 border-2 border-current flex items-center justify-center ${
+                          <div className={`w-5 h-5 border-2 border-current flex items-center justify-center ${
                              type === 'dot' ? 'rounded-full' : 
-                             type === 'extra-rounded' ? 'rounded-lg' : 
+                             type === 'extra-rounded' ? 'rounded-md' : 
                              'rounded-none'
                           }`}>
-                             <div className={`w-2 h-2 bg-current ${type === 'dot' ? 'rounded-full' : type === 'extra-rounded' ? 'rounded-sm' : 'rounded-none'}`}></div>
+                             <div className={`w-1.5 h-1.5 bg-current ${type === 'dot' ? 'rounded-full' : type === 'extra-rounded' ? 'rounded-xs' : 'rounded-none'}`}></div>
                           </div>
-                          <span className="text-[9px] font-black uppercase tracking-widest">{type}</span>
+                          <span className="text-[8.5px] font-black uppercase tracking-wider">{type}</span>
                         </button>
                       ))}
                     </div>
                   </div>
 
-                  {/* Logo Centered or Not */}
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                       <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] px-1">Logo Centered / Nembo ya Kati</label>
-                       <button 
-                         onClick={() => setIsLogoCentered(!isLogoCentered)}
-                         className={`text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest transition-all ${
-                           isLogoCentered ? 'bg-orange-600 text-white' : 'bg-neutral-800 text-neutral-400'
-                         }`}
-                       >
-                         {isLogoCentered ? 'Nembo Ipo Kati' : 'Weka Nembo Kati'}
-                       </button>
-                    </div>
-                    {isLogoCentered && (
-                      <div className="p-4 rounded-2xl bg-neutral-950 border border-white/5 space-y-4">
-                        <div className="flex items-center gap-3">
-                          {vendorProfile?.logoUrl ? (
-                            <img src={getProxiedImageUrl(vendorProfile.logoUrl)} alt="Logo" className="w-10 h-10 rounded-xl object-cover bg-neutral-900 border border-white/10" referrerPolicy="no-referrer" />
-                          ) : (
-                            <div className="w-10 h-10 rounded-xl bg-orange-600/20 text-orange-500 font-bold flex items-center justify-center text-xs">
-                              {vendorProfile?.businessName?.[0] || 'V'}
-                            </div>
-                          )}
-                          <div className="text-left">
-                            <p className="text-xs font-bold text-white uppercase">{vendorProfile?.businessName || 'Duka Lako'}</p>
-                            <p className="text-[9px] text-neutral-500 font-bold uppercase tracking-wider">Logo itaonekana katikati ya QR code</p>
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <div className="flex justify-between items-center text-[9px] uppercase font-black tracking-widest text-neutral-400 leading-none">
-                            <span>Ukubwa wa Nembo / Logo Size</span>
-                            <span className="text-orange-500 font-mono text-xs font-black">{Math.round((qrOptions.imageOptions?.imageSize || 0.35) * 100)}%</span>
-                          </div>
-                          <input 
-                            type="range"
-                            min="0.1"
-                            max="0.4"
-                            step="0.05"
-                            value={qrOptions.imageOptions?.imageSize || 0.35}
-                            onChange={(e) => {
-                              const size = parseFloat(e.target.value);
-                              setQrOptions((prev: any) => ({
-                                ...prev,
-                                imageOptions: { ...prev.imageOptions, imageSize: size }
-                              }));
-                            }}
-                            className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-orange-600 focus:outline-none"
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* QR Frame Style & Textures */}
-                  <div className="space-y-4 pt-4 border-t border-white/5">
-                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] px-1">Frame Style / Fremu ya Stand</label>
-                    <Select 
-                      value={frameStyle}
-                      onValueChange={(val: any) => setFrameStyle(val)}
-                    >
-                      <SelectTrigger className="bg-neutral-900 border-white/5 h-14 rounded-2xl text-white font-bold text-left">
-                        <SelectValue placeholder="Chagua Frame Style" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-neutral-900 border-white/10 text-white">
-                        <SelectItem value="none">No Frame (Plain QR)</SelectItem>
-                        <SelectItem value="simple">Simple Outline (Fremu ya Kawaida)</SelectItem>
-                        <SelectItem value="bottom-label">Bottom Banner (Fremu yenye Maandishi Chini)</SelectItem>
-                        <SelectItem value="top-bottom-label">Top & Bottom Banner (Fremu ya Juu na Chini)</SelectItem>
-                        <SelectItem value="card">Card / Polaroid Stand (Style ya Kadi)</SelectItem>
-                      </SelectContent>
-                    </Select>
-
-                    {frameStyle !== 'none' && (
-                      <div className="p-4 rounded-2xl bg-neutral-950 border border-white/5 space-y-4 text-left animate-in fade-in duration-200">
-                        <div className="space-y-1.5">
-                          <span className="text-[9px] font-black text-neutral-400 uppercase tracking-widest block">Frame Text / Maandishi ya Fremu</span>
-                          <Input 
-                            placeholder="e.g. SCAN TO ORDER"
-                            className="bg-neutral-900 border-white/5 h-11 rounded-xl text-white text-xs focus:ring-1 focus:ring-orange-600 uppercase font-black tracking-wider"
-                            value={frameText}
-                            onChange={(e) => setFrameText(e.target.value)}
-                          />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-1.5">
-                            <span className="text-[9px] font-black text-neutral-400 uppercase tracking-widest block">Frame Color</span>
-                            <div className="flex items-center gap-2">
-                              <label className="w-8 h-8 rounded-xl border border-white/15 cursor-pointer relative flex items-center justify-center shrink-0" style={{ backgroundColor: frameColor }}>
-                                <Palette className="w-3.5 h-3.5 text-white/80" />
-                                <input 
-                                  type="color" 
-                                  className="sr-only" 
-                                  value={frameColor}
-                                  onChange={(e) => setFrameColor(e.target.value)}
-                                />
-                              </label>
-                              <Input 
-                                className="bg-neutral-900 border-white/5 h-8 rounded-lg text-white text-[10px] font-mono px-2"
-                                value={frameColor}
-                                onChange={(e) => setFrameColor(e.target.value)}
-                              />
-                            </div>
-                          </div>
-
-                          <div className="space-y-1.5">
-                            <span className="text-[9px] font-black text-neutral-400 uppercase tracking-widest block">Text Color</span>
-                            <div className="flex items-center gap-2">
-                              <label className="w-8 h-8 rounded-xl border border-white/15 cursor-pointer relative flex items-center justify-center shrink-0" style={{ backgroundColor: textColor }}>
-                                <Palette className="w-3.5 h-3.5 text-white/80" />
-                                <input 
-                                  type="color" 
-                                  className="sr-only" 
-                                  value={textColor}
-                                  onChange={(e) => setTextColor(e.target.value)}
-                                />
-                              </label>
-                              <Input 
-                                className="bg-neutral-900 border-white/5 h-8 rounded-lg text-white text-[10px] font-mono px-2"
-                                value={textColor}
-                                onChange={(e) => setTextColor(e.target.value)}
-                              />
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <div className="flex justify-between items-center text-[9px] uppercase font-black tracking-widest text-neutral-400">
-                            <span>Text Size / Ukubwa wa Maandishi</span>
-                            <span className="text-orange-500 font-mono text-xs font-black">{textSize}%</span>
-                          </div>
-                          <input 
-                            type="range"
-                            min="60"
-                            max="160"
-                            step="5"
-                            value={textSize}
-                            onChange={(e) => setTextSize(parseInt(e.target.value))}
-                            className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-orange-600 focus:outline-none"
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <div className="flex justify-between items-center text-[9px] uppercase font-black tracking-widest text-neutral-400">
-                            <span>Frame Border Width / Unene</span>
-                            <span className="text-orange-500 font-mono text-xs font-black">{frameWidth}px</span>
-                          </div>
-                          <input 
-                            type="range"
-                            min="2"
-                            max="24"
-                            step="1"
-                            value={frameWidth}
-                            onChange={(e) => setFrameWidth(parseInt(e.target.value))}
-                            className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-orange-600 focus:outline-none"
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <div className="flex justify-between items-center text-[9px] uppercase font-black tracking-widest text-neutral-400">
-                            <span>Corner Roundness / Mviringo wa Pembe</span>
-                            <span className="text-orange-500 font-mono text-xs font-black">{frameRound}px</span>
-                          </div>
-                          <input 
-                            type="range"
-                            min="0"
-                            max="40"
-                            step="2"
-                            value={frameRound}
-                            onChange={(e) => setFrameRound(parseInt(e.target.value))}
-                            className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-orange-600 focus:outline-none"
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Colors & Details */}
-                  <div className="space-y-4 pt-4 border-t border-white/5 text-left">
-                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] px-1">Colors & Borders / Rangi na Kingo</label>
-                    <div className="bg-neutral-900/40 border border-white/5 rounded-2xl p-4 space-y-4">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                          <span className="text-[9px] font-black text-neutral-400 uppercase tracking-widest">Foreground / Mbele</span>
-                          <div className="flex items-center gap-1.5">
-                            <label className="w-8 h-8 rounded-xl border border-white/10 cursor-pointer relative flex items-center justify-center shrink-0" style={{ backgroundColor: foregroundColor }}>
-                              <Palette className="w-3.5 h-3.5 text-white/80" />
-                              <input 
-                                type="color" 
-                                className="sr-only" 
-                                value={foregroundColor}
-                                onChange={(e) => setForegroundColor(e.target.value)}
-                              />
-                            </label>
-                            <Input 
-                              className="bg-neutral-900 border-white/5 h-8 rounded-lg text-white text-[10px] font-mono px-2"
-                              value={foregroundColor}
-                              onChange={(e) => setForegroundColor(e.target.value)}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="space-y-1">
-                          <span className="text-[9px] font-black text-neutral-400 uppercase tracking-widest">Background / Nyuma</span>
-                          <div className="flex items-center gap-1.5">
-                            <label className="w-8 h-8 rounded-xl border border-white/10 cursor-pointer relative flex items-center justify-center shrink-0" style={{ backgroundColor: backgroundColor }}>
-                              <Palette className="w-3.5 h-3.5 text-white/80" />
-                              <input 
-                                type="color" 
-                                className="sr-only" 
-                                value={backgroundColor}
-                                onChange={(e) => setBackgroundColor(e.target.value)}
-                              />
-                            </label>
-                            <Input 
-                              className="bg-neutral-900 border-white/5 h-8 rounded-lg text-white text-[10px] font-mono px-2"
-                              value={backgroundColor}
-                              onChange={(e) => setBackgroundColor(e.target.value)}
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center text-[9px] uppercase font-black tracking-widest text-neutral-400">
-                          <span>Kingo Width / Border Width</span>
-                          <span className="text-orange-500 font-mono text-xs font-black">{borderWidth}px</span>
-                        </div>
-                        <input 
-                          type="range"
-                          min="0"
-                          max="16"
-                          step="1"
-                          value={borderWidth}
-                          onChange={(e) => setBorderWidth(parseInt(e.target.value))}
-                          className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-orange-600 focus:outline-none"
+                  {/* Mode: Store Placard / Banner Controls */}
+                  {qrBuilderMode === 'store_placard' && (
+                    <div className="space-y-6 pt-4 border-t border-white/5">
+                      <div className="space-y-3">
+                        <label className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em] px-1 block">Kichwa cha Bango (Header Text)</label>
+                        <Input 
+                          placeholder="JINA LA DUKA AU HUDUMA"
+                          className="bg-neutral-900 border-white/10 h-11 rounded-xl text-white font-black text-xs uppercase tracking-wider"
+                          value={printDetails.header}
+                          onChange={(e) => setPrintDetails({ ...printDetails, header: e.target.value.toUpperCase() })}
                         />
                       </div>
 
-                      {borderWidth > 0 && (
-                        <>
-                          <div className="space-y-1">
-                            <span className="text-[9px] font-black text-neutral-400 uppercase tracking-widest">Border Color / Rangi ya Kingo</span>
-                            <div className="flex items-center gap-1.5">
-                              <label className="w-8 h-8 rounded-xl border border-white/10 cursor-pointer relative flex items-center justify-center shrink-0" style={{ backgroundColor: borderColor }}>
-                                <Palette className="w-3.5 h-3.5 text-white/80" />
-                                <input 
-                                  type="color" 
-                                  className="sr-only" 
-                                  value={borderColor}
-                                  onChange={(e) => setBorderColor(e.target.value)}
-                                />
-                              </label>
-                              <Input 
-                                className="bg-neutral-900 border-white/5 h-8 rounded-lg text-white text-[10px] font-mono px-2"
-                                value={borderColor}
-                                onChange={(e) => setBorderColor(e.target.value)}
-                              />
-                            </div>
-                          </div>
+                      <div className="space-y-3">
+                        <label className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em] px-1 block">Maelezo ya Chini (Footer Text)</label>
+                        <Input 
+                          placeholder="Changanua kuona bidhaa & kuagiza papo hapo"
+                          className="bg-neutral-900 border-white/10 h-11 rounded-xl text-white text-xs font-medium"
+                          value={printDetails.footer}
+                          onChange={(e) => setPrintDetails({ ...printDetails, footer: e.target.value })}
+                        />
+                      </div>
 
-                          <div className="space-y-2">
-                            <div className="flex justify-between items-center text-[9px] uppercase font-black tracking-widest text-neutral-400">
-                              <span>Kingo Roundness / Border Rounding</span>
-                              <span className="text-orange-500 font-mono text-xs font-black">{borderRound}px</span>
-                            </div>
-                            <input 
-                              type="range"
-                              min="0"
-                              max="32"
-                              step="2"
-                              value={borderRound}
-                              onChange={(e) => setBorderRound(parseInt(e.target.value))}
-                              className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-orange-600 focus:outline-none"
-                            />
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Print & Seating Customization */}
-                  <div className="space-y-4 pt-4 border-t border-white/5 text-left">
-                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] px-1">Stand Seating Label / Maandishi ya Siti</label>
-                    <div className="bg-neutral-900/40 border border-white/5 rounded-2xl p-4 space-y-4">
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
-                          <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest px-1 block">Label ya Viti / Table Label</span>
+                          <span className="text-[8.5px] font-black text-neutral-400 uppercase tracking-widest block">Simu ya Mawasiliano</span>
                           <Input 
-                            placeholder="e.g. TABLE"
-                            className="bg-neutral-900 border-white/5 h-11 rounded-xl text-white text-[10px] font-black text-center focus:ring-1 focus:ring-orange-600 uppercase tracking-widest"
-                            value={printDetails.seatingLabel}
-                            onChange={(e) => setPrintDetails({...printDetails, seatingLabel: e.target.value})}
+                            placeholder="+255 7..."
+                            className="bg-neutral-900 border-white/10 h-10 rounded-xl text-white text-xs font-mono"
+                            value={printDetails.phone}
+                            onChange={(e) => setPrintDetails({ ...printDetails, phone: e.target.value })}
                           />
                         </div>
                         <div className="space-y-1">
-                          <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest px-1 block">Idadi / Table Number</span>
+                          <span className="text-[8.5px] font-black text-neutral-400 uppercase tracking-widest block">Eneo / Mtaa</span>
                           <Input 
-                            placeholder="Weka idadi au herufi"
-                            className="bg-neutral-900 border-white/5 h-11 rounded-xl text-white text-[10px] font-black text-center focus:ring-1 focus:ring-orange-600 uppercase tracking-widest"
-                            value={printDetails.customSeating}
-                            onChange={(e) => setPrintDetails({...printDetails, customSeating: e.target.value})}
+                            placeholder="Mtaa / Jiji"
+                            className="bg-neutral-900 border-white/10 h-10 rounded-xl text-white text-xs"
+                            value={printDetails.address}
+                            onChange={(e) => setPrintDetails({ ...printDetails, address: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Mode: QR Only Controls */}
+                  {qrBuilderMode === 'qr_only' && (
+                    <div className="space-y-6 pt-4 border-t border-white/5">
+                      <div className="space-y-4">
+                        <label className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em] px-1 block">Scale & Resolution / Vipimo vya Kupakua</label>
+                        <div className="bg-neutral-900/50 border border-white/5 rounded-2xl p-4 space-y-3">
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs font-bold text-neutral-400">Ukubwa wa Picha:</span>
+                            <span className="text-xs font-mono font-black text-amber-400">{exportSize * 10} x {exportSize * 10} px</span>
+                          </div>
+                          <input 
+                            type="range"
+                            min="50"
+                            max="300"
+                            step="10"
+                            value={exportSize}
+                            onChange={(e) => setExportSize(parseInt(e.target.value))}
+                            className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-amber-500 focus:outline-none"
                           />
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between p-3 bg-neutral-900/30 rounded-xl border border-white/5 mt-2">
-                        <div className="flex flex-col">
-                          <span className="text-[10px] font-black text-white uppercase tracking-wider">Onyesha Siti / Show Seating Info</span>
-                          <span className="text-[8px] text-neutral-500 uppercase font-bold tracking-tighter">Onyesha idadi ya viti kwenye Stand</span>
-                        </div>
-                        <button 
-                          onClick={() => setPrintDetails({...printDetails, showSeating: !printDetails.showSeating})}
-                          className={`w-10 h-5 rounded-full transition-all relative flex items-center px-1 ${printDetails.showSeating ? 'bg-orange-600' : 'bg-neutral-700'}`}
+                      {/* Frame Style & Textures */}
+                      <div className="space-y-3">
+                        <label className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em] px-1 block">Frame Style / Fremu ya QR</label>
+                        <Select 
+                          value={frameStyle}
+                          onValueChange={(val: any) => setFrameStyle(val)}
                         >
-                          <div className={`w-3.5 h-3.5 bg-white rounded-full transition-all shadow-sm ${printDetails.showSeating ? 'translate-x-4.5' : 'translate-x-0'}`}></div>
-                        </button>
+                          <SelectTrigger className="bg-neutral-900 border-white/10 h-12 rounded-xl text-white font-bold text-left">
+                            <SelectValue placeholder="Chagua Frame Style" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-neutral-900 border-white/10 text-white">
+                            <SelectItem value="none">No Frame (Plain QR)</SelectItem>
+                            <SelectItem value="simple">Simple Outline (Fremu ya Kawaida)</SelectItem>
+                            <SelectItem value="bottom-label">Bottom Banner (Fremu yenye Maandishi Chini)</SelectItem>
+                            <SelectItem value="top-bottom-label">Top & Bottom Banner (Fremu ya Juu na Chini)</SelectItem>
+                            <SelectItem value="card">Card / Polaroid Stand (Style ya Kadi)</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
-                  </div>
+                  )}
 
-                  {/* Select Products on Stand Customization */}
-                  <div className="space-y-6 pt-6 border-t border-white/5 p-5 bg-orange-600/5 rounded-3xl border border-orange-500/10 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-orange-650/10 rounded-full blur-2xl group-hover:bg-orange-600/15 transition-all duration-300"></div>
-                    <div className="flex items-center justify-between relative z-10">
-                      <div className="space-y-1 text-left">
-                        <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
-                          <label className="text-[11px] font-black text-white uppercase tracking-[0.2em] font-sans">Bidhaa Kwenye Stand</label>
-                          <span className="bg-orange-600/20 text-orange-500 text-[7.5px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-widest font-mono">NEW</span>
-                        </div>
-                        <p className="text-[9px] text-neutral-400 font-bold leading-normal">
-                          Onyesha bidhaa 1 hadi 3 na QR Code zake kwenye Stand (Show 1 to 3 select products with direct QR codes on the stand)
-                        </p>
-                      </div>
-                      <button 
-                        onClick={() => setShowProductsOnStand(!showProductsOnStand)}
-                        className={`w-14 h-7 rounded-full transition-all relative flex items-center px-1 shrink-0 ${showProductsOnStand ? 'bg-orange-600 shadow-md shadow-orange-950/40' : 'bg-neutral-800'}`}
-                      >
-                        <div className={`w-5 h-5 bg-white rounded-full transition-all shadow-sm ${showProductsOnStand ? 'translate-x-[26px]' : 'translate-x-0'}`}></div>
-                      </button>
-                    </div>
-
-                    {showProductsOnStand && (
-                      <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                        {/* Selected product badges */}
-                        <div className="space-y-1.5 text-left">
-                          <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest block">Bidhaa Zilizochaguliwa ({standProductIds.length}/3)</span>
-                          {standProductIds.length === 0 ? (
-                            <p className="text-[9px] text-neutral-500 italic bg-neutral-900/50 p-3 rounded-xl border border-white/5 text-center">Hujachagua bidhaa yoyote bado. Gonga bidhaa chini kuongeza.</p>
-                          ) : (
-                            <div className="grid grid-cols-1 gap-2">
-                              {standProductIds.map((pId, idx) => {
-                                const prod = products.find(p => p.id === pId);
-                                if (!prod) return null;
-                                const isEditing = activeQrEditProductId === pId;
-                                return (
-                                  <div key={`sel-prod-${pId}-${idx}`} className="space-y-2">
-                                    <div 
-                                      className={`flex items-center justify-between p-2.5 bg-neutral-900 border rounded-xl icon-cursor text-xs gap-3 transition-all cursor-pointer ${
-                                        isEditing 
-                                          ? 'border-orange-500/60 bg-neutral-900/90 shadow-md shadow-orange-950/20' 
-                                          : 'border-white/5 hover:border-white/10'
-                                      }`}
-                                      onClick={() => setActiveQrEditProductId(isEditing ? null : pId)}
-                                    >
-                                      <div className="flex items-center gap-2.5 min-w-0">
-                                        <span className="w-5 h-5 rounded-full bg-orange-600/10 text-orange-500 font-bold flex items-center justify-center text-[10px] shrink-0 font-mono">#{idx + 1}</span>
-                                        {prod.imageUrl && (
-                                          <img src={prod.imageUrl} alt={prod.name} className="w-7 h-7 rounded-lg object-cover bg-white shrink-0 border border-white/10" referrerPolicy="no-referrer" />
-                                        )}
-                                        <div className="truncate text-left leading-tight">
-                                          <div className="flex items-center gap-1.5 min-w-0">
-                                            <p className="font-bold text-white truncate text-[11px]">{prod.name}</p>
-                                            <Settings className={`w-3 h-3 text-neutral-500 transition-colors shrink-0 ${isEditing ? 'text-orange-500' : ''}`} />
-                                          </div>
-                                          <p className="text-[9px] text-orange-500 font-black">TSH {Number(prod.price).toLocaleString()}</p>
-                                        </div>
-                                      </div>
-                                      <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                                        <button 
-                                          onClick={() => setActiveQrEditProductId(isEditing ? null : pId)}
-                                          title="Sanidi QR ya Bidhaa"
-                                          className={`p-1.5 hover:bg-white/5 rounded-lg transition-colors ${isEditing ? 'text-orange-500' : 'text-neutral-400'}`}
-                                        >
-                                          <Settings className="w-4 h-4" />
-                                        </button>
-                                        <button 
-                                          onClick={() => {
-                                            setStandProductIds(standProductIds.filter(id => id !== pId));
-                                            if (isEditing) setActiveQrEditProductId(null);
-                                          }}
-                                          title="Ondoa Bidhaa"
-                                          className="text-red-500 hover:text-red-400 p-1.5 hover:bg-red-500/10 rounded-lg transition-colors"
-                                        >
-                                          <X className="w-4 h-4" />
-                                        </button>
-                                      </div>
-                                    </div>
-
-                                    {/* Collapsible QR Customization Sub-panel */}
-                                    {isEditing && (
-                                      <div className="p-3 bg-neutral-950/90 border border-orange-500/20 rounded-xl space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
-                                        {/* QR Dots Color Selector */}
-                                        <div className="space-y-1.5 text-left">
-                                          <label className="text-[8.5px] font-black text-neutral-400 uppercase tracking-wider block">Rangi ya QR (QR Dots Color)</label>
-                                          <div className="flex flex-wrap items-center gap-1.5">
-                                            {[
-                                              { name: 'Accent', value: printDetails.accentColor },
-                                              { name: 'Black', value: '#000000' },
-                                              { name: 'Red', value: '#dc2626' },
-                                              { name: 'Emerald', value: '#10b981' },
-                                              { name: 'Blue', value: '#2563eb' },
-                                              { name: 'Purple', value: '#7c3aed' },
-                                              { name: 'Gold', value: '#d97706' },
-                                            ].map((col) => (
-                                              <button
-                                                key={`color-${pId}-${col.name}`}
-                                                type="button"
-                                                onClick={() => setProductQrColors({ ...productQrColors, [pId]: col.value })}
-                                                className={`w-5 h-5 rounded-full border transition-all ${
-                                                  (productQrColors[pId] || printDetails.accentColor) === col.value
-                                                    ? 'border-white scale-110 shadow-md shadow-black/80'
-                                                    : 'border-white/10 hover:border-white/40'
-                                                }`}
-                                                style={{ backgroundColor: col.value }}
-                                                title={col.name}
-                                              />
-                                            ))}
-                                            <input 
-                                              type="color" 
-                                              value={productQrColors[pId] || printDetails.accentColor} 
-                                              onChange={(e) => setProductQrColors({ ...productQrColors, [pId]: e.target.value })}
-                                              className="w-5 h-5 rounded-full border border-white/10 cursor-pointer bg-transparent" 
-                                            />
-                                          </div>
-                                        </div>
-
-                                        {/* QR Dots Shape Selector */}
-                                        <div className="space-y-1.5 text-left">
-                                          <label className="text-[8.5px] font-black text-neutral-400 uppercase tracking-wider block">Mchoro wa QR (QR Shape)</label>
-                                          <div className="grid grid-cols-3 gap-1">
-                                            {[
-                                              { id: 'square', label: 'Mraba' },
-                                              { id: 'dots', label: 'Doa' },
-                                              { id: 'rounded', label: 'Mviringo' },
-                                              { id: 'extra-rounded', label: 'Mviringo+' },
-                                              { id: 'classy', label: 'Kifahari' },
-                                            ].map((shape) => (
-                                              <button
-                                                key={`shape-${pId}-${shape.id}`}
-                                                type="button"
-                                                onClick={() => setProductQrDotsTypes({ ...productQrDotsTypes, [pId]: shape.id })}
-                                                className={`px-1.5 py-1 text-[9px] font-bold rounded-md border text-center transition-all ${
-                                                  (productQrDotsTypes[pId] || 'square') === shape.id
-                                                    ? 'bg-orange-600/20 border-orange-500/50 text-white'
-                                                    : 'bg-neutral-900 border-white/5 text-neutral-400 hover:border-white/10'
-                                                }`}
-                                              >
-                                                {shape.label}
-                                              </button>
-                                            ))}
-                                          </div>
-                                        </div>
-
-                                        {/* QR Custom Scan Text */}
-                                        <div className="space-y-1 text-left">
-                                          <label className="text-[8.5px] font-black text-neutral-400 uppercase tracking-wider block">Maandishi Chini ya QR (Scan Text)</label>
-                                          <input 
-                                            type="text" 
-                                            value={productQrTexts[pId] !== undefined ? productQrTexts[pId] : 'SCAN'} 
-                                            onChange={(e) => setProductQrTexts({ ...productQrTexts, [pId]: e.target.value.toUpperCase() })}
-                                            placeholder="SOMA / AGIZA / SCAN"
-                                            maxLength={8}
-                                            className="w-full px-2.5 py-1.5 text-[10px] bg-neutral-900 border border-white/10 rounded-lg text-white focus:outline-hidden focus:border-orange-500/50 uppercase font-black tracking-wider"
-                                          />
-                                        </div>
-
-                                        {/* Product Corner Badge Customizer */}
-                                        <div className="space-y-1 text-left">
-                                          <label className="text-[8.5px] font-black text-neutral-400 uppercase tracking-wider block">Kibandiko Picha (Badge - p.g. BEST, CHEF, NEW)</label>
-                                          <div className="flex gap-1.5">
-                                            <input 
-                                              type="text" 
-                                              value={productBadges[pId] !== undefined ? productBadges[pId] : (idx === 0 ? 'BEST' : idx === 1 ? 'CHEF' : 'NEW')} 
-                                              onChange={(e) => setProductBadges({ ...productBadges, [pId]: e.target.value.toUpperCase() })}
-                                              placeholder="Hakuna"
-                                              maxLength={8}
-                                              className="flex-1 px-2.5 py-1.5 text-[10px] bg-neutral-900 border border-white/10 rounded-lg text-white focus:outline-hidden focus:border-orange-500/50 uppercase font-extrabold tracking-tight"
-                                            />
-                                            <button
-                                              type="button"
-                                              onClick={() => setProductBadges({ ...productBadges, [pId]: '' })}
-                                              className="px-2.5 py-1.5 text-[9px] bg-neutral-900 border border-white/5 hover:border-white/10 text-neutral-400 rounded-lg font-bold"
-                                            >
-                                              Weka Wazi
-                                            </button>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Inventory selector list */}
-                        <div className="space-y-2 text-left">
-                          <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest block">Gonga bidhaa inayofuata hapa chini (Kikomo: bidhaa 3)</span>
-                          <div className="max-h-60 overflow-y-auto border border-white/5 rounded-2xl bg-black/20 p-2 space-y-1.5 custom-scrollbar">
-                            {products.length === 0 ? (
-                              <p className="text-[9px] text-neutral-500 italic text-center py-4">Hujaongeza bidhaa zozote kwenye akaunti yako bado.</p>
-                            ) : (
-                              products.map((prod) => {
-                                const isSelected = standProductIds.includes(prod.id || '');
-                                return (
-                                  <button
-                                    key={`sel-inventory-${prod.id}`}
-                                    disabled={!isSelected && standProductIds.length >= 3}
-                                    onClick={() => {
-                                      if (isSelected) {
-                                        setStandProductIds(standProductIds.filter(id => id !== prod.id));
-                                      } else {
-                                        setStandProductIds([...standProductIds, prod.id || '']);
-                                      }
-                                    }}
-                                    className={`w-full flex items-center justify-between p-2 rounded-xl text-left text-xs transition-all border ${
-                                      isSelected 
-                                        ? 'bg-orange-600/10 border-orange-500/30 text-white shadow-md' 
-                                        : 'bg-neutral-900 border-white/5 text-neutral-400 hover:bg-neutral-800'
-                                    } disabled:opacity-40 disabled:cursor-not-allowed`}
-                                  >
-                                    <div className="flex items-center gap-2 min-w-0">
-                                      {prod.imageUrl ? (
-                                        <img src={prod.imageUrl} alt={prod.name} className="w-8 h-8 rounded-lg object-cover bg-white shrink-0" referrerPolicy="no-referrer" />
-                                      ) : (
-                                        <div className="w-8 h-8 rounded-lg bg-neutral-800 flex items-center justify-center shrink-0 border border-white/5">
-                                          <Package className="w-4 h-4 text-neutral-500" />
-                                        </div>
-                                      )}
-                                      <div className="truncate text-left leading-tight">
-                                        <p className="font-bold truncate text-white text-[11px]">{prod.name}</p>
-                                        <p className="text-[9px] text-neutral-500 font-bold truncate">{prod.category}</p>
-                                      </div>
-                                    </div>
-                                    <div className="flex items-center gap-2 shrink-0">
-                                      <span className="font-mono text-[10px] text-orange-500 font-black">TSH {Number(prod.price).toLocaleString()}</span>
-                                      <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
-                                        isSelected ? 'bg-orange-600 border-orange-500 text-white' : 'border-neutral-700'
-                                      }`}>
-                                        {isSelected && <Check className="w-2.5 h-2.5" />}
-                                      </div>
-                                    </div>
-                                  </button>
-                                );
-                              })
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
                 </div>
                 )}
 
-                {/* Preview Panel */}
-                <div className="lg:w-[480px] bg-[#0c0c0e] p-6 sm:p-10 flex flex-col items-center justify-start gap-8 relative overflow-y-auto custom-scrollbar min-h-[600px] lg:min-h-0">
-                  <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
-                    <span className="text-[8px] font-black text-neutral-500 uppercase tracking-widest italic">Live Content Preview</span>
-                  </div>
+                {/* Right Panel: Live Stand Preview & Download Actions */}
+                <div className="lg:w-[500px] bg-[#070709] p-5 sm:p-7 flex flex-col items-center justify-between gap-5 relative overflow-y-auto custom-scrollbar border-t lg:border-t-0 lg:border-l border-white/5 min-h-[580px]">
                   
-                  {/* Print Layout Preview */}
-                  <div id="printable-stand" className={`
-                    relative transition-all duration-500 flex flex-col items-stretch shrink-0
-                    ${printDetails.isPrintMode 
-                      ? 'bg-[#ffffff] shadow-2xl w-full max-w-[380px] min-h-[537px] border border-neutral-200 text-black' 
-                      : 'hidden'
-                    }
-                  `}>
-                    {printDetails.isPrintMode && (
-                      <>
-                        {/* Dark Header Section */}
-                        {(() => {
-                          const bg = printDetails.headerBg || '';
-                          const hex = bg.replace('#', '').toLowerCase();
-                          let isHeaderBgLight = false;
-                          if (['ffffff', 'f8fafc', 'f1f5f9', 'e2e8f0', 'fff7ed', 'fef3c7', 'f0fdf4'].includes(hex)) {
-                            isHeaderBgLight = true;
-                          } else if (hex.length === 6) {
-                            const r = parseInt(hex.substring(0, 2), 16);
-                            const g = parseInt(hex.substring(2, 4), 16);
-                            const b = parseInt(hex.substring(4, 6), 16);
-                            isHeaderBgLight = (r * 0.299 + g * 0.587 + b * 0.114) > 180;
-                          }
-                          
-                          return (
-                            <div 
-                              className="p-5 flex flex-col items-center justify-center text-center relative overflow-hidden shrink-0 min-h-[110px]"
-                              style={{ backgroundColor: printDetails.headerBg }}
-                            >
+                  <div className="w-full flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                      <span className="text-[9px] font-black text-neutral-400 uppercase tracking-widest">Live Stand Preview</span>
+                    </div>
+                    {qrBuilderMode === 'table_stand' && (
+                      <span className="text-[8.5px] font-mono font-bold text-amber-400 uppercase bg-amber-950/40 border border-amber-500/20 px-2 py-0.5 rounded-md">
+                        {standDisplayLayout === 'gold_menu_showcase' ? 'GOLD MENU SHOWCASE' : `${tableStandStyle.toUpperCase()} STYLE`}
+                      </span>
+                    )}
+                  </div>
 
-                              
-                              {vendorProfile?.logoUrl && printDetails.showLogo && (
-                                <div className="w-12 h-12 mb-1.5 rounded-xl border border-white/10 overflow-hidden relative z-10 bg-white p-1">
-                                  <img 
-                                    src={getProxiedImageUrl(vendorProfile.logoUrl)} 
-                                    alt="Logo" 
-                                    className="w-full h-full object-contain" 
-                                    crossOrigin="anonymous"
-                                    referrerPolicy="no-referrer" 
-                                    onError={(e) => {
-                                      const target = e.target as HTMLImageElement;
-                                      target.removeAttribute('crossOrigin');
-                                      if (target.src.includes('/api/proxy-image')) {
-                                        target.src = vendorProfile?.logoUrl || '';
-                                      } else {
-                                        target.src = `https://api.dicebear.com/7.x/initials/svg?seed=${vendorProfile?.businessName}`;
-                                      }
-                                    }}
-                                  />
-                                </div>
-                              )}
-                              <h2 
-                                className="stand-title text-lg font-black uppercase tracking-tight leading-tight relative z-10"
-                                style={{ color: isHeaderBgLight ? '#121212' : '#ffffff' }}
-                              >
-                                {printDetails.header || vendorProfile?.businessName || 'MY RESTAURANT'}
-                              </h2>
-                              <div 
-                                className="w-8 h-0.5 mt-1.5 relative z-10"
-                                style={{ backgroundColor: printDetails.accentColor }}
-                              ></div>
-                              <p 
-                                className="stand-subtitle text-[7.5px] font-black uppercase tracking-[0.2em] mt-1.5 relative z-10"
-                                style={{ color: printDetails.accentColor }}
-                              >{printDetails.subHeader || 'ORODHA YA KIDIJITALI'}</p>
-                            </div>
-                          );
-                        })()}
-
-                        {/* Content Section */}
-                <div 
-                  className="flex-1 flex flex-col items-center justify-between py-6 px-6 text-center relative overflow-hidden"
-                  style={{ 
-                    backgroundColor: printDetails.contentBg,
-                    backgroundImage: printDetails.bgImage ? `url(${getProxiedImageUrl(printDetails.bgImage)})` : 'none',
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center'
-                  }}
-                >
-                  {/* Optional overlay for readability if background image exists */}
-                  {printDetails.bgImage && (
-                     <div className="absolute inset-0 bg-white/20 backdrop-blur-[0.5px] pointer-events-none" />
-                  )}
-                          
-                          <div className="relative z-10 flex-1 flex flex-col items-center justify-between w-full">
-                            {/* Selected Products Section if enabled */}
-                            {showProductsOnStand && standProductIds.length > 0 && (
-                              <div className="w-full space-y-2 mb-4 select-none">
-                                {standProductIds.map((pId, pIdx) => {
-                                  const prod = products.find(p => p.id === pId);
-                                  if (!prod) return null;
-                                  
-                                  const productUrl = `${window.location.origin}/product/${prod.id}?tableId=${selectedSection?.number || ''}&vendorId=${vendorProfile?.id || ''}`;
-                                  
-                                  const pIdKey = prod.id || '';
-                                  const customBadge = productBadges[pIdKey] !== undefined 
-                                    ? productBadges[pIdKey] 
-                                    : (pIdx === 0 ? 'BEST' : pIdx === 1 ? 'CHEF' : 'NEW');
-                                    
-                                  const customQrColor = productQrColors[pIdKey] || printDetails.accentColor;
-                                  const customQrDotsType = productQrDotsTypes[pIdKey] || qrOptions.dotsOptions.type;
-                                  const customScanText = productQrTexts[pIdKey] !== undefined ? productQrTexts[pIdKey] : 'SCAN';
-                                  
-                                  return (
-                                    <div 
-                                      key={`stand-p-row-${pId}-${pIdx}`} 
-                                      className="flex items-center gap-2.5 p-2 bg-white/95 text-black rounded-xl border text-left shadow-xs transition-colors duration-200"
-                                      style={{ borderColor: `${customQrColor}35` }}
-                                    >
-                                      {/* Product Image */}
-                                      {prod.imageUrl ? (
-                                        <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 border relative bg-white">
-                                          <img 
-                                            src={getProxiedImageUrl(prod.imageUrl)} 
-                                            alt={prod.name} 
-                                            className="w-full h-full object-cover" 
-                                            crossOrigin="anonymous"
-                                            referrerPolicy="no-referrer" 
-                                            onError={(e) => {
-                                              const target = e.target as HTMLImageElement;
-                                              target.removeAttribute('crossOrigin');
-                                              if (target.src.includes('/api/proxy-image')) {
-                                                target.src = prod.imageUrl || '';
-                                              } else {
-                                                target.src = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=100&auto=format&fit=crop";
-                                              }
-                                            }}
-                                          />
-                                          {customBadge && (
-                                            <span 
-                                              className="absolute top-0 left-0 text-[5px] text-white font-black px-1.5 py-0.5 rounded-br-md leading-none uppercase tracking-tighter"
-                                              style={{ backgroundColor: customQrColor }}
-                                            >
-                                              {customBadge}
-                                            </span>
-                                          )}
-                                        </div>
-                                      ) : (
-                                        <div className="w-10 h-10 rounded-lg bg-neutral-100 flex items-center justify-center shrink-0 border relative">
-                                          <Package className="w-4 h-4 text-neutral-400" />
-                                          {customBadge && (
-                                            <span 
-                                              className="absolute top-0 left-0 text-[5px] text-white font-black px-1.5 py-0.5 rounded-br-md leading-none uppercase tracking-tighter"
-                                              style={{ backgroundColor: customQrColor }}
-                                            >
-                                              {customBadge}
-                                            </span>
-                                          )}
-                                        </div>
-                                      )}
-
-                                      {/* Details */}
-                                      <div className="flex-1 min-w-0">
-                                        <span className="text-[9px] font-black uppercase text-neutral-900 truncate block leading-tight">{prod.name}</span>
-                                        <span className="text-[8.5px] font-black leading-none mt-0.5 block" style={{ color: customQrColor }}>
-                                          TSH {Number(prod.price).toLocaleString()}
-                                        </span>
-                                        <span className="text-[7px] text-neutral-400 font-bold truncate block mt-0.5 leading-none">{prod.description}</span>
-                                      </div>
-
-                                      {/* Individual Product QR Code */}
-                                      <div className="flex flex-col items-center shrink-0">
-                                        <MiniQrCode 
-                                          data={productUrl}
-                                          size={56}
-                                          dotsColor={customQrColor}
-                                          dotsType={customQrDotsType}
-                                        />
-                                        <span 
-                                          className="text-[6.5px] font-black uppercase tracking-tighter mt-1 animate-pulse"
-                                          style={{ color: customQrColor }}
-                                        >
-                                          {customScanText}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-
-                            {/* QR Code Section */}
-                            <div className="w-full flex flex-col items-center">
-                              {/* Title above QR */}
-                              <div className="bg-neutral-50/85 backdrop-blur-sm px-4 py-1 border border-neutral-100 rounded-full mb-3.5 shadow-xs">
-                                <p className="text-[8.5px] font-black uppercase tracking-[0.15em] text-neutral-500 leading-none">
-                                  {showProductsOnStand && standProductIds.length > 0 
-                                    ? 'INGIA KWENYE DUKA / BIDHAA ZOTE' 
-                                    : `BIDHAA ZA ${vendorProfile?.businessName?.toUpperCase() || 'DUKA'}`}
-                                </p>
-                              </div>
-                            
-                            {/* The QR Code itself */}
-                            <div 
-                              id="main-qr-card"
-                              className="relative p-5 bg-white rounded-[2.5rem] border shadow-xl flex items-center justify-center"
-                              style={{ borderColor: `${printDetails.accentColor}15` }}
-                            >
-                               <div 
-                                 ref={qrPrintRef} 
-                                 className="flex items-center justify-center w-[160px] h-[160px] [&>canvas]:max-w-full [&>canvas]:max-h-full [&>svg]:max-w-full [&>svg]:max-h-full overflow-hidden"
-                               ></div>
-                            </div>
+                  {/* STAND YA MEZANI PREVIEW: LUXURY GOLD MENU SHOWCASE (MATCHING IMAGE 1) */}
+                  {qrBuilderMode === 'table_stand' && standDisplayLayout === 'gold_menu_showcase' && (
+                    <div className="w-full flex flex-col items-center justify-center py-1">
+                      <div 
+                        id="printable-stand" 
+                        className="w-full max-w-[390px] rounded-3xl overflow-hidden relative shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9)] border-2 border-[#d4af37]/70 ring-1 ring-[#854d0e]/60 bg-gradient-to-b from-[#1c1308] via-[#0d0905] to-[#050403] text-amber-100 p-4 sm:p-5"
+                      >
+                        {/* Metallic Gold Corners & Ambient Glow */}
+                        <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-[#fef08a] rounded-tl-2xl pointer-events-none z-20"></div>
+                        <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-[#fef08a] rounded-tr-2xl pointer-events-none z-20"></div>
+                        <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-[#fef08a] rounded-bl-2xl pointer-events-none z-20"></div>
+                        <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-[#fef08a] rounded-br-2xl pointer-events-none z-20"></div>
+                        
+                        {/* Top Ornate Header Banner */}
+                        <div className="text-center relative z-10 pb-3 mb-2 border-b border-[#ca8a04]/30 flex flex-col items-center justify-center">
+                          {vendorProfile?.logoUrl && printDetails.showLogo && (
+                            <img 
+                              src={getProxiedImageUrl(vendorProfile.logoUrl)} 
+                              alt="Logo" 
+                              className="w-8 h-8 rounded-lg object-contain bg-black/80 p-1 mb-1 border border-amber-500/40 shadow-sm"
+                              referrerPolicy="no-referrer"
+                            />
+                          )}
+                          <div className="px-3 py-0.5 rounded-full bg-gradient-to-r from-amber-600/20 via-amber-500/30 to-amber-600/20 border border-amber-500/40 mb-1">
+                            <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-[0.2em] text-amber-300 font-serif">
+                              {goldMenuBanner || 'DELICIOUS FOOD • GREAT TASTE • HAPPY YOU'}
+                            </span>
                           </div>
-
-                          {/* Instructions */}
-                          <div className="space-y-3 my-4">
-                            <h3 className="text-2xl font-black uppercase leading-[0.85] tracking-tighter text-neutral-900 italic">
-                              SCAN & AGIZA <br/> BIDHAA HAPA
-                            </h3>
-                            <div className="space-y-0.5">
-                              <p 
-                                className="text-[11px] font-black uppercase tracking-widest leading-none"
-                                style={{ color: printDetails.accentColor }}
-                              >Changanua kwa simu yako</p>
-                              <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-tight">Fungua Orodha & Pata Bidhaa!</p>
-                            </div>
-                          </div>
-
-                          {/* Table Info & Footer */}
-                          <div className="w-full space-y-4">
-                            <div className="w-full grid grid-cols-2 gap-3">
-                              {/* Table/Section Number */}
-                              <div className="flex flex-col items-center p-3 bg-neutral-950 rounded-[1.25rem] shadow-lg text-white">
-                                <span className="text-[7px] font-black uppercase tracking-[0.2em] opacity-40 mb-1 leading-none">
-                                  {vendorContext.locationLabelSingular ? vendorContext.locationLabelSingular.toUpperCase() : 'SECTION'}
-                                </span>
-                                <span 
-                                  className="text-xl font-black italic tracking-tighter font-mono leading-none"
-                                  style={{ color: printDetails.accentColor }}
-                                >
-                                  #{selectedSection?.number || '01'}
-                                </span>
-                              </div>
-
-                              {/* Capacity */}
-                            {/* Seating Section */}
-                            {printDetails.showSeating && (
-                              <div 
-                                className="flex flex-col items-center p-3 rounded-[1.25rem] shadow-sm border"
-                                style={{ 
-                                  backgroundColor: printDetails.contentBg === '#000000' || printDetails.contentBg === '#1a1a1a' ? '#262626' : '#f9fafb',
-                                  borderColor: printDetails.contentBg === '#000000' || printDetails.contentBg === '#1a1a1a' ? '#404040' : '#f3f4f6'
-                                }}
-                              >
-                                <span 
-                                  className="text-[7px] font-black uppercase tracking-[0.2em] mb-1 leading-none opacity-60"
-                                  style={{ color: printDetails.contentBg === '#000000' || printDetails.contentBg === '#1a1a1a' ? '#ffffff' : '#A3A3A3' }}
-                                >{printDetails.seatingLabel || 'SEATING'}</span>
-                                <div className="flex items-center gap-1">
-                                  <Users 
-                                    className="w-2.5 h-2.5 opacity-60" 
-                                    style={{ color: printDetails.contentBg === '#000000' || printDetails.contentBg === '#1a1a1a' ? '#ffffff' : '#A3A3A3' }}
-                                  />
-                                  <span 
-                                    className="text-lg font-black italic tracking-tighter text-neutral-900 font-mono leading-none"
-                                    style={{ color: printDetails.contentBg === '#000000' || printDetails.contentBg === '#1a1a1a' ? '#ffffff' : '#111827' }}
-                                  >
-                                    {printDetails.customSeating || selectedSection?.capacity || '04'}
-                                  </span>
-                                </div>
-                              </div>
-                            )}
-                            </div>
-
-                            <div className="space-y-1.5">
-                              <p 
-                                className="text-[8px] font-black italic uppercase tracking-widest max-w-[180px] mx-auto opacity-70"
-                                style={{ color: printDetails.contentBg === '#000000' || printDetails.contentBg === '#1a1a1a' ? '#ffffff' : '#A3A3A3' }}
-                              >
-                                {printDetails.footer}
-                              </p>
-                              
-                              {(printDetails.phone || printDetails.address) && (
-                                <div 
-                                  className="flex items-center justify-center gap-3 text-[7.5px] font-bold uppercase tracking-widest pt-2 border-t grayscale opacity-40"
-                                  style={{ 
-                                    borderColor: printDetails.contentBg === '#000000' || printDetails.contentBg === '#1a1a1a' ? '#404040' : '#f3f4f6',
-                                    color: printDetails.contentBg === '#000000' || printDetails.contentBg === '#1a1a1a' ? '#ffffff' : '#737373'
-                                  }}
-                                >
-                                   {printDetails.phone && <span>{printDetails.phone}</span>}
-                                   {printDetails.address && <span className="max-w-[110px] truncate">{printDetails.address}</span>}
-                                </div>
-                              )}
-                            </div>
+                          <div className="flex items-center gap-2 mt-0.5 text-[8px] font-mono text-amber-400/90 font-bold uppercase tracking-wider">
+                            <span>{vendorProfile?.businessName || 'RESTAURANT'}</span>
+                            <span>•</span>
+                            <span className="bg-amber-500 text-black px-1.5 py-0.2 rounded font-black">MEZA #{selectedSection?.number || '01'}</span>
                           </div>
                         </div>
-                      </div>
-                    </>
-                  )}
-                </div>
 
-                  {/* Non-Print Preview Mode */}
-                  {!printDetails.isPrintMode && (
-                    <div className="relative group p-10 flex flex-col items-center justify-center">
-                      <div className="absolute -inset-4 bg-orange-600/20 rounded-[3rem] blur-2xl group-hover:bg-orange-600/30 transition-all duration-500"></div>
-                      <div 
-                        ref={qrRef} 
-                        className="relative transition-all duration-500 shadow-sm p-8 bg-white rounded-[2.5rem] shadow-2xl group-hover:scale-[1.02]"
-                      ></div>
-                      
-                      <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 w-48 py-2 bg-neutral-900/80 backdrop-blur-md border border-white/10 rounded-full flex items-center justify-center gap-2">
-                        <div className="w-1 h-1 bg-green-500 rounded-full animate-pulse"></div>
-                        <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest italic">Live Content Preview</span>
+                        {/* 3 Signature Food Items Showcase */}
+                        <div className="space-y-2.5 relative z-10">
+                          {showcaseDishes.map((dish, dIdx) => {
+                            const itemQrLink = `${window.location.origin}/table/${vendorProfile?.id || ''}/${selectedSection?.number || '01'}?item=${encodeURIComponent(dish.name)}`;
+                            return (
+                              <div 
+                                key={`gold-dish-card-${dish.id}-${dIdx}`}
+                                className="relative bg-black/50 border border-[#ca8a04]/40 hover:border-[#fef08a]/60 rounded-2xl p-2.5 sm:p-3 flex items-center justify-between gap-2.5 transition-all shadow-inner"
+                              >
+                                {/* Left: Circular Dish Image with Gold Ring & Badge */}
+                                <div className="relative shrink-0 flex flex-col items-center">
+                                  {/* Badge Tag */}
+                                  <div 
+                                    className="absolute -top-2 -left-1 z-20 px-1.5 py-0.5 rounded-md text-[6.5px] font-black uppercase tracking-tighter shadow-md border"
+                                    style={{ 
+                                      backgroundColor: dish.badgeColor || '#dc2626',
+                                      borderColor: 'rgba(255,255,255,0.4)',
+                                      color: '#ffffff'
+                                    }}
+                                  >
+                                    {dish.badge || 'SPECIAL'} ★
+                                  </div>
+
+                                  {/* Dish Image */}
+                                  <div className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full overflow-hidden border-2 border-[#eab308] ring-2 ring-[#854d0e]/60 shadow-[0_0_12px_rgba(234,179,8,0.35)] bg-neutral-900 shrink-0">
+                                    <img 
+                                      src={getProxiedImageUrl(dish.imageUrl) || 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=400&q=80'} 
+                                      alt={dish.name} 
+                                      className="w-full h-full object-cover"
+                                      referrerPolicy="no-referrer"
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* Middle: Title, Price, Dotted Line, Description */}
+                                <div className="flex-1 min-w-0 pr-1 text-left">
+                                  <div className="flex items-center gap-1 leading-none mb-0.5">
+                                    <h4 className="text-xs sm:text-[13px] font-black uppercase text-amber-100 tracking-tight truncate">
+                                      {dish.name}
+                                    </h4>
+                                    <span className="text-xs shrink-0">{dish.emoji}</span>
+                                  </div>
+
+                                  <div className="text-xs sm:text-sm font-black text-amber-400 font-serif leading-tight">
+                                    TSH {dish.price}
+                                  </div>
+
+                                  {/* Gold Dotted Divider */}
+                                  <div className="my-1 border-b border-dotted border-amber-600/50"></div>
+
+                                  <p className="text-[7.5px] sm:text-[8.5px] text-amber-200/80 font-medium leading-tight line-clamp-2 italic">
+                                    {dish.description}
+                                  </p>
+                                </div>
+
+                                {/* Right: QR Code + SCAN TO ORDER Button */}
+                                <div className="shrink-0 flex flex-col items-center justify-center text-center">
+                                  <div className="p-1 bg-white rounded-lg shadow-md border border-amber-400/40">
+                                    <MiniQrCode 
+                                      data={itemQrLink} 
+                                      size={48} 
+                                      dotsColor="#000000"
+                                      dotsType={patternShape}
+                                    />
+                                  </div>
+                                  <div className="mt-1 px-1.5 py-0.5 rounded bg-[#0b1220] border border-[#d4af37]/70 text-amber-300 font-black text-[6.5px] uppercase tracking-wider shadow-xs whitespace-nowrap">
+                                    SCAN TO ORDER
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* Guest WiFi on Gold Stand (if enabled) */}
+                        {showWifiOnStand && (
+                          <div className="mt-2.5 py-1.5 px-3 rounded-xl bg-black/60 border border-amber-500/30 flex items-center justify-between text-left relative z-10 text-[8px]">
+                            <div className="flex items-center gap-1.5">
+                              <Wifi className="w-3 h-3 text-amber-400 shrink-0" />
+                              <div>
+                                <span className="opacity-70 uppercase block text-[6.5px]">GUEST WIFI</span>
+                                <span className="font-mono font-black text-amber-200">{standWifiName || 'WiFi'}</span>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <span className="opacity-70 uppercase block text-[6.5px]">PASSWORD</span>
+                              <span className="font-mono font-black text-amber-300">{standWifiPass || 'BURE'}</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Gold Stand Footer */}
+                        <div className="mt-2.5 pt-2 border-t border-[#ca8a04]/30 text-center relative z-10">
+                          <p className="text-[7.5px] font-serif uppercase tracking-[0.25em] text-amber-300/80">
+                            • GREAT TASTE • PAPO HAPO SERVICE •
+                          </p>
+                        </div>
                       </div>
                     </div>
                   )}
 
-                  <div className="w-full space-y-4 max-w-[280px]">
-                    {printDetails.isPrintMode ? (
-                      <div className="space-y-3">
+                  {/* STAND YA MEZANI PREVIEW: SINGLE TABLE STAND */}
+                  {qrBuilderMode === 'table_stand' && standDisplayLayout === 'single_stand' && (
+                    <div className="w-full flex flex-col items-center justify-center py-2">
+                      <div 
+                        id="printable-stand" 
+                        className={`w-full max-w-[340px] rounded-[2rem] overflow-hidden transition-all duration-300 relative shadow-2xl ${
+                          tableStandStyle === 'acrylic' 
+                            ? 'bg-gradient-to-b from-white via-neutral-50 to-neutral-100 text-neutral-900 border-4 border-white/80 ring-4 ring-neutral-300/40 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)]'
+                            : tableStandStyle === 'wood'
+                            ? 'bg-[#3e1f0e] text-[#fef3c7] border-4 border-[#5c2e14] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)]'
+                            : tableStandStyle === 'gold_metal'
+                            ? 'bg-[#0f0f11] text-amber-100 border-4 border-amber-600/60 ring-2 ring-amber-500/30 shadow-[0_25px_60px_-15px_rgba(217,119,6,0.3)]'
+                            : tableStandStyle === 'dark_modern'
+                            ? 'bg-[#0b0b0e] text-white border-2 border-orange-500/40 ring-4 ring-orange-950/60 shadow-[0_25px_60px_-15px_rgba(234,88,12,0.3)]'
+                            : 'bg-white text-neutral-900 border-4 border-neutral-200 shadow-2xl'
+                        }`}
+                      >
+                        {/* Stand Header Bar */}
+                        <div className={`p-4 text-center relative z-10 flex flex-col items-center justify-center ${
+                          tableStandStyle === 'acrylic' ? 'bg-neutral-950 text-white' :
+                          tableStandStyle === 'wood' ? 'bg-[#291307] text-amber-100 border-b border-[#5c2e14]' :
+                          tableStandStyle === 'gold_metal' ? 'bg-gradient-to-r from-amber-950 via-neutral-950 to-amber-950 text-amber-300 border-b border-amber-500/30' :
+                          tableStandStyle === 'dark_modern' ? 'bg-neutral-950 text-white border-b border-orange-500/20' :
+                          'bg-neutral-950 text-white'
+                        }`}>
+                          {vendorProfile?.logoUrl && printDetails.showLogo && (
+                            <img 
+                              src={getProxiedImageUrl(vendorProfile.logoUrl)} 
+                              alt="Logo" 
+                              className="w-10 h-10 rounded-xl object-contain bg-white p-1 mb-1.5 shadow-md"
+                              referrerPolicy="no-referrer"
+                            />
+                          )}
+                          <h2 className="text-sm font-black uppercase tracking-tight truncate max-w-[260px]">
+                            {printDetails.header || vendorProfile?.businessName || 'RESTAURANT & BAR'}
+                          </h2>
+                          <p className="text-[7.5px] font-mono uppercase tracking-[0.2em] opacity-70 mt-0.5">
+                            {vendorContext.locationLabelSingular?.toUpperCase() || 'TABLE'} MENU
+                          </p>
+                        </div>
+
+                        {/* Stand Body */}
+                        <div className="p-5 flex flex-col items-center text-center space-y-3.5 relative z-10">
+                          <div className={`px-4 py-1.5 rounded-full flex items-center gap-2 shadow-md ${
+                            tableStandStyle === 'acrylic' ? 'bg-orange-600 text-white' :
+                            tableStandStyle === 'wood' ? 'bg-amber-600 text-[#1a0c04] font-black' :
+                            tableStandStyle === 'gold_metal' ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-black font-black' :
+                            tableStandStyle === 'dark_modern' ? 'bg-orange-600 text-white shadow-orange-950/50' :
+                            'bg-orange-600 text-white'
+                          }`}>
+                            <Utensils className="w-3 h-3" />
+                            <span className="text-xs font-black uppercase tracking-wider font-mono">
+                              MEZA #{selectedSection?.number || '02'}
+                            </span>
+                            <span className="text-[9px] opacity-80 uppercase font-bold">
+                              • {printDetails.customSeating || '4 VITI'}
+                            </span>
+                          </div>
+
+                          {/* Primary High-Resolution QR Card */}
+                          <div className="p-3.5 bg-white rounded-2xl shadow-xl border border-black/10 flex items-center justify-center">
+                            <div 
+                              ref={qrPrintRef} 
+                              className="flex items-center justify-center w-[140px] h-[140px] [&>canvas]:max-w-full [&>canvas]:max-h-full [&>svg]:max-w-full [&>svg]:max-h-full overflow-hidden"
+                            ></div>
+                          </div>
+
+                          <div className="space-y-0.5">
+                            <h3 className="text-sm font-black uppercase tracking-tight italic">
+                              {standCallout || 'SCAN & AGIZA HAPA'}
+                            </h3>
+                            <p className="text-[8.5px] font-medium opacity-75 max-w-[220px] mx-auto leading-tight">
+                              {standSubCallout || 'Changanua kwa kamera ya simu kufungua menyu & kuagiza mezani'}
+                            </p>
+                          </div>
+
+                          {showWifiOnStand && (
+                            <div className={`w-full py-2 px-3 rounded-xl border flex items-center justify-between text-left ${
+                              tableStandStyle === 'acrylic' ? 'bg-neutral-100/90 border-neutral-200 text-neutral-800' :
+                              tableStandStyle === 'wood' ? 'bg-[#291307]/80 border-amber-900 text-amber-200' :
+                              tableStandStyle === 'gold_metal' ? 'bg-neutral-900 border-amber-500/30 text-amber-200' :
+                              tableStandStyle === 'dark_modern' ? 'bg-neutral-900 border-orange-500/20 text-neutral-200' :
+                              'bg-neutral-100 border-neutral-200 text-neutral-800'
+                            }`}>
+                              <div className="flex items-center gap-2">
+                                <Wifi className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+                                <div className="leading-tight">
+                                  <span className="text-[7.5px] uppercase font-bold block opacity-60">FREE GUEST WIFI</span>
+                                  <span className="text-[9px] font-mono font-black truncate block">{standWifiName || 'WiFi'}</span>
+                                </div>
+                              </div>
+                              <div className="text-right leading-tight">
+                                <span className="text-[7.5px] uppercase font-bold block opacity-60">PASSWORD</span>
+                                <span className="text-[9px] font-mono font-black">{standWifiPass || 'BURE'}</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* STORE PLACARD PREVIEW */}
+                  {qrBuilderMode === 'store_placard' && (
+                    <div className="w-full flex flex-col items-center justify-center py-2">
+                      <div 
+                        id="printable-stand" 
+                        className="w-full max-w-[340px] bg-white text-neutral-900 rounded-3xl overflow-hidden shadow-2xl border border-neutral-200 p-6 text-center space-y-4"
+                      >
+                        {vendorProfile?.logoUrl && printDetails.showLogo && (
+                          <img 
+                            src={getProxiedImageUrl(vendorProfile.logoUrl)} 
+                            alt="Logo" 
+                            className="w-12 h-12 mx-auto rounded-xl object-contain bg-white p-1 shadow-sm"
+                          />
+                        )}
+                        <h3 className="text-base font-black uppercase tracking-tight text-neutral-900">
+                          {printDetails.header || vendorProfile?.businessName || 'OFFICIAL STORE'}
+                        </h3>
+                        <div className="p-4 bg-neutral-50 rounded-2xl border border-neutral-100 flex items-center justify-center">
+                          <div 
+                            ref={qrPrintRef} 
+                            className="flex items-center justify-center w-[150px] h-[150px] [&>canvas]:max-w-full [&>canvas]:max-h-full [&>svg]:max-w-full [&>svg]:max-h-full overflow-hidden"
+                          ></div>
+                        </div>
+                        <p className="text-xs font-bold text-neutral-600">{printDetails.footer}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* QR ONLY PREVIEW */}
+                  {qrBuilderMode === 'qr_only' && (
+                    <div className="relative group p-6 flex flex-col items-center justify-center">
+                      <div className="absolute -inset-4 bg-amber-600/20 rounded-[3rem] blur-2xl group-hover:bg-amber-600/30 transition-all duration-500"></div>
+                      <div 
+                        ref={qrRef} 
+                        className="relative transition-all duration-500 shadow-sm p-8 bg-white rounded-[2.5rem] shadow-2xl group-hover:scale-[1.02]"
+                        style={{
+                          borderRadius: `${borderRound}px`,
+                          border: `${borderWidth}px solid ${borderColor}`,
+                          padding: `${padding}px`,
+                          backgroundColor: backgroundColor,
+                        }}
+                      ></div>
+                    </div>
+                  )}
+
+                  {/* Bottom Actions: Download Stand / Print */}
+                  <div className="w-full space-y-3 max-w-[340px]">
+                    {qrBuilderMode !== 'qr_only' ? (
+                      <div className="space-y-2.5">
                         <Button 
                           onClick={handleDownloadStand}
                           disabled={isExporting}
-                          className="w-full h-16 bg-orange-600 text-white hover:bg-orange-700 rounded-[1.5rem] font-black uppercase tracking-widest text-xs shadow-xl transition-all"
+                          className="w-full h-14 bg-gradient-to-r from-amber-600 via-orange-600 to-amber-600 text-white hover:brightness-110 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-amber-950/50 transition-all cursor-pointer"
                         >
-                          {isExporting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-4 h-4 mr-3" />} 
-                          Pakua kama Picha (Stand)
+                          {isExporting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-4 h-4 mr-2.5" />} 
+                          Pakua Stand ya Mezani (PNG)
                         </Button>
                         <Button 
                           onClick={handlePrint}
                           variant="outline"
-                          className="w-full h-14 bg-white/5 border-white/10 text-white hover:bg-white/10 rounded-[1.5rem] font-black uppercase tracking-widest text-xs transition-all"
+                          className="w-full h-11 bg-white/5 border-white/10 text-white hover:bg-white/10 rounded-xl font-black uppercase tracking-widest text-[11px] transition-all cursor-pointer"
                         >
-                          <Printer className="w-4 h-4 mr-3" /> Chapa (Print Stand)
+                          <Printer className="w-4 h-4 mr-2" /> Chapa Moja kwa Moja (Print)
                         </Button>
                       </div>
                     ) : (
                       <Button 
                         onClick={downloadQr}
-                        className="w-full h-16 bg-white text-black hover:bg-neutral-200 rounded-[1.5rem] font-black uppercase tracking-widest text-xs shadow-xl transition-all"
+                        className="w-full h-14 bg-orange-600 text-white hover:bg-orange-700 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl transition-all cursor-pointer"
                       >
-                        <Download className="w-4 h-4 mr-3" /> Download QR Only
+                        <Download className="w-4 h-4 mr-2" /> Download QR Only
                       </Button>
                     )}
-                    <p className="text-center text-[9px] text-neutral-500 font-bold uppercase tracking-[0.15em] leading-relaxed">
-                       {printDetails.isPrintMode 
-                         ? 'This layout is optimized for acrylic store displays.' 
-                         : `Scan this code to directly access the shop for Aisle ${selectedSection?.number || ''}`
-                       }
+                    <p className="text-center text-[9px] text-neutral-400 font-bold uppercase tracking-[0.15em] leading-relaxed">
+                      {qrBuilderMode === 'table_stand' 
+                        ? (standDisplayLayout === 'gold_menu_showcase' ? 'Muundo wa Dhahabu tayari kwa ajili ya acrylic/wood stands mezani' : 'Muundo ulioratibiwa kwa ajili ya meza za wageni')
+                        : 'Muundo ulioratibiwa kwa ajili ya maonyesho ya dukani au meza.'
+                      }
                     </p>
                   </div>
                 </div>
               </div>
-              
-              <div className="p-8 border-t border-white/5 flex items-center justify-between shrink-0 bg-black/20">
-                 <div className="flex gap-4">
-                    <div className="flex flex-col">
-                       <span className="text-[10px] font-black text-neutral-500 uppercase">Format</span>
-                       <span className="text-xs font-black text-white italic">PNG • 300x300</span>
-                    </div>
-                    <div className="w-px h-8 bg-white/10 mx-2"></div>
-                    <div className="flex flex-col">
-                       <span className="text-[10px] font-black text-neutral-500 uppercase">Data Path</span>
-                       <span className="text-xs font-black text-orange-500 italic opacity-80">/vendor/{vendorProfile?.id?.slice(0,8)}...</span>
-                    </div>
-                 </div>
-                 <Button 
-                   onClick={() => setIsQrBuilderOpen(false)}
-                   className="h-14 px-10 bg-orange-600 hover:bg-orange-700 rounded-2xl font-black uppercase tracking-widest text-[10px] text-white shadow-xl shadow-orange-950/20"
-                 >
-                   Save Changes
-                 </Button>
+
+              {/* Bottom Sticky Action Bar */}
+              <div className="p-4 sm:p-5 border-t border-white/10 bg-neutral-950/90 flex flex-wrap items-center justify-between gap-4 shrink-0">
+                <div className="flex items-center gap-4">
+                  <div className="text-left">
+                    <span className="text-[8px] font-black text-neutral-500 uppercase tracking-widest block">Stand Type</span>
+                    <span className="text-xs font-black text-white uppercase font-mono">
+                      {qrBuilderMode === 'table_stand' 
+                        ? (standDisplayLayout === 'gold_menu_showcase' ? 'GOLD MENU PLACARD' : `${tableStandStyle.toUpperCase()} STAND`)
+                        : qrBuilderMode.toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="h-6 w-px bg-white/10"></div>
+                  <div className="text-left">
+                    <span className="text-[8px] font-black text-neutral-500 uppercase tracking-widest block">Link Target</span>
+                    <span className="text-xs font-black text-amber-400 truncate max-w-[200px] block font-mono">
+                      {qrOptions.data || window.location.origin}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button 
+                    onClick={() => setIsQrBuilderOpen(false)}
+                    className="h-11 px-8 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-orange-950/50 cursor-pointer"
+                  >
+                    Imekamilika
+                  </Button>
+                </div>
               </div>
             </motion.div>
           </div>
