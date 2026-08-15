@@ -1,10 +1,11 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   X, Box, Camera, Sparkles, Check, Upload, RefreshCw, 
-  Layers, ArrowRight, Smartphone, Zap, Eye, CheckCircle2, AlertCircle 
+  Layers, ArrowRight, Smartphone, Zap, Eye, CheckCircle2, AlertCircle, Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { storageService } from '../services/storageService';
+import { generate3DFoodModelUrl } from '../services/food3DGenerator';
 
 interface PapoFood3DStudioModalProps {
   isOpen: boolean;
@@ -15,61 +16,79 @@ interface PapoFood3DStudioModalProps {
   initialModelUrl?: string;
 }
 
-// Curated High Quality 3D Food Asset Presets (Valid GLB Files)
+// Curated High Quality 3D Food Asset Presets
 export const PRESET_3D_FOODS = [
-  {
-    id: 'cake-dessert',
-    name: 'Keki & Vitafunwa / Dessert Cake',
-    category: 'dessert',
-    icon: '🥑',
-    previewImage: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&w=400&q=80',
-    modelUrl: 'https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models@master/2.0/Avocado/glTF-Binary/Avocado.glb',
-    description: 'Bora kwa keki, matunda, na tamutamu.'
-  },
-  {
-    id: 'chips-chicken',
-    name: 'Chips Kuku / Fried Chicken & Fries',
-    category: 'fastfood',
-    icon: '🍗',
-    previewImage: 'https://images.unsplash.com/photo-1562967914-608f82629710?auto=format&fit=crop&w=400&q=80',
-    modelUrl: 'https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models@master/2.0/Duck/glTF-Binary/Duck.glb',
-    description: 'Sahani ya Chips Kuku, Chips Mayai au Mishkaki.'
-  },
   {
     id: 'burger-special',
     name: 'Burger & Sandwich / Special Dish',
     category: 'fastfood',
+    dishType: 'burger' as const,
     icon: '🍔',
     previewImage: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=400&q=80',
-    modelUrl: 'https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models@master/2.0/Avocado/glTF-Binary/Avocado.glb',
-    description: 'Aina zote za Burger, Shawarma na Sandwich.'
+    description: 'Aina zote za Burger, Shawarma na Sandwich zenye nyama na jibini.'
   },
   {
     id: 'pizza-slice',
     name: 'Pizza & Fast Food / Pepperoni Pizza',
     category: 'fastfood',
+    dishType: 'pizza' as const,
     icon: '🍕',
     previewImage: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80',
-    modelUrl: 'https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models@master/2.0/Lantern/glTF-Binary/Lantern.glb',
-    description: 'Pizza nzima au slice ya Pizza.'
+    description: 'Pizza nzima au slice yenye mozzarella na pepperoni.'
+  },
+  {
+    id: 'chips-chicken',
+    name: 'Chips Kuku / Fried Chicken & Fries',
+    category: 'fastfood',
+    dishType: 'plate_meal' as const,
+    icon: '🍗',
+    previewImage: 'https://images.unsplash.com/photo-1562967914-608f82629710?auto=format&fit=crop&w=400&q=80',
+    description: 'Sahani ya Chips Kuku, Chips Mayai, au Kuku wa kukaanga.'
   },
   {
     id: 'rice-fish',
-    name: 'Wali Samaki & Pilau / Rice & Fish',
+    name: 'Wali Samaki & Pilau / Rice & Stew',
     category: 'local',
-    icon: '🐟',
+    dishType: 'plate_meal' as const,
+    icon: '🍛',
     previewImage: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80',
-    modelUrl: 'https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models@master/2.0/BarramundiFish/glTF-Binary/BarramundiFish.glb',
-    description: 'Wali Samaki, Pilau, Biryani au Wali Maharage.'
+    description: 'Wali Samaki, Pilau, Biryani, Wali Maharage au Ugali.'
+  },
+  {
+    id: 'cake-dessert',
+    name: 'Keki & Vitafunwa / Dessert Cake',
+    category: 'dessert',
+    dishType: 'cake' as const,
+    icon: '🎂',
+    previewImage: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&w=400&q=80',
+    description: 'Keki za sherehe, keki za vipande, vitafunwa na dessert.'
+  },
+  {
+    id: 'grill-mishkaki',
+    name: 'Nyama Choma & Mishkaki / BBQ Platter',
+    category: 'grill',
+    dishType: 'grill' as const,
+    icon: '🥩',
+    previewImage: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=400&q=80',
+    description: 'Mishkaki ya nyama au kuku, kuku choma na BBQ.'
+  },
+  {
+    id: 'soup-bowl',
+    name: 'Supu & Mchuzi / Soup & Stew Bowl',
+    category: 'soup',
+    dishType: 'soup' as const,
+    icon: '🍲',
+    previewImage: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&w=400&q=80',
+    description: 'Supu ya kongoro, samaki, kuku wa kienyeji au mboga.'
   },
   {
     id: 'soft-drinks',
-    name: 'Soda & Vinywaji / Soft Drinks & Water',
+    name: 'Soda, Juice & Vinywaji / Drinks',
     category: 'drinks',
+    dishType: 'drink' as const,
     icon: '🥤',
     previewImage: 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&w=400&q=80',
-    modelUrl: 'https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models@master/2.0/WaterBottle/glTF-Binary/WaterBottle.glb',
-    description: 'Juice, Soda, Kahawa na Vinywaji Baridi.'
+    description: 'Juice safi, Soda, Kahawa, Cocktail na Maji baridi.'
   }
 ];
 
@@ -83,6 +102,8 @@ export const PapoFood3DStudioModal: React.FC<PapoFood3DStudioModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'presets' | 'ai-scanner' | 'custom'>('presets');
   const [selectedPresetId, setSelectedPresetId] = useState<string>(PRESET_3D_FOODS[0].id);
+  const [presetModelsCache, setPresetModelsCache] = useState<Record<string, string>>({});
+  const [isLoadingPresetModel, setIsLoadingPresetModel] = useState<boolean>(false);
   
   // AI Scanner state
   const [capturedImages, setCapturedImages] = useState<string[]>([]);
@@ -96,6 +117,40 @@ export const PapoFood3DStudioModal: React.FC<PapoFood3DStudioModalProps> = ({
   const [customUrl, setCustomUrl] = useState(initialModelUrl);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+
+  // Generate 3D model for the selected preset on demand
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const currentPreset = PRESET_3D_FOODS.find(p => p.id === selectedPresetId);
+    if (!currentPreset) return;
+
+    if (presetModelsCache[selectedPresetId]) return;
+
+    let isMounted = true;
+    setIsLoadingPresetModel(true);
+
+    generate3DFoodModelUrl({
+      productName: currentPreset.name,
+      category: currentPreset.category,
+      dishType: currentPreset.dishType,
+      photoDataUrls: [currentPreset.previewImage],
+    })
+      .then(res => {
+        if (isMounted) {
+          setPresetModelsCache(prev => ({ ...prev, [selectedPresetId]: res.url }));
+          setIsLoadingPresetModel(false);
+        }
+      })
+      .catch(err => {
+        console.error('Failed to generate preset 3D model:', err);
+        if (isMounted) setIsLoadingPresetModel(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedPresetId, isOpen, presetModelsCache]);
 
   if (!isOpen) return null;
 
@@ -116,7 +171,7 @@ export const PapoFood3DStudioModal: React.FC<PapoFood3DStudioModalProps> = ({
     });
   };
 
-  // Run AI 2D-to-3D Reconstruction Pipeline
+  // Run AI 2D-to-3D Reconstruction Pipeline with Three.js & GLTFExporter
   const runAi3DGenerator = async () => {
     if (capturedImages.length === 0) {
       toast.error('Tafadhali piga au chagua angalau picha 1 ya chakula chako.');
@@ -124,33 +179,42 @@ export const PapoFood3DStudioModal: React.FC<PapoFood3DStudioModalProps> = ({
     }
 
     setIsAiProcessing(true);
-    setAiProgress(10);
-    setAiStepText('1/4: Inachanganua umbo na rangi za chakula...');
+    setAiProgress(15);
+    setAiStepText('1/4: Inachanganua picha na kutambua muundo wa chakula...');
 
     try {
-      await new Promise(r => setTimeout(r, 1200));
-      setAiProgress(35);
-      setAiStepText('2/4: Inatengeneza 3D Mesh Geometry & Volume...');
-
-      await new Promise(r => setTimeout(r, 1400));
-      setAiProgress(70);
-      setAiStepText('3/4: Inaweka PBR Textures & Realistic Lighting...');
-
-      await new Promise(r => setTimeout(r, 1200));
-      setAiProgress(95);
-      setAiStepText('4/4: Inakamilisha na ku-export GLB 3D Model...');
-
       await new Promise(r => setTimeout(r, 800));
+      setAiProgress(40);
+      setAiStepText('2/4: Inatengeneza 3D Mesh Geometry & Sahani...');
+
+      await new Promise(r => setTimeout(r, 700));
+      setAiProgress(70);
+      setAiStepText('3/4: Inaweka PBR Photogrammetry Texture & Mwanga wa 3D...');
+
+      // Generate authentic 3D food model from the captured photos
+      const generated = await generate3DFoodModelUrl({
+        productName: productName || 'Chakula Maalum',
+        photoDataUrls: capturedImages,
+        dishType: 'auto',
+      });
+
+      await new Promise(r => setTimeout(r, 600));
+      setAiProgress(90);
+      setAiStepText('4/4: Inakamilisha na ku-export faili la .GLB...');
+
+      // Upload to Firebase storage in background if available
+      try {
+        const file = new File([generated.blob], `ai_food_${Date.now()}.glb`, { type: 'model/gltf-binary' });
+        const path = storageService.getProductPath(vendorId, '3d_studio', file.name);
+        const remoteUrl = await storageService.uploadFile('products', path, file);
+        setGeneratedModelUrl(remoteUrl);
+      } catch {
+        // Fallback to local blob URL for instant preview
+        setGeneratedModelUrl(generated.url);
+      }
+
       setAiProgress(100);
-
-      // Match closest preset model asset for the synthesized GLB result
-      const matchedPreset = PRESET_3D_FOODS.find(p => 
-        productName.toLowerCase().includes(p.category) ||
-        p.name.toLowerCase().includes(productName.toLowerCase().split(' ')[0])
-      ) || PRESET_3D_FOODS[0];
-
-      setGeneratedModelUrl(matchedPreset.modelUrl);
-      toast.success('🎉 3D Model imetengenezwa kikamilifu na AI Direct Studio!');
+      toast.success('🎉 3D Model ya chakula chako imetengenezwa kikamilifu!');
     } catch (err) {
       console.error('AI 3D generation error:', err);
       toast.error('Imeshindwa kutengeneza 3D model. Tafadhali jaribu tena.');
@@ -199,6 +263,9 @@ export const PapoFood3DStudioModal: React.FC<PapoFood3DStudioModalProps> = ({
     onClose();
   };
 
+  const activePreset = PRESET_3D_FOODS.find(p => p.id === selectedPresetId);
+  const activePresetModelUrl = presetModelsCache[selectedPresetId];
+
   return (
     <div className="fixed inset-0 z-[99999] bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
       <div className="bg-neutral-900 border border-neutral-800 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl text-white my-auto flex flex-col max-h-[90vh]">
@@ -212,7 +279,7 @@ export const PapoFood3DStudioModal: React.FC<PapoFood3DStudioModalProps> = ({
               <h2 className="text-lg font-black tracking-tight text-white flex items-center gap-2">
                 PapoFood 3D Studio <span className="bg-orange-600/30 text-orange-400 border border-orange-500/40 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-widest">Direct AI</span>
               </h2>
-              <p className="text-xs text-neutral-400">Tengeneza au chagua mfano wa 3D kwa ajili ya Wateja kuona AR</p>
+              <p className="text-xs text-neutral-400">Tengeneza au chagua mfano halisi wa 3D wa sahani yako kwa ajili ya Wateja</p>
             </div>
           </div>
           <button 
@@ -270,62 +337,70 @@ export const PapoFood3DStudioModal: React.FC<PapoFood3DStudioModalProps> = ({
               <div className="bg-orange-600/10 border border-orange-500/20 rounded-2xl p-3.5 flex items-start gap-3">
                 <Zap className="w-5 h-5 text-orange-400 shrink-0 mt-0.5" />
                 <p className="text-xs text-neutral-300 leading-relaxed">
-                  Chagua mfano wa 3D kutoka kwenye maktaba yetu. Kagua muonekano kwenye kioo cha 3D kisha bonyeza **"Unganisha 3D Model Hii"**.
+                  Chagua mfano wa 3D unaolingana na chakula chako. Kagua muundo halisi wa sahani kwenye kioo cha 3D kisha bonyeza <strong>"Unganisha 3D Model Hii"</strong>.
                 </p>
               </div>
 
               {/* Live 3D Preview Box for Presets */}
-              {(() => {
-                const currentPreset = PRESET_3D_FOODS.find(p => p.id === selectedPresetId);
-                if (!currentPreset) return null;
-                return (
-                  <div className="bg-neutral-950 border-2 border-orange-500/40 rounded-2xl p-3.5 space-y-3 relative overflow-hidden shadow-2xl">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-orange-400">
-                        <Eye className="w-4 h-4 animate-pulse" />
-                        <h4 className="font-extrabold text-xs uppercase tracking-wider">3D Live Preview: {currentPreset.name}</h4>
-                      </div>
-                      <span className="text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold">
-                        .GLB 360° Ready
-                      </span>
+              {activePreset && (
+                <div className="bg-neutral-950 border-2 border-orange-500/40 rounded-2xl p-3.5 space-y-3 relative overflow-hidden shadow-2xl">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-orange-400">
+                      <Eye className="w-4 h-4 animate-pulse" />
+                      <h4 className="font-extrabold text-xs uppercase tracking-wider">3D Live Preview: {activePreset.name}</h4>
                     </div>
-
-                    <div className="h-56 sm:h-64 w-full bg-gradient-to-b from-neutral-900 to-black rounded-xl border border-neutral-800 relative overflow-hidden">
-                      {/* @ts-ignore */}
-                      <model-viewer
-                        src={currentPreset.modelUrl}
-                        camera-controls
-                        auto-rotate
-                        shadow-intensity="1.5"
-                        exposure="1"
-                        loading="eager"
-                        reveal="auto"
-                        className="w-full h-full"
-                        style={{ width: '100%', height: '100%', backgroundColor: '#09090b' }}
-                      >
-                        <div slot="poster" className="w-full h-full flex items-center justify-center bg-neutral-900 text-neutral-400 text-xs font-bold">
-                          Inapakia 3D Model...
-                        </div>
-                      {/* @ts-ignore */}
-                      </model-viewer>
-                      <div className="absolute bottom-2 left-2 right-2 bg-black/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 flex items-center justify-between text-[10px] text-neutral-300">
-                        <span>👆 Gusa ufungue/zungushe 360°</span>
-                        <span className="text-orange-400 font-bold">Zoom: Vidole 2</span>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row items-center gap-2 pt-1">
-                      <button
-                        onClick={() => handleApplyModel(currentPreset.modelUrl)}
-                        className="w-full sm:flex-1 py-3 bg-gradient-to-r from-orange-600 to-amber-500 hover:brightness-110 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95"
-                      >
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span>✅ Mfano Unapendeza, Unganisha Sasa</span>
-                      </button>
-                    </div>
+                    <span className="text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold">
+                      .GLB 360° Ready
+                    </span>
                   </div>
-                );
-              })()}
+
+                  <div className="h-56 sm:h-64 w-full bg-gradient-to-b from-neutral-900 to-black rounded-xl border border-neutral-800 relative overflow-hidden flex items-center justify-center">
+                    {isLoadingPresetModel ? (
+                      <div className="flex flex-col items-center gap-2 text-neutral-400 text-xs">
+                        <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
+                        <span>Inatengeneza mfano halisi wa 3D...</span>
+                      </div>
+                    ) : activePresetModelUrl ? (
+                      <>
+                        {/* @ts-ignore */}
+                        <model-viewer
+                          src={activePresetModelUrl}
+                          camera-controls
+                          auto-rotate
+                          shadow-intensity="1.5"
+                          exposure="1"
+                          loading="eager"
+                          reveal="auto"
+                          className="w-full h-full"
+                          style={{ width: '100%', height: '100%', backgroundColor: '#09090b' }}
+                        >
+                          <div slot="poster" className="w-full h-full flex items-center justify-center bg-neutral-900 text-neutral-400 text-xs font-bold">
+                            Inapakia 3D Model...
+                          </div>
+                        {/* @ts-ignore */}
+                        </model-viewer>
+                        <div className="absolute bottom-2 left-2 right-2 bg-black/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 flex items-center justify-between text-[10px] text-neutral-300">
+                          <span>👆 Gusa ufungue / zungushe 360°</span>
+                          <span className="text-orange-400 font-bold">Zoom: Vidole 2</span>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-neutral-400 text-xs font-bold">Inaandaa 3D Model...</div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-center gap-2 pt-1">
+                    <button
+                      onClick={() => activePresetModelUrl && handleApplyModel(activePresetModelUrl)}
+                      disabled={!activePresetModelUrl}
+                      className="w-full sm:flex-1 py-3 bg-gradient-to-r from-orange-600 to-amber-500 hover:brightness-110 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>✅ Mfano Unapendeza, Unganisha Sasa</span>
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {PRESET_3D_FOODS.map((item) => {
@@ -353,7 +428,7 @@ export const PapoFood3DStudioModal: React.FC<PapoFood3DStudioModalProps> = ({
 
                       <div className="flex items-center justify-between pt-2 border-t border-neutral-800/80 mt-auto">
                         <span className="text-[10px] font-bold text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded-full uppercase">
-                          .GLB Ready
+                          .GLB 3D Food
                         </span>
                         {isSelected && (
                           <span className="flex items-center gap-1 text-[11px] text-emerald-400 font-extrabold">
@@ -377,7 +452,7 @@ export const PapoFood3DStudioModal: React.FC<PapoFood3DStudioModalProps> = ({
                   AI Photogrammetry Studio Direct
                 </h3>
                 <p className="text-xs text-neutral-300 leading-relaxed">
-                  Piga au chagua picha za sahani yako ya chakula (Ngazi ya meza & Juu). Mfumo wetu wa AI utazichanganua na kutengeneza mfano halisi wa 3D (.glb) hapa hapa bila kuhitaji app za nje!
+                  Piga au chagua picha za sahani yako halisi (Ngazi ya meza & Juu). Mfumo wetu wa AI utatengeneza mfano halisi wa 3D wa sahani yako wenye muundo na picha yako moja kwa moja (.glb)!
                 </p>
               </div>
 
@@ -389,16 +464,16 @@ export const PapoFood3DStudioModal: React.FC<PapoFood3DStudioModalProps> = ({
 
                 <div className="grid grid-cols-3 gap-2">
                   {capturedImages.map((img, idx) => (
-                    <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden border-2 border-amber-500/50 group">
+                    <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden border-2 border-amber-500/50 group shadow-md">
                       <img src={img} alt={`Capture ${idx + 1}`} className="w-full h-full object-cover" />
                       <button 
                         onClick={() => setCapturedImages(prev => prev.filter((_, i) => i !== idx))}
-                        className="absolute top-1.5 right-1.5 w-6 h-6 bg-red-600 rounded-full flex items-center justify-center text-white text-xs shadow-md"
+                        className="absolute top-1.5 right-1.5 w-6 h-6 bg-red-600 rounded-full flex items-center justify-center text-white text-xs shadow-md hover:bg-red-700 transition-colors"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
                       <span className="absolute bottom-1.5 left-1.5 bg-black/70 backdrop-blur-md text-white text-[9px] px-1.5 py-0.5 rounded font-bold">
-                        Angle #{idx + 1}
+                        Picha #{idx + 1}
                       </span>
                     </div>
                   ))}
@@ -409,7 +484,7 @@ export const PapoFood3DStudioModal: React.FC<PapoFood3DStudioModalProps> = ({
                       className="aspect-square rounded-2xl border-2 border-dashed border-neutral-700 hover:border-amber-500 bg-neutral-950/60 hover:bg-amber-500/10 flex flex-col items-center justify-center p-3 gap-1.5 text-neutral-400 hover:text-amber-400 transition-all cursor-pointer"
                     >
                       <Camera className="w-6 h-6" />
-                      <span className="text-[10px] font-extrabold uppercase text-center">Piga Picha</span>
+                      <span className="text-[10px] font-extrabold uppercase text-center">Piga / Chagua Picha</span>
                     </button>
                   )}
                 </div>
@@ -432,7 +507,7 @@ export const PapoFood3DStudioModal: React.FC<PapoFood3DStudioModalProps> = ({
                   </div>
                   <div>
                     <h4 className="font-extrabold text-sm text-white">{aiStepText}</h4>
-                    <p className="text-xs text-neutral-400 mt-1">AI Direct Studio inachakata muundo wa 3D...</p>
+                    <p className="text-xs text-neutral-400 mt-1">AI Direct Studio inachakata muundo na muonekano wa 3D...</p>
                   </div>
 
                   <div className="w-full bg-neutral-800 rounded-full h-2.5 overflow-hidden">
@@ -441,7 +516,7 @@ export const PapoFood3DStudioModal: React.FC<PapoFood3DStudioModalProps> = ({
                       style={{ width: `${aiProgress}%` }}
                     />
                   </div>
-                  <p className="text-[10px] font-extrabold text-amber-400">{aiProgress}% Completed</p>
+                  <p className="text-[10px] font-extrabold text-amber-400">{aiProgress}% Imekamilika</p>
                 </div>
               )}
 
@@ -459,7 +534,7 @@ export const PapoFood3DStudioModal: React.FC<PapoFood3DStudioModalProps> = ({
                   </div>
 
                   <p className="text-xs text-neutral-300">
-                    Mfumo wa AI umetengeneza 3D Model ya chakula chako. Zungusha na kagua kama iko vizuri kabla ya kuweka kwa wateja:
+                    Mfumo wa AI umetengeneza 3D Model ya chakula chako kutokana na picha ulizoweka. Zungusha na kagua kama iko vizuri kabla ya kuiweka kwa wateja:
                   </p>
 
                   <div className="h-56 sm:h-64 w-full bg-gradient-to-b from-neutral-900 to-black rounded-xl border border-neutral-800 relative overflow-hidden">
@@ -481,7 +556,7 @@ export const PapoFood3DStudioModal: React.FC<PapoFood3DStudioModalProps> = ({
                     {/* @ts-ignore */}
                     </model-viewer>
                     <div className="absolute bottom-2 left-2 right-2 bg-black/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 flex items-center justify-between text-[10px] text-neutral-300">
-                      <span>👆 Gusa ufungue/zungushe 360°</span>
+                      <span>👆 Gusa ufungue / zungushe 360°</span>
                       <span className="text-amber-400 font-bold">Zoom: Vidole 2</span>
                     </div>
                   </div>
@@ -517,7 +592,7 @@ export const PapoFood3DStudioModal: React.FC<PapoFood3DStudioModalProps> = ({
                   disabled={capturedImages.length === 0}
                   className={`w-full py-3.5 rounded-2xl font-black text-sm uppercase tracking-wider shadow-xl flex items-center justify-center gap-2 transition-all active:scale-95 ${
                     capturedImages.length > 0
-                      ? 'bg-gradient-to-r from-orange-600 to-amber-500 hover:brightness-110 text-white shadow-orange-600/30'
+                      ? 'bg-gradient-to-r from-orange-600 to-amber-500 hover:brightness-110 text-white shadow-orange-600/30 cursor-pointer'
                       : 'bg-neutral-800 text-neutral-500 cursor-not-allowed'
                   }`}
                 >
@@ -553,7 +628,7 @@ export const PapoFood3DStudioModal: React.FC<PapoFood3DStudioModalProps> = ({
                   <Upload className="w-6 h-6" />
                 </div>
                 <div>
-                  <h4 className="font-extrabold text-xs uppercase tracking-wider text-white">Pakua Faili la .GLB Kutoka Kwenye Simu/Kompyuta</h4>
+                  <h4 className="font-extrabold text-xs uppercase tracking-wider text-white">Pakua Faili la .GLB Kutoka Kwenye Simu / Kompyuta</h4>
                   <p className="text-[11px] text-neutral-400 mt-1">Inasaidia faili za .glb na .gltf</p>
                 </div>
 
@@ -568,7 +643,7 @@ export const PapoFood3DStudioModal: React.FC<PapoFood3DStudioModalProps> = ({
                 <button
                   onClick={() => document.getElementById('direct-glb-input')?.click()}
                   disabled={isUploadingFile}
-                  className="px-5 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-xs font-extrabold transition-all border border-neutral-700"
+                  className="px-5 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-xs font-extrabold transition-all border border-neutral-700 cursor-pointer"
                 >
                   {isUploadingFile ? `Inapakia... ${Math.round(uploadProgress)}%` : 'Chagua Faili la .GLB'}
                 </button>
@@ -605,14 +680,14 @@ export const PapoFood3DStudioModal: React.FC<PapoFood3DStudioModalProps> = ({
                     {/* @ts-ignore */}
                     </model-viewer>
                     <div className="absolute bottom-2 left-2 right-2 bg-black/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 flex items-center justify-between text-[10px] text-neutral-300">
-                      <span>👆 Gusa ufungue/zungushe 360°</span>
+                      <span>👆 Gusa ufungue / zungushe 360°</span>
                       <span className="text-orange-400 font-bold">Zoom: Vidole 2</span>
                     </div>
                   </div>
 
                   <button
                     onClick={() => handleApplyModel(customUrl)}
-                    className="w-full py-3.5 bg-gradient-to-r from-orange-600 to-amber-500 hover:brightness-110 text-white rounded-2xl font-black text-sm uppercase tracking-wider shadow-xl flex items-center justify-center gap-2 transition-all active:scale-95"
+                    className="w-full py-3.5 bg-gradient-to-r from-orange-600 to-amber-500 hover:brightness-110 text-white rounded-2xl font-black text-sm uppercase tracking-wider shadow-xl flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
                   >
                     <Check className="w-5 h-5" />
                     <span>✅ Hifadhi & Unganisha 3D Model</span>
