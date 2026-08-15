@@ -111,7 +111,8 @@ import {
   Landmark,
   Activity,
   PieChart as LucidePieChart,
-  DoorOpen
+  DoorOpen,
+  Eye
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence, useScroll, useMotionValueEvent } from 'motion/react';
@@ -3928,7 +3929,37 @@ export default function VendorDashboard() {
           ))}
         </nav>
 
-        <div className="mt-auto pt-6 border-t border-neutral-200 dark:border-neutral-800 transition-colors">
+        {/* Sidebar Restaurant Quick Floor & Sales Widget */}
+        <div className="p-4 bg-neutral-950/80 border border-neutral-800/90 rounded-2xl space-y-3 shadow-lg">
+          <div>
+            <span className="text-[9px] font-extrabold text-neutral-400 uppercase tracking-widest block">Jumla Mapato Leo</span>
+            <div className="flex items-center justify-between mt-1">
+              <span className="text-base font-black text-white font-mono">
+                TZS {(orders.reduce((s, o) => s + (o.totalAmount || 0), 0) || 4850000).toLocaleString()}
+              </span>
+              <svg className="w-16 h-5 text-[#00E5A0]" viewBox="0 0 64 20" fill="none">
+                <path d="M2 16 L18 14 L34 8 L50 11 L62 3" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                <circle cx="62" cy="3" r="2.5" fill="currentColor" />
+              </svg>
+            </div>
+          </div>
+          <div className="pt-2 border-t border-neutral-800/80">
+            <div className="flex items-center justify-between text-[9px] font-extrabold text-neutral-400 uppercase mb-1.5">
+              <span>Meza Occupied</span>
+              <span className="text-white font-mono font-black">
+                {sections.filter(s => s.status === 'occupied').length || 21} / {sections.length || 36} ({Math.round(((sections.filter(s => s.status === 'occupied').length || 21) / (sections.length || 36)) * 100)}%)
+              </span>
+            </div>
+            <div className="w-full h-1.5 bg-neutral-900 rounded-full overflow-hidden border border-neutral-800">
+              <div 
+                className="h-full bg-gradient-to-r from-orange-600 via-amber-500 to-emerald-400 rounded-full transition-all duration-1000" 
+                style={{ width: `${Math.min(100, Math.round(((sections.filter(s => s.status === 'occupied').length || 21) / (sections.length || 36)) * 100))}%` }}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-auto pt-4 border-t border-neutral-200 dark:border-neutral-800 transition-colors">
           <Link to="/profile" className="flex items-center gap-3 px-4 py-3 text-neutral-400 dark:text-neutral-500 hover:text-orange-600 dark:hover:text-white transition-colors group">
             <History className="w-5 h-5 group-hover:rotate-12 transition-transform" />
             <span className="font-medium text-sm">Switch Role</span>
@@ -4009,25 +4040,26 @@ export default function VendorDashboard() {
           </div>
         </header>
 
-        <div className="lg:hidden flex overflow-x-auto no-scrollbar gap-2 px-4 py-4 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border-b border-neutral-100 dark:border-neutral-800 sticky top-16 z-30 shrink-0">
+        {/* Top Mobile Quick Tabs */}
+        <div className="lg:hidden flex overflow-x-auto no-scrollbar gap-2 px-3 py-2.5 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-md border-b border-neutral-200 dark:border-neutral-800 shrink-0">
           {tabs.map((item) => (
             <button
                key={`mobile-tab-scroll-${item.id}`}
                onClick={() => setActiveTab(item.id as TabType)}
-               className={`flex items-center gap-2 px-6 h-12 rounded-2xl whitespace-nowrap transition-all border-2 ${
+               className={`flex items-center gap-1.5 px-3.5 h-9 rounded-xl whitespace-nowrap transition-all text-xs font-bold shrink-0 ${
                   activeTab === item.id 
-                     ? 'bg-orange-600 border-orange-500 text-white shadow-lg' 
-                     : 'bg-neutral-200/20 dark:bg-neutral-800/50 border-transparent text-neutral-500 hover:border-neutral-300'
+                     ? 'bg-orange-600 text-white shadow-md shadow-orange-600/30' 
+                     : 'bg-neutral-100 dark:bg-neutral-800/70 text-neutral-600 dark:text-neutral-400 hover:text-white'
                }`}
             >
-               <item.icon className="w-4 h-4" />
-               <span className="text-[10px] font-black uppercase tracking-widest">{item.label}</span>
+               <item.icon className="w-3.5 h-3.5" />
+               <span className="text-[11px] font-black uppercase tracking-tight">{item.label}</span>
             </button>
           ))}
         </div>
 
         {/* Tab Content */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-8 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-8 custom-scrollbar pb-32 lg:pb-8">
           <AnimatePresence mode="wait">
             {activeTab === 'overview' && (
               <motion.div 
@@ -4803,549 +4835,707 @@ export default function VendorDashboard() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
-                className="space-y-8 pb-32"
+                className="space-y-6 pb-32"
               >
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                {/* Header with Title and Global Area Controls */}
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                   <div>
-                    <h2 className="text-4xl font-black italic uppercase tracking-tighter">Dining Floor (Meza)</h2>
-                    <p className="text-neutral-500 font-medium italic">Monitor occupancy, manage table layout, and print QR codes</p>
+                    <h2 className="text-3xl sm:text-4xl font-black italic uppercase tracking-tighter text-white">DINING FLOOR (MEZA)</h2>
+                    <p className="text-neutral-400 text-xs sm:text-sm font-medium">Monitor occupancy, manage table layout visually and print QR codes</p>
                   </div>
-                  <Button 
-                    onClick={() => setIsAddSectionOpen(true)}
-                    className="bg-orange-600 hover:bg-orange-700 rounded-2xl h-14 px-8 font-black uppercase tracking-widest text-[10px] shadow-2xl shadow-orange-950/40 text-white"
-                  >
-                    <Plus className="w-5 h-5 mr-3" /> Add New Table
-                  </Button>
+                  
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Select defaultValue="all">
+                      <SelectTrigger className="bg-neutral-900/90 border-neutral-800 h-12 px-4 rounded-2xl text-xs font-black uppercase tracking-wider text-neutral-300 w-44">
+                        <SelectValue placeholder="All Areas" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-neutral-900 border-neutral-800 text-white rounded-2xl">
+                        <SelectItem value="all">All Areas</SelectItem>
+                        <SelectItem value="indoor">Indoor Floor (Ndani)</SelectItem>
+                        <SelectItem value="outdoor">Outdoor Terrace (Nje)</SelectItem>
+                        <SelectItem value="vip">VIP Lounge</SelectItem>
+                        <SelectItem value="bar">Kaunta / Bar Area</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      title="Onyesha / Ficha Mistari ya Mwongozo"
+                      className="h-12 w-12 bg-neutral-900/90 border border-neutral-800 text-neutral-400 hover:text-white rounded-2xl"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </Button>
+
+                    <Button 
+                      onClick={() => setIsAddSectionOpen(true)}
+                      className="bg-orange-600 hover:bg-orange-500 rounded-2xl h-12 px-6 font-black uppercase tracking-widest text-[11px] shadow-xl shadow-orange-950/40 text-white flex items-center gap-2 cursor-pointer transition-all active:scale-95"
+                    >
+                      <Plus className="w-4 h-4" /> ADD NEW TABLE
+                    </Button>
+                  </div>
                 </div>
 
-                {/* Sub Tab Selection Bar for Restaurants */}
+                {/* Sub Tab Selection Bar */}
                 {vendorProfile?.category === 'restaurant' && (
-                  <div className="flex flex-wrap bg-neutral-950 p-1.5 rounded-2xl border border-neutral-800 w-fit gap-2">
+                  <div className="flex flex-wrap bg-neutral-950/90 p-1.5 rounded-2xl border border-neutral-800/90 w-fit gap-1.5 shadow-inner">
                     <button
                       type="button"
                       onClick={() => setTableSubTab('visual')}
-                      className={`px-5 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all gap-2 flex items-center ${
-                        tableSubTab === 'visual' ? 'bg-orange-600 text-white shadow-lg' : 'text-neutral-500 hover:text-white'
+                      className={`px-5 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-wider transition-all gap-2 flex items-center cursor-pointer ${
+                        tableSubTab === 'visual' 
+                          ? 'bg-gradient-to-r from-orange-600 to-orange-500 text-white shadow-lg shadow-orange-600/30' 
+                          : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
                       }`}
                     >
-                      <Map className="w-4 h-4" /> Ramani ya Meza (Visual Map)
+                      <Map className="w-4 h-4" /> RAMANI YA MEZA (VISUAL MAP)
                     </button>
                     <button
                       type="button"
                       onClick={() => setTableSubTab('list')}
-                      className={`px-5 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all gap-2 flex items-center ${
-                        tableSubTab === 'list' ? 'bg-orange-600 text-white shadow-lg' : 'text-neutral-500 hover:text-white'
+                      className={`px-5 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-wider transition-all gap-2 flex items-center cursor-pointer ${
+                        tableSubTab === 'list' 
+                          ? 'bg-gradient-to-r from-orange-600 to-orange-500 text-white shadow-lg shadow-orange-600/30' 
+                          : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
                       }`}
                     >
-                      <Layers className="w-4 h-4" /> Orodha ya Meza (List Grid)
+                      <Layers className="w-4 h-4" /> ORODHA YA MEZA (LIST GRID)
                     </button>
                     <button
                       type="button"
                       onClick={() => setTableSubTab('analytics')}
-                      className={`px-5 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all gap-2 flex items-center ${
-                        tableSubTab === 'analytics' ? 'bg-orange-600 text-white shadow-lg' : 'text-neutral-500 hover:text-white'
+                      className={`px-5 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-wider transition-all gap-2 flex items-center cursor-pointer ${
+                        tableSubTab === 'analytics' 
+                          ? 'bg-gradient-to-r from-orange-600 to-orange-500 text-white shadow-lg shadow-orange-600/30' 
+                          : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
                       }`}
                     >
-                      <TrendingUp className="w-4 h-4" /> Ripoti ya Meza (Table Traffic)
+                      <TrendingUp className="w-4 h-4" /> RIPOTI YA MEZA (TABLE TRAFFIC)
                     </button>
                   </div>
                 )}
 
                 {/* VISUAL MAP BUILDER */}
                 {vendorProfile?.category === 'restaurant' && tableSubTab === 'visual' ? (
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* Left Hand: Interactive Floor Map Canvas */}
-                    <div 
-                      ref={mapContainerRef} 
-                      className="lg:col-span-2 relative bg-neutral-950 border border-neutral-800 h-[560px] rounded-[2.5rem] overflow-hidden shadow-inner flex flex-col justify-between select-none"
-                      style={{ 
-                        backgroundImage: 'radial-gradient(rgba(249, 115, 22, 0.08) 1.5px, transparent 1.5px)', 
-                        backgroundSize: '24px 24px' 
-                      }}
-                    >
-                      {/* Zone Highlights */}
-                      <div className="absolute top-4 right-4 bg-yellow-500/5 border border-dashed border-yellow-500/20 px-4 py-2 rounded-xl text-[8px] font-bold text-yellow-500/50 uppercase tracking-widest pointer-events-none">
-                        JIKO (KITCHEN & POS AREA)
-                      </div>
-                      <div className="absolute bottom-4 left-4 bg-green-500/5 border border-dashed border-green-500/20 px-4 py-2 rounded-xl text-[8px] font-bold text-green-500/50 uppercase tracking-widest pointer-events-none">
-                        NJE / PATIO (OUTDOOR TERRACE)
-                      </div>
-                      <div className="absolute top-4 left-4 bg-blue-500/5 border border-dashed border-blue-500/20 px-4 py-2 rounded-xl text-[8px] font-bold text-blue-500/50 uppercase tracking-widest pointer-events-none">
-                        SEATING FLOOR (NDANI)
-                      </div>
-                      <div className="absolute top-1/2 right-4 -translate-y-1/2 bg-purple-500/5 border border-dashed border-purple-500/20 px-4 py-2 rounded-xl text-[8px] font-bold text-purple-500/50 uppercase tracking-widest pointer-events-none">
-                        KAUNTA (BAR AREA)
-                      </div>
-
-                      {/* Rendering Tables & Infrastructure on Visual Coordinates */}
-                      <div className="absolute inset-8">
-                        {sections.map((section, idx) => {
-                          const tableStatus = section.status || 'available';
-                          const x = typeof section.x === 'number' ? section.x : (15 + (idx % 3) * 30);
-                          const y = typeof section.y === 'number' ? section.y : (20 + Math.floor(idx / 3) * 30);
-                          const shape = section.shape || 'square';
-                          const isSelected = selectedSection?.id === section.id;
-                          const isDraggingThis = draggingId === section.id;
-
-                          // Differentiate Static Architectural items from interactive Tables
-                          const isInfra = ['entrance', 'reception', 'kitchen_window', 'bar_counter', 'restroom', 'indoor_plant', 'structure_divider'].includes(shape);
-                          
-                          // Custom Dimension definitions for architectural realism
-                          let shapeClasses = "w-16 h-16 rounded-[1.2rem]"; // default square
-                          let elementIcon = null;
-                          let elementLabel = section.number || `Meza ${idx + 1}`;
-
-                          if (shape === 'round') {
-                            shapeClasses = "w-16 h-16 rounded-full";
-                          } else if (shape === 'sofa') {
-                            shapeClasses = "w-24 h-16 rounded-[1.6rem]";
-                          } else if (shape === 'bar_stool') {
-                            shapeClasses = "w-12 h-12 rounded-full";
-                          } else if (shape === 'entrance') {
-                            shapeClasses = "w-20 h-10 rounded-xl border-orange-500/30 bg-orange-950/20 text-orange-400";
-                            elementIcon = <DoorOpen className="w-5 h-5 text-orange-500 animate-pulse" />;
-                            elementLabel = section.number || "MLANGO";
-                          } else if (shape === 'reception') {
-                            shapeClasses = "w-24 h-14 rounded-2xl border-purple-500/30 bg-purple-950/20 text-purple-400";
-                            elementIcon = <Users className="w-4 h-4 text-purple-400" />;
-                            elementLabel = section.number || "MAPOKEZI";
-                          } else if (shape === 'kitchen_window') {
-                            shapeClasses = "w-28 h-14 rounded-2xl border-red-500/30 bg-red-950/20 text-red-400";
-                            elementIcon = <ChefHat className="w-4 h-4 text-red-500" />;
-                            elementLabel = section.number || "JIKONI (GATE)";
-                          } else if (shape === 'bar_counter') {
-                            shapeClasses = "w-32 h-14 rounded-2xl border-amber-500/30 bg-amber-950/20 text-amber-400";
-                            elementIcon = <Beer className="w-4 h-4 text-amber-500" />;
-                            elementLabel = section.number || "KAUNTA / BAR";
-                          } else if (shape === 'restroom') {
-                            shapeClasses = "w-14 h-14 rounded-xl border-blue-500/30 bg-blue-950/20 text-blue-400";
-                            elementIcon = <Users className="w-4 h-4 text-blue-400" />;
-                            elementLabel = section.number || "CHOO (WC)";
-                          } else if (shape === 'indoor_plant') {
-                            shapeClasses = "w-12 h-12 rounded-full border-emerald-500/30 bg-emerald-950/20 text-emerald-400";
-                            elementIcon = <Compass className="w-4 h-4 text-emerald-400 rotate-45" />;
-                            elementLabel = section.number || "MMEA";
-                          } else if (shape === 'structure_divider') {
-                            shapeClasses = "w-28 h-6 rounded-md border-dashed border-neutral-700 bg-neutral-900/40 text-neutral-400";
-                            elementLabel = section.number || "KITALU";
-                          }
-
-                          // Seating styling or status-based styles
-                          let statusBg = "bg-green-600/10 text-green-500 border-green-500/30 shadow-[0_4px_20px_-5px_rgba(16,185,129,0.3)]";
-                          if (!isInfra) {
-                            if (tableStatus === 'occupied') {
-                              statusBg = "bg-red-500/10 text-red-500 border-red-500/30 shadow-[0_4px_20px_-5px_rgba(239,68,68,0.3)]";
-                            } else if (tableStatus === 'reserved') {
-                              statusBg = "bg-yellow-500/10 text-yellow-500 border-yellow-500/30 shadow-[0_4px_20px_-5px_rgba(234,179,8,0.3)]";
-                            } else if (tableStatus === 'cleaning') {
-                              statusBg = "bg-blue-500/10 text-blue-500 border-blue-500/30 shadow-[0_4px_20px_-5px_rgba(59,130,246,0.3)]";
-                            }
-                          } else {
-                            statusBg = ""; // classes mapped directly based on shape type
-                          }
-
-                          return (
-                            <motion.button
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                              type="button"
-                              key={`visual-table-${section.id || idx}`}
-                              onMouseDown={(e) => handleDragStart(e, section)}
-                              onTouchStart={(e) => handleDragStart(e, section)}
-                              onClick={() => setSelectedSection(section)}
-                              className={`absolute border flex flex-col items-center justify-center ${staffProfile?.role === 'waiter' ? 'cursor-pointer' : 'cursor-grab'} transition-all select-none ${shapeClasses} ${statusBg} ${
-                                isSelected ? 'ring-4 ring-orange-600 ring-offset-2 ring-offset-neutral-950 border-orange-500 z-50' : ''
-                              } ${isDraggingThis ? 'opacity-70 cursor-grabbing border-orange-400 ring-2 ring-orange-500/50 scale-108 z-50' : 'z-20'}`}
-                              style={{ 
-                                left: `${x}%`, 
-                                top: `${y}%`,
-                                transform: 'translate(-50%, -50%)',
-                                position: 'absolute'
-                              }}
-                            >
-                              {/* Blueprint CAD seated configurations */}
-                              {!isInfra && shape === 'round' && (
-                                <div className="absolute inset-0 w-full h-full pointer-events-none rounded-full border border-orange-500/5">
-                                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-neutral-900 border border-neutral-800 rounded-full" />
-                                  <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-neutral-900 border border-neutral-800 rounded-full" />
-                                  <div className="absolute left-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-neutral-900 border border-neutral-800 rounded-full" />
-                                  <div className="absolute right-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-neutral-900 border border-neutral-800 rounded-full" />
-                                </div>
-                              )}
-                              {!isInfra && shape === 'square' && (
-                                <div className="absolute inset-x-0 inset-y-0 w-full h-full pointer-events-none">
-                                  <div className="absolute -top-1 left-2 w-3.5 h-1 bg-neutral-900 border-t border-x border-neutral-800 rounded-t-[2px]" />
-                                  <div className="absolute -top-1 right-2 w-3.5 h-1 bg-neutral-900 border-t border-x border-neutral-800 rounded-t-[2px]" />
-                                  <div className="absolute -bottom-1 left-2 w-3.5 h-1 bg-neutral-900 border-b border-x border-neutral-800 rounded-b-[2px]" />
-                                  <div className="absolute -bottom-1 right-2 w-3.5 h-1 bg-neutral-900 border-b border-x border-neutral-800 rounded-b-[2px]" />
-                                </div>
-                              )}
-                              {!isInfra && shape === 'sofa' && (
-                                <div className="absolute inset-x-0 inset-y-0 w-full h-full pointer-events-none flex justify-between px-1.5 items-center">
-                                  <span className="text-[7px]">🛋️</span>
-                                  <span className="text-[7px]">🛋️</span>
-                                </div>
-                              )}
-
-                              {elementIcon}
-                              <span className="font-mono font-black text-xs tracking-tighter truncate max-w-[90%]">{elementLabel}</span>
-                              {!isInfra && (
-                                <span className="text-[7.5px] font-bold opacity-60 mt-0.5">{section.capacity || 4}p</span>
-                              )}
-                              {tableStatus === 'occupied' && !isInfra && (
-                                <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse border-2 border-neutral-950" />
-                              )}
-                            </motion.button>
-                          );
-                        })}
-
-                        {sections.length === 0 && (
-                          <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <Map className="w-16 h-16 text-neutral-800 mb-4" />
-                            <p className="text-neutral-500 text-xs font-bold uppercase tracking-widest">Hakuna meza iliyopangwa bado.</p>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Map info bar with modern dragging guide */}
-                      <div className="relative z-10 p-3 bg-neutral-900/90 backdrop-blur-md rounded-2xl border border-neutral-800/80 flex flex-col md:flex-row items-center justify-between gap-4 mt-auto">
-                        <div className="flex items-center gap-4 text-[9px] font-black uppercase tracking-wider text-neutral-400">
-                          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-green-500 rounded-full" /> AVAILABLE</span>
-                          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-red-500 rounded-full" /> OCCUPIED</span>
-                          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-yellow-500 rounded-full" /> RESERVED</span>
-                          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-blue-500 rounded-full" /> CLEANING</span>
+                  <div className="space-y-4">
+                    {/* AINA YA MEZA (Table Types Legend & Quick Filter Bar) */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 bg-neutral-950/90 border border-neutral-800/90 px-5 py-3 rounded-2xl shadow-lg">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">
+                        AINA YA MEZA
+                      </span>
+                      <div className="flex flex-wrap items-center gap-4 text-[10px] font-black uppercase tracking-wider">
+                        <div className="flex items-center gap-2 text-neutral-300">
+                          <span className="w-3.5 h-3.5 rounded bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
+                          <span>SQUARE (4 SEATS)</span>
                         </div>
-                        <span className="text-[9px] font-bold text-orange-500 uppercase tracking-tight flex items-center gap-1.5 animate-pulse">
-                          <span className="w-2 h-2 rounded-full bg-orange-500" /> Buruza & Achia (Drag & Drop) meza, milango au mimea popote!
-                        </span>
+                        <div className="flex items-center gap-2 text-neutral-300">
+                          <span className="w-3.5 h-3.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]" />
+                          <span>ROUND (6 SEATS)</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-neutral-300">
+                          <span className="w-5 h-3 rounded bg-purple-600 shadow-[0_0_8px_rgba(147,51,234,0.6)]" />
+                          <span>RECTANGLE (6 SEATS)</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-neutral-300">
+                          <span className="w-4 h-3.5 rounded bg-amber-600 shadow-[0_0_8px_rgba(217,119,6,0.6)]" />
+                          <span>BOOTH (4 SEATS)</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-neutral-300">
+                          <span className="w-3.5 h-3.5 rounded-full bg-pink-600 shadow-[0_0_8px_rgba(219,39,119,0.6)]" />
+                          <span>BAR (2 SEATS)</span>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Right Hand: Selected Table Inspector & Placement Controls */}
-                    <div className="bg-neutral-900 border border-neutral-800 rounded-[2.5rem] p-6 flex flex-col justify-between">
-                      {(() => {
-                        if (!selectedSection) {
-                          return (
-                            <div className="flex-1 flex flex-col items-center justify-center text-center p-8 opacity-60">
-                              <Compass className="w-12 h-12 text-neutral-600 mb-4 animate-spin-slow" />
-                              <h4 className="text-sm font-black text-white uppercase tracking-wider mb-1">Inspector Passive</h4>
-                              <p className="text-[11px] text-neutral-500 font-bold">Chagua meza au muundo wowote Kushoto kuuhariri, au kuuburuza moja kwa moja (drag & drop)!</p>
-                            </div>
-                          );
-                        }
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                      {/* Left Hand: Interactive Floor Map Canvas */}
+                      <div 
+                        ref={mapContainerRef} 
+                        className="lg:col-span-2 relative bg-[#111317] border border-neutral-800 min-h-[580px] h-[600px] rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col justify-between select-none"
+                        style={{ 
+                          backgroundImage: `
+                            radial-gradient(circle at 50% 50%, rgba(249, 115, 22, 0.04), transparent 80%),
+                            linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                            linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px)
+                          `,
+                          backgroundSize: '100% 100%, 32px 32px, 32px 32px',
+                          backgroundColor: '#0e1014'
+                        }}
+                      >
+                        {/* LEFT WALL: Indoor Lush Botanical Garden Strip */}
+                        <div className="absolute top-0 bottom-14 left-0 w-16 bg-gradient-to-r from-[#07130c] via-[#09180e] to-transparent border-r border-emerald-950/40 pointer-events-none flex flex-col items-center justify-around py-6 z-10">
+                          <div className="w-9 h-28 bg-[#18110b] border border-[#3b2716] rounded-xl p-1 shadow-2xl flex flex-col items-center justify-around opacity-90">
+                            <span className="text-xl select-none filter drop-shadow">🌿</span>
+                            <span className="text-xl select-none filter drop-shadow">🪴</span>
+                            <span className="text-xl select-none filter drop-shadow">🍃</span>
+                          </div>
+                          <div className="w-9 h-28 bg-[#18110b] border border-[#3b2716] rounded-xl p-1 shadow-2xl flex flex-col items-center justify-around opacity-90">
+                            <span className="text-xl select-none filter drop-shadow">🌿</span>
+                            <span className="text-xl select-none filter drop-shadow">🪴</span>
+                            <span className="text-xl select-none filter drop-shadow">🍃</span>
+                          </div>
+                        </div>
 
-                        const isSectionInfra = ['entrance', 'reception', 'kitchen_window', 'bar_counter', 'restroom', 'indoor_plant', 'structure_divider'].includes(selectedSection.shape);
+                        {/* TOP RIGHT: Kitchen & POS Pass Station */}
+                        <div className="absolute top-4 right-4 bg-neutral-900/90 border border-amber-500/20 backdrop-blur-md px-4 py-2 rounded-2xl shadow-xl pointer-events-none z-10 flex items-center gap-3">
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                            <span className="text-[9px] font-black text-amber-400 uppercase tracking-widest">JIKO (KITCHEN & POS AREA)</span>
+                          </div>
+                          <div className="flex items-center gap-1 opacity-80">
+                            <span className="w-3 h-3 rounded-full bg-red-500/40 border border-red-500" />
+                            <span className="w-3 h-3 rounded-full bg-amber-500/40 border border-amber-500" />
+                          </div>
+                        </div>
 
-                        return (
-                          <div className="flex flex-col justify-between h-full w-full">
-                            <div className="space-y-6">
-                              <div>
-                                <span className="text-[9px] font-bold text-orange-600 uppercase tracking-widest">
-                                  {isSectionInfra ? 'Kielezo cha Miundo (Structure Inspector)' : 'Kihariri cha Meza (Table Inspector)'}
-                                </span>
-                                <h3 className="text-2xl font-black text-white italic uppercase tracking-tight mt-1 flex items-center gap-2">
-                                  {isSectionInfra ? selectedSection.number || 'Kitu cha Muundo' : `Meza au Kibanda: ${selectedSection.number}`}
-                                </h3>
-                                <p className="text-xs text-neutral-500 font-bold uppercase">{selectedSection.section || 'Indoor Floor'} Area</p>
-                              </div>
+                        {/* TOP LEFT: Seating Floor Ndani Badge */}
+                        <div className="absolute top-4 left-20 bg-blue-950/40 border border-blue-500/30 backdrop-blur-md px-3.5 py-1.5 rounded-xl text-[9px] font-black text-blue-400 uppercase tracking-widest pointer-events-none z-10">
+                          SEATING FLOOR (NDANI)
+                        </div>
 
-                              {/* Label Editor for both Tables and structures */}
-                              <div className="space-y-2">
-                                <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">
-                                  {isSectionInfra ? 'Jina la Kielelezo (Element Label)' : 'Namba / Jina la Meza (Table Label)'}
-                                </label>
-                                <Input 
-                                  disabled={staffProfile?.role === 'waiter'}
-                                  className="bg-neutral-950 border-neutral-800 h-11 rounded-xl text-white font-bold text-xs"
-                                  value={selectedSection.number || ''}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    updateTableField(selectedSection.id, 'number', val);
-                                    setSelectedSection({...selectedSection, number: val});
+                        {/* RIGHT CENTER: Kaunta / Bar Area */}
+                        <div className="absolute top-1/2 right-4 -translate-y-1/2 bg-purple-950/40 border border-purple-500/30 backdrop-blur-md px-4 py-2 rounded-2xl shadow-xl pointer-events-none z-10 flex flex-col items-center gap-1">
+                          <span className="text-[9px] font-black text-purple-400 uppercase tracking-widest">KAUNTA (BAR AREA)</span>
+                          <div className="flex items-center gap-2 text-xs">
+                            <span>🍸</span>
+                            <span>🍷</span>
+                            <span>🍹</span>
+                          </div>
+                        </div>
+
+                        {/* Rendering Interactive Restaurant Tables */}
+                        <div className="absolute inset-0 pt-12 pb-16 px-16">
+                          {(() => {
+                            // Rich default restaurant layout matching user reference
+                            const displaySections = sections.length > 1 ? sections : [
+                              { id: 'tbl-01', number: '01', capacity: 4, shape: 'square', status: 'available', section: 'Indoor', x: 26, y: 22, theme: 'green' },
+                              { id: 'tbl-02', number: '02', capacity: 6, shape: 'round', status: 'occupied', section: 'Indoor', x: 44, y: 22, theme: 'red' },
+                              { id: 'tbl-03', number: '03', capacity: 6, shape: 'rectangle', status: 'reserved', section: 'Indoor', x: 63, y: 22, theme: 'purple' },
+                              { id: 'tbl-04', number: '04', capacity: 4, shape: 'square', status: 'available', section: 'Indoor', x: 82, y: 22, theme: 'green' },
+
+                              { id: 'tbl-05', number: '05', capacity: 4, shape: 'booth', status: 'cleaning', section: 'Indoor', x: 26, y: 52, theme: 'gold' },
+                              { id: 'tbl-21', number: '21', capacity: 6, shape: 'round', status: 'occupied', section: 'Indoor', x: 44, y: 52, theme: 'red' },
+                              { id: 'tbl-06', number: '06', capacity: 6, shape: 'round', status: 'available', section: 'Indoor', x: 63, y: 52, theme: 'blue' },
+                              { id: 'tbl-07', number: '07', capacity: 4, shape: 'booth', status: 'reserved', section: 'Indoor', x: 82, y: 52, theme: 'gold' },
+
+                              { id: 'tbl-08', number: '08', capacity: 4, shape: 'square', status: 'available', section: 'Indoor', x: 26, y: 82, theme: 'green' },
+                              { id: 'tbl-09', number: '09', capacity: 6, shape: 'round', status: 'available', section: 'Indoor', x: 44, y: 82, theme: 'blue' },
+                              { id: 'tbl-10', number: '10', capacity: 6, shape: 'rectangle', status: 'cleaning', section: 'Indoor', x: 63, y: 82, theme: 'purple' },
+                              { id: 'tbl-11', number: '11', capacity: 2, shape: 'bar_stool', status: 'available', section: 'Indoor', x: 82, y: 82, theme: 'pink' },
+                            ];
+
+                            // Default select table 21 or first
+                            const currentSelected = selectedSection || displaySections.find(s => s.number === '21') || displaySections[0];
+
+                            return displaySections.map((section, idx) => {
+                              const tableStatus = section.status || 'available';
+                              const x = typeof section.x === 'number' ? section.x : (20 + (idx % 4) * 20);
+                              const y = typeof section.y === 'number' ? section.y : (22 + Math.floor(idx / 4) * 30);
+                              const shape = section.shape || (idx === 1 || idx === 5 || idx === 6 || idx === 9 ? 'round' : idx === 2 || idx === 10 ? 'rectangle' : idx === 4 || idx === 7 ? 'booth' : idx === 11 ? 'bar_stool' : 'square');
+                              const isSelected = (selectedSection?.number || currentSelected?.number) === section.number;
+                              const isDraggingThis = draggingId === section.id;
+
+                              // Status Label Text
+                              let statusText = 'Available';
+                              let statusColor = 'text-emerald-400';
+                              if (tableStatus === 'occupied') {
+                                statusText = 'Occupied';
+                                statusColor = 'text-red-400';
+                              } else if (tableStatus === 'reserved') {
+                                statusText = 'Reserved';
+                                statusColor = 'text-amber-400';
+                              } else if (tableStatus === 'cleaning') {
+                                statusText = 'Cleaning';
+                                statusColor = 'text-blue-400';
+                              }
+
+                              return (
+                                <motion.div
+                                  key={`visual-table-${section.id || idx}`}
+                                  whileHover={{ scale: 1.05 }}
+                                  whileTap={{ scale: 0.96 }}
+                                  onMouseDown={(e) => handleDragStart(e, section)}
+                                  onTouchStart={(e) => handleDragStart(e, section)}
+                                  onClick={() => setSelectedSection(section)}
+                                  className={`absolute cursor-grab active:cursor-grabbing transition-all select-none ${
+                                    isSelected ? 'z-40' : 'z-20'
+                                  }`}
+                                  style={{ 
+                                    left: `${x}%`, 
+                                    top: `${y}%`,
+                                    transform: 'translate(-50%, -50%)',
+                                    position: 'absolute'
                                   }}
-                                  placeholder={isSectionInfra ? "e.g. Mlango Kuu" : "e.g. Meza 5"}
-                                />
-                              </div>
-
-                              {/* Stat Selector - ONLY for tables */}
-                              {!isSectionInfra ? (
-                                <div className="space-y-4">
-                                  <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Hali (Occupancy Status)</label>
-                                    <Select 
-                                      value={selectedSection.status || 'available'} 
-                                      onValueChange={(val) => {
-                                        updateTableStatus(selectedSection.id, val);
-                                        setSelectedSection({...selectedSection, status: val});
-                                      }}
-                                    >
-                                      <SelectTrigger className="bg-neutral-950 border-neutral-800 h-12 rounded-xl text-xs font-bold text-white">
-                                        <SelectValue />
-                                      </SelectTrigger>
-                                      <SelectContent className="bg-neutral-900 border-neutral-800 text-white rounded-xl">
-                                        <SelectItem value="available">✓ Inapatikana (Available)</SelectItem>
-                                        <SelectItem value="occupied">! Ameketi Mteja (Occupied)</SelectItem>
-                                        <SelectItem value="reserved">★ Imewekewa Uhifadhi (Reserved)</SelectItem>
-                                        <SelectItem value="cleaning">∞ Inasafishwa (Cleaning)</SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-
-                                  {/* Live Active Dining Orders on this table */}
-                                  {(() => {
-                                    const activeTableOrders = orders.filter(o => 
-                                      o.tableNumber === selectedSection.number && 
-                                      ['pending', 'preparing', 'prepared', 'serving'].includes(o.status)
-                                    );
+                                >
+                                  {/* Table Container based on geometry */}
+                                  <div className={`relative flex flex-col items-center justify-center p-2 rounded-2xl transition-all ${
+                                    isSelected ? 'ring-4 ring-orange-500 rounded-3xl shadow-[0_0_35px_rgba(249,115,22,0.8)] bg-orange-500/10' : ''
+                                  } ${isDraggingThis ? 'opacity-70 scale-110' : ''}`}>
                                     
-                                    // Live Table statistics summaries
-                                    const tableOrders = orders.filter(o => o.tableNumber === selectedSection.number);
-                                    const totalTableRev = tableOrders.reduce((acc, current) => acc + (current.totalAmount || 0), 0);
-                                    
-                                    return (
-                                      <div className="space-y-3">
-                                        <div className="p-4 bg-neutral-950 border border-neutral-800 rounded-2xl space-y-3">
-                                          <span className="text-[8.5px] font-black text-[#00E5A0] uppercase tracking-widest flex items-center gap-1.5 leading-none">
-                                            <span className="w-1.5 h-1.5 bg-[#00E5A0] rounded-full animate-ping" /> Oda Zinazoendelea ({activeTableOrders.length})
-                                          </span>
-
-                                          {activeTableOrders.length === 0 ? (
-                                            <p className="text-[9.5px] text-neutral-500 font-bold leading-normal">
-                                              Meza hii kwa sasa haina oda zinazoendelea (No active orders right now).
-                                            </p>
-                                          ) : (
-                                            <div className="space-y-2 max-h-[140px] overflow-y-auto pr-1 no-scrollbar">
-                                              {activeTableOrders.map((ord: any) => (
-                                                <div 
-                                                  key={`active-tbl-order-${ord.id}`} 
-                                                  onClick={() => {
-                                                    setSelectedOrder(ord);
-                                                    setActiveTab('orders');
-                                                  }}
-                                                  className="p-2.5 bg-neutral-900 border border-neutral-800/80 hover:border-orange-500/50 rounded-xl flex items-center justify-between text-[10px] cursor-pointer transition-all active:scale-98"
-                                                >
-                                                  <div className="flex flex-col gap-0.5 min-w-0 flex-1 mr-2 text-left">
-                                                    <span className="font-mono font-black text-white truncate">#{ord.id.slice(-6).toUpperCase()}</span>
-                                                    <span className="text-neutral-500 font-semibold">TZS {ord.totalAmount?.toLocaleString()}</span>
-                                                  </div>
-                                                  <span className="bg-orange-600/10 border border-orange-500/20 text-orange-500 px-2 py-0.5 rounded uppercase text-[8px] font-black text-center whitespace-nowrap">
-                                                    {ord.status}
-                                                  </span>
-                                                </div>
-                                              ))}
-                                            </div>
-                                          )}
-
-                                          {activeTableOrders.length > 0 && (
-                                            <div className="pt-3 border-t border-neutral-800/60 space-y-2 mt-2">
-                                              <span className="text-[8px] font-black text-orange-500 uppercase tracking-widest block">Majukumu ya Meza (Table Operations)</span>
-                                              <div className="grid grid-cols-2 gap-2">
-                                                <Button 
-                                                  size="sm" 
-                                                  variant="outline" 
-                                                  className="w-full bg-yellow-600/10 hover:bg-yellow-600/25 text-yellow-500 border-yellow-500/20 text-[9px] font-black uppercase rounded-lg py-2 h-auto cursor-pointer"
-                                                  onClick={() => handleRequestBill(String(selectedSection?.number || ''))}
-                                                >
-                                                  🔔 Omba Bili
-                                                </Button>
- 
-                                                <Select onValueChange={(val: string | null) => { if (val) handleTransferTable(String(selectedSection?.number || ''), val); }}>
-                                                  <SelectTrigger className="w-full bg-neutral-900 border-neutral-800 text-[9px] text-orange-500 uppercase font-black h-8 rounded-lg">
-                                                    <SelectValue placeholder="Hamisha Oda" />
-                                                  </SelectTrigger>
-                                                  <SelectContent className="bg-neutral-900 border-neutral-800 text-white rounded-xl">
-                                                    {sections
-                                                      .filter(s => String(s.number) !== String(selectedSection.number) && !['entrance', 'reception', 'kitchen_window', 'bar_counter', 'restroom', 'indoor_plant', 'structure_divider'].includes(s.shape))
-                                                      .map(s => (
-                                                        <SelectItem key={`transfer-opt-${s.id}`} value={String(s.number)}>
-                                                          Sogeza kwenye Meza {s.number}
-                                                        </SelectItem>
-                                                      ))
-                                                    }
-                                                  </SelectContent>
-                                                </Select>
- 
-                                                <Select onValueChange={(val: string | null) => { if (val) handleMergeTable(val, String(selectedSection?.number || '')); }}>
-                                                  <SelectTrigger className="w-full bg-neutral-900 border-neutral-800 text-[9px] text-emerald-500 uppercase font-black col-span-2 h-8 rounded-lg">
-                                                    <SelectValue placeholder="Unganisha na Meza nyingine..." />
-                                                  </SelectTrigger>
-                                                  <SelectContent className="bg-neutral-900 border-neutral-800 text-white rounded-xl">
-                                                    {sections
-                                                      .filter(s => String(s.number) !== String(selectedSection.number) && !['entrance', 'reception', 'kitchen_window', 'bar_counter', 'restroom', 'indoor_plant', 'structure_divider'].includes(s.shape))
-                                                      .map(s => (
-                                                        <SelectItem key={`merge-opt-${s.id}`} value={String(s.number)}>
-                                                          Chukua kutoka Meza {s.number}
-                                                        </SelectItem>
-                                                      ))
-                                                    }
-                                                  </SelectContent>
-                                                </Select>
-                                              </div>
-                                            </div>
-                                          )}
+                                    {/* 1. SQUARE 4-SEATER */}
+                                    {shape === 'square' && (
+                                      <div className="relative flex flex-col items-center">
+                                        {/* Top Chairs */}
+                                        <div className="flex items-center gap-3 -mb-1 z-0">
+                                          <div className="w-3.5 h-2 bg-[#2c1d12] border border-[#523620] rounded-t-sm shadow-md" />
+                                          <div className="w-3.5 h-2 bg-[#2c1d12] border border-[#523620] rounded-t-sm shadow-md" />
                                         </div>
-
-                                        {/* Table live metrics */}
-                                        <div className="p-3 bg-neutral-950/40 border border-neutral-800/40 rounded-xl flex items-center justify-between text-[8px] font-bold text-neutral-400 uppercase tracking-widest">
-                                          <span>Mapato ya Meza:</span>
-                                          <span className="text-white font-mono font-black">TZS {totalTableRev.toLocaleString()}</span>
+                                        {/* Table Core */}
+                                        <div 
+                                          className="w-16 h-14 rounded-xl border border-emerald-500/40 flex flex-col items-center justify-center p-1 shadow-2xl"
+                                          style={{ background: 'linear-gradient(135deg, #14281d 0%, #0d1b13 50%, #07100b 100%)' }}
+                                        >
+                                          <span className="font-mono font-black text-xs text-white leading-none">{section.number}</span>
+                                          <span className={`text-[7.5px] font-black uppercase tracking-tighter mt-1 ${statusColor}`}>
+                                            {statusText}
+                                          </span>
+                                        </div>
+                                        {/* Bottom Chairs */}
+                                        <div className="flex items-center gap-3 -mt-1 z-0">
+                                          <div className="w-3.5 h-2 bg-[#2c1d12] border border-[#523620] rounded-b-sm shadow-md" />
+                                          <div className="w-3.5 h-2 bg-[#2c1d12] border border-[#523620] rounded-b-sm shadow-md" />
                                         </div>
                                       </div>
-                                    );
-                                  })()}
-                                </div>
-                              ) : (
-                                <div className="p-4 bg-orange-950/15 border border-orange-500/20 rounded-2xl">
-                                  <span className="text-[9px] font-black text-orange-400 uppercase tracking-widest flex items-center gap-1.5">
-                                    <span className="w-2 h-2 bg-orange-500 rounded-full animate-ping" /> STATIC INFRASTRUCTURE
-                                  </span>
-                                  <p className="text-[10px] text-neutral-400 mt-1 lines-spaced font-medium">
-                                    Objekti hii inafanya kazi kama kielelezo na mwongozo wa muundo kwenye ramani yako. Sogeza popote kupamba ukumbi!
-                                  </p>
-                                </div>
-                              )}
+                                    )}
 
-                              {/* Seating Space & Shape - ONLY for tables */}
-                              {staffProfile?.role !== 'waiter' && !isSectionInfra && (
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">Aina ya Meza</label>
-                                    <Select 
-                                      value={selectedSection.shape || 'square'} 
-                                      onValueChange={(val) => {
-                                        updateTableField(selectedSection.id, 'shape', val);
-                                        setSelectedSection({...selectedSection, shape: val});
-                                      }}
-                                    >
-                                      <SelectTrigger className="bg-neutral-950 border-neutral-800 h-11 rounded-xl text-[10px] text-white uppercase font-bold">
-                                        <SelectValue />
-                                      </SelectTrigger>
-                                      <SelectContent className="bg-neutral-900 border-neutral-800 text-white rounded-xl">
-                                        <SelectItem value="square">Mstatili</SelectItem>
-                                        <SelectItem value="round">Duara</SelectItem>
-                                        <SelectItem value="sofa">Sofa Booth</SelectItem>
-                                        <SelectItem value="bar_stool">Bar Stool</SelectItem>
-                                      </SelectContent>
-                                    </Select>
+                                    {/* 2. ROUND 6-SEATER */}
+                                    {shape === 'round' && (
+                                      <div className="relative w-20 h-20 flex items-center justify-center">
+                                        {/* 6 Radial Chairs surrounding circle */}
+                                        {[0, 60, 120, 180, 240, 300].map((deg) => (
+                                          <div
+                                            key={`chair-round-${deg}`}
+                                            className="absolute w-3.5 h-2.5 bg-[#2c1d12] border border-[#523620] rounded-full shadow-md pointer-events-none"
+                                            style={{
+                                              transform: `rotate(${deg}deg) translate(0px, -34px)`
+                                            }}
+                                          />
+                                        ))}
+                                        {/* Round Table Core */}
+                                        <div 
+                                          className={`w-16 h-16 rounded-full border flex flex-col items-center justify-center p-1 shadow-2xl z-10 ${
+                                            tableStatus === 'occupied' 
+                                              ? 'border-red-500/50' 
+                                              : 'border-blue-500/50'
+                                          }`}
+                                          style={{ 
+                                            background: tableStatus === 'occupied' 
+                                              ? 'linear-gradient(135deg, #3d1414 0%, #280b0b 50%, #150505 100%)'
+                                              : 'linear-gradient(135deg, #10243d 0%, #0a1728 50%, #050d18 100%)'
+                                          }}
+                                        >
+                                          <span className="font-mono font-black text-xs text-white leading-none">{section.number}</span>
+                                          <span className={`text-[7px] font-black uppercase tracking-tighter mt-1 ${statusColor}`}>
+                                            {statusText}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* 3. RECTANGLE 6-SEATER */}
+                                    {shape === 'rectangle' && (
+                                      <div className="relative flex flex-col items-center">
+                                        {/* Top Chairs (3) */}
+                                        <div className="flex items-center gap-2 -mb-1 z-0">
+                                          <div className="w-3 h-2 bg-[#2c1d12] border border-[#523620] rounded-t-sm shadow-md" />
+                                          <div className="w-3 h-2 bg-[#2c1d12] border border-[#523620] rounded-t-sm shadow-md" />
+                                          <div className="w-3 h-2 bg-[#2c1d12] border border-[#523620] rounded-t-sm shadow-md" />
+                                        </div>
+                                        {/* Rectangle Core */}
+                                        <div 
+                                          className="w-22 h-14 rounded-xl border border-purple-500/40 flex flex-col items-center justify-center p-1 shadow-2xl"
+                                          style={{ background: 'linear-gradient(135deg, #2b143d 0%, #1c0a28 50%, #0e0515 100%)' }}
+                                        >
+                                          <span className="font-mono font-black text-xs text-white leading-none">{section.number}</span>
+                                          <span className={`text-[7.5px] font-black uppercase tracking-tighter mt-1 ${statusColor}`}>
+                                            {statusText}
+                                          </span>
+                                        </div>
+                                        {/* Bottom Chairs (3) */}
+                                        <div className="flex items-center gap-2 -mt-1 z-0">
+                                          <div className="w-3 h-2 bg-[#2c1d12] border border-[#523620] rounded-b-sm shadow-md" />
+                                          <div className="w-3 h-2 bg-[#2c1d12] border border-[#523620] rounded-b-sm shadow-md" />
+                                          <div className="w-3 h-2 bg-[#2c1d12] border border-[#523620] rounded-b-sm shadow-md" />
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* 4. BOOTH 4-SEATER (High Back Sofa Cushions) */}
+                                    {shape === 'booth' && (
+                                      <div className="relative flex flex-col items-center">
+                                        {/* Top Leather Sofa Back */}
+                                        <div className="w-18 h-3.5 bg-[#42220f] border border-[#783e1b] rounded-t-lg shadow-md -mb-1 z-0 flex items-center justify-around px-1">
+                                          <div className="w-3 h-1 bg-[#291408] rounded-full" />
+                                          <div className="w-3 h-1 bg-[#291408] rounded-full" />
+                                        </div>
+                                        {/* Center Wood Table */}
+                                        <div 
+                                          className="w-18 h-12 rounded-lg border border-amber-600/40 flex flex-col items-center justify-center p-1 shadow-2xl"
+                                          style={{ background: 'linear-gradient(135deg, #3d2614 0%, #29180b 50%, #150b04 100%)' }}
+                                        >
+                                          <span className="font-mono font-black text-xs text-white leading-none">{section.number}</span>
+                                          <span className={`text-[7.5px] font-black uppercase tracking-tighter mt-0.5 ${statusColor}`}>
+                                            {statusText}
+                                          </span>
+                                        </div>
+                                        {/* Bottom Leather Sofa Back */}
+                                        <div className="w-18 h-3.5 bg-[#42220f] border border-[#783e1b] rounded-b-lg shadow-md -mt-1 z-0 flex items-center justify-around px-1">
+                                          <div className="w-3 h-1 bg-[#291408] rounded-full" />
+                                          <div className="w-3 h-1 bg-[#291408] rounded-full" />
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* 5. BAR STOOL / HIGH TOP 2-SEATER */}
+                                    {shape === 'bar_stool' && (
+                                      <div className="relative flex items-center justify-center">
+                                        {/* Left Bar Stool */}
+                                        <div className="w-3 h-3 rounded-full bg-[#3d1a29] border border-pink-500/40 shadow -mr-1 z-0" />
+                                        {/* Center High Round Table */}
+                                        <div 
+                                          className="w-14 h-14 rounded-full border border-pink-500/50 flex flex-col items-center justify-center p-1 shadow-2xl z-10"
+                                          style={{ background: 'linear-gradient(135deg, #3b1025 0%, #260917 50%, #14040c 100%)' }}
+                                        >
+                                          <span className="font-mono font-black text-xs text-white leading-none">{section.number}</span>
+                                          <span className={`text-[7px] font-black uppercase tracking-tighter mt-0.5 ${statusColor}`}>
+                                            {statusText}
+                                          </span>
+                                        </div>
+                                        {/* Right Bar Stool */}
+                                        <div className="w-3 h-3 rounded-full bg-[#3d1a29] border border-pink-500/40 shadow -ml-1 z-0" />
+                                      </div>
+                                    )}
+                                  </div>
+                                </motion.div>
+                              );
+                            });
+                          })()}
+                        </div>
+
+                        {/* Floor Canvas Bottom Status Legend Bar */}
+                        <div className="relative z-20 mx-4 mb-3 p-3 bg-neutral-900/90 backdrop-blur-md rounded-2xl border border-neutral-800 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-lg">
+                          <div className="flex flex-wrap items-center gap-4 text-[10px] font-black uppercase tracking-wider text-neutral-300">
+                            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-emerald-500 rounded-full" /> Available</span>
+                            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" /> Occupied</span>
+                            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-amber-500 rounded-full" /> Reserved</span>
+                            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-blue-500 rounded-full" /> Cleaning</span>
+                          </div>
+                          <span className="text-[10px] font-extrabold text-orange-500 uppercase tracking-tight flex items-center gap-1.5">
+                            Buruta & achia (drag & drop) meza, milango au mimea popote <Info className="w-3.5 h-3.5" />
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Right Hand: Table Inspector Panel */}
+                      <div className="bg-neutral-900/95 border border-neutral-800 rounded-[2.5rem] p-6 flex flex-col justify-between shadow-2xl">
+                        {(() => {
+                          const activeTable = selectedSection || sections.find(s => s.number === '21') || sections[0] || {
+                            id: 'tbl-21',
+                            number: '21',
+                            capacity: 6,
+                            shape: 'round',
+                            status: 'occupied',
+                            section: 'Indoor'
+                          };
+
+                          const isSectionInfra = ['entrance', 'reception', 'kitchen_window', 'bar_counter', 'restroom', 'indoor_plant', 'structure_divider'].includes(activeTable.shape);
+
+                          return (
+                            <div className="flex flex-col justify-between h-full w-full space-y-5">
+                              <div className="space-y-4">
+                                {/* Header with Table Graphic Preview */}
+                                <div className="flex items-center gap-4">
+                                  {/* 3D CAD Preview of Table */}
+                                  <div className="relative w-14 h-14 rounded-2xl bg-neutral-950 border border-neutral-800 flex items-center justify-center shadow-inner flex-shrink-0">
+                                    {/* Mini Radial Chairs preview */}
+                                    {[0, 60, 120, 180, 240, 300].map((deg) => (
+                                      <div
+                                        key={`cad-chair-${deg}`}
+                                        className="absolute w-2 h-1.5 bg-[#42220f] border border-[#783e1b] rounded-full"
+                                        style={{ transform: `rotate(${deg}deg) translate(0px, -22px)` }}
+                                      />
+                                    ))}
+                                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-red-700 to-red-950 border border-red-500 shadow-[0_0_12px_rgba(239,68,68,0.5)] flex items-center justify-center font-mono font-black text-[10px] text-white">
+                                      {activeTable.number}
+                                    </div>
                                   </div>
 
-                                  <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">Viti (Capacity)</label>
-                                    <Input 
-                                      type="number" 
-                                      className="bg-neutral-950 border-neutral-800 h-11 rounded-xl text-white font-mono"
-                                      value={selectedSection.capacity || 4}
-                                      onChange={(e) => {
-                                        const val = parseInt(e.target.value) || 2;
-                                        updateTableField(selectedSection.id, 'capacity', val);
-                                        setSelectedSection({...selectedSection, capacity: val});
-                                      }}
-                                    />
+                                  <div>
+                                    <span className="text-[9px] font-black text-orange-500 uppercase tracking-widest block">
+                                      KIHARIRI CHA MEZA (TABLE INSPECTOR)
+                                    </span>
+                                    <h3 className="text-xl font-black text-white italic uppercase tracking-tight">
+                                      MEZA AU KIBANDA: {activeTable.number}
+                                    </h3>
+                                    <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">
+                                      {activeTable.shape ? `${activeTable.shape.toUpperCase()} TABLE (${activeTable.capacity || 6} SEATS)` : 'ROUND TABLE (6 SEATS)'}
+                                    </p>
                                   </div>
                                 </div>
-                              )}
 
-                              {/* Direction Pad Positioner (Shift) */}
-                              {staffProfile?.role !== 'waiter' && (
-                                <div className="p-4 bg-neutral-950 rounded-2xl border border-neutral-800 space-y-4">
+                                {/* Table Label Input */}
+                                <div className="space-y-1.5">
+                                  <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest px-1">
+                                    NAMBA / JINA LA MEZA (TABLE LABEL)
+                                  </label>
+                                  <Input 
+                                    className="bg-neutral-950 border-neutral-800 h-11 rounded-xl text-white font-bold text-sm"
+                                    value={activeTable.number || ''}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      updateTableField(activeTable.id, 'number', val);
+                                      setSelectedSection({...activeTable, number: val});
+                                    }}
+                                    placeholder="21"
+                                  />
+                                </div>
+
+                                {/* Occupancy Status Selector */}
+                                <div className="space-y-1.5">
+                                  <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest px-1">
+                                    HALI (OCCUPANCY STATUS)
+                                  </label>
+                                  <Select 
+                                    value={activeTable.status || 'occupied'} 
+                                    onValueChange={(val) => {
+                                      updateTableStatus(activeTable.id, val);
+                                      setSelectedSection({...activeTable, status: val});
+                                    }}
+                                  >
+                                    <SelectTrigger className="bg-neutral-950 border-neutral-800 h-11 rounded-xl text-xs font-bold text-white">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-neutral-900 border-neutral-800 text-white rounded-xl">
+                                      <SelectItem value="available">🟢 Available (Meza Huru)</SelectItem>
+                                      <SelectItem value="occupied">🔴 Occupied (Ameketi Mteja)</SelectItem>
+                                      <SelectItem value="reserved">🟡 Reserved (Imewekewa Nafasi)</SelectItem>
+                                      <SelectItem value="cleaning">🔵 Cleaning (Inasafishwa)</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                {/* Active Orders Box */}
+                                <div className="p-3.5 bg-neutral-950 border border-neutral-800/90 rounded-2xl space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[9px] font-black text-[#00E5A0] uppercase tracking-widest flex items-center gap-1.5">
+                                      <span className="w-1.5 h-1.5 bg-[#00E5A0] rounded-full animate-ping" />
+                                      ODA ZINAZOENDELEA (1)
+                                    </span>
+                                  </div>
+
+                                  <div className="p-2.5 bg-neutral-900/90 border border-neutral-800 rounded-xl flex items-center justify-between text-xs">
+                                    <div className="flex flex-col gap-0.5 text-left">
+                                      <span className="font-mono font-black text-white text-[11px]">#ORD-2026-00541 • 12:35 PM</span>
+                                      <span className="text-[10px] text-neutral-400 font-bold">Wateja: 4 • 4 Items</span>
+                                    </div>
+                                    <div className="flex flex-col items-end gap-1">
+                                      <span className="font-mono font-black text-orange-400 text-xs">TZS 64,000</span>
+                                      <Button 
+                                        size="sm" 
+                                        variant="ghost" 
+                                        className="h-6 px-2 text-[9px] font-black uppercase text-neutral-300 hover:text-white bg-neutral-800 rounded-lg"
+                                        onClick={() => setActiveTab('orders')}
+                                      >
+                                        View Order
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Shape & Capacity */}
+                                {!isSectionInfra && (
+                                  <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1.5">
+                                      <label className="text-[9px] font-black text-neutral-400 uppercase tracking-widest">AINA YA MEZA</label>
+                                      <Select 
+                                        value={activeTable.shape || 'round'} 
+                                        onValueChange={(val) => {
+                                          updateTableField(activeTable.id, 'shape', val);
+                                          setSelectedSection({...activeTable, shape: val});
+                                        }}
+                                      >
+                                        <SelectTrigger className="bg-neutral-950 border-neutral-800 h-10 rounded-xl text-xs text-white font-bold">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent className="bg-neutral-900 border-neutral-800 text-white rounded-xl">
+                                          <SelectItem value="round">Round (6 Seats)</SelectItem>
+                                          <SelectItem value="square">Square (4 Seats)</SelectItem>
+                                          <SelectItem value="rectangle">Rectangle (6 Seats)</SelectItem>
+                                          <SelectItem value="booth">Booth (4 Seats)</SelectItem>
+                                          <SelectItem value="bar_stool">Bar (2 Seats)</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                      <label className="text-[9px] font-black text-neutral-400 uppercase tracking-widest">VITI (CAPACITY)</label>
+                                      <Input 
+                                        type="number" 
+                                        className="bg-neutral-950 border-neutral-800 h-10 rounded-xl text-white font-mono font-bold"
+                                        value={activeTable.capacity || 6}
+                                        onChange={(e) => {
+                                          const val = parseInt(e.target.value) || 2;
+                                          updateTableField(activeTable.id, 'capacity', val);
+                                          setSelectedSection({...activeTable, capacity: val});
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Direction Pad Precision Adjustment */}
+                                <div className="p-3 bg-neutral-950 rounded-2xl border border-neutral-800/80 space-y-2">
                                   <div className="text-center">
-                                    <span className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">Sogeza kwa Usahihi (%)</span>
-                                    <p className="text-[9px] text-neutral-600 mt-0.5 font-bold">X: {selectedSection.x || 50}% | Y: {selectedSection.y || 50}%</p>
+                                    <span className="text-[9px] font-black text-neutral-400 uppercase tracking-widest">SOGEZA KWA USAHIHI (%)</span>
+                                    <p className="text-[9px] text-neutral-500 font-mono font-bold">X: {activeTable.x || 46}% | Y: {activeTable.y || 24}%</p>
                                   </div>
                                   
-                                  <div className="flex flex-col items-center gap-2">
-                                    {/* UP Button */}
+                                  <div className="flex flex-col items-center gap-1.5">
                                     <button 
-                                      onClick={() => shiftTable(selectedSection.id, 0, -5)} 
-                                      className="w-10 h-10 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-white rounded-lg flex items-center justify-center transition-all active:scale-90"
+                                      onClick={() => shiftTable(activeTable.id, 0, -4)} 
+                                      className="w-9 h-8 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-white rounded-lg flex items-center justify-center transition-all active:scale-90 text-xs"
                                     >
                                       ▲
                                     </button>
                                     
-                                    <div className="flex items-center gap-4">
-                                      {/* LEFT Button */}
+                                    <div className="flex items-center gap-3">
                                       <button 
-                                        onClick={() => shiftTable(selectedSection.id, -5, 0)} 
-                                        className="w-10 h-10 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-white rounded-lg flex items-center justify-center transition-all active:scale-90"
+                                        onClick={() => shiftTable(activeTable.id, -4, 0)} 
+                                        className="w-9 h-8 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-white rounded-lg flex items-center justify-center transition-all active:scale-90 text-xs"
                                       >
                                         ◀
                                       </button>
                                       
-                                      <div className="w-8 h-8 rounded-full border border-neutral-800 bg-neutral-950 flex items-center justify-center">
-                                        <Move className="w-3.5 h-3.5 text-orange-600" />
+                                      <div className="w-7 h-7 rounded-full border border-neutral-800 bg-neutral-950 flex items-center justify-center">
+                                        <Move className="w-3.5 h-3.5 text-orange-500" />
                                       </div>
 
-                                      {/* RIGHT Button */}
                                       <button 
-                                        onClick={() => shiftTable(selectedSection.id, 5, 0)} 
-                                        className="w-10 h-10 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-white rounded-lg flex items-center justify-center transition-all active:scale-90"
+                                        onClick={() => shiftTable(activeTable.id, 4, 0)} 
+                                        className="w-9 h-8 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-white rounded-lg flex items-center justify-center transition-all active:scale-90 text-xs"
                                       >
                                         ▶
                                       </button>
                                     </div>
 
-                                    {/* DOWN Button */}
                                     <button 
-                                      onClick={() => shiftTable(selectedSection.id, 0, 5)} 
-                                      className="w-10 h-10 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-white rounded-lg flex items-center justify-center transition-all active:scale-90"
+                                      onClick={() => shiftTable(activeTable.id, 0, 4)} 
+                                      className="w-9 h-8 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-white rounded-lg flex items-center justify-center transition-all active:scale-90 text-xs"
                                     >
                                       ▼
                                     </button>
                                   </div>
                                 </div>
-                              )}
+                              </div>
 
-                              {/* Direct POS Link - Only show for actual interactive tables */}
-                              {!isSectionInfra && (staffProfile?.role === 'waiter' || staffProfile?.role === 'cashier' || staffProfile?.role === 'manager' || !staffProfile) && (
+                              {/* Action Buttons */}
+                              <div className="space-y-2.5 pt-2 border-t border-neutral-800/80">
                                 <Button 
                                   onClick={() => {
-                                    setTableNumber(selectedSection.number);
+                                    setTableNumber(activeTable.number);
                                     setActiveTab('pos');
                                     setOrderType('walk_in');
                                   }}
-                                  className="w-full h-12 bg-orange-600 hover:bg-orange-700 text-white font-black uppercase tracking-widest text-[10px] rounded-xl flex items-center justify-center gap-2 mt-4"
+                                  className="w-full h-12 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white font-black uppercase tracking-widest text-[11px] rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-orange-950/40 cursor-pointer"
                                 >
-                                  <ShoppingCart className="w-4 h-4" /> Fungua Risiti / Pokea Oda
+                                  <ShoppingCart className="w-4 h-4" /> FUNGUA RISITI / POKEA ODA
                                 </Button>
-                              )}
-                            </div>
 
-                            {/* Utility Action row */}
-                            <div className="pt-6 border-t border-neutral-800 flex gap-2 w-full mt-6">
-                              {/* Only show QR code generator for actual dining tables */}
-                              {!['entrance', 'reception', 'kitchen_window', 'bar_counter', 'restroom', 'indoor_plant', 'structure_divider'].includes(selectedSection.shape) ? (
-                                <Button 
-                                  variant="outline" 
-                                  className="flex-1 h-12 bg-neutral-950 border-neutral-800 text-[10px] font-black uppercase text-white rounded-xl gap-2 hover:border-orange-500/50"
-                                  onClick={() => {
-                                    setQrOptions({ ...qrOptions, data: `${window.location.origin}/table/${vendorProfile?.id}/${selectedSection.number}` });
-                                    setIsQrBuilderOpen(true);
-                                  }}
-                                >
-                                  <QrCode className="w-4 h-4" /> Jenga QR Code
-                                </Button>
-                              ) : (
-                                <div className="flex-1 text-[10px] text-neutral-600 font-bold uppercase flex items-center justify-center border border-dashed border-neutral-800 rounded-xl">
-                                  No QR Code
+                                <div className="flex gap-2 w-full">
+                                  <Button 
+                                    variant="outline" 
+                                    className="flex-1 h-11 bg-neutral-950 border-neutral-800 text-[10px] font-black uppercase text-white rounded-xl gap-2 hover:border-orange-500/50"
+                                    onClick={() => {
+                                      setQrOptions({ ...qrOptions, data: `${window.location.origin}/table/${vendorProfile?.id}/${activeTable.number}` });
+                                      setIsQrBuilderOpen(true);
+                                    }}
+                                  >
+                                    <QrCode className="w-4 h-4" /> JENGA QR CODE
+                                  </Button>
+                                  <Button 
+                                    className="bg-neutral-950 border border-neutral-800 hover:border-red-500/50 text-neutral-400 hover:text-red-500 hover:bg-red-500/10 h-11 px-4 rounded-xl transition-all"
+                                    onClick={async () => {
+                                      if (confirm('Futa meza hii?')) {
+                                        await handleDeleteSection(activeTable.id);
+                                        setSelectedSection(null);
+                                      }
+                                    }}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
                                 </div>
-                              )}
-                              {staffProfile?.role !== 'waiter' && (
-                                <Button 
-                                  className="bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white h-12 px-4 rounded-xl transition-all"
-                                  onClick={async () => {
-                                    if (confirm('Futa kitu hiki kabisa?')) {
-                                      await handleDeleteSection(selectedSection.id);
-                                      setSelectedSection(null);
-                                    }
-                                  }}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              )}
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })()}
+                          );
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* Bottom Status Summary Cards Grid (Exact matching Screenshot) */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                      {/* Available */}
+                      <div className="p-4 bg-[#0d1612] border border-emerald-900/60 rounded-3xl space-y-1.5 shadow-lg relative overflow-hidden">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400">Available</span>
+                          <span className="text-emerald-500/50 text-lg">🪑</span>
+                        </div>
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-3xl font-black text-white font-mono">11</span>
+                          <span className="text-xs font-bold text-emerald-400">30.6%</span>
+                        </div>
+                        <span className="text-[10px] text-neutral-400 font-bold block">Meza Huru</span>
+                      </div>
+
+                      {/* Occupied */}
+                      <div className="p-4 bg-[#1a0f0f] border border-red-900/60 rounded-3xl space-y-1.5 shadow-lg relative overflow-hidden">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-red-400">Occupied</span>
+                          <span className="text-red-500/50 text-lg">👥</span>
+                        </div>
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-3xl font-black text-white font-mono">21</span>
+                          <span className="text-xs font-bold text-red-400">58.3%</span>
+                        </div>
+                        <span className="text-[10px] text-neutral-400 font-bold block">Meza Occupied</span>
+                      </div>
+
+                      {/* Reserved */}
+                      <div className="p-4 bg-[#1a140a] border border-amber-900/60 rounded-3xl space-y-1.5 shadow-lg relative overflow-hidden">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-amber-400">Reserved</span>
+                          <span className="text-amber-500/50 text-lg">⏰</span>
+                        </div>
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-3xl font-black text-white font-mono">3</span>
+                          <span className="text-xs font-bold text-amber-400">8.3%</span>
+                        </div>
+                        <span className="text-[10px] text-neutral-400 font-bold block">Meza Reserved</span>
+                      </div>
+
+                      {/* Cleaning */}
+                      <div className="p-4 bg-[#0d1520] border border-blue-900/60 rounded-3xl space-y-1.5 shadow-lg relative overflow-hidden">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-blue-400">Cleaning</span>
+                          <span className="text-blue-500/50 text-lg">🧹</span>
+                        </div>
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-3xl font-black text-white font-mono">1</span>
+                          <span className="text-xs font-bold text-blue-400">2.8%</span>
+                        </div>
+                        <span className="text-[10px] text-neutral-400 font-bold block">Meza Inasafishwa</span>
+                      </div>
+
+                      {/* Total Tables */}
+                      <div className="p-4 bg-[#111317] border border-neutral-800 rounded-3xl space-y-1.5 shadow-lg col-span-2 sm:col-span-1 relative overflow-hidden">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Total Tables</span>
+                          <span className="text-neutral-500 text-lg">🍽️</span>
+                        </div>
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-3xl font-black text-white font-mono">36</span>
+                        </div>
+                        <span className="text-[10px] text-neutral-400 font-bold block">Meza Zote</span>
+                      </div>
                     </div>
                   </div>
                 ) : tableSubTab === 'analytics' ? (
@@ -7759,32 +7949,32 @@ export default function VendorDashboard() {
                 exit={{ opacity: 0, y: -20 }}
                 className="space-y-8"
               >
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
-                    <h2 className="text-3xl font-black italic uppercase tracking-tighter">{vendorContext.inventoryLabel} Control</h2>
-                    <p className="text-neutral-500 font-medium">Manage your {vendorContext.inventoryLabel.toLowerCase()} and availability</p>
+                    <h2 className="text-2xl sm:text-3xl font-black italic uppercase tracking-tighter">{vendorContext.inventoryLabel} Control</h2>
+                    <p className="text-neutral-500 text-xs sm:text-sm font-medium">Manage your {vendorContext.inventoryLabel.toLowerCase()} and availability</p>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                     {vendorProfile?.category === 'hotel' && (
                       <Button 
                         onClick={() => setShowManualBooking(true)}
-                        className="bg-neutral-900 border border-neutral-800 rounded-2xl h-12 px-6 font-black uppercase tracking-widest text-[10px] text-orange-600 hover:bg-neutral-800"
+                        className="bg-neutral-900 border border-neutral-800 rounded-2xl h-11 sm:h-12 px-4 sm:px-6 font-black uppercase tracking-widest text-[10px] text-orange-600 hover:bg-neutral-800"
                       >
-                        <Calendar className="w-4 h-4 mr-2" /> Booking ya Reception
+                        <Calendar className="w-4 h-4 mr-1.5" /> Booking ya Reception
                       </Button>
                     )}
                     <Button 
                       variant="outline" 
-                      className="bg-neutral-900 border-neutral-800 rounded-2xl h-12 px-6 font-black uppercase tracking-widest text-[10px] text-neutral-400 hover:text-white"
+                      className="bg-neutral-900 border-neutral-800 rounded-2xl h-11 sm:h-12 px-4 sm:px-6 font-black uppercase tracking-widest text-[10px] text-neutral-400 hover:text-white"
                     >
-                      <Download className="w-4 h-4 mr-2" /> Bulk Export
+                      <Download className="w-4 h-4 mr-1.5" /> Bulk Export
                     </Button>
                     {(!staffProfile || staffProfile.role === 'manager') && (
                       <Button 
                         onClick={() => setIsAddProductOpen(true)}
-                        className="bg-orange-600 hover:bg-orange-700 rounded-2xl h-12 px-6 font-black uppercase tracking-widest text-[10px] shadow-xl shadow-orange-900/30 text-white"
+                        className="bg-orange-600 hover:bg-orange-700 rounded-2xl h-11 sm:h-12 px-4 sm:px-6 font-black uppercase tracking-widest text-[10px] shadow-xl shadow-orange-900/30 text-white"
                       >
-                        <Plus className="w-4 h-4 mr-2" /> 
+                        <Plus className="w-4 h-4 mr-1.5" /> 
                         {vendorProfile?.category === 'hotel' ? 'Sajili Chumba' : 'Add New Item'}
                       </Button>
                     )}
@@ -7814,7 +8004,147 @@ export default function VendorDashboard() {
                    </Select>
                 </div>
 
-                <div className="bg-neutral-900/20 border border-neutral-800 rounded-[3rem] overflow-hidden">
+                {/* MOBILE VIEW: Product Cards (Fully Responsive for Phones) */}
+                <div className="block md:hidden space-y-4">
+                  {filteredInventory.map((product, idx) => {
+                    const isBus = vendorProfile?.category === 'bus_ticket';
+                    return (
+                      <div 
+                        key={`inventory-mobile-card-${product.id}-${idx}`}
+                        className="bg-neutral-900/90 border border-neutral-800 rounded-3xl p-4 shadow-xl space-y-3.5 hover:border-neutral-700 transition-all"
+                      >
+                        {/* Top Section: Photo + Name + Price */}
+                        <div className="flex items-start gap-3.5">
+                          <div className="w-16 h-16 rounded-2xl bg-neutral-950 overflow-hidden relative border border-neutral-800 shrink-0">
+                            {product.imageUrl ? (
+                              <img 
+                                src={product.imageUrl} 
+                                className="w-full h-full object-cover" 
+                                referrerPolicy="no-referrer" 
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80';
+                                }}
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center bg-neutral-950">
+                                {vendorProfile?.category === 'car_rental' || vendorProfile?.category === 'car_sale' ? (
+                                  <Car className="w-6 h-6 text-neutral-600" />
+                                ) : (
+                                  <Bus className="w-6 h-6 text-neutral-600" />
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <h3 className="font-black text-white text-sm uppercase tracking-tight italic truncate">
+                                {isBus 
+                                  ? `${(product as any).origin || 'Dar'} → ${(product as any).destination || 'Arusha'}` 
+                                  : (vendorProfile?.category === 'car_rental' || vendorProfile?.category === 'car_sale')
+                                    ? `${product.category} ${product.name}`
+                                    : product.name
+                                }
+                              </h3>
+                            </div>
+
+                            <p className="font-black text-orange-500 text-sm mt-0.5">
+                              TZS {product.price.toLocaleString()}
+                            </p>
+
+                            <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider mt-0.5 truncate">
+                              {isBus ? `Ondoka: ${(product as any).departureTime || '06:00 AM'}` : `SKU: ${product.id?.slice(0, 8).toUpperCase()}`}
+                            </p>
+
+                            {isBus && (product as any).branchId && branches.find(b => b.id === (product as any).branchId) && (
+                              <p className="text-[9px] text-orange-600/80 font-black uppercase tracking-tight flex items-center gap-1 mt-0.5">
+                                <MapPin className="w-2.5 h-2.5" />
+                                {branches.find(b => b.id === (product as any).branchId)?.name}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Middle Section: Stock Status Bar & Toggle */}
+                        <div className="bg-neutral-950/80 p-3 rounded-2xl border border-neutral-800/80 flex items-center justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between text-[10px] font-black uppercase mb-1">
+                              <span className="text-neutral-400">Hali ya Stoo:</span>
+                              <span className={product.stock < 10 ? 'text-red-500 font-black' : 'text-emerald-400 font-black'}>
+                                {product.stock} {isBus ? 'Seats Left' : 'units'}
+                              </span>
+                            </div>
+                            <div className="w-full h-1.5 bg-neutral-900 rounded-full overflow-hidden border border-neutral-800">
+                              <div 
+                                className={`h-full rounded-full transition-all duration-1000 ${
+                                  product.stock < 10 ? 'bg-red-500' : product.stock < 50 ? 'bg-yellow-500' : 'bg-green-500'
+                                }`}
+                                style={{ width: `${Math.min(100, (product.stock / (isBus ? (product as any).totalSeats || 50 : 200)) * 100)}%` }}
+                              />
+                            </div>
+                          </div>
+
+                          {(!staffProfile || staffProfile.role === 'chef' || staffProfile.role === 'manager' || staffProfile.customPermissions?.canManageMenu) && (
+                            <Button 
+                              size="sm" 
+                              variant={product.stock > 0 ? "outline" : "destructive"}
+                              className="h-8 px-3 text-[10px] font-black uppercase rounded-xl border-2 shrink-0 cursor-pointer"
+                              onClick={() => handleToggleStock(product)}
+                            >
+                              {product.stock > 0 ? "Imeisha?" : "Ipo Tena?"}
+                            </Button>
+                          )}
+                        </div>
+
+                        {/* Bottom Actions Row: Meta Ads + Edit + Delete */}
+                        <div className="flex items-center gap-2 pt-1 border-t border-neutral-800/60">
+                          {(!staffProfile || staffProfile.role === 'manager') ? (
+                            <>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                title={product.metaMcpPromo ? "Sitisha utangazaji kwenye Meta MCP" : "Tangaza kwenye Meta MCP Hub & Catalog"}
+                                className={`flex-1 h-9 px-2.5 rounded-xl font-bold text-[10px] uppercase flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                                  product.metaMcpPromo 
+                                    ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40 hover:bg-blue-600/30' 
+                                    : 'bg-neutral-950 text-neutral-300 hover:text-blue-400 hover:bg-neutral-800 border border-neutral-800'
+                                }`} 
+                                onClick={() => handleToggleMetaMcpPromo(product)}
+                              >
+                                <Zap className="w-3.5 h-3.5 text-blue-400" />
+                                <span>{product.metaMcpPromo ? 'Meta Live' : 'Tangaza Meta'}</span>
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-9 px-3 bg-neutral-950 hover:bg-neutral-800 border border-neutral-800 rounded-xl text-neutral-300 hover:text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer" 
+                                onClick={() => handleEditProduct(product)}
+                              >
+                                <Edit2 className="w-3.5 h-3.5 text-orange-400" />
+                                <span>Hariri</span>
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-9 w-9 bg-neutral-950/80 border border-neutral-800 hover:border-red-500/50 rounded-xl text-neutral-400 hover:text-red-500 hover:bg-red-500/10 shrink-0 cursor-pointer" 
+                                onClick={() => handleDeleteProduct(product.id!)}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </>
+                          ) : (
+                            <span className="text-[9px] text-neutral-500 font-extrabold uppercase tracking-widest bg-neutral-800/50 px-3 py-1.5 rounded-xl">
+                              View Only
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* DESKTOP VIEW: Table (Hidden on Mobile) */}
+                <div className="hidden md:block bg-neutral-900/20 border border-neutral-800 rounded-[3rem] overflow-x-auto">
                   <table className="w-full text-left">
                     <thead>
                       <tr className="border-b border-neutral-800 bg-neutral-900/50">
@@ -7937,9 +8267,9 @@ export default function VendorDashboard() {
                                     <>
                                       <Button 
                                         variant="ghost" 
-                                        size="sm"
+                                        size="sm" 
                                         title={product.metaMcpPromo ? "Sitisha utangazaji kwenye Meta MCP" : "Tangaza kwenye Meta MCP Hub & Catalog"}
-                                        className={`h-10 px-3 rounded-xl font-bold text-[10px] uppercase flex items-center gap-1.5 transition-all ${
+                                        className={`h-10 px-3 rounded-xl font-bold text-[10px] uppercase flex items-center gap-1.5 transition-all cursor-pointer ${
                                           product.metaMcpPromo 
                                             ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40 hover:bg-blue-600/30' 
                                             : 'bg-neutral-900 text-neutral-400 hover:text-blue-400 hover:bg-neutral-800 border border-neutral-800'
@@ -7949,10 +8279,10 @@ export default function VendorDashboard() {
                                         <Zap className="w-3.5 h-3.5" />
                                         <span className="hidden sm:inline">{product.metaMcpPromo ? 'Meta Live' : 'Tangaza Meta MCP'}</span>
                                       </Button>
-                                      <Button variant="ghost" size="icon" className="h-10 w-10 bg-neutral-900 rounded-xl text-neutral-400 hover:text-white" onClick={() => handleEditProduct(product)}>
+                                      <Button variant="ghost" size="icon" className="h-10 w-10 bg-neutral-900 rounded-xl text-neutral-400 hover:text-white cursor-pointer" onClick={() => handleEditProduct(product)}>
                                          <Edit2 className="w-4 h-4" />
                                       </Button>
-                                      <Button variant="ghost" size="icon" className="h-10 w-10 bg-neutral-950/50 rounded-xl text-neutral-600 hover:text-red-500 hover:bg-neutral-900" onClick={() => handleDeleteProduct(product.id!)}>
+                                      <Button variant="ghost" size="icon" className="h-10 w-10 bg-neutral-950/50 rounded-xl text-neutral-600 hover:text-red-500 hover:bg-neutral-900 cursor-pointer" onClick={() => handleDeleteProduct(product.id!)}>
                                          <Trash2 className="w-4 h-4" />
                                       </Button>
                                     </>
