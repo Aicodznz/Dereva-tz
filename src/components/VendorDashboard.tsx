@@ -1383,6 +1383,57 @@ export default function VendorDashboard() {
     }, 300);
   };
 
+  const handleDownloadOrderReceipt = async (order: Order) => {
+    setOrderToPrint(order);
+    const toastId = toast.loading(`Inatayarisha risiti ya #${order.id ? order.id.slice(-6).toUpperCase() : 'Oda'}...`, {
+      style: { background: '#000', color: '#fff' }
+    });
+
+    try {
+      await new Promise(r => setTimeout(r, 450));
+      const el = document.getElementById('order-receipt');
+      if (!el) {
+        toast.error("Imeshindwa kupata stakabadhi ya kupakua", { id: toastId });
+        return;
+      }
+
+      let dataUrl;
+      try {
+        dataUrl = await toPng(el, { 
+          quality: 0.98, 
+          pixelRatio: 2,
+          backgroundColor: '#ffffff',
+          cacheBust: true,
+          skipFonts: true,
+        });
+      } catch (firstErr) {
+        console.warn('First receipt download attempt failed, using fallback...', firstErr);
+        dataUrl = await toPng(el, {
+          quality: 0.9,
+          pixelRatio: 1.5,
+          backgroundColor: '#ffffff',
+          cacheBust: false,
+          skipFonts: true,
+        });
+      }
+
+      const isBus = order.type === 'bus_ticket' || vendorProfile?.category === 'bus_ticket';
+      const fileName = isBus 
+        ? `Tiketi-Basi-${order.id ? order.id.slice(-6).toUpperCase() : 'Papo'}.png`
+        : `Risiti-Oda-${order.id ? order.id.slice(-6).toUpperCase() : 'Papo'}.png`;
+
+      const link = document.createElement('a');
+      link.download = fileName;
+      link.href = dataUrl;
+      link.click();
+
+      toast.success('Risiti imepakuliwa kwa mafanikio!', { id: toastId });
+    } catch (err: any) {
+      console.error('Receipt download error:', err);
+      toast.error('Imeshindwa kupakua risiti. Tafadhali jaribu tena.', { id: toastId });
+    }
+  };
+
   const [isExporting, setIsExporting] = useState(false);
   const handleDownloadStand = async () => {
     const el = document.getElementById('printable-stand');
@@ -3277,7 +3328,8 @@ export default function VendorDashboard() {
                       <Button
                         variant="ghost" 
                         size="icon" 
-                        className="h-8 w-8 text-neutral-600 hover:text-orange-500 hover:bg-orange-600/10"
+                        title="Chapisha Risiti (Print)"
+                        className="h-8 w-8 text-neutral-600 hover:text-orange-500 hover:bg-orange-600/10 cursor-pointer"
                         onClick={(e) => {
                           e.stopPropagation();
                           handlePrintOrder(order);
@@ -3288,7 +3340,20 @@ export default function VendorDashboard() {
                       <Button
                         variant="ghost" 
                         size="icon" 
-                        className="h-8 w-8 text-neutral-600 hover:text-red-500 hover:bg-red-500/10"
+                        title="Pakua Risiti (Download)"
+                        className="h-8 w-8 text-neutral-600 hover:text-emerald-500 hover:bg-emerald-600/10 cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownloadOrderReceipt(order);
+                        }}
+                      >
+                        <Download className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost" 
+                        size="icon" 
+                        title="Futa Oda"
+                        className="h-8 w-8 text-neutral-600 hover:text-red-500 hover:bg-red-500/10 cursor-pointer"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleDeleteOrder(order.id!);
@@ -3538,7 +3603,8 @@ export default function VendorDashboard() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="text-neutral-500 hover:text-orange-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-xl transition-colors"
+                          title="Chapisha Risiti (Print)"
+                          className="text-neutral-500 hover:text-orange-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-xl transition-colors cursor-pointer"
                           onClick={() => handlePrintOrder(order)}
                         >
                           <Printer className="w-4 h-4" />
@@ -3546,7 +3612,17 @@ export default function VendorDashboard() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="text-neutral-500 hover:text-red-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-xl transition-colors"
+                          title="Pakua Risiti (Download)"
+                          className="text-neutral-500 hover:text-emerald-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-xl transition-colors cursor-pointer"
+                          onClick={() => handleDownloadOrderReceipt(order)}
+                        >
+                          <Download className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Futa Oda"
+                          className="text-neutral-500 hover:text-red-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-xl transition-colors cursor-pointer"
                           onClick={() => handleDeleteOrder(order.id!)}
                         >
                           <Trash2 className="w-4 h-4" />
