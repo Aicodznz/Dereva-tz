@@ -116,7 +116,10 @@ import {
   Wifi,
   Sparkles,
   Wine,
-  Crown
+  Crown,
+  Heart,
+  CheckCircle2,
+  Flame
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence, useScroll, useMotionValueEvent } from 'motion/react';
@@ -891,6 +894,13 @@ export default function VendorDashboard() {
   const [tableStandStyle, setTableStandStyle] = useState<'acrylic' | 'wood' | 'tent' | 'gold_metal' | 'dark_modern'>('gold_metal');
   const [standDisplayLayout, setStandDisplayLayout] = useState<'gold_menu_showcase' | 'single_stand'>('gold_menu_showcase');
   const [goldMenuBanner, setGoldMenuBanner] = useState('DELICIOUS FOOD • GREAT TASTE • HAPPY YOU');
+  const [goldMenuSince, setGoldMenuSince] = useState('SINCE 2023');
+  const [goldLeftHangingSign, setGoldLeftHangingSign] = useState('Fresh\nTasty ♡\nHealthy');
+  const [goldRightHangingSign, setGoldRightHangingSign] = useState('KARIBU\nSANA!\n❤️');
+  const [goldWebsiteUrl, setGoldWebsiteUrl] = useState('WWW.AGIZA.CO.TZ');
+  const [goldSupportEmail, setGoldSupportEmail] = useState('SUPPORT@AGIZA.CO.TZ');
+  const [goldSalesPhone, setGoldSalesPhone] = useState('+255 7XX XXX XXX');
+  const [goldHighlights, setGoldHighlights] = useState(['Ladha Halisi', 'Huduma Bora', 'Bei Fair', 'Wateja wa Furahi ❤️']);
   const [showcaseDishes, setShowcaseDishes] = useState([
     {
       id: 'dish-1',
@@ -11079,7 +11089,7 @@ export default function VendorDashboard() {
                     <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-400 text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-xs">
                       <Sparkles className="w-3 h-3 text-amber-400" />
                       {qrBuilderMode === 'table_stand' 
-                        ? (standDisplayLayout === 'gold_menu_showcase' ? 'Stand ya Menyu ya Dhahabu (Gold Menu Placard)' : 'Stand ya Mezani (Single Table Stand)') 
+                        ? (standDisplayLayout === 'gold_menu_showcase' ? 'Stand / Bango la Menyu ya Dhahabu (Luxury Gold Placard)' : 'Stand ya Mezani (Single Table Stand)') 
                         : qrBuilderMode === 'store_placard' ? 'Bango la Dukani' : 'QR Code Pekee'}
                     </span>
                     {selectedSection && (
@@ -11091,7 +11101,7 @@ export default function VendorDashboard() {
                   <h3 className="text-xl sm:text-2xl font-black text-white italic uppercase tracking-tighter flex items-center gap-2">
                     {qrBuilderMode === 'table_stand' 
                       ? (standDisplayLayout === 'gold_menu_showcase' 
-                          ? (selectedSection ? `Stand ya Menyu ya Dhahabu: Meza #${selectedSection.number}` : 'Buni Stand ya Menyu ya Dhahabu (Gold Menu Placard)')
+                          ? (selectedSection ? `Stand ya Dhahabu: Meza #${selectedSection.number}` : 'Buni Bango la Dhahabu (Luxury Gold Placard)')
                           : (selectedSection ? `Stand ya Meza: #${selectedSection.number}` : 'Buni Stand ya Mezani (Single Stand)'))
                       : qrBuilderMode === 'store_placard'
                       ? (selectedSection ? `Bango la Aisle: #${selectedSection.number}` : 'Bango la Kaunta / Dukani')
@@ -11099,7 +11109,7 @@ export default function VendorDashboard() {
                   </h3>
                   <p className="text-[11px] text-neutral-400 font-medium">
                     {standDisplayLayout === 'gold_menu_showcase'
-                      ? 'Stand maridadi ya dhahabu yenye vyakula 3 pendwa, picha, bei, maelezo na QR codes za kuagiza papo hapo mezani'
+                      ? 'Stand ya kisasa ya dhahabu yenye vyakula 3 pendwa, bango kuu la duka, taarifa za meza na QR codes papo hapo'
                       : 'Stand ya mezani yenye QR kuu, WiFi ya wageni, nambari ya meza & nembo ya mgahawa'}
                   </p>
                 </div>
@@ -11157,7 +11167,7 @@ export default function VendorDashboard() {
                 </div>
               </div>
 
-              {/* Main Modal Body (Left: Customization Panel, Right: Live Stand Preview) */}
+              {/* Main Modal Body */}
               <div className="flex-1 overflow-hidden flex flex-col lg:flex-row">
                 {/* Options Panel */}
                 {staffProfile?.role === 'waiter' ? (
@@ -11197,7 +11207,7 @@ export default function VendorDashboard() {
                               <span className="text-[7.5px] font-black px-1.5 py-0.5 rounded-full bg-amber-500 text-black uppercase tracking-widest">LUXURY GOLD</span>
                             </div>
                             <h4 className="text-xs font-black uppercase text-amber-200">Showcase ya Dhahabu</h4>
-                            <p className="text-[9px] text-neutral-400 mt-0.5 leading-tight">Vyakula 3, picha, bei & QR za kila sahani (Kama Picha)</p>
+                            <p className="text-[9px] text-neutral-400 mt-0.5 leading-tight">Vyakula 3, Bango Kuu la Duka, Maelezo & QR za kila sahani</p>
                           </button>
 
                           <button
@@ -11222,11 +11232,11 @@ export default function VendorDashboard() {
                       {standDisplayLayout === 'gold_menu_showcase' && (
                         <div className="space-y-6 animate-in fade-in duration-300">
                           
-                          {/* Banner Header & Quick Actions */}
+                          {/* Banner Header & Branding Settings */}
                           <div className="space-y-3 p-4 bg-amber-950/20 border border-amber-500/20 rounded-2xl">
                             <div className="flex items-center justify-between">
                               <span className="text-[9px] font-black text-amber-300 uppercase tracking-widest flex items-center gap-1.5">
-                                <Sparkles className="w-3 h-3 text-amber-400" /> Kichwa cha Juu (Top Banner Text)
+                                <Sparkles className="w-3 h-3 text-amber-400" /> Kichwa cha Mgahawa & Mabango (Header & Signs)
                               </span>
                               <div className="flex items-center gap-2">
                                 {products.length > 0 && (
@@ -11242,20 +11252,17 @@ export default function VendorDashboard() {
                                         description: p.description || 'Chakula kizuri kilichoandaliwa kwa ubora na usafi wa hali ya juu.',
                                         imageUrl: p.imageUrl || 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=400&q=80',
                                       }));
-                                      if (autoDishes.length < 3) {
-                                        // pad if less than 3
-                                        while (autoDishes.length < 3) {
-                                          autoDishes.push({
-                                            id: `dish-pad-${autoDishes.length}`,
-                                            name: 'SPECIAL DISH',
-                                            emoji: '✨',
-                                            price: '10,000',
-                                            badge: 'POPULAR',
-                                            badgeColor: '#d97706',
-                                            description: 'Chakula kitamu na vinywaji safi kwa ajili yako.',
-                                            imageUrl: 'https://images.unsplash.com/photo-1598103442097-8b74394b95c6?auto=format&fit=crop&w=400&q=80',
-                                          });
-                                        }
+                                      while (autoDishes.length < 3) {
+                                        autoDishes.push({
+                                          id: `dish-pad-${autoDishes.length}`,
+                                          name: 'SPECIAL DISH',
+                                          emoji: '✨',
+                                          price: '10,000',
+                                          badge: 'POPULAR',
+                                          badgeColor: '#d97706',
+                                          description: 'Chakula kitamu na vinywaji safi kwa ajili yako.',
+                                          imageUrl: 'https://images.unsplash.com/photo-1598103442097-8b74394b95c6?auto=format&fit=crop&w=400&q=80',
+                                        });
                                       }
                                       setShowcaseDishes(autoDishes);
                                       toast.success('Vyakula kutoka duka lako vimepakiwa kwenye stand!');
@@ -11299,6 +11306,8 @@ export default function VendorDashboard() {
                                         imageUrl: 'https://images.unsplash.com/photo-1613478223719-2ab802602423?auto=format&fit=crop&w=400&q=80',
                                       }
                                     ]);
+                                    setGoldMenuBanner('DELICIOUS FOOD • GREAT TASTE • HAPPY YOU');
+                                    setGoldMenuSince('SINCE 2023');
                                     toast.success('Mfano wa Dhahabu umerejeshwa!');
                                   }}
                                   className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-neutral-400 text-[8.5px] font-black uppercase tracking-wider border border-white/10 transition-all cursor-pointer"
@@ -11308,12 +11317,36 @@ export default function VendorDashboard() {
                               </div>
                             </div>
 
-                            <Input 
-                              value={goldMenuBanner}
-                              onChange={(e) => setGoldMenuBanner(e.target.value.toUpperCase())}
-                              placeholder="DELICIOUS FOOD • GREAT TASTE • HAPPY YOU"
-                              className="bg-black/60 border-amber-500/30 h-10 rounded-xl text-amber-200 font-black text-xs uppercase tracking-wider text-center"
-                            />
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-1">
+                                <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest block">Jina la Mgahawa (Gold Header)</span>
+                                <Input 
+                                  value={printDetails.header || vendorProfile?.businessName || 'RESTAURANTKISINIA'}
+                                  onChange={(e) => setPrintDetails({ ...printDetails, header: e.target.value.toUpperCase() })}
+                                  placeholder="RESTAURANTKISINIA"
+                                  className="bg-black/60 border-amber-500/30 h-10 rounded-xl text-amber-300 font-black text-xs uppercase"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest block">Mwaka wa Kuanzishwa (Since)</span>
+                                <Input 
+                                  value={goldMenuSince}
+                                  onChange={(e) => setGoldMenuSince(e.target.value.toUpperCase())}
+                                  placeholder="SINCE 2023"
+                                  className="bg-black/60 border-amber-500/30 h-10 rounded-xl text-amber-200 font-mono text-xs uppercase"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="space-y-1">
+                              <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest block">Kichwa cha Ribbon / Slogan</span>
+                              <Input 
+                                value={goldMenuBanner}
+                                onChange={(e) => setGoldMenuBanner(e.target.value.toUpperCase())}
+                                placeholder="DELICIOUS FOOD • GREAT TASTE • HAPPY YOU"
+                                className="bg-black/60 border-amber-500/30 h-10 rounded-xl text-amber-200 font-black text-xs uppercase tracking-wider text-center"
+                              />
+                            </div>
                           </div>
 
                           {/* 3 Dishes Customizer Accordion/Tabs */}
@@ -11495,6 +11528,40 @@ export default function VendorDashboard() {
                               </div>
                             )}
                           </div>
+
+                          {/* Footer & Contacts Customizer */}
+                          <div className="space-y-3 p-4 bg-neutral-900/60 border border-white/5 rounded-2xl">
+                            <span className="text-[9px] font-black text-neutral-300 uppercase tracking-widest block">Taarifa za Mawasiliano & Tovuti (Footer Info)</span>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-1">
+                                <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest block">Tovuti / Portal</span>
+                                <Input 
+                                  value={goldWebsiteUrl}
+                                  onChange={(e) => setGoldWebsiteUrl(e.target.value.toUpperCase())}
+                                  placeholder="WWW.AGIZA.CO.TZ"
+                                  className="bg-black/60 border-white/10 h-10 rounded-xl text-white text-xs font-mono"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest block">Simu ya Huduma (Sales/Phone)</span>
+                                <Input 
+                                  value={goldSalesPhone}
+                                  onChange={(e) => setGoldSalesPhone(e.target.value)}
+                                  placeholder="+255 7XX XXX XXX"
+                                  className="bg-black/60 border-white/10 h-10 rounded-xl text-white text-xs font-mono"
+                                />
+                              </div>
+                            </div>
+                            <div className="space-y-1">
+                              <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest block">Barua Pepe ya Msaada (Support Email)</span>
+                              <Input 
+                                value={goldSupportEmail}
+                                onChange={(e) => setGoldSupportEmail(e.target.value.toUpperCase())}
+                                placeholder="SUPPORT@AGIZA.CO.TZ"
+                                className="bg-black/60 border-white/10 h-10 rounded-xl text-white text-xs font-mono"
+                              />
+                            </div>
+                          </div>
                         </div>
                       )}
 
@@ -11570,11 +11637,11 @@ export default function VendorDashboard() {
                       <div className="space-y-4 pt-4 border-t border-white/5">
                         <div className="grid grid-cols-2 gap-3">
                           <div className="space-y-1">
-                            <span className="text-[8.5px] font-black text-neutral-400 uppercase tracking-widest block">Nambari ya Meza (Table #)</span>
+                            <span className="text-[8.5px] font-black text-neutral-400 uppercase tracking-widest block">Nambari ya Meza (Table # / Section)</span>
                             <Input 
-                              placeholder="02 au MEZA 02"
+                              placeholder="21 au #21"
                               className="bg-neutral-900 border-white/10 h-10 rounded-xl text-white font-mono font-black text-center text-sm focus:ring-1 focus:ring-amber-500 uppercase"
-                              value={selectedSection?.number || '02'}
+                              value={selectedSection?.number || '21'}
                               onChange={(e) => {
                                 if (selectedSection) {
                                   setSelectedSection({ ...selectedSection, number: e.target.value });
@@ -11790,7 +11857,7 @@ export default function VendorDashboard() {
                 )}
 
                 {/* Right Panel: Live Stand Preview & Download Actions */}
-                <div className="lg:w-[500px] bg-[#070709] p-5 sm:p-7 flex flex-col items-center justify-between gap-5 relative overflow-y-auto custom-scrollbar border-t lg:border-t-0 lg:border-l border-white/5 min-h-[580px]">
+                <div className="lg:w-[540px] bg-[#070709] p-4 sm:p-6 flex flex-col items-center justify-between gap-5 relative overflow-y-auto custom-scrollbar border-t lg:border-t-0 lg:border-l border-white/5 min-h-[620px]">
                   
                   <div className="w-full flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -11799,71 +11866,118 @@ export default function VendorDashboard() {
                     </div>
                     {qrBuilderMode === 'table_stand' && (
                       <span className="text-[8.5px] font-mono font-bold text-amber-400 uppercase bg-amber-950/40 border border-amber-500/20 px-2 py-0.5 rounded-md">
-                        {standDisplayLayout === 'gold_menu_showcase' ? 'GOLD MENU SHOWCASE' : `${tableStandStyle.toUpperCase()} STYLE`}
+                        {standDisplayLayout === 'gold_menu_showcase' ? 'LUXURY GOLD PLACARD' : `${tableStandStyle.toUpperCase()} STYLE`}
                       </span>
                     )}
                   </div>
 
-                  {/* STAND YA MEZANI PREVIEW: LUXURY GOLD MENU SHOWCASE (MATCHING IMAGE 1) */}
+                  {/* STAND YA MEZANI PREVIEW: LUXURY GOLD MENU SHOWCASE (MATCHING USER IMAGE 100%) */}
                   {qrBuilderMode === 'table_stand' && standDisplayLayout === 'gold_menu_showcase' && (
                     <div className="w-full flex flex-col items-center justify-center py-1">
                       <div 
                         id="printable-stand" 
-                        className="w-full max-w-[390px] rounded-3xl overflow-hidden relative shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9)] border-2 border-[#d4af37]/70 ring-1 ring-[#854d0e]/60 bg-gradient-to-b from-[#1c1308] via-[#0d0905] to-[#050403] text-amber-100 p-4 sm:p-5"
+                        className="w-full max-w-[420px] rounded-[2.5rem] overflow-hidden relative shadow-[0_30px_90px_rgba(0,0,0,0.95)] border-2 border-[#eab308]/70 ring-1 ring-[#ca8a04]/50 text-amber-100 p-4 sm:p-5"
+                        style={{
+                          background: 'radial-gradient(ellipse at top, #23170a 0%, #120b05 45%, #050302 100%)',
+                        }}
                       >
-                        {/* Metallic Gold Corners & Ambient Glow */}
-                        <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-[#fef08a] rounded-tl-2xl pointer-events-none z-20"></div>
-                        <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-[#fef08a] rounded-tr-2xl pointer-events-none z-20"></div>
-                        <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-[#fef08a] rounded-bl-2xl pointer-events-none z-20"></div>
-                        <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-[#fef08a] rounded-br-2xl pointer-events-none z-20"></div>
-                        
-                        {/* Top Ornate Header Banner */}
-                        <div className="text-center relative z-10 pb-3 mb-2 border-b border-[#ca8a04]/30 flex flex-col items-center justify-center">
-                          {vendorProfile?.logoUrl && printDetails.showLogo && (
-                            <img 
-                              src={getProxiedImageUrl(vendorProfile.logoUrl)} 
-                              alt="Logo" 
-                              className="w-8 h-8 rounded-lg object-contain bg-black/80 p-1 mb-1 border border-amber-500/40 shadow-sm"
-                              referrerPolicy="no-referrer"
-                            />
-                          )}
-                          <div className="px-3 py-0.5 rounded-full bg-gradient-to-r from-amber-600/20 via-amber-500/30 to-amber-600/20 border border-amber-500/40 mb-1">
-                            <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-[0.2em] text-amber-300 font-serif">
+                        {/* Background Ambiance Glow & Bokeh */}
+                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(245,158,11,0.18)_0%,transparent_60%)] pointer-events-none"></div>
+                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_10%_80%,rgba(217,119,6,0.12)_0%,transparent_40%)] pointer-events-none"></div>
+                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_90%_80%,rgba(217,119,6,0.12)_0%,transparent_40%)] pointer-events-none"></div>
+
+                        {/* Top Hanging Boards with Ropes */}
+                        <div className="relative z-20 flex items-start justify-between mb-1 px-1">
+                          {/* Left Hanging Sign: Fresh Tasty Healthy */}
+                          <div className="flex flex-col items-center">
+                            {/* Ropes */}
+                            <div className="flex justify-between w-8 h-3 px-1">
+                              <div className="w-0.5 h-full bg-gradient-to-b from-[#ca8a04] to-[#78350f]"></div>
+                              <div className="w-0.5 h-full bg-gradient-to-b from-[#ca8a04] to-[#78350f]"></div>
+                            </div>
+                            {/* Wooden Plank */}
+                            <div className="px-2.5 py-1 rounded-md bg-[#2b170c] border border-[#78350f] shadow-md text-center">
+                              <p className="text-[7.5px] font-serif italic text-amber-200/90 leading-tight">Fresh</p>
+                              <p className="text-[7.5px] font-bold text-amber-100 leading-tight">Tasty ♡</p>
+                              <p className="text-[7px] text-amber-300/80 leading-tight">Healthy</p>
+                            </div>
+                          </div>
+
+                          {/* Center Crest: Circular Seal */}
+                          <div className="flex flex-col items-center justify-center -mt-1">
+                            <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-full bg-gradient-to-b from-[#1f150b] via-[#0d0905] to-[#1a1107] border-2 border-[#f59e0b] shadow-[0_0_15px_rgba(245,158,11,0.4)] flex flex-col items-center justify-center relative p-1">
+                              <div className="text-[5.5px] font-black uppercase text-amber-300 tracking-widest text-center leading-none">
+                                RESTAURANT
+                              </div>
+                              <div className="text-[4.5px] text-amber-400/80 font-mono tracking-tighter mb-0.5">
+                                {goldMenuSince || 'SINCE 2023'}
+                              </div>
+                              <div className="flex items-center justify-center gap-1 my-0.5">
+                                <Utensils className="w-3.5 h-3.5 text-amber-400" />
+                                <Flame className="w-3.5 h-3.5 text-red-500 fill-red-500 animate-pulse" />
+                              </div>
+                              <div className="text-[5.5px] text-amber-400">★ ⚜ ★</div>
+                            </div>
+                          </div>
+
+                          {/* Right Hanging Sign: Karibu Sana */}
+                          <div className="flex flex-col items-center">
+                            {/* Ropes */}
+                            <div className="flex justify-between w-8 h-3 px-1">
+                              <div className="w-0.5 h-full bg-gradient-to-b from-[#ca8a04] to-[#78350f]"></div>
+                              <div className="w-0.5 h-full bg-gradient-to-b from-[#ca8a04] to-[#78350f]"></div>
+                            </div>
+                            {/* Wooden Plank */}
+                            <div className="px-2.5 py-1 rounded-md bg-[#2b170c] border border-[#78350f] shadow-md text-center">
+                              <p className="text-[7.5px] font-black uppercase tracking-wider text-amber-200 leading-tight">KARIBU</p>
+                              <p className="text-[7.5px] font-black uppercase tracking-wider text-amber-100 leading-tight">SANA!</p>
+                              <p className="text-[8px] text-red-500 leading-tight">❤️</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Giant 3D Gold Metallic Title */}
+                        <div className="text-center relative z-10 mt-1 mb-2">
+                          <h1 className="text-xl sm:text-2xl font-black uppercase tracking-wider text-transparent bg-clip-text bg-gradient-to-b from-[#fffbeb] via-[#fbbf24] to-[#b45309] drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] font-sans">
+                            {printDetails.header || vendorProfile?.businessName || 'RESTAURANTKISINIA'}
+                          </h1>
+                          
+                          {/* Gold Pill Subtitle Banner */}
+                          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-gradient-to-r from-amber-600/30 via-amber-500/40 to-amber-600/30 border border-[#eab308]/60 shadow-sm mt-1">
+                            <span className="text-amber-400 text-[6.5px]">◆</span>
+                            <span className="text-[7.5px] sm:text-[8.5px] font-black uppercase tracking-[0.18em] text-amber-200">
                               {goldMenuBanner || 'DELICIOUS FOOD • GREAT TASTE • HAPPY YOU'}
                             </span>
-                          </div>
-                          <div className="flex items-center gap-2 mt-0.5 text-[8px] font-mono text-amber-400/90 font-bold uppercase tracking-wider">
-                            <span>{vendorProfile?.businessName || 'RESTAURANT'}</span>
-                            <span>•</span>
-                            <span className="bg-amber-500 text-black px-1.5 py-0.2 rounded font-black">MEZA #{selectedSection?.number || '01'}</span>
+                            <span className="text-amber-400 text-[6.5px]">◆</span>
                           </div>
                         </div>
 
                         {/* 3 Signature Food Items Showcase */}
-                        <div className="space-y-2.5 relative z-10">
+                        <div className="space-y-2.5 relative z-10 my-2">
                           {showcaseDishes.map((dish, dIdx) => {
-                            const itemQrLink = `${window.location.origin}/table/${vendorProfile?.id || ''}/${selectedSection?.number || '01'}?item=${encodeURIComponent(dish.name)}`;
+                            const itemQrLink = `${window.location.origin}/table/${vendorProfile?.id || ''}/${selectedSection?.number || '21'}?item=${encodeURIComponent(dish.name)}`;
                             return (
                               <div 
-                                key={`gold-dish-card-${dish.id}-${dIdx}`}
-                                className="relative bg-black/50 border border-[#ca8a04]/40 hover:border-[#fef08a]/60 rounded-2xl p-2.5 sm:p-3 flex items-center justify-between gap-2.5 transition-all shadow-inner"
+                                key={`gold-dish-card-v2-${dish.id}-${dIdx}`}
+                                className="relative bg-gradient-to-r from-[#170e06]/95 via-[#0d0803]/95 to-[#1a1007]/95 border border-[#ca8a04]/60 hover:border-[#fef08a] rounded-2xl p-2.5 sm:p-3 flex items-center justify-between gap-2.5 transition-all shadow-[0_4px_20px_rgba(0,0,0,0.6)]"
                               >
-                                {/* Left: Circular Dish Image with Gold Ring & Badge */}
+                                {/* Left: Circular Dish Image with Gold Ring & Rosette Badge */}
                                 <div className="relative shrink-0 flex flex-col items-center">
-                                  {/* Badge Tag */}
+                                  {/* Rosette Badge Tag */}
                                   <div 
-                                    className="absolute -top-2 -left-1 z-20 px-1.5 py-0.5 rounded-md text-[6.5px] font-black uppercase tracking-tighter shadow-md border"
+                                    className="absolute -top-2 -left-1.5 z-20 px-2 py-0.5 rounded-full text-[6px] font-black uppercase tracking-wider shadow-md border flex flex-col items-center justify-center leading-none text-center"
                                     style={{ 
-                                      backgroundColor: dish.badgeColor || '#dc2626',
-                                      borderColor: 'rgba(255,255,255,0.4)',
+                                      backgroundColor: dish.badgeColor || (dIdx === 0 ? '#dc2626' : dIdx === 1 ? '#15803d' : '#1d4ed8'),
+                                      borderColor: 'rgba(255,255,255,0.6)',
                                       color: '#ffffff'
                                     }}
                                   >
-                                    {dish.badge || 'SPECIAL'} ★
+                                    <span>{dish.badge || (dIdx === 0 ? 'BEST SELLER' : dIdx === 1 ? "CHEF'S CHOICE" : 'FRESH & NATURAL')}</span>
+                                    <span className="text-[5px] tracking-widest text-amber-300">★★★</span>
                                   </div>
 
                                   {/* Dish Image */}
-                                  <div className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full overflow-hidden border-2 border-[#eab308] ring-2 ring-[#854d0e]/60 shadow-[0_0_12px_rgba(234,179,8,0.35)] bg-neutral-900 shrink-0">
+                                  <div className="w-16 h-16 sm:w-[70px] sm:h-[70px] rounded-full overflow-hidden border-2 border-[#eab308] ring-2 ring-[#78350f]/60 shadow-[0_0_14px_rgba(234,179,8,0.4)] bg-neutral-900 shrink-0">
                                     <img 
                                       src={getProxiedImageUrl(dish.imageUrl) || 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=400&q=80'} 
                                       alt={dish.name} 
@@ -11876,27 +11990,27 @@ export default function VendorDashboard() {
                                 {/* Middle: Title, Price, Dotted Line, Description */}
                                 <div className="flex-1 min-w-0 pr-1 text-left">
                                   <div className="flex items-center gap-1 leading-none mb-0.5">
-                                    <h4 className="text-xs sm:text-[13px] font-black uppercase text-amber-100 tracking-tight truncate">
+                                    <h4 className="text-xs sm:text-[13px] font-black uppercase text-amber-50 tracking-tight truncate">
                                       {dish.name}
                                     </h4>
                                     <span className="text-xs shrink-0">{dish.emoji}</span>
                                   </div>
 
-                                  <div className="text-xs sm:text-sm font-black text-amber-400 font-serif leading-tight">
+                                  <div className="text-xs sm:text-sm font-black text-[#fbbf24] font-serif leading-tight">
                                     TSH {dish.price}
                                   </div>
 
                                   {/* Gold Dotted Divider */}
-                                  <div className="my-1 border-b border-dotted border-amber-600/50"></div>
+                                  <div className="my-1 border-b border-dotted border-[#ca8a04]/60"></div>
 
-                                  <p className="text-[7.5px] sm:text-[8.5px] text-amber-200/80 font-medium leading-tight line-clamp-2 italic">
+                                  <p className="text-[7.5px] sm:text-[8.5px] text-amber-200/85 font-medium leading-tight line-clamp-2 italic">
                                     {dish.description}
                                   </p>
                                 </div>
 
-                                {/* Right: QR Code + SCAN TO ORDER Button */}
+                                {/* Right: High-Contrast QR Code + SCAN TO ORDER Button */}
                                 <div className="shrink-0 flex flex-col items-center justify-center text-center">
-                                  <div className="p-1 bg-white rounded-lg shadow-md border border-amber-400/40">
+                                  <div className="p-1 bg-white rounded-lg shadow-md border border-[#eab308]/60">
                                     <MiniQrCode 
                                       data={itemQrLink} 
                                       size={48} 
@@ -11904,7 +12018,7 @@ export default function VendorDashboard() {
                                       dotsType={patternShape}
                                     />
                                   </div>
-                                  <div className="mt-1 px-1.5 py-0.5 rounded bg-[#0b1220] border border-[#d4af37]/70 text-amber-300 font-black text-[6.5px] uppercase tracking-wider shadow-xs whitespace-nowrap">
+                                  <div className="mt-1 px-1.5 py-0.5 rounded-full bg-gradient-to-r from-[#0f172a] via-[#1e293b] to-[#0f172a] border border-[#eab308] text-amber-300 font-black text-[6.5px] uppercase tracking-wider shadow-xs whitespace-nowrap">
                                     SCAN TO ORDER
                                   </div>
                                 </div>
@@ -11913,29 +12027,116 @@ export default function VendorDashboard() {
                           })}
                         </div>
 
-                        {/* Guest WiFi on Gold Stand (if enabled) */}
-                        {showWifiOnStand && (
-                          <div className="mt-2.5 py-1.5 px-3 rounded-xl bg-black/60 border border-amber-500/30 flex items-center justify-between text-left relative z-10 text-[8px]">
-                            <div className="flex items-center gap-1.5">
-                              <Wifi className="w-3 h-3 text-amber-400 shrink-0" />
-                              <div>
-                                <span className="opacity-70 uppercase block text-[6.5px]">GUEST WIFI</span>
-                                <span className="font-mono font-black text-amber-200">{standWifiName || 'WiFi'}</span>
-                              </div>
+                        {/* "INGIA KWENYE DUKA" Main CTA Card (Matching Bottom Banner) */}
+                        <div className="relative bg-gradient-to-r from-[#170e06] via-[#0a0602] to-[#170e06] border-2 border-[#ca8a04]/70 rounded-2xl p-2.5 sm:p-3 my-2 flex items-center justify-between gap-2 shadow-[0_6px_25px_rgba(0,0,0,0.7)] relative z-10">
+                          {/* Left: Store QR with chalk arrow */}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <div className="text-center">
+                              <span className="text-[7px] font-serif italic text-amber-200 block -rotate-6">Scan hapa!</span>
+                              <div className="text-amber-400 text-xs">↷</div>
                             </div>
-                            <div className="text-right">
-                              <span className="opacity-70 uppercase block text-[6.5px]">PASSWORD</span>
-                              <span className="font-mono font-black text-amber-300">{standWifiPass || 'BURE'}</span>
+                            <div className="p-1 bg-white rounded-xl shadow-md border border-amber-400/50">
+                              <MiniQrCode 
+                                data={`${window.location.origin}/store/${vendorProfile?.id || ''}`} 
+                                size={52} 
+                                dotsColor="#000000"
+                                dotsType={patternShape}
+                              />
                             </div>
                           </div>
-                        )}
 
-                        {/* Gold Stand Footer */}
-                        <div className="mt-2.5 pt-2 border-t border-[#ca8a04]/30 text-center relative z-10">
-                          <p className="text-[7.5px] font-serif uppercase tracking-[0.25em] text-amber-300/80">
-                            • GREAT TASTE • PAPO HAPO SERVICE •
-                          </p>
+                          {/* Center: Title & Red Badge */}
+                          <div className="flex-1 text-center min-w-0 px-1">
+                            <h3 className="text-[10px] sm:text-xs font-black italic uppercase tracking-wider text-neutral-300 leading-none">
+                              INGIA KWENYE
+                            </h3>
+                            <h2 className="text-lg sm:text-xl font-black uppercase text-transparent bg-clip-text bg-gradient-to-b from-[#fffbeb] via-[#fbbf24] to-[#d97706] tracking-wider leading-tight">
+                              DUKA
+                            </h2>
+                            <div className="inline-block px-2 py-0.5 rounded-full bg-red-600 text-white font-black text-[6.5px] uppercase tracking-widest shadow-xs">
+                              CHANGANUA KWA SIMU YAKO
+                            </div>
+                            <p className="text-[6.5px] text-amber-200/80 font-bold uppercase mt-0.5 truncate">
+                              FUNGUA DUKA KAMILI & PATA BIDHAA ZOTE!
+                            </p>
+                          </div>
+
+                          {/* Right: Golden Easy Shopping Seal */}
+                          <div className="shrink-0 flex flex-col items-center justify-center">
+                            <div className="w-11 h-11 rounded-full border border-[#f59e0b] bg-gradient-to-b from-[#2b170c] to-[#0a0502] flex flex-col items-center justify-center shadow-md text-center p-1">
+                              <ShoppingCart className="w-4 h-4 text-amber-400 mb-0.5" />
+                              <span className="text-[5.5px] font-black text-amber-300 uppercase leading-none">EASY</span>
+                              <span className="text-[5px] font-bold text-amber-200/80 uppercase leading-none">SHOPPING</span>
+                            </div>
+                          </div>
                         </div>
+
+                        {/* Bottom 3 Metallic Widget Cards: Section, Seating, Highlights */}
+                        <div className="grid grid-cols-3 gap-1.5 relative z-10 my-2">
+                          {/* Card 1: Section / Meza */}
+                          <div className="p-2 rounded-xl bg-gradient-to-b from-[#2b1b0e]/90 to-[#120a04]/90 border border-[#ca8a04]/50 text-center flex flex-col items-center justify-center shadow-sm">
+                            <div className="flex items-center justify-center gap-1 mb-0.5">
+                              <Utensils className="w-3 h-3 text-amber-400" />
+                              <span className="text-[7px] font-black uppercase text-amber-300 tracking-wider">SECTION</span>
+                            </div>
+                            <span className="text-sm font-black font-mono text-white">#{selectedSection?.number || '21'}</span>
+                          </div>
+
+                          {/* Card 2: Seating / Viti */}
+                          <div className="p-2 rounded-xl bg-gradient-to-b from-[#2b1b0e]/90 to-[#120a04]/90 border border-[#ca8a04]/50 text-center flex flex-col items-center justify-center shadow-sm">
+                            <div className="flex items-center justify-center gap-1 mb-0.5">
+                              <Users className="w-3 h-3 text-amber-400" />
+                              <span className="text-[7px] font-black uppercase text-amber-300 tracking-wider">SEATING</span>
+                            </div>
+                            <span className="text-sm font-black text-white flex items-center justify-center gap-1">
+                              <span>👥</span> {selectedSection?.capacity || '4'}
+                            </span>
+                          </div>
+
+                          {/* Card 3: Maalumu Yetu / Checklist */}
+                          <div className="p-2 rounded-xl bg-gradient-to-b from-[#2b1b0e]/90 to-[#120a04]/90 border border-[#ca8a04]/50 text-left flex flex-col justify-center shadow-sm">
+                            <span className="text-[6.5px] font-black uppercase text-amber-300 tracking-wider text-center block mb-0.5">MAALUMU YETU</span>
+                            <div className="space-y-0.5 text-[6px] text-amber-100 font-medium">
+                              <p className="truncate">☑ Ladha Halisi</p>
+                              <p className="truncate">☑ Huduma Bora</p>
+                              <p className="truncate">☑ Bei Fair</p>
+                              <p className="truncate">☑ Wateja wa Furahi ❤️</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Footer Bar: Portal, Trusted Stamp & Contacts */}
+                        <div className="relative z-10 pt-2 border-t border-[#ca8a04]/40 flex items-center justify-between text-[7px] text-amber-200/90 font-medium">
+                          {/* Portal */}
+                          <div className="flex items-center gap-1">
+                            <Globe className="w-3 h-3 text-amber-400 shrink-0" />
+                            <div>
+                              <span className="text-[5.5px] uppercase block opacity-70">OFFICIAL VENDOR PORTAL:</span>
+                              <span className="font-mono font-bold text-amber-300">{goldWebsiteUrl || 'WWW.AGIZA.CO.TZ'}</span>
+                            </div>
+                          </div>
+
+                          {/* Center Seal */}
+                          <div className="flex flex-col items-center justify-center text-center">
+                            <div className="w-7 h-7 rounded-full border border-amber-400 bg-black/60 flex items-center justify-center text-[5.5px] font-black text-amber-300 shadow-xs">
+                              👑
+                            </div>
+                            <span className="text-[5px] font-black uppercase text-amber-400">AGIZA.CO.TZ</span>
+                          </div>
+
+                          {/* Support / Sales */}
+                          <div className="text-right space-y-0.5">
+                            <div className="flex items-center justify-end gap-1">
+                              <span className="text-[5.5px] uppercase opacity-70">SUPPORT:</span>
+                              <span className="font-mono text-amber-300 text-[6px]">{goldSupportEmail || 'SUPPORT@AGIZA.CO.TZ'}</span>
+                            </div>
+                            <div className="flex items-center justify-end gap-1">
+                              <span className="text-[5.5px] uppercase opacity-70">SALES:</span>
+                              <span className="font-mono text-amber-300 text-[6px]">{goldSalesPhone || '+255 7XX XXX XXX'}</span>
+                            </div>
+                          </div>
+                        </div>
+
                       </div>
                     </div>
                   )}
@@ -12088,7 +12289,7 @@ export default function VendorDashboard() {
                   )}
 
                   {/* Bottom Actions: Download Stand / Print */}
-                  <div className="w-full space-y-3 max-w-[340px]">
+                  <div className="w-full space-y-3 max-w-[360px]">
                     {qrBuilderMode !== 'qr_only' ? (
                       <div className="space-y-2.5">
                         <Button 
@@ -12097,69 +12298,55 @@ export default function VendorDashboard() {
                           className="w-full h-14 bg-gradient-to-r from-amber-600 via-orange-600 to-amber-600 text-white hover:brightness-110 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-amber-950/50 transition-all cursor-pointer"
                         >
                           {isExporting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-4 h-4 mr-2.5" />} 
-                          Pakua Stand ya Mezani (PNG)
+                          Pakua Bango / Stand ya Mezani (PNG)
                         </Button>
-                        <Button 
-                          onClick={handlePrint}
-                          variant="outline"
-                          className="w-full h-11 bg-white/5 border-white/10 text-white hover:bg-white/10 rounded-xl font-black uppercase tracking-widest text-[11px] transition-all cursor-pointer"
-                        >
-                          <Printer className="w-4 h-4 mr-2" /> Chapa Moja kwa Moja (Print)
-                        </Button>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button 
+                            variant="outline"
+                            onClick={() => window.print()}
+                            className="w-full h-11 border-white/10 text-white hover:bg-white/5 rounded-xl font-black uppercase tracking-wider text-[10px] cursor-pointer"
+                          >
+                            <Printer className="w-3.5 h-3.5 mr-2" /> Chapa (Print)
+                          </Button>
+                          <Button 
+                            variant="outline"
+                            onClick={() => {
+                              navigator.clipboard.writeText(`${window.location.origin}/table/${vendorProfile?.id || ''}/${selectedSection?.number || '21'}`);
+                              toast.success('Link ya meza imenakiliwa!');
+                            }}
+                            className="w-full h-11 border-white/10 text-amber-400 hover:bg-amber-950/30 rounded-xl font-black uppercase tracking-wider text-[10px] cursor-pointer"
+                          >
+                            <LinkIcon className="w-3.5 h-3.5 mr-2" /> Nakili Link
+                          </Button>
+                        </div>
                       </div>
                     ) : (
-                      <Button 
-                        onClick={downloadQr}
-                        className="w-full h-14 bg-orange-600 text-white hover:bg-orange-700 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl transition-all cursor-pointer"
-                      >
-                        <Download className="w-4 h-4 mr-2" /> Download QR Only
-                      </Button>
+                      <div className="space-y-2.5">
+                        <Button 
+                          onClick={() => {
+                            if (qrCodeInstance) {
+                              qrCodeInstance.download({
+                                name: `QR-Code-${vendorProfile?.businessName || 'Store'}`,
+                                extension: "png"
+                              });
+                              toast.success('QR Code imepakuliwa!');
+                            }
+                          }}
+                          className="w-full h-14 bg-gradient-to-r from-amber-600 via-orange-600 to-amber-600 text-white hover:brightness-110 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-amber-950/50 transition-all cursor-pointer"
+                        >
+                          <Download className="w-4 h-4 mr-2.5" /> Pakua QR Code (PNG)
+                        </Button>
+                      </div>
                     )}
-                    <p className="text-center text-[9px] text-neutral-400 font-bold uppercase tracking-[0.15em] leading-relaxed">
-                      {qrBuilderMode === 'table_stand' 
-                        ? (standDisplayLayout === 'gold_menu_showcase' ? 'Muundo wa Dhahabu tayari kwa ajili ya acrylic/wood stands mezani' : 'Muundo ulioratibiwa kwa ajili ya meza za wageni')
-                        : 'Muundo ulioratibiwa kwa ajili ya maonyesho ya dukani au meza.'
-                      }
-                    </p>
                   </div>
-                </div>
-              </div>
 
-              {/* Bottom Sticky Action Bar */}
-              <div className="p-4 sm:p-5 border-t border-white/10 bg-neutral-950/90 flex flex-wrap items-center justify-between gap-4 shrink-0">
-                <div className="flex items-center gap-4">
-                  <div className="text-left">
-                    <span className="text-[8px] font-black text-neutral-500 uppercase tracking-widest block">Stand Type</span>
-                    <span className="text-xs font-black text-white uppercase font-mono">
-                      {qrBuilderMode === 'table_stand' 
-                        ? (standDisplayLayout === 'gold_menu_showcase' ? 'GOLD MENU PLACARD' : `${tableStandStyle.toUpperCase()} STAND`)
-                        : qrBuilderMode.toUpperCase()}
-                    </span>
-                  </div>
-                  <div className="h-6 w-px bg-white/10"></div>
-                  <div className="text-left">
-                    <span className="text-[8px] font-black text-neutral-500 uppercase tracking-widest block">Link Target</span>
-                    <span className="text-xs font-black text-amber-400 truncate max-w-[200px] block font-mono">
-                      {qrOptions.data || window.location.origin}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Button 
-                    onClick={() => setIsQrBuilderOpen(false)}
-                    className="h-11 px-8 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-orange-950/50 cursor-pointer"
-                  >
-                    Imekamilika
-                  </Button>
                 </div>
               </div>
             </motion.div>
           </div>
         )}
-      </AnimatePresence>
-
-      <div id="order-receipt" className="fixed left-0 top-0 bg-white text-black font-sans">
+      </AnimatePresence><div id="order-receipt" className="fixed left-0 top-0 bg-white text-black font-sans">
         {orderToPrint && (() => {
           const isBusReceipt = orderToPrint.type === 'bus_ticket' || vendorProfile?.category === 'bus_ticket';
           if (isBusReceipt) {
