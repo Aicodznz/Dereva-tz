@@ -11898,7 +11898,7 @@ export default function VendorDashboard() {
                  <p className="text-[11px] font-bold text-neutral-900">Order #{orderToPrint.id ? orderToPrint.id.slice(-8).toUpperCase() : 'N/A'}</p>
                  <div className="flex justify-between items-center text-[10px] font-bold text-neutral-600">
                     <span>{format(getSafeDate(orderToPrint.createdAt), 'dd-MM-yyyy')}</span>
-                    <span>{format(getSafeDate(orderToPrint.createdAt), 'HH:mm A')}</span>
+                    <span>{format(getSafeDate(orderToPrint.createdAt), 'HH:mm')}</span>
                  </div>
               </div>
 
