@@ -112,7 +112,11 @@ import {
   Activity,
   PieChart as LucidePieChart,
   DoorOpen,
-  Eye
+  Eye,
+  Wifi,
+  Sparkles,
+  Wine,
+  Crown
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence, useScroll, useMotionValueEvent } from 'motion/react';
@@ -883,6 +887,13 @@ export default function VendorDashboard() {
 
   // QR Builder State
   const [isQrBuilderOpen, setIsQrBuilderOpen] = useState(false);
+  const [qrBuilderMode, setQrBuilderMode] = useState<'table_stand' | 'store_placard' | 'qr_only'>('table_stand');
+  const [tableStandStyle, setTableStandStyle] = useState<'acrylic' | 'wood' | 'tent' | 'gold_metal' | 'dark_modern'>('acrylic');
+  const [showWifiOnStand, setShowWifiOnStand] = useState(true);
+  const [standWifiName, setStandWifiName] = useState('Guest-WiFi');
+  const [standWifiPass, setStandWifiPass] = useState('');
+  const [standCallout, setStandCallout] = useState('SCAN & AGIZA HAPA');
+  const [standSubCallout, setStandSubCallout] = useState('Orodha ya Kidijitali ya Chakula & Vinywaji');
   const [bgImageMode, setBgImageMode] = useState<'upload' | 'url'>('upload');
   const [showProductsOnStand, setShowProductsOnStand] = useState(false);
   const [standProductIds, setStandProductIds] = useState<string[]>([]);
