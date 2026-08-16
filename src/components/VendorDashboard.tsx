@@ -1504,31 +1504,40 @@ export default function VendorDashboard() {
     if (!el || isExporting) return;
     
     setIsExporting(true);
-    const toastId = toast.loading('Inatengeneza picha ya Stand...', {
+    const toastId = toast.loading('Inatengeneza Bango lenye Ubora wa Juu (HD)...', {
       style: { background: '#000', color: '#fff' }
     });
-
     try {
-      // Small delay to ensure styles are applied
-      await new Promise(r => setTimeout(r, 500));
+      // Ensure all internal images are ready
+      const imgElements = Array.from(el.querySelectorAll('img'));
+      await Promise.all(
+        imgElements.map(img => {
+          if (img.complete) return Promise.resolve();
+          return new Promise(resolve => {
+            img.onload = resolve;
+            img.onerror = resolve;
+            setTimeout(resolve, 1500);
+          });
+        })
+      );
+
+      // Delay to let browser render all fonts and SVG/canvas QR codes
+      await new Promise(r => setTimeout(r, 600));
       
       let dataUrl;
       try {
         dataUrl = await toPng(el, { 
-          quality: 0.95, 
-          pixelRatio: 2,
-          backgroundColor: '#ffffff',
+          quality: 1, 
+          pixelRatio: 3, // Ultra-sharp print resolution
           cacheBust: true,
-          skipFonts: true,
+          skipFonts: false,
           imagePlaceholder: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
         });
       } catch (firstErr) {
-        console.warn('First export attempt failed, trying robust fallback options...', firstErr);
-        // Fallback with lower pixel ratio and disabled cacheBust for high-compatibility
+        console.warn('First export attempt failed, trying fallback mode...', firstErr);
         dataUrl = await toPng(el, {
-          quality: 0.9,
-          pixelRatio: 1.5,
-          backgroundColor: '#ffffff',
+          quality: 0.98,
+          pixelRatio: 2,
           cacheBust: false,
           skipFonts: true,
           imagePlaceholder: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
@@ -1536,14 +1545,14 @@ export default function VendorDashboard() {
       }
       
       const link = document.createElement('a');
-      link.download = `QR-Stand-${selectedSection?.number || 'Vendor'}.png`;
+      link.download = `Bango-Stand-${(vendorProfile?.businessName || 'Mgahawa').replace(/[^a-zA-Z0-9]/g, '_')}-Meza-${selectedSection?.number || '21'}.png`;
       link.href = dataUrl;
       link.click();
       
-      toast.success('Stand imepakuliwa kwa mafanikio!', { id: toastId });
+      toast.success('Bango / Stand imepakuliwa kikamilifu (HD Quality)!', { id: toastId });
     } catch (err) {
       console.error('Export failed:', err);
-      toast.error('Imeshindwa kupakua stand. Hakikisha picha zako zote zimewekwa vizuri au tumia kitufe cha Chapa.', { id: toastId });
+      toast.error('Imeshindwa kupakua bango. Unaweza pia kubofya Chapa (Print) au kujaribu tena.', { id: toastId });
     } finally {
       setIsExporting(false);
     }
@@ -12273,7 +12282,7 @@ export default function VendorDashboard() {
                                 }}
                               >
                                 <img 
-                                  src={goldLogoUrl || vendorProfile?.logoUrl || ''} 
+                                  src={getProxiedImageUrl(goldLogoUrl || vendorProfile?.logoUrl || '')} 
                                   alt="Logo" 
                                   className="w-full h-full object-contain rounded-full drop-shadow-md"
                                 />
@@ -12515,7 +12524,7 @@ export default function VendorDashboard() {
                             <div className="flex items-center gap-2">
                               <Wifi className="w-3.5 h-3.5" style={{ color: goldPrimaryColor }} />
                               <div>
-                                <span className="text-[7px] font-black uppercase tracking-wider block" style={{ color: goldTextColor }}>GUEST WI-FI</span>
+                                <span className="text-[7.5px] font-black uppercase tracking-wider block whitespace-nowrap" style={{ color: goldTextColor }}>GUEST WI-FI</span>
                                 <span className="text-[8.5px] font-mono font-bold text-white leading-none">{standWifiName}</span>
                               </div>
                             </div>
