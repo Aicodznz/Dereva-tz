@@ -407,9 +407,9 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
               {/* Status checkpoint steps badges - Small and clean */}
               <div className="flex justify-between items-center px-1 mt-0.5">
                 {[
-                  { label: 'TAFUTA', active: true },
+                  { label: 'OMBA', active: true },
                   { label: 'PATA', active: !!ride.driverId },
-                  { label: 'PO MAP', active: ride.status === 'on_trip' },
+                  { label: 'SAFARINI', active: ride.status === 'on_trip' },
                   { label: 'FIKA', active: ride.status === 'completed' }
                 ].map((s) => (
                   <div key={s.label} className="flex flex-col items-center">

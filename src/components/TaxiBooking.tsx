@@ -2212,6 +2212,30 @@ const getEndPin = (etaText: string) => {
     return icon;
   };
 
+  const getNavEndPin = (destName: string) => {
+    const shortName = (destName || "Mwisho wa Safari").split(",")[0].trim();
+    const key = `nav-end-pin-clean-${shortName}`;
+    if (taxiPinIconCacheMap[key]) return taxiPinIconCacheMap[key];
+
+    const icon = L.divIcon({
+      className: "custom-nav-dest-marker",
+      html: `
+        <div class="relative flex flex-col items-center pointer-events-none select-none" style="transform-origin: bottom center;">
+          <div class="bg-gradient-to-r from-red-600 to-rose-600 text-white font-black text-[10px] px-2.5 py-1 rounded-full shadow-2xl border-2 border-white flex items-center gap-1.5 whitespace-nowrap mb-0.5 animate-pulse">
+            <span class="text-xs">🏁</span>
+            <span class="truncate max-w-[120px] uppercase tracking-wide">${shortName}</span>
+          </div>
+          <div class="w-3 h-3 bg-red-600 rotate-45 -mt-2 border-r-2 border-b-2 border-white shadow-md"></div>
+          <div class="w-3 h-1 bg-black/40 rounded-full blur-[1px] mt-0.5"></div>
+        </div>
+      `,
+      iconSize: [140, 42],
+      iconAnchor: [70, 42],
+    });
+    taxiPinIconCacheMap[key] = icon;
+    return icon;
+  };
+
   const geocodeAddress = (query: string) => {
     if (searchTimer) clearTimeout(searchTimer);
 
@@ -3203,9 +3227,10 @@ const getEndPin = (etaText: string) => {
                 exit={{ opacity: 0 }}
                 className="absolute inset-0 z-0 h-full w-full pointer-events-auto"
               >
-                <div className="absolute top-4 left-4 right-4 sm:top-6 sm:left-6 sm:right-6 z-[9999] flex items-center gap-2 sm:gap-3 pointer-events-none">
-                  {/* Left Menu Button */}
-                  <div className="relative pointer-events-auto">
+                {!activeRide && !["found", "arriving", "on_trip", "driver_arrived", "driver_arriving"].includes(step) && (
+                  <div className="absolute top-4 left-4 right-4 sm:top-6 sm:left-6 sm:right-6 z-[9999] flex items-center gap-2 sm:gap-3 pointer-events-none">
+                    {/* Left Menu Button */}
+                    <div className="relative pointer-events-auto">
                     <button
                       onClick={() => setShowMenu(!showMenu)}
                       className={`w-10 h-10 sm:w-12 sm:h-12 backdrop-blur-xl rounded-xl sm:rounded-2xl flex items-center justify-center shadow-md active:scale-90 transition-all border ${theme === 'dark' ? 'bg-[#111118]/95 border-neutral-800 text-neutral-200 hover:text-indigo-400 hover:border-indigo-900' : 'bg-white/95 border-neutral-200/80 text-neutral-800 hover:text-indigo-600 hover:border-indigo-300'}`}
@@ -3419,6 +3444,7 @@ const getEndPin = (etaText: string) => {
                     )}
                   </div>
                 </div>
+              )}
 
                 {/* Floating Cards removed as requested */}
 
@@ -3530,7 +3556,12 @@ const getEndPin = (etaText: string) => {
                       <Marker position={pickupPos} icon={getStartPin(etaPickupText)} />
                     )}
                     {destination && (
-                      <Marker position={destPos} icon={getEndPin(etaDestText)} />
+                      <Marker 
+                        position={destPos} 
+                        icon={["on_trip", "arriving", "driver_arrived"].includes(step) || activeRide?.status === "on_trip" 
+                          ? getNavEndPin(destination) 
+                          : getEndPin(etaDestText)} 
+                      />
                     )}
 
                     {/* Intermediate Extra Stops Pins */}
@@ -5677,18 +5708,6 @@ const getEndPin = (etaText: string) => {
           </div>
         )}
       </AnimatePresence>
-
-      {/* Real-time Responsive Popup Chat for Active Ride */}
-      {activeRide && activeRide.driverId && ["arriving", "on_trip", "found"].includes(step) && !isChatOpen && (
-        <ActiveRideChatPopup
-          rideId={rideId || ""}
-          user={user}
-          recipientId={activeRide.driverId}
-          recipientName={activeRide.driverInfo?.name || "Dereva Swahili"}
-          recipientPhoto={activeRide.driverInfo?.photo || ""}
-          isDriver={false}
-        />
-      )}
 
       <style>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }
