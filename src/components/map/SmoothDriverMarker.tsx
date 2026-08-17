@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useMap } from 'react-leaflet';
 import L from 'leaflet';
+import 'leaflet-rotatedmarker';
 import { getDriverSvg } from '../../utils/driverMarker';
 
 interface SmoothDriverMarkerProps {
@@ -167,12 +168,19 @@ export const SmoothDriverMarker: React.FC<SmoothDriverMarkerProps> = ({
     if (!map) return;
 
     const initialIcon = createIcon(accumulatedRotationRef.current);
-    const marker = L.marker(position, {
+    const marker = (L as any).marker(position, {
       icon: initialIcon,
+      rotationAngle: accumulatedRotationRef.current,
+      rotationOrigin: 'center center',
       zIndexOffset: isAssignedDriver ? 1000 : 500,
       interactive: false,
       keyboard: false
     }).addTo(map);
+
+    if (typeof (marker as any).setRotationAngle === 'function') {
+      (marker as any).setRotationAngle(accumulatedRotationRef.current);
+      (marker as any).setRotationOrigin('center center');
+    }
 
     markerRef.current = marker;
 
@@ -215,6 +223,13 @@ export const SmoothDriverMarker: React.FC<SmoothDriverMarkerProps> = ({
       accumulatedRotationRef.current += delta;
       targetHeadingRef.current = accumulatedRotationRef.current;
 
+      if (markerRef.current) {
+        if (typeof (markerRef.current as any).setRotationAngle === 'function') {
+          (markerRef.current as any).setRotationAngle(accumulatedRotationRef.current);
+          (markerRef.current as any).setRotationOrigin('center center');
+        }
+      }
+
       // Fast update rotation in DOM if element exists
       const rotEl = document.getElementById(`driver-rot-${driverId}`);
       if (rotEl) {
@@ -234,6 +249,9 @@ export const SmoothDriverMarker: React.FC<SmoothDriverMarkerProps> = ({
     if (distMeters > 5000) {
       currentPosRef.current = [endLat, endLng];
       markerRef.current.setLatLng([endLat, endLng]);
+      if (typeof (markerRef.current as any).setRotationAngle === 'function') {
+        (markerRef.current as any).setRotationAngle(accumulatedRotationRef.current);
+      }
       if (onPositionInterpolated) {
         onPositionInterpolated([endLat, endLng], accumulatedRotationRef.current);
       }
@@ -262,6 +280,10 @@ export const SmoothDriverMarker: React.FC<SmoothDriverMarkerProps> = ({
 
       if (markerRef.current) {
         markerRef.current.setLatLng([curLat, curLng]);
+        if (typeof (markerRef.current as any).setRotationAngle === 'function') {
+          (markerRef.current as any).setRotationAngle(accumulatedRotationRef.current);
+          (markerRef.current as any).setRotationOrigin('center center');
+        }
       }
 
       if (onPositionInterpolated) {

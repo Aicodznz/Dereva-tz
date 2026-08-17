@@ -580,7 +580,7 @@ export default function TaxiBooking() {
   const [heatMapCategory, setHeatMapCategory] = useState<'all' | 'taxi' | 'food' | 'parcel' | 'mart'>('all');
   const [selectedHeatZone, setSelectedHeatZone] = useState<HeatZone | null>(null);
   const [manualRotation, setManualRotation] = useState(0);
-  const [isHeadingUp, setIsHeadingUp] = useState<boolean>(true);
+  const [isHeadingUp, setIsHeadingUp] = useState<boolean>(false);
   const [is3DMode, setIs3DMode] = useState(false);
   const justSelectedRef = useRef(false);
   const vehicleScrollRef = useRef<HTMLDivElement>(null);
