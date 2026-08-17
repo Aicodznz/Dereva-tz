@@ -8,9 +8,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { db } from '../firebase';
-import { collection, addDoc, serverTimestamp, doc, getDoc, onSnapshot, query, where, setDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, getDoc, onSnapshot, query, where, setDoc, updateDoc } from 'firebase/firestore';
 import { toast } from 'sonner';
 import { useNavigate, Link } from 'react-router-dom';
+import { Coupon, VendorProfile } from '../types';
 import { 
   ChevronLeft, 
   MapPin, 
@@ -22,9 +23,24 @@ import {
   Home,
   Utensils,
   Smartphone,
-  Users
+  Users,
+  Tag,
+  Zap,
+  Percent,
+  X,
+  Sparkles,
+  CheckCircle2,
+  Award,
+  Gift,
+  Printer,
+  Share2,
+  Send
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
+import { ThermalReceiptModal } from './ThermalReceiptModal';
+import { LoyaltyCardModal } from './LoyaltyCardModal';
+import { loyaltyService } from '../services/loyaltyService';
+import { buildCustomerReceiptWhatsAppUrl, buildKitchenOrderWhatsAppUrl } from '../utils/whatsappHelper';
 
 export default function Checkout() {
   const { cartItems, totalAmount, clearCart } = useCart();
@@ -47,10 +63,39 @@ export default function Checkout() {
   const [vendorTables, setVendorTables] = useState<any[]>([]);
   const [occupiedTables, setOccupiedTables] = useState<string[]>([]);
 
+  // Promo / Coupon & Happy Hour States
+  const [promoCodeInput, setPromoCodeInput] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
+  const [vendorCoupons, setVendorCoupons] = useState<Coupon[]>([]);
+  const [vendorProfile, setVendorProfile] = useState<VendorProfile | null>(null);
+
+  // Loyalty & Printing States
+  const [isLoyaltyModalOpen, setIsLoyaltyModalOpen] = useState(false);
+  const [isThermalModalOpen, setIsThermalModalOpen] = useState(false);
+  const [loyaltyDiscount, setLoyaltyDiscount] = useState<{ amount: number; desc: string } | null>(null);
+  const [confirmedOrder, setConfirmedOrder] = useState<any | null>(null);
+  const [loyaltyResult, setLoyaltyResult] = useState<{ card: any; earnedStamp: boolean; earnedReward: boolean; earnedPoints: number } | null>(null);
+
   const initiatePayment = async (data: any) => {
     console.log("Initiating payment:", data);
     return { success: true };
   };
+
+  // Pre-fill table number if saved in localStorage
+  useEffect(() => {
+    try {
+      const savedSession = localStorage.getItem('papo_hapo_table_session');
+      if (savedSession) {
+        const parsed = JSON.parse(savedSession);
+        if (parsed.tableId) {
+          setTableNumber(parsed.tableId);
+          setOrderType('walk_in');
+        }
+      }
+    } catch (e) {
+      console.warn(e);
+    }
+  }, []);
 
   useEffect(() => {
     const vendorId = cartItems[0]?.vendorId;
@@ -79,14 +124,116 @@ export default function Checkout() {
         console.warn("Restricted access or error listening to active table orders:", error.message);
       });
 
+      // Fetch Available Coupons / Happy Hours for this Vendor
+      const unsubCoupons = onSnapshot(
+        query(collection(db, 'coupons'), where('vendorId', '==', vendorId)),
+        (snap) => {
+          const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Coupon));
+          setVendorCoupons(list);
+        },
+        (error) => {
+          console.warn("Coupons fetch error:", error.message);
+        }
+      );
+
+      // Fetch Vendor Profile
+      const unsubVendor = onSnapshot(doc(db, 'vendors', vendorId), (snap) => {
+        if (snap.exists()) {
+          setVendorProfile({ id: snap.id, ...snap.data() } as VendorProfile);
+        }
+      }, (error) => {
+        console.warn("Vendor profile fetch warning:", error.message);
+      });
+
       return () => {
         unsubTables();
         unsubOrders();
+        unsubCoupons();
+        unsubVendor();
       };
     }
   }, [cartItems[0]?.vendorId]);
 
+  // Check Happy Hour validity
+  const isCouponValidForTime = (c: Coupon) => {
+    if (!c.isHappyHour) return true;
+    const now = new Date();
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const currentDay = days[now.getDay()];
+    if (c.activeDays && c.activeDays.length > 0 && !c.activeDays.includes(currentDay)) {
+      return false;
+    }
+    if (c.happyHourStart && c.happyHourEnd) {
+      const currentMins = now.getHours() * 60 + now.getMinutes();
+      const [sH, sM] = c.happyHourStart.split(':').map(Number);
+      const [eH, eM] = c.happyHourEnd.split(':').map(Number);
+      const startMins = sH * 60 + (sM || 0);
+      const endMins = eH * 60 + (eM || 0);
+      if (currentMins < startMins || currentMins > endMins) return false;
+    }
+    return true;
+  };
+
+  const handleApplyCoupon = (codeToApply?: string) => {
+    const code = (codeToApply || promoCodeInput).trim().toUpperCase();
+    if (!code) {
+      toast.error('Tafadhali weka nambari ya ofa au kuponi.');
+      return;
+    }
+
+    const matched = vendorCoupons.find(c => c.code.toUpperCase() === code);
+    if (!matched) {
+      toast.error(`Kuponi '${code}' haipatikani au imemalizika.`);
+      return;
+    }
+
+    if (matched.status && matched.status !== 'active') {
+      toast.error('Kuponi hii haifanyi kazi kwa sasa.');
+      return;
+    }
+
+    if (matched.minOrderAmount && totalAmount < matched.minOrderAmount) {
+      toast.error(`Kuponi hii inahitaji oda ya kuanzia TZS ${matched.minOrderAmount.toLocaleString()}.`);
+      return;
+    }
+
+    if (matched.isTableOnly && orderType !== 'walk_in') {
+      toast.error('Kuponi hii ni maalum kwa ajili ya wateja wanaokula mezani (Dining QR) pekee.');
+      return;
+    }
+
+    if (matched.isHappyHour && !isCouponValidForTime(matched)) {
+      toast.error(`Ofa ya Happy Hour (${matched.code}) inafanya kazi kati ya saa ${matched.happyHourStart || ''} hadi ${matched.happyHourEnd || ''}.`);
+      return;
+    }
+
+    setAppliedCoupon(matched);
+    setPromoCodeInput(matched.code);
+    toast.success(`🎉 Punguzo limewekwa! (${matched.code})`);
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setPromoCodeInput('');
+    toast.info('Punguzo limeondolewa.');
+  };
+
+  // Calculate discount (Coupons + Loyalty Rewards)
+  const discountAmount = React.useMemo(() => {
+    let couponDisc = 0;
+    if (appliedCoupon) {
+      if (appliedCoupon.discountType === 'percentage') {
+        couponDisc = Math.round((totalAmount * appliedCoupon.discountValue) / 100);
+      } else {
+        couponDisc = Math.min(appliedCoupon.discountValue, totalAmount);
+      }
+    }
+    const loyaltyDisc = loyaltyDiscount ? Math.min(loyaltyDiscount.amount, totalAmount - couponDisc) : 0;
+    return couponDisc + loyaltyDisc;
+  }, [appliedCoupon, loyaltyDiscount, totalAmount]);
+
   const deliveryFee = orderType === 'delivery' ? 2000 : 0; // Default or calculated
+  const finalTotalAmount = Math.max(0, totalAmount - discountAmount) + deliveryFee;
 
   const handlePlaceOrder = async () => {
     if (!user) {
@@ -149,8 +296,11 @@ export default function Checkout() {
         vendorLocation: vendorLocation,
         items: cartItems,
         peopleCount: orderType === 'walk_in' ? peopleCount : 1,
-        totalAmount: totalAmount + deliveryFee,
-        subtotal: totalAmount,
+        totalAmount: finalTotalAmount,
+        subtotal: totalAmount - discountAmount,
+        originalSubtotal: totalAmount,
+        discountAmount: discountAmount,
+        couponCode: appliedCoupon ? appliedCoupon.code : (loyaltyDiscount ? loyaltyDiscount.desc : null),
         deliveryFee: deliveryFee,
         status: 'pending',
         paymentStatus: 'unpaid',
@@ -169,6 +319,38 @@ export default function Checkout() {
       };
 
       const orderRef = await addDoc(collection(db, 'orders'), orderData);
+      
+      // Process Loyalty Stamps and Points
+      if (primaryVendorId && phoneNumber) {
+        try {
+          const resLoyalty = await loyaltyService.processOrderLoyalty(
+            primaryVendorId,
+            phoneNumber,
+            profile?.displayName || user.displayName || 'Mteja',
+            finalTotalAmount,
+            vendorProfile?.loyaltyProgram
+          );
+          if (resLoyalty) {
+            setLoyaltyResult(resLoyalty);
+            if (resLoyalty.earnedReward) {
+              toast.success('🎁 Hongera! Umekamilisha Kadi ya Uaminifu na umeshinda Zawadi BURE!', { duration: 6000 });
+            }
+          }
+        } catch (lErr) {
+          console.warn("Loyalty point error:", lErr);
+        }
+      }
+
+      // Update coupon usage count if used
+      if (appliedCoupon?.id) {
+        try {
+          await updateDoc(doc(db, 'coupons', appliedCoupon.id), {
+            usageCount: (appliedCoupon.usageCount || 0) + 1
+          });
+        } catch (e) {
+          console.warn("Coupon usage update:", e);
+        }
+      }
       
       // Mark selected seats as permanently booked in tables collection
       if (Array.isArray(orderSeats) && orderSeats.length > 0) {
@@ -209,8 +391,12 @@ export default function Checkout() {
         icon: '✅'
       });
       
+      setConfirmedOrder({
+        id: orderRef.id,
+        ...orderData,
+        createdAt: new Date()
+      });
       clearCart();
-      navigate('/my-orders');
     } catch (error) {
       console.error('Error placing order:', error);
       toast.error('Imeshindikana kutuma agizo lako. Jaribu tena.');
@@ -218,6 +404,145 @@ export default function Checkout() {
       setIsSubmitting(false);
     }
   };
+
+  if (confirmedOrder) {
+    const primaryVendorName = confirmedOrder.vendorName || vendorProfile?.businessName || 'Papo Hapo Mgahawa';
+    return (
+      <div className="max-w-xl mx-auto p-4 sm:p-6 space-y-6">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.92 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="p-6 sm:p-8 rounded-[2.5rem] bg-gradient-to-b from-neutral-900 via-neutral-950 to-black border border-amber-500/40 shadow-2xl text-center space-y-5 text-white relative overflow-hidden"
+        >
+          <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-amber-500 to-orange-600 mx-auto flex items-center justify-center text-black font-black shadow-xl shadow-orange-950/50">
+            <CheckCircle2 className="w-8 h-8 text-black" />
+          </div>
+
+          <div>
+            <span className="text-[10px] font-mono uppercase tracking-widest text-amber-400 font-bold block">
+              ODA IMEPOKELEWA KIKAMILIFU!
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-white mt-1">
+              {primaryVendorName}
+            </h2>
+            <p className="text-xs text-neutral-400 mt-1">
+              Namba ya Oda: <strong className="text-white font-mono">#{String(confirmedOrder.id).slice(-6).toUpperCase()}</strong>
+              {confirmedOrder.tableNumber ? ` • Meza #${confirmedOrder.tableNumber}` : ''}
+            </p>
+          </div>
+
+          {/* Loyalty Reward Banner */}
+          {loyaltyResult && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-4 rounded-2xl bg-gradient-to-r from-amber-950/60 via-neutral-900 to-amber-950/60 border border-amber-500/40 text-left flex items-center justify-between gap-3 shadow-lg"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500 text-black flex items-center justify-center font-black shrink-0">
+                  <Award className="w-5 h-5 text-black" />
+                </div>
+                <div>
+                  <span className="text-xs font-black uppercase text-amber-300 flex items-center gap-1">
+                    {loyaltyResult.earnedReward ? '🎉 Zawadi Mpya ya BURE Imeshindwa!' : '⭐️ Stempu ya Uaminifu Imeongezwa!'}
+                  </span>
+                  <p className="text-[11px] text-neutral-400">
+                    Kadi yako: <strong>{loyaltyResult.card.currentStamps}/{vendorProfile?.loyaltyProgram?.stampsRequired || 5} Stempu</strong>
+                    {loyaltyResult.earnedPoints > 0 ? ` • +${loyaltyResult.earnedPoints} Points` : ''}
+                  </p>
+                </div>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setIsLoyaltyModalOpen(true)}
+                className="bg-amber-500 hover:bg-amber-400 text-black font-black text-[10px] uppercase px-3 h-8 rounded-xl shrink-0 cursor-pointer"
+              >
+                Kadi
+              </Button>
+            </motion.div>
+          )}
+
+          {/* Quick Action Buttons Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2">
+            {/* WhatsApp Receipt */}
+            <Button
+              type="button"
+              onClick={() => {
+                const url = buildCustomerReceiptWhatsAppUrl(confirmedOrder, primaryVendorName, phoneNumber);
+                window.open(url, '_blank');
+              }}
+              className="h-12 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-lg shadow-emerald-950/40 flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Share2 className="w-4 h-4" />
+              Tuma Risiti WhatsApp
+            </Button>
+
+            {/* Thermal Print */}
+            <Button
+              type="button"
+              onClick={() => setIsThermalModalOpen(true)}
+              className="h-12 bg-neutral-800 hover:bg-neutral-700 text-amber-300 font-black text-xs uppercase tracking-wider rounded-2xl border border-amber-500/30 flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Printer className="w-4 h-4" />
+              Chapa Risiti (Thermal)
+            </Button>
+
+            {/* Kitchen WhatsApp Alert */}
+            <Button
+              type="button"
+              onClick={() => {
+                const kitchenPhone = vendorProfile?.kitchenWhatsappPhone || vendorProfile?.phoneNumber || '';
+                const url = buildKitchenOrderWhatsAppUrl(kitchenPhone, confirmedOrder, primaryVendorName);
+                window.open(url, '_blank');
+              }}
+              className="h-12 bg-orange-600 hover:bg-orange-500 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-lg shadow-orange-950/40 flex items-center justify-center gap-2 cursor-pointer sm:col-span-2"
+            >
+              <Utensils className="w-4 h-4" />
+              Tuma Oda Jikoni (Kitchen WhatsApp)
+            </Button>
+          </div>
+
+          <div className="pt-4 border-t border-neutral-800 flex flex-col gap-2">
+            <Button
+              type="button"
+              onClick={() => navigate('/my-orders')}
+              className="w-full h-12 bg-white hover:bg-neutral-200 text-black font-black uppercase text-xs rounded-2xl cursor-pointer"
+            >
+              Fuatilia Oda Yangu Sasa (Live Tracking)
+            </Button>
+
+            <Link
+              to="/"
+              className="text-xs text-neutral-400 hover:text-white font-bold uppercase tracking-wider py-2"
+            >
+              Rudi Ukurasa Mkuu
+            </Link>
+          </div>
+        </motion.div>
+
+        {/* Thermal Modal */}
+        {vendorProfile && (
+          <ThermalReceiptModal
+            isOpen={isThermalModalOpen}
+            onClose={() => setIsThermalModalOpen(false)}
+            order={confirmedOrder}
+            vendor={vendorProfile}
+          />
+        )}
+
+        {/* Loyalty Modal */}
+        {vendorProfile && (
+          <LoyaltyCardModal
+            isOpen={isLoyaltyModalOpen}
+            onClose={() => setIsLoyaltyModalOpen(false)}
+            vendor={vendorProfile}
+            initialPhone={phoneNumber}
+          />
+        )}
+      </div>
+    );
+  }
 
   if (cartItems.length === 0) {
     return (
@@ -508,20 +833,137 @@ export default function Checkout() {
                 ))}
               </div>
 
-              <div className="space-y-3 pt-6 border-t border-neutral-800">
+              {/* Digital Loyalty Stamp Card Banner */}
+              {vendorProfile && (
+                <div className="p-3 rounded-2xl bg-gradient-to-r from-amber-950/40 via-neutral-900 to-amber-950/40 border border-amber-500/30 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-amber-500 text-black flex items-center justify-center font-black shrink-0">
+                      <Award className="w-4 h-4 text-black" />
+                    </div>
+                    <div>
+                      <span className="text-[11px] font-black uppercase text-amber-300 block">
+                        Kadi ya Uaminifu (Stamps)
+                      </span>
+                      <p className="text-[10px] text-neutral-400">
+                        {loyaltyDiscount ? `Imetumika: ${loyaltyDiscount.desc}` : 'Kusanya stempu upate zawadi bure!'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => setIsLoyaltyModalOpen(true)}
+                    className="bg-amber-500 hover:bg-amber-400 text-black font-black text-[10px] uppercase px-3 h-8 rounded-xl cursor-pointer"
+                  >
+                    Angalia Kadi
+                  </Button>
+                </div>
+              )}
+
+              {/* Promo Code Input & Happy Hour Suggestions */}
+              <div className="pt-4 pb-4 border-t border-neutral-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400 flex items-center gap-1.5">
+                    <Tag className="w-3.5 h-3.5 text-orange-500" /> Kuponi ya Punguzo / Promo
+                  </span>
+                  {appliedCoupon && (
+                    <span className="text-[10px] font-bold text-emerald-400">
+                      {appliedCoupon.discountValue}{appliedCoupon.discountType === 'percentage' ? '%' : ' TZS'} OFF
+                    </span>
+                  )}
+                </div>
+
+                {appliedCoupon ? (
+                  <div className="p-3 bg-emerald-950/40 border border-emerald-500/40 rounded-2xl flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      <div>
+                        <p className="text-xs font-black text-white">{appliedCoupon.code}</p>
+                        <p className="text-[10px] text-emerald-300">Punguzo limetumika!</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRemoveCoupon}
+                      className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 text-neutral-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Weka Nambari ya Punguzo"
+                      value={promoCodeInput}
+                      onChange={(e) => setPromoCodeInput(e.target.value.toUpperCase())}
+                      className="flex-1 h-11 px-3.5 bg-neutral-950 border border-neutral-800 rounded-xl text-xs font-bold text-white uppercase placeholder:text-neutral-600 focus:outline-none focus:border-orange-500"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => handleApplyCoupon()}
+                      className="h-11 px-4 bg-orange-600 hover:bg-orange-500 text-white font-black text-xs uppercase rounded-xl cursor-pointer"
+                    >
+                      Hakiki
+                    </Button>
+                  </div>
+                )}
+
+                {/* Available Vendor Coupons / Happy Hour Quick Chips */}
+                {vendorCoupons.length > 0 && !appliedCoupon && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {vendorCoupons
+                      .filter(c => c.status === 'active' && isCouponValidForTime(c))
+                      .slice(0, 3)
+                      .map(c => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => handleApplyCoupon(c.code)}
+                          className="px-2 py-1 rounded-lg bg-orange-500/10 border border-orange-500/30 hover:bg-orange-500/20 text-[10px] font-black text-orange-400 flex items-center gap-1 cursor-pointer transition-all"
+                        >
+                          <Sparkles className="w-2.5 h-2.5" />
+                          {c.code} ({c.discountValue}{c.discountType === 'percentage' ? '%' : ' TZS'})
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-3 pt-4 border-t border-neutral-800">
                 <div className="flex justify-between text-xs text-neutral-400 font-bold uppercase tracking-widest">
                   <span>Subtotal</span>
                   <span>TZS {totalAmount.toLocaleString()}</span>
                 </div>
+
+                {discountAmount > 0 && (
+                  <div className="flex justify-between text-xs text-emerald-400 font-bold uppercase tracking-widest">
+                    <span>Punguzo ({appliedCoupon?.code})</span>
+                    <span>- TZS {discountAmount.toLocaleString()}</span>
+                  </div>
+                )}
+
                 <div className="flex justify-between text-xs text-neutral-400 font-bold uppercase tracking-widest">
                   <span>{orderType === 'delivery' ? 'Usafiri (Delivery Fee)' : 'Processing Fee'}</span>
                   <span className={deliveryFee > 0 ? 'text-white' : 'text-orange-500 italic'}>
                     {deliveryFee > 0 ? `TZS ${deliveryFee.toLocaleString()}` : 'Bure'}
                   </span>
                 </div>
-                <div className="flex justify-between items-end pt-4">
-                  <span className="text-sm font-black uppercase text-neutral-400">Total to Pay</span>
-                  <span className="text-3xl font-black text-orange-500 italic tracking-tighter">TZS {(totalAmount + deliveryFee).toLocaleString()}</span>
+
+                <div className="flex justify-between items-end pt-4 border-t border-neutral-800">
+                  <div>
+                    <span className="text-xs font-black uppercase text-neutral-400 block">Total to Pay</span>
+                    {discountAmount > 0 && (
+                      <span className="text-[10px] text-emerald-400 font-bold">
+                        Umeokoa TZS {discountAmount.toLocaleString()} 🎉
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-3xl font-black text-orange-500 italic tracking-tighter">
+                    TZS {finalTotalAmount.toLocaleString()}
+                  </span>
                 </div>
               </div>
 
@@ -570,6 +1012,18 @@ export default function Checkout() {
           setIsLocationPickerOpen(false);
         }}
       />
+
+      {vendorProfile && (
+        <LoyaltyCardModal
+          isOpen={isLoyaltyModalOpen}
+          onClose={() => setIsLoyaltyModalOpen(false)}
+          vendor={vendorProfile}
+          initialPhone={phoneNumber}
+          onApplyRewardDiscount={(discAmt, desc) => {
+            setLoyaltyDiscount({ amount: discAmt, desc });
+          }}
+        />
+      )}
     </div>
   );
 }

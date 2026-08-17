@@ -142,19 +142,34 @@ function MapController({
     }
   });
 
-  // Apply live optional clean 3D perspective tilt (No map rotation as per user request, map remains North-Up)
+  // Apply live dynamic whole map rotation (Waze / Google Maps Navigation Heading-Up)
+  const accumulatedRotRef = React.useRef(0);
+
   useEffect(() => {
     if (!map) return;
     const container = map.getContainer();
     if (!container) return;
 
-    // Perspective tilt ONLY if user explicitly enabled 3D mode (mild 25deg)
-    const perspectiveTilt = is3DMode ? 'perspective(1000px) rotateX(25deg)' : 'none';
+    if (autoFollow && typeof rotation === 'number' && !isNaN(rotation)) {
+      const currentNormalized = ((accumulatedRotRef.current % 360) + 360) % 360;
+      const targetNormalized = ((rotation % 360) + 360) % 360;
+      let diff = targetNormalized - currentNormalized;
+      if (diff > 180) diff -= 360;
+      if (diff < -180) diff += 360;
+      accumulatedRotRef.current = accumulatedRotRef.current + diff;
 
-    container.style.transform = perspectiveTilt;
-    container.style.transformOrigin = 'center center';
-    container.style.transition = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)';
-  }, [map, is3DMode]);
+      const perspectiveTilt = is3DMode ? 'perspective(1000px) rotateX(28deg) ' : '';
+      container.style.transform = `${perspectiveTilt}rotateZ(${-accumulatedRotRef.current}deg) scale(1.38)`;
+      container.style.transformOrigin = 'center center';
+      container.style.transition = 'transform 0.45s cubic-bezier(0.2, 0.9, 0.3, 1)';
+    } else {
+      accumulatedRotRef.current = 0;
+      const perspectiveTilt = is3DMode ? 'perspective(1000px) rotateX(25deg)' : 'none';
+      container.style.transform = perspectiveTilt;
+      container.style.transformOrigin = 'center center';
+      container.style.transition = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)';
+    }
+  }, [map, is3DMode, autoFollow, rotation]);
 
   useEffect(() => {
     if (!position) return;

@@ -141,6 +141,22 @@ export interface VendorProfile {
   arIcon?: string;
   arColor?: string;
   arImageUrl?: string;
+
+  // WhatsApp Automation & Kitchen settings
+  kitchenWhatsappPhone?: string;
+  managerWhatsappPhone?: string;
+  autoSendKitchenWhatsapp?: boolean;
+
+  // Digital Loyalty Stamps & Rewards settings
+  loyaltyProgram?: {
+    enabled: boolean;
+    programType: 'stamps' | 'points';
+    stampsRequired: number; // e.g. 5
+    rewardDescription: string; // e.g. "Chakula cha 6 Bure!"
+    pointsPer1000Tzs: number; // e.g. 10 points
+    pointValueTzs: number; // 1 point = 1 TZS
+    minRedeemPoints?: number;
+  };
 }
 
 export interface Product {
@@ -149,6 +165,7 @@ export interface Product {
   name: string;
   description: string;
   price: number;
+  costPrice?: number;
   discountPrice?: number;
   category: string;
   stock: number;
@@ -204,6 +221,9 @@ export interface Order {
   items: any[];
   totalAmount: number;
   subtotal?: number;
+  discountAmount?: number;
+  couponCode?: string;
+  originalSubtotal?: number;
   taxAmount?: number;
   branchId?: string;
   status: OrderStatus;
@@ -258,6 +278,25 @@ export interface DiningTable {
   qrCodeUrl?: string;
 }
 
+export type WaiterCallType = 'waiter' | 'bill' | 'water' | 'napkins' | 'clean' | 'custom';
+export type WaiterCallStatus = 'pending' | 'attending' | 'completed' | 'cancelled';
+
+export interface WaiterCall {
+  id?: string;
+  vendorId: string;
+  tableNumber: string;
+  requestType: WaiterCallType;
+  customNote?: string;
+  status: WaiterCallStatus;
+  customerName?: string;
+  customerPhone?: string;
+  clientTimestamp?: number;
+  createdAt: any;
+  updatedAt?: any;
+  attendedBy?: string;
+  resolvedAt?: any;
+}
+
 export interface Coupon {
   id: string;
   vendorId: string;
@@ -271,6 +310,11 @@ export interface Coupon {
   status: 'active' | 'expired' | 'disabled';
   usageLimit?: number;
   usageCount: number;
+  isHappyHour?: boolean;
+  happyHourStart?: string; // e.g. "16:00"
+  happyHourEnd?: string;   // e.g. "20:00"
+  activeDays?: string[];   // e.g. ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+  isTableOnly?: boolean;   // true for table QR scan orders only
   createdAt?: any;
   createdBy: 'admin' | 'vendor';
 }
@@ -304,4 +348,51 @@ export interface FAQ {
   question: string;
   answer: string;
   createdAt: any;
+}
+
+export interface CustomerLoyaltyCard {
+  id?: string;
+  vendorId: string;
+  customerPhone: string;
+  customerName?: string;
+  currentStamps: number; // e.g. 3 out of 5
+  totalStampsEarned: number;
+  availableRewards: number; // unredeemed completed cards
+  currentPoints: number;
+  totalPointsEarned: number;
+  redeemedRewardsCount: number;
+  lastOrderDate?: any;
+  createdAt: any;
+  updatedAt?: any;
+}
+
+export interface AiSalesInsightReport {
+  executiveSummary: string;
+  salesHealthScore: number; // 0-100
+  topPerformers: { name: string; salesCount: number; revenue: number; insight: string }[];
+  slowMovers: { name: string; suggestion: string }[];
+  cogsAndProfitAnalysis: {
+    estimatedRevenue: number;
+    estimatedCogs: number;
+    grossProfitMarginPercent: number;
+    profitAdvice: string;
+  };
+  inventoryForecast: {
+    ingredientOrItem: string;
+    action: 'increase_stock' | 'reduce_stock' | 'maintain';
+    quantityRecommendation: string;
+    reasoning: string;
+  }[];
+  peakHoursAdvice: string;
+  marketingActionTips: string[];
+  generatedAt: string;
+}
+
+export interface ThermalPrintOptions {
+  paperWidth: '58mm' | '80mm';
+  printMode: 'customer_bill' | 'kitchen_kot' | 'compact_receipt';
+  showQrCode: boolean;
+  showBarCode?: boolean;
+  customHeader?: string;
+  customFooter?: string;
 }

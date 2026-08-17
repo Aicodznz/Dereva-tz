@@ -98,6 +98,7 @@ import { LiveTripScreen } from "./tegex/LiveTripScreen";
 import { TripCompleteScreen } from "./tegex/TripCompleteScreen";
 import { RatingScreen } from "./tegex/RatingScreen";
 import { AnimatedRoute } from "./map/AnimatedRoute";
+import { SmoothDriverMarker } from "./map/SmoothDriverMarker";
 import AppDownloadButton from "./AppDownloadButton";
 
 // --- UTILITIES ---
@@ -447,9 +448,12 @@ const MapControl = ({
       return;
     }
 
-    // Only update tracker view if position changed significantly (e.g., more than 10 meters)
-    if (!lastPos || currentPos.distanceTo(lastPos) > 10) {
-      map.panTo(position, { animate: true, duration: 0.8 });
+    // Smooth camera tracking when driver or customer is on the move
+    const isLiveStep = ["arriving", "on_trip", "found", "driver_arrived", "driver_arriving"].includes(step);
+    const threshold = isLiveStep ? 1.0 : 5; // 1.0 meter threshold so the map smoothly tracks every corner and movement
+
+    if (!lastPos || currentPos.distanceTo(lastPos) > threshold) {
+      map.panTo(position, { animate: true, duration: isLiveStep ? 0.6 : 0.8, easeLinearity: 0.25 });
       lastCenterRef.current = position;
     }
   }, [
@@ -467,26 +471,47 @@ const MapControl = ({
 
 const MapRotationController = ({ 
   rotation = 0,
-  is3DMode = false
+  heading = 0,
+  isHeadingUp = true,
+  is3DMode = false,
+  onRotate
 }: { 
   rotation?: number; 
-  onRotate?: (newRotation: number) => void; 
+  heading?: number;
+  isHeadingUp?: boolean;
   is3DMode?: boolean;
+  onRotate?: (newRotation: number) => void; 
 }) => {
   const map = useMap();
+  const accumulatedRotRef = useRef<number>(0);
 
   useEffect(() => {
     if (!map) return;
     const container = map.getContainer();
     if (!container) return;
 
-    // Stable 3D perspective tilt for Gaode Maps HUD feel without micro-rotation jitter on whole canvas
-    const perspectiveTilt = is3DMode ? 'perspective(1000px) rotateX(28deg)' : 'none';
-    
-    container.style.transform = perspectiveTilt;
-    container.style.transformOrigin = 'center center';
-    container.style.transition = 'transform 0.5s cubic-bezier(0.25, 1, 0.5, 1)';
-  }, [map, is3DMode]);
+    if (isHeadingUp && typeof heading === 'number' && !isNaN(heading)) {
+      // Calculate shortest angular delta to prevent 360° spin jumps
+      const currentNormalized = ((accumulatedRotRef.current % 360) + 360) % 360;
+      const targetNormalized = ((heading % 360) + 360) % 360;
+      let diff = targetNormalized - currentNormalized;
+      if (diff > 180) diff -= 360;
+      if (diff < -180) diff += 360;
+      accumulatedRotRef.current = accumulatedRotRef.current + diff;
+
+      const tilt = is3DMode ? 'perspective(1000px) rotateX(28deg) ' : '';
+      // Negative rotation: map rotates counter to heading so forward driving direction is always UP
+      container.style.transform = `${tilt}rotateZ(${-accumulatedRotRef.current}deg) scale(1.38)`;
+      container.style.transformOrigin = 'center center';
+      container.style.transition = 'transform 0.45s cubic-bezier(0.2, 0.9, 0.3, 1)';
+    } else {
+      accumulatedRotRef.current = 0;
+      const perspectiveTilt = is3DMode ? 'perspective(1000px) rotateX(28deg)' : 'none';
+      container.style.transform = perspectiveTilt;
+      container.style.transformOrigin = 'center center';
+      container.style.transition = 'transform 0.45s cubic-bezier(0.2, 0.9, 0.3, 1)';
+    }
+  }, [map, heading, isHeadingUp, is3DMode]);
 
   return null;
 };
@@ -554,6 +579,7 @@ export default function TaxiBooking() {
   const [heatMapCategory, setHeatMapCategory] = useState<'all' | 'taxi' | 'food' | 'parcel' | 'mart'>('all');
   const [selectedHeatZone, setSelectedHeatZone] = useState<HeatZone | null>(null);
   const [manualRotation, setManualRotation] = useState(0);
+  const [isHeadingUp, setIsHeadingUp] = useState<boolean>(true);
   const [is3DMode, setIs3DMode] = useState(false);
   const justSelectedRef = useRef(false);
   const vehicleScrollRef = useRef<HTMLDivElement>(null);
@@ -1924,10 +1950,17 @@ export default function TaxiBooking() {
       const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) -
                 Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLngRad);
       let brng = Math.atan2(y, x) * 180 / Math.PI;
-      const bearing = (brng + 360) % 360;
+      const targetBearing = (brng + 360) % 360;
       
-      driverBearingsRef.current[driverId] = { lat, lng, bearing };
-      return bearing;
+      // Calculate shortest path continuous angle delta (no 360° flip glitch)
+      const currentNorm = ((prev.bearing % 360) + 360) % 360;
+      let diff = targetBearing - currentNorm;
+      if (diff > 180) diff -= 360;
+      if (diff < -180) diff += 360;
+      const continuousBearing = prev.bearing + diff;
+      
+      driverBearingsRef.current[driverId] = { lat, lng, bearing: continuousBearing };
+      return continuousBearing;
     }
     
     return prev.bearing;
@@ -3467,7 +3500,18 @@ const getEndPin = (etaText: string) => {
                       isMapFullscreen={isMapFullscreen}
                       mapRefitTrigger={mapRefitTrigger}
                     />
-                    <MapRotationController rotation={manualRotation} onRotate={setManualRotation} is3DMode={is3DMode} />
+                    {(() => {
+                      const activeDriverHeading = (driverLivePos as any)?.heading ?? (activeRide?.driverLocation as any)?.heading ?? 0;
+                      return (
+                        <MapRotationController 
+                          rotation={manualRotation} 
+                          heading={activeDriverHeading} 
+                          isHeadingUp={isHeadingUp && ["arriving", "on_trip", "driver_arrived", "found", "driver_arriving"].includes(step)} 
+                          onRotate={setManualRotation} 
+                          is3DMode={is3DMode} 
+                        />
+                      );
+                    })()}
                     {activeRide?.status !== "on_trip" && (
                       <Marker position={pickupPos} icon={getStartPin(etaPickupText)} />
                     )}
@@ -3493,16 +3537,21 @@ const getEndPin = (etaText: string) => {
                       />
                     )}
 
-                    {/* Assigned Driver Marker */}
+                    {/* Assigned Driver Marker (Ultra-Smooth 60fps Interpolation & 360° Continuous Heading) */}
                     {(driverLivePos || activeRide?.driverLocation) && (() => {
                       const lat = driverLivePos?.lat || activeRide?.driverLocation?.lat || 0;
                       const lng = driverLivePos?.lng || activeRide?.driverLocation?.lng || 0;
                       const heading = (driverLivePos as any)?.heading ?? (activeRide?.driverLocation as any)?.heading;
                       return (
-                        <Marker
+                        <SmoothDriverMarker
                           key={`active-driver-${activeRide?.driverId || "presence"}`}
                           position={[lat, lng]}
-                          icon={getDriverIcon(activeRide?.vehicleType || "mini", activeRide?.driverId || "active-driver", lat, lng, heading)}
+                          heading={heading}
+                          vehicleType={activeRide?.vehicleType || "mini"}
+                          driverId={activeRide?.driverId || "active-driver"}
+                          customVehicle={config?.vehicles?.[activeRide?.vehicleType || "mini"]}
+                          theme={theme === "dark" ? "dark" : "light"}
+                          isAssignedDriver={true}
                         />
                       );
                     })()}
@@ -3512,10 +3561,15 @@ const getEndPin = (etaText: string) => {
                       drivers
                         .filter((d) => d.id !== activeRide?.driverId)
                         .map((driver) => (
-                          <Marker
+                          <SmoothDriverMarker
                             key={`nearby-${driver.id}`}
                             position={[driver.lat, driver.lng]}
-                            icon={getDriverIcon(driver.vehicleType, driver.id, driver.lat, driver.lng, driver.heading)}
+                            heading={driver.heading}
+                            vehicleType={driver.vehicleType}
+                            driverId={driver.id}
+                            customVehicle={config?.vehicles?.[driver.vehicleType]}
+                            theme={theme === "dark" ? "dark" : "light"}
+                            isAssignedDriver={false}
                           />
                         ))}
 
@@ -3669,6 +3723,91 @@ const getEndPin = (etaText: string) => {
                     })()}
 
                   </MapContainer>
+
+                  {/* Floating Orientation Compass & 3D Controls (Waze / Google Maps Style) */}
+                  <div className="absolute top-20 right-4 z-[9999] flex flex-col gap-2 pointer-events-auto">
+                    {/* Compass Needle Button */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const nextHeadingUp = !isHeadingUp;
+                        setIsHeadingUp(nextHeadingUp);
+                        if (nextHeadingUp) {
+                          toast.success("🧭 Uelekeo wa Waze Umewashwa: Ramani inazunguka na dereva!", { duration: 2500 });
+                        } else {
+                          toast.info("📍 Ramani Imewekwa Kaskazini Juu (North-Up)", { duration: 2500 });
+                        }
+                      }}
+                      className={`w-10 h-10 rounded-2xl flex flex-col items-center justify-center shadow-xl border backdrop-blur-md transition-all active:scale-95 ${
+                        isHeadingUp 
+                          ? (theme === 'dark' ? 'bg-indigo-600/90 text-white border-indigo-400/50 shadow-indigo-500/20' : 'bg-indigo-600 text-white border-indigo-500 shadow-indigo-500/25')
+                          : (theme === 'dark' ? 'bg-[#181824]/90 text-neutral-300 border-neutral-700/80 hover:bg-neutral-800' : 'bg-white/95 text-neutral-700 border-neutral-200 hover:bg-neutral-50')
+                      }`}
+                      title={isHeadingUp ? "Zima mzunguko wa ramani (Weka Kaskazini Juu)" : "Washa mzunguko wa ramani (Waze/Google Maps Heading-Up)"}
+                    >
+                      <div className="relative flex items-center justify-center w-5 h-5">
+                        <Compass 
+                          className={`w-5 h-5 transition-transform duration-300 ${isHeadingUp ? 'animate-pulse' : ''}`}
+                          style={{
+                            transform: isHeadingUp 
+                              ? `rotate(${((driverLivePos as any)?.heading ?? (activeRide?.driverLocation as any)?.heading ?? 0)}deg)` 
+                              : 'rotate(0deg)'
+                          }}
+                        />
+                      </div>
+                      <span className="text-[7.5px] font-black uppercase tracking-tighter leading-none mt-0.5">
+                        {isHeadingUp ? 'HEAD' : 'NORTH'}
+                      </span>
+                    </button>
+
+                    {/* 3D / 2D Perspective Tilt Toggle */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIs3DMode(!is3DMode);
+                        toast.info(!is3DMode ? "🧊 Mwonekano wa 3D Umewashwa" : "🗺️ Mwonekano wa 2D Umewashwa", { duration: 1800 });
+                      }}
+                      className={`w-10 h-10 rounded-2xl flex flex-col items-center justify-center shadow-xl border backdrop-blur-md transition-all active:scale-95 ${
+                        is3DMode
+                          ? (theme === 'dark' ? 'bg-emerald-600/90 text-white border-emerald-400/50 shadow-emerald-500/20' : 'bg-emerald-600 text-white border-emerald-500 shadow-emerald-500/25')
+                          : (theme === 'dark' ? 'bg-[#181824]/90 text-neutral-300 border-neutral-700/80 hover:bg-neutral-800' : 'bg-white/95 text-neutral-700 border-neutral-200 hover:bg-neutral-50')
+                      }`}
+                      title={is3DMode ? "Badili kuwa 2D Flat" : "Badili kuwa 3D Navigation Perspective"}
+                    >
+                      <span className="text-[11px] font-black tracking-tight leading-none">
+                        {is3DMode ? '3D' : '2D'}
+                      </span>
+                    </button>
+                  </div>
+
+                  {/* Floating Auto-Follow Re-Center Button when user pans away from moving driver */}
+                  <AnimatePresence>
+                    {!autoFollow && ["arriving", "on_trip", "driver_arrived", "found", "driver_arriving"].includes(step) && (
+                      <motion.button
+                        key="recenter-driver-floating-btn"
+                        initial={{ scale: 0.8, opacity: 0, y: 20 }}
+                        animate={{ scale: 1, opacity: 1, y: 0 }}
+                        exit={{ scale: 0.8, opacity: 0, y: 20 }}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.92 }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setAutoFollow(true);
+                          setMapRefitTrigger(Date.now());
+                          toast.info("Unamfuatilia dereva sasa (Auto-Follow Imewashwa)", { duration: 2000 });
+                        }}
+                        className="absolute bottom-28 right-4 sm:right-6 z-[9999] flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-2xl border border-emerald-400/40 cursor-pointer backdrop-blur-md transition-all active:shadow-inner"
+                      >
+                        <div className="relative flex items-center justify-center w-5 h-5">
+                          <span className="absolute w-full h-full rounded-full bg-white/40 animate-ping pointer-events-none" />
+                          <Navigation2 className="w-4 h-4 text-white rotate-45" />
+                        </div>
+                        <span className="tracking-tight uppercase font-black text-[11px]">Fuatilia Dereva</span>
+                      </motion.button>
+                    )}
+                  </AnimatePresence>
                 </div>
               </motion.div>
             )}

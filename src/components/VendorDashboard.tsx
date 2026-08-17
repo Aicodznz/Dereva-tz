@@ -119,8 +119,10 @@ import {
   Crown,
   Heart,
   CheckCircle2,
-  Flame
-, Upload } from 'lucide-react';
+  Flame,
+  Share2,
+  Award,
+  Upload } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence, useScroll, useMotionValueEvent } from 'motion/react';
 import { 
@@ -159,6 +161,18 @@ import LocationPicker from './LocationPicker';
 import Chat from './Chat';
 import { TwilioResponderTab } from './TwilioResponderTab';
 import VendorMapQRSetup from './VendorMapQRSetup';
+import { BatchTablePlacardsModal } from './BatchTablePlacardsModal';
+import { WaiterCallsPanel } from './WaiterCallsPanel';
+import { WaiterCall } from '../types';
+import { playSyntheticImportant, playSyntheticNormal } from '../utils/soundAlert';
+import { ThermalReceiptModal } from './ThermalReceiptModal';
+import { AiSalesInsightsModal } from './AiSalesInsightsModal';
+import { LoyaltyCardModal } from './LoyaltyCardModal';
+import { 
+  buildCustomerReceiptWhatsAppUrl, 
+  buildKitchenOrderWhatsAppUrl, 
+  buildDailySummaryWhatsAppUrl 
+} from '../utils/whatsappHelper';
 
 interface MiniQrProps {
   data: string;
@@ -692,13 +706,36 @@ export default function VendorDashboard() {
     discountValue: number;
     active: boolean;
     productId: string | null;
+    isHappyHour?: boolean;
+    happyHourStart?: string;
+    happyHourEnd?: string;
+    activeDays?: string[];
+    isTableOnly?: boolean;
+    minOrderAmount?: number;
   }>({
     code: '',
     discountType: 'percentage',
     discountValue: 0,
     active: true,
-    productId: null
+    productId: null,
+    isHappyHour: false,
+    happyHourStart: '16:00',
+    happyHourEnd: '20:00',
+    activeDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+    isTableOnly: false,
+    minOrderAmount: 0
   });
+
+  // Waiter Calls State & Batch Placard Modal State
+  const [waiterCalls, setWaiterCalls] = useState<WaiterCall[]>([]);
+  const [isWaiterSoundEnabled, setIsWaiterSoundEnabled] = useState(true);
+  const [isBatchPlacardsOpen, setIsBatchPlacardsOpen] = useState(false);
+
+  // AI Insights, Thermal Printing & Loyalty Modals
+  const [isAiInsightsOpen, setIsAiInsightsOpen] = useState(false);
+  const [isThermalModalOpen, setIsThermalModalOpen] = useState(false);
+  const [thermalOrderToPrint, setThermalOrderToPrint] = useState<any | null>(null);
+  const [isLoyaltyModalOpen, setIsLoyaltyModalOpen] = useState(false);
 
   // POS Enhanced States
   const [orderType, setOrderType] = useState<'walk_in' | 'pickup' | 'delivery'>('walk_in');
@@ -2190,6 +2227,29 @@ export default function VendorDashboard() {
 
       onSnapshot(collection(db, 'vendors', vendorProfile.id, 'restaurant_expenses'), (snap) => {
         setRestExpenses(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      }),
+
+      onSnapshot(collection(db, 'vendors', vendorProfile.id, 'waiter_calls'), (snap) => {
+        const incomingCalls = snap.docs.map(d => ({ id: d.id, ...d.data() } as WaiterCall));
+        const sorted = incomingCalls.sort((a, b) => {
+          const tA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : (typeof a.createdAt === 'number' ? a.createdAt : a.clientTimestamp || 0);
+          const tB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : (typeof b.createdAt === 'number' ? b.createdAt : b.clientTimestamp || 0);
+          return tB - tA;
+        });
+
+        setWaiterCalls(prev => {
+          const prevPendingIds = new Set(prev.filter(p => p.status === 'pending').map(p => p.id));
+          const newPending = sorted.filter(c => c.status === 'pending' && !prevPendingIds.has(c.id));
+          if (newPending.length > 0 && isWaiterSoundEnabled) {
+            playSyntheticImportant();
+            toast.warning(`🔔 Kengele ya Mhudumu! Meza #${newPending[0].tableNumber} inaita mhudumu!`, {
+              duration: 7000
+            });
+          }
+          return sorted;
+        });
+      }, (err) => {
+        console.warn("Waiter calls listener warning:", err);
       })
     ];
 
@@ -2636,11 +2696,25 @@ export default function VendorDashboard() {
         vendorId: vendorProfile.id,
         vendorOwnerUid: user?.uid,
         createdBy: user?.uid,
+        status: 'active',
+        usageCount: 0,
         createdAt: serverTimestamp()
       });
       setIsAddCouponOpen(false);
-      setNewCoupon({ code: '', discountType: 'percentage', discountValue: 0, active: true, productId: null });
-      toast.success('Coupon added successfully!');
+      setNewCoupon({ 
+        code: '', 
+        discountType: 'percentage', 
+        discountValue: 0, 
+        active: true, 
+        productId: null,
+        isHappyHour: false,
+        happyHourStart: '16:00',
+        happyHourEnd: '20:00',
+        activeDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+        isTableOnly: false,
+        minOrderAmount: 0
+      });
+      toast.success('Kuponi / Ofa imehifadhiwa kikamilifu!');
     } catch (error) {
       console.error(error);
     }
@@ -2649,7 +2723,47 @@ export default function VendorDashboard() {
   const handleDeleteCoupon = async (id: string) => {
     try {
       await deleteDoc(doc(db, 'coupons', id));
-      toast.success('Coupon deleted.');
+      toast.success('Kuponi imefutwa.');
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleAcknowledgeWaiterCall = async (callId: string) => {
+    if (!vendorProfile?.id) return;
+    try {
+      await updateDoc(doc(db, 'vendors', vendorProfile.id, 'waiter_calls', callId), {
+        status: 'attending',
+        attendedBy: user?.displayName || 'Mhudumu',
+        updatedAt: serverTimestamp()
+      });
+      playSyntheticNormal();
+      toast.success('Mhudumu amethibitishwa kuwa yupo njiani!');
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleResolveWaiterCall = async (callId: string) => {
+    if (!vendorProfile?.id) return;
+    try {
+      await updateDoc(doc(db, 'vendors', vendorProfile.id, 'waiter_calls', callId), {
+        status: 'resolved',
+        resolvedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      playSyntheticNormal();
+      toast.success('Ombi la mhudumu limetatuliwa kikamilifu!');
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleDeleteWaiterCall = async (callId: string) => {
+    if (!vendorProfile?.id) return;
+    try {
+      await deleteDoc(doc(db, 'vendors', vendorProfile.id, 'waiter_calls', callId));
+      toast.info('Kengele ya mhudumu imefutwa.');
     } catch (error) {
       console.error(error);
     }
@@ -3401,11 +3515,25 @@ export default function VendorDashboard() {
                       <Button
                         variant="ghost" 
                         size="icon" 
-                        title="Chapisha Risiti (Print)"
-                        className="h-8 w-8 text-neutral-600 hover:text-orange-500 hover:bg-orange-600/10 cursor-pointer"
+                        title="Tuma Risiti WhatsApp"
+                        className="h-8 w-8 text-neutral-600 hover:text-emerald-500 hover:bg-emerald-600/10 cursor-pointer"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handlePrintOrder(order);
+                          const url = buildCustomerReceiptWhatsAppUrl(order, vendorProfile?.businessName || 'Mgahawa');
+                          window.open(url, '_blank');
+                        }}
+                      >
+                        <Share2 className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost" 
+                        size="icon" 
+                        title="Chapisha Risiti (Thermal & Standard)"
+                        className="h-8 w-8 text-neutral-600 hover:text-amber-500 hover:bg-amber-600/10 cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setThermalOrderToPrint(order);
+                          setIsThermalModalOpen(true);
                         }}
                       >
                         <Printer className="w-4 h-4" />
@@ -4156,12 +4284,43 @@ export default function VendorDashboard() {
                       <Download className="w-4 h-4" /> Export Data
                     </Button>
                     <Button 
-                      className="rounded-xl bg-orange-600 hover:bg-orange-700 gap-2 h-11 px-6 font-bold shadow-lg shadow-orange-900/20"
+                      variant="outline"
+                      className="rounded-xl border-neutral-200 dark:border-neutral-800 gap-2 h-11 px-5 font-bold hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                      onClick={handleDownloadSalesReport}
+                    >
+                      <Download className="w-4 h-4" /> Export CSV
+                    </Button>
+
+                    <Button 
+                      className="rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:brightness-110 text-black font-black gap-2 h-11 px-5 shadow-lg shadow-orange-950/30 cursor-pointer"
+                      onClick={() => setIsAiInsightsOpen(true)}
+                    >
+                      <Sparkles className="w-4 h-4 text-black" /> AI Chef & Insights
+                    </Button>
+
+                    <Button 
+                      className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-2 h-11 px-5 shadow-lg shadow-emerald-950/30 cursor-pointer"
                       onClick={() => {
-                        window.location.reload();
+                        const paidOrders = orders.filter(o => o.paymentStatus === 'paid');
+                        const rev = paidOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+                        const managerPhone = vendorProfile?.managerWhatsappPhone || vendorProfile?.phoneNumber || '';
+                        const url = buildDailySummaryWhatsAppUrl(managerPhone, vendorProfile?.businessName || 'Mgahawa', {
+                          totalRevenue: rev,
+                          paidOrdersCount: paidOrders.length,
+                          pendingOrdersCount: orders.length - paidOrders.length,
+                          topItems: bestSellers.map(b => ({ name: b.name, count: b.count }))
+                        });
+                        window.open(url, '_blank');
                       }}
                     >
-                      <Zap className="w-4 h-4" /> Live Sync
+                      <Share2 className="w-4 h-4" /> Ripoti WhatsApp
+                    </Button>
+
+                    <Button 
+                      className="rounded-xl bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 text-white gap-2 h-11 px-5 font-bold cursor-pointer"
+                      onClick={() => setIsLoyaltyModalOpen(true)}
+                    >
+                      <Award className="w-4 h-4 text-amber-400" /> Kadi za Uaminifu
                     </Button>
                   </div>
                 </div>
@@ -4169,31 +4328,29 @@ export default function VendorDashboard() {
                 {/* Quick Actions */}
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                   {[
-                    { label: "Add Item", id: "products", icon: Plus, action: () => { setActiveTab('products'); setIsAddProductOpen(true); }, color: "bg-orange-600" },
-                    { label: "New Order", id: "pos", icon: ShoppingBag, action: () => setActiveTab('pos'), color: "bg-blue-600" },
-                    { label: "Stock Stats", id: "inventory_stats", icon: BarChart3, action: () => setActiveTab('inventory_stats'), color: "bg-purple-600" },
-                    { label: "Customers", id: "customers", icon: Users, action: () => setActiveTab('customers'), color: "bg-emerald-600" },
-                    { label: "Coupons", id: "coupons", icon: Tag, action: () => setActiveTab('coupons'), color: "bg-pink-600" },
-                    { label: "Help", id: "help", icon: AlertCircle, action: () => toast.info('Support team contacted.'), color: "bg-neutral-800" },
-                  ].filter(action => {
-                    if (action.id === 'help') return true;
-                    return tabs.some(t => t.id === action.id);
-                  }).map((action, i) => (
+                    { label: "AI Insights", id: "ai_insights", icon: Sparkles, action: () => setIsAiInsightsOpen(true), color: "bg-gradient-to-tr from-amber-500 to-orange-600 text-black font-black" },
+                    { label: "Add Item", id: "products", icon: Plus, action: () => { setActiveTab('products'); setIsAddProductOpen(true); }, color: "bg-orange-600 text-white" },
+                    { label: "New Order", id: "pos", icon: ShoppingBag, action: () => setActiveTab('pos'), color: "bg-blue-600 text-white" },
+                    { label: "Loyalty Pass", id: "loyalty", icon: Award, action: () => setIsLoyaltyModalOpen(true), color: "bg-amber-600 text-white" },
+                    { label: "Stock Stats", id: "inventory_stats", icon: BarChart3, action: () => setActiveTab('inventory_stats'), color: "bg-purple-600 text-white" },
+                    { label: "Customers", id: "customers", icon: Users, action: () => setActiveTab('customers'), color: "bg-emerald-600 text-white" },
+                  ].map((action, i) => (
                     <motion.button
                       key={`quick-action-${action.label}-${i}`}
                       whileHover={{ y: -4, scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={action.action}
-                      className="flex flex-col items-center justify-center p-6 rounded-[2rem] bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200 dark:border-neutral-800 hover:border-orange-600/30 transition-all gap-3 overflow-hidden relative group shadow-sm"
+                      className="flex flex-col items-center justify-center p-6 rounded-[2rem] bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200 dark:border-neutral-800 hover:border-orange-600/30 transition-all gap-3 overflow-hidden relative group shadow-sm cursor-pointer"
                     >
                       <div className="absolute inset-0 bg-orange-600/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                      <div className={`p-4 rounded-2xl ${action.color} text-white shadow-lg relative z-10 transition-transform group-hover:scale-110`}>
+                      <div className={`p-4 rounded-2xl ${action.color} shadow-lg relative z-10 transition-transform group-hover:scale-110`}>
                         <action.icon className="w-6 h-6" />
                       </div>
                       <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400 group-hover:text-white relative z-10">{action.label}</span>
                     </motion.button>
                   ))}
                 </div>
+
 
                 {/* Hotel Status Tracker (Only for Hotels) */}
                 {vendorProfile?.category === 'hotel' && (
@@ -4940,6 +5097,13 @@ export default function VendorDashboard() {
                     </Button>
 
                     <Button 
+                      onClick={() => setIsBatchPlacardsOpen(true)}
+                      className="bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-black rounded-2xl h-12 px-5 font-black uppercase tracking-wider text-[11px] shadow-xl shadow-amber-950/40 flex items-center gap-2 cursor-pointer transition-all active:scale-95"
+                    >
+                      <Printer className="w-4 h-4" /> BATCH PLACARDS (MABANGO YOTE)
+                    </Button>
+
+                    <Button 
                       onClick={() => setIsAddSectionOpen(true)}
                       className="bg-orange-600 hover:bg-orange-500 rounded-2xl h-12 px-6 font-black uppercase tracking-widest text-[11px] shadow-xl shadow-orange-950/40 text-white flex items-center gap-2 cursor-pointer transition-all active:scale-95"
                     >
@@ -4947,6 +5111,16 @@ export default function VendorDashboard() {
                     </Button>
                   </div>
                 </div>
+
+                {/* Waiter Live Calls Panel */}
+                <WaiterCallsPanel
+                  calls={waiterCalls}
+                  onAcknowledge={handleAcknowledgeWaiterCall}
+                  onResolve={handleResolveWaiterCall}
+                  onDelete={handleDeleteWaiterCall}
+                  soundEnabled={isWaiterSoundEnabled}
+                  onToggleSound={() => setIsWaiterSoundEnabled(!isWaiterSoundEnabled)}
+                />
 
                 {/* Sub Tab Selection Bar */}
                 {vendorProfile?.category === 'restaurant' && (
@@ -5929,19 +6103,21 @@ export default function VendorDashboard() {
                     <div className="absolute top-0 right-0 p-8">
                        <Gift className="w-24 h-24 text-orange-600/5 rotate-12" />
                     </div>
-                    <form onSubmit={handleAddCoupon} className="relative z-10 space-y-8">
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <form onSubmit={handleAddCoupon} className="relative z-10 space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         <div className="space-y-2">
-                           <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Campaign Code</label>
+                           <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest px-1">Campaign / Promo Code</label>
                            <Input 
-                             placeholder="e.g. SUMMER25" 
+                             placeholder="e.g. HAPPYHOUR15, MEZA10" 
                              className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl font-black text-white italic placeholder:not-italic"
                              value={newCoupon.code}
                              onChange={e => setNewCoupon({...newCoupon, code: e.target.value.toUpperCase()})}
+                             required
                            />
                         </div>
+
                         <div className="space-y-2">
-                           <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Discount Config</label>
+                           <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest px-1">Punguzo (Discount Amount)</label>
                            <div className="flex gap-3">
                               <Select value={newCoupon.discountType} onValueChange={val => setNewCoupon({...newCoupon, discountType: val as any})}>
                                  <SelectTrigger className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl font-bold flex-1">
@@ -5954,29 +6130,94 @@ export default function VendorDashboard() {
                               </Select>
                               <Input 
                                 type="number" 
-                                placeholder="Value" 
+                                placeholder="Thamani" 
                                 className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl font-black text-orange-600 w-32"
                                 value={newCoupon.discountValue}
                                 onChange={e => setNewCoupon({...newCoupon, discountValue: Number(e.target.value)})}
+                                required
                               />
                            </div>
                         </div>
+
                         <div className="space-y-2">
-                           <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Product Scope</label>
-                           <Select value={newCoupon.productId || 'all'} onValueChange={val => setNewCoupon({...newCoupon, productId: val === 'all' ? null : val})}>
-                              <SelectTrigger className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl font-bold">
-                                 <SelectValue placeholder="Universal Discount" />
-                              </SelectTrigger>
-                              <SelectContent className="bg-neutral-900 border-neutral-800 text-white border-neutral-700 shadow-2xl">
-                                 <SelectItem value="all">Apply to All Products</SelectItem>
-                                {products.map((p, idx) => <SelectItem key={`coupon-prod-opt-${p.id || 'no-id'}-${idx}`} value={p.id || `idx-${idx}`}>{p.name}</SelectItem>)}
-                              </SelectContent>
-                           </Select>
+                           <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest px-1">Kiwango cha Chini cha Oda (Min Order)</label>
+                           <Input 
+                             type="number"
+                             placeholder="0 TZS (Bila kiwango)" 
+                             className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl font-bold text-white"
+                             value={newCoupon.minOrderAmount || ''}
+                             onChange={e => setNewCoupon({...newCoupon, minOrderAmount: Number(e.target.value) || 0})}
+                           />
                         </div>
                       </div>
+
+                      {/* Happy Hour and Dining-Only Controls */}
+                      <div className="p-5 rounded-2xl bg-neutral-950/80 border border-neutral-800 space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <label className="flex items-center gap-3 cursor-pointer">
+                            <input 
+                              type="checkbox"
+                              checked={newCoupon.isHappyHour || false}
+                              onChange={e => setNewCoupon({...newCoupon, isHappyHour: e.target.checked})}
+                              className="w-5 h-5 rounded-lg accent-orange-600 cursor-pointer"
+                            />
+                            <div>
+                              <span className="text-xs font-black uppercase text-white flex items-center gap-1.5">
+                                <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Ofa ya Muda Maalumu (Happy Hour)
+                              </span>
+                              <span className="text-[10px] text-neutral-400 block">
+                                Punguzo litafanya kazi tu wakati wa masaa na siku zilizochaguliwa
+                              </span>
+                            </div>
+                          </label>
+
+                          <label className="flex items-center gap-3 cursor-pointer">
+                            <input 
+                              type="checkbox"
+                              checked={newCoupon.isTableOnly || false}
+                              onChange={e => setNewCoupon({...newCoupon, isTableOnly: e.target.checked})}
+                              className="w-5 h-5 rounded-lg accent-orange-600 cursor-pointer"
+                            />
+                            <div>
+                              <span className="text-xs font-black uppercase text-white">
+                                🍽️ Meza za Mgahawa Pekee (Dine-in / QR)
+                              </span>
+                              <span className="text-[10px] text-neutral-400 block">
+                                Wateja waliopo mezani pekee ndio wataoweza kutumia kuponi hii
+                              </span>
+                            </div>
+                          </label>
+                        </div>
+
+                        {newCoupon.isHappyHour && (
+                          <div className="pt-3 border-t border-neutral-800 grid grid-cols-1 sm:grid-cols-2 gap-4 animate-in fade-in duration-200">
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-black uppercase text-neutral-400">Muda wa Kuanza (Start Time)</label>
+                              <Input 
+                                type="time"
+                                value={newCoupon.happyHourStart || '16:00'}
+                                onChange={e => setNewCoupon({...newCoupon, happyHourStart: e.target.value})}
+                                className="bg-neutral-900 border-neutral-700 h-12 rounded-xl text-white font-bold"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-black uppercase text-neutral-400">Muda wa Kuisha (End Time)</label>
+                              <Input 
+                                type="time"
+                                value={newCoupon.happyHourEnd || '20:00'}
+                                onChange={e => setNewCoupon({...newCoupon, happyHourEnd: e.target.value})}
+                                className="bg-neutral-900 border-neutral-700 h-12 rounded-xl text-white font-bold"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
                       <div className="flex gap-4">
-                        <Button type="submit" className="flex-1 bg-white text-black hover:bg-neutral-200 h-14 rounded-2xl font-black uppercase tracking-widest text-xs">Activate Promotion</Button>
-                        <Button type="button" variant="ghost" className="h-14 px-8 rounded-2xl font-black uppercase tracking-widest text-[10px] text-neutral-500" onClick={() => setIsAddCouponOpen(false)}>Discard</Button>
+                        <Button type="submit" className="flex-1 bg-gradient-to-r from-orange-600 to-amber-600 text-white hover:brightness-110 h-14 rounded-2xl font-black uppercase tracking-widest text-xs cursor-pointer shadow-lg shadow-orange-950/40">
+                          Hifadhi & Washa Kampeni ya Punguzo
+                        </Button>
+                        <Button type="button" variant="ghost" className="h-14 px-8 rounded-2xl font-black uppercase tracking-widest text-[10px] text-neutral-500 cursor-pointer" onClick={() => setIsAddCouponOpen(false)}>Ghairi</Button>
                       </div>
                     </form>
                   </motion.div>
@@ -8016,8 +8257,135 @@ export default function VendorDashboard() {
                           ))}
                        </div>
                     </Card>
+
+                    {/* WhatsApp Automation & Alerts Settings */}
+                    <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 rounded-[2.5rem] overflow-hidden p-8 space-y-6 transition-colors shadow-sm">
+                      <div className="flex items-center gap-4 text-emerald-600">
+                        <Share2 className="w-6 h-6" />
+                        <div>
+                          <h3 className="font-black text-xl text-neutral-900 dark:text-white transition-colors">WhatsApp Automation & Kitchen Alerts</h3>
+                          <p className="text-[10px] text-neutral-500 font-medium">Tuma maagizo ya jikoni moja kwa moja WhatsApp na stakabadhi za wateja bila kikomo.</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Nambari ya WhatsApp ya Jikoni (Kitchen/Chef)</label>
+                          <Input 
+                            value={updatedProfile.kitchenWhatsappPhone || ''}
+                            onChange={e => setUpdatedProfile({ ...updatedProfile, kitchenWhatsappPhone: e.target.value })}
+                            className="bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 h-14 rounded-2xl text-sm font-medium"
+                            placeholder="e.g. 255712345678"
+                          />
+                          <p className="text-[9px] text-neutral-400">Oda mpya za meza na takeaway zitatumwa kwenye namba hii ya WhatsApp papo hapo.</p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Nambari ya Meneja (Daily Report Summary)</label>
+                          <Input 
+                            value={updatedProfile.managerWhatsappPhone || ''}
+                            onChange={e => setUpdatedProfile({ ...updatedProfile, managerWhatsappPhone: e.target.value })}
+                            className="bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 h-14 rounded-2xl text-sm font-medium"
+                            placeholder="e.g. 255788112233"
+                          />
+                          <p className="text-[9px] text-neutral-400">Namba itakayopokea muhtasari wa mauzo ya kila siku kwa mbofyo mmoja.</p>
+                        </div>
+                      </div>
+                    </Card>
+
+                    {/* Customer Loyalty & Digital Stamp Card Program Settings */}
+                    <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 rounded-[2.5rem] overflow-hidden p-8 space-y-6 transition-colors shadow-sm">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4 text-amber-500">
+                          <Award className="w-6 h-6" />
+                          <div>
+                            <h3 className="font-black text-xl text-neutral-900 dark:text-white transition-colors">Mpango wa Stempu & Uaminifu (Customer Loyalty)</h3>
+                            <p className="text-[10px] text-neutral-500 font-medium">Wape wateja wako stempu za kidigitali kila wanaponunua ili warejee tena na tena.</p>
+                          </div>
+                        </div>
+
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input 
+                            type="checkbox"
+                            checked={updatedProfile.loyaltyProgram?.enabled !== false}
+                            onChange={(e) => setUpdatedProfile({
+                              ...updatedProfile,
+                              loyaltyProgram: {
+                                ...(updatedProfile.loyaltyProgram || {
+                                  enabled: true,
+                                  programType: 'stamps',
+                                  stampsRequired: 5,
+                                  rewardDescription: 'Chakula BURE (Ofa ya Uaminifu)',
+                                  pointsPer1000Tzs: 10,
+                                  pointValueTzs: 1,
+                                  minRedeemPoints: 100
+                                }),
+                                enabled: e.target.checked
+                              }
+                            })}
+                            className="w-5 h-5 accent-orange-600 rounded"
+                          />
+                          <span className="text-xs font-black uppercase tracking-tight text-neutral-700 dark:text-neutral-300">Imewashwa</span>
+                        </label>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Idadi ya Stempu Zinazohitajika (Stamps Target)</label>
+                          <Input 
+                            type="number"
+                            min="2"
+                            max="20"
+                            value={updatedProfile.loyaltyProgram?.stampsRequired || 5}
+                            onChange={e => setUpdatedProfile({
+                              ...updatedProfile,
+                              loyaltyProgram: {
+                                ...(updatedProfile.loyaltyProgram || {
+                                  enabled: true,
+                                  programType: 'stamps',
+                                  stampsRequired: 5,
+                                  rewardDescription: 'Chakula BURE (Ofa ya Uaminifu)',
+                                  pointsPer1000Tzs: 10,
+                                  pointValueTzs: 1,
+                                  minRedeemPoints: 100
+                                }),
+                                stampsRequired: parseInt(e.target.value) || 5
+                              }
+                            })}
+                            className="bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 h-14 rounded-2xl text-sm font-bold"
+                          />
+                          <p className="text-[9px] text-neutral-400">Mfano: Mteja akinunua mara 5, anapata Zawadi ya 6 bure.</p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest px-1">Maelezo ya Zawadi ya Mteja (Reward Description)</label>
+                          <Input 
+                            value={updatedProfile.loyaltyProgram?.rewardDescription || 'Chakula BURE (Ofa ya Uaminifu)'}
+                            onChange={e => setUpdatedProfile({
+                              ...updatedProfile,
+                              loyaltyProgram: {
+                                ...(updatedProfile.loyaltyProgram || {
+                                  enabled: true,
+                                  programType: 'stamps',
+                                  stampsRequired: 5,
+                                  rewardDescription: 'Chakula BURE (Ofa ya Uaminifu)',
+                                  pointsPer1000Tzs: 10,
+                                  pointValueTzs: 1,
+                                  minRedeemPoints: 100
+                                }),
+                                rewardDescription: e.target.value
+                              }
+                            })}
+                            className="bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 h-14 rounded-2xl text-sm font-bold"
+                            placeholder="e.g. Biryani BURE au Punguzo la TZS 5,000"
+                          />
+                          <p className="text-[9px] text-neutral-400">Maelezo yatakayoonekana kwenye kadi ya mteja pindi stempu zikikamilika.</p>
+                        </div>
+                      </div>
+                    </Card>
                   </div>
                 </form>
+
 
                 <LocationPicker 
                   isOpen={isLocationPickerOpen}
@@ -13502,6 +13870,64 @@ export default function VendorDashboard() {
         productName={newProduct.name || 'Chakula'}
         initialModelUrl={newProduct.model3dUrl || ''}
       />
+
+      {/* Batch Table Placards (PDF & ZIP) Modal */}
+      <BatchTablePlacardsModal
+        isOpen={isBatchPlacardsOpen}
+        onClose={() => setIsBatchPlacardsOpen(false)}
+        vendorProfile={vendorProfile}
+        sections={sections}
+        goldMenuSince={goldMenuSince}
+        goldPrimaryColor={goldPrimaryColor}
+        goldAccentColor={goldAccentColor}
+        goldBgColorStart={goldBgColorStart}
+        goldBgColorEnd={goldBgColorEnd}
+        goldCardBgColor={goldCardBgColor}
+        goldTextColor={goldTextColor}
+        goldDishes={showcaseDishes}
+        standWifiName={standWifiName}
+        standWifiPass={standWifiPass}
+        standPortalUrl={goldWebsiteUrl || `${window.location.origin}/store/${vendorProfile?.id || ''}`}
+        standSalesPhone={goldSalesPhone || vendorProfile?.phoneNumber || ''}
+        standSupportEmail={goldSupportEmail || ''}
+        goldLogoUrl={goldLogoUrl}
+        showGoldLogo={true}
+      />
+
+      {/* AI Chef & Sales Insights Modal */}
+      {vendorProfile && (
+        <AiSalesInsightsModal
+          isOpen={isAiInsightsOpen}
+          onClose={() => setIsAiInsightsOpen(false)}
+          vendor={vendorProfile}
+          products={products}
+          orders={orders}
+          expenses={[]}
+        />
+      )}
+
+      {/* Thermal & Digital Receipt Modal */}
+      {vendorProfile && thermalOrderToPrint && (
+        <ThermalReceiptModal
+          isOpen={isThermalModalOpen}
+          onClose={() => {
+            setIsThermalModalOpen(false);
+            setThermalOrderToPrint(null);
+          }}
+          order={thermalOrderToPrint}
+          vendor={vendorProfile}
+        />
+      )}
+
+      {/* Loyalty Pass Modal */}
+      {vendorProfile && (
+        <LoyaltyCardModal
+          isOpen={isLoyaltyModalOpen}
+          onClose={() => setIsLoyaltyModalOpen(false)}
+          vendor={vendorProfile}
+          initialPhone=""
+        />
+      )}
     </div>
   );
 }

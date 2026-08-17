@@ -33,11 +33,11 @@ const MapControl = ({ position, target }: { position: { lat: number, lng: number
     if (hasPos && hasTgt) {
       const latLngPos = L.latLng(position.lat, position.lng);
       
-      // Smooth travel follow
-      map.flyTo([position.lat, position.lng], map.getZoom(), { duration: 0.8 });
+      // Smooth travel follow matching the driver's exact coordinates
+      map.panTo([position.lat, position.lng], { animate: true, duration: 0.6, easeLinearity: 0.25 });
 
       const distFromLastFit = lastFitRef.current ? latLngPos.distanceTo(lastFitRef.current) : 1000;
-      if (distFromLastFit > 150) {
+      if (distFromLastFit > 400) {
         const bounds = L.latLngBounds([
           [position.lat, position.lng],
           [target.lat, target.lng]
@@ -46,9 +46,9 @@ const MapControl = ({ position, target }: { position: { lat: number, lng: number
         lastFitRef.current = { lat: position.lat, lng: position.lng };
       }
     } else if (hasPos) {
-      map.flyTo([position.lat, position.lng], 16, { duration: 0.5 });
+      map.panTo([position.lat, position.lng], { animate: true, duration: 0.6, easeLinearity: 0.25 });
     } else if (hasTgt) {
-      map.flyTo([target.lat, target.lng], 14, { duration: 0.5 });
+      map.panTo([target.lat, target.lng], { animate: true, duration: 0.6, easeLinearity: 0.25 });
     }
   }, [position?.lat, position?.lng, target?.lat, target?.lng, map]);
   return null;

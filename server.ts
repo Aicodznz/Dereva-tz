@@ -523,6 +523,100 @@ Arrange the nodes in a complete, highly realistic, logical flow to satisfy the u
     }
   });
 
+  // AI Sales Insights & Smart Inventory Forecasting Endpoint (Gemini-3.7-flash)
+  app.post("/api/ai/sales-insights", async (req, res) => {
+    const { vendorName, category, products, orders, expenses, customQuestion } = req.body;
+
+    try {
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        return res.status(500).json({ error: "GEMINI_API_KEY environment variable is not configured." });
+      }
+
+      const { GoogleGenAI } = await import("@google/genai");
+      const client = new GoogleGenAI({
+        apiKey,
+        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+      });
+
+      // Prepare condensed summary for AI
+      const productsSummary = (products || []).slice(0, 30).map((p: any) => ({
+        name: p.name,
+        price: p.price,
+        cost: p.costPrice || p.cost || Math.round((p.price || 1000) * 0.45),
+        category: p.category || 'general',
+        inStock: p.inStock !== false
+      }));
+
+      const ordersSummary = (orders || []).slice(0, 50).map((o: any) => ({
+        total: o.totalAmount,
+        items: (o.items || []).map((i: any) => ({ name: i.name || i.productName, qty: i.quantity || 1 })),
+        status: o.status,
+        date: o.createdAt?.seconds ? new Date(o.createdAt.seconds * 1000).toISOString() : (o.createdAt || 'recent')
+      }));
+
+      const prompt = `You are a world-class Restaurant & Retail Business Consultant and Executive AI Chef specializing in East Africa (Tanzania, Kenya, Uganda).
+Analyze the business performance and provide high-value, actionable insights and inventory forecasts.
+
+Business: "${vendorName || 'Restaurant/Store'}" (${category || 'restaurant'})
+Menu Products: ${JSON.stringify(productsSummary)}
+Recent Orders Sample: ${JSON.stringify(ordersSummary)}
+Expenses Sample: ${JSON.stringify((expenses || []).slice(0, 10))}
+${customQuestion ? `Specific Question from Owner: "${customQuestion}"` : ''}
+
+Provide your response in JSON format matching this schema:
+{
+  "executiveSummary": "Concise overview in fluent, encouraging Swahili with key English business terms (approx 2-3 sentences)",
+  "salesHealthScore": 85, // integer 0-100
+  "topPerformers": [
+    { "name": "Dish/Item Name", "salesCount": 14, "revenue": 140000, "insight": "High demand, strong profit margin" }
+  ],
+  "slowMovers": [
+    { "name": "Item Name", "suggestion": "Try bundling with a top drink or running a happy hour coupon" }
+  ],
+  "cogsAndProfitAnalysis": {
+    "estimatedRevenue": 850000,
+    "estimatedCogs": 380000,
+    "grossProfitMarginPercent": 55.3,
+    "profitAdvice": "Practical advice on ingredient sourcing and food cost optimization"
+  },
+  "inventoryForecast": [
+    {
+      "ingredientOrItem": "Kuku / Chicken Stock",
+      "action": "increase_stock", // "increase_stock" | "reduce_stock" | "maintain"
+      "quantityRecommendation": "Ongeza Kilo 15 kwa ajili ya Wikendi",
+      "reasoning": "High demand on Friday/Saturday night"
+    }
+  ],
+  "peakHoursAdvice": "Advice on staffing and prep time for busiest hours (e.g. 12:30 PM - 2:30 PM and 7:00 PM - 10:00 PM)",
+  "marketingActionTips": [
+    "Tip 1: Practical recommendation in Swahili",
+    "Tip 2: Practical recommendation in Swahili",
+    "Tip 3: Practical recommendation in Swahili"
+  ],
+  "generatedAt": "${new Date().toISOString()}"
+}
+
+Return ONLY clean valid JSON. Do not include markdown code block syntax.`;
+
+      const response = await generateContentWithRetry(client, {
+        model: "gemini-3.7-flash",
+        contents: prompt
+      });
+
+      let responseText = response.text || "{}";
+      if (responseText.includes("```")) {
+        responseText = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
+      }
+
+      const report = JSON.parse(responseText);
+      res.json({ report, status: "success" });
+    } catch (err: any) {
+      console.error("[AI Sales Insights Error]", err);
+      res.status(500).json({ error: "Failed to generate AI insights: " + err.message });
+    }
+  });
+
   // Twilio SMS Simulation endpoint for vendor dashboard
   app.post("/api/twilio/simulate", async (req, res) => {
     const { phone, message } = req.body;

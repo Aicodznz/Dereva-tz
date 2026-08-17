@@ -29,6 +29,7 @@
     "firebase": "^12.13.0",
     "firebase-admin": "^13.10.0",
     "html-to-image": "^1.11.13",
+    "jszip": "^3.10.1",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.454.0",
     "motion": "^12.38.0",

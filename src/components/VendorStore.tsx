@@ -3,8 +3,9 @@ import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { storageService } from '../services/storageService';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, onSnapshot, getDocs, doc, getDoc, addDoc, updateDoc, deleteDoc, orderBy, serverTimestamp } from 'firebase/firestore';
-import { VendorProfile, Product, Review, ReviewReply } from '../types';
+import { VendorProfile, Product, Review, ReviewReply, Coupon } from '../types';
 import ReviewSection from './reviews/ReviewSection';
+import { CallWaiterModal } from './CallWaiterModal';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,10 +15,11 @@ import {
   ThumbsUp, Share2, Trash2, Reply, ShoppingBasket, Store,
   Instagram, Facebook, MessageCircle, ShieldCheck, Undo2, Box,
   Bed, Wifi, Wind, Monitor, Car, Waves, MapPin as MapPinIcon, Utensils, Beer, Dumbbell, Users,
-  Plane, Shirt, Bell, Umbrella
+  Plane, Shirt, Bell, Umbrella, Tag, Sparkles, Zap, Percent, Award, Gift
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
+import { LoyaltyCardModal } from './LoyaltyCardModal';
 import { useCart } from '../CartContext';
 import { useLanguage } from '../LanguageContext';
 import { useAuth } from '../AuthContext';
@@ -37,6 +39,13 @@ export default function VendorStore() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'products' | 'reviews' | 'info'>('products');
   const [tableSession, setTableSession] = useState<any>(null);
+  const [isCallWaiterOpen, setIsCallWaiterOpen] = useState(false);
+  const [isLoyaltyOpen, setIsLoyaltyOpen] = useState(false);
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
+
+  // Synchronize table parameter or session
+  const activeTableNumber = tableNumber || tableSession?.tableId || '';
+
   const [location] = useState(() => {
     const saved = localStorage.getItem('omniserve_user_location');
     return saved ? JSON.parse(saved) : { lat: -6.7924, lng: 39.2083 };
@@ -68,6 +77,48 @@ export default function VendorStore() {
       }
     }
   }, [id]);
+
+  // Fetch Coupons and Happy Hour Promos
+  useEffect(() => {
+    if (!id) return;
+    const q = query(collection(db, 'coupons'), where('vendorId', '==', id));
+    const unsub = onSnapshot(q, (snap) => {
+      const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Coupon));
+      setCoupons(list);
+    }, (err) => {
+      console.warn("Coupons listener warning:", err.message);
+    });
+    return () => unsub();
+  }, [id]);
+
+  // Check active Happy Hour
+  const activeHappyHourPromo = React.useMemo(() => {
+    const now = new Date();
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const currentDay = days[now.getDay()];
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+    return coupons.find(c => {
+      if (c.status && c.status !== 'active') return false;
+      if (!c.isHappyHour) return false;
+      
+      // Day check
+      if (c.activeDays && c.activeDays.length > 0 && !c.activeDays.includes(currentDay)) {
+        return false;
+      }
+
+      // Time window check
+      if (c.happyHourStart && c.happyHourEnd) {
+        const [sH, sM] = c.happyHourStart.split(':').map(Number);
+        const [eH, eM] = c.happyHourEnd.split(':').map(Number);
+        const startMins = sH * 60 + (sM || 0);
+        const endMins = eH * 60 + (eM || 0);
+        if (currentMinutes < startMins || currentMinutes > endMins) return false;
+      }
+
+      return true;
+    });
+  }, [coupons]);
 
   useEffect(() => {
     if (!id) return;
@@ -340,6 +391,114 @@ export default function VendorStore() {
       </div>
 
       <div id="store-content" className="max-w-6xl mx-auto px-4 md:px-6"> 
+        {/* Table Active Session & Call Waiter Action Banner */}
+        {activeTableNumber && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-6 p-4 rounded-3xl bg-gradient-to-r from-amber-950/60 via-neutral-900 to-amber-950/60 border border-amber-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl"
+          >
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-amber-500 text-black flex items-center justify-center font-black text-sm shadow-md">
+                #{activeTableNumber}
+              </div>
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-amber-300 flex items-center gap-1.5">
+                  <Utensils className="w-3.5 h-3.5" /> Umekaa Meza #{activeTableNumber}
+                </p>
+                <p className="text-[11px] text-neutral-400">
+                  Agiza vyakula na vinywaji vyako hapa, vitaletwa moja kwa moja mezani kwako.
+                </p>
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              onClick={() => setIsCallWaiterOpen(true)}
+              className="bg-gradient-to-r from-amber-500 to-orange-600 hover:brightness-110 text-white font-black text-xs uppercase tracking-wider h-11 px-5 rounded-2xl shadow-lg shadow-orange-950/40 flex items-center gap-2 cursor-pointer transition-all active:scale-95 shrink-0"
+            >
+              <Bell className="w-4 h-4 animate-bounce" />
+              Muite Mhudumu / Bili
+            </Button>
+          </motion.div>
+        )}
+
+        {/* Active Happy Hour Live Promotion Banner */}
+        {activeHappyHourPromo && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="mt-4 p-4 rounded-3xl bg-gradient-to-r from-orange-600 via-amber-600 to-orange-600 text-white shadow-xl shadow-orange-950/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative overflow-hidden"
+          >
+            <div className="flex items-center gap-3 relative z-10">
+              <div className="w-10 h-10 rounded-2xl bg-black/20 backdrop-blur-md flex items-center justify-center text-amber-200 shrink-0">
+                <Sparkles className="w-5 h-5 animate-pulse" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs sm:text-sm font-black uppercase tracking-tight">
+                    🔥 OFA YA HAPPY HOUR INAENDELEA! ({activeHappyHourPromo.code})
+                  </span>
+                  <Badge className="bg-black text-amber-300 font-black text-[9px] uppercase px-2">
+                    {activeHappyHourPromo.discountValue}{activeHappyHourPromo.discountType === 'percentage' ? '%' : ' TZS'} OFF
+                  </Badge>
+                </div>
+                <p className="text-[11px] text-orange-100 font-medium">
+                  {activeHappyHourPromo.happyHourStart && activeHappyHourPromo.happyHourEnd ? (
+                    <span>Muda: {activeHappyHourPromo.happyHourStart} hadi {activeHappyHourPromo.happyHourEnd} • </span>
+                  ) : null}
+                  Tumia kuponi <b className="underline uppercase tracking-wider">{activeHappyHourPromo.code}</b> wakati wa kulipa!
+                </p>
+              </div>
+            </div>
+            <div className="relative z-10 shrink-0">
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  navigator.clipboard.writeText(activeHappyHourPromo.code);
+                  toast.success(`Kuponi '${activeHappyHourPromo.code}' imenakiliwa!`);
+                }}
+                className="bg-black hover:bg-neutral-900 text-amber-300 font-black text-xs uppercase px-4 h-9 rounded-xl cursor-pointer"
+              >
+                Nakili Kuponi ({activeHappyHourPromo.code})
+              </Button>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Digital Loyalty Stamp Pass Banner */}
+        {vendor && vendor.loyaltyProgram?.enabled !== false && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-3 p-3.5 rounded-3xl bg-gradient-to-r from-amber-950/40 via-neutral-900 to-amber-950/40 border border-amber-500/30 flex items-center justify-between gap-3 shadow-md"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500 text-black flex items-center justify-center font-black shrink-0 shadow-sm">
+                <Award className="w-5 h-5 text-black" />
+              </div>
+              <div>
+                <p className="text-xs font-black uppercase tracking-tight text-amber-300 flex items-center gap-1.5">
+                  <Gift className="w-3.5 h-3.5 text-amber-400" /> Mpango wa Uaminifu (VIP Rewards)
+                </p>
+                <p className="text-[11px] text-neutral-400">
+                  Kusanya stempu {vendor.loyaltyProgram?.stampsRequired || 5} ujipatie <strong>{vendor.loyaltyProgram?.rewardDescription || 'Chakula BURE!'}</strong>
+                </p>
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => setIsLoyaltyOpen(true)}
+              className="bg-gradient-to-r from-amber-500 to-orange-600 hover:brightness-110 text-black font-black text-xs uppercase px-4 h-9 rounded-xl cursor-pointer shrink-0"
+            >
+              Fungua Kadi
+            </Button>
+          </motion.div>
+        )}
+
         {/* Tabs */}
         <div className="flex gap-10 border-b border-neutral-100 dark:border-white/5 mt-6 md:mt-12 overflow-x-auto no-scrollbar relative">
               {[
@@ -740,6 +899,43 @@ export default function VendorStore() {
               </AnimatePresence>
             </div>
           </div>
+
+      {/* Floating Call Waiter Button */}
+      {vendor && (
+        <div className="fixed bottom-6 right-6 z-40">
+          <motion.button
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setIsCallWaiterOpen(true)}
+            className="flex items-center gap-2.5 px-5 py-3.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 text-white font-black text-xs uppercase tracking-wider shadow-2xl shadow-orange-950/60 border border-amber-300/40 cursor-pointer"
+          >
+            <Bell className="w-4 h-4 animate-bounce" />
+            <span>Muite Mhudumu {activeTableNumber ? `#${activeTableNumber}` : ''}</span>
+          </motion.button>
+        </div>
+      )}
+
+      {/* Call Waiter Live Modal */}
+      {vendor && (
+        <CallWaiterModal
+          isOpen={isCallWaiterOpen}
+          onClose={() => setIsCallWaiterOpen(false)}
+          vendorId={vendor.id!}
+          vendorName={vendor.businessName || 'Mgahawa'}
+          initialTableNumber={activeTableNumber}
+          customerName=""
+        />
+      )}
+
+      {/* Loyalty Pass Modal */}
+      {vendor && (
+        <LoyaltyCardModal
+          isOpen={isLoyaltyOpen}
+          onClose={() => setIsLoyaltyOpen(false)}
+          vendor={vendor}
+          initialPhone={user?.phoneNumber || ''}
+        />
+      )}
     </div>
   );
 }
