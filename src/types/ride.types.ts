@@ -73,6 +73,7 @@ export interface Ride {
   sharedRidersCount?: number;
   sharedRiders?: any[];
   waypoints?: any[];
+  stops?: Array<{ id?: string; address: string; lat?: number; lng?: number; completed?: boolean }>;
   poolStatus?: 'matching' | 'matched' | 'solo_fallback' | 'completed';
   parcelAddon?: any;
 }

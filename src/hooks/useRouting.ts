@@ -103,7 +103,27 @@ export function interpolatePoints(coords: [number, number][], intervalMeters = 1
   return uniqueResult;
 }
 
-export function useRouting(pickup: [number, number], destination: [number, number], enableSlicing: boolean = false): RouteData {
+export function generateSimulatedMultiPointRoute(points: [number, number][]): [number, number][] {
+  if (!points || points.length === 0) return [];
+  if (points.length === 1) return [points[0]];
+  let fullRoute: [number, number][] = [];
+  for (let i = 0; i < points.length - 1; i++) {
+    const segment = generateSimulatedRoads(points[i], points[i + 1]);
+    if (i > 0) {
+      fullRoute = fullRoute.concat(segment.slice(1));
+    } else {
+      fullRoute = fullRoute.concat(segment);
+    }
+  }
+  return fullRoute;
+}
+
+export function useRouting(
+  pickup: [number, number], 
+  destination: [number, number], 
+  enableSlicing: boolean = false,
+  stops?: Array<[number, number] | { lat?: number; lng?: number }>
+): RouteData {
   const [data, setData] = useState<RouteData>({
     routeCoords: [],
     totalDistance: 0,
@@ -116,6 +136,7 @@ export function useRouting(pickup: [number, number], destination: [number, numbe
   const lastFetchedRef = useRef<{
     pickup: [number, number];
     destination: [number, number];
+    stopsKey: string;
     data: RouteData;
     time: number;
   } | null>(null);
@@ -128,11 +149,27 @@ export function useRouting(pickup: [number, number], destination: [number, numbe
   const lat2 = destination ? Number(destination[0]) : NaN;
   const lng2 = destination ? Number(destination[1]) : NaN;
 
+  // Extract clean stops coordinates
+  const validStopsCoords: [number, number][] = (stops || [])
+    .map((s: any) => {
+      if (Array.isArray(s) && typeof s[0] === 'number' && typeof s[1] === 'number' && !isNaN(s[0]) && !isNaN(s[1])) {
+        return [Number(s[0]), Number(s[1])] as [number, number];
+      }
+      if (s && typeof s.lat === 'number' && typeof s.lng === 'number' && !isNaN(s.lat) && !isNaN(s.lng)) {
+        return [Number(s.lat), Number(s.lng)] as [number, number];
+      }
+      return null;
+    })
+    .filter((p): p is [number, number] => p !== null);
+
+  const stopsKey = validStopsCoords.map(s => `${s[0].toFixed(4)},${s[1].toFixed(4)}`).join('|');
+
   useEffect(() => {
     if (isNaN(lat1) || isNaN(lng1) || isNaN(lat2) || isNaN(lng2)) return;
 
     const currentPickup: [number, number] = [lat1, lng1];
     const currentDest: [number, number] = [lat2, lng2];
+    const allWaypoints: [number, number][] = [currentPickup, ...validStopsCoords, currentDest];
 
     // Helper to calculate distance in meters
     const getDistMeters = (p1: [number, number], p2: [number, number]) => {
@@ -154,13 +191,13 @@ export function useRouting(pickup: [number, number], destination: [number, numbe
       if (lastFetchingPositionRef.current && lastFetchingDestinationRef.current) {
         const distPickup = getDistMeters(currentPickup, lastFetchingPositionRef.current);
         const distDest = getDistMeters(currentDest, lastFetchingDestinationRef.current);
-        if (distPickup < 30 && distDest < 30) {
+        if (distPickup < 30 && distDest < 30 && lastFetchedRef.current?.stopsKey === stopsKey) {
           return;
         }
       }
 
       // Check cache/rate-limiting first
-      if (lastFetchedRef.current) {
+      if (lastFetchedRef.current && lastFetchedRef.current.stopsKey === stopsKey) {
         const distPickup = getDistMeters(currentPickup, lastFetchedRef.current.pickup);
         const distDest = getDistMeters(currentDest, lastFetchedRef.current.destination);
 
@@ -212,6 +249,7 @@ export function useRouting(pickup: [number, number], destination: [number, numbe
               lastFetchedRef.current = {
                 pickup: currentPickup,
                 destination: currentDest,
+                stopsKey,
                 data: {
                   ...nextData,
                   routeCoords: cachedCoords, // Keep original complete route coords so if we continue moving we can slice again from it!
@@ -236,7 +274,7 @@ export function useRouting(pickup: [number, number], destination: [number, numbe
           ? getDistMeters(currentDest, lastFetchedRef.current.destination) > 100
           : true;
 
-        if (hasPrevCoords && !destShifted) {
+        if (hasPrevCoords && !destShifted && lastFetchedRef.current?.stopsKey === stopsKey) {
           return {
             ...prev,
             isLoading: true,
@@ -244,7 +282,7 @@ export function useRouting(pickup: [number, number], destination: [number, numbe
           };
         }
 
-        const initialSimRoute = generateSimulatedRoads(currentPickup, currentDest);
+        const initialSimRoute = generateSimulatedMultiPointRoute(allWaypoints);
         return {
           ...prev,
           routeCoords: initialSimRoute,
@@ -254,10 +292,9 @@ export function useRouting(pickup: [number, number], destination: [number, numbe
       });
 
       try {
-        // OSRM expects [lon, lat]
-        const pickupStr = `${lng1},${lat1}`;
-        const destStr = `${lng2},${lat2}`;
-        const url = `/api/geo/route?coords=${encodeURIComponent(pickupStr + ";" + destStr)}`;
+        // OSRM expects [lon, lat] pairs joined by semicolons
+        const allCoordsStr = allWaypoints.map(pt => `${pt[1]},${pt[0]}`).join(";");
+        const url = `/api/geo/route?coords=${encodeURIComponent(allCoordsStr)}`;
 
         const response = await fetch(url);
         if (!response.ok) {
@@ -266,19 +303,14 @@ export function useRouting(pickup: [number, number], destination: [number, numbe
         }
         let json = await response.json();
 
-        // If the server-side API returned a simulated fallback because it was blocked or failed,
-        // we attempt to fetch directly from the user's browser, which has a clean residential/mobile IP!
+        // If the server-side API returned a fallback, try direct client-side fetch with all waypoints
         if (json.isFallback) {
-          console.log("[useRouting] Server proxy returned a fallback route. Attempting DIRECT client-side browser fetch instead...");
+          console.log("[useRouting] Server proxy returned a fallback route. Attempting DIRECT client-side browser fetch with waypoints...");
           const directUrls = [
-            `https://router.project-osrm.org/route/v1/driving/${pickupStr};${destStr}?overview=full&geometries=geojson&steps=true`,
-            `https://routing.openstreetmap.de/routed-car/route/v1/driving/${pickupStr};${destStr}?overview=full&geometries=geojson&steps=true`,
-            `http://router.project-osrm.org/route/v1/driving/${pickupStr};${destStr}?overview=full&geometries=geojson&steps=true`,
-            `http://routing.openstreetmap.de/routed-car/route/v1/driving/${pickupStr};${destStr}?overview=full&geometries=geojson&steps=true`,
-            `https://routing.openstreetmap.de/routed-bike/route/v1/bicycle/${pickupStr};${destStr}?overview=full&geometries=geojson&steps=true`,
-            `http://routing.openstreetmap.de/routed-bike/route/v1/bicycle/${pickupStr};${destStr}?overview=full&geometries=geojson&steps=true`,
-            `https://routing.openstreetmap.de/routed-foot/route/v1/foot/${pickupStr};${destStr}?overview=full&geometries=geojson&steps=true`,
-            `http://routing.openstreetmap.de/routed-foot/route/v1/foot/${pickupStr};${destStr}?overview=full&geometries=geojson&steps=true`
+            `https://router.project-osrm.org/route/v1/driving/${allCoordsStr}?overview=full&geometries=geojson&steps=true`,
+            `https://routing.openstreetmap.de/routed-car/route/v1/driving/${allCoordsStr}?overview=full&geometries=geojson&steps=true`,
+            `http://router.project-osrm.org/route/v1/driving/${allCoordsStr}?overview=full&geometries=geojson&steps=true`,
+            `http://routing.openstreetmap.de/routed-car/route/v1/driving/${allCoordsStr}?overview=full&geometries=geojson&steps=true`,
           ];
 
           for (const directUrl of directUrls) {
@@ -310,10 +342,9 @@ export function useRouting(pickup: [number, number], destination: [number, numbe
           (c: number[]) => [c[1], c[0]] as [number, number],
         );
 
-        console.log(`[useRouting] Successfully fetched route from API! Coordinates length: ${coords.length}`);
+        console.log(`[useRouting] Successfully fetched multi-stop route from API! Coordinates length: ${coords.length}`);
 
-        // Ensure the route connects exactly to the pickup and destination points only if they are reasonably close (under 500 meters)
-        // This avoids creating long straight-line diagonal connectors that cross buildings/off-road terrain
+        // Ensure the route connects exactly to the pickup and destination points
         if (coords.length > 0) {
           const firstDist = getDistMeters(currentPickup, coords[0]);
           if (firstDist > 1 && firstDist < 500) {
@@ -327,16 +358,20 @@ export function useRouting(pickup: [number, number], destination: [number, numbe
 
         const interpolatedCoords = interpolatePoints(coords);
 
-        // Process steps if available
+        // Process steps across all legs of the route
         const steps: RouteStep[] = [];
-        if (route.legs && route.legs[0] && route.legs[0].steps) {
-          route.legs[0].steps.forEach((step: any) => {
-            steps.push({
-              distance: step.distance,
-              duration: step.duration,
-              instruction: step.maneuver.type + " " + (step.name || ""),
-              location: [step.maneuver.location[1], step.maneuver.location[0]],
-            });
+        if (route.legs && Array.isArray(route.legs)) {
+          route.legs.forEach((leg: any) => {
+            if (leg.steps && Array.isArray(leg.steps)) {
+              leg.steps.forEach((step: any) => {
+                steps.push({
+                  distance: step.distance,
+                  duration: step.duration,
+                  instruction: (step.maneuver?.type || '') + " " + (step.name || ""),
+                  location: [step.maneuver?.location[1], step.maneuver?.location[0]],
+                });
+              });
+            }
           });
         }
 
@@ -353,15 +388,15 @@ export function useRouting(pickup: [number, number], destination: [number, numbe
         lastFetchedRef.current = {
           pickup: currentPickup,
           destination: currentDest,
+          stopsKey,
           data: nextData,
           time: Date.now(),
         };
       } catch (err: any) {
-        console.error("[useRouting] Real OSRM failed! Retaining simulated roads fallback. Error detail:", err);
-        // Retain beautiful simulated grids on fail instead of blanking out or creating straight line jumps!
+        console.error("[useRouting] Real OSRM failed! Retaining simulated multi-stop roads fallback. Error detail:", err);
         setData((prev) => ({
           ...prev,
-          routeCoords: generateSimulatedRoads(currentPickup, currentDest),
+          routeCoords: generateSimulatedMultiPointRoute(allWaypoints),
           isLoading: false,
           error: err.message || "Unknown routing failure",
         }));
@@ -369,7 +404,7 @@ export function useRouting(pickup: [number, number], destination: [number, numbe
     };
 
     fetchRoute();
-  }, [lat1, lng1, lat2, lng2, enableSlicing]);
+  }, [lat1, lng1, lat2, lng2, stopsKey, enableSlicing]);
 
   return data;
 }

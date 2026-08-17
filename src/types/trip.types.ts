@@ -49,6 +49,7 @@ export interface Ride {
   paymentMethod?: 'cash' | 'online' | 'mobile_money' | 'wallet' | 'card' | 'mpesa' | string;
   paymentDetails?: any;
   pickupNote?: string;
+  stops?: Array<{ id?: string; address: string; lat?: number; lng?: number; completed?: boolean }>;
   viewers?: Record<string, number>;
   isRerouting?: boolean;
   hasDeviated?: boolean;

@@ -1231,9 +1231,19 @@ export default function TaxiBooking() {
     }
   }, []);
 
+  const [extraStops, setExtraStops] = useState<Array<{ id: string; address: string; lat?: number; lng?: number }>>([]);
+  const effectiveStops = useMemo(() => {
+    if (activeRide?.stops && Array.isArray(activeRide.stops) && activeRide.stops.length > 0) {
+      return activeRide.stops;
+    }
+    return extraStops;
+  }, [activeRide?.stops, extraStops]);
+
   const { routeCoords, totalDistance, totalDuration } = useRouting(
     pickupPos,
     destination ? destPos : [NaN, NaN],
+    false,
+    effectiveStops
   );
 
   const { createRide, isLoading: isCreatingRide } = useCreateRide();
@@ -1921,7 +1931,6 @@ export default function TaxiBooking() {
   });
   const [scheduledTime, setScheduledTime] = useState<string>("08:00");
   
-  const [extraStops, setExtraStops] = useState<Array<{ id: string; address: string; lat?: number; lng?: number }>>([]);
   const [newStopInput, setNewStopInput] = useState("");
   const [showAddStopInput, setShowAddStopInput] = useState(false);
 
@@ -3561,24 +3570,25 @@ const getEndPin = (etaText: string) => {
                     )}
 
                     {/* Intermediate Extra Stops Pins */}
-                    {extraStops.map((stop, idx) => {
+                    {effectiveStops.map((stop: any, idx: number) => {
                       if (typeof stop.lat !== 'number' || typeof stop.lng !== 'number') return null;
+                      const stopLabel = stop.address ? (stop.address.length > 20 ? `${stop.address.substring(0, 20)}...` : stop.address) : `Kituo #${idx + 1}`;
                       return (
                         <Marker
-                          key={`extra-stop-pin-${stop.id}`}
+                          key={`extra-stop-pin-${stop.id || idx}`}
                           position={[stop.lat, stop.lng]}
                           icon={L.divIcon({
                             className: "custom-extra-stop-marker",
                             html: `
                               <div class="relative flex flex-col items-center pointer-events-none">
-                                <div class="bg-amber-500 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded-full shadow-xl border-2 border-white flex items-center gap-1 whitespace-nowrap">
-                                  <span>📍 Kituo #${idx + 1}</span>
+                                <div class="bg-amber-500 text-slate-950 font-black text-[10px] px-2.5 py-1 rounded-full shadow-xl border-2 border-white flex items-center gap-1.5 whitespace-nowrap">
+                                  <span>📍 Kituo #${idx + 1}: ${stopLabel}</span>
                                 </div>
                                 <div class="w-2.5 h-2.5 bg-amber-500 rotate-45 -mt-1 border-r-2 border-b-2 border-white shadow-md"></div>
                               </div>
                             `,
-                            iconSize: [80, 32],
-                            iconAnchor: [40, 32],
+                            iconSize: [120, 36],
+                            iconAnchor: [60, 36],
                           })}
                         />
                       );

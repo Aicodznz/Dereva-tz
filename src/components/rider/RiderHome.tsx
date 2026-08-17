@@ -826,7 +826,8 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick }: Rid
   const { routeCoords: dynamicRoute, steps, isLoading: isRoutingLoading } = useRouting(
     routingStart, 
     routingTarget || routingStart,
-    true
+    true,
+    activeRide?.status === 'on_trip' ? (activeRide as any)?.stops : undefined
   );
   const { isUnlocked: voiceUnlocked, isMuted, speak, toggleMute } = useVoiceNavigation();
   const [lastInstruction, setLastInstruction] = useState("");
@@ -2296,6 +2297,46 @@ const getEndPin = (etaText: string) => {
                     </div>
                   </Popup>
                 </Marker>
+
+                {/* Intermediate Stops Markers for Driver */}
+                {activeRide.stops && Array.isArray(activeRide.stops) && activeRide.stops.map((stop: any, idx: number) => {
+                  if (typeof stop.lat !== 'number' || typeof stop.lng !== 'number') return null;
+                  const stopLabel = stop.address ? (stop.address.length > 18 ? `${stop.address.substring(0, 18)}...` : stop.address) : `Kituo #${idx + 1}`;
+                  return (
+                    <Marker
+                      key={`driver-stop-pin-${stop.id || idx}`}
+                      position={[stop.lat, stop.lng]}
+                      icon={L.divIcon({
+                        className: "driver-custom-stop-marker",
+                        html: `
+                          <div class="relative flex flex-col items-center pointer-events-none">
+                            <div class="bg-amber-500 text-slate-950 font-black text-[9.5px] px-2 py-0.5 rounded-full shadow-xl border-2 border-white flex items-center gap-1 whitespace-nowrap">
+                              <span>📍 Kituo #${idx + 1}: ${stopLabel}</span>
+                            </div>
+                            <div class="w-2.5 h-2.5 bg-amber-500 rotate-45 -mt-1 border-r-2 border-b-2 border-white shadow-md"></div>
+                          </div>
+                        `,
+                        iconSize: [120, 34],
+                        iconAnchor: [60, 34],
+                      })}
+                    >
+                      <Popup>
+                        <div className="p-2 text-center">
+                          <p className="font-bold text-amber-600">Kituo cha Safari #{idx + 1}</p>
+                          <p className="text-xs text-slate-700">{stop.address}</p>
+                          <a 
+                            href={`https://www.google.com/maps/dir/?api=1&origin=${position[0]},${position[1]}&destination=${stop.lat},${stop.lng}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-500 underline mt-1 inline-block"
+                          >
+                            Elekea Kituo hiki (Google Maps)
+                          </a>
+                        </div>
+                      </Popup>
+                    </Marker>
+                  );
+                })}
 
                 {/* 1. Beautiful Underlay & Sliced Overlay Routes */}
                 {(() => {

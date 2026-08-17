@@ -149,7 +149,7 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({
       : [ride.destination.lat, ride.destination.lng];
   }, [targetLocation?.lat, targetLocation?.lng, ride.destination?.lat, ride.destination?.lng]);
 
-  const routing = useRouting(pickupTuple, destTuple, true);
+  const routing = useRouting(pickupTuple, destTuple, true, (ride as any).stops);
 
   const statusText = isArriving ? 'Dereva anakuja...' : 'Safari Inaendelea';
   const targetLabel = isArriving ? 'Eneo la Pickup' : 'Unakokwenda';
@@ -366,6 +366,33 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({
                 <div className="mt-2 pt-1.5 border-t border-purple-200/50 dark:border-purple-900/40 flex items-center justify-between text-[8px] text-purple-700 dark:text-purple-300 font-semibold">
                   <span>⏱️ Detour Budget: Max {ride.maxDetourBudgetMinutes || 3} min</span>
                   <span className="italic">Njia Imepangwa Kuzuia Foleni</span>
+                </div>
+              </div>
+            )}
+
+            {/* Intermediate Trip Stops (Vituo vya Safari) */}
+            {ride.stops && Array.isArray(ride.stops) && ride.stops.length > 0 && (
+              <div className={`p-2.5 rounded-xl border mb-2 select-none ${theme === 'dark' ? 'bg-amber-950/20 border-amber-900/40' : 'bg-amber-50/70 border-amber-200/60'}`}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px]">📍</span>
+                    <span className="text-[8.5px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                      Vituo vya Safari ({ride.stops.length})
+                    </span>
+                  </div>
+                  <span className="text-[7.5px] font-bold text-amber-600/80 uppercase">Njiani</span>
+                </div>
+                <div className="space-y-1">
+                  {ride.stops.map((stop: any, idx: number) => (
+                    <div key={stop.id || idx} className="flex items-center gap-2 text-[9px] font-bold">
+                      <span className="w-4 h-4 rounded-full bg-amber-500 text-slate-950 flex items-center justify-center text-[7.5px] font-black shrink-0 shadow-sm">
+                        {idx + 1}
+                      </span>
+                      <span className="truncate text-neutral-700 dark:text-neutral-200">
+                        {stop.address || `Kituo #${idx + 1}`}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}

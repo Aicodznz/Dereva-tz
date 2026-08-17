@@ -36,9 +36,13 @@ export default function DriverTripSheet({ ride, onArrive, onStart, onComplete, o
     return Math.min(100, Math.max(0, p));
   }, [distance, ride.distance, isArriving]);
 
+  const waypointsQuery = (isOnTrip && ride.stops && Array.isArray(ride.stops) && ride.stops.length > 0)
+    ? `&waypoints=${ride.stops.filter(s => typeof s.lat === 'number' && typeof s.lng === 'number').map(s => `${s.lat},${s.lng}`).join('|')}`
+    : '';
+
   const googleMapsUrl = ride.driverLocation 
-    ? `https://www.google.com/maps/dir/?api=1&origin=${ride.driverLocation.lat},${ride.driverLocation.lng}&destination=${targetLocation.lat},${targetLocation.lng}`
-    : `https://www.google.com/maps/dir/?api=1&destination=${targetLocation.lat},${targetLocation.lng}`;
+    ? `https://www.google.com/maps/dir/?api=1&origin=${ride.driverLocation.lat},${ride.driverLocation.lng}&destination=${targetLocation.lat},${targetLocation.lng}${waypointsQuery}`
+    : `https://www.google.com/maps/dir/?api=1&destination=${targetLocation.lat},${targetLocation.lng}${waypointsQuery}`;
 
   const [waitTimer, setWaitTimer] = React.useState(0);
   
@@ -171,10 +175,10 @@ export default function DriverTripSheet({ ride, onArrive, onStart, onComplete, o
               </div>
             )}
 
-            {/* Compact Addresses */}
+            {/* Compact Addresses & Stops */}
             <div className="bg-neutral-50/20 dark:bg-[#0a0a0f]/20 border border-neutral-150 dark:border-neutral-850 rounded-2xl p-3 space-y-2 text-left">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className={`w-2 h-2 ${isArriving || isArrived ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-neutral-300 dark:bg-neutral-800'} rounded-full shrink-0`} />
+                <div className={`w-2.5 h-2.5 ${isArriving || isArrived ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-neutral-300 dark:bg-neutral-800'} rounded-full shrink-0`} />
                 <div className="min-w-0 flex-1">
                    <p className="text-[11.5px] font-bold text-neutral-700 dark:text-neutral-200 truncate leading-none">
                      <span className="text-[8px] font-black text-neutral-400 dark:text-neutral-500 uppercase mr-1">PICKUP:</span>
@@ -182,8 +186,22 @@ export default function DriverTripSheet({ ride, onArrive, onStart, onComplete, o
                    </p>
                 </div>
               </div>
+
+              {/* Display all intermediate stops for the driver */}
+              {ride.stops && Array.isArray(ride.stops) && ride.stops.map((stop: any, idx: number) => (
+                <div key={stop.id || idx} className="flex items-center gap-2.5 min-w-0 pl-1">
+                  <div className="w-2 h-2 bg-amber-500 rounded-full shrink-0 shadow-[0_0_6px_rgba(245,158,11,0.6)]" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-bold text-amber-700 dark:text-amber-300 truncate leading-none">
+                      <span className="text-[7.5px] font-black text-amber-600 uppercase mr-1">KITUO #{idx + 1}:</span>
+                      {stop.address}
+                    </p>
+                  </div>
+                </div>
+              ))}
+
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className={`w-2 h-2 ${isOnTrip ? 'bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.5)]' : 'bg-neutral-300 dark:bg-neutral-800'} rounded-full shrink-0`} />
+                <div className={`w-2.5 h-2.5 ${isOnTrip ? 'bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.5)]' : 'bg-neutral-300 dark:bg-neutral-800'} rounded-full shrink-0`} />
                 <div className="min-w-0 flex-1">
                    <p className="text-[11.5px] font-bold text-neutral-700 dark:text-neutral-200 truncate leading-none">
                      <span className="text-[8px] font-black text-neutral-400 dark:text-neutral-500 uppercase mr-1">DEST:</span>
