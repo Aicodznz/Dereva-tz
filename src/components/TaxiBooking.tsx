@@ -2212,25 +2212,23 @@ const getEndPin = (etaText: string) => {
     return icon;
   };
 
-  const getNavEndPin = (destName: string) => {
-    const shortName = (destName || "Mwisho wa Safari").split(",")[0].trim();
-    const key = `nav-end-pin-clean-${shortName}`;
+  const getNavEndPin = (_destName?: string) => {
+    const key = "nav-end-pin-clean-minimal";
     if (taxiPinIconCacheMap[key]) return taxiPinIconCacheMap[key];
 
     const icon = L.divIcon({
       className: "custom-nav-dest-marker",
       html: `
         <div class="relative flex flex-col items-center pointer-events-none select-none" style="transform-origin: bottom center;">
-          <div class="bg-gradient-to-r from-red-600 to-rose-600 text-white font-black text-[10px] px-2.5 py-1 rounded-full shadow-2xl border-2 border-white flex items-center gap-1.5 whitespace-nowrap mb-0.5 animate-pulse">
-            <span class="text-xs">🏁</span>
-            <span class="truncate max-w-[120px] uppercase tracking-wide">${shortName}</span>
+          <div class="w-7 h-7 rounded-full bg-gradient-to-tr from-red-600 to-rose-500 border-2 border-white shadow-xl flex items-center justify-center text-white text-xs">
+            🏁
           </div>
-          <div class="w-3 h-3 bg-red-600 rotate-45 -mt-2 border-r-2 border-b-2 border-white shadow-md"></div>
-          <div class="w-3 h-1 bg-black/40 rounded-full blur-[1px] mt-0.5"></div>
+          <div class="w-2 h-2 bg-red-600 rotate-45 -mt-1 shadow-md"></div>
+          <div class="w-3 h-1 bg-black/30 rounded-full blur-[1px] mt-0.5"></div>
         </div>
       `,
-      iconSize: [140, 42],
-      iconAnchor: [70, 42],
+      iconSize: [28, 36],
+      iconAnchor: [14, 36],
     });
     taxiPinIconCacheMap[key] = icon;
     return icon;
@@ -3824,64 +3822,6 @@ const getEndPin = (etaText: string) => {
                       </motion.div>
                     )}
                   </AnimatePresence>
-
-                  {/* Floating Orientation Compass & 3D Controls (Waze / Google Maps Style) */}
-                  <div className="absolute top-20 right-4 z-[9999] flex flex-col gap-2 pointer-events-auto">
-                    {/* Compass Needle Button */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const nextHeadingUp = !isHeadingUp;
-                        setIsHeadingUp(nextHeadingUp);
-                        if (nextHeadingUp) {
-                          toast.success("🧭 Uelekeo wa Waze Umewashwa: Ramani inazunguka na dereva!", { duration: 2500 });
-                        } else {
-                          toast.info("📍 Ramani Imewekwa Kaskazini Juu (North-Up)", { duration: 2500 });
-                        }
-                      }}
-                      className={`w-10 h-10 rounded-2xl flex flex-col items-center justify-center shadow-xl border backdrop-blur-md transition-all active:scale-95 ${
-                        isHeadingUp 
-                          ? (theme === 'dark' ? 'bg-indigo-600/90 text-white border-indigo-400/50 shadow-indigo-500/20' : 'bg-indigo-600 text-white border-indigo-500 shadow-indigo-500/25')
-                          : (theme === 'dark' ? 'bg-[#181824]/90 text-neutral-300 border-neutral-700/80 hover:bg-neutral-800' : 'bg-white/95 text-neutral-700 border-neutral-200 hover:bg-neutral-50')
-                      }`}
-                      title={isHeadingUp ? "Zima mzunguko wa ramani (Weka Kaskazini Juu)" : "Washa mzunguko wa ramani (Waze/Google Maps Heading-Up)"}
-                    >
-                      <div className="relative flex items-center justify-center w-5 h-5">
-                        <Compass 
-                          className={`w-5 h-5 transition-transform duration-300 ${isHeadingUp ? 'animate-pulse' : ''}`}
-                          style={{
-                            transform: isHeadingUp 
-                              ? `rotate(${((driverLivePos as any)?.heading ?? (activeRide?.driverLocation as any)?.heading ?? 0)}deg)` 
-                              : 'rotate(0deg)'
-                          }}
-                        />
-                      </div>
-                      <span className="text-[7.5px] font-black uppercase tracking-tighter leading-none mt-0.5">
-                        {isHeadingUp ? 'HEAD' : 'NORTH'}
-                      </span>
-                    </button>
-
-                    {/* 3D / 2D Perspective Tilt Toggle */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setIs3DMode(!is3DMode);
-                        toast.info(!is3DMode ? "🧊 Mwonekano wa 3D Umewashwa" : "🗺️ Mwonekano wa 2D Umewashwa", { duration: 1800 });
-                      }}
-                      className={`w-10 h-10 rounded-2xl flex flex-col items-center justify-center shadow-xl border backdrop-blur-md transition-all active:scale-95 ${
-                        is3DMode
-                          ? (theme === 'dark' ? 'bg-emerald-600/90 text-white border-emerald-400/50 shadow-emerald-500/20' : 'bg-emerald-600 text-white border-emerald-500 shadow-emerald-500/25')
-                          : (theme === 'dark' ? 'bg-[#181824]/90 text-neutral-300 border-neutral-700/80 hover:bg-neutral-800' : 'bg-white/95 text-neutral-700 border-neutral-200 hover:bg-neutral-50')
-                      }`}
-                      title={is3DMode ? "Badili kuwa 2D Flat" : "Badili kuwa 3D Navigation Perspective"}
-                    >
-                      <span className="text-[11px] font-black tracking-tight leading-none">
-                        {is3DMode ? '3D' : '2D'}
-                      </span>
-                    </button>
-                  </div>
 
                   {/* Floating Auto-Follow Re-Center Button when user pans away from moving driver */}
                   <AnimatePresence>
