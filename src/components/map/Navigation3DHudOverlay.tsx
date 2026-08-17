@@ -41,6 +41,10 @@ export interface Navigation3DHudOverlayProps {
   onOpenChat?: () => void;
   isVoiceMuted?: boolean;
   onToggleVoice?: () => void;
+  driverPhoto?: string;
+  driverName?: string;
+  driverRating?: number;
+  onProfileClick?: () => void;
   activeViewersCount?: number;
 }
 
@@ -59,6 +63,10 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
   onOpenChat,
   isVoiceMuted = false,
   onToggleVoice,
+  driverPhoto,
+  driverName = 'Dereva',
+  driverRating = 5.0,
+  onProfileClick,
   activeViewersCount = 0,
 }) => {
   const isArriving = ride.status === 'accepted' || ride.status === 'driver_arriving';
@@ -176,16 +184,20 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
       if (activeStep) {
         const instr = activeStep.instruction.toLowerCase();
         let icon: 'left' | 'right' | 'straight' | 'check' = 'straight';
+        let actionText = 'Moja kwa Moja';
         let laneActiveIndex = 1;
 
         if (instr.includes('left') || instr.includes('kushoto')) {
           icon = 'left';
+          actionText = 'Kata Kushoto';
           laneActiveIndex = 0;
         } else if (instr.includes('right') || instr.includes('kulia')) {
           icon = 'right';
+          actionText = 'Kata Kulia';
           laneActiveIndex = 3;
         } else if (instr.includes('destination') || instr.includes('arrive') || instr.includes('fika')) {
           icon = 'check';
+          actionText = 'Fika Eneo Lengwa';
           laneActiveIndex = 1;
         }
 
@@ -196,9 +208,10 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
         return {
           type: icon,
           icon,
+          actionText,
           title: cleanTitle.length > 25 ? `${cleanTitle.substring(0, 25)}...` : cleanTitle,
           laneActiveIndex,
-          stepDistFormatted: activeStep.distance >= 1000 ? `${(activeStep.distance / 1000).toFixed(1)} km` : `${Math.round(activeStep.distance)}m`,
+          stepDistFormatted: activeStep.distance >= 1000 ? `${(activeStep.distance / 1000).toFixed(2)} km` : `${Math.round(activeStep.distance)}m`,
         };
       }
     }
@@ -208,7 +221,8 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
       return {
         type: 'destination',
         icon: 'check',
-        title: isArriving ? 'Fika Pickup Point' : 'Umewahi Eneo la Mteja',
+        actionText: isArriving ? 'Fika kwa Mteja' : 'Fika Eneo la Kushusha',
+        title: destinationName,
         laneActiveIndex: 1,
         stepDistFormatted: formattedDist,
       };
@@ -216,6 +230,7 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
       return {
         type: 'turn_right',
         icon: 'right',
+        actionText: 'Kata Kulia',
         title: destinationName.length > 22 ? `${destinationName.substring(0, 22)}...` : destinationName,
         laneActiveIndex: 3, // Highlight right lane ↱
         stepDistFormatted: formattedDist,
@@ -224,6 +239,7 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
       return {
         type: 'turn_left',
         icon: 'left',
+        actionText: 'Kata Kushoto',
         title: 'Wangjing Street / Nyerere Rd',
         laneActiveIndex: 0, // Highlight left lane ↰
         stepDistFormatted: formattedDist,
@@ -232,6 +248,7 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
       return {
         type: 'straight',
         icon: 'straight',
+        actionText: 'Moja kwa Moja',
         title: destinationName,
         laneActiveIndex: 1, // Highlight middle lane ⬆
         stepDistFormatted: formattedDist,
@@ -263,39 +280,58 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
           <div className="absolute -bottom-12 -right-12 w-32 h-32 bg-emerald-500/20 blur-2xl rounded-full pointer-events-none" />
 
           {/* Main Direction Banner Row */}
-          <div className="flex items-center justify-between gap-3 relative z-10">
+          <div className="flex items-center justify-between gap-2.5 relative z-10">
             {/* Maneuver Arrow Box */}
-            <div className="w-13 h-13 sm:w-14 sm:h-14 bg-blue-600/90 rounded-2xl border border-cyan-400/40 flex items-center justify-center shrink-0 shadow-[0_0_20px_rgba(37,99,235,0.5)]">
+            <div className={`w-13 h-13 sm:w-14 sm:h-14 rounded-2xl border flex items-center justify-center shrink-0 shadow-lg ${
+              currentManeuver.icon === 'right' 
+                ? 'bg-amber-500/90 border-amber-300 shadow-amber-500/30' 
+                : currentManeuver.icon === 'left' 
+                  ? 'bg-blue-600/90 border-blue-300 shadow-blue-500/30'
+                  : currentManeuver.icon === 'check'
+                    ? 'bg-emerald-600/90 border-emerald-300 shadow-emerald-500/30'
+                    : 'bg-indigo-600/90 border-cyan-400/40 shadow-cyan-500/30'
+            }`}>
               {currentManeuver.icon === 'right' && (
-                <CornerUpRight className="w-8 h-8 text-white stroke-[2.5] animate-pulse" />
+                <CornerUpRight className="w-8 h-8 text-white stroke-[2.8] animate-pulse" />
               )}
               {currentManeuver.icon === 'left' && (
-                <CornerUpLeft className="w-8 h-8 text-white stroke-[2.5] animate-pulse" />
+                <CornerUpLeft className="w-8 h-8 text-white stroke-[2.8] animate-pulse" />
               )}
               {currentManeuver.icon === 'straight' && (
-                <ArrowUp className="w-8 h-8 text-white stroke-[2.5]" />
+                <ArrowUp className="w-8 h-8 text-white stroke-[2.8]" />
               )}
               {currentManeuver.icon === 'check' && (
-                <CheckCircle2 className="w-8 h-8 text-emerald-400 stroke-[2.5]" />
+                <CheckCircle2 className="w-8 h-8 text-white stroke-[2.8]" />
               )}
             </div>
 
-            {/* Distance and Road Name */}
+            {/* Distance, Swahili Maneuver Action & Street */}
             <div className="flex-1 min-w-0">
-              <div className="flex items-baseline gap-2">
-                <span className="text-2xl sm:text-3xl font-black tracking-tight text-white font-mono leading-none">
-                  {formattedDist}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-xl sm:text-2xl font-black tracking-tight text-white font-mono leading-none">
+                  {currentManeuver.stepDistFormatted || formattedDist}
                 </span>
-                <span className="text-[10px] font-bold text-cyan-300 uppercase tracking-widest bg-cyan-950/60 border border-cyan-500/30 px-2 py-0.5 rounded-full">
-                  ~{etaMins} min
+                <span className={`text-[8.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+                  currentManeuver.icon === 'right'
+                    ? 'bg-amber-950/70 border-amber-400/50 text-amber-300'
+                    : currentManeuver.icon === 'left'
+                      ? 'bg-blue-950/70 border-blue-400/50 text-blue-300'
+                      : currentManeuver.icon === 'check'
+                        ? 'bg-emerald-950/70 border-emerald-400/50 text-emerald-300'
+                        : 'bg-cyan-950/70 border-cyan-400/50 text-cyan-300'
+                }`}>
+                  {currentManeuver.actionText}
+                </span>
+                <span className="text-[9px] font-bold text-cyan-300/90 uppercase tracking-widest bg-cyan-950/50 border border-cyan-500/20 px-1.5 py-0.5 rounded-full">
+                  ~{etaMins} dk
                 </span>
               </div>
-              <h3 className="text-sm sm:text-base font-extrabold text-slate-100 truncate mt-0.5 tracking-wide">
+              <h3 className="text-xs sm:text-sm font-extrabold text-slate-200 truncate mt-1 tracking-wide">
                 {currentManeuver.title}
               </h3>
             </div>
 
-            {/* Quick Action Controls Header */}
+            {/* Quick Action Controls & Driver Profile Avatar */}
             <div className="flex items-center gap-1.5 shrink-0">
               {onToggleVoice && (
                 <button
@@ -305,36 +341,44 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
                       ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400' 
                       : 'bg-white/5 border-white/10 text-slate-400'
                   }`}
-                  title={isVoiceMuted ? "Enable Voice Guidance" : "Mute Voice Guidance"}
+                  title={isVoiceMuted ? "Washa Sauti ya Uelekezaji" : "Zima Sauti"}
                 >
                   {!isVoiceMuted ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-                </button>
-              )}
-
-              {onToggleHeadingUp && (
-                <button
-                  onClick={onToggleHeadingUp}
-                  className={`p-2 rounded-xl border transition-all active:scale-95 ${
-                    isHeadingUp 
-                      ? 'bg-indigo-500/20 border-indigo-400/50 text-indigo-300 shadow-[0_0_12px_rgba(99,102,241,0.3)]' 
-                      : 'bg-white/5 border-white/10 text-slate-400'
-                  }`}
-                  title={isHeadingUp ? "Switch to North-Up" : "Switch to Heading-Up"}
-                >
-                  <Compass className={`w-4 h-4 ${isHeadingUp ? 'animate-pulse' : ''}`} />
                 </button>
               )}
 
               {onToggle3D && (
                 <button
                   onClick={onToggle3D}
-                  className={`px-2.5 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 ${
+                  className={`px-2 py-1.5 rounded-xl border text-[9px] font-black uppercase tracking-wider transition-all active:scale-95 ${
                     is3DMode 
                       ? 'bg-cyan-500/20 border-cyan-400/50 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.3)]' 
                       : 'bg-white/5 border-white/10 text-slate-400'
                   }`}
+                  title={is3DMode ? "Badili kuwa 2D" : "Badili kuwa 3D"}
                 >
                   {is3DMode ? '3D' : '2D'}
+                </button>
+              )}
+
+              {/* Driver Profile Avatar */}
+              {isDriver && (
+                <button
+                  type="button"
+                  onClick={onProfileClick}
+                  className="relative w-10 h-10 rounded-full border-2 border-yellow-400 shadow-[0_0_12px_rgba(250,204,21,0.5)] overflow-visible bg-neutral-900 flex items-center justify-center cursor-pointer active:scale-90 transition-transform p-0 shrink-0 ml-0.5"
+                  title={`Wasifu wa Dereva: ${driverName} (${Number(driverRating).toFixed(1)} ★)`}
+                >
+                  <img
+                    src={driverPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=driver`}
+                    alt={driverName}
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full rounded-full object-cover"
+                  />
+                  {/* Rating Badge */}
+                  <span className="absolute -bottom-1 -right-1 bg-yellow-500 text-black font-black text-[7px] px-1 py-0.2 rounded-full border border-black shadow-sm flex items-center leading-none">
+                    {Number(driverRating).toFixed(1)}
+                  </span>
                 </button>
               )}
             </div>

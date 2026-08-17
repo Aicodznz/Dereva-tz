@@ -3072,6 +3072,10 @@ const getEndPin = (etaText: string) => {
                   }}
                   isVoiceMuted={isMuted}
                   onToggleVoice={toggleMute}
+                  driverPhoto={profile?.photoURL || user?.photoURL}
+                  driverName={(profile as any)?.name || profile?.displayName || user?.displayName || 'Dereva'}
+                  driverRating={profile?.rating || 5.0}
+                  onProfileClick={onProfileClick}
                   activeViewersCount={Object.keys((activeRide as any).viewers || {}).length}
                 />
                 <DriverTripSheet 

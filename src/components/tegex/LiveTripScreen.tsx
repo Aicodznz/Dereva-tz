@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { Shield, Clock, Navigation2, MapPin, MessageSquare, Star, Trash2, Users, Package, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Shield, Clock, Navigation2, MapPin, MessageSquare, Star, Trash2, Users, Package, Sparkles, CheckCircle2, Home } from 'lucide-react';
 import { Ride } from '../../types/trip.types';
 import { useDriverTracking } from '../../hooks/useDriverTracking';
 import { useRouting } from '../../hooks/useRouting';
@@ -16,6 +16,9 @@ interface LiveTripScreenProps {
   ride: Ride;
   onMessage?: () => void;
   onCancel?: () => void;
+  onGoHome?: () => void;
+  user?: any;
+  profile?: any;
   isMinimized?: boolean;
   isSpectator?: boolean;
 }
@@ -54,7 +57,16 @@ const MapControl = ({ position, target }: { position: { lat: number, lng: number
   return null;
 };
 
-export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage, onCancel, isMinimized, isSpectator = false }) => {
+export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ 
+  ride, 
+  onMessage, 
+  onCancel, 
+  onGoHome,
+  user,
+  profile,
+  isMinimized, 
+  isSpectator = false 
+}) => {
   const isArriving = ride.status !== 'on_trip';
   const targetLocation = isArriving ? ride.pickup : ride.destination;
   const { distance, eta } = useDriverTracking(ride.driverLocation, targetLocation);
@@ -143,10 +155,54 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
   const targetLabel = isArriving ? 'Eneo la Pickup' : 'Unakokwenda';
   const distanceLabel = isArriving ? 'Umbali kwa Dereva' : 'Distance Left';
 
+  const userAvatar = profile?.photoURL || user?.photoURL || (ride as any).customerInfo?.photo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid || ride.customerId || 'Customer'}`;
+  const userName = profile?.name || user?.displayName || (ride as any).customerInfo?.name || "Mteja";
+
   return (
     <div 
       className="absolute inset-0 bg-transparent z-50 pointer-events-none"
     >
+      {/* Top Header Bar for Customer: Home / Back Button on Left & Profile Picture on Right */}
+      <div className="absolute top-4 inset-x-4 z-[60] flex items-center justify-between pointer-events-none">
+        {/* Left: Home Button */}
+        <motion.button
+          initial={{ opacity: 0, scale: 0.8, x: -20 }}
+          animate={{ opacity: 1, scale: 1, x: 0 }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.92 }}
+          onClick={onGoHome || (() => { window.location.href = '/'; })}
+          className={`w-11 h-11 rounded-2xl flex items-center justify-center shadow-xl border backdrop-blur-xl transition-all cursor-pointer pointer-events-auto ${
+            theme === 'dark' 
+              ? 'bg-[#0B1220]/90 border-white/15 text-white shadow-black/40 hover:bg-[#111c33]' 
+              : 'bg-white/95 border-neutral-200/80 text-neutral-800 shadow-neutral-300/40 hover:bg-neutral-50'
+          }`}
+          title="Rudi Nyumbani"
+        >
+          <Home className="w-5 h-5 text-indigo-500" />
+        </motion.button>
+
+        {/* Right: Customer Profile Picture */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8, x: 20 }}
+          animate={{ opacity: 1, scale: 1, x: 0 }}
+          className="pointer-events-auto flex items-center gap-2"
+        >
+          <div 
+            className="relative w-11 h-11 rounded-full border-2 border-indigo-500/80 shadow-xl overflow-hidden bg-white dark:bg-neutral-900 flex items-center justify-center cursor-pointer"
+            title={`Wasifu wako: ${userName}`}
+          >
+            <img 
+              src={userAvatar} 
+              alt={userName} 
+              referrerPolicy="no-referrer"
+              className="w-full h-full object-cover"
+            />
+            {/* Online Indicator Badge */}
+            <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white dark:border-neutral-900 rounded-full" />
+          </div>
+        </motion.div>
+      </div>
+
       {/* Bottom Sheet Card */}
       <AnimatePresence>
         {showDetails && (

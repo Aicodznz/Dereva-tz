@@ -4984,6 +4984,12 @@ const getEndPin = (etaText: string) => {
                     viewers: activeRide.viewers,
                   } as any
                 }
+                user={user}
+                profile={profile}
+                onGoHome={() => {
+                  setStep("map");
+                  toast.info("Umerudi nyumbani. Safari yako inaendelea kufuatiliwa!");
+                }}
                 onMessage={isSpectator ? undefined : () => {
                   if (activeRide.driverId) {
                     setSearchParams({ to: activeRide.driverId });
