@@ -522,7 +522,7 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
           )}
         </div>
 
-        {/* RIGHT COLUMN: RECENTER, CHAT, SHARE, VIEWERS */}
+        {/* RIGHT COLUMN: RECENTER, SHARE, VIEWERS */}
         <div className="flex flex-col items-end gap-2.5 pointer-events-auto">
           {/* Recenter / Focus Vehicle Button */}
           {onRecenter && (
@@ -532,18 +532,6 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
               title="Lenga Gari Kwenye Ramani"
             >
               <Compass className="w-5 h-5 animate-spin [animation-duration:10s]" />
-            </button>
-          )}
-
-          {/* Chat with Driver / Customer button */}
-          {onOpenChat && (
-            <button
-              onClick={onOpenChat}
-              className="w-11 h-11 rounded-2xl bg-indigo-600 text-white border border-indigo-400/50 shadow-xl flex items-center justify-center active:scale-90 transition-transform relative"
-              title="Ujumbe wa Safari"
-            >
-              <MessageSquare className="w-5 h-5" />
-              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-slate-900" />
             </button>
           )}
 
