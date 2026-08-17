@@ -2714,26 +2714,6 @@ const getEndPin = (etaText: string) => {
             </span>
           </motion.button>
 
-          {/* Recenter Button (IKITE) */}
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => {
-              setRecenterTrigger(prev => prev + 1);
-              setAutoFollow(true);
-            }}
-            className={`w-10 h-10 border rounded-xl shadow-lg flex flex-col items-center justify-center cursor-pointer transition-all ${
-              autoFollow 
-                ? 'bg-purple-600 border-purple-500 text-white shadow-[0_0_12px_rgba(124,58,237,0.4)] animate-pulse'
-                : 'bg-white/95 dark:bg-[#111118]/90 border-neutral-200/50 dark:border-[#1e1e2e] text-neutral-500 hover:text-neutral-850 dark:hover:text-white hover:border-purple-500/50'
-            }`}
-            title="Ikite (Recenter Map)"
-          >
-            <Compass className={`w-4 h-4 ${autoFollow ? 'text-white' : 'text-purple-500'}`} />
-            <span className="text-[6.5px] font-black mt-0.5 uppercase tracking-tighter leading-none">
-              Ikite
-            </span>
-          </motion.button>
 
           {/* Toggle Road Alerts (Taa, Kona, Matengenezo, Njia Imefungwa) */}
           <motion.button
