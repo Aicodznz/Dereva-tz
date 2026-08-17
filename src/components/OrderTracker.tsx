@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import 'leaflet-rotate';
+import { SmoothDriverMarker } from './map/SmoothDriverMarker';
 import { db } from '../firebase';
 import { doc, onSnapshot, getDoc } from 'firebase/firestore';
 import { Order } from '../types';
@@ -484,9 +486,12 @@ export default function OrderTracker({ order, onBack }: OrderTrackerProps) {
            
            {driverLocation && (
              <>
-               <Marker position={driverLocation} icon={driverIcon}>
-                 <Popup>Dereva wako hapa</Popup>
-               </Marker>
+               <SmoothDriverMarker 
+                 position={driverLocation} 
+                 vehicleType="bike" 
+                 driverId={(order as any).driverId || (order as any).riderId || "courier"} 
+                 isAssignedDriver={true} 
+               />
                <MapUpdater center={driverLocation} />
              </>
            )}

@@ -2,6 +2,8 @@ import React, { useEffect, useState, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import 'leaflet-rotate';
+import { SmoothDriverMarker } from '../../map/SmoothDriverMarker';
 import { usePartnerLocation } from '../../../hooks/parcel/partner/usePartnerLocation';
 import { useTheme } from '../../../ThemeContext';
 
@@ -100,7 +102,12 @@ const ParcelMapView: React.FC<Props> = ({ destination, isDashed = false, routeCo
           attribution='&copy; Google Maps'
         />
         
-        <Marker position={[partnerLoc.lat, partnerLoc.lng]} icon={partnerIcon} />
+        <SmoothDriverMarker 
+          position={[partnerLoc.lat, partnerLoc.lng]} 
+          vehicleType="bike" 
+          driverId="parcel-partner" 
+          isAssignedDriver={true} 
+        />
         
         {destination && (
           <Marker position={[destination.lat, destination.lng]} icon={destinationIcon} />

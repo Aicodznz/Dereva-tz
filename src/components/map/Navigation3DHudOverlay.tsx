@@ -35,6 +35,8 @@ export interface Navigation3DHudOverlayProps {
   routeSteps?: RouteStepProp[];
   is3DMode?: boolean;
   onToggle3D?: () => void;
+  isHeadingUp?: boolean;
+  onToggleHeadingUp?: () => void;
   onRecenter?: () => void;
   onOpenChat?: () => void;
   isVoiceMuted?: boolean;
@@ -51,6 +53,8 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
   routeSteps,
   is3DMode = true,
   onToggle3D,
+  isHeadingUp = true,
+  onToggleHeadingUp,
   onRecenter,
   onOpenChat,
   isVoiceMuted = false,
@@ -304,6 +308,20 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
                   title={isVoiceMuted ? "Enable Voice Guidance" : "Mute Voice Guidance"}
                 >
                   {!isVoiceMuted ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                </button>
+              )}
+
+              {onToggleHeadingUp && (
+                <button
+                  onClick={onToggleHeadingUp}
+                  className={`p-2 rounded-xl border transition-all active:scale-95 ${
+                    isHeadingUp 
+                      ? 'bg-indigo-500/20 border-indigo-400/50 text-indigo-300 shadow-[0_0_12px_rgba(99,102,241,0.3)]' 
+                      : 'bg-white/5 border-white/10 text-slate-400'
+                  }`}
+                  title={isHeadingUp ? "Switch to North-Up" : "Switch to Heading-Up"}
+                >
+                  <Compass className={`w-4 h-4 ${isHeadingUp ? 'animate-pulse' : ''}`} />
                 </button>
               )}
 

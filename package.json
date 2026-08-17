@@ -31,6 +31,7 @@
     "html-to-image": "^1.11.13",
     "jszip": "^3.10.1",
     "leaflet": "^1.9.4",
+    "leaflet-rotate": "^0.2.8",
     "lucide-react": "^0.454.0",
     "motion": "^12.38.0",
     "node-fetch": "^3.3.2",
