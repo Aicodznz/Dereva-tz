@@ -2108,42 +2108,48 @@ const getEndPin = (etaText: string) => {
             {/* Left side: Empty placeholder to align center properly */}
             <div className="pointer-events-none" />
 
-            {/* Center side: Compact Earnings Pill */}
-            <div className="justify-self-center pointer-events-auto flex items-center bg-white/95 dark:bg-neutral-900/90 backdrop-blur-md rounded-full px-3.5 py-1.5 border border-neutral-200/50 dark:border-white/10 shadow-lg gap-3 select-none">
-              {/* Today's Earnings / Leo */}
-              <div className="flex items-center gap-1.5">
-                <div className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-blue-500/30">
-                  <TrendingUp className="w-3.5 h-3.5 stroke-[2.5]" />
+            {/* Center side: Compact Earnings Pill - Only when NO active ride */}
+            {!activeRide ? (
+              <div className="justify-self-center pointer-events-auto flex items-center bg-white/95 dark:bg-neutral-900/90 backdrop-blur-md rounded-full px-3.5 py-1.5 border border-neutral-200/50 dark:border-white/10 shadow-lg gap-3 select-none">
+                {/* Today's Earnings / Leo */}
+                <div className="flex items-center gap-1.5">
+                  <div className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-blue-500/30">
+                    <TrendingUp className="w-3.5 h-3.5 stroke-[2.5]" />
+                  </div>
+                  <div className="flex flex-col text-left">
+                    <span className="text-[6.5px] font-black uppercase text-blue-600 dark:text-blue-400 tracking-wider leading-none">LEO</span>
+                    <span className="text-[10px] font-black text-neutral-800 dark:text-white mt-0.5 leading-none whitespace-nowrap">
+                      {(stats?.todayEarnings || 0).toLocaleString()} TZS
+                    </span>
+                  </div>
                 </div>
-                <div className="flex flex-col text-left">
-                  <span className="text-[6.5px] font-black uppercase text-blue-600 dark:text-blue-400 tracking-wider leading-none">LEO</span>
-                  <span className="text-[10px] font-black text-neutral-800 dark:text-white mt-0.5 leading-none whitespace-nowrap">
-                    {(stats?.todayEarnings || 0).toLocaleString()} TZS
-                  </span>
+
+                {/* Divider */}
+                <div className="h-4.5 w-[1px] bg-neutral-200 dark:bg-white/10" />
+
+                {/* Total Earnings / Jumla */}
+                <div className="flex items-center gap-1.5">
+                  <div className="w-6 h-6 rounded-full bg-purple-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-purple-500/30">
+                    <DollarSign className="w-3.5 h-3.5 stroke-[2.5]" />
+                  </div>
+                  <div className="flex flex-col text-left">
+                    <span className="text-[6.5px] font-black uppercase text-purple-600 dark:text-purple-400 tracking-wider leading-none">JUMLA</span>
+                    <span className="text-[10px] font-black text-neutral-800 dark:text-white mt-0.5 leading-none whitespace-nowrap">
+                      {(stats?.lifetimeEarnings || 0).toLocaleString()} TZS
+                    </span>
+                  </div>
                 </div>
               </div>
+            ) : (
+              <div className="pointer-events-none" />
+            )}
 
-              {/* Divider */}
-              <div className="h-4.5 w-[1px] bg-neutral-200 dark:bg-white/10" />
-
-              {/* Total Earnings / Jumla */}
-              <div className="flex items-center gap-1.5">
-                <div className="w-6 h-6 rounded-full bg-purple-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-purple-500/30">
-                  <DollarSign className="w-3.5 h-3.5 stroke-[2.5]" />
-                </div>
-                <div className="flex flex-col text-left">
-                  <span className="text-[6.5px] font-black uppercase text-purple-600 dark:text-purple-400 tracking-wider leading-none">JUMLA</span>
-                  <span className="text-[10px] font-black text-neutral-800 dark:text-white mt-0.5 leading-none whitespace-nowrap">
-                    {(stats?.lifetimeEarnings || 0).toLocaleString()} TZS
-                  </span>
-                </div>
+            {/* Right side: Profile Avatar (only when no active ride) */}
+            {!activeRide && (
+              <div className="justify-self-end pointer-events-auto">
+                {renderProfileAvatar('md')}
               </div>
-            </div>
-
-            {/* Right side: Profile Avatar */}
-            <div className="justify-self-end pointer-events-auto">
-              {renderProfileAvatar('md')}
-            </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

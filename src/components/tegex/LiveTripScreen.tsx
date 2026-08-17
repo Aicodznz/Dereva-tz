@@ -139,9 +139,6 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
 
   const routing = useRouting(pickupTuple, destTuple, true);
 
-  const [is3DMode, setIs3DMode] = useState(true);
-  const [isVoiceMuted, setIsVoiceMuted] = useState(false);
-
   const statusText = isArriving ? 'Dereva anakuja...' : 'Safari Inaendelea';
   const targetLabel = isArriving ? 'Eneo la Pickup' : 'Unakokwenda';
   const distanceLabel = isArriving ? 'Umbali kwa Dereva' : 'Distance Left';
@@ -150,21 +147,6 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ ride, onMessage,
     <div 
       className="absolute inset-0 bg-transparent z-50 pointer-events-none"
     >
-      {/* 3D Navigation Guidance HUD Overlay */}
-      <Navigation3DHudOverlay
-        ride={ride}
-        isDriver={false}
-        driverLocation={ride.driverLocation}
-        targetLocation={targetLocation}
-        routeSteps={routing.steps}
-        is3DMode={is3DMode}
-        onToggle3D={() => setIs3DMode(!is3DMode)}
-        onOpenChat={onMessage}
-        isVoiceMuted={isVoiceMuted}
-        onToggleVoice={() => setIsVoiceMuted(!isVoiceMuted)}
-        activeViewersCount={activeViewersCount}
-      />
-
       {/* Bottom Sheet Card */}
       <AnimatePresence>
         {showDetails && (

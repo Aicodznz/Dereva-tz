@@ -3556,9 +3556,7 @@ const getEndPin = (etaText: string) => {
                     {destination && (
                       <Marker 
                         position={destPos} 
-                        icon={["on_trip", "arriving", "driver_arrived"].includes(step) || activeRide?.status === "on_trip" 
-                          ? getNavEndPin(destination) 
-                          : getEndPin(etaDestText)} 
+                        icon={getEndPin(etaDestText)} 
                       />
                     )}
 
