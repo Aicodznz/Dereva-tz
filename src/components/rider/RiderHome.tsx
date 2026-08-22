@@ -408,16 +408,20 @@ const createCornerIcon = (direction: 'left' | 'right') => {
 interface RiderHomeProps {
   onNavVisibilityChange?: (visible: boolean) => void;
   onProfileClick?: () => void;
+  onNavigateTab?: (tab: 'wallet' | 'subscription' | 'sacco' | 'aicredit' | 'settings') => void;
 }
 
 const pinIconCacheMap: Record<string, L.DivIcon> = {};
 
-export default function RiderHome({ onNavVisibilityChange, onProfileClick }: RiderHomeProps) {
+const MIN_REQUIRED_ONLINE_BALANCE = 3000;
+
+export default function RiderHome({ onNavVisibilityChange, onProfileClick, onNavigateTab }: RiderHomeProps) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, profile } = useAuth();
   const { setTheme: setNextTheme, resolvedTheme } = useTheme();
   const [isOnline, setIsOnline] = useState(false);
+  const [showLowBalanceModal, setShowLowBalanceModal] = useState(false);
   const [autoFollow, setAutoFollow] = useState(true);
   const [recenterTrigger, setRecenterTrigger] = useState(0);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -1489,6 +1493,22 @@ const getEndPin = (etaText: string) => {
     }
 
     const nextStatus = !isOnline;
+
+    // Pre-paid Minimum Balance Rule for Pay-As-You-Go drivers:
+    // If not on an active PapoPass subscription (0%), driver must have at least MIN_REQUIRED_ONLINE_BALANCE (TZS 3,000)
+    if (nextStatus) {
+      const isSubActive = profile?.subscription?.status === 'active' && 
+        profile?.subscription?.expiresAt && 
+        new Date(profile.subscription.expiresAt).getTime() > Date.now();
+      
+      const currentBalance = profile?.walletBalance ?? 0;
+
+      if (!isSubActive && currentBalance < MIN_REQUIRED_ONLINE_BALANCE) {
+        setShowLowBalanceModal(true);
+        return;
+      }
+    }
+
     setIsOnline(nextStatus);
     
     if (nextStatus) {
@@ -2106,8 +2126,54 @@ const getEndPin = (etaText: string) => {
             exit={{ y: -100, opacity: 0 }}
             className="absolute top-4 inset-x-4 z-[9999] grid grid-cols-3 items-center pointer-events-none"
           >
-            {/* Left side: Empty placeholder to align center properly */}
-            <div className="pointer-events-none" />
+            {/* Left side: Financial Status Badge */}
+            {!activeRide ? (
+              <div className="justify-self-start pointer-events-auto">
+                <button
+                  type="button"
+                  onClick={onProfileClick}
+                  className="flex items-center gap-1.5 bg-white/95 dark:bg-neutral-900/90 backdrop-blur-md rounded-full px-3 py-1.5 border border-neutral-200/50 dark:border-white/10 shadow-lg text-left active:scale-95 transition-transform"
+                >
+                  {profile?.subscription?.status === 'active' ? (
+                    <>
+                      <div className="w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0">
+                        <span className="text-[10px]">🔥</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[6.5px] font-black uppercase text-amber-600 dark:text-amber-400 leading-none">PAPOPASS</span>
+                        <span className="text-[9px] font-black text-neutral-800 dark:text-white mt-0.5 leading-none">0% Kamisheni</span>
+                      </div>
+                    </>
+                  ) : (profile?.walletBalance ?? 0) < 0 ? (
+                    <>
+                      <div className="w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0">
+                        <span className="text-[10px]">⚡</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[6.5px] font-black uppercase text-rose-600 dark:text-rose-400 leading-none">AI OVERDRAFT</span>
+                        <span className="text-[9px] font-black text-rose-600 dark:text-rose-400 mt-0.5 leading-none">
+                          -TZS {Math.abs(profile?.walletBalance ?? 0).toLocaleString()}
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0">
+                        <span className="text-[10px]">👛</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[6.5px] font-black uppercase text-emerald-600 dark:text-emerald-400 leading-none">MKOBA</span>
+                        <span className="text-[9px] font-black text-neutral-800 dark:text-white mt-0.5 leading-none">
+                          {(profile?.walletBalance ?? 0).toLocaleString()} TZS
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </button>
+              </div>
+            ) : (
+              <div className="pointer-events-none" />
+            )}
 
             {/* Center side: Compact Earnings Pill - Only when NO active ride */}
             {!activeRide ? (
@@ -3610,6 +3676,113 @@ const getEndPin = (etaText: string) => {
             isDriver={true}
           />
         )}
+
+        {/* Low Balance / Pre-paid Requirement Modal for 10% Pay-As-You-Go */}
+        <AnimatePresence>
+          {showLowBalanceModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[99999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
+            >
+              <motion.div
+                initial={{ scale: 0.9, y: 20 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.9, y: 20 }}
+                className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-[2.5rem] p-6 sm:p-7 max-w-sm w-full shadow-2xl space-y-4 text-center relative overflow-hidden"
+              >
+                {/* Background accent */}
+                <div className="absolute -top-12 -right-12 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
+
+                {/* Warning Icon Badge */}
+                <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-amber-500 to-rose-500 text-white flex items-center justify-center mx-auto shadow-lg shadow-amber-500/30">
+                  <Wallet className="w-8 h-8" />
+                </div>
+
+                <div className="space-y-1.5">
+                  <span className="text-[9px] font-black uppercase tracking-[0.2em] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/50 px-3 py-1 rounded-full border border-amber-500/20">
+                    MFUMO WA 10% KAMISHENI
+                  </span>
+                  <h3 className="text-lg font-black uppercase tracking-tight text-neutral-900 dark:text-white">
+                    Salio Halitoshi Kuingia Online
+                  </h3>
+                  <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed pt-1">
+                    Ili kuanza kupokea wateja kwenye <b>Mfumo wa Kawaida wa Kamisheni (10%)</b>, unahitaji kuwa na salio la kuanzia la angalau <b>TZS 3,000</b> kwenye Mkoba wako.
+                  </p>
+                </div>
+
+                {/* Balance breakdown card */}
+                <div className="bg-neutral-50 dark:bg-neutral-950 p-3.5 rounded-2xl border border-neutral-200 dark:border-neutral-800 text-xs space-y-1.5 text-left">
+                  <div className="flex justify-between font-bold">
+                    <span className="text-neutral-500">Salio Lako Sasa:</span>
+                    <span className="font-black text-rose-500">TZS {(profile?.walletBalance ?? 0).toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between font-bold">
+                    <span className="text-neutral-500">Kiwango cha Chini:</span>
+                    <span className="font-black text-neutral-800 dark:text-white">TZS 3,000</span>
+                  </div>
+                  <div className="flex justify-between font-bold pt-1 border-t border-neutral-200 dark:border-neutral-800">
+                    <span className="text-neutral-500">Upungufu:</span>
+                    <span className="font-black text-amber-600 dark:text-amber-400">
+                      TZS {Math.max(0, 3000 - (profile?.walletBalance ?? 0)).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Or PapoPass Callout */}
+                <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 p-3 rounded-2xl text-left flex items-center gap-2.5">
+                  <span className="text-lg">🔥</span>
+                  <div className="text-[10.5px]">
+                    <p className="font-black text-amber-600 dark:text-amber-400 uppercase">Hutaki kukatwa 10%?</p>
+                    <p className="text-neutral-600 dark:text-neutral-400">Washa <b>PapoPass (TZS 2,000/siku)</b> upate 0% kamisheni bila kuhitaji salio la mkoba!</p>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="space-y-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowLowBalanceModal(false);
+                      if (onNavigateTab) {
+                        onNavigateTab('wallet');
+                      } else if (onProfileClick) {
+                        onProfileClick();
+                      }
+                    }}
+                    className="w-full h-12 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black uppercase text-xs tracking-wider shadow-lg flex items-center justify-center gap-2 border-0 outline-none active:scale-95 transition-all"
+                  >
+                    <Plus className="w-4 h-4 stroke-[3]" /> Weka Salio Sasa (Top Up)
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowLowBalanceModal(false);
+                      if (onNavigateTab) {
+                        onNavigateTab('subscription');
+                      } else if (onProfileClick) {
+                        onProfileClick();
+                      }
+                    }}
+                    className="w-full h-11 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-2xl font-black uppercase text-xs tracking-wider shadow-md flex items-center justify-center gap-1.5 border-0 outline-none active:scale-95 transition-all"
+                  >
+                    <span>🔥</span> Washa PapoPass (0% Kamisheni)
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowLowBalanceModal(false)}
+                    className="w-full py-2.5 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 text-xs font-bold uppercase tracking-wider border-0 bg-transparent"
+                  >
+                    Funga & Baadaye
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </AnimatePresence>
     </div>
   );

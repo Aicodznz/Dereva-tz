@@ -2,7 +2,8 @@ import React from 'react';
 import { 
   User, Wallet, Settings, LayoutGrid, Shield, MessageSquare, 
   HelpCircle, Share2, LogOut, ChevronRight, Calculator,
-  BookOpen, Car, Building2, Trash2, Milestone, Languages, ArrowLeft
+  BookOpen, Car, Building2, Trash2, Milestone, Languages, ArrowLeft,
+  Users, Sparkles, Flame
 } from 'lucide-react';
 import { useAuth } from '../../AuthContext';
 import { motion } from 'motion/react';
@@ -12,16 +13,18 @@ const menuGroups = [
     title: "Account & Profile",
     items: [
       { icon: User, name: "My Profile", action: "profile", color: "text-blue-500", bg: "bg-blue-50" },
-      { icon: Wallet, name: "My Wallet", action: "wallet", color: "text-emerald-500", bg: "bg-emerald-50" },
+      { icon: Wallet, name: "My Wallet & Malipo", action: "wallet", color: "text-emerald-500", bg: "bg-emerald-50" },
       { icon: LayoutGrid, name: "App Settings", action: "app-settings", color: "text-orange-500", bg: "bg-orange-50" }
     ]
   },
   {
-    title: "Business & Earnings",
+    title: "Business, Vifurushi & Mikopo",
     items: [
-      { icon: Calculator, name: "Subscription Plan", action: "subscription", color: "text-purple-500", bg: "bg-purple-50" },
+      { icon: Flame, name: "Vifurushi vya Safari (PapoPass 0%)", action: "subscription", color: "text-amber-500", bg: "bg-amber-50" },
+      { icon: Users, name: "Dhamana ya SACCO / Chama", action: "sacco", color: "text-blue-600", bg: "bg-blue-50" },
+      { icon: Sparkles, name: "AI Alama & Kikomo cha Deni", action: "aicredit", color: "text-purple-500", bg: "bg-purple-50" },
       { icon: Milestone, name: "Incentive", action: "incentive", color: "text-pink-500", bg: "bg-pink-50" },
-      { icon: Share2, name: "Earn Money", action: "referral", color: "text-cyan-500", bg: "bg-cyan-50" }
+      { icon: Share2, name: "Earn Money (Referral)", action: "referral", color: "text-cyan-500", bg: "bg-cyan-50" }
     ]
   },
   {

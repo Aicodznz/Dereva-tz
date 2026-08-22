@@ -55,6 +55,28 @@ export interface UserProfile {
     expiresAt: string | null;
     status: 'active' | 'inactive';
   };
+  saccoGroup?: {
+    groupId: string;
+    groupName: string;
+    branchName?: string;
+    role: 'leader' | 'member' | 'treasurer';
+    membersCount: number;
+    poolBalance: number;
+    guaranteeLimit: number;
+    joinedAt: string;
+    code: string;
+  };
+  aiCreditScore?: {
+    score: number;
+    tier: 'Bronze Rookie' | 'Silver Active' | 'Gold Champion' | 'Platinum Legend';
+    overdraftLimit: number;
+    usedOverdraft: number;
+    completedTrips: number;
+    acceptanceRate: number;
+    customerRating: number;
+    repaymentRate: number;
+    enabled: boolean;
+  };
   registrationDocs?: {
     license_front?: string | boolean;
     license_back?: string | boolean;

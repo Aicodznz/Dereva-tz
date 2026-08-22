@@ -140,6 +140,9 @@ const ParcelRequestFlow: React.FC = () => {
           onClose={() => setShowLocationPicker({ ...showLocationPicker, isOpen: false })}
           onSelect={handleLocationSelect}
           useParcelIcon={true}
+          pickerType={showLocationPicker.type === 'sender' ? 'pickup' : 'delivery'}
+          title={showLocationPicker.type === 'sender' ? 'Mahali pa Kuchukulia' : 'Atapokelea Wapi?'}
+          subtitle={showLocationPicker.type === 'sender' ? 'Chagua anwani ya kuchukua mzigo (Pickup Address)' : 'Chagua anwani ya kumfikishia mpokeaji (Delivery Address)'}
           initialLocation={
             showLocationPicker.type === 'sender' 
               ? { lat: formData.sender.lat, lng: formData.sender.lng, address: formData.sender.address }

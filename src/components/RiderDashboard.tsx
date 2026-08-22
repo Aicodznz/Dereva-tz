@@ -25,7 +25,7 @@ import RiderChatStaff from './rider/RiderChatStaff';
 import RiderPrivacyPolicy from './rider/RiderPrivacyPolicy';
 import RiderLanguage from './rider/RiderLanguage';
 
-type NavTab = 'home' | 'performance' | 'rides' | 'settings' | 'wallet' | 'docs' | 'vehicle' | 'bank' | 'app-settings' | 'profile' | 'subscription' | 'incentive' | 'referral' | 'ticket' | 'chat' | 'privacy' | 'lang';
+type NavTab = 'home' | 'performance' | 'rides' | 'settings' | 'wallet' | 'docs' | 'vehicle' | 'bank' | 'app-settings' | 'profile' | 'subscription' | 'sacco' | 'aicredit' | 'incentive' | 'referral' | 'ticket' | 'chat' | 'privacy' | 'lang';
 
 export default function RiderDashboard() {
   const { user, profile } = useAuth();
@@ -43,6 +43,8 @@ export default function RiderDashboard() {
     if (view === 'app-settings') setActiveTab('app-settings');
     if (view === 'profile') setActiveTab('profile');
     if (view === 'subscription') setActiveTab('subscription');
+    if (view === 'sacco') setActiveTab('sacco');
+    if (view === 'aicredit') setActiveTab('aicredit');
     if (view === 'incentive') setActiveTab('incentive');
     if (view === 'referral') setActiveTab('referral');
     if (view === 'ticket') setActiveTab('ticket');
@@ -54,7 +56,13 @@ export default function RiderDashboard() {
   const renderContent = () => {
     switch (activeTab) {
       case 'home':
-        return <RiderHome onNavVisibilityChange={setIsNavVisible} onProfileClick={() => setActiveTab('settings')} />;
+        return (
+          <RiderHome 
+            onNavVisibilityChange={setIsNavVisible} 
+            onProfileClick={() => setActiveTab('settings')}
+            onNavigateTab={(tab) => setActiveTab(tab)}
+          />
+        );
       case 'performance':
         return <RiderStats />;
       case 'rides':
@@ -62,7 +70,13 @@ export default function RiderDashboard() {
       case 'settings':
         return <RiderSettings onNavigate={handleSettingsNavigate} onBack={() => setActiveTab('home')} />;
       case 'wallet':
-        return <RiderWallet onBack={() => setActiveTab('settings')} />;
+        return <RiderWallet onBack={() => setActiveTab('settings')} initialTab="wallet" />;
+      case 'subscription':
+        return <RiderWallet onBack={() => setActiveTab('settings')} initialTab="subscription" />;
+      case 'sacco':
+        return <RiderWallet onBack={() => setActiveTab('settings')} initialTab="sacco" />;
+      case 'aicredit':
+        return <RiderWallet onBack={() => setActiveTab('settings')} initialTab="aicredit" />;
       case 'docs':
         return <RiderRegistrationDetails initialTab="docs" onBack={() => setActiveTab('settings')} />;
       case 'vehicle':

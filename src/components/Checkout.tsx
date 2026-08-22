@@ -1005,6 +1005,9 @@ export default function Checkout() {
       <LocationPicker 
         isOpen={isLocationPickerOpen}
         onClose={() => setIsLocationPickerOpen(false)}
+        pickerType="delivery"
+        title="Atapokelea Wapi?"
+        subtitle="Chagua eneo la kufikishiwa oda yako"
         onSelect={(loc) => {
           setAddress(loc.address);
           setLatitude(loc.lat);
