@@ -449,6 +449,21 @@
   background-color: #0d0d12 !important; /* Elegant off-black fallback background */
 }
 
+/* Hide Leaflet Attribution banner & Compass/Rotate Controls */
+.leaflet-control-attribution,
+.leaflet-bottom.leaflet-right .leaflet-control-attribution,
+.leaflet-control-rotate,
+.leaflet-control-compass,
+.leaflet-control-bearing,
+.leaflet-rotate-control,
+[class*="leaflet-control-rotate"],
+[class*="leaflet-control-compass"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 /* Beautiful soft modern slate-dark mode map tiles style */
 .dark .leaflet-tile-container {
   filter: invert(92%) hue-rotate(200deg) brightness(88%) contrast(92%) saturate(90%) !important;

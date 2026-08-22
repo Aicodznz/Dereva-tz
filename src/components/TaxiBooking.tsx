@@ -3490,6 +3490,15 @@ const getEndPin = (etaText: string) => {
                     background-color: #7F77DD !important;
                     color: white !important;
                   }
+                  .leaflet-control-attribution,
+                  .leaflet-control-rotate,
+                  .leaflet-control-compass,
+                  .leaflet-control-bearing,
+                  .leaflet-rotate-control {
+                    display: none !important;
+                    visibility: hidden !important;
+                    opacity: 0 !important;
+                  }
                 `}</style>
                 <div
                   style={{
@@ -3507,6 +3516,7 @@ const getEndPin = (etaText: string) => {
                     preferCanvas={false}
                     className="h-full w-full"
                     zoomControl={true}
+                    attributionControl={false}
                     touchZoom={true}
                     doubleClickZoom={true}
                     scrollWheelZoom={true}

@@ -938,6 +938,7 @@ export default function LocationPicker({ isOpen, onClose, onSelect, initialLocat
                 maxZoom={22}
                 style={{ height: '100%', width: '100%' }}
                 zoomControl={false}
+                attributionControl={false}
                 dragging={true}
                 doubleClickZoom={true}
                 scrollWheelZoom={true}

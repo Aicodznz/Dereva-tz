@@ -2185,6 +2185,15 @@ const getEndPin = (etaText: string) => {
           .leaflet-container {
             background: ${theme === 'dark' ? '#111118' : '#ffffff'} !important;
           }
+          .leaflet-control-attribution,
+          .leaflet-control-rotate,
+          .leaflet-control-compass,
+          .leaflet-control-bearing,
+          .leaflet-rotate-control {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+          }
         `}</style>
         <div className={`absolute inset-0 transition-opacity duration-1000 ${theme === 'dark' ? 'opacity-100' : 'opacity-0'}`}>
            <div className="absolute inset-0 bg-[#0a0a0f]" />
@@ -2202,6 +2211,7 @@ const getEndPin = (etaText: string) => {
             preferCanvas={false}
             style={{ height: '100%', width: '100%' }}
             zoomControl={true}
+            attributionControl={false}
             touchZoom={true}
             doubleClickZoom={true}
             scrollWheelZoom={true}
