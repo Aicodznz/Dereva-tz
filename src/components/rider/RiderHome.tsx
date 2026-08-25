@@ -216,6 +216,21 @@ function MapController({
   return null;
 }
 
+function ZoomHandler({ zoomAction }: { zoomAction: { type: 'in' | 'out' | 'auto', id: number } | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!zoomAction) return;
+    if (zoomAction.type === 'in') {
+      map.zoomIn(1);
+    } else if (zoomAction.type === 'out') {
+      map.zoomOut(1);
+    } else if (zoomAction.type === 'auto') {
+      map.setZoom(17.5, { animate: true });
+    }
+  }, [zoomAction?.id, map]);
+  return null;
+}
+
 function MapBoundsUpdater({ activeRide, position }: { activeRide: any, position: [number, number] }) {
   const map = useMap();
   const lastStatus = React.useRef<string | null>(null);
@@ -435,6 +450,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick, onNav
   const lastAlertedOrderId = React.useRef<string | null>(null);
   const [autoFollow, setAutoFollow] = useState(true);
   const [recenterTrigger, setRecenterTrigger] = useState(0);
+  const [zoomAction, setZoomAction] = useState<{ type: 'in' | 'out' | 'auto', id: number } | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [position, setPosition] = useState<[number, number]>([-6.7924, 39.2083]);
   const [activePoiCategory, setActivePoiCategory] = useState<string | null>(null);
@@ -2338,7 +2354,43 @@ const getEndPin = (etaText: string) => {
                 rotation,
                 activeRide?.status === 'on_trip' ? 'toward Nelson Mandela Rd' : undefined
               )}
-            />
+            >
+              <Popup className="custom-driver-vehicle-popup">
+                <div className="p-3 text-center min-w-[190px]">
+                  <div className="w-10 h-10 mx-auto rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 mb-2">
+                    <span className="text-xl">
+                      {vType === 'bike' ? '🏍️' : vType === 'bajaj' ? '🛺' : '🚗'}
+                    </span>
+                  </div>
+                  <h4 className="font-extrabold text-xs text-neutral-900 dark:text-white uppercase tracking-tight">
+                    {profile?.displayName || 'Usafiri Wangu'}
+                  </h4>
+                  <p className="text-[10.5px] font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
+                    {vType === 'bike' ? 'Pikipiki (BodaBoda)' : vType === 'bajaj' ? 'Bajaji (TukTuk)' : 'Gari (Taxi)'}
+                  </p>
+                  <div className="mt-2 pt-2 border-t border-neutral-200/60 dark:border-neutral-800 flex items-center justify-between text-[10px] text-neutral-600 dark:text-neutral-400">
+                    <span>Namba: <strong className="text-neutral-900 dark:text-white">{profile?.licensePlate || 'T 123 ABC'}</strong></span>
+                    <span className={`px-1.5 py-0.5 rounded-full font-black text-[9px] ${isOnline ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                      {isOnline ? 'ONLINE' : 'OFFLINE'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setAutoFollow(true);
+                      setRecenterTrigger(Date.now());
+                      setZoomAction({ type: 'auto', id: Date.now() });
+                      toast.success("Ramani imelenga usafiri wako kikamilifu! 🎯");
+                    }}
+                    className="mt-2.5 w-full py-1.5 px-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm active:scale-95 transition-all flex items-center justify-center gap-1.5"
+                  >
+                    <Navigation2 className="w-3 h-3 rotate-45" />
+                    Lenga Usafiri
+                  </button>
+                </div>
+              </Popup>
+            </Marker>
 
             <Circle 
               center={position}
@@ -2606,6 +2658,7 @@ const getEndPin = (etaText: string) => {
               setAutoFollow={setAutoFollow}
               recenterTrigger={recenterTrigger}
             />
+            <ZoomHandler zoomAction={zoomAction} />
             <MapBoundsUpdater activeRide={activeRide} position={position} />
             <PoiMapController 
               activePoiCategory={activePoiCategory} 
@@ -2965,6 +3018,53 @@ const getEndPin = (etaText: string) => {
           </motion.button>
 
 
+          {/* Recenter & Auto-Follow Vehicle Button */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => {
+              setAutoFollow(true);
+              setRecenterTrigger(Date.now());
+              setZoomAction({ type: 'auto', id: Date.now() });
+              toast.success("Ramani imelenga usafiri wako na kuanza kufuatilia!");
+            }}
+            className={`w-10 h-10 border rounded-xl shadow-lg flex flex-col items-center justify-center transition-all ${
+              autoFollow 
+                ? 'bg-emerald-600 border-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.45)]' 
+                : 'bg-white/95 dark:bg-[#111118]/90 border-neutral-200/50 dark:border-[#1e1e2e] text-neutral-500 hover:text-emerald-500'
+            }`}
+            title="Lenga na Fuatilia Usafiri Wako (Auto-Follow)"
+          >
+            <Navigation2 className={`w-4 h-4 rotate-45 ${autoFollow ? 'text-white fill-white' : 'text-neutral-500'}`} />
+            <span className="text-[6px] font-black mt-0.5 uppercase tracking-tighter leading-none">Usafiri</span>
+          </motion.button>
+
+          {/* Zoom In & Zoom Out Compact Button Pair */}
+          <div className="flex flex-col bg-white/95 dark:bg-[#111118]/90 border border-neutral-200/50 dark:border-[#1e1e2e] rounded-xl shadow-lg overflow-hidden backdrop-blur-xl">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => {
+                setZoomAction({ type: 'in', id: Date.now() });
+              }}
+              className="w-10 h-8 flex items-center justify-center text-neutral-700 dark:text-neutral-200 hover:bg-emerald-500 hover:text-white transition-colors border-b border-neutral-200/50 dark:border-[#1e1e2e]"
+              title="Zoom In (Kuza Ramani)"
+            >
+              <Plus className="w-4 h-4 stroke-[2.5]" />
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => {
+                setZoomAction({ type: 'out', id: Date.now() });
+              }}
+              className="w-10 h-8 flex items-center justify-center text-neutral-700 dark:text-neutral-200 hover:bg-emerald-500 hover:text-white transition-colors"
+              title="Zoom Out (Punguza Ukubwa)"
+            >
+              <Minus className="w-4 h-4 stroke-[2.5]" />
+            </motion.button>
+          </div>
+
           {/* Toggle Road Alerts (Taa, Kona, Matengenezo, Njia Imefungwa) */}
           <motion.button
             whileHover={{ scale: 1.05 }}
@@ -2984,41 +3084,6 @@ const getEndPin = (etaText: string) => {
             <span className="text-[6px] font-black mt-0.5 uppercase tracking-tighter leading-none">Hali Njia</span>
           </motion.button>
 
-          {activeRide && (
-            <>
-              {/* Toggle Safari Details */}
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setIsHeaderHidden(!isHeaderHidden)}
-                className={`w-10 h-10 border rounded-xl shadow-lg flex flex-col items-center justify-center transition-all ${
-                  isHeaderHidden 
-                    ? 'bg-red-500/10 border-red-500/20 text-red-500 dark:text-red-400' 
-                    : 'bg-emerald-500/10 dark:bg-[#00FF88]/10 border-emerald-500/30 dark:border-[#00FF88]/30 text-emerald-600 dark:text-[#00FF88]'
-                }`}
-                title={isHeaderHidden ? "Onyesha Maelezo ya Safari" : "Ficha Maelezo ya Safari"}
-              >
-                {isHeaderHidden ? <EyeOff className="w-3.5 h-3.5 animate-pulse" /> : <Eye className="w-3.5 h-3.5" />}
-                <span className="text-[6px] font-black mt-0.5 uppercase tracking-tighter leading-none">Safari</span>
-              </motion.button>
-
-              {/* Toggle Maelekezo (Ruti) */}
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setIsInstructionsHidden(!isInstructionsHidden)}
-                className={`w-10 h-10 border rounded-xl shadow-lg flex flex-col items-center justify-center transition-all ${
-                  isInstructionsHidden 
-                    ? 'bg-red-500/10 border-red-500/20 text-red-500 dark:text-red-400' 
-                    : 'bg-emerald-500/10 dark:bg-[#00FF88]/10 border-emerald-500/30 dark:border-[#00FF88]/30 text-emerald-600 dark:text-[#00FF88]'
-                }`}
-                title={isInstructionsHidden ? "Onyesha Maelekezo ya Ruti" : "Ficha Maelekezo ya Ruti"}
-              >
-                {isInstructionsHidden ? <EyeOff className="w-3.5 h-3.5 animate-pulse" /> : <Eye className="w-3.5 h-3.5" />}
-                <span className="text-[6px] font-black mt-0.5 uppercase tracking-tighter leading-none">Ruti</span>
-              </motion.button>
-            </>
-          )}
 
           {!activeRide && !incomingRequest && (
             <>
@@ -3286,6 +3351,36 @@ const getEndPin = (etaText: string) => {
           </motion.div>
         </div>
       )}
+
+      {/* Floating Recenter / Follow Transport Floating Button when Map is dragged */}
+      <AnimatePresence>
+        {!autoFollow && (
+          <motion.button
+            key="recenter-vehicle-floating-pill"
+            initial={{ scale: 0.8, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.8, opacity: 0, y: 20 }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.92 }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setAutoFollow(true);
+              setRecenterTrigger(Date.now());
+              setZoomAction({ type: 'auto', id: Date.now() });
+              toast.success("Unamfuatilia usafiri wako sasa! (Auto-Follow & Zoom)", { duration: 2000 });
+            }}
+            className="absolute bottom-44 sm:bottom-48 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-2xl border border-emerald-400/40 cursor-pointer backdrop-blur-md transition-all active:shadow-inner"
+          >
+            <div className="relative flex items-center justify-center w-5 h-5">
+              <span className="absolute w-full h-full rounded-full bg-white/40 animate-ping pointer-events-none" />
+              <Navigation2 className="w-4 h-4 text-white rotate-45" />
+            </div>
+            <span className="tracking-tight uppercase font-black text-[11px]">
+              Fuatilia Usafiri Wako {vType === 'bike' ? '🏍️' : vType === 'bajaj' ? '🛺' : '🚗'}
+            </span>
+          </motion.button>
+        )}
+      </AnimatePresence>
 
       {/* Interactive Bottom Sheet Container - Only for active states */}
       {isOnline && (incomingRequest || activeRide || incomingOrder) && (
