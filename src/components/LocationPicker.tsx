@@ -61,49 +61,69 @@ const getVendorIcon = (category: string = '') => {
   });
 };
 
+// Custom Icon for General Location Selection (Clean standard pin)
+const getStandardLocationPinIcon = () => {
+  return L.divIcon({
+    html: `
+      <div class="relative flex flex-col items-center pointer-events-none select-none">
+        <div class="relative w-11 h-11 flex items-center justify-center">
+          <div class="absolute inset-0 bg-gradient-to-br from-orange-500 to-amber-600 rounded-full rounded-bl-none rotate-45 shadow-[0_8px_20px_rgba(249,115,22,0.45)] border-[2.5px] border-white"></div>
+          <div class="relative z-10 w-5 h-5 bg-white rounded-full flex items-center justify-center -rotate-45 shadow-inner">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          </div>
+        </div>
+        <div class="w-3.5 h-1.5 bg-neutral-900/30 rounded-full blur-[1px] -mt-1"></div>
+      </div>
+    `,
+    className: 'bg-transparent',
+    iconSize: [44, 52],
+    iconAnchor: [22, 50],
+  });
+};
+
 // Custom Icon for Pickup Location (Mahali pa Kuchukulia)
 const getPickupPinIcon = () => {
   return L.divIcon({
     html: `
       <div class="relative flex flex-col items-center pointer-events-none select-none">
         <div class="bg-emerald-600 text-white font-black text-[9px] px-2.5 py-0.5 rounded-full shadow-[0_4px_12px_rgba(5,150,105,0.4)] border-2 border-white flex items-center gap-1 whitespace-nowrap mb-1 transform -translate-y-1">
-          <span>🟢 MAHALI PA KUCHUKULIA (PICKUP)</span>
+          <span>🟢 MAHALI PA KUCHUKULIA</span>
         </div>
-        <div class="relative w-12 h-12 flex items-center justify-center">
-          <div class="absolute inset-0 bg-gradient-to-br from-emerald-500 to-teal-700 rounded-full rounded-bl-none rotate-45 shadow-[0_10px_25px_rgba(5,150,105,0.5)] border-[3px] border-white"></div>
-          <div class="relative z-10 w-6 h-6 bg-white rounded-full flex items-center justify-center -rotate-45 shadow-inner">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+        <div class="relative w-10 h-10 flex items-center justify-center">
+          <div class="absolute inset-0 bg-gradient-to-br from-emerald-500 to-teal-700 rounded-full rounded-bl-none rotate-45 shadow-[0_8px_20px_rgba(5,150,105,0.45)] border-[2.5px] border-white"></div>
+          <div class="relative z-10 w-5 h-5 bg-white rounded-full flex items-center justify-center -rotate-45 shadow-inner">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
           </div>
         </div>
-        <div class="w-3 h-1.5 bg-emerald-950/40 rounded-full blur-[1px] -mt-1"></div>
+        <div class="w-3.5 h-1.5 bg-neutral-900/30 rounded-full blur-[1px] -mt-1"></div>
       </div>
     `,
     className: 'bg-transparent',
-    iconSize: [160, 70],
-    iconAnchor: [80, 65],
+    iconSize: [140, 60],
+    iconAnchor: [70, 58],
   });
 };
 
-// Custom Icon for Drop-off / Delivery Location (Atapokelea Wapi?)
+// Custom Icon for Drop-off / Delivery Location (Eneo la Kufikisha)
 const getDeliveryPinIcon = () => {
   return L.divIcon({
     html: `
       <div class="relative flex flex-col items-center pointer-events-none select-none">
         <div class="bg-rose-600 text-white font-black text-[9px] px-2.5 py-0.5 rounded-full shadow-[0_4px_12px_rgba(225,29,72,0.4)] border-2 border-white flex items-center gap-1 whitespace-nowrap mb-1 transform -translate-y-1">
-          <span>🔴 ATAPOKELEA WAPI? (DELIVERY)</span>
+          <span>🔴 ENEO LA KUFIKISHA</span>
         </div>
-        <div class="relative w-12 h-12 flex items-center justify-center">
-          <div class="absolute inset-0 bg-gradient-to-br from-rose-500 to-red-700 rounded-full rounded-bl-none rotate-45 shadow-[0_10px_25px_rgba(225,29,72,0.5)] border-[3px] border-white"></div>
-          <div class="relative z-10 w-6 h-6 bg-white rounded-full flex items-center justify-center -rotate-45 shadow-inner">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e11d48" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 9.4 7.5 4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="M3.27 6.96 12 12.01l8.73-5.05"/><path d="M12 22.08V12"/></svg>
+        <div class="relative w-10 h-10 flex items-center justify-center">
+          <div class="absolute inset-0 bg-gradient-to-br from-rose-500 to-red-700 rounded-full rounded-bl-none rotate-45 shadow-[0_8px_20px_rgba(225,29,72,0.45)] border-[2.5px] border-white"></div>
+          <div class="relative z-10 w-5 h-5 bg-white rounded-full flex items-center justify-center -rotate-45 shadow-inner">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#e11d48" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 9.4 7.5 4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="M3.27 6.96 12 12.01l8.73-5.05"/><path d="M12 22.08V12"/></svg>
           </div>
         </div>
-        <div class="w-3 h-1.5 bg-rose-950/40 rounded-full blur-[1px] -mt-1"></div>
+        <div class="w-3.5 h-1.5 bg-neutral-900/30 rounded-full blur-[1px] -mt-1"></div>
       </div>
     `,
     className: 'bg-transparent',
-    iconSize: [160, 70],
-    iconAnchor: [80, 65],
+    iconSize: [140, 60],
+    iconAnchor: [70, 58],
   });
 };
 
@@ -287,21 +307,33 @@ export default function LocationPicker({
   const [userOrigin, setUserOrigin] = useState<L.LatLng | null>(() => safeLatLng(initLat, initLng));
   const [address, setAddress] = useState(initialLocation?.address || '');
 
-  // Detect mode: 'pickup' (Mahali pa Kuchukulia / Sender) vs 'delivery' (Atapokelea wapi? / Recipient / Drop-off)
-  const initialMode: 'pickup' | 'delivery' = (pickerType === 'sender' || pickerType === 'pickup') 
+  // Detect mode: 'pickup' vs 'delivery' vs 'general' (when not in parcel flow)
+  const isParcelFlow = Boolean(
+    pickerType === 'sender' || 
+    pickerType === 'recipient' || 
+    pickerType === 'dropoff' || 
+    pickerType === 'pickup' || 
+    pickerType === 'parcel' || 
+    useParcelIcon
+  );
+
+  const initialMode: 'pickup' | 'delivery' | 'general' = !isParcelFlow
+    ? 'general'
+    : (pickerType === 'sender' || pickerType === 'pickup') 
     ? 'pickup' 
-    : (pickerType === 'recipient' || pickerType === 'delivery' || pickerType === 'dropoff')
-    ? 'delivery'
-    : (useParcelIcon ? 'delivery' : 'pickup');
-  const [currentMode, setCurrentMode] = useState<'pickup' | 'delivery'>(initialMode);
+    : 'delivery';
+
+  const [currentMode, setCurrentMode] = useState<'pickup' | 'delivery' | 'general'>(initialMode);
 
   useEffect(() => {
-    if (pickerType === 'sender' || pickerType === 'pickup') {
+    if (!isParcelFlow) {
+      setCurrentMode('general');
+    } else if (pickerType === 'sender' || pickerType === 'pickup') {
       setCurrentMode('pickup');
     } else if (pickerType === 'recipient' || pickerType === 'delivery' || pickerType === 'dropoff') {
       setCurrentMode('delivery');
     }
-  }, [pickerType]);
+  }, [pickerType, isParcelFlow]);
 
   const [isLocating, setIsLocating] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
@@ -863,16 +895,18 @@ export default function LocationPicker({
               <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-md transition-colors ${
                 currentMode === 'pickup' 
                   ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' 
-                  : 'bg-rose-50 text-rose-600 border border-rose-200'
+                  : currentMode === 'delivery'
+                  ? 'bg-rose-50 text-rose-600 border border-rose-200'
+                  : 'bg-orange-50 text-orange-600 border border-orange-200'
               }`}>
-                {currentMode === 'pickup' ? <MapPin className="w-5 h-5" /> : <Package className="w-5 h-5" />}
+                {currentMode === 'delivery' ? <Package className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
               </div>
               <div>
                 <h2 className="text-lg sm:text-xl font-black text-neutral-900 tracking-tight leading-tight">
-                  {title || (currentMode === 'pickup' ? 'Mahali pa Kuchukulia' : 'Atapokelea Wapi?')}
+                  {title || (currentMode === 'pickup' ? 'Mahali pa Kuchukulia' : currentMode === 'delivery' ? 'Eneo la Kufikisha' : 'Chagua Eneo Lako')}
                 </h2>
                 <p className="text-[10px] text-neutral-500 uppercase tracking-widest font-black">
-                  {subtitle || (currentMode === 'pickup' ? 'Chagua eneo la kuchukulia (Pickup)' : 'Chagua eneo la kufikisha au kupokelea (Drop-off)')}
+                  {subtitle || (currentMode === 'pickup' ? 'Chagua eneo la kuchukulia mzigo' : currentMode === 'delivery' ? 'Chagua eneo la kufikisha mzigo' : 'Gusa kwenye ramani au tafuta anwani')}
                 </p>
               </div>
             </div>
@@ -882,8 +916,8 @@ export default function LocationPicker({
           </div>
 
           <div className="flex-1 overflow-y-auto no-scrollbar flex flex-col">
-            {/* Mode Switcher Tabs */}
-            {!isMapViewOnly && !isMapExpanded && (
+            {/* Mode Switcher Tabs (Only in Parcel Flow) */}
+            {isParcelFlow && !isMapViewOnly && !isMapExpanded && (
               <div className="px-4 pt-3 pb-1 bg-white shrink-0 flex gap-2">
                 <button
                   type="button"
@@ -907,7 +941,7 @@ export default function LocationPicker({
                   }`}
                 >
                   <span className={`w-2.5 h-2.5 rounded-full ${currentMode === 'delivery' ? 'bg-white animate-ping' : 'bg-rose-500'}`}></span>
-                  <span className="truncate uppercase tracking-tight">📦 Atapokelea Wapi?</span>
+                  <span className="truncate uppercase tracking-tight">📦 Eneo la Kufikisha</span>
                 </button>
               </div>
             )}
@@ -1076,7 +1110,13 @@ export default function LocationPicker({
                       position={position} 
                       setPosition={setPosition} 
                       isMapViewOnly={isMapViewOnly}
-                      icon={currentMode === 'pickup' ? getPickupPinIcon() : getDeliveryPinIcon()}
+                      icon={
+                        currentMode === 'pickup' 
+                          ? getPickupPinIcon() 
+                          : currentMode === 'delivery' 
+                          ? getDeliveryPinIcon() 
+                          : getStandardLocationPinIcon()
+                      }
                       onPositionChange={(pos) => {
                         reverseGeocode(pos.lat, pos.lng);
                         setUserOrigin(pos);
@@ -1249,41 +1289,6 @@ export default function LocationPicker({
                     <span>ℹ️</span>
                     <span>Hakuna maduka katika aina hii kwa sasa</span>
                   </div>
-                </div>
-              )}
-
-              {/* Center Interactive Pin Indicator */}
-              {!isMapViewOnly && (
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-full pointer-events-none z-[1000] mb-2 flex flex-col items-center select-none">
-                  {currentMode === 'pickup' ? (
-                    <div className="flex flex-col items-center animate-bounce">
-                      <div className="bg-emerald-600 text-white font-black text-[9px] px-3 py-1 rounded-full shadow-[0_4px_12px_rgba(5,150,105,0.4)] border-2 border-white flex items-center gap-1.5 whitespace-nowrap mb-1">
-                        <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
-                        <span>MAHALI PA KUCHUKULIA (PICKUP)</span>
-                      </div>
-                      <div className="relative w-12 h-12 flex items-center justify-center">
-                        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500 to-teal-700 rounded-full rounded-bl-none rotate-45 shadow-[0_10px_25px_rgba(5,150,105,0.5)] border-[3px] border-white"></div>
-                        <div className="relative z-10 w-6 h-6 bg-white rounded-full flex items-center justify-center -rotate-45 shadow-inner">
-                          <MapPin className="w-3.5 h-3.5 text-emerald-600" />
-                        </div>
-                      </div>
-                      <div className="w-3.5 h-2 bg-emerald-950/40 rounded-full blur-[1px] mt-1"></div>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center animate-bounce">
-                      <div className="bg-rose-600 text-white font-black text-[9px] px-3 py-1 rounded-full shadow-[0_4px_12px_rgba(225,29,72,0.4)] border-2 border-white flex items-center gap-1.5 whitespace-nowrap mb-1">
-                        <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
-                        <span>ATAPOKELEA WAPI? (DELIVERY)</span>
-                      </div>
-                      <div className="relative w-12 h-12 flex items-center justify-center">
-                        <div className="absolute inset-0 bg-gradient-to-br from-rose-500 to-red-700 rounded-full rounded-bl-none rotate-45 shadow-[0_10px_25px_rgba(225,29,72,0.5)] border-[3px] border-white"></div>
-                        <div className="relative z-10 w-6 h-6 bg-white rounded-full flex items-center justify-center -rotate-45 shadow-inner">
-                          <Package className="w-3.5 h-3.5 text-rose-600" />
-                        </div>
-                      </div>
-                      <div className="w-3.5 h-2 bg-rose-950/40 rounded-full blur-[1px] mt-1"></div>
-                    </div>
-                  )}
                 </div>
               )}
 

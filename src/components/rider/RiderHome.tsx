@@ -11,7 +11,7 @@ import {
   Clock, TrendingUp, Info, Wifi, Battery, Map as MapIcon,
   CheckCircle2, ArrowRight, RefreshCw, DollarSign, Package, Home, LogOut,
   Volume2, VolumeX, Sun, Moon, Wrench, Sparkles, Plus, Minus, RotateCcw, RotateCw, Compass,
-  AlertTriangle, TrafficCone, Wallet, Flame
+  AlertTriangle, TrafficCone, Wallet, Flame, ChevronRight, Gift
 } from 'lucide-react';
 import { AISmartHeatMap, HeatZone } from '../map/AISmartHeatMap';
 import { useTheme } from '../../ThemeContext';
@@ -46,6 +46,12 @@ import RateCustomerScreen from '../tegex/RateCustomerScreen';
 import { AnimatedRoute } from '../map/AnimatedRoute';
 import AppDownloadButton from '../AppDownloadButton';
 import { Navigation3DHudOverlay } from '../map/Navigation3DHudOverlay';
+import { 
+  DriverVoice, 
+  getDefaultAudioSettings, 
+  saveAudioSettings, 
+  DriverAudioSettings 
+} from '../../utils/driverVoiceAlerts';
 
 const getNormalizedCoords = (coords: any): [number, number][] => {
   if (!coords || !Array.isArray(coords)) return [];
@@ -408,7 +414,7 @@ const createCornerIcon = (direction: 'left' | 'right') => {
 interface RiderHomeProps {
   onNavVisibilityChange?: (visible: boolean) => void;
   onProfileClick?: () => void;
-  onNavigateTab?: (tab: 'wallet' | 'subscription' | 'sacco' | 'aicredit' | 'settings') => void;
+  onNavigateTab?: (tab: 'wallet' | 'subscription' | 'sacco' | 'aicredit' | 'incentive' | 'settings') => void;
 }
 
 const pinIconCacheMap: Record<string, L.DivIcon> = {};
@@ -422,6 +428,9 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick, onNav
   const { setTheme: setNextTheme, resolvedTheme } = useTheme();
   const [isOnline, setIsOnline] = useState(false);
   const [showLowBalanceModal, setShowLowBalanceModal] = useState(false);
+  const [driverAudioSettings, setDriverAudioSettings] = useState<DriverAudioSettings>(getDefaultAudioSettings());
+  const lastAlertedRequestId = React.useRef<string | null>(null);
+  const lastAlertedOrderId = React.useRef<string | null>(null);
   const [autoFollow, setAutoFollow] = useState(true);
   const [recenterTrigger, setRecenterTrigger] = useState(0);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -949,7 +958,16 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick, onNav
     // Only set incoming request if we are online, not in an active ride, and not already showing one
     if (isOnline && freshRequests.length > 0 && !activeRide && !showPayment && !showRating) {
       if (!incomingRequest || !currentStillValid) {
-        setIncomingRequest(freshRequests[0]);
+        const topRequest = freshRequests[0];
+        setIncomingRequest(topRequest);
+        if (topRequest?.id && lastAlertedRequestId.current !== topRequest.id) {
+          lastAlertedRequestId.current = topRequest.id;
+          DriverVoice.incomingRide(
+            (topRequest.pickup as any)?.name || topRequest.pickup?.address || 'Eneo la Karibu',
+            (topRequest.destination as any)?.name || topRequest.destination?.address || 'Kituo cha Mwisho',
+            topRequest.fare || 0
+          );
+        }
       }
     } else if (!isOnline || activeRide || freshRequests.length === 0 || (incomingRequest && !currentStillValid)) {
       if (incomingRequest) setIncomingRequest(null);
@@ -962,7 +980,15 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick, onNav
     
     if (isOnline && freshOrders.length > 0 && !activeRide && !incomingRequest && !showPayment && !showRating) {
       if (!incomingOrder || !currentStillValid) {
-        setIncomingOrder(freshOrders[0]);
+        const topOrder = freshOrders[0];
+        setIncomingOrder(topOrder);
+        if (topOrder?.id && lastAlertedOrderId.current !== topOrder.id) {
+          lastAlertedOrderId.current = topOrder.id;
+          DriverVoice.incomingParcel(
+            (topOrder as any).pickup?.address || (topOrder as any).deliveryAddress || (topOrder as any).restaurantName || 'Eneo la Mteja',
+            (topOrder as any).totalAmount || (topOrder as any).fare || 5000
+          );
+        }
       }
     } else if (!isOnline || activeRide || incomingRequest || freshOrders.length === 0 || (incomingOrder && !currentStillValid)) {
       if (incomingOrder) setIncomingOrder(null);
@@ -1504,6 +1530,7 @@ const getEndPin = (etaText: string) => {
       const currentBalance = profile?.walletBalance ?? 0;
 
       if (!isSubActive && currentBalance < MIN_REQUIRED_ONLINE_BALANCE) {
+        DriverVoice.lowBalance(currentBalance);
         setShowLowBalanceModal(true);
         return;
       }
@@ -1844,9 +1871,11 @@ const getEndPin = (etaText: string) => {
     try {
       if (status === 'driver_arrived') {
         await arrivedAtPickup();
+        DriverVoice.arrivedAtPickup();
         toast.success("Umefika kwa mteja!");
       } else if (status === 'on_trip') {
         await startTrip();
+        DriverVoice.tripStarted((activeRide?.destination as any)?.name || activeRide?.destination?.address);
         toast.success("Safari imeanza!");
       }
     } catch (e) {
@@ -1876,6 +1905,7 @@ const getEndPin = (etaText: string) => {
         user.uid,
         activeRide.fare
       );
+      DriverVoice.tripCompleted(activeRide.fare);
       setShowPayment(true);
       toast.success("Safari Imekamilika!");
     } catch (e) {
@@ -2837,6 +2867,44 @@ const getEndPin = (etaText: string) => {
             </span>
           </motion.button>
 
+          {/* Quick Driver Audio & Voice Navigation Alert Toggle */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => {
+              const newSound = !driverAudioSettings.soundEnabled;
+              const newVoice = !driverAudioSettings.voiceEnabled;
+              const updated = {
+                ...driverAudioSettings,
+                soundEnabled: newSound,
+                voiceEnabled: newVoice
+              };
+              setDriverAudioSettings(updated);
+              saveAudioSettings(updated);
+              if (newSound || newVoice) {
+                DriverVoice.testVoice();
+                toast.success("Sauti na milio ya dereva imewashwa!");
+              } else {
+                toast.info("Sauti na milio ya dereva imezimwa.");
+              }
+            }}
+            className={`w-10 h-10 border rounded-xl shadow-lg flex flex-col items-center justify-center transition-all ${
+              driverAudioSettings.soundEnabled || driverAudioSettings.voiceEnabled
+                ? 'bg-emerald-600 border-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.4)]'
+                : 'bg-neutral-800 border-neutral-700 text-neutral-400'
+            }`}
+            title="Washa / Zima Sauti ya Safari & Mwongozo wa Kiswahili"
+          >
+            {driverAudioSettings.soundEnabled || driverAudioSettings.voiceEnabled ? (
+              <Volume2 className="w-4 h-4 animate-pulse" />
+            ) : (
+              <VolumeX className="w-4 h-4" />
+            )}
+            <span className="text-[6px] font-black mt-0.5 uppercase tracking-tighter leading-none">
+              {driverAudioSettings.soundEnabled ? 'Sauti' : 'Kimya'}
+            </span>
+          </motion.button>
+
 
           {/* Toggle Road Alerts (Taa, Kona, Matengenezo, Njia Imefungwa) */}
           <motion.button
@@ -3082,6 +3150,38 @@ const getEndPin = (etaText: string) => {
             )}
           </motion.button>
         </div>
+      )}
+
+      {/* Dynamic Daily Incentive & Surge Mini-Banner */}
+      {isOnline && !incomingRequest && !activeRide && !incomingOrder && (
+        <motion.div
+          key="incentive-mini-banner"
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: 20, opacity: 0 }}
+          onClick={() => onNavigateTab ? onNavigateTab('incentive') : null}
+          className="absolute bottom-44 left-4 right-4 max-w-sm mx-auto bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white p-2.5 px-3.5 rounded-2xl shadow-xl shadow-orange-500/20 backdrop-blur-md flex items-center justify-between z-50 cursor-pointer active:scale-95 transition-all pointer-events-auto border border-white/25"
+        >
+          <div className="flex items-center gap-2.5">
+            <span className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+              <Flame className="w-4 h-4 text-white animate-bounce" />
+            </span>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[8px] font-black uppercase tracking-wider bg-black/30 px-2 py-0.5 rounded-full">
+                  BONASI ZA LEO
+                </span>
+                <span className="text-[9px] font-bold text-amber-100">🔥 +15% Surge Hai</span>
+              </div>
+              <p className="text-[11px] font-black leading-tight mt-0.5">
+                🎯 Kamilisha Safari upate hadi TZS 20,000
+              </p>
+            </div>
+          </div>
+          <span className="text-[10px] font-black bg-white text-orange-600 px-2.5 py-1 rounded-xl uppercase tracking-tighter shadow-sm flex items-center gap-1 shrink-0">
+            Fungua <ChevronRight className="w-3 h-3 stroke-[3]" />
+          </span>
+        </motion.div>
       )}
 
       {/* Sleek Floating Status Pill - When Online & Waiting for requests (Replaces large bottom sheet) */}

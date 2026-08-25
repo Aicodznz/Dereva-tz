@@ -23,8 +23,8 @@ const menuGroups = [
       { icon: Flame, name: "Vifurushi vya Safari (PapoPass 0%)", action: "subscription", color: "text-amber-500", bg: "bg-amber-50" },
       { icon: Users, name: "Dhamana ya SACCO / Chama", action: "sacco", color: "text-blue-600", bg: "bg-blue-50" },
       { icon: Sparkles, name: "AI Alama & Kikomo cha Deni", action: "aicredit", color: "text-purple-500", bg: "bg-purple-50" },
-      { icon: Milestone, name: "Incentive", action: "incentive", color: "text-pink-500", bg: "bg-pink-50" },
-      { icon: Share2, name: "Earn Money (Referral)", action: "referral", color: "text-cyan-500", bg: "bg-cyan-50" }
+      { icon: Flame, name: "Vivutio & Bonasi za Kazi (Quests)", action: "incentive", color: "text-amber-500", bg: "bg-amber-50" },
+      { icon: Share2, name: "Alika Madereva (Referral)", action: "referral", color: "text-cyan-500", bg: "bg-cyan-50" }
     ]
   },
   {

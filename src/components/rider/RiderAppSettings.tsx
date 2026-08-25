@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { ArrowLeft, Check, Sparkles, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Check, Sparkles, AlertTriangle, ShieldCheck, Volume2, VolumeX } from 'lucide-react';
 import { useAuth } from '../../AuthContext';
 import { toast } from 'sonner';
+import { DriverVoice, getDefaultAudioSettings, saveAudioSettings, DriverAudioSettings } from '../../utils/driverVoiceAlerts';
 
 interface ServicePreference {
   id: string;
@@ -61,7 +62,6 @@ export default function RiderAppSettings({ onBack }: { onBack: () => void }) {
   const { profile, updateProfileData } = useAuth();
   const [loading, setLoading] = useState(false);
 
-  // Initialize state with values from profile or defaults (all true by default so driver starts receiving all)
   const [preferences, setPreferences] = useState({
     gocarL: true,
     gosendInstant: true,
@@ -70,6 +70,14 @@ export default function RiderAppSettings({ onBack }: { onBack: () => void }) {
     gocarHemat: true,
     gocarSend: true,
   });
+
+  const [audioSettings, setAudioSettings] = useState<DriverAudioSettings>(getDefaultAudioSettings());
+
+  const updateAudio = (partial: Partial<DriverAudioSettings>) => {
+    const updated = { ...audioSettings, ...partial };
+    setAudioSettings(updated);
+    saveAudioSettings(updated);
+  };
 
   // Sync with profile if it exists
   useEffect(() => {
@@ -91,7 +99,6 @@ export default function RiderAppSettings({ onBack }: { onBack: () => void }) {
       [key]: !preferences[key]
     };
     
-    // Quick local update for responsive UI feedback
     setPreferences(updated);
 
     try {
@@ -106,7 +113,6 @@ export default function RiderAppSettings({ onBack }: { onBack: () => void }) {
     } catch (error) {
       console.error('Failed to update service preferences:', error);
       toast.error('Imeshindwa kuhifadhi mipangilio. Tafadhali jaribu tena.');
-      // Revert in case of failure
       setPreferences(preferences);
     } finally {
       setLoading(false);
@@ -126,7 +132,7 @@ export default function RiderAppSettings({ onBack }: { onBack: () => void }) {
         </button>
         <div>
           <span className="text-[9px] font-black uppercase text-neutral-400 tracking-[0.2em] leading-none block mb-0.5">DEREVA WA TEKSI & BODA</span>
-          <span className="text-sm font-black text-neutral-800 dark:text-neutral-200 leading-none">Mipangilio ya Kupokea Safari</span>
+          <span className="text-sm font-black text-neutral-800 dark:text-neutral-200 leading-none">Mipangilio ya Safari & Sauti</span>
         </div>
       </div>
 
@@ -140,12 +146,100 @@ export default function RiderAppSettings({ onBack }: { onBack: () => void }) {
           <ShieldCheck className="w-5 h-5" />
         </div>
         <div className="space-y-1">
-          <h4 className="text-xs font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Udhibiti wa Maombi</h4>
+          <h4 className="text-xs font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Udhibiti wa Maombi na Sauti</h4>
           <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
-            Hapa nchini Tanzania, unaweza kuwasha au kuzima huduma mbalimbali kulingana na aina ya gari au pikiipiki yako ili kuzuia kupokea safari usizozitaka. Washa zile tu unazotaka kuhudumia kwa sasa!
+            Hapa nchini Tanzania, unaweza kuwasha au kuzima huduma mbalimbali kulingana na aina ya chombo chako, pamoja na kubinafsisha milio mikali ya dereva na mwongozo wa sauti ya Kiswahili.
           </p>
         </div>
       </motion.div>
+
+      {/* Audio Alerts & Voice Navigation Section */}
+      <div className="space-y-4">
+        <div className="flex justify-between items-center px-2">
+          <h3 className="text-[10px] font-black uppercase text-neutral-400 tracking-[0.2em]">
+            MILIRO NA MWONGOZO WA SAUTI (AUDIO & VOICE NAVIGATION)
+          </h3>
+          <button
+            onClick={() => DriverVoice.testVoice()}
+            className="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black uppercase px-2.5 py-1 rounded-xl active:scale-95 transition-all flex items-center gap-1 shadow-sm"
+          >
+            <Volume2 className="w-3 h-3" /> Jaribu Sauti
+          </button>
+        </div>
+
+        <div className="bg-white dark:bg-neutral-900 rounded-[2.5rem] border border-neutral-100 dark:border-neutral-800 p-6 space-y-4 shadow-sm">
+          {/* Dispatch Siren Chime */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-1 max-w-[75%] pr-4">
+              <span className="font-extrabold text-sm text-neutral-800 dark:text-neutral-200">
+                Milio Mikali ya Safari (Dispatch Siren)
+              </span>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
+                Hupiga mlio mkali wenye masafa ya juu unaopenya kelele za barabara pindi safari mpya inapoingia.
+              </p>
+            </div>
+            <button
+              onClick={() => updateAudio({ soundEnabled: !audioSettings.soundEnabled })}
+              className={`w-14 h-8 rounded-full p-1 transition-colors duration-300 relative focus:outline-none shrink-0 ${
+                audioSettings.soundEnabled ? 'bg-emerald-500 dark:bg-emerald-600' : 'bg-neutral-200 dark:bg-neutral-800'
+              }`}
+            >
+              <motion.div
+                className="w-6 h-6 rounded-full bg-white shadow-md flex items-center justify-center"
+                animate={{ x: audioSettings.soundEnabled ? 24 : 0 }}
+              >
+                {audioSettings.soundEnabled && <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" />}
+              </motion.div>
+            </button>
+          </div>
+
+          <div className="h-px bg-neutral-100 dark:bg-neutral-800" />
+
+          {/* Swahili Voice Synthesis */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-1 max-w-[75%] pr-4">
+              <span className="font-extrabold text-sm text-neutral-800 dark:text-neutral-200">
+                Mwongozo wa Sauti ya Kiswahili
+              </span>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
+                Hutamka kwa lugha ya Kiswahili mahali pa kuchukua mteja, nauli, na uthibitisho wa kuwasili.
+              </p>
+            </div>
+            <button
+              onClick={() => updateAudio({ voiceEnabled: !audioSettings.voiceEnabled })}
+              className={`w-14 h-8 rounded-full p-1 transition-colors duration-300 relative focus:outline-none shrink-0 ${
+                audioSettings.voiceEnabled ? 'bg-emerald-500 dark:bg-emerald-600' : 'bg-neutral-200 dark:bg-neutral-800'
+              }`}
+            >
+              <motion.div
+                className="w-6 h-6 rounded-full bg-white shadow-md flex items-center justify-center"
+                animate={{ x: audioSettings.voiceEnabled ? 24 : 0 }}
+              >
+                {audioSettings.voiceEnabled && <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" />}
+              </motion.div>
+            </button>
+          </div>
+
+          <div className="h-px bg-neutral-100 dark:bg-neutral-800" />
+
+          {/* Volume Slider */}
+          <div className="space-y-2 pt-1">
+            <div className="flex justify-between text-xs font-black">
+              <span className="text-neutral-500">Kiwango cha Sauti (Volume)</span>
+              <span className="text-emerald-600 dark:text-emerald-400">{Math.round(audioSettings.volume * 100)}%</span>
+            </div>
+            <input
+              type="range"
+              min="0.2"
+              max="1.0"
+              step="0.05"
+              value={audioSettings.volume}
+              onChange={(e) => updateAudio({ volume: parseFloat(e.target.value) })}
+              className="w-full h-2 bg-neutral-200 dark:bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+            />
+          </div>
+        </div>
+      </div>
 
       {/* Services Toggle Card Layout */}
       <div className="space-y-4">
@@ -178,7 +272,6 @@ export default function RiderAppSettings({ onBack }: { onBack: () => void }) {
                   </p>
                 </div>
 
-                {/* Animated iOS-style Toggle Switch matching user picture */}
                 <button
                   disabled={loading}
                   onClick={() => handleToggle(service.statusKey)}
