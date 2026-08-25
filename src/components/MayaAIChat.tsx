@@ -683,19 +683,19 @@ export default function MayaAIChat() {
       {!isFabHidden ? (
         <motion.div
           drag
-          dragConstraints={{ left: -280, right: 280, top: -550, bottom: 50 }}
+          dragConstraints={{ left: -20, right: 280, top: -450, bottom: 150 }}
           dragElastic={0.08}
           dragMomentum={false}
           initial={{ scale: 0, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          className="fixed bottom-24 left-4 z-[160] touch-none"
+          className="fixed bottom-48 sm:bottom-56 left-4 z-[160] touch-none"
         >
-          <div className={`relative flex items-center gap-2 px-3.5 py-2.5 rounded-2xl shadow-2xl border backdrop-blur-md cursor-grab active:cursor-grabbing group transition-all duration-300 ${getRoleFabStyle()}`}>
+          <div className={`relative flex items-center gap-2 px-3 py-2 rounded-2xl shadow-2xl border backdrop-blur-md cursor-grab active:cursor-grabbing group transition-all duration-300 ${getRoleFabStyle()}`}>
             {/* DRAG GRIP ICON */}
             <div className="flex flex-col gap-0.5 text-white/60 group-hover:text-white transition-colors mr-0.5" title="Kokota (Drag) kusogeza popote">
-              <GripVertical className="w-4 h-4" />
+              <GripVertical className="w-3.5 h-3.5" />
             </div>
 
             {/* MAIN FAB TRIGGER */}
@@ -705,11 +705,11 @@ export default function MayaAIChat() {
               aria-label="Fungua AI Assistant"
             >
               <div className="relative flex items-center justify-center shrink-0">
-                <div className="w-9 h-9 bg-black/25 rounded-xl flex items-center justify-center border border-white/20 shadow-inner">
+                <div className="w-8 h-8 bg-black/25 rounded-xl flex items-center justify-center border border-white/20 shadow-inner">
                   {getRoleIcon()}
                 </div>
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-white animate-ping" />
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-white" />
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-white animate-ping" />
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-white" />
               </div>
 
               <div className="text-left hidden sm:block min-w-0">
@@ -729,10 +729,10 @@ export default function MayaAIChat() {
                 e.stopPropagation();
                 toggleFabHidden(true);
               }}
-              className="ml-1 p-1.5 rounded-lg bg-black/20 hover:bg-black/40 text-white/80 hover:text-white transition-all border border-white/10"
+              className="ml-1 p-1 rounded-lg bg-black/20 hover:bg-black/40 text-white/80 hover:text-white transition-all border border-white/10"
               title="Ficha button hii ya AI (Hide FAB)"
             >
-              <EyeOff className="w-3.5 h-3.5" />
+              <EyeOff className="w-3 h-3" />
             </button>
           </div>
         </motion.div>
@@ -744,7 +744,7 @@ export default function MayaAIChat() {
           whileHover={{ scale: 1.08 }}
           whileTap={{ scale: 0.95 }}
           onClick={() => toggleFabHidden(false)}
-          className={`fixed bottom-28 left-0 z-[160] flex items-center gap-1.5 px-3 py-2 rounded-r-2xl shadow-xl border-y border-r border-white/20 text-white font-black text-xs uppercase tracking-wider backdrop-blur-md transition-all ${getRoleFabStyle()}`}
+          className={`fixed bottom-48 sm:bottom-56 left-0 z-[160] flex items-center gap-1.5 px-2.5 py-1.5 rounded-r-2xl shadow-xl border-y border-r border-white/20 text-white font-black text-xs uppercase tracking-wider backdrop-blur-md transition-all ${getRoleFabStyle()}`}
           title="Onyesha AI Assistant (Unhide FAB)"
         >
           {getRoleIcon()}

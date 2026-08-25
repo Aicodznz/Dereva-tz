@@ -2157,24 +2157,24 @@ const getEndPin = (etaText: string) => {
             initial={{ y: -100, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -100, opacity: 0 }}
-            className="absolute top-4 inset-x-4 z-[9999] grid grid-cols-3 items-center pointer-events-none"
+            className="absolute top-3 inset-x-2.5 sm:inset-x-4 z-[9999] flex items-center justify-between gap-1.5 sm:gap-2.5 pointer-events-none"
           >
             {/* Left side: Financial Status Badge */}
             {!activeRide ? (
-              <div className="justify-self-start pointer-events-auto">
+              <div className="pointer-events-auto shrink-0">
                 <button
                   type="button"
                   onClick={onProfileClick}
-                  className="flex items-center gap-1.5 bg-white/95 dark:bg-neutral-900/90 backdrop-blur-md rounded-full px-3 py-1.5 border border-neutral-200/50 dark:border-white/10 shadow-lg text-left active:scale-95 transition-transform"
+                  className="flex items-center gap-1.5 bg-white/95 dark:bg-neutral-900/90 backdrop-blur-md rounded-full px-2.5 py-1.5 sm:px-3 sm:py-1.5 border border-neutral-200/50 dark:border-white/10 shadow-lg text-left active:scale-95 transition-transform"
                 >
                   {profile?.subscription?.status === 'active' ? (
                     <>
                       <div className="w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0">
                         <span className="text-[10px]">🔥</span>
                       </div>
-                      <div className="flex flex-col">
+                      <div className="flex flex-col min-w-0">
                         <span className="text-[6.5px] font-black uppercase text-amber-600 dark:text-amber-400 leading-none">PAPOPASS</span>
-                        <span className="text-[9px] font-black text-neutral-800 dark:text-white mt-0.5 leading-none">0% Kamisheni</span>
+                        <span className="text-[8.5px] sm:text-[9.5px] font-black text-neutral-800 dark:text-white mt-0.5 leading-none whitespace-nowrap">0% Kamisheni</span>
                       </div>
                     </>
                   ) : (profile?.walletBalance ?? 0) < 0 ? (
@@ -2182,9 +2182,9 @@ const getEndPin = (etaText: string) => {
                       <div className="w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0">
                         <span className="text-[10px]">⚡</span>
                       </div>
-                      <div className="flex flex-col">
+                      <div className="flex flex-col min-w-0">
                         <span className="text-[6.5px] font-black uppercase text-rose-600 dark:text-rose-400 leading-none">AI OVERDRAFT</span>
-                        <span className="text-[9px] font-black text-rose-600 dark:text-rose-400 mt-0.5 leading-none">
+                        <span className="text-[8.5px] sm:text-[9.5px] font-black text-rose-600 dark:text-rose-400 mt-0.5 leading-none whitespace-nowrap">
                           -TZS {Math.abs(profile?.walletBalance ?? 0).toLocaleString()}
                         </span>
                       </div>
@@ -2194,9 +2194,9 @@ const getEndPin = (etaText: string) => {
                       <div className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0">
                         <span className="text-[10px]">👛</span>
                       </div>
-                      <div className="flex flex-col">
+                      <div className="flex flex-col min-w-0">
                         <span className="text-[6.5px] font-black uppercase text-emerald-600 dark:text-emerald-400 leading-none">MKOBA</span>
-                        <span className="text-[9px] font-black text-neutral-800 dark:text-white mt-0.5 leading-none">
+                        <span className="text-[8.5px] sm:text-[9.5px] font-black text-neutral-800 dark:text-white mt-0.5 leading-none whitespace-nowrap">
                           {(profile?.walletBalance ?? 0).toLocaleString()} TZS
                         </span>
                       </div>
@@ -2210,31 +2210,31 @@ const getEndPin = (etaText: string) => {
 
             {/* Center side: Compact Earnings Pill - Only when NO active ride */}
             {!activeRide ? (
-              <div className="justify-self-center pointer-events-auto flex items-center bg-white/95 dark:bg-neutral-900/90 backdrop-blur-md rounded-full px-3.5 py-1.5 border border-neutral-200/50 dark:border-white/10 shadow-lg gap-3 select-none">
+              <div className="pointer-events-auto flex items-center bg-white/95 dark:bg-neutral-900/90 backdrop-blur-md rounded-full px-2.5 py-1.5 sm:px-3.5 sm:py-1.5 border border-neutral-200/50 dark:border-white/10 shadow-lg gap-2 sm:gap-3 select-none min-w-0 shrink">
                 {/* Today's Earnings / Leo */}
-                <div className="flex items-center gap-1.5">
-                  <div className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-blue-500/30">
-                    <TrendingUp className="w-3.5 h-3.5 stroke-[2.5]" />
+                <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+                  <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-blue-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-blue-500/30">
+                    <TrendingUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 stroke-[2.5]" />
                   </div>
                   <div className="flex flex-col text-left">
-                    <span className="text-[6.5px] font-black uppercase text-blue-600 dark:text-blue-400 tracking-wider leading-none">LEO</span>
-                    <span className="text-[10px] font-black text-neutral-800 dark:text-white mt-0.5 leading-none whitespace-nowrap">
+                    <span className="text-[6px] sm:text-[6.5px] font-black uppercase text-blue-600 dark:text-blue-400 tracking-wider leading-none">LEO</span>
+                    <span className="text-[9px] sm:text-[10px] font-black text-neutral-800 dark:text-white mt-0.5 leading-none whitespace-nowrap">
                       {(stats?.todayEarnings || 0).toLocaleString()} TZS
                     </span>
                   </div>
                 </div>
 
                 {/* Divider */}
-                <div className="h-4.5 w-[1px] bg-neutral-200 dark:bg-white/10" />
+                <div className="h-4 w-[1px] bg-neutral-200 dark:bg-white/10 shrink-0" />
 
                 {/* Total Earnings / Jumla */}
-                <div className="flex items-center gap-1.5">
-                  <div className="w-6 h-6 rounded-full bg-purple-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-purple-500/30">
-                    <DollarSign className="w-3.5 h-3.5 stroke-[2.5]" />
+                <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+                  <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-purple-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-purple-500/30">
+                    <DollarSign className="w-3 h-3 sm:w-3.5 sm:h-3.5 stroke-[2.5]" />
                   </div>
                   <div className="flex flex-col text-left">
-                    <span className="text-[6.5px] font-black uppercase text-purple-600 dark:text-purple-400 tracking-wider leading-none">JUMLA</span>
-                    <span className="text-[10px] font-black text-neutral-800 dark:text-white mt-0.5 leading-none whitespace-nowrap">
+                    <span className="text-[6px] sm:text-[6.5px] font-black uppercase text-purple-600 dark:text-purple-400 tracking-wider leading-none">JUMLA</span>
+                    <span className="text-[9px] sm:text-[10px] font-black text-neutral-800 dark:text-white mt-0.5 leading-none whitespace-nowrap">
                       {(stats?.lifetimeEarnings || 0).toLocaleString()} TZS
                     </span>
                   </div>
@@ -2246,7 +2246,7 @@ const getEndPin = (etaText: string) => {
 
             {/* Right side: Profile Avatar (only when no active ride) */}
             {!activeRide && (
-              <div className="justify-self-end pointer-events-auto">
+              <div className="pointer-events-auto shrink-0">
                 {renderProfileAvatar('md')}
               </div>
             )}
@@ -3211,79 +3211,80 @@ const getEndPin = (etaText: string) => {
         </div>
       )}
 
-      {/* Dynamic Daily Incentive & Surge Mini-Banner */}
+      {/* Stacked Driver Bottom Status & Incentive Widgets Container */}
       {isOnline && !incomingRequest && !activeRide && !incomingOrder && (
-        <motion.div
-          key="incentive-mini-banner"
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: 20, opacity: 0 }}
-          onClick={() => onNavigateTab ? onNavigateTab('incentive') : null}
-          className="absolute bottom-44 left-4 right-4 max-w-sm mx-auto bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white p-2.5 px-3.5 rounded-2xl shadow-xl shadow-orange-500/20 backdrop-blur-md flex items-center justify-between z-50 cursor-pointer active:scale-95 transition-all pointer-events-auto border border-white/25"
-        >
-          <div className="flex items-center gap-2.5">
-            <span className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-              <Flame className="w-4 h-4 text-white animate-bounce" />
-            </span>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[8px] font-black uppercase tracking-wider bg-black/30 px-2 py-0.5 rounded-full">
-                  BONASI ZA LEO
-                </span>
-                <span className="text-[9px] font-bold text-amber-100">🔥 +15% Surge Hai</span>
+        <div className="absolute bottom-20 sm:bottom-24 inset-x-3.5 max-w-sm mx-auto z-50 pointer-events-none flex flex-col items-center gap-2.5">
+          {/* Dynamic Daily Incentive & Surge Mini-Banner */}
+          <motion.div
+            key="incentive-mini-banner"
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 20, opacity: 0 }}
+            onClick={() => onNavigateTab ? onNavigateTab('incentive') : null}
+            className="w-full bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white p-2.5 px-3.5 rounded-2xl shadow-xl shadow-orange-500/20 backdrop-blur-md flex items-center justify-between cursor-pointer active:scale-95 transition-all pointer-events-auto border border-white/25"
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                <Flame className="w-4 h-4 text-white animate-bounce" />
+              </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[8px] font-black uppercase tracking-wider bg-black/30 px-2 py-0.5 rounded-full">
+                    BONASI ZA LEO
+                  </span>
+                  <span className="text-[9px] font-bold text-amber-100 truncate">🔥 +15% Surge Hai</span>
+                </div>
+                <p className="text-[11px] font-black leading-tight mt-0.5 truncate">
+                  🎯 Kamilisha Safari upate hadi TZS 20,000
+                </p>
               </div>
-              <p className="text-[11px] font-black leading-tight mt-0.5">
-                🎯 Kamilisha Safari upate hadi TZS 20,000
-              </p>
             </div>
-          </div>
-          <span className="text-[10px] font-black bg-white text-orange-600 px-2.5 py-1 rounded-xl uppercase tracking-tighter shadow-sm flex items-center gap-1 shrink-0">
-            Fungua <ChevronRight className="w-3 h-3 stroke-[3]" />
-          </span>
-        </motion.div>
-      )}
+            <span className="text-[10px] font-black bg-white text-orange-600 px-2.5 py-1 rounded-xl uppercase tracking-tighter shadow-sm flex items-center gap-1 shrink-0 ml-2">
+              Fungua <ChevronRight className="w-3 h-3 stroke-[3]" />
+            </span>
+          </motion.div>
 
-      {/* Sleek Floating Status Pill - When Online & Waiting for requests (Replaces large bottom sheet) */}
-      {isOnline && !incomingRequest && !activeRide && !incomingOrder && (
-        <motion.div 
-          key="waiting-pill"
-          initial={{ y: 50, opacity: 0 }} 
-          animate={{ y: 0, opacity: 1 }} 
-          exit={{ y: 50, opacity: 0 }}
-          className="absolute bottom-28 left-4 right-4 max-w-sm mx-auto bg-white/95 dark:bg-[#111118]/95 backdrop-blur-xl border border-neutral-200/60 dark:border-[#1e1e2e] p-3 rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.15)] dark:shadow-[0_15px_40px_rgba(0,0,0,0.5)] text-neutral-850 dark:text-white flex items-center justify-between z-50 pointer-events-auto"
-        >
-          <div className="flex items-center gap-3">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-            </span>
-            <div className="flex flex-col">
-              <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest leading-none">ACTIVE</span>
-              <span className="text-xs font-bold text-neutral-700 dark:text-neutral-200 mt-0.5 leading-none">Unangoja maombi ya safari...</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-200/50 dark:border-[#1e1e2e] py-1 px-2.5 rounded-xl">
-              <div className="flex flex-col items-center min-w-[32px]">
-                <span className="text-[7px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-wider leading-none">SAFARI</span>
-                <span className="text-xs font-extrabold text-neutral-800 dark:text-neutral-200 leading-none mt-0.5">{stats?.todayTrips ?? 0}</span>
-              </div>
-              <div className="h-4 w-[1px] bg-neutral-200 dark:bg-neutral-800" />
-              <div className="flex flex-col items-center min-w-[32px]">
-                <span className="text-[7px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-wider leading-none">MASAA</span>
-                <span className="text-xs font-extrabold text-neutral-800 dark:text-neutral-200 leading-none mt-0.5">{stats?.activeHours ?? 0}h</span>
+          {/* Sleek Floating Status Pill - When Online & Waiting for requests */}
+          <motion.div 
+            key="waiting-pill"
+            initial={{ y: 20, opacity: 0 }} 
+            animate={{ y: 0, opacity: 1 }} 
+            exit={{ y: 20, opacity: 0 }}
+            className="w-full bg-white/95 dark:bg-[#111118]/95 backdrop-blur-xl border border-neutral-200/60 dark:border-[#1e1e2e] p-3 rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.15)] dark:shadow-[0_15px_40px_rgba(0,0,0,0.5)] text-neutral-850 dark:text-white flex items-center justify-between pointer-events-auto gap-2"
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="relative flex h-2.5 w-2.5 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </span>
+              <div className="flex flex-col min-w-0">
+                <span className="text-[9px] sm:text-[10px] font-black text-emerald-500 uppercase tracking-widest leading-none">ACTIVE</span>
+                <span className="text-[11px] sm:text-xs font-bold text-neutral-700 dark:text-neutral-200 mt-0.5 leading-none truncate">Unangoja maombi ya safari...</span>
               </div>
             </div>
-            
-            <button 
-              onClick={toggleStatus}
-              className="w-8 h-8 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 rounded-xl flex items-center justify-center text-red-500 active:scale-95 transition-all cursor-pointer"
-              title="Gonga kuzima (Offline)"
-            >
-              <Power className="w-4 h-4" />
-            </button>
-          </div>
-        </motion.div>
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2 bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-200/50 dark:border-[#1e1e2e] py-1 px-2 rounded-xl">
+                <div className="flex flex-col items-center min-w-[28px]">
+                  <span className="text-[7px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-wider leading-none">SAFARI</span>
+                  <span className="text-xs font-extrabold text-neutral-800 dark:text-neutral-200 leading-none mt-0.5">{stats?.todayTrips ?? 0}</span>
+                </div>
+                <div className="h-4 w-[1px] bg-neutral-200 dark:bg-neutral-800" />
+                <div className="flex flex-col items-center min-w-[28px]">
+                  <span className="text-[7px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-wider leading-none">MASAA</span>
+                  <span className="text-xs font-extrabold text-neutral-800 dark:text-neutral-200 leading-none mt-0.5">{stats?.activeHours ?? 0}h</span>
+                </div>
+              </div>
+              
+              <button 
+                onClick={toggleStatus}
+                className="w-8 h-8 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 rounded-xl flex items-center justify-center text-red-500 active:scale-95 transition-all cursor-pointer shrink-0"
+                title="Gonga kuzima (Offline)"
+              >
+                <Power className="w-4 h-4" />
+              </button>
+            </div>
+          </motion.div>
+        </div>
       )}
 
       {/* Interactive Bottom Sheet Container - Only for active states */}
