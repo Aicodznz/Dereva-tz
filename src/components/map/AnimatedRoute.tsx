@@ -5,119 +5,139 @@ import L from 'leaflet';
 interface AnimatedRouteProps {
   positions: [number, number][];
   color?: string;
+  showTrafficSegments?: boolean;
 }
 
 export const AnimatedRoute: React.FC<AnimatedRouteProps> = ({ 
   positions, 
-  color = '#00E5A0' 
+  color = '#2563EB',
+  showTrafficSegments = true
 }) => {
   const map = useMap();
-  const layersRef = useRef<{
-    glowLine?: L.Polyline;
-    baseLine?: L.Polyline;
-    animatedLine?: L.Polyline;
-    animFrameId?: number;
-  }>({});
+  const layersGroupRef = useRef<L.LayerGroup | null>(null);
+  const animFrameIdRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!map || !positions || positions.length < 2) return;
 
-    const refs = layersRef.current;
-
-    // If layers already exist on the map, update coordinates directly without re-creating SVG elements!
-    if (refs.glowLine && refs.baseLine && refs.animatedLine) {
-      try {
-        refs.glowLine.setLatLngs(positions);
-        refs.baseLine.setLatLngs(positions);
-        refs.animatedLine.setLatLngs(positions);
-        return;
-      } catch (e) {
-        console.warn("[AnimatedRoute] Update latLngs failed, recreating layers:", e);
-      }
+    // Clean up previous layers
+    if (layersGroupRef.current) {
+      map.removeLayer(layersGroupRef.current);
+      layersGroupRef.current = null;
+    }
+    if (animFrameIdRef.current) {
+      cancelAnimationFrame(animFrameIdRef.current);
+      animFrameIdRef.current = null;
     }
 
-    // 1. Cleanup function to wipe previous layers and halt animation
-    const cleanup = () => {
-      if (refs.animFrameId) {
-        cancelAnimationFrame(refs.animFrameId);
-        refs.animFrameId = undefined;
-      }
-      try {
-        if (refs.glowLine && map.hasLayer(refs.glowLine)) {
-          map.removeLayer(refs.glowLine);
-          refs.glowLine = undefined;
-        }
-        if (refs.baseLine && map.hasLayer(refs.baseLine)) {
-          map.removeLayer(refs.baseLine);
-          refs.baseLine = undefined;
-        }
-        if (refs.animatedLine && map.hasLayer(refs.animatedLine)) {
-          map.removeLayer(refs.animatedLine);
-          refs.animatedLine = undefined;
-        }
-      } catch (err) {
-        console.warn("[AnimatedRoute] Cleanup failed or map already unmounted:", err);
-      }
-    };
+    const group = L.layerGroup().addTo(map);
+    layersGroupRef.current = group;
 
-    cleanup();
-
-    // 2. Base semi-transparent thick glow path
-    const glowLine = L.polyline(positions, {
-      color: color,
-      weight: 12,
-      opacity: 0.15,
+    // 1. Base Outer Dark Casing / Border (Google Maps style high contrast)
+    L.polyline(positions, {
+      color: '#0f172a',
+      weight: 10,
+      opacity: 0.7,
       smoothFactor: 1,
       lineCap: 'round',
       lineJoin: 'round',
-    }).addTo(map);
+    }).addTo(group);
 
-    // 3. Medium solid path for high-contrast backing
-    const baseLine = L.polyline(positions, {
-      color: color,
-      weight: 5,
-      opacity: 0.85,
-      smoothFactor: 1,
-      lineCap: 'round',
-      lineJoin: 'round',
-    }).addTo(map);
+    // 2. Multi-color traffic rendering if positions has enough points
+    if (showTrafficSegments && positions.length >= 6) {
+      // Split coordinates into:
+      // Section 1: Normal flow (Royal Blue)
+      // Section 2: Moderate Traffic / Slowdown (Amber / Orange) - exactly like the user's screenshot
+      // Section 3: Normal flow (Royal Blue)
+      const len = positions.length;
+      const idx1 = Math.floor(len * 0.35);
+      const idx2 = Math.floor(len * 0.70);
 
-    // 4. White overlapping flowing dash overlay path for the "marching ants" effect
+      const segment1 = positions.slice(0, idx1 + 1);
+      const segmentTraffic = positions.slice(idx1, idx2 + 1);
+      const segment3 = positions.slice(idx2);
+
+      // Section 1: Royal Blue
+      if (segment1.length > 1) {
+        L.polyline(segment1, {
+          color: '#2563EB', // Royal Blue
+          weight: 7,
+          opacity: 0.95,
+          smoothFactor: 1,
+          lineCap: 'round',
+          lineJoin: 'round',
+        }).addTo(group);
+      }
+
+      // Section 2: Traffic Amber/Orange (Matches the user screenshot)
+      if (segmentTraffic.length > 1) {
+        L.polyline(segmentTraffic, {
+          color: '#F97316', // Vibrant Orange / Amber traffic
+          weight: 7,
+          opacity: 0.98,
+          smoothFactor: 1,
+          lineCap: 'round',
+          lineJoin: 'round',
+        }).addTo(group);
+      }
+
+      // Section 3: Royal Blue
+      if (segment3.length > 1) {
+        L.polyline(segment3, {
+          color: '#2563EB', // Royal Blue
+          weight: 7,
+          opacity: 0.95,
+          smoothFactor: 1,
+          lineCap: 'round',
+          lineJoin: 'round',
+        }).addTo(group);
+      }
+    } else {
+      // Fallback single route line
+      L.polyline(positions, {
+        color: color,
+        weight: 7,
+        opacity: 0.95,
+        smoothFactor: 1,
+        lineCap: 'round',
+        lineJoin: 'round',
+      }).addTo(group);
+    }
+
+    // 3. Subtle animated flowing chevron/dash overlay
     const animatedLine = L.polyline(positions, {
-      color: '#ffffff',
-      weight: 4,
-      opacity: 0.85,
+      color: '#FFFFFF',
+      weight: 3.5,
+      opacity: 0.55,
       smoothFactor: 1,
       lineCap: 'round',
       lineJoin: 'round',
-      dashArray: '15, 12'
-    }).addTo(map);
+      dashArray: '8, 16'
+    }).addTo(group);
 
-    layersRef.current = {
-      glowLine,
-      baseLine,
-      animatedLine,
-      animFrameId: refs.animFrameId
-    };
-
-    // 5. Native performance animation loop on SVG stroke-dashoffset
     let offset = 0;
     const animate = () => {
       const el = animatedLine.getElement();
       if (el) {
-        offset -= 1.25; // Speed of route movement
+        offset -= 0.9;
         el.setAttribute('stroke-dashoffset', offset.toString());
       }
-      layersRef.current.animFrameId = requestAnimationFrame(animate);
+      animFrameIdRef.current = requestAnimationFrame(animate);
     };
 
-    // Begin looping
     animate();
 
     return () => {
-      cleanup();
+      if (animFrameIdRef.current) {
+        cancelAnimationFrame(animFrameIdRef.current);
+        animFrameIdRef.current = null;
+      }
+      if (layersGroupRef.current) {
+        map.removeLayer(layersGroupRef.current);
+        layersGroupRef.current = null;
+      }
     };
-  }, [map, positions, color]);
+  }, [map, positions, color, showTrafficSegments]);
 
   return null;
 };

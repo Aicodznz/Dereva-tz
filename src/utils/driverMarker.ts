@@ -262,13 +262,39 @@ export function getDriverSvg(type: string, isDark: boolean = true): string {
   }
 }
 
+export function createGoogleMapsDestinationIcon(label?: string) {
+  return L.divIcon({
+    className: 'custom-google-dest-pin',
+    html: `
+      <div class="relative flex flex-col items-center select-none cursor-pointer" style="transform: translate(-50%, -100%);">
+        <!-- Google Maps Red Teardrop Pin -->
+        <svg width="34" height="44" viewBox="0 0 32 42" fill="none" xmlns="http://www.w3.org/2000/svg" class="filter drop-shadow-[0_6px_10px_rgba(0,0,0,0.35)]">
+          <path d="M16 0C7.163 0 0 7.163 0 16c0 10.5 16 26 16 26s16-15.5 16-26c0-8.837-7.163-16-16-16z" fill="#EA4335"/>
+          <circle cx="16" cy="15" r="6" fill="#B31412"/>
+          <circle cx="16" cy="15" r="4.5" fill="#FFFFFF"/>
+        </svg>
+        <!-- Ground Shadow Ellipse -->
+        <div class="w-5 h-2 bg-black/30 rounded-full filter blur-[1px] -mt-1"></div>
+        ${label ? `
+          <div class="mt-1 bg-white/95 text-slate-800 font-bold text-[10px] px-2 py-0.5 rounded-md shadow-md border border-slate-200 whitespace-nowrap">
+            ${label}
+          </div>
+        ` : ''}
+      </div>
+    `,
+    iconSize: [34, 44],
+    iconAnchor: [17, 44]
+  });
+}
+
 export function createDriverMarkerIcon(
   initials: string,
   isOnline: boolean,
   vehicleHeading: number = 0,
   vehicleType: string = 'mini',
   theme: string = 'dark',
-  compassHeading?: number
+  compassHeading?: number,
+  roadGuideLabel?: string
 ) {
   const isDark = theme === 'dark';
   const vehicleSvg = getDriverSvg(vehicleType, isDark);
@@ -277,17 +303,23 @@ export function createDriverMarkerIcon(
   // If compassHeading is not provided, fallback to vehicleHeading
   const finalCompassHeading = typeof compassHeading === 'number' ? compassHeading : vehicleHeading;
 
-  // Use a beautifully crafted wrapper representing a professional radar tracking compass dial (bg-transparent so it never obscures the map with a solid black or white disk)
+  // Use a beautifully crafted wrapper representing a professional radar tracking compass dial
   const ringColor = isDark 
     ? 'border-[#00E5A0]/60 shadow-[0_0_12px_rgba(0,229,160,0.35)] bg-transparent' 
     : 'border-[#1E724C]/60 shadow-[0_0_12px_rgba(30,114,76,0.25)] bg-transparent';
-
-  const centerAccent = isDark ? 'bg-emerald-500/10' : 'bg-emerald-600/10';
 
   return L.divIcon({
     className: 'custom-driver-marker-wrapper driver-marker-smooth',
     html: `
       <div class="relative flex items-center justify-center w-[54px] h-[54px]">
+        
+        <!-- Attached Navigation Road Label Badge (Exact match to "toward Nelson Mandela Rd" in user screenshot) -->
+        ${roadGuideLabel ? `
+          <div class="absolute -top-7 left-1/2 -translate-x-1/2 bg-[#1a56db] text-white font-bold text-[11px] px-3 py-1 rounded-full shadow-[0_4px_12px_rgba(26,86,219,0.5)] border border-white/20 whitespace-nowrap z-50 pointer-events-none">
+            ${roadGuideLabel}
+          </div>
+        ` : ''}
+
         <!-- Rotating GPS Dotted Halo Ring -->
         <div class="absolute inset-0 rounded-full border border-dashed ${isDark ? 'border-[#00E5A0]/20' : 'border-[#1E724C]/25'} animate-spin [animation-duration:12s] pointer-events-none"></div>
         
@@ -299,7 +331,7 @@ export function createDriverMarkerIcon(
           
           <!-- COMPASS BEAM / FLASHLIGHT: Rotates with phone compass orientation -->
           <div class="absolute inset-0 flex items-center justify-center transition-transform duration-300 ease-out" style="transform: rotate(${finalCompassHeading}deg);">
-            <!-- Compass Heading Flashlight Light Beam / Field-of-View Cone (Mwangaza wa Dira ya Simu) -->
+            <!-- Compass Heading Flashlight Light Beam / Field-of-View Cone -->
             <div class="absolute bottom-1/2 left-1/2 -translate-x-1/2 origin-bottom pointer-events-none" style="width: 100px; height: 90px; margin-bottom: 2px;">
               <svg viewBox="0 0 100 90" class="w-full h-full overflow-visible">
                 <defs>
@@ -309,18 +341,16 @@ export function createDriverMarkerIcon(
                     <stop offset="100%" stop-color="${isDark ? '#00FF88' : '#3B82F6'}" stop-opacity="0"/>
                   </radialGradient>
                 </defs>
-                <!-- Directional Light Cone Sector spanning ~55 degrees pointing forward -->
                 <path d="M 50 90 L 12 0 A 85 85 0 0 1 88 0 Z" fill="url(#driverCompassBeamGrad_${isDark ? 'dark' : 'light'})" />
               </svg>
             </div>
 
-            <!-- The pointing arrow accent at the very front -->
+            <!-- Pointing arrow accent at front -->
             <div class="absolute top-[1px] w-2 h-2 rotate-45 ${isDark ? 'bg-[#00FF88]' : 'bg-[#3B82F6]'} rounded-[1px] shadow-[0_0_8px_rgba(0,255,136,0.9)] z-10"></div>
           </div>
 
-          <!-- VEHICLE ICON: Rotates with compass heading (finalCompassHeading) so it points exactly where the flashlight is facing -->
+          <!-- VEHICLE ICON: Rotates with compass heading -->
           <div class="absolute inset-0 flex items-center justify-center transition-transform duration-300 ease-out" style="transform: rotate(${finalCompassHeading}deg);">
-            <!-- Beautiful vehicle render -->
             <div class="w-8 h-8 flex items-center justify-center relative z-10">
               ${vehicleSvg}
             </div>
