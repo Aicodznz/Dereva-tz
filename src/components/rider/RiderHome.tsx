@@ -2180,7 +2180,13 @@ const getEndPin = (etaText: string) => {
               <div className="pointer-events-auto shrink-0">
                 <button
                   type="button"
-                  onClick={onProfileClick}
+                  onClick={() => {
+                    if (onNavigateTab) {
+                      onNavigateTab('subscription');
+                    } else if (onProfileClick) {
+                      onProfileClick();
+                    }
+                  }}
                   className="flex items-center gap-1.5 bg-white/95 dark:bg-neutral-900/90 backdrop-blur-md rounded-full px-2.5 py-1.5 sm:px-3 sm:py-1.5 border border-neutral-200/50 dark:border-white/10 shadow-lg text-left active:scale-95 transition-transform"
                 >
                   {profile?.subscription?.status === 'active' ? (
@@ -3351,36 +3357,6 @@ const getEndPin = (etaText: string) => {
           </motion.div>
         </div>
       )}
-
-      {/* Floating Recenter / Follow Transport Floating Button when Map is dragged */}
-      <AnimatePresence>
-        {!autoFollow && (
-          <motion.button
-            key="recenter-vehicle-floating-pill"
-            initial={{ scale: 0.8, opacity: 0, y: 20 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.8, opacity: 0, y: 20 }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.92 }}
-            onClick={(e) => {
-              e.stopPropagation();
-              setAutoFollow(true);
-              setRecenterTrigger(Date.now());
-              setZoomAction({ type: 'auto', id: Date.now() });
-              toast.success("Unamfuatilia usafiri wako sasa! (Auto-Follow & Zoom)", { duration: 2000 });
-            }}
-            className="absolute bottom-44 sm:bottom-48 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-2xl border border-emerald-400/40 cursor-pointer backdrop-blur-md transition-all active:shadow-inner"
-          >
-            <div className="relative flex items-center justify-center w-5 h-5">
-              <span className="absolute w-full h-full rounded-full bg-white/40 animate-ping pointer-events-none" />
-              <Navigation2 className="w-4 h-4 text-white rotate-45" />
-            </div>
-            <span className="tracking-tight uppercase font-black text-[11px]">
-              Fuatilia Usafiri Wako {vType === 'bike' ? '🏍️' : vType === 'bajaj' ? '🛺' : '🚗'}
-            </span>
-          </motion.button>
-        )}
-      </AnimatePresence>
 
       {/* Interactive Bottom Sheet Container - Only for active states */}
       {isOnline && (incomingRequest || activeRide || incomingOrder) && (
