@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Navigation2, 
@@ -17,7 +17,9 @@ import {
   CheckCircle2,
   AlertTriangle,
   Languages,
-  Sparkles
+  Sparkles,
+  Radio,
+  Navigation
 } from 'lucide-react';
 import { Ride } from '../../types/trip.types';
 
@@ -43,6 +45,7 @@ export interface Navigation3DHudOverlayProps {
   onOpenChat?: () => void;
   isVoiceMuted?: boolean;
   onToggleVoice?: () => void;
+  onSpeak?: (text: string) => void;
   driverPhoto?: string;
   driverName?: string;
   driverRating?: number;
@@ -65,6 +68,7 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
   onOpenChat,
   isVoiceMuted = false,
   onToggleVoice,
+  onSpeak,
   driverPhoto,
   driverName = 'Dereva',
   driverRating = 5.0,
@@ -73,8 +77,10 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
 }) => {
   const isArriving = ride.status === 'accepted' || ride.status === 'driver_arriving';
   const isOnTrip = ride.status === 'on_trip';
-  const [useSwahili, setUseSwahili] = useState(false);
+  const [useSwahili, setUseSwahili] = useState(true);
   const [showAssistantTip, setShowAssistantTip] = useState(false);
+  const [aiSpokenText, setAiSpokenText] = useState<string>('');
+  const [isAiSpeaking, setIsAiSpeaking] = useState<boolean>(false);
 
   // Target destination details
   const destinationName = isArriving 
@@ -175,6 +181,7 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
           nextTurn: useSwahili ? nextTurnSw : nextTurnEn,
           subTitle: cleanTitle.length > 28 ? `${cleanTitle.substring(0, 28)}...` : cleanTitle,
           distFormatted: activeStep.distance >= 1000 ? `${(activeStep.distance / 1000).toFixed(1)} km` : `${Math.round(activeStep.distance)} m`,
+          stepMeters: Math.round(activeStep.distance),
         };
       }
     }
@@ -187,6 +194,7 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
         nextTurn: useSwahili ? 'Kamilisha' : 'Done',
         subTitle: destinationName,
         distFormatted: formattedDist,
+        stepMeters: distMeters,
       };
     } else if (distMeters <= 300) {
       return {
@@ -195,6 +203,7 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
         nextTurn: useSwahili ? 'Kisha ↑' : 'Then ↑',
         subTitle: 'Sam Nujoma Rd / Bagamoyo Rd',
         distFormatted: `In ${formattedDist}`,
+        stepMeters: distMeters,
       };
     } else if (distMeters <= 650) {
       return {
@@ -203,6 +212,7 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
         nextTurn: useSwahili ? 'Kisha ↱' : 'Then ↱',
         subTitle: 'Morogoro Road / EPZ Gate',
         distFormatted: `In ${formattedDist}`,
+        stepMeters: distMeters,
       };
     } else {
       return {
@@ -211,9 +221,64 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
         nextTurn: useSwahili ? 'Kisha ↱' : 'Then ↱',
         subTitle: 'Sam Nujoma Rd / Nelson Mandela Rd',
         distFormatted: formattedDist,
+        stepMeters: distMeters,
       };
     }
   }, [routeSteps, driverLocation, distMeters, destinationName, formattedDist, useSwahili]);
+
+  // AI Live Audio & Context-Aware Voice Guidance Generator
+  const handleSparkleAiClick = useCallback(() => {
+    // Generate context-rich speech response
+    let responseText = '';
+    const meters = currentManeuver.stepMeters || distMeters;
+    const destStr = destinationName || 'eneo la safari';
+
+    if (useSwahili) {
+      if (distMeters <= 70) {
+        responseText = `Mkuu, umewasili ${destStr}. Mshushe abiria salama.`;
+      } else if (currentManeuver.icon === 'right') {
+        responseText = `Umebaki mita ${meters} kabla ya kupinda kulia kuelekea ${currentManeuver.subTitle}. Trafiki ni shwari, muda wa kufika ni dakika ${etaMins}.`;
+      } else if (currentManeuver.icon === 'left') {
+        responseText = `Umebaki mita ${meters} kabla ya kupinda kushoto kuelekea ${currentManeuver.subTitle}. Endelea kwa umakini.`;
+      } else {
+        responseText = `Endelea mbele kuelekea ${currentManeuver.subTitle}. Umebakiwa na ${formattedDist}, takriban dakika ${etaMins} kufika.`;
+      }
+    } else {
+      if (distMeters <= 70) {
+        responseText = `You have arrived at ${destStr}.`;
+      } else if (currentManeuver.icon === 'right') {
+        responseText = `In ${meters} meters, turn right onto ${currentManeuver.subTitle}. Traffic is clear, ETA is ${etaMins} minutes.`;
+      } else if (currentManeuver.icon === 'left') {
+        responseText = `In ${meters} meters, turn left onto ${currentManeuver.subTitle}.`;
+      } else {
+        responseText = `Head northwest toward ${currentManeuver.subTitle}. ${formattedDist} remaining, ETA ${etaMins} minutes.`;
+      }
+    }
+
+    setAiSpokenText(responseText);
+    setShowAssistantTip(true);
+    setIsAiSpeaking(true);
+
+    // Speak using Web Speech Synthesis API directly with Swahili / English voice
+    try {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(responseText);
+        utterance.lang = useSwahili ? 'sw-TZ' : 'en-US';
+        utterance.rate = 0.95;
+        utterance.pitch = 1.05;
+        utterance.volume = 1.0;
+        utterance.onend = () => setIsAiSpeaking(false);
+        utterance.onerror = () => setIsAiSpeaking(false);
+        window.speechSynthesis.speak(utterance);
+      } else if (onSpeak) {
+        onSpeak(responseText);
+      }
+    } catch (e) {
+      console.warn('SpeechSynthesis error:', e);
+      setIsAiSpeaking(false);
+    }
+  }, [currentManeuver, distMeters, destinationName, useSwahili, etaMins, formattedDist, onSpeak]);
 
   return (
     <div 
@@ -233,7 +298,7 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
       >
         <div className="flex flex-col items-start drop-shadow-[0_12px_28px_rgba(0,0,0,0.35)]">
           
-          {/* Main Dark Teal Green Card Container */}
+          {/* Main Dark Teal Green Card Container (#005953 / #004742) */}
           <div className="bg-[#005953] text-white p-3 sm:p-4 w-full rounded-2xl sm:rounded-3xl flex items-center justify-between gap-3 shadow-lg border border-[#004e46]">
             
             {/* Maneuver Arrow & Main Instruction Text */}
@@ -274,17 +339,25 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
               </div>
             </div>
 
-            {/* Right-Side Google AI Sparkle Star Button (Exact Match to Circular Button in User Screenshot) */}
+            {/* Right-Side Google AI Sparkle Star Button (Interactive Audio Response) */}
             <div className="flex items-center gap-2 shrink-0">
               <button
-                onClick={() => setShowAssistantTip(!showAssistantTip)}
-                className="w-11 h-11 rounded-full bg-white flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition-all text-[#2563EB]"
-                title="Papo AI Live Assistant"
+                onClick={handleSparkleAiClick}
+                className={`w-11 h-11 rounded-full bg-white flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition-all text-[#2563EB] relative ${
+                  isAiSpeaking ? 'ring-4 ring-blue-300 ring-offset-1 animate-pulse' : ''
+                }`}
+                title="Bofya kupata mwongozo wa sauti wa Papo AI"
               >
                 {/* 4-Point Blue Diamond / Sparkle Star */}
                 <svg className="w-6 h-6 fill-[#2563EB] text-[#2563EB]" viewBox="0 0 24 24">
                   <path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z" />
                 </svg>
+                {isAiSpeaking && (
+                  <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-600"></span>
+                  </span>
+                )}
               </button>
 
               {/* Language Switch */}
@@ -308,7 +381,7 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
 
         </div>
 
-        {/* AI Assistant Tip Popup */}
+        {/* AI Assistant Audio/Text Tip Popup */}
         <AnimatePresence>
           {showAssistantTip && (
             <motion.div
@@ -317,13 +390,27 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
               exit={{ opacity: 0, y: -10 }}
               className="mt-2 p-3 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-blue-200 dark:border-blue-800 text-xs flex items-center justify-between gap-3 text-slate-800 dark:text-slate-100"
             >
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-blue-500 shrink-0" />
-                <span>Njia hii haina foleni kwa sasa. Utafika baada ya <strong>{etaMins} dk</strong>.</span>
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/60 flex items-center justify-center shrink-0">
+                  <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-blue-600 dark:text-blue-400 text-[10px] uppercase tracking-wider flex items-center gap-1">
+                    <span>Papo AI Live Navigator</span>
+                    {isAiSpeaking && <span className="animate-pulse text-emerald-500 font-bold">● Inazungumza</span>}
+                  </p>
+                  <p className="text-xs text-slate-700 dark:text-slate-200 line-clamp-2 mt-0.5">
+                    {aiSpokenText || `Njia hii haina foleni kwa sasa. Utafika baada ya ${etaMins} dk.`}
+                  </p>
+                </div>
               </div>
               <button
-                onClick={() => setShowAssistantTip(false)}
-                className="text-[10px] font-bold text-slate-400 uppercase px-1.5 py-0.5"
+                onClick={() => {
+                  setShowAssistantTip(false);
+                  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+                  setIsAiSpeaking(false);
+                }}
+                className="text-[10px] font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 uppercase px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg shrink-0"
               >
                 Funga
               </button>
@@ -333,7 +420,7 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
 
       </motion.div>
 
-      {/* --- FLOATING SPEEDOMETER, RECENTER & ETA BAR --- */}
+      {/* --- FLOATING SPEEDOMETER, AUTO-ROTATE HEADING CONTROLS & ETA BAR --- */}
       <div className="w-full px-3.5 sm:px-4 mt-2.5 flex items-center justify-between pointer-events-none">
         {/* Speedometer Badge (Left) */}
         <motion.div 
@@ -372,6 +459,21 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
               </span>
             </div>
           </div>
+
+          {/* Heading-Up vs North-Up Auto-Rotate Compass Mode Toggle Button */}
+          {onToggleHeadingUp && (
+            <button
+              onClick={onToggleHeadingUp}
+              className={`w-9 h-9 rounded-2xl border text-xs font-black shadow-lg flex items-center justify-center active:scale-90 transition-all ${
+                isHeadingUp 
+                  ? 'bg-emerald-600 border-emerald-500 text-white shadow-emerald-500/20' 
+                  : 'bg-white dark:bg-[#0f172a] border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300'
+              }`}
+              title={isHeadingUp ? "Mwelekeo wa Gari (Heading-Up) - Washa North-Up" : "Kaskazini Juu (North-Up) - Washa Heading-Up"}
+            >
+              <Navigation className={`w-4 h-4 transition-transform ${isHeadingUp ? 'fill-white' : ''}`} />
+            </button>
+          )}
 
           {/* Recenter Button */}
           {onRecenter && (

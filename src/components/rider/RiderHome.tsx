@@ -78,6 +78,7 @@ function MapController({
   manualRotation = 0,
   onRotate,
   is3DMode = false,
+  isHeadingUp = true,
   autoFollow,
   setAutoFollow,
   recenterTrigger
@@ -88,6 +89,7 @@ function MapController({
   manualRotation?: number,
   onRotate?: (newRotation: number) => void,
   is3DMode?: boolean,
+  isHeadingUp?: boolean,
   autoFollow: boolean,
   setAutoFollow: (val: boolean) => void,
   recenterTrigger: number
@@ -149,7 +151,7 @@ function MapController({
     }
   });
 
-  // Apply live dynamic whole map rotation (Waze / Google Maps Navigation Heading-Up)
+  // Apply live dynamic whole map rotation (Waze / Google Maps Navigation Heading-Up vs North-Up)
   const accumulatedRotRef = React.useRef(0);
 
   useEffect(() => {
@@ -157,7 +159,7 @@ function MapController({
     const container = map.getContainer();
     if (!container) return;
 
-    if (autoFollow && typeof rotation === 'number' && !isNaN(rotation)) {
+    if (isHeadingUp && autoFollow && typeof rotation === 'number' && !isNaN(rotation)) {
       const currentNormalized = ((accumulatedRotRef.current % 360) + 360) % 360;
       const targetNormalized = ((rotation % 360) + 360) % 360;
       let diff = targetNormalized - currentNormalized;
@@ -176,7 +178,7 @@ function MapController({
       container.style.transformOrigin = 'center center';
       container.style.transition = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)';
     }
-  }, [map, is3DMode, autoFollow, rotation]);
+  }, [map, is3DMode, isHeadingUp, autoFollow, rotation]);
 
   useEffect(() => {
     if (!position) return;
@@ -440,6 +442,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick, onNav
   const [mapType, setMapType] = useState<'standard' | 'satellite'>('standard');
   const [manualRotation, setManualRotation] = useState(0);
   const [is3DMode, setIs3DMode] = useState(false);
+  const [isHeadingUp, setIsHeadingUp] = useState(true);
   const [showRoadAlerts, setShowRoadAlerts] = useState(false);
   const [showHeatMap, setShowHeatMap] = useState<boolean>(false);
   const [heatMapCategory, setHeatMapCategory] = useState<'all' | 'taxi' | 'food' | 'parcel' | 'mart'>('all');
@@ -2598,6 +2601,7 @@ const getEndPin = (etaText: string) => {
               manualRotation={manualRotation} 
               onRotate={setManualRotation} 
               is3DMode={is3DMode} 
+              isHeadingUp={isHeadingUp}
               autoFollow={autoFollow}
               setAutoFollow={setAutoFollow}
               recenterTrigger={recenterTrigger}
@@ -3337,13 +3341,19 @@ const getEndPin = (etaText: string) => {
                   routeSteps={steps}
                   is3DMode={is3DMode}
                   onToggle3D={() => setIs3DMode(!is3DMode)}
-                  onRecenter={() => setRecenterTrigger(prev => prev + 1)}
+                  isHeadingUp={isHeadingUp}
+                  onToggleHeadingUp={() => setIsHeadingUp(!isHeadingUp)}
+                  onRecenter={() => {
+                    setAutoFollow(true);
+                    setRecenterTrigger(prev => prev + 1);
+                  }}
                   onOpenChat={() => {
                     setSearchParams({ to: activeRide.customerId });
                     setIsChatOpen(true);
                   }}
                   isVoiceMuted={isMuted}
                   onToggleVoice={toggleMute}
+                  onSpeak={speak}
                   driverPhoto={profile?.photoURL || user?.photoURL}
                   driverName={(profile as any)?.name || profile?.displayName || user?.displayName || 'Dereva'}
                   driverRating={profile?.rating || 5.0}
