@@ -257,63 +257,66 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({
 
             {/* Combined compact Driver details & destination/ETA */}
             {ride.driverInfo && (
-              <div className={`p-2.5 rounded-xl border mb-2 select-none transition-all ${theme === 'dark' ? 'bg-[#161622]/60 border-neutral-800/80 hover:bg-neutral-800/20' : 'bg-neutral-50/80 border-neutral-200/50 hover:bg-neutral-100'}`}>
+              <div className={`p-3 rounded-2xl border mb-2.5 select-none transition-all ${theme === 'dark' ? 'bg-[#161622]/80 border-neutral-800/90' : 'bg-neutral-50/90 border-neutral-200/70 shadow-xs'}`}>
+                {/* Row 1: Driver Photo, Name, Rating & ETA Badge */}
                 <div className="flex items-center justify-between gap-2.5">
-                  {/* Left Side: Driver and Vehicle */}
                   <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                    <div className="w-9 h-9 rounded-xl overflow-hidden border border-emerald-500 relative bg-neutral-100 dark:bg-neutral-800 shrink-0">
+                    <div className="w-10 h-10 rounded-2xl overflow-hidden border-2 border-emerald-500 relative bg-neutral-100 dark:bg-neutral-800 shrink-0 shadow-sm">
                       <img 
                         src={ride.driverInfo.photo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${ride.driverId}`} 
                         alt="Driver" 
                         className="w-full h-full object-cover" 
                       />
-                      <div className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 border border-white rounded-full shadow-md" />
+                      <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white dark:border-neutral-900 rounded-full shadow-md" />
                     </div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
-                        <h4 className={`text-xs font-black uppercase font-heading truncate leading-none ${theme === 'dark' ? 'text-neutral-100' : 'text-neutral-800'}`}>
+                        <h4 className={`text-xs font-black uppercase font-heading truncate leading-tight ${theme === 'dark' ? 'text-neutral-100' : 'text-neutral-900'}`}>
                           {ride.driverInfo.name || 'Dereva'}
                         </h4>
-                        <div className="flex items-center gap-0.5 text-amber-500 shrink-0">
+                        <div className="flex items-center gap-0.5 text-amber-500 shrink-0 bg-amber-500/10 px-1.5 py-0.5 rounded-full border border-amber-500/20">
                           <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
                           <span className="text-[8.5px] font-black font-mono leading-none">{ride.driverInfo.rating || '4.9'}</span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1 mt-1 flex-wrap">
-                        <span className="bg-amber-400 text-neutral-950 px-1.5 py-0.2 rounded font-mono font-black text-[9.5px] border border-amber-500">
+                      
+                      {/* Vehicle & Plate details */}
+                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                        <span className="bg-amber-400 text-neutral-950 px-1.5 py-0.5 rounded-md font-mono font-black text-[9px] border border-amber-500 shadow-2xs leading-none">
                           TZ {ride.driverInfo.vehicle?.plate || 'T 842 DKP'}
                         </span>
-                        <span className={`text-[8.5px] font-bold uppercase truncate ${theme === 'dark' ? 'text-neutral-300' : 'text-neutral-600'}`}>
+                        <span className={`text-[9px] font-bold uppercase truncate ${theme === 'dark' ? 'text-neutral-300' : 'text-neutral-600'}`}>
                           {ride.driverInfo.vehicle?.model || 'Toyota IST'} {ride.driverInfo.vehicle?.color ? `• ${ride.driverInfo.vehicle.color}` : ''}
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Right Side: Destination & ETA */}
-                  <div className="text-right flex flex-col items-end shrink-0 max-w-[45%]">
-                    <div className="flex items-center gap-1">
-                      <span className={`text-[7.5px] font-black text-neutral-400 uppercase tracking-widest leading-none`}>{targetLabel}:</span>
-                      <span className={`text-[9px] font-bold uppercase truncate max-w-[90px] leading-none ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-700'}`}>
-                        {targetLocation.address}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1 mt-1">
-                      <span className={`text-[7px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${theme === 'dark' ? 'bg-indigo-950/60 text-indigo-400 border border-indigo-900/60' : 'bg-indigo-50 text-indigo-600 border border-indigo-100'}`}>
-                        ETA
-                      </span>
-                      <span className={`text-xs font-black font-mono tracking-wider ${theme === 'dark' ? 'text-indigo-400' : 'text-indigo-600'}`}>
-                        {eta ? `${eta.minutes}:${eta.seconds.toString().padStart(2, '0')}` : '00:00'}
-                      </span>
-                    </div>
+                  {/* Right Side: High-Contrast ETA Badge */}
+                  <div className={`px-3 py-1.5 rounded-2xl border flex flex-col items-center justify-center shrink-0 shadow-xs ${theme === 'dark' ? 'bg-indigo-950/40 border-indigo-800/60 text-indigo-300' : 'bg-indigo-50 border-indigo-200/80 text-indigo-700'}`}>
+                    <span className="text-[7.5px] font-black uppercase tracking-widest leading-none opacity-80 mb-0.5">ETA</span>
+                    <span className="text-sm font-black font-mono tracking-tight leading-none">
+                      {eta ? `${eta.minutes}:${eta.seconds.toString().padStart(2, '0')}` : '00:00'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Row 2: Destination Address Line with dedicated full-width strip */}
+                <div className={`mt-2.5 pt-2 border-t flex items-center gap-2 text-[10px] ${theme === 'dark' ? 'border-neutral-800/70 text-neutral-300' : 'border-neutral-200/60 text-neutral-700'}`}>
+                  <span className="text-xs shrink-0">📍</span>
+                  <div className="flex items-baseline gap-1 min-w-0 flex-1">
+                    <span className="text-[8px] font-black uppercase tracking-wider text-neutral-400 shrink-0">{targetLabel}:</span>
+                    <span className="font-bold truncate text-[9.5px] text-neutral-900 dark:text-neutral-100">
+                      {targetLocation.address}
+                    </span>
                   </div>
                 </div>
 
                 {/* Pickup Note / Landmark if customer provided one */}
                 {(ride.pickupNote || (ride as any).pickupNotes) && (
-                  <div className="mt-2 pt-2 border-t border-neutral-200/40 dark:border-neutral-800/60 flex items-center gap-1.5 text-[9.5px]">
-                    <span className="shrink-0 text-indigo-500 font-bold">📍 Maelekezo:</span>
-                    <span className="truncate italic text-neutral-600 dark:text-neutral-300">
+                  <div className="mt-1.5 pt-1.5 border-t border-neutral-200/40 dark:border-neutral-800/60 flex items-center gap-1.5 text-[9.5px]">
+                    <span className="shrink-0 text-indigo-500 font-bold">💬 Maelekezo:</span>
+                    <span className="truncate italic text-neutral-600 dark:text-neutral-300 text-[9px]">
                       "{ride.pickupNote || (ride as any).pickupNotes}"
                     </span>
                   </div>
@@ -421,32 +424,32 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({
 
             {/* Slim, Modern Trip Progress Bar */}
             <div className="mb-2 select-none pointer-events-auto">
-              <div className={`relative h-8 rounded-xl border overflow-hidden p-1.5 flex flex-col justify-center ${theme === 'dark' ? 'bg-[#161622]/40 border-neutral-800/80 shadow-[0_4px_12px_rgba(0,0,0,0.1)]' : 'bg-neutral-50 border-neutral-200/60 shadow-sm'}`}>
+              <div className={`relative h-9 rounded-2xl border overflow-hidden p-2 flex flex-col justify-center ${theme === 'dark' ? 'bg-[#161622]/60 border-neutral-800/80 shadow-[0_4px_12px_rgba(0,0,0,0.1)]' : 'bg-neutral-50/90 border-neutral-200/70 shadow-xs'}`}>
                 {/* Slim Road Line */}
-                <div className={`w-full h-1 rounded-full relative overflow-visible flex items-center ${theme === 'dark' ? 'bg-neutral-800' : 'bg-neutral-200'}`}>
+                <div className={`w-full h-1.5 rounded-full relative overflow-visible flex items-center ${theme === 'dark' ? 'bg-neutral-800' : 'bg-neutral-200'}`}>
                   {/* Origin Point Marker */}
-                  <div className="absolute left-0 -translate-x-1/2 -top-1.5 text-[8.5px] z-10">📍</div>
+                  <div className="absolute left-0 -translate-x-1/2 -top-2 text-[10px] z-10 select-none">📍</div>
                   
                   {/* Destination Point Marker */}
-                  <div className="absolute right-0 translate-x-1/2 -top-1.5 text-[8.5px] z-10">🏁</div>
+                  <div className="absolute right-0 translate-x-1/2 -top-2 text-[10px] z-10 select-none">🏁</div>
 
                   {/* Route highlight */}
                   <div 
-                    className="absolute left-0 h-full bg-gradient-to-r from-amber-500 to-emerald-500 rounded-full" 
+                    className="absolute left-0 h-full bg-gradient-to-r from-amber-500 via-indigo-500 to-emerald-500 rounded-full transition-all duration-700" 
                     style={{ width: `${progress}%` }} 
                   />
 
                   {/* Hand-guided animating vehicle marker icon */}
                   <motion.div 
-                    className="absolute -top-3.5 h-5 w-5 z-20 flex items-center justify-center select-none"
+                    className="absolute -top-3 h-5 w-5 z-20 flex items-center justify-center select-none"
                     style={{ left: `calc(${progress}% - 10px)` }}
                     animate={{ 
-                      y: [0, -1, 0],
-                      scale: [1, 1.02, 1]
+                      y: [0, -1.5, 0],
+                      scale: [1, 1.06, 1]
                     }}
                     transition={{ 
-                      y: { repeat: Infinity, duration: 0.3, ease: "easeInOut" },
-                      scale: { repeat: Infinity, duration: 0.4, ease: "easeInOut" }
+                      y: { repeat: Infinity, duration: 0.35, ease: "easeInOut" },
+                      scale: { repeat: Infinity, duration: 0.45, ease: "easeInOut" }
                     }}
                   >
                     {ride.vehicleType === 'bike' ? (
@@ -454,32 +457,32 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({
                     ) : ride.vehicleType === 'bajaj' ? (
                       <span className="text-xs" style={{ transform: 'scaleX(-1)' }}>🛺</span>
                     ) : (
-                      <span className="text-[10px]" style={{ transform: 'scaleX(-1)' }}>🚗</span>
+                      <span className="text-xs" style={{ transform: 'scaleX(-1)' }}>🚗</span>
                     )}
                   </motion.div>
                 </div>
 
-                {/* Swahili Translation HUD updates info */}
-                <div className="flex justify-between items-center mt-1 font-black text-[7px] uppercase tracking-wider text-neutral-400">
-                  <span>{isArriving ? 'Pikapu' : 'Mwanzo'}</span>
-                  <span className={`font-black font-mono px-1 py-0.2 rounded border text-[6.5px] ${theme === 'dark' ? 'bg-emerald-950/20 border-emerald-900/40 text-emerald-400' : 'bg-emerald-50 border-emerald-500/20 text-emerald-700'}`}>
+                {/* Subtitle labels */}
+                <div className="flex justify-between items-center mt-1.5 font-black text-[7.5px] uppercase tracking-wider text-neutral-400">
+                  <span>{isArriving ? 'Kituo Chako' : 'Mwanzo'}</span>
+                  <span className={`font-black font-mono px-1.5 py-0.5 rounded-full border text-[7px] leading-none ${theme === 'dark' ? 'bg-emerald-950/30 border-emerald-800/50 text-emerald-400' : 'bg-emerald-50 border-emerald-500/20 text-emerald-700'}`}>
                     {progress}% YA SAFARI
                   </span>
                   <span>{isArriving ? 'Kufika' : 'Mwisho'}</span>
                 </div>
               </div>
 
-              {/* Status checkpoint steps badges - Small and clean */}
-              <div className="flex justify-between items-center px-1 mt-0.5">
+              {/* Status checkpoint steps badges - Small and clean 4-column grid */}
+              <div className="grid grid-cols-4 gap-1 px-1 mt-1.5">
                 {[
                   { label: 'OMBA', active: true },
                   { label: 'PATA', active: !!ride.driverId },
                   { label: 'SAFARINI', active: ride.status === 'on_trip' },
                   { label: 'FIKA', active: ride.status === 'completed' }
                 ].map((s) => (
-                  <div key={s.label} className="flex flex-col items-center">
-                    <div className={`w-1.5 h-1.5 rounded-full border transition-all duration-500 ${s.active ? 'bg-emerald-500 border-emerald-500 shadow-sm' : (theme === 'dark' ? 'bg-neutral-800 border-neutral-700' : 'bg-neutral-100 border-neutral-200')}`} />
-                    <span className={`text-[5px] font-black uppercase tracking-widest mt-0.5 ${s.active ? (theme === 'dark' ? 'text-neutral-300' : 'text-neutral-800') : 'text-neutral-500'}`}>{s.label}</span>
+                  <div key={s.label} className="flex flex-col items-center justify-center text-center">
+                    <div className={`w-2 h-2 rounded-full border transition-all duration-500 ${s.active ? 'bg-emerald-500 border-emerald-500 shadow-xs' : (theme === 'dark' ? 'bg-neutral-800 border-neutral-700' : 'bg-neutral-200 border-neutral-300')}`} />
+                    <span className={`text-[7px] font-black uppercase tracking-wider mt-0.5 leading-none ${s.active ? (theme === 'dark' ? 'text-emerald-400 font-extrabold' : 'text-emerald-700 font-extrabold') : 'text-neutral-400'}`}>{s.label}</span>
                   </div>
                 ))}
               </div>
