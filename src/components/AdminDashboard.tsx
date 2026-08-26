@@ -489,7 +489,7 @@ export default function AdminDashboard() {
     splashText: 'Usafiri wa Haraka, Salama na Uhakika',
     splashColor: '#0c0c0e',
     enableAppDownload: true,
-    apkDownloadUrl: 'https://example.com/download/app-release.apk',
+    apkDownloadUrl: '',
     playStoreUrl: 'https://play.google.com',
     appStoreUrl: 'https://apps.apple.com',
     // Vendor Settings

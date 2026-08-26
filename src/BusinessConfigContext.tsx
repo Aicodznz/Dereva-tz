@@ -55,7 +55,7 @@ const defaultConfig: BusinessConfig = {
     }
   ],
   enableAppDownload: true,
-  apkDownloadUrl: 'https://example.com/download/app-release.apk',
+  apkDownloadUrl: '',
   playStoreUrl: 'https://play.google.com',
   appStoreUrl: 'https://apps.apple.com',
   vehicles: {
