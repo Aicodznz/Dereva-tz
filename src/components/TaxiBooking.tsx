@@ -3857,7 +3857,7 @@ const getEndPin = (etaText: string) => {
                           setMapRefitTrigger(Date.now());
                           toast.info("Unamfuatilia dereva sasa (Auto-Follow Imewashwa)", { duration: 2000 });
                         }}
-                        className="absolute bottom-28 right-4 sm:right-6 z-[9999] flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-2xl border border-emerald-400/40 cursor-pointer backdrop-blur-md transition-all active:shadow-inner"
+                        className="absolute bottom-80 sm:bottom-96 right-4 sm:right-6 z-[45] flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-2xl border border-emerald-400/40 cursor-pointer backdrop-blur-md transition-all active:shadow-inner"
                       >
                         <div className="relative flex items-center justify-center w-5 h-5">
                           <span className="absolute w-full h-full rounded-full bg-white/40 animate-ping pointer-events-none" />

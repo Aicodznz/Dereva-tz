@@ -2358,7 +2358,7 @@ const getEndPin = (etaText: string) => {
                 vType,
                 theme,
                 rotation,
-                activeRide?.status === 'on_trip' ? 'toward Nelson Mandela Rd' : undefined
+                undefined
               )}
             >
               <Popup className="custom-driver-vehicle-popup">
@@ -2469,55 +2469,6 @@ const getEndPin = (etaText: string) => {
                   </Popup>
                 </Marker>
 
-                {/* Highway & Road Badges on Map (Matching Google Maps Navigation view) */}
-                {activeRide.status === 'on_trip' && (
-                  <>
-                    {/* Highway A7 Shield Marker */}
-                    {(() => {
-                      const midLat = (position[0] * 0.45 + activeRide.destination.lat * 0.55);
-                      const midLng = (position[1] * 0.45 + activeRide.destination.lng * 0.55);
-                      return (
-                        <Marker
-                          position={[midLat, midLng]}
-                          interactive={false}
-                          icon={L.divIcon({
-                            className: 'custom-highway-badge',
-                            html: `
-                              <div class="bg-[#2e7d32] text-white font-black text-[10px] px-1.5 py-0.5 rounded border border-white shadow-md flex items-center justify-center select-none pointer-events-none">
-                                <span>A7</span>
-                              </div>
-                            `,
-                            iconSize: [26, 18],
-                            iconAnchor: [13, 9]
-                          })}
-                        />
-                      );
-                    })()}
-
-                    {/* Road Name Label on Map */}
-                    {(() => {
-                      const roadLat = (position[0] * 0.25 + activeRide.destination.lat * 0.75);
-                      const roadLng = (position[1] * 0.25 + activeRide.destination.lng * 0.75);
-                      return (
-                        <Marker
-                          position={[roadLat, roadLng]}
-                          interactive={false}
-                          icon={L.divIcon({
-                            className: 'custom-road-text-label',
-                            html: `
-                              <div class="text-slate-800 dark:text-slate-100 font-bold text-[11px] whitespace-nowrap drop-shadow-[0_1px_3px_rgba(255,255,255,0.95)] select-none pointer-events-none">
-                                Sam Nujoma Rd
-                              </div>
-                            `,
-                            iconSize: [110, 20],
-                            iconAnchor: [55, 10]
-                          })}
-                        />
-                      );
-                    })()}
-                  </>
-                )}
-
                 {/* Intermediate Stops Markers for Driver */}
                 {activeRide.stops && Array.isArray(activeRide.stops) && activeRide.stops.map((stop: any, idx: number) => {
                   if (typeof stop.lat !== 'number' || typeof stop.lng !== 'number') return null;
@@ -2572,18 +2523,7 @@ const getEndPin = (etaText: string) => {
                     const slicedTripRoute = sliceRouteFromCurrentPos(fullTripRoute, position);
                     return (
                       <>
-                        {/* Planned trip underlay */}
-                        <Polyline
-                          positions={fullTripRoute}
-                          pathOptions={{
-                            color: theme === 'dark' ? '#334155' : '#94a3b8',
-                            weight: 6,
-                            opacity: 0.5,
-                            lineCap: 'round',
-                            lineJoin: 'round'
-                          }}
-                        />
-                        {/* Remaining trip path */}
+                        {/* Remaining active trip path connected seamlessly to current driver position */}
                         {slicedTripRoute.length > 1 && (
                           <AnimatedRoute
                             positions={slicedTripRoute}

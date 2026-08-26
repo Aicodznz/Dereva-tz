@@ -221,10 +221,15 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({
             }}
             className={`absolute bottom-4 left-4 right-4 max-w-[390px] md:mx-auto rounded-[24px] border p-3 pb-4 shadow-[0_12px_40px_rgba(0,0,0,0.18)] z-[60] transition-all touch-none pointer-events-auto ${theme === 'dark' ? 'bg-[#111118]/95 border-neutral-800' : 'bg-white/95 border-neutral-200/80'}`}
           >
-            {/* Header: Status and Drag Handle */}
+            {/* Centered Top Drag Pill */}
+            <div className="flex justify-center -mt-1 mb-2 select-none">
+              <div className={`w-10 h-1 rounded-full cursor-grab active:cursor-grabbing ${theme === 'dark' ? 'bg-neutral-700/80' : 'bg-neutral-300'}`} />
+            </div>
+
+            {/* Header: Status and Collapse Button */}
             <div className="relative flex items-center justify-between mb-2 select-none">
-              <div className="flex items-center gap-1.5">
-                <div className={`border px-2 py-0.5 rounded-full flex items-center gap-1 animate-fade ${theme === 'dark' ? 'bg-emerald-950/20 text-emerald-400 border-emerald-900/60' : 'bg-emerald-50 text-emerald-700 border-emerald-500/20'}`}>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <div className={`border px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0 ${theme === 'dark' ? 'bg-emerald-950/20 text-emerald-400 border-emerald-900/60' : 'bg-emerald-50 text-emerald-700 border-emerald-500/20'}`}>
                   <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
                   <span className="text-[8px] font-black uppercase tracking-wider leading-none">{statusText}</span>
                 </div>
@@ -232,7 +237,7 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({
                 {activeViewersCount > 0 && (
                   <div 
                     title={activeViewerNames.join(", ")}
-                    className={`relative group border px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm cursor-help ${theme === 'dark' ? 'bg-blue-950/20 text-blue-400 border-blue-900/40' : 'bg-blue-50 text-blue-700 border-blue-400/20'}`}
+                    className={`relative group border px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm cursor-help shrink-0 ${theme === 'dark' ? 'bg-blue-950/20 text-blue-400 border-blue-900/40' : 'bg-blue-50 text-blue-700 border-blue-400/20'}`}
                   >
                     <span className="text-[8.5px] leading-none">👁️</span>
                     <span className="text-[8px] font-black uppercase tracking-wider leading-none">
@@ -245,11 +250,9 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({
                 )}
               </div>
 
-              <div className={`w-8 h-1 rounded-full cursor-grab active:cursor-grabbing absolute left-1/2 -translate-x-1/2 ${theme === 'dark' ? 'bg-neutral-800' : 'bg-neutral-200'}`} />
-
               <button 
                 onClick={() => setIsCollapsed(true)}
-                className={`text-[8.5px] font-black uppercase tracking-[0.12em] px-2 py-0.5 rounded-full transition-colors pointer-events-auto ${theme === 'dark' ? 'text-neutral-400 bg-neutral-900 hover:bg-neutral-850 hover:text-neutral-200' : 'text-neutral-500 hover:text-neutral-800 bg-neutral-100 hover:bg-neutral-200'}`}
+                className={`text-[8.5px] font-black uppercase tracking-[0.12em] px-2.5 py-1 rounded-full transition-colors shrink-0 ${theme === 'dark' ? 'text-neutral-300 bg-neutral-900 hover:bg-neutral-800 hover:text-white border border-neutral-800' : 'text-neutral-600 hover:text-neutral-900 bg-neutral-100 hover:bg-neutral-200 border border-neutral-200/60'}`}
               >
                 Ficha Maelezo
               </button>
